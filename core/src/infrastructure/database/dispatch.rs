@@ -220,7 +220,8 @@ mod boundary {
 
   /// Close whatever native owner this boundary currently holds, then look at
   /// disk again and decide the next answer. See the module doc's "Seam for
-  /// #2135" for when to call this.
+  /// #2135" for when to call this. Once [`shutdown`] has run, reobservation
+  /// returns [`DispatchError::Shutdown`] without changing the terminal state.
   ///
   /// Three outcomes, by durable state:
   /// - [`AuthorityState::SqliteAuthoritative`],
@@ -240,8 +241,11 @@ mod boundary {
   ///   [`super::super::native_database::repair_authority_marker`]), but the
   ///   boundary answers nothing until a later `reobserve_authority` call
   ///   reports something else.
-  pub async fn reobserve_authority() -> Result<AuthorityState, NativeDatabaseError> {
+  pub async fn reobserve_authority() -> Result<AuthorityState, DispatchError> {
     let mut guard = active().write().await;
+    if matches!(&*guard, Active::Shutdown) {
+      return Err(DispatchError::Shutdown);
+    }
     if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
       close_or_refuse(&mut guard, database).await?;
     }
@@ -268,7 +272,7 @@ mod boundary {
             *guard = Active::Unavailable(format!(
               "the durable state says selected, but opening it failed: {error}"
             ));
-            return Err(error);
+            return Err(DispatchError::Native(error));
           }
         }
       }
@@ -303,11 +307,19 @@ mod boundary {
     database: NativeDatabase,
   ) -> Result<(), NativeDatabaseError> {
     if let Err(error) = database.close().await {
-      *guard =
-        Active::Unavailable(format!("closing the previous native owner failed: {error}"));
+      mark_unavailable_after_close_failure(
+        guard,
+        format!("closing the previous native owner failed: {error}"),
+      );
       return Err(error);
     }
     Ok(())
+  }
+
+  fn mark_unavailable_after_close_failure(guard: &mut Active, reason: String) {
+    if !matches!(&*guard, Active::Shutdown) {
+      *guard = Active::Unavailable(reason);
+    }
   }
 
   /// The backend to dispatch to, or the typed refusal if the durable state
@@ -322,6 +334,35 @@ mod boundary {
         reason: reason.clone(),
       }),
       Active::Shutdown => Err(DispatchError::Shutdown),
+    }
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::{Active, mark_unavailable_after_close_failure};
+
+    #[test]
+    fn native_close_failure_preserves_shutdown() {
+      let mut active = Active::Shutdown;
+
+      mark_unavailable_after_close_failure(
+        &mut active,
+        "closing the previous native owner failed".to_owned(),
+      );
+
+      assert!(matches!(active, Active::Shutdown));
+    }
+
+    #[test]
+    fn native_close_failure_refuses_consumers_before_shutdown() {
+      let mut active = Active::Sqlite;
+
+      mark_unavailable_after_close_failure(
+        &mut active,
+        "closing the previous native owner failed".to_owned(),
+      );
+
+      assert!(matches!(active, Active::Unavailable(_)));
     }
   }
 }
