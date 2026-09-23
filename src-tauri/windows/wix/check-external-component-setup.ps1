@@ -113,6 +113,46 @@ if ($defaultAction.Count -eq 1) {
 $dialogRow = Get-Rows "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog`` = '$dialog'" 1
 Assert ($dialogRow.Count -eq 1) "Dialog $dialog is missing"
 
+# NSIS-inherited install folder (#2215): a fresh install that only inherited
+# the exact NSIS default folder starts from Program Files; a folder the user
+# chose for the NSIS build is kept. The UI copy runs before the folder page;
+# the execute copy only without the UI sequence.
+$installDirValue = "[ProgramFiles64Folder]HardwareVisualizer\"
+$installDirBase = "NOT HV_MSI_INSTALLDIR AND (INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR OR INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR_DIR)"
+$uiSearchSequence = @{}
+foreach ($row in (Get-Rows "SELECT ``Action``, ``Condition``, ``Sequence`` FROM ``InstallUISequence``" 3)) {
+  $uiSearchSequence[$row[0]] = $row
+}
+foreach ($default in @(
+  @{ property = "HV_NSIS_DEFAULT_INSTALLDIR"; value = "[LocalAppDataFolder]HardwareVisualizer" },
+  @{ property = "HV_NSIS_DEFAULT_INSTALLDIR_DIR"; value = "[LocalAppDataFolder]HardwareVisualizer\" })) {
+  $action = "Set$($default.property)"
+  $ca = Get-Rows "SELECT ``Type``, ``Source``, ``Target`` FROM ``CustomAction`` WHERE ``Action`` = '$action'" 3
+  Assert (($ca.Count -eq 1) -and ([int]$ca[0][0] -eq 51) -and ($ca[0][1] -ceq $default.property) -and ($ca[0][2] -ceq $default.value)) "CustomAction $action must set $($default.property) to $($default.value)"
+  foreach ($table in @($uiSearchSequence, $sequence)) {
+    Assert ($table.ContainsKey($action) -and [int]$table[$action][2] -gt [int]$table["AppSearch"][2]) "$action must run after AppSearch in both sequences"
+  }
+}
+foreach ($case in @(
+  @{ action = "SetInstallDirFromNsisDefaultUi"; table = $uiSearchSequence; condition = "NOT Installed AND $installDirBase" },
+  @{ action = "SetInstallDirFromNsisDefaultExecute"; table = $sequence; condition = "NOT Installed AND UILevel < 4 AND $installDirBase" })) {
+  $ca = Get-Rows "SELECT ``Type``, ``Source``, ``Target`` FROM ``CustomAction`` WHERE ``Action`` = '$($case.action)'" 3
+  Assert (($ca.Count -eq 1) -and ([int]$ca[0][0] -eq 51) -and ($ca[0][1] -ceq "INSTALLDIR") -and ($ca[0][2] -ceq $installDirValue)) "CustomAction $($case.action) must set INSTALLDIR to $installDirValue"
+  $row = $case.table[$case.action]
+  Assert ($null -ne $row) "$($case.action) is not scheduled"
+  if ($null -ne $row) {
+    Assert ($row[1] -ceq $case.condition) "$($case.action) has condition '$($row[1])'"
+    Assert (([int]$row[2] -gt [int]$case.table["AppSearch"][2]) -and ([int]$row[2] -lt [int]$case.table["CostInitialize"][2])) "$($case.action) must run after AppSearch and before CostInitialize"
+    # Its condition reads the comparison properties, so they must be set first.
+    foreach ($propertyAction in @("SetHV_NSIS_DEFAULT_INSTALLDIR", "SetHV_NSIS_DEFAULT_INSTALLDIR_DIR")) {
+      $propertyRow = $case.table[$propertyAction]
+      Assert (($null -ne $propertyRow) -and ([int]$propertyRow[2] -lt [int]$row[2])) "$propertyAction must run before $($case.action)"
+    }
+  }
+}
+Assert (-not $uiSearchSequence.ContainsKey("SetInstallDirFromNsisDefaultExecute")) "The execute copy must not run in the UI sequence"
+Assert (-not $sequence.ContainsKey("SetInstallDirFromNsisDefaultUi")) "The UI copy must not run in the execute sequence"
+
 # Outside Program Files the real checkbox must be hidden and replaced by an
 # unchecked placeholder, so the dialog never shows a selection that will not run.
 $controlConditions = @{}
