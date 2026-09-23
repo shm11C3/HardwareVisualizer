@@ -93,6 +93,7 @@ async function removeTree(dir, bucket) {
     await rm(dir, { recursive: true, force: true });
   } catch (error) {
     console.error(`failed  ${dir}  (${error.message}); retried next run`);
+    process.exitCode = 1;
     return false;
   }
   await rm(bucket, { recursive: false }).catch(() => {});
