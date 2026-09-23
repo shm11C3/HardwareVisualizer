@@ -92,9 +92,57 @@ but it does not read registers or share code with the provider.
    replaced and a partial file never carries the final name.
 5. Re-read the state. Report success only when the component is complete
    (or the installer asked for a restart), then exit with a code that encodes
-   the outcome: `0` installed, `3010` restart required, `10`-`21` the stage
-   that failed, `1` other. The caller derives the outcome from the exit code
-   of the process handle it owns; no result file exists.
+   the outcome. The caller derives the outcome from the exit code of the
+   process handle it owns; no result file exists.
+
+### Exit codes
+
+The setup mode reports through its exit code only. `SetupFailureStage` in
+`core/src/external_component_setup/mod.rs` owns the failure codes, and the
+App's command-line dispatch (`src-tauri/src/cli`, `run_cli_mode_if_requested`
+in `src-tauri/src/lib.rs`) owns the code of a command line that never
+reached a setup plan.
+
+#### Setup-mode exit codes
+
+These are the codes a caller of
+`hardware-visualizer.exe --external-component-setup <component>` can
+observe.
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Installed, or already installed |
+| `3010` | Installed; the runtime installer asked for a restart (`ERROR_SUCCESS_REBOOT_REQUIRED`) |
+| `1` | Failed without a more specific stage |
+| `2` | Invalid command line: an unknown component or notice, a flag without its value, or an invalid `--wait-for-parent` identity. The process exits before any mode runs |
+| `10` | Runtime state could not be read |
+| `11` | Staging directory could not be created |
+| `12` | Runtime installer download failed |
+| `13` | Runtime installer failed size or SHA-256 verification |
+| `14` | Runtime installer could not be started |
+| `15` | Runtime installer exited with a failure code |
+| `16` | Modules archive download failed |
+| `17` | Modules archive failed size or SHA-256 verification |
+| `18` | Verified archive does not contain a required module file |
+| `19` | Module files could not be placed |
+| `20` | Every step ran, but the component is still not complete |
+| `21` | Unsupported platform |
+| `22` | The setup process panicked; the message went to its stderr only |
+
+The caller maps an exit code it does not recognize, and a process that
+exited without one, to the generic failure (`1`).
+
+#### Process-wide launch codes
+
+| Code | Meaning |
+| --- | --- |
+| `3` | Elevated relaunch handoff failed: the child could not observe its parent and refused to start (see the handoff note under Entry points) |
+
+Code `3` applies only to a normal app or restart launch that carries a
+`--wait-for-parent` argument, never to the setup mode: the Settings action
+launches the setup mode with the setup flag and component only, and
+`decide_launch` runs a command-line mode to completion before it evaluates
+any handoff argument.
 
 Every step is best-effort for the caller: a failed setup leaves the app
 installed and its fallbacks unchanged.
@@ -122,6 +170,37 @@ installed and its fallbacks unchanged.
   Elevated Startup Mode keeps its saved value and simply does not relaunch.
   Planting a DLL next to the executable is closed separately by linking with
   `/DEPENDENTLOADFLAG:0x800`, and #2215 recommends the MSI to NSIS users.
+
+  *Elevated relaunch handoff (#2216 follow-up).* "Restart as administrator"
+  and Elevated Startup Mode launch the elevated child before anything stops,
+  so a declined UAC prompt or a failed launch returns an error while every
+  worker keeps running, and the Settings toggle rolls back. The child is
+  launched with `--wait-for-parent <pid>:<creation-time>` added to the
+  current arguments, the parent's own process creation time making the id
+  verifiable. Before its Tauri runtime starts, the child opens that process
+  (`SYNCHRONIZE` and limited query), compares the creation time, and waits
+  for it to exit with no timeout: the open handle keeps the id from being
+  reused, and the parent still holds the single-instance lock and the
+  database until it has drained its workers, so a child that ran ahead would
+  exit as a second instance, leaving no app, or open the database beside the
+  parent's live owner. An id that no process holds, or one held by a process
+  with a different creation time, means the parent has already exited. If the
+  parent cannot be opened or verified for any other reason, or the wait
+  fails, the child prints the reason, says the app must be started again
+  manually, and exits with code `3` instead of starting. Once the launch has
+  succeeded, the parent stops its workers and exits as before. A plain
+  restart (Settings, or Reset and Restart) passes the same handoff, since
+  the restarted process has the same lock and database to wait for.
+
+  *Over-the-shoulder elevation.* When a standard user answers the UAC prompt
+  with another administrator's credentials, the elevated child runs as that
+  account, and the parent's default DACL refuses it `SYNCHRONIZE`. The child
+  then enables `SeDebugPrivilege`, which a full administrator token holds and
+  which opens any process regardless of its DACL, retries the open once, and
+  restores the privilege's previous state before waiting; the creation-time
+  check still decides whether the opened process is the parent. If the retry
+  still fails, the fail-closed exit above applies. That the child then runs
+  with the other account's profile (settings, app data) predates the handoff.
 - **MSI (implemented, #2118).** The WiX fragment
   `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between
@@ -129,9 +208,12 @@ installed and its fallbacks unchanged.
   higher order than `WixUI_InstallDir` (the last `NewDialog` wins). The
   checkbox binds to the secure public property `EXTERNAL_COMPONENT_PAWNIO`.
   The property has no default in the `Property` table; a `SetProperty` in the
-  UI sequence sets it to `1` on a fresh install, so only a full-UI install
-  pre-selects it. `msiexec /qn`, `/passive` (the updater), and winget run no
-  setup unless the caller passes `EXTERNAL_COMPONENT_PAWNIO=1`. A deferred,
+  UI sequence sets it to `1` on a fresh install at full UI (`UILevel = 5`),
+  so only a full-UI install pre-selects it. The UI sequence also runs at
+  reduced UI (`/qr`, `UILevel` 4), where authored dialogs are suppressed, so
+  the condition excludes it. `msiexec /qn`, `/qr`, `/passive` (the updater),
+  and winget run no setup unless the caller passes
+  `EXTERNAL_COMPONENT_PAWNIO=1`. A deferred,
   non-impersonated custom action after `InstallFiles` runs
   `[#Path] --external-component-setup pawnio` as LocalSystem inside the
   already elevated install, so there is no second prompt; `Return="ignore"`

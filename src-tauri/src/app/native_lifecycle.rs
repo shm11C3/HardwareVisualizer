@@ -124,6 +124,14 @@ pub enum DatabaseLifecycleState {
 /// native database's own already-committed metadata. Callers still own
 /// deciding what to do with the returned state, including whether to open
 /// the native database when it reports [`DatabaseLifecycleState::NativeAuthoritative`].
+///
+/// The repair adopts the native file without reconciling, which is sound
+/// only while nothing writes to SQLite after a selection commits. Every
+/// producer of the repairable state keeps that true: a crash between the
+/// commit and the marker happens with the producers paused, fresh creation
+/// has no SQLite source, and a selection that fails after its commit leaves
+/// the producers paused too (`native_conversion::settle_failed_selection`,
+/// #2238).
 pub fn inspect_startup_authority(
   paths: &AuthorityPaths,
   expected_schema_version: u32,
@@ -175,6 +183,52 @@ fn translate(state: AuthorityState) -> DatabaseLifecycleState {
     AuthorityState::Inconsistent { reason, .. } => {
       DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(reason))
     }
+  }
+}
+
+/// True when none of the three on-disk facts the authority decision reads
+/// exist yet: no SQLite source, no native database, and no selection
+/// marker.
+///
+/// [`inspect_startup_authority`] reports [`DatabaseLifecycleState::SqliteAuthoritative`]
+/// for this same, empty case, because nothing on disk says otherwise *yet*.
+/// That peek is correct about the disk, but a fresh install goes on to
+/// create and select a native database directly, moments later, in the
+/// same startup (#2203) - so a caller that needs to know which backend the
+/// database will actually end up on, before that creation runs, must check
+/// this instead of trusting the peek's answer alone. Today the one such
+/// caller is the Hardware Archive Retention Period default (#2136): the
+/// peek used to be trusted on its own, which defaulted a never-saved
+/// retention value to the SQLite-era 30 days on every fresh install.
+pub fn is_fresh_profile(paths: &AuthorityPaths) -> bool {
+  !paths.source_database.is_file()
+    && !paths.native_database.is_file()
+    && !paths.marker.is_file()
+}
+
+/// The Hardware Archive Retention Period default that applies to a
+/// never-saved value, given only the on-disk authority facts (#2136).
+///
+/// A fresh profile ([`is_fresh_profile`]) always resolves to the native
+/// default, even though [`inspect_startup_authority`] itself would still
+/// report [`DatabaseLifecycleState::SqliteAuthoritative`] for it - see that
+/// function's documentation for why. An existing SQLite source with no
+/// native artifacts yet keeps the SQLite-era default, since startup does
+/// not touch it.
+pub fn default_hardware_archive_retention_days(
+  paths: &AuthorityPaths,
+  expected_schema_version: u32,
+) -> u32 {
+  use hardviz_core::settings::HardwareArchiveSettings;
+
+  if is_fresh_profile(paths) {
+    return HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS;
+  }
+  match inspect_startup_authority(paths, expected_schema_version) {
+    DatabaseLifecycleState::NativeAuthoritative => {
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+    }
+    _ => HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS,
   }
 }
 
@@ -269,6 +323,32 @@ impl NativeLifecycleOwner {
     *self.state.lock().unwrap() = state;
   }
 
+  /// Check `predicate` against the current state and, only if it holds,
+  /// replace it with `next` - both under the same lock acquisition, so no
+  /// concurrent [`Self::set_state`] (from a different in-flight attempt
+  /// reaching a terminal state, for example) can land between the check and
+  /// the write. Returns whether the transition happened.
+  ///
+  /// Exists for callers like
+  /// `ConversionRuntime::begin_attempt_marking_converting` that must decide
+  /// whether to start from the current state and, if so, mark it in one
+  /// indivisible step - reading [`Self::state`] and calling
+  /// [`Self::set_state`] separately would leave a window where a concurrent
+  /// write could be silently overwritten.
+  pub fn set_state_if(
+    &self,
+    predicate: impl FnOnce(&DatabaseLifecycleState) -> bool,
+    next: DatabaseLifecycleState,
+  ) -> bool {
+    let mut guard = self.state.lock().unwrap();
+    if predicate(&guard) {
+      *guard = next;
+      true
+    } else {
+      false
+    }
+  }
+
   // #2134 seam: the selected native database, once startup
   // (`inspect_startup_authority` resolving to
   // `DatabaseLifecycleState::NativeAuthoritative`) or a completed conversion
@@ -315,6 +395,67 @@ mod tests {
     assert_eq!(
       inspect_startup_authority(&paths(directory.path()), 1),
       DatabaseLifecycleState::SqliteAuthoritative
+    );
+  }
+
+  /// #2136 regression: an empty profile directory must default the
+  /// Hardware Archive Retention Period to the native value, because
+  /// startup creates and selects a native database for it moments later
+  /// (#2203) even though `inspect_startup_authority` alone still reports
+  /// `SqliteAuthoritative` for the same, empty directory (see the test
+  /// above).
+  #[test]
+  fn an_empty_profile_directory_is_fresh() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+
+    assert!(is_fresh_profile(&paths));
+    assert_eq!(
+      default_hardware_archive_retention_days(&paths, 1),
+      hardviz_core::settings::HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+    );
+  }
+
+  /// A directory with only a pre-existing SQLite source (a plain SQLite
+  /// installation from before native databases existed, or one just past
+  /// its first migration) is not fresh, and keeps the SQLite-era default.
+  #[test]
+  fn a_directory_with_only_a_sqlite_source_is_not_fresh() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    std::fs::write(&paths.source_database, b"sqlite artifact").unwrap();
+
+    assert!(!is_fresh_profile(&paths));
+    assert_eq!(
+      default_hardware_archive_retention_days(&paths, 1),
+      hardviz_core::settings::HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
+    );
+  }
+
+  /// A profile that already selected a native database - the state a fresh
+  /// install reaches moments after the empty-directory case above - is not
+  /// "fresh" by this helper's own definition, but still resolves to the
+  /// native default through `inspect_startup_authority` itself.
+  #[tokio::test]
+  async fn a_selected_native_profile_is_not_fresh_and_still_uses_the_native_default() {
+    use hardviz_core::infrastructure::database::native_database::create_empty_native_database;
+
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    create_empty_native_database(
+      paths.clone(),
+      crate::infrastructure::database::native_schema::get_native_schema(),
+    )
+    .await
+    .unwrap();
+
+    assert!(!is_fresh_profile(&paths));
+    assert_eq!(
+      default_hardware_archive_retention_days(
+        &paths,
+        crate::infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION
+      ),
+      hardviz_core::settings::HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
     );
   }
 
@@ -491,5 +632,45 @@ mod tests {
       paths.marker.is_file(),
       "the repair must have rewritten the marker"
     );
+  }
+
+  #[test]
+  fn set_state_if_writes_only_when_the_predicate_holds_for_the_current_state() {
+    let owner = NativeLifecycleOwner::new();
+
+    let refused = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::NativeAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+    assert!(!refused);
+    assert_eq!(owner.state(), DatabaseLifecycleState::SqliteAuthoritative);
+
+    let applied = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+    assert!(applied);
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight)
+    );
+  }
+
+  #[test]
+  fn set_state_if_evaluates_the_predicate_against_the_state_at_call_time_not_a_cached_read()
+   {
+    let owner = NativeLifecycleOwner::new();
+    // A state change between an earlier `state()` read and this call must
+    // still be what the predicate sees - this is the whole point of
+    // `set_state_if` over a separate read-then-write.
+    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+
+    let applied = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+
+    assert!(!applied);
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
   }
 }

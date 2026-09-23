@@ -100,13 +100,50 @@ pub trait ProcessElevationPlatform: Send + Sync {
   /// Returns whether the current process is running with elevated privileges.
   fn is_process_elevated(&self) -> Result<bool, PlatformError>;
 
-  /// Relaunch the current executable with elevated privileges.
-  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError>;
+  /// Launch the current executable elevated with `args` and return without
+  /// waiting for it. The caller owns the arguments, including any handoff
+  /// between itself and the new process.
+  fn relaunch_current_process_elevated(
+    &self,
+    args: &[String],
+  ) -> Result<(), PlatformError>;
 
   /// Whether the current executable may be launched elevated from where it
   /// is installed. The elevated launches refuse to run unless this is
   /// [`ElevationAvailability::Available`].
   fn elevation_availability(&self) -> ElevationAvailability;
+
+  /// The identity of the current process, for another process to wait on.
+  fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError>;
+
+  /// Block until the process `identity` names has exited. The wait is not
+  /// bounded: the id cannot be reused while the wait holds the process open,
+  /// so a verified process that never exits is a bug to report, not a reason
+  /// to stop waiting. An id that no process holds, or that a process with a
+  /// different creation time holds, counts as already exited.
+  fn wait_for_process_exit(
+    &self,
+    identity: &ProcessIdentity,
+  ) -> Result<ProcessExitWait, PlatformError>;
+}
+
+/// A process id together with the creation time of the process that held it
+/// when the identity was taken, so a reused id cannot pass for that process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessIdentity {
+  pub pid: u32,
+  /// Platform-specific creation timestamp; on Windows the `FILETIME` of
+  /// `GetProcessTimes` as one integer.
+  pub creation_time: u64,
+}
+
+/// How [`ProcessElevationPlatform::wait_for_process_exit`] ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessExitWait {
+  /// The process was running and has now exited.
+  Exited,
+  /// No process with that identity was running any more.
+  AlreadyExited,
 }
 
 /// Whether the current executable can be launched elevated (#2216).

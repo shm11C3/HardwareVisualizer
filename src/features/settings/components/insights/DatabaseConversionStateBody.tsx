@@ -221,7 +221,10 @@ export const DatabaseConversionStateBody = ({
             </div>
           ))}
 
-        {state.kind === "nativeAuthoritative" && (
+        {/* The notice carries its own "conversion complete" heading, so
+            this line only covers the fallback where the notice will not
+            show (already shown once, or this mount missed the completion). */}
+        {state.kind === "nativeAuthoritative" && !showNotice && (
           <>
             <p className="text-sm">
               {t("pages.settings.insights.databaseConversion.complete")}

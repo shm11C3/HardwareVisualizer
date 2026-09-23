@@ -117,8 +117,19 @@ const AppContent = () => {
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // Each startup dialog reports whether it is open and, separately, whether
+  // it still does not know if it will open (its eligibility check is async).
+  // Lower-priority dialogs wait for both, so one never opens first only to
+  // be replaced once a higher-priority check resolves. All start pending.
   const [closeToTrayDialogOpen, setCloseToTrayDialogOpen] = useState(false);
+  const [closeToTrayPending, setCloseToTrayPending] = useState(true);
   const [guidanceDialogOpen, setGuidanceDialogOpen] = useState(false);
+  const [guidancePending, setGuidancePending] = useState(true);
+  const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
+  const [conversionPromptPending, setConversionPromptPending] = useState(true);
+  const closeToTrayBusy = closeToTrayDialogOpen || closeToTrayPending;
+  const guidanceBusy = guidanceDialogOpen || guidancePending;
+  const conversionBusy = conversionDialogOpen || conversionPromptPending;
 
   useErrorModalListener();
   useDocumentVisibilityClass();
@@ -357,17 +368,35 @@ const AppContent = () => {
             closeToTrayChoiceMade={settings.closeToTrayChoiceMade}
             settingsLoaded={settingsLoaded}
             onOpenChange={setCloseToTrayDialogOpen}
+            onPendingChange={setCloseToTrayPending}
           />
-          <DatabaseConversionPromptDialog settingsLoaded={settingsLoaded} />
+          {/* Startup dialogs open one at a time, in this order: the
+              close-to-tray prompt is a single decision and waits for
+              nothing; the external component guidance waits for it (both
+              can qualify on a first launch), keeping its candidate; the
+              database conversion prompt waits for both because it runs a
+              multi-step flow (progress, cancel, retry) that should not be
+              covered by a short prompt part-way through; the NSIS
+              migration notice waits for all three because it is a
+              recommendation the user can act on at any time, whereas the
+              conversion prompt is the point of this release. */}
+          <DatabaseConversionPromptDialog
+            settingsLoaded={settingsLoaded}
+            deferred={closeToTrayBusy || guidanceBusy}
+            onOpenChange={setConversionDialogOpen}
+            onPendingChange={setConversionPromptPending}
+          />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
+            deferred={closeToTrayBusy}
             onOpenChange={setGuidanceDialogOpen}
+            onPendingChange={setGuidancePending}
           />
           <NsisMigrationNoticeDialog
             dismissed={settings.nsisMigrationNoticeDismissed}
             settingsLoaded={settingsLoaded}
-            deferred={closeToTrayDialogOpen || guidanceDialogOpen}
+            deferred={closeToTrayBusy || guidanceBusy || conversionBusy}
           />
           <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
         </div>

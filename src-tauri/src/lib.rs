@@ -485,18 +485,35 @@ pub fn export_bindings() {
   export_typescript_bindings(&builder);
 }
 
-/// Run a command-line mode when the process was started with one.
+/// A note from the elevated relaunch handoff, raised before the logger
+/// exists and logged by `run()` once it does.
+static HANDOFF_NOTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Run a command-line mode when the process was started with one, and wait
+/// for the parent of an elevated relaunch to exit.
 ///
 /// Returns the exit code to terminate with, or `None` for a normal launch.
 /// Called before any Tauri runtime is created so the elevated setup child
-/// never competes with the running app for the single-instance lock.
+/// never competes with the running app for the single-instance lock, and so
+/// the elevated relaunch child takes that lock and opens the database only
+/// after the parent that launched it has released both. A child that cannot
+/// confirm the parent's exit terminates here instead of starting.
 pub fn run_cli_mode_if_requested() -> Option<i32> {
-  match cli::parse_cli_mode(std::env::args()) {
-    Ok(Some(mode)) => Some(cli::run_cli_mode(mode)),
-    Ok(None) => None,
+  let args = match cli::parse_cli_args(cli::process_args()) {
+    Ok(args) => args,
     Err(error) => {
       eprintln!("invalid command line: {error:?}");
-      Some(2)
+      return Some(2);
+    }
+  };
+  match cli::decide_launch(args, cli::wait_for_parent_exit) {
+    cli::Launch::Exit(exit_code) => Some(exit_code),
+    cli::Launch::App { note } => {
+      if let Some(note) = note {
+        eprintln!("{note}");
+        let _ = HANDOFF_NOTE.set(note);
+      }
+      None
     }
   }
 }
@@ -513,28 +530,25 @@ pub fn run() {
 
   // Which Hardware Archive Retention Period default applies to a
   // never-saved value (#2136): 30 days while SQLite is authoritative, 365
-  // while the native database is. This is a read-only, point-in-time peek
-  // at the same on-disk authority facts `resolve_native_authority` reads
-  // again below - see its own documentation for why re-observing is safe
-  // and expected. It must run before `AppState::new` loads `settings.json`,
-  // because the default only matters for values that load resolves at
-  // that moment.
+  // while the native database is (or will be). This is a read-only,
+  // point-in-time peek at the same on-disk authority facts
+  // `resolve_native_authority` reads again below - see its own
+  // documentation for why re-observing is safe and expected. It must run
+  // before `AppState::new` loads `settings.json`, because the default only
+  // matters for values that load resolves at that moment.
+  //
+  // An empty profile is special-cased to the native default even though
+  // `inspect_startup_authority` alone would still report
+  // `SqliteAuthoritative` for it: a fresh install creates and selects a
+  // native database directly moments later in this same startup (#2203),
+  // and `default_hardware_archive_retention_days` accounts for that -
+  // see its own documentation.
   #[cfg(feature = "duckdb-archive")]
-  let default_retention_days = {
-    use hardviz_core::settings::HardwareArchiveSettings;
-    let peek = app::native_lifecycle::inspect_startup_authority(
+  let default_retention_days =
+    app::native_lifecycle::default_hardware_archive_retention_days(
       &infrastructure::database::native_paths::authority_paths(),
       infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
     );
-    if matches!(
-      peek,
-      app::native_lifecycle::DatabaseLifecycleState::NativeAuthoritative
-    ) {
-      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
-    } else {
-      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
-    }
-  };
   #[cfg(not(feature = "duckdb-archive"))]
   let default_retention_days =
     hardviz_core::settings::HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS;
@@ -670,6 +684,10 @@ pub fn run() {
 
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
+
+      if let Some(note) = HANDOFF_NOTE.get() {
+        log_info!(note, "lib::setup", None::<&str>);
+      }
 
       if elevated_startup_mode {
         match services::system_service::relaunch_for_elevated_startup_if_needed(app.handle())
@@ -1010,7 +1028,13 @@ pub fn run() {
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_window_state::Builder::default().build())
+    // The transient flyout owns a fixed size and tray-relative position. A
+    // saved hidden-window size can make its Open button inaccessible.
+    .plugin(
+      tauri_plugin_window_state::Builder::default()
+        .with_denylist(&[tray::TRAY_WIDGET_FLYOUT_LABEL])
+        .build(),
+    )
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_autostart::init(
       MacosLauncher::LaunchAgent,

@@ -24,8 +24,9 @@ later without a second design.
    selected by default in an interactive install and can be deselected
    (#2118). The NSIS installer does not offer it, because its per-user
    install location is writable by unelevated processes. The Settings screen
-   offers the same setup at any later time. A silent or unattended MSI
-   install (`msiexec /qn`, `/passive`) runs no setup unless the caller passes
+   offers the same setup at any later time. A silent, unattended, or
+   reduced-UI MSI install (`msiexec /qn`, `/passive`, `/qr`) runs no setup
+   unless the caller passes
    the documented `EXTERNAL_COMPONENT_PAWNIO=1` property, because nobody
    could see or decline the option. NSIS `/S` and package-manager installs
    never run setup; those users start it from Settings. This keeps DP-03: an
