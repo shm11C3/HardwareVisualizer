@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getStoreInstance } from "@/lib/tauriStore";
 
 /**
@@ -30,10 +30,12 @@ export const useTauriStore = <T>(
   const [value, setValueState] = useState<T | null>(null);
   const [isPending, setIsPending] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    isMountedRef.current = true;
+    // Effect-local rather than a shared ref: a ref is reset to "live" by the
+    // next effect run when `key` changes, which let an earlier read that
+    // finished last overwrite the newer key's value.
+    let isCancelled = false;
 
     const fetchValue = async () => {
       let resolvedValue = defaultValue;
@@ -59,17 +61,16 @@ export const useTauriStore = <T>(
         console.error(`Failed to read Tauri Store key "${key}":`, error);
       }
 
-      if (isMountedRef.current) {
-        setValueState(resolvedValue);
-        setLoadFailed(failed);
-        setIsPending(false);
-      }
+      if (isCancelled) return;
+      setValueState(resolvedValue);
+      setLoadFailed(failed);
+      setIsPending(false);
     };
 
     fetchValue();
 
     return () => {
-      isMountedRef.current = false;
+      isCancelled = true;
     };
   }, [key, defaultValue]);
 

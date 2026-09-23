@@ -205,10 +205,47 @@ describe("useTauriStore", () => {
     expect(fakeStore.save).not.toHaveBeenCalled();
   });
 
+  it("Does not let a superseded key's read overwrite the current key", async () => {
+    // The key changes while the first read is still in flight. The first
+    // read then finishes last; its result belongs to a key the hook no longer
+    // renders and must not replace the second key's value.
+    const resolveHas = new Map<string, (exists: boolean) => void>();
+    fakeStore.data = { first: "firstValue", second: "secondValue" };
+    fakeStore.has = vi.fn(
+      (key: string) =>
+        new Promise<boolean>((resolve) => {
+          resolveHas.set(key, resolve);
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ key }) => useTauriStore<string>(key, "defaultValue"),
+      { initialProps: { key: "first" } },
+    );
+    await waitFor(() => expect(resolveHas.get("first")).toBeDefined());
+
+    rerender({ key: "second" });
+    await waitFor(() => expect(resolveHas.get("second")).toBeDefined());
+
+    await act(async () => {
+      resolveHas.get("second")?.(true);
+    });
+    await waitFor(() => expect(result.current[0]).toBe("secondValue"));
+
+    await act(async () => {
+      resolveHas.get("first")?.(true);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current[0]).toBe("secondValue");
+    expect(result.current[2]).toBe(false);
+  });
+
   it("Does not update state after unmount (cleanup guard)", async () => {
     // Unmounting before the store resolves exercises two uncovered paths:
-    //  1. The cleanup function (line 40: `isMountedRef.current = false`)
-    //  2. The mounted guard (line 31: `if (isMountedRef.current)` → false branch)
+    //  1. The cleanup function (`isCancelled = true`)
+    //  2. The cancellation guard (`if (isCancelled) return`)
     const { result, unmount } = renderHook(() =>
       useTauriStore<string>("testKey", "default"),
     );
@@ -220,13 +257,13 @@ describe("useTauriStore", () => {
     unmount();
 
     // Drain the microtask queue so fetchValue completes after unmount.
-    // The mounted guard prevents any subsequent setState call.
+    // The cancellation guard prevents any subsequent setState call.
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    // If the mounted guard did NOT work, setValueState would throw a
+    // If the cancellation guard did NOT work, setValueState would throw a
     // "Can't perform a React state update on an unmounted component" warning.
     // Reaching this line without errors confirms correct behaviour.
     expect(result.current[2]).toBe(true);
