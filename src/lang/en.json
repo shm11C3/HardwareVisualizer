@@ -162,6 +162,13 @@
       "listenerReady": "Failed to initialize the close-to-tray dialog."
     }
   },
+  "databaseConversionPrompt": {
+    "title": "A more efficient database is available",
+    "description": "The native database keeps more history in the same disk space, so Cooling Insight can look further back. Existing data is converted, and your archive preferences and retention settings are kept.",
+    "later": "Later",
+    "close": "Close",
+    "done": "Done"
+  },
   "externalComponentGuidance": {
     "title": "Optional components can enable more data",
     "labels": {
@@ -734,6 +741,39 @@
               "threeYears": "3 years",
               "fiveYears": "5 years"
             }
+          }
+        },
+        "databaseConversion": {
+          "title": "Native Database",
+          "description": "Switch the local database to a more efficient native format. This can be watched and cancelled, and your archive preferences and retention settings are preserved.",
+          "convert": "Convert Now",
+          "retry": "Try Again",
+          "converting": "Converting… {{step}}",
+          "cancel": "Cancel",
+          "complete": "The database has been converted to the native format.",
+          "step": {
+            "preflight": "Checking available disk space",
+            "buildingCandidate": "Copying existing data",
+            "finalizing": "Preparing the native database",
+            "pausingProducers": "Pausing background recording",
+            "reconciling": "Reconciling the latest changes",
+            "selecting": "Finalizing the switch",
+            "resumingProducers": "Resuming background recording"
+          },
+          "actionRequired": {
+            "default": "The database needs attention before the conversion can continue. Your existing data is unaffected.",
+            "authorityDisagreement": "HardwareVisualizer found the database files in an unexpected state and stopped rather than guess. Your existing data is unaffected.",
+            "nativeOpenFailed": "The converted database could not be opened. Your existing data is unaffected.",
+            "freshCreationFailed": "The native database could not be created. Your existing data is unaffected.",
+            "conversionFailed": "The conversion failed. Your existing data is unaffected and you can try again.",
+            "conversionCancelled": "The conversion was cancelled. Your existing data is unaffected and you can try again.",
+            "details": "Technical details"
+          },
+          "notice": {
+            "title": "More history now fits in the same space",
+            "description": "The native database can keep more history in the same disk space. The current Hardware Archive Retention Period is {{days}} days.",
+            "setToOneYear": "Set to 1 Year",
+            "keep": "Keep Current Setting"
           }
         }
       },
