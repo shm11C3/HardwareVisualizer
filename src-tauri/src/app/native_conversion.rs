@@ -82,7 +82,11 @@ const WORK_DEBRIS_PREFIX: &str = ".hardwarevisualizer-duckdb-";
 /// permissions issue) is left in place and logged; it cannot block a fresh
 /// attempt, which reserves its own differently-named directory, only make
 /// this attempt's own preflight estimate more conservative than necessary.
-fn discard_stale_conversion_work(workspace: &Path) {
+///
+/// `pub(crate)` so `app::native_maintenance::discard_native_authority_files`
+/// (Reset) can remove the same debris without a second, drifting copy of the
+/// prefix match.
+pub(crate) fn discard_stale_conversion_work(workspace: &Path) {
   let Ok(entries) = std::fs::read_dir(workspace) else {
     return;
   };

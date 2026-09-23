@@ -18,6 +18,8 @@
 
 use std::path::Path;
 
+use hardviz_core::infrastructure::database::native_database::AuthorityPaths;
+
 use crate::{log_error, log_info};
 
 /// The renamed name for a retired SQLite source, resolved beside the
@@ -25,6 +27,85 @@ use crate::{log_error, log_info};
 fn retired_path(source_database: &Path) -> Option<std::path::PathBuf> {
   let file_name = source_database.file_name()?.to_string_lossy().into_owned();
   Some(source_database.with_file_name(format!("{file_name}.retired")))
+}
+
+/// Remove every native-database-lifecycle artifact Reset owns: the
+/// finalized/selected native file and its write-ahead log, the authority
+/// marker, and any interrupted conversion work directories. Called by
+/// [`crate::app::startup::reset_database_and_restart`] before it removes the
+/// SQLite source itself; see that function for the full order and for why
+/// the caller must close the dispatch boundary's native owner first.
+///
+/// # Per-lifecycle-state behaviour
+///
+/// This function does not branch on [`crate::app::native_lifecycle::DatabaseLifecycleState`]:
+/// Reset is a full, state-independent discard. Every state
+/// (`SqliteAuthoritative`, `ConversionRecoverable`, `NativeAuthoritative`,
+/// `ActionRequired`) ends up with the native database, its write-ahead log,
+/// the marker and any conversion work directories removed - whichever of
+/// them happen to exist for that state - so the profile converges on the
+/// same clean, artifact-free state every time, and the next
+/// `inspect_authority` reports it as a fresh install.
+///
+/// # Ordering: native database before marker
+///
+/// The native database is removed **before** the marker, mirroring
+/// [`hardviz_core::infrastructure::database::native_database::select_native_database`]'s
+/// own write order (native metadata first, marker second) in reverse. If the
+/// process dies between the two removals here, the only state it can leave
+/// is "the marker still names a native database that is already gone" -
+/// which `inspect_authority` reports as
+/// [`hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::MarkerWithoutNativeDatabase`]
+/// and refuses to guess at
+/// ([`hardviz_core::infrastructure::database::native_database::AuthorityRecovery::StopAndReport`]).
+/// The reverse order would be unsafe: deleting the marker first while the
+/// native database still says `state = 'selected'` recreates exactly the one
+/// state `inspect_startup_authority` auto-repairs
+/// (`SelectedWithoutMarker`) - the next startup would silently rewrite the
+/// marker from the database's own metadata and undo the reset it was in the
+/// middle of performing.
+///
+/// An interruption anywhere in this sequence is safe to resume: the caller
+/// (the startup error dialog, or the native authority dialog) offers Reset
+/// again, and a second full pass converges on the same clean state.
+///
+/// # What is deliberately not removed
+///
+/// A `.retired` SQLite copy ([`retired_path`]) is left in place. It already
+/// represents history that survived one migration (native conversion); Reset
+/// discarding the *currently* authoritative or recoverable data should not
+/// also silently discard a separate, older recovery copy on top of that.
+/// Leaving it costs only disk space, is fully reversible, and - unlike every
+/// path this function does touch - a `.retired`-suffixed name is never read
+/// by `observe_authority`/`inspect_authority`, so keeping it can never make a
+/// freshly reset profile look anything but clean.
+pub fn discard_native_authority_files(paths: &AuthorityPaths, workspace: &Path) {
+  let native_write_ahead_log = {
+    let mut path = paths.native_database.as_os_str().to_os_string();
+    path.push(".wal");
+    std::path::PathBuf::from(path)
+  };
+  remove_file_best_effort(&paths.native_database, "the native database file");
+  remove_file_best_effort(
+    &native_write_ahead_log,
+    "the native database write-ahead log",
+  );
+  remove_file_best_effort(&paths.marker, "the native authority marker");
+  crate::app::native_conversion::discard_stale_conversion_work(workspace);
+}
+
+fn remove_file_best_effort(path: &Path, description: &str) {
+  match std::fs::remove_file(path) {
+    Ok(()) => {}
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+    Err(error) => {
+      log_error!(
+        "failed to remove a native database artifact during reset",
+        "app::native_maintenance::discard_native_authority_files",
+        Some(format!("{description} ({}): {error}", path.display()))
+      );
+    }
+  }
 }
 
 /// Rename the SQLite source (and its `-wal`/`-shm` sidecars, if present) out
@@ -317,5 +398,249 @@ mod tests {
       std::fs::read(directory.path().join("hv-database.db.retired-wal")).unwrap(),
       b"committed pages"
     );
+  }
+
+  mod reset {
+    use hardviz_core::infrastructure::database::candidate_database::build_candidate_database;
+    use hardviz_core::infrastructure::database::migrate;
+    use hardviz_core::infrastructure::database::native_database::{
+      AUTHORITY_MARKER_FILE_NAME, AuthorityInconsistency, AuthorityRecovery,
+      AuthorityState, finalize_candidate_database, inspect_authority, observe_authority,
+      reconcile_native_database, select_native_database,
+    };
+    use sqlx::ConnectOptions;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+    use super::*;
+
+    fn paths(directory: &Path) -> AuthorityPaths {
+      AuthorityPaths {
+        source_database: directory.join("hv-database.db"),
+        native_database: directory.join("hv-database.duckdb"),
+        marker: directory.join(AUTHORITY_MARKER_FILE_NAME),
+      }
+    }
+
+    /// A real migrated SQLite source, matching the fixture philosophy used
+    /// throughout the native-database tests: nothing here hand-writes a
+    /// database file.
+    async fn write_sqlite_source(paths: &AuthorityPaths) {
+      let options = SqliteConnectOptions::new()
+        .filename(&paths.source_database)
+        .create_if_missing(true)
+        .disable_statement_logging();
+      let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .unwrap();
+      migrate::run_on_pool(
+        &pool,
+        crate::infrastructure::database::migration::get_migrations(),
+      )
+      .await
+      .unwrap();
+      pool.close().await;
+    }
+
+    /// A durably selected native database beside its SQLite source, built
+    /// through the real candidate/finalize/reconcile/select pipeline.
+    async fn select_native(directory: &Path) -> AuthorityPaths {
+      let paths = paths(directory);
+      write_sqlite_source(&paths).await;
+      let candidate = directory.join("candidate.duckdb");
+      build_candidate_database(
+        &paths.source_database,
+        &candidate,
+        crate::infrastructure::database::migration::get_migrations(),
+      )
+      .await
+      .unwrap();
+      finalize_candidate_database(
+        &candidate,
+        &paths.native_database,
+        crate::infrastructure::database::native_schema::get_native_schema(),
+      )
+      .await
+      .unwrap();
+      let (_report, verified) = reconcile_native_database(
+        &paths.source_database,
+        &paths.native_database,
+        crate::infrastructure::database::migration::get_migrations(),
+        crate::infrastructure::database::native_schema::get_native_schema(),
+      )
+      .await
+      .unwrap();
+      select_native_database(paths.clone(), verified)
+        .await
+        .unwrap();
+      paths
+    }
+
+    fn schema_version() -> u32 {
+      crate::infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION
+    }
+
+    fn assert_fresh(paths: &AuthorityPaths) {
+      assert_eq!(
+        inspect_authority(&observe_authority(paths, schema_version())),
+        AuthorityState::SqliteAuthoritative,
+        "a reset profile must read as a fresh install with no artifacts left"
+      );
+      assert!(!paths.native_database.is_file());
+      assert!(!paths.marker.is_file());
+    }
+
+    #[tokio::test]
+    async fn reset_from_native_authoritative_leaves_a_clean_fresh_profile() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = select_native(directory.path()).await;
+      assert_eq!(
+        inspect_authority(&observe_authority(&paths, schema_version())),
+        AuthorityState::NativeSelected
+      );
+
+      discard_native_authority_files(&paths, directory.path());
+      std::fs::remove_file(&paths.source_database).unwrap();
+
+      assert_fresh(&paths);
+    }
+
+    #[tokio::test]
+    async fn reset_from_conversion_recoverable_leaves_a_clean_fresh_profile() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = paths(directory.path());
+      write_sqlite_source(&paths).await;
+      let candidate = directory.path().join("candidate.duckdb");
+      build_candidate_database(
+        &paths.source_database,
+        &candidate,
+        crate::infrastructure::database::migration::get_migrations(),
+      )
+      .await
+      .unwrap();
+      finalize_candidate_database(
+        &candidate,
+        &paths.native_database,
+        crate::infrastructure::database::native_schema::get_native_schema(),
+      )
+      .await
+      .unwrap();
+      assert_eq!(
+        inspect_authority(&observe_authority(&paths, schema_version())),
+        AuthorityState::FinalizedUnselected
+      );
+
+      discard_native_authority_files(&paths, directory.path());
+      std::fs::remove_file(&paths.source_database).unwrap();
+
+      assert_fresh(&paths);
+    }
+
+    #[test]
+    fn reset_from_sqlite_authoritative_leaves_a_clean_fresh_profile() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = paths(directory.path());
+      std::fs::write(&paths.source_database, b"sqlite source").unwrap();
+      assert_eq!(
+        inspect_authority(&observe_authority(&paths, schema_version())),
+        AuthorityState::SqliteAuthoritative
+      );
+
+      discard_native_authority_files(&paths, directory.path());
+      std::fs::remove_file(&paths.source_database).unwrap();
+
+      assert_fresh(&paths);
+    }
+
+    #[tokio::test]
+    async fn reset_from_action_required_leaves_a_clean_fresh_profile() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = select_native(directory.path()).await;
+      // Corrupt the marker so startup reports an unresolved disagreement
+      // (`MarkerNamesAnotherDatabase`) rather than a clean selection - the
+      // `ActionRequired` case reset must also resolve.
+      let mut marker: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&paths.marker).unwrap()).unwrap();
+      marker["native_database_file_name"] = serde_json::json!("other.duckdb");
+      std::fs::write(&paths.marker, serde_json::to_vec(&marker).unwrap()).unwrap();
+      assert!(matches!(
+        inspect_authority(&observe_authority(&paths, schema_version())),
+        AuthorityState::Inconsistent {
+          reason: AuthorityInconsistency::MarkerNamesAnotherDatabase,
+          ..
+        }
+      ));
+
+      discard_native_authority_files(&paths, directory.path());
+      std::fs::remove_file(&paths.source_database).unwrap();
+
+      assert_fresh(&paths);
+    }
+
+    #[tokio::test]
+    async fn reset_discards_interrupted_conversion_work_directories() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = paths(directory.path());
+      write_sqlite_source(&paths).await;
+      let work = directory
+        .path()
+        .join(".hardwarevisualizer-duckdb-driver-leftover");
+      std::fs::create_dir(&work).unwrap();
+      assert_eq!(
+        inspect_authority(&observe_authority(&paths, schema_version())),
+        AuthorityState::ConversionInProgress { resumable: false }
+      );
+
+      discard_native_authority_files(&paths, directory.path());
+      std::fs::remove_file(&paths.source_database).unwrap();
+
+      assert!(!work.exists());
+      assert_fresh(&paths);
+    }
+
+    /// The crash-safety proof: removing the native database file (step 1 of
+    /// [`discard_native_authority_files`]) without reaching the marker
+    /// removal (step 2) must never be silently repaired back into a
+    /// selection - see the function's own "Ordering" documentation.
+    #[tokio::test]
+    async fn an_interrupted_reset_stopped_after_the_native_database_is_removed_is_reported_not_repaired()
+     {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = select_native(directory.path()).await;
+
+      std::fs::remove_file(&paths.native_database).unwrap();
+      // The marker removal (and everything after it) never ran.
+      assert!(paths.marker.is_file());
+
+      assert_eq!(
+        inspect_authority(&observe_authority(&paths, schema_version())),
+        AuthorityState::Inconsistent {
+          reason: AuthorityInconsistency::MarkerWithoutNativeDatabase,
+          recovery: AuthorityRecovery::StopAndReport,
+        },
+        "a reset interrupted between removing the native database and its marker must stop \
+         and report, never guess or resurrect a selection"
+      );
+    }
+
+    #[tokio::test]
+    async fn reset_leaves_a_retired_sqlite_copy_in_place() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = select_native(directory.path()).await;
+      let retired = directory.path().join("hv-database.db.retired");
+      let retired_wal = directory.path().join("hv-database.db.retired-wal");
+      std::fs::write(&retired, b"pre-conversion history").unwrap();
+      std::fs::write(&retired_wal, b"pre-conversion wal").unwrap();
+
+      discard_native_authority_files(&paths, directory.path());
+      std::fs::remove_file(&paths.source_database).unwrap();
+
+      assert_eq!(std::fs::read(&retired).unwrap(), b"pre-conversion history");
+      assert_eq!(std::fs::read(&retired_wal).unwrap(), b"pre-conversion wal");
+      // Leaving it in place must not make the reset profile look anything
+      // but clean: `.retired` is never read by `observe_authority`.
+      assert_fresh(&paths);
+    }
   }
 }
