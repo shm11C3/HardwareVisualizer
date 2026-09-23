@@ -211,8 +211,9 @@ as the accepted direction, the [DuckDB Design Doc](../design/hardware-archive-du
 explains the structure and experiments behind it, and
 [ADR 0025](../adr/0025-retire-sqlite-conversion-path-in-v2.md) records when the
 SQLite backend and the conversion path are removed in a future major version.
-Shipped builds enable the `duckdb-archive` feature through `build.features` in
-`src-tauri/tauri.conf.json` (PR #2224).
+Shipped builds compile without the `duckdb-archive` feature today; PR #2224
+(open) enables it through `build.features` in `src-tauri/tauri.conf.json`,
+gated on the #2137 production-qualification go/no-go.
 
 Persistence is split:
 
@@ -260,9 +261,11 @@ Startup flow:
 ### Converting an existing SQLite archive to native
 
 Converting an existing SQLite-backed install to the native database is driven
-by an App-owned lifecycle owner and is never started automatically; it begins
-only from explicit user intent (a Settings action; see #2136 and PR #2220 for
-the exact Tauri commands and UI once merged). The lifecycle owner tracks one
+by an App-owned lifecycle owner (`src-tauri/src/app/native_conversion.rs`,
+on `develop`) and is never started automatically; nothing calls it in
+production yet. PR #2220 (open) introduces the explicit, user-started trigger
+for it — a Settings action and its Tauri commands (#2136); once it merges,
+conversion begins only from that user choice. The lifecycle owner tracks one
 of five states while a conversion is in flight: SQLite still authoritative,
 a previous attempt left recoverable state, a conversion actively running
 (itself stepping through preflight, candidate build, finalize, pause writers,

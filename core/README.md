@@ -85,7 +85,8 @@ answers from is decided by a durable selection record the App-owned lifecycle
 maintains, not by a per-call flag. The App crate still owns Tauri-specific
 startup decisions: resolving the SQLite, native database, and marker paths,
 supplying the ordered migration definitions, driving the conversion from
-SQLite to native (started only by explicit user intent), and deciding whether
+SQLite to native (started only by explicit user intent, trigger in PR #2220,
+open), and deciding whether
 DB-dependent workers can start after preflight. Core owns the pool, migration
 execution, and the native database's single-owner runtime: only one
 process-local owner may hold the native file open at a time. See

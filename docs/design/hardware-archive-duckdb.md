@@ -3,11 +3,12 @@
 Status: recommended direction under
 [ADR 0022](../adr/0022-prioritize-native-duckdb-archive-qualification.md).
 Status update (2026-09-23): the conversion path and dispatch boundary
-described here are implemented on `develop`, and PR #2224 (open) enables the
-`duckdb-archive` feature for shipped builds; see
-[`docs/architecture/backend.md`](../architecture/backend.md) for the current
-persistence behaviour. The experiments and open trade-offs below are
-otherwise unchanged.
+described here are implemented on `develop`. Shipped builds still compile
+without the `duckdb-archive` feature; PR #2224 (open) enables it, gated on the
+#2137 go/no-go, and PR #2220 (open) adds the explicit user-started conversion
+trigger. See [`docs/architecture/backend.md`](../architecture/backend.md) for
+the current persistence behaviour. The experiments and open trade-offs below
+are otherwise unchanged.
 Decision investigation: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) (closed).
 Implementation: [#2088](https://github.com/shm11C3/HardwareVisualizer/issues/2088),
 [#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089), and

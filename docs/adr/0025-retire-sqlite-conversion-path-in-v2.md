@@ -4,10 +4,11 @@ Status: accepted
 
 Status update (2026-09-23): the "fresh install starts on SQLite" precondition
 below is closed — a fresh install creates and selects a native database
-directly on `develop` (#2203, merged). PR #2224 (open) enables the
-`duckdb-archive` feature for shipped builds via `build.features` in
-`src-tauri/tauri.conf.json`. The rest of this record, including the removal
-plan and its remaining preconditions, is unchanged.
+directly on `develop` (#2203, merged). Shipped builds still compile without
+the `duckdb-archive` feature; PR #2224 (open) enables it via `build.features`
+in `src-tauri/tauri.conf.json`, gated on the #2137 go/no-go. The rest of this
+record, including the removal plan and its remaining preconditions, is
+unchanged.
 
 Tracking issue: [#2090](https://github.com/shm11C3/HardwareVisualizer/issues/2090).
 
