@@ -357,7 +357,11 @@ mod boundary {
     let should_reobserve =
       matches!(&*guard, Active::Native(database) if database.is_invalidated());
     if should_reobserve {
-      reobserve_authority_locked(&mut guard, configured.unwrap_or_else(config)).await?;
+      let config = match configured {
+        Some(config) => config,
+        None => config(),
+      };
+      reobserve_authority_locked(&mut guard, config).await?;
     }
     backend_from_active(&guard)
   }

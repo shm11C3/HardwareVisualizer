@@ -470,7 +470,7 @@ impl NativeDatabase {
       .inject_next_checkpoint_failure
       .swap(false, Ordering::AcqRel);
     self
-      .request_write(cancellation, |context| {
+      .request_write(cancellation, move |context| {
         context.check_cancelled()?;
         #[cfg(test)]
         let checkpoint = if inject_failure {
