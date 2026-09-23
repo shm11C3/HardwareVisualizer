@@ -1016,6 +1016,25 @@ async fn a_second_owner_in_the_same_process_is_refused_until_the_first_closes() 
     "{error:?}"
   );
 
+  // A hard link is the same file under another name. Unix only: that is where
+  // the claim is the only guard, and where `canonicalize` would not collapse it.
+  #[cfg(unix)]
+  {
+    let linked = fixture.finalized.with_extension("linked.duckdb");
+    std::fs::hard_link(&fixture.finalized, &linked).unwrap();
+    let error =
+      hardviz_core::infrastructure::database::native_database::NativeDatabase::open(
+        &linked,
+        NativeDatabaseOptions::new(app_native_schema::NATIVE_SCHEMA_VERSION),
+      )
+      .await
+      .unwrap_err();
+    assert!(
+      matches!(error, NativeDatabaseError::AlreadyOpen { .. }),
+      "{error:?}"
+    );
+  }
+
   first.close().await.unwrap();
   let reopened = fixture.open().await;
   reopened.close().await.unwrap();

@@ -336,14 +336,20 @@ impl NativeDatabase {
     if !metadata.is_file() {
       return Err(NativeDatabaseError::Unavailable { path });
     }
-    let claim = OpenClaim::acquire(&path)?;
     let expected_version = options.expected_schema_version;
-    let (writer, reader, spill) =
-      tokio::task::spawn_blocking(move || open_connections(&path, expected_version))
-        .await
-        .map_err(|error| NativeDatabaseError::Worker {
-          message: error.to_string(),
-        })??;
+    // The claim is taken and carried inside the blocking task. If this future
+    // is dropped while the task runs, Tokio lets the task finish anyway; a
+    // claim held out here would be released while those connections were
+    // still opening, and a second owner could slip in beside them.
+    let (writer, reader, spill, claim) = tokio::task::spawn_blocking(move || {
+      let claim = OpenClaim::acquire(&path)?;
+      let (writer, reader, spill) = open_connections(&path, expected_version)?;
+      Ok::<_, NativeDatabaseError>((writer, reader, spill, claim))
+    })
+    .await
+    .map_err(|error| NativeDatabaseError::Worker {
+      message: error.to_string(),
+    })??;
     let spill = Arc::new(LaneResources {
       _spill: spill,
       _claim: claim,
@@ -537,30 +543,66 @@ fn open_connections(
   Ok((writer, reader, spill))
 }
 
-/// Paths a `NativeDatabase` in this process currently holds, canonicalized so
-/// two spellings of one file are one entry.
+/// What identifies a native database file for the in-process claim.
+///
+/// On Unix it is the file itself, `(device, inode)`, so a symlink, a `.`
+/// component or a hard link all resolve to one entry. On Windows it is the
+/// canonical path: the stable library exposes no file index there, and the
+/// platform's own file lock already refuses a second handle to the same file
+/// under any name, which is why this claim was only ever missing on Unix.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum FileIdentity {
+  #[cfg(unix)]
+  Inode { device: u64, inode: u64 },
+  #[cfg(not(unix))]
+  CanonicalPath(std::path::PathBuf),
+}
+
+impl FileIdentity {
+  fn of(path: &Path) -> Result<Self, NativeDatabaseError> {
+    let unavailable = || NativeDatabaseError::Unavailable {
+      path: path.to_owned(),
+    };
+    #[cfg(unix)]
+    {
+      use std::os::unix::fs::MetadataExt;
+      let metadata = std::fs::metadata(path).map_err(|_| unavailable())?;
+      Ok(Self::Inode {
+        device: metadata.dev(),
+        inode: metadata.ino(),
+      })
+    }
+    #[cfg(not(unix))]
+    {
+      std::fs::canonicalize(path)
+        .map(Self::CanonicalPath)
+        .map_err(|_| unavailable())
+    }
+  }
+}
+
+/// Files a `NativeDatabase` in this process currently holds.
 static OPEN_NATIVE_DATABASES: std::sync::LazyLock<
-  Mutex<std::collections::HashSet<std::path::PathBuf>>,
+  Mutex<std::collections::HashSet<FileIdentity>>,
 > = std::sync::LazyLock::new(Default::default);
 
 /// This process's claim on one native database file, released on drop.
 struct OpenClaim {
-  path: std::path::PathBuf,
+  identity: FileIdentity,
 }
 
 impl OpenClaim {
   fn acquire(path: &Path) -> Result<Self, NativeDatabaseError> {
-    let path =
-      std::fs::canonicalize(path).map_err(|_| NativeDatabaseError::Unavailable {
-        path: path.to_owned(),
-      })?;
+    let identity = FileIdentity::of(path)?;
     let mut open = OPEN_NATIVE_DATABASES
       .lock()
       .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if !open.insert(path.clone()) {
-      return Err(NativeDatabaseError::AlreadyOpen { path });
+    if !open.insert(identity.clone()) {
+      return Err(NativeDatabaseError::AlreadyOpen {
+        path: path.to_owned(),
+      });
     }
-    Ok(Self { path })
+    Ok(Self { identity })
   }
 }
 
@@ -569,7 +611,7 @@ impl Drop for OpenClaim {
     OPEN_NATIVE_DATABASES
       .lock()
       .unwrap_or_else(|poisoned| poisoned.into_inner())
-      .remove(&self.path);
+      .remove(&self.identity);
   }
 }
 
