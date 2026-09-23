@@ -44,6 +44,21 @@ describe("useDatabaseConversion", () => {
     expect(commands.getDatabaseConversionState).toHaveBeenCalledTimes(1);
   });
 
+  it("settles once the first state read completes", async () => {
+    (commands.getDatabaseConversionState as Mock).mockResolvedValue({
+      kind: "notSupported",
+    });
+
+    const { result } = renderHook(() => useDatabaseConversion());
+    expect(result.current.settled).toBe(false);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(result.current.settled).toBe(true);
+  });
+
   it("polls while converting and stops once it leaves that state", async () => {
     (commands.getDatabaseConversionState as Mock)
       .mockResolvedValueOnce({

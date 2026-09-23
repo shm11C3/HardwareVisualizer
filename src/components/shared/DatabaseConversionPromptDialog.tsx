@@ -25,6 +25,8 @@ type DatabaseConversionPromptDialogProps = {
   /** Another startup AlertDialog is open; wait before opening. */
   deferred?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Whether it is still unknown if this prompt will open on this launch. */
+  onPendingChange?: (pending: boolean) => void;
 };
 
 /**
@@ -40,7 +42,9 @@ type DatabaseConversionPromptDialogProps = {
  * `deferred` holds back the first open while another startup AlertDialog
  * is open, so modals never stack; App decides which ones count. It only
  * gates the opening: once shown, a conversion in progress stays visible
- * even if another dialog opens later.
+ * even if another dialog opens later. `onPendingChange` reports true until
+ * the conversion state and the dismissal flag are known, so a dialog that
+ * yields to this one can wait instead of opening first and being replaced.
  *
  * Shown only when the conversion is supported, the lifecycle state is
  * `sqliteAuthoritative` or `conversionRecoverable`, Insights recording
@@ -62,6 +66,7 @@ export const DatabaseConversionPromptDialog = ({
   settingsLoaded = true,
   deferred = false,
   onOpenChange,
+  onPendingChange,
 }: DatabaseConversionPromptDialogProps) => {
   const { t } = useTranslation();
   const conversion = useDatabaseConversion();
@@ -79,6 +84,11 @@ export const DatabaseConversionPromptDialog = ({
   useLayoutEffect(() => {
     onOpenChange?.(open);
   }, [open, onOpenChange]);
+
+  const pending = !conversion.settled || dismissedPending;
+  useLayoutEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
 
   const eligible =
     settingsLoaded &&

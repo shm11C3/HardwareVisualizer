@@ -119,6 +119,9 @@ const AppContent = () => {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [closeToTrayDialogOpen, setCloseToTrayDialogOpen] = useState(false);
   const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
+  // True until the conversion prompt knows whether it will open, so the NSIS
+  // notice never opens first only to be replaced once the state arrives.
+  const [conversionPromptPending, setConversionPromptPending] = useState(true);
   const [guidanceDialogOpen, setGuidanceDialogOpen] = useState(false);
 
   useErrorModalListener();
@@ -372,6 +375,7 @@ const AppContent = () => {
             settingsLoaded={settingsLoaded}
             deferred={closeToTrayDialogOpen || guidanceDialogOpen}
             onOpenChange={setConversionDialogOpen}
+            onPendingChange={setConversionPromptPending}
           />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
@@ -383,6 +387,7 @@ const AppContent = () => {
             settingsLoaded={settingsLoaded}
             deferred={
               closeToTrayDialogOpen ||
+              conversionPromptPending ||
               conversionDialogOpen ||
               guidanceDialogOpen
             }

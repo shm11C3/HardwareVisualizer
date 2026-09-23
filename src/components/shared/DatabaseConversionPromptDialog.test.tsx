@@ -16,6 +16,7 @@ const mockSetHardwareArchiveRetentionDays = vi.fn();
 const mockSetNoticeShown = vi.fn(async () => {});
 
 let mockState: DatabaseConversionState = { kind: "notSupported" };
+let mockSettled = true;
 let mockError: string | null = null;
 let mockJustCompleted = false;
 let mockDismissed: boolean | null = false;
@@ -41,6 +42,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/features/settings/hooks/useDatabaseConversion", () => ({
   useDatabaseConversion: () => ({
     state: mockState,
+    settled: mockSettled,
     error: mockError,
     start: mockStart,
     cancel: mockCancel,
@@ -167,6 +169,28 @@ describe("DatabaseConversionPromptDialog", () => {
 
     fireEvent.click(screen.getByText("databaseConversionPrompt.later"));
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("reports pending until the conversion state and dismissal are known", () => {
+    mockSettled = false;
+    const onPendingChange = vi.fn();
+    const { rerender } = render(
+      <DatabaseConversionPromptDialog onPendingChange={onPendingChange} />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    mockSettled = true;
+    mockDismissedPending = true;
+    rerender(
+      <DatabaseConversionPromptDialog onPendingChange={onPendingChange} />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    mockDismissedPending = false;
+    rerender(
+      <DatabaseConversionPromptDialog onPendingChange={onPendingChange} />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
   });
 
   it("waits while another startup dialog is open and shows after it closes", () => {
