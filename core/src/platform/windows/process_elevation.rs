@@ -60,13 +60,37 @@ fn protected_executable_path() -> Result<Option<PathBuf>, String> {
     .to_string_lossy()
     .into_owned();
 
-  let mut roots = Vec::new();
+  let mut known_roots = Vec::new();
   for folder in [&FOLDERID_ProgramFiles, &FOLDERID_ProgramFilesX86] {
-    let root = known_folder_path(folder)?;
-    roots.push(final_path(Path::new(&root)).unwrap_or(root));
+    known_roots.push(known_folder_path(folder)?);
   }
+  let roots = resolved_roots(&known_roots, final_path);
 
   Ok(is_within_any_root(&resolved_dir, &roots).then_some(resolved))
+}
+
+/// The final paths of `roots`. A root that cannot be resolved is left out
+/// rather than compared unresolved, so it can never make a folder protected;
+/// the other root still counts, so one missing folder does not refuse a valid
+/// install under the other.
+fn resolved_roots(
+  roots: &[String],
+  resolve: impl Fn(&Path) -> Result<String, String>,
+) -> Vec<String> {
+  roots
+    .iter()
+    .filter_map(|root| match resolve(Path::new(root)) {
+      Ok(resolved) => Some(resolved),
+      Err(detail) => {
+        log_warn!(
+          format!("Ignoring a Program Files folder that could not be resolved: {detail}"),
+          "process_elevation::resolved_roots",
+          None::<&str>
+        );
+        None
+      }
+    })
+    .collect()
 }
 
 /// Case-insensitive check that `path` is one of `roots` or inside one of them,
@@ -301,7 +325,9 @@ fn quote_windows_arg(arg: &OsStr) -> String {
 
 #[cfg(test)]
 mod tests {
-  use super::{is_within_any_root, quote_windows_arg, strip_verbatim_prefix};
+  use super::{
+    is_within_any_root, quote_windows_arg, resolved_roots, strip_verbatim_prefix,
+  };
   use std::ffi::OsStr;
 
   fn roots() -> Vec<String> {
@@ -402,6 +428,27 @@ mod tests {
       strip_verbatim_prefix(r"\\?\UNC\server\share\app"),
       r"\\server\share\app"
     );
+  }
+
+  #[test]
+  fn an_unresolvable_root_never_makes_a_folder_protected() {
+    let roots = resolved_roots(&roots(), |root| {
+      if root.to_string_lossy().contains("(x86)") {
+        Err("not found".to_string())
+      } else {
+        Ok(root.to_string_lossy().into_owned())
+      }
+    });
+
+    assert_eq!(roots, vec![r"C:\Program Files".to_string()]);
+    assert!(!is_within_any_root(
+      r"C:\Program Files (x86)\HardwareVisualizer",
+      &roots
+    ));
+    assert!(is_within_any_root(
+      r"C:\Program Files\HardwareVisualizer",
+      &roots
+    ));
   }
 
   #[test]
