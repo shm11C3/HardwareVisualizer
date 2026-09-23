@@ -102,6 +102,23 @@ pub trait ProcessElevationPlatform: Send + Sync {
 
   /// Relaunch the current executable with elevated privileges.
   fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError>;
+
+  /// Whether the current executable may be launched elevated from where it
+  /// is installed. The elevated launches refuse to run unless this is
+  /// [`ElevationAvailability::Available`].
+  fn elevation_availability(&self) -> ElevationAvailability;
+}
+
+/// Whether the current executable can be launched elevated (#2216).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElevationAvailability {
+  /// The executable sits in a folder unelevated processes cannot modify.
+  Available,
+  /// The executable sits in a folder unelevated processes could modify, so a
+  /// swapped executable could be launched elevated; elevation is refused.
+  UnprotectedLocation,
+  /// The platform has no elevated launch.
+  Unsupported,
 }
 
 /// Result of launching the current executable elevated and waiting for it.

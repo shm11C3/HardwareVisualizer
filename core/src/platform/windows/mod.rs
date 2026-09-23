@@ -4,8 +4,8 @@ use crate::models::hardware::{
   SuperIoChipIdDiagnostics,
 };
 use crate::platform::traits::{
-  ElevatedProcessRun, ExternalComponentSetupPlatform, GpuPlatform, GpuUsageRaw,
-  MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
+  ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform, GpuPlatform,
+  GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
   ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
 };
 use async_trait::async_trait;
@@ -105,6 +105,10 @@ impl ProcessElevationPlatform for WindowsPlatform {
 
   fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
     process_elevation::relaunch_current_process_elevated()
+  }
+
+  fn elevation_availability(&self) -> ElevationAvailability {
+    process_elevation::elevation_availability()
   }
 }
 

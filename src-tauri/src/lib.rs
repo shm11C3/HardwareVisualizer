@@ -381,6 +381,7 @@ fn build_specta_builder() -> Builder<Wry> {
       ui::set_decoration,
       system::restart_app,
       system::is_process_elevated,
+      system::get_elevation_availability,
       system::quit_app,
       system::is_close_to_tray_available,
       system::mark_close_to_tray_listener_ready,

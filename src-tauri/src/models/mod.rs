@@ -2,6 +2,7 @@ pub mod archive_history;
 pub mod background_image;
 pub mod cooling_insight;
 pub mod database_conversion;
+pub mod elevation;
 pub mod environmental_sensors;
 pub mod external_component_guidance;
 pub mod external_component_setup;

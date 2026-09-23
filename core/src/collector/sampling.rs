@@ -235,9 +235,9 @@ mod tests {
   };
   use crate::models::{MotherboardSensorSample, SensorAvailability};
   use crate::platform::traits::{
-    ElevatedProcessRun, ExternalComponentSetupPlatform, GpuPlatform, GpuUsageRaw,
-    MemoryPlatform, MotherboardPlatform, NetworkPlatform, ProcessElevationPlatform,
-    SensorPlatform, SuperIoPlatform,
+    ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform,
+    GpuPlatform, GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform,
+    ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
   };
   use async_trait::async_trait;
   use std::sync::Arc;
@@ -343,6 +343,10 @@ mod tests {
 
     fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
       Err(PlatformError::unsupported("fake"))
+    }
+
+    fn elevation_availability(&self) -> ElevationAvailability {
+      ElevationAvailability::Unsupported
     }
   }
 
