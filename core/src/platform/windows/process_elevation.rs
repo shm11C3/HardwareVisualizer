@@ -1,10 +1,16 @@
 use crate::enums::error::PlatformError;
 use crate::log_warn;
-use crate::platform::traits::{ElevatedProcessRun, ElevationAvailability};
+use crate::platform::traits::{
+  ElevatedProcessRun, ElevationAvailability, ProcessExitWait,
+};
 use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use windows::Win32::Foundation::{CloseHandle, ERROR_CANCELLED, HANDLE};
+use std::time::Duration;
+use windows::Win32::Foundation::{
+  CloseHandle, ERROR_CANCELLED, ERROR_INVALID_PARAMETER, HANDLE, WAIT_OBJECT_0,
+  WAIT_TIMEOUT,
+};
 use windows::Win32::Storage::FileSystem::{
   CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_NAME_NORMALIZED, FILE_READ_ATTRIBUTES,
   FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, GETFINALPATHNAMEBYHANDLE_FLAGS,
@@ -12,7 +18,7 @@ use windows::Win32::Storage::FileSystem::{
 };
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Threading::{
-  GetExitCodeProcess, INFINITE, WaitForSingleObject,
+  GetExitCodeProcess, INFINITE, OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject,
 };
 use windows::Win32::UI::Shell::{
   FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86, IsUserAnAdmin, KF_FLAG_DEFAULT,
@@ -262,6 +268,42 @@ fn launch_current_executable_elevated(
   Ok(Some(execute_info.hProcess))
 }
 
+/// Block until the process with `pid` has exited or `timeout` has passed.
+/// Only `SYNCHRONIZE` access is requested, which an elevated process is
+/// granted on the unelevated process that launched it.
+pub fn wait_for_process_exit(
+  pid: u32,
+  timeout: Duration,
+) -> Result<ProcessExitWait, PlatformError> {
+  let process = match unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) } {
+    Ok(process) => process,
+    // No process has this id any more, so the one that had it has exited.
+    Err(e) if e.code() == ERROR_INVALID_PARAMETER.to_hresult() => {
+      return Ok(ProcessExitWait::Exited);
+    }
+    Err(e) => {
+      return Err(PlatformError::fault(format!(
+        "Failed to open process {pid} to wait for it: {e}"
+      )));
+    }
+  };
+
+  // `INFINITE` is `u32::MAX`, so a timeout too long to represent is capped
+  // just below it instead of becoming an unbounded wait.
+  let timeout_ms = u32::try_from(timeout.as_millis()).unwrap_or(INFINITE - 1);
+  let waited = unsafe { WaitForSingleObject(process, timeout_ms) };
+  let _ = unsafe { CloseHandle(process) };
+
+  match waited {
+    WAIT_OBJECT_0 => Ok(ProcessExitWait::Exited),
+    WAIT_TIMEOUT => Ok(ProcessExitWait::TimedOut),
+    _ => Err(PlatformError::fault(format!(
+      "Failed to wait for process {pid}: {}",
+      windows::core::Error::from_thread()
+    ))),
+  }
+}
+
 fn wait_for_exit_code(process: HANDLE) -> Option<i32> {
   let _ = unsafe { WaitForSingleObject(process, INFINITE) };
   let mut exit_code: u32 = 0;
@@ -327,8 +369,35 @@ fn quote_windows_arg(arg: &OsStr) -> String {
 mod tests {
   use super::{
     is_within_any_root, quote_windows_arg, resolved_roots, strip_verbatim_prefix,
+    wait_for_process_exit,
   };
+  use crate::platform::traits::ProcessExitWait;
   use std::ffi::OsStr;
+  use std::time::Duration;
+
+  #[test]
+  fn waiting_returns_once_the_process_has_exited() {
+    let mut child = std::process::Command::new("cmd")
+      .args(["/C", "exit", "0"])
+      .spawn()
+      .expect("cmd runs");
+
+    // The `Child` keeps a handle open, so the id cannot be reused before
+    // the wait below has observed the exit.
+    assert_eq!(
+      wait_for_process_exit(child.id(), Duration::from_secs(30)),
+      Ok(ProcessExitWait::Exited)
+    );
+    assert!(child.wait().expect("child is reaped").success());
+  }
+
+  #[test]
+  fn waiting_on_a_running_process_times_out() {
+    assert_eq!(
+      wait_for_process_exit(std::process::id(), Duration::from_millis(50)),
+      Ok(ProcessExitWait::TimedOut)
+    );
+  }
 
   fn roots() -> Vec<String> {
     vec![

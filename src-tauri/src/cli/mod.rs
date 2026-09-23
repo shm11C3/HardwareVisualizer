@@ -11,6 +11,15 @@
 //! the executable in this mode, unelevated, before removing it. It tells the
 //! user which installed components the uninstall keeps, using the same Core
 //! detection as Settings, and always exits 0 so it can never block removal.
+//!
+//! Elevated relaunch handoff (follow-up to #2216): "restart as administrator"
+//! and Elevated Startup Mode launch the elevated child while the current
+//! process is still fully running, so a declined UAC prompt leaves it
+//! untouched. The child is told the parent's process id and waits for that
+//! process to exit before the Tauri runtime starts: until then the parent
+//! holds the single-instance lock and the database, so a child that ran
+//! ahead would exit as a second instance or race the writers the parent is
+//! still draining.
 
 use hardviz_core::external_component_setup::{
   ExternalComponentSetupOutcome, ExternalComponentSetupResult, RuntimeInstallState,
@@ -18,10 +27,18 @@ use hardviz_core::external_component_setup::{
 };
 use hardviz_core::models::ExternalComponent;
 use hardviz_core::platform::factory::PlatformFactory;
+use hardviz_core::platform::traits::ProcessExitWait;
+use std::time::Duration;
 
 pub const EXTERNAL_COMPONENT_SETUP_FLAG: &str = "--external-component-setup";
 pub const EXTERNAL_COMPONENT_NOTICE_FLAG: &str = "--external-component-notice";
+pub const WAIT_FOR_PARENT_FLAG: &str = "--wait-for-parent";
 const UNINSTALL_NOTICE: &str = "uninstall";
+/// How long the elevated child waits for its parent. The parent only has to
+/// drain its workers and close the database, which takes seconds; the bound
+/// exists so a parent that hangs, or a process id that was reused after the
+/// parent exited, cannot keep the child from ever starting.
+const PARENT_EXIT_TIMEOUT: Duration = Duration::from_secs(60);
 /// Components External Component Setup can install, in notice order.
 const SETUP_COMPONENTS: [ExternalComponent; 2] =
   [ExternalComponent::Pawnio, ExternalComponent::Smartctl];
@@ -53,6 +70,9 @@ pub enum CliMode {
 pub struct CliArgs {
   /// A mode that runs instead of the app, or `None` for a normal launch.
   pub mode: Option<CliMode>,
+  /// The process that launched this one elevated and that must exit before
+  /// the app starts (see [`WAIT_FOR_PARENT_FLAG`]).
+  pub wait_for_parent: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +80,7 @@ pub enum CliParseError {
   UnknownComponent(String),
   UnknownNotice(String),
   MissingValue(&'static str),
+  InvalidParentPid(String),
 }
 
 /// Recognize the App's own command-line arguments; anything else is left to
@@ -88,10 +109,72 @@ where
         return Err(CliParseError::UnknownNotice(notice));
       }
       parsed.mode = Some(CliMode::ExternalComponentUninstallNotice);
+    } else if arg == WAIT_FOR_PARENT_FLAG {
+      let pid = args
+        .next()
+        .ok_or(CliParseError::MissingValue(WAIT_FOR_PARENT_FLAG))?;
+      parsed.wait_for_parent = Some(
+        pid
+          .parse()
+          .map_err(|_| CliParseError::InvalidParentPid(pid))?,
+      );
     }
   }
 
   Ok(parsed)
+}
+
+/// The arguments for a relaunch of this process: its own arguments without
+/// the program name and without a handoff flag from its own launch, so a
+/// relaunch never waits on a parent that is long gone and whose id may
+/// belong to another process by now.
+pub fn relaunch_args() -> Vec<String> {
+  without_wait_for_parent(std::env::args().skip(1))
+}
+
+/// The arguments for the elevated child of this process: [`relaunch_args`]
+/// plus the handoff flag naming this process.
+pub fn elevated_handoff_args() -> Vec<String> {
+  with_wait_for_parent(relaunch_args(), std::process::id())
+}
+
+fn without_wait_for_parent<I: IntoIterator<Item = String>>(args: I) -> Vec<String> {
+  let mut args = args.into_iter();
+  let mut kept = Vec::new();
+  while let Some(arg) = args.next() {
+    if arg == WAIT_FOR_PARENT_FLAG {
+      args.next();
+      continue;
+    }
+    kept.push(arg);
+  }
+  kept
+}
+
+fn with_wait_for_parent(mut args: Vec<String>, parent_pid: u32) -> Vec<String> {
+  args.push(WAIT_FOR_PARENT_FLAG.to_string());
+  args.push(parent_pid.to_string());
+  args
+}
+
+/// Wait for the parent named by [`WAIT_FOR_PARENT_FLAG`] to exit. Returns
+/// the warning to log when the wait did not end with the parent's exit; the
+/// caller logs it once the logger exists, because this runs before it does.
+pub fn wait_for_parent_exit(parent_pid: u32) -> Result<(), String> {
+  let waited = PlatformFactory::shared()
+    .and_then(|platform| platform.wait_for_process_exit(parent_pid, PARENT_EXIT_TIMEOUT));
+  match waited {
+    Ok(ProcessExitWait::Exited) => Ok(()),
+    Ok(ProcessExitWait::TimedOut) => Err(format!(
+      "Elevated relaunch handoff: the parent process {parent_pid} did not exit within \
+       {} s; starting anyway",
+      PARENT_EXIT_TIMEOUT.as_secs()
+    )),
+    Err(e) => Err(format!(
+      "Elevated relaunch handoff: could not wait for the parent process {parent_pid}: \
+       {e}; starting anyway"
+    )),
+  }
 }
 
 /// Run a command-line mode to completion and return the process exit code.
@@ -283,6 +366,65 @@ mod tests {
     assert_eq!(
       parse_cli_mode(["exe", "--external-component-notice"]),
       Err(CliParseError::MissingValue(EXTERNAL_COMPONENT_NOTICE_FLAG))
+    );
+  }
+
+  #[test]
+  fn parses_the_parent_to_wait_for_beside_a_normal_launch() {
+    assert_eq!(
+      parse_cli_args(["exe", "--wait-for-parent", "4242"]),
+      Ok(CliArgs {
+        mode: None,
+        wait_for_parent: Some(4242),
+      })
+    );
+    assert_eq!(
+      parse_cli_args(["exe", "--some-tauri-flag", "--wait-for-parent", "7"]),
+      Ok(CliArgs {
+        mode: None,
+        wait_for_parent: Some(7),
+      })
+    );
+  }
+
+  #[test]
+  fn rejects_a_missing_or_invalid_parent_pid() {
+    assert_eq!(
+      parse_cli_args(["exe", "--wait-for-parent"]),
+      Err(CliParseError::MissingValue(WAIT_FOR_PARENT_FLAG))
+    );
+    assert_eq!(
+      parse_cli_args(["exe", "--wait-for-parent", "parent"]),
+      Err(CliParseError::InvalidParentPid("parent".to_string()))
+    );
+    assert_eq!(
+      parse_cli_args(["exe", "--wait-for-parent", "-1"]),
+      Err(CliParseError::InvalidParentPid("-1".to_string()))
+    );
+  }
+
+  #[test]
+  fn handoff_args_replace_the_parent_of_the_current_launch() {
+    let launched_with = vec![
+      "--some-tauri-flag".to_string(),
+      "--wait-for-parent".to_string(),
+      "100".to_string(),
+    ];
+
+    let relaunch = without_wait_for_parent(launched_with.clone());
+    assert_eq!(relaunch, vec!["--some-tauri-flag".to_string()]);
+
+    assert_eq!(
+      with_wait_for_parent(relaunch, 200),
+      vec![
+        "--some-tauri-flag".to_string(),
+        "--wait-for-parent".to_string(),
+        "200".to_string(),
+      ]
+    );
+    assert_eq!(
+      without_wait_for_parent(vec!["--wait-for-parent".to_string()]),
+      Vec::<String>::new()
     );
   }
 

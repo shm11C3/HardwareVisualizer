@@ -112,6 +112,23 @@ pub trait ProcessElevationPlatform: Send + Sync {
   /// is installed. The elevated launches refuse to run unless this is
   /// [`ElevationAvailability::Available`].
   fn elevation_availability(&self) -> ElevationAvailability;
+
+  /// Block until the process with `pid` has exited or `timeout` has passed.
+  /// A `pid` that no process holds any more counts as exited.
+  fn wait_for_process_exit(
+    &self,
+    pid: u32,
+    timeout: std::time::Duration,
+  ) -> Result<ProcessExitWait, PlatformError>;
+}
+
+/// How [`ProcessElevationPlatform::wait_for_process_exit`] ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessExitWait {
+  /// The process has exited, or no process had that id.
+  Exited,
+  /// The process was still running when the timeout passed.
+  TimedOut,
 }
 
 /// Whether the current executable can be launched elevated (#2216).

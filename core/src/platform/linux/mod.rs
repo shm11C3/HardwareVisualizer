@@ -5,7 +5,7 @@ use crate::models::hardware::{
 use crate::platform::traits::{
   ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform, GpuPlatform,
   GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
+  ProcessElevationPlatform, ProcessExitWait, SensorPlatform, SuperIoPlatform,
 };
 use async_trait::async_trait;
 
@@ -111,6 +111,16 @@ impl ProcessElevationPlatform for LinuxPlatform {
 
   fn elevation_availability(&self) -> ElevationAvailability {
     ElevationAvailability::Unsupported
+  }
+
+  fn wait_for_process_exit(
+    &self,
+    _pid: u32,
+    _timeout: std::time::Duration,
+  ) -> Result<ProcessExitWait, PlatformError> {
+    Err(PlatformError::unsupported(
+      "Waiting for another process is only supported on Windows.",
+    ))
   }
 }
 

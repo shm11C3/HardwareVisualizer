@@ -1,21 +1,22 @@
+use crate::cli;
+use crate::workers::WorkersState;
 use hardviz_core::enums::error::PlatformError;
 use hardviz_core::platform::factory::PlatformFactory;
-use hardviz_core::platform::traits::ElevationAvailability;
+use hardviz_core::platform::traits::{ElevationAvailability, ProcessElevationPlatform};
 use tauri::Manager;
 
 pub async fn restart_app(app_handle: &tauri::AppHandle) {
   // Get current executable file path
   let exe_path = std::env::current_exe().expect("Failed to obtain executable file path");
-  let args: Vec<String> = std::env::args().collect();
 
   // Spawn new process
   #[allow(clippy::zombie_processes)]
   std::process::Command::new(exe_path)
-    .args(args)
+    .args(cli::relaunch_args())
     .spawn()
     .expect("Failed to restart process");
 
-  let state = app_handle.state::<crate::workers::WorkersState>();
+  let state = app_handle.state::<WorkersState>();
   state.terminate_all().await;
 
   app_handle.exit(0);
@@ -24,18 +25,32 @@ pub async fn restart_app(app_handle: &tauri::AppHandle) {
 pub async fn restart_app_elevated(
   app_handle: &tauri::AppHandle,
 ) -> Result<(), PlatformError> {
-  // Refuse before shutting anything down: a refused relaunch must leave the
-  // running app fully working (#2216).
-  ensure_elevation_available()?;
-
-  let state = app_handle.state::<crate::workers::WorkersState>();
-  state.terminate_all().await;
-
-  relaunch_current_process_elevated()?;
+  let platform = PlatformFactory::shared()?;
+  let workers = app_handle.state::<WorkersState>();
+  hand_off_to_elevated_process(platform.as_ref(), &workers).await?;
   app_handle.exit(0);
   Ok(())
 }
 
+/// Launch the elevated child before anything stops, so a declined UAC prompt
+/// or a failed launch returns the error with every worker still running
+/// (#2216 follow-up). The launch can go first only because the child waits
+/// for this process to exit (`cli::WAIT_FOR_PARENT_FLAG`) before it takes the
+/// single-instance lock or opens the database; the elevated launch itself
+/// refuses an executable outside Program Files before it prompts.
+async fn hand_off_to_elevated_process(
+  platform: &dyn ProcessElevationPlatform,
+  workers: &WorkersState,
+) -> Result<(), PlatformError> {
+  platform.relaunch_current_process_elevated(&cli::elevated_handoff_args())?;
+  workers.terminate_all().await;
+  Ok(())
+}
+
+/// The same handoff at startup: no worker is running yet inside `setup`, but
+/// this process already holds the single-instance lock and, once the native
+/// database is selected, its live owner, so the child must still wait for
+/// the exit below before it starts.
 pub fn relaunch_for_elevated_startup_if_needed(
   app_handle: &tauri::AppHandle,
 ) -> Result<bool, PlatformError> {
@@ -43,7 +58,8 @@ pub fn relaunch_for_elevated_startup_if_needed(
     return Ok(false);
   }
 
-  relaunch_current_process_elevated()?;
+  let platform = PlatformFactory::shared()?;
+  platform.relaunch_current_process_elevated(&cli::elevated_handoff_args())?;
   app_handle.exit(0);
   Ok(true)
 }
@@ -61,41 +77,63 @@ pub fn elevation_availability() -> ElevationAvailability {
     .unwrap_or(ElevationAvailability::Unsupported)
 }
 
-fn ensure_elevation_available() -> Result<(), PlatformError> {
-  elevation_unavailable_error(elevation_availability()).map_or(Ok(()), Err)
-}
-
-fn elevation_unavailable_error(
-  availability: ElevationAvailability,
-) -> Option<PlatformError> {
-  match availability {
-    ElevationAvailability::Available => None,
-    ElevationAvailability::UnprotectedLocation => Some(PlatformError::unavailable(
-      "Cannot restart as administrator: HardwareVisualizer is not installed under \
-       Program Files, so its executable could have been replaced.",
-    )),
-    ElevationAvailability::Unsupported => Some(PlatformError::unsupported(
-      "Elevated Startup Mode is only supported on Windows.",
-    )),
-  }
-}
-
-pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
-  let platform = PlatformFactory::shared()?;
-  let args = std::env::args().skip(1).collect::<Vec<_>>();
-  platform.relaunch_current_process_elevated(&args)
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
+  use hardviz_core::platform::traits::ProcessExitWait;
+  use std::sync::atomic::Ordering;
 
-  #[test]
-  fn only_available_elevation_passes_the_precheck() {
-    assert!(elevation_unavailable_error(ElevationAvailability::Available).is_none());
-    assert!(
-      elevation_unavailable_error(ElevationAvailability::UnprotectedLocation).is_some()
-    );
-    assert!(elevation_unavailable_error(ElevationAvailability::Unsupported).is_some());
+  /// A platform whose elevated launch succeeds or fails as configured.
+  struct FakeElevation {
+    launch: Result<(), PlatformError>,
+  }
+
+  impl ProcessElevationPlatform for FakeElevation {
+    fn is_process_elevated(&self) -> Result<bool, PlatformError> {
+      Ok(false)
+    }
+
+    fn relaunch_current_process_elevated(
+      &self,
+      _args: &[String],
+    ) -> Result<(), PlatformError> {
+      self.launch.clone()
+    }
+
+    fn elevation_availability(&self) -> ElevationAvailability {
+      ElevationAvailability::Available
+    }
+
+    fn wait_for_process_exit(
+      &self,
+      _pid: u32,
+      _timeout: std::time::Duration,
+    ) -> Result<ProcessExitWait, PlatformError> {
+      Ok(ProcessExitWait::Exited)
+    }
+  }
+
+  #[tokio::test]
+  async fn a_declined_or_failed_launch_leaves_the_workers_running() {
+    let platform = FakeElevation {
+      launch: Err(PlatformError::fault("the elevation prompt was declined")),
+    };
+    let workers = WorkersState::default();
+
+    let result = hand_off_to_elevated_process(&platform, &workers).await;
+
+    assert!(result.is_err());
+    assert!(!workers.shutting_down.load(Ordering::SeqCst));
+  }
+
+  #[tokio::test]
+  async fn a_successful_launch_stops_the_workers() {
+    let platform = FakeElevation { launch: Ok(()) };
+    let workers = WorkersState::default();
+
+    let result = hand_off_to_elevated_process(&platform, &workers).await;
+
+    assert_eq!(result, Ok(()));
+    assert!(workers.shutting_down.load(Ordering::SeqCst));
   }
 }

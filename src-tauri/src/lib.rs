@@ -485,20 +485,36 @@ pub fn export_bindings() {
   export_typescript_bindings(&builder);
 }
 
-/// Run a command-line mode when the process was started with one.
+/// A warning from the elevated relaunch handoff, raised before the logger
+/// exists and logged by `run()` once it does.
+static HANDOFF_WARNING: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Run a command-line mode when the process was started with one, and wait
+/// for the parent of an elevated relaunch to exit.
 ///
 /// Returns the exit code to terminate with, or `None` for a normal launch.
 /// Called before any Tauri runtime is created so the elevated setup child
-/// never competes with the running app for the single-instance lock.
+/// never competes with the running app for the single-instance lock, and so
+/// the elevated relaunch child takes that lock and opens the database only
+/// after the parent that launched it has released both.
 pub fn run_cli_mode_if_requested() -> Option<i32> {
-  match cli::parse_cli_args(std::env::args()) {
-    Ok(cli::CliArgs { mode: Some(mode) }) => Some(cli::run_cli_mode(mode)),
-    Ok(cli::CliArgs { mode: None }) => None,
+  let args = match cli::parse_cli_args(std::env::args()) {
+    Ok(args) => args,
     Err(error) => {
       eprintln!("invalid command line: {error:?}");
-      Some(2)
+      return Some(2);
     }
+  };
+  if let Some(mode) = args.mode {
+    return Some(cli::run_cli_mode(mode));
   }
+  if let Some(parent_pid) = args.wait_for_parent
+    && let Err(warning) = cli::wait_for_parent_exit(parent_pid)
+  {
+    eprintln!("{warning}");
+    let _ = HANDOFF_WARNING.set(warning);
+  }
+  None
 }
 
 pub fn run() {
@@ -670,6 +686,10 @@ pub fn run() {
 
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
+
+      if let Some(warning) = HANDOFF_WARNING.get() {
+        log_warn!(warning, "lib::setup", None::<&str>);
+      }
 
       if elevated_startup_mode {
         match services::system_service::relaunch_for_elevated_startup_if_needed(app.handle())

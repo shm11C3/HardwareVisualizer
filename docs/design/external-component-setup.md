@@ -122,6 +122,17 @@ installed and its fallbacks unchanged.
   Elevated Startup Mode keeps its saved value and simply does not relaunch.
   Planting a DLL next to the executable is closed separately by linking with
   `/DEPENDENTLOADFLAG:0x800`, and #2215 recommends the MSI to NSIS users.
+
+  *Elevated relaunch handoff (#2216 follow-up).* "Restart as administrator"
+  and Elevated Startup Mode launch the elevated child before anything stops,
+  so a declined UAC prompt or a failed launch returns an error while every
+  worker keeps running, and the Settings toggle rolls back. The child is
+  launched with `--wait-for-parent <pid>` added to the current arguments and,
+  before its Tauri runtime starts, waits for that process to exit (bounded to
+  60 s, logged if exceeded): the parent still holds the single-instance lock
+  and the database until it has drained its workers, so a child that ran
+  ahead would exit as a second instance or race the writers. Once the launch
+  has succeeded, the parent stops its workers and exits as before.
 - **MSI (implemented, #2118).** The WiX fragment
   `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between
