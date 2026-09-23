@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { GPU_FIXTURES } from "../src/e2e/fixtures/hardware";
 import {
   BOOTSTRAP_TIMEOUT,
@@ -84,13 +84,26 @@ test.describe("dashboard captures", () => {
     await saveCapture(page, "dashboard-storage-many");
   });
 
-  test("NSIS build shows the MSI migration notice", async ({ page }) => {
+  test("NSIS build shows the MSI migration notice", async ({
+    context,
+    page: firstPage,
+  }) => {
     const path = "/?navigationLayout=classic&nsisMigrationNotice=1";
+    const noticeOn = (page: Page) =>
+      page.getByRole("alertdialog", { name: "Switch to the MSI installer" });
+    // A fresh page in the same context stands in for the next app launch:
+    // in-memory state is gone, the mocked settings file is not.
+    const relaunch = async (previous: Page) => {
+      await previous.close();
+      const next = await context.newPage();
+      await gotoApp(next, { path });
+      return next;
+    };
+
+    let page = firstPage;
     await gotoApp(page, { path });
 
-    const notice = page.getByRole("alertdialog", {
-      name: "Switch to the MSI installer",
-    });
+    const notice = noticeOn(page);
     await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
     await saveCapture(page, "nsis-migration-notice");
 
@@ -106,20 +119,21 @@ test.describe("dashboard captures", () => {
     await hide.click();
     await page.getByRole("menuitem", { name: "Remind me next time" }).click();
     await expect(notice).toHaveCount(0);
-    await gotoApp(page, { path });
-    await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    page = await relaunch(page);
+    const remindedNotice = noticeOn(page);
+    await expect(remindedNotice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
 
     // "Never show again" is saved, so the next launch does not show it.
-    await notice.getByRole("button", { name: "Hide" }).click();
+    await remindedNotice.getByRole("button", { name: "Hide" }).click();
     await page.getByRole("menuitem", { name: "Never show again" }).click();
-    await expect(notice).toHaveCount(0);
-    await gotoApp(page, { path });
+    await expect(remindedNotice).toHaveCount(0);
+    page = await relaunch(page);
     await expect
       .poll(() =>
         page.evaluate(() => window.__E2E__?.getInvokeCount("get_settings")),
       )
       .toBeGreaterThan(0);
-    await expect(notice).toHaveCount(0);
+    await expect(noticeOn(page)).toHaveCount(0);
     expect(
       await page.evaluate(() =>
         window.__E2E__?.getInvokeCount("plugin:app|bundle_type"),

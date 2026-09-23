@@ -60,7 +60,7 @@ declare global {
 
 type InvokeHandler = (args?: unknown) => unknown;
 
-/** Survives reloads like the real settings file, so a test can tell a saved
+/** Survives closing the page like the real settings file, so a test can tell a saved
  * dismissal from a session-only hide. */
 const NSIS_MIGRATION_NOTICE_DISMISSED_KEY = "e2e:nsisMigrationNoticeDismissed";
 type EventListenArgs = { event: string; handler: number };
@@ -308,12 +308,11 @@ const buildInvokeHandlers = (
       ? 0
       : settingsFixture.uiAnnouncementVersion,
     nsisMigrationNoticeDismissed: fixtureOverrides.nsisMigrationNotice
-      ? window.sessionStorage.getItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY) ===
-        "1"
+      ? window.localStorage.getItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY) === "1"
       : settingsFixture.nsisMigrationNoticeDismissed,
   }),
   dismiss_nsis_migration_notice: () => {
-    window.sessionStorage.setItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY, "1");
+    window.localStorage.setItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY, "1");
     return null;
   },
   get_hardware_info: () =>
