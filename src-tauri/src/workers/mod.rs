@@ -64,11 +64,26 @@ pub struct WorkersState {
 
 impl WorkersState {
   pub async fn terminate_all(&self) {
+    if let Err(error) = self.terminate_all_checked().await {
+      hardviz_core::log_error!(
+        "Failed to close the native database owner during shutdown",
+        "workers::WorkersState::terminate_all",
+        Some(error)
+      );
+    }
+  }
+
+  /// Drain every worker and report whether the dispatch owner closed cleanly.
+  ///
+  /// The shutdown path for a recovered native database uses the result before
+  /// restarting, so it can log a close failure while still letting process
+  /// exit release any remaining native handles.
+  pub async fn terminate_all_checked(&self) -> Result<(), String> {
     if self
       .shutting_down
       .swap(true, std::sync::atomic::Ordering::SeqCst)
     {
-      return;
+      return Ok(());
     }
     let monitor = self.monitor.lock().unwrap().take();
     let window_adapter = self.window_adapter.lock().unwrap().take();
@@ -138,11 +153,9 @@ impl WorkersState {
     // archive/cooling/storage-health/cleanup write.
     #[cfg(feature = "duckdb-archive")]
     if let Err(e) = hardviz_core::infrastructure::database::dispatch::shutdown().await {
-      hardviz_core::log_error!(
-        "Failed to close the native database owner during shutdown",
-        "workers::WorkersState::terminate_all",
-        Some(e.to_string())
-      );
+      return Err(e.to_string());
     }
+
+    Ok(())
   }
 }

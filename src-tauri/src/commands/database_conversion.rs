@@ -49,10 +49,12 @@ mod imp {
   use tauri::Manager;
 
   use crate::app::native_conversion::{
-    ConversionRuntime, ConversionTarget, SelectionHandoff, build_producer_resumers,
-    run_conversion,
+    ConversionOutcome, ConversionRuntime, ConversionTarget, SelectionHandoff,
+    build_producer_resumers, run_conversion,
   };
-  use crate::app::native_lifecycle::NativeLifecycleOwner;
+  use crate::app::native_lifecycle::{
+    DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
+  };
   use crate::infrastructure::database::{native_paths, native_schema};
   use crate::models::database_conversion::DatabaseConversionState;
   use crate::workers::WorkersState;
@@ -98,6 +100,7 @@ mod imp {
     runtime_handle.spawn(async move {
       let owner = app_for_task.state::<NativeLifecycleOwner>();
       let workers = app_for_task.state::<WorkersState>();
+      let previous_state = owner.state();
 
       let result = run_conversion(
         target,
@@ -122,9 +125,35 @@ mod imp {
         ),
       }
 
+      let restart_after_recovery = should_restart_after_native_open_failure_retry(
+        &previous_state,
+        result.as_ref().ok(),
+        &owner.state(),
+      );
+
       // Looked up fresh here too, not carried across the spawn boundary -
       // see the comment above this task's construction.
       app_for_task.state::<ConversionRuntime>().end_attempt();
+
+      if restart_after_recovery {
+        log_info!(
+          "restarting after native database recovery so startup services can initialize",
+          "commands::database_conversion::start_database_conversion",
+          None::<&str>
+        );
+        // `terminate_all_checked` waits for every producer and the dispatch
+        // owner to close before Tauri starts the replacement process. Even
+        // if native close reports an error, process exit releases any
+        // remaining handle and the next startup rechecks durable authority.
+        if let Err(error) = workers.terminate_all_checked().await {
+          log_error!(
+            "native database shutdown reported an error before recovery restart",
+            "commands::database_conversion::start_database_conversion",
+            Some(error)
+          );
+        }
+        app_for_task.restart();
+      }
     });
 
     Ok(())
@@ -135,6 +164,51 @@ mod imp {
   ) -> Result<(), String> {
     app.state::<ConversionRuntime>().cancel_current();
     Ok(())
+  }
+
+  fn should_restart_after_native_open_failure_retry(
+    previous_state: &DatabaseLifecycleState,
+    outcome: Option<&ConversionOutcome>,
+    current_state: &DatabaseLifecycleState,
+  ) -> bool {
+    matches!(
+      previous_state,
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed { .. })
+    ) && matches!(
+      outcome,
+      Some(ConversionOutcome::AlreadySelected | ConversionOutcome::Selected { .. })
+    ) && matches!(current_state, DatabaseLifecycleState::NativeAuthoritative)
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    #[test]
+    fn restart_after_retry_only_when_native_open_failure_recovers() {
+      let native_open_failed =
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+          message: "native database could not be opened".to_owned(),
+        });
+      let native_authoritative = DatabaseLifecycleState::NativeAuthoritative;
+      let recovered = ConversionOutcome::AlreadySelected;
+
+      assert!(should_restart_after_native_open_failure_retry(
+        &native_open_failed,
+        Some(&recovered),
+        &native_authoritative,
+      ));
+      assert!(!should_restart_after_native_open_failure_retry(
+        &native_open_failed,
+        None,
+        &native_open_failed,
+      ));
+      assert!(!should_restart_after_native_open_failure_retry(
+        &DatabaseLifecycleState::SqliteAuthoritative,
+        Some(&ConversionOutcome::Selected { total_rows: 1 }),
+        &native_authoritative,
+      ));
+    }
   }
 }
 
