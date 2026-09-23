@@ -24,8 +24,8 @@ lives here; everything else belongs in `hardviz-core`.
   tracks which of five states the conversion is in, and
   `app::native_conversion::run_conversion` drives an explicit,
   user-triggered conversion from SQLite to native (never started
-  automatically; nothing calls it in production until PR #2220's trigger
-  merges). `app::native_maintenance` retires the SQLite source (renamed
+  automatically; production calls it only through PR #2220's trigger,
+  merged). `app::native_maintenance` retires the SQLite source (renamed
   in place with a `.retired` suffix) once a later boot finds native
   authoritative and verified.
 - Own UI-only settings (theme, language, line graph styling, burn-in shift,

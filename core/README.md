@@ -86,7 +86,7 @@ maintains, not by a per-call flag. The App crate still owns Tauri-specific
 startup decisions: resolving the SQLite, native database, and marker paths,
 supplying the ordered migration definitions, driving the conversion from
 SQLite to native (started only by explicit user intent, trigger in PR #2220,
-open), and deciding whether
+merged), and deciding whether
 DB-dependent workers can start after preflight. Core owns the pool, migration
 execution, and the native database's single-owner runtime: only one
 process-local owner may hold the native file open at a time. See
@@ -152,8 +152,12 @@ services instead of reaching into providers directly.
 cargo build -p hardviz-core
 
 # Run Core tests without spinning up a Tauri runtime (CI parity)
-cargo nextest run -p hardviz-core --features duckdb-archive
+cargo nextest run -p hardviz-core
 ```
+
+`duckdb-archive` is a default feature, so no `--features` flag is needed to
+build and run the DuckDB integration tests; pass `--no-default-features` to
+build the SQLite-only fallback kept until ADR 0025 removes it in v2.0.0.
 
 CI runs the Core tests through [cargo-nextest](https://nexte.st) with the
 `ci` profile from `.config/nextest.toml`. nextest runs every test in its own
@@ -161,9 +165,9 @@ process, so the DuckDB integration binaries under `core/tests/` execute in
 parallel while the process-wide database path each of them initializes stays
 private to the test. Install it once with `cargo install cargo-nextest --locked`.
 
-Plain `cargo test -p hardviz-core --features duckdb-archive` still works as a
-fallback. It shares one process per test binary, so it runs the integration
-tests serially and takes several minutes longer.
+Plain `cargo test -p hardviz-core` still works as a fallback. It shares one
+process per test binary, so it runs the integration tests serially and takes
+several minutes longer.
 
 Core is also covered by the workspace-wide `cargo tauri-fmt` /
 `cargo tauri-lint` / `cargo tauri-test` aliases defined in

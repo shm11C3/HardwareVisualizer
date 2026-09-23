@@ -3,9 +3,9 @@
 Status: recommended direction under
 [ADR 0022](../adr/0022-prioritize-native-duckdb-archive-qualification.md).
 Status update (2026-09-23): the conversion path and dispatch boundary
-described here are implemented on `develop`. Shipped builds still compile
-without the `duckdb-archive` feature; PR #2224 (open) enables it, gated on the
-#2137 go/no-go, and PR #2220 (open) adds the explicit user-started conversion
+described here are implemented on `develop`. `duckdb-archive` is now a
+default Cargo feature and shipped builds compile with it (PR #2224,
+merged), and PR #2220 (merged) shipped the explicit user-started conversion
 trigger. See [`docs/architecture/backend.md`](../architecture/backend.md) for
 the current persistence behaviour. The experiments and open trade-offs below
 are otherwise unchanged.
