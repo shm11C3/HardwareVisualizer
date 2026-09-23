@@ -17,19 +17,29 @@ export const useTauriStore = <T>(
     isMountedRef.current = true;
 
     const fetchValue = async () => {
-      const store = await getStoreInstance();
+      let resolvedValue = defaultValue;
 
-      const storedValue = (await store.has(key))
-        ? await store.get<T>(key)
-        : null;
+      try {
+        const store = await getStoreInstance();
 
-      if (!storedValue) {
-        await store.set(key, defaultValue);
-        await store.save();
+        const storedValue = (await store.has(key))
+          ? await store.get<T>(key)
+          : null;
+
+        if (!storedValue) {
+          await store.set(key, defaultValue);
+          await store.save();
+        }
+
+        resolvedValue = storedValue ?? defaultValue;
+      } catch (error) {
+        // A failed store read must still settle the hook. Consumers gate on
+        // isPending, so staying pending would hide their UI for the session.
+        console.error(`Failed to read Tauri Store key "${key}":`, error);
       }
 
       if (isMountedRef.current) {
-        setValueState(storedValue ?? defaultValue);
+        setValueState(resolvedValue);
         setIsPending(false);
       }
     };

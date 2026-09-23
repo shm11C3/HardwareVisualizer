@@ -139,6 +139,66 @@ describe("useTauriStore", () => {
     await waitFor(() => result.current[2] === false);
   });
 
+  it("Settles to the default with isPending false when the initial read rejects", async () => {
+    // A store read failure must not leave consumers gated on isPending forever
+    // (e.g. the conversion prompt and the NSIS migration notice).
+    fakeStore.has = vi.fn(() => Promise.reject(new Error("store read failed")));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() =>
+      useTauriStore<string>("testKey", "defaultValue"),
+    );
+
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    expect(result.current[0]).toBe("defaultValue");
+    expect(consoleError).toHaveBeenCalled();
+    expect(fakeStore.set).not.toHaveBeenCalled();
+  });
+
+  it("Settles to the default with isPending false when the store cannot be loaded", async () => {
+    vi.doMock("@tauri-apps/plugin-store", () => ({
+      load: vi.fn(() => Promise.reject(new Error("store load failed"))),
+    }));
+    vi.resetModules();
+    const module = await import("@/hooks/useTauriStore");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() =>
+      module.useTauriStore<string>("testKey", "defaultValue"),
+    );
+
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    expect(result.current[0]).toBe("defaultValue");
+    expect(consoleError).toHaveBeenCalled();
+  });
+
+  it("Rejects setValue and keeps the previous value when the store write fails", async () => {
+    fakeStore.data["testKey"] = "storedValue";
+    const { result } = renderHook(() =>
+      useTauriStore<string>("testKey", "defaultValue"),
+    );
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    fakeStore.set = vi.fn(() =>
+      Promise.reject(new Error("store write failed")),
+    );
+
+    await act(async () => {
+      await expect(result.current[1]("newValue")).rejects.toThrow(
+        "store write failed",
+      );
+    });
+
+    expect(result.current[0]).toBe("storedValue");
+    expect(fakeStore.save).not.toHaveBeenCalled();
+  });
+
   it("Does not update state after unmount (cleanup guard)", async () => {
     // Unmounting before the store resolves exercises two uncovered paths:
     //  1. The cleanup function (line 40: `isMountedRef.current = false`)
