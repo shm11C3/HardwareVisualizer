@@ -3,7 +3,7 @@ use crate::log_warn;
 use crate::platform::traits::{ElevatedProcessRun, ElevationAvailability};
 use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStrExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use windows::Win32::Foundation::{CloseHandle, ERROR_CANCELLED, HANDLE};
 use windows::Win32::Storage::FileSystem::{
   CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_NAME_NORMALIZED, FILE_READ_ATTRIBUTES,
@@ -31,9 +31,9 @@ use windows::core::{GUID, PCWSTR};
 /// and it trusts Program Files' default ACL: only an administrator can make a
 /// folder inside it writable. Any failure to resolve a path refuses elevation.
 pub fn elevation_availability() -> ElevationAvailability {
-  match current_executable_is_under_program_files() {
-    Ok(true) => ElevationAvailability::Available,
-    Ok(false) => ElevationAvailability::UnprotectedLocation,
+  match protected_executable_path() {
+    Ok(Some(_)) => ElevationAvailability::Available,
+    Ok(None) => ElevationAvailability::UnprotectedLocation,
     Err(detail) => {
       log_warn!(
         format!("Refusing elevation: could not verify the install folder: {detail}"),
@@ -45,13 +45,20 @@ pub fn elevation_availability() -> ElevationAvailability {
   }
 }
 
-fn current_executable_is_under_program_files() -> Result<bool, String> {
+/// The resolved path of the current executable when it sits under Program
+/// Files, `None` when it does not. The executable file itself is resolved, not
+/// only its folder, and callers launch this resolved path: a junction or
+/// symbolic link in `current_exe()` that is retargeted after the check cannot
+/// redirect the elevated launch to a replaceable file.
+fn protected_executable_path() -> Result<Option<PathBuf>, String> {
   let exe_path = std::env::current_exe()
     .map_err(|e| format!("Failed to obtain executable file path: {e}"))?;
-  let exe_dir = exe_path
+  let resolved = PathBuf::from(final_path(&exe_path)?);
+  let resolved_dir = resolved
     .parent()
-    .ok_or_else(|| "The executable path has no parent folder".to_string())?;
-  let exe_dir = final_path(exe_dir)?;
+    .ok_or_else(|| "The executable path has no parent folder".to_string())?
+    .to_string_lossy()
+    .into_owned();
 
   let mut roots = Vec::new();
   for folder in [&FOLDERID_ProgramFiles, &FOLDERID_ProgramFilesX86] {
@@ -59,7 +66,7 @@ fn current_executable_is_under_program_files() -> Result<bool, String> {
     roots.push(final_path(Path::new(&root)).unwrap_or(root));
   }
 
-  Ok(is_within_any_root(&exe_dir, &roots))
+  Ok(is_within_any_root(&resolved_dir, &roots).then_some(resolved))
 }
 
 /// Case-insensitive check that `path` is one of `roots` or inside one of them,
@@ -180,16 +187,21 @@ fn launch_current_executable_elevated(
   args: &[OsString],
   action: &str,
 ) -> Result<Option<HANDLE>, PlatformError> {
-  if elevation_availability() != ElevationAvailability::Available {
-    return Err(PlatformError::unavailable(format!(
-      "Refusing to {action}: HardwareVisualizer is not installed under Program Files, \
-       so its executable could have been replaced."
-    )));
-  }
-
-  let exe_path = std::env::current_exe().map_err(|e| {
-    PlatformError::fault(format!("Failed to obtain executable file path: {e}"))
-  })?;
+  // Launch exactly the resolved file that passed the check.
+  let exe_path = match protected_executable_path() {
+    Ok(Some(path)) => path,
+    Ok(None) => {
+      return Err(PlatformError::unavailable(format!(
+        "Refusing to {action}: HardwareVisualizer is not installed under Program Files, \
+         so its executable could have been replaced."
+      )));
+    }
+    Err(detail) => {
+      return Err(PlatformError::unavailable(format!(
+        "Refusing to {action}: could not verify the install folder: {detail}"
+      )));
+    }
+  };
   let params = args
     .iter()
     .map(|arg| quote_windows_arg(arg))
@@ -352,6 +364,32 @@ mod tests {
       crate::platform::traits::ElevationAvailability::UnprotectedLocation
     );
     assert!(super::relaunch_current_process_elevated().is_err());
+  }
+
+  #[test]
+  fn final_path_follows_a_junction_to_the_real_file() {
+    let base =
+      std::env::temp_dir().join(format!("hardviz-final-path-{}", std::process::id()));
+    let target = base.join("target");
+    let link = base.join("link");
+    std::fs::create_dir_all(&target).unwrap();
+    std::fs::write(target.join("app.exe"), b"").unwrap();
+    let status = std::process::Command::new("cmd")
+      .args(["/C", "mklink", "/J"])
+      .arg(&link)
+      .arg(&target)
+      .output()
+      .expect("mklink runs");
+    assert!(status.status.success(), "{status:?}");
+
+    let resolved = super::final_path(&link.join("app.exe")).expect("resolves");
+    let expected =
+      super::final_path(&target.join("app.exe")).expect("resolves the target");
+    let _ = std::fs::remove_dir(&link);
+    let _ = std::fs::remove_dir_all(&base);
+
+    assert_eq!(resolved.to_lowercase(), expected.to_lowercase());
+    assert!(!resolved.to_lowercase().contains(r"\link\"), "{resolved}");
   }
 
   #[test]
