@@ -13,8 +13,11 @@ pub mod app_updates {
   use crate::{log_debug, log_error, log_info};
   use serde::Serialize;
   use specta;
+  use std::future::Future;
   use std::sync::Mutex;
   use tauri;
+  #[cfg(target_os = "windows")]
+  use tauri::Manager;
   use tauri_plugin_updater::{Update, UpdaterExt};
 
   #[derive(Debug, Serialize, specta::Type)]
@@ -105,6 +108,7 @@ pub mod app_updates {
   #[tauri::command]
   #[specta::specta]
   pub async fn install_update(
+    _app_handle: tauri::AppHandle,
     pending_update: tauri::State<'_, PendingUpdate>,
     on_event: tauri::ipc::Channel<DownloadEvent>,
   ) -> Result<(), UpdaterError> {
@@ -117,8 +121,8 @@ pub mod app_updates {
 
     let mut started = false;
 
-    update
-      .download_and_install(
+    let bytes = update
+      .download(
         |chunk_length, content_length| {
           if !started {
             log_info!(
@@ -144,7 +148,79 @@ pub mod app_updates {
       )
       .await?;
 
+    // Windows exits the process as soon as the installer starts. Drain App
+    // workers only after the package has downloaded and verified, then wait
+    // for the native database owner to close before handing off to the installer.
+    let shutdown = async {
+      #[cfg(target_os = "windows")]
+      _app_handle
+        .state::<crate::workers::WorkersState>()
+        .terminate_all()
+        .await;
+    };
+    install_after_shutdown(shutdown, || {
+      update.install(bytes).map_err(UpdaterError::from)
+    })
+    .await?;
+
     Ok(())
+  }
+
+  async fn install_after_shutdown<Shutdown, Install>(
+    shutdown: Shutdown,
+    install: Install,
+  ) -> Result<(), UpdaterError>
+  where
+    Shutdown: Future<Output = ()>,
+    Install: FnOnce() -> Result<(), UpdaterError>,
+  {
+    shutdown.await;
+    install()
+  }
+
+  #[cfg(test)]
+  mod install_tests {
+    use super::install_after_shutdown;
+    use tokio::sync::oneshot;
+
+    #[tokio::test]
+    async fn waits_for_shutdown_before_handing_off_to_the_installer() {
+      let (shutdown_started_tx, shutdown_started_rx) = oneshot::channel();
+      let (finish_shutdown_tx, finish_shutdown_rx) = oneshot::channel();
+      let (installer_handoff_tx, installer_handoff_rx) = oneshot::channel();
+
+      let install = install_after_shutdown(
+        async move {
+          let _ = shutdown_started_tx.send(());
+          let _ = finish_shutdown_rx.await;
+        },
+        move || {
+          let _ = installer_handoff_tx.send(());
+          Ok(())
+        },
+      );
+      tokio::pin!(install);
+      tokio::pin!(installer_handoff_rx);
+
+      tokio::select! {
+        shutdown_started = shutdown_started_rx => {
+          shutdown_started.expect("shutdown should start before installation");
+        }
+        result = &mut install => panic!("installer returned before shutdown started: {result:?}"),
+        handoff = &mut installer_handoff_rx => {
+          panic!("installer ran before shutdown started: {handoff:?}");
+        }
+      }
+      assert!(installer_handoff_rx.as_mut().get_mut().try_recv().is_err());
+
+      finish_shutdown_tx
+        .send(())
+        .expect("shutdown should still be waiting");
+      assert!(install.await.is_ok());
+      installer_handoff_rx
+        .await
+        .expect("installer should run after shutdown completes");
+    }
   }
 }
 
