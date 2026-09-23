@@ -106,7 +106,7 @@ pub mod app_updates {
   #[tauri::command]
   #[specta::specta]
   pub async fn install_update(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     pending_update: tauri::State<'_, PendingUpdate>,
     on_event: tauri::ipc::Channel<DownloadEvent>,
   ) -> Result<(), UpdaterError> {
@@ -150,7 +150,7 @@ pub mod app_updates {
     // lifecycle owner to drain producers and close the native owner before handoff.
     let shutdown = async {
       #[cfg(target_os = "windows")]
-      crate::lifecycle::prepare_for_update_install(&app_handle)
+      crate::lifecycle::prepare_for_update_install(&_app_handle)
         .await
         .map_err(UpdaterError::Updater)?;
       Ok::<(), UpdaterError>(())

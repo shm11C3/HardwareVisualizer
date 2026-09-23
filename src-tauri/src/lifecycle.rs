@@ -343,6 +343,7 @@ pub async fn request_quit(app: AppHandle) {
 ///
 /// This shares the process-shutdown lifecycle order but leaves process exit to
 /// the updater, which starts the installer only after this returns `Ok(())`.
+#[cfg(target_os = "windows")]
 pub async fn prepare_for_update_install(app: &AppHandle) -> Result<(), String> {
   prepare_for_process_shutdown(app).await
 }
