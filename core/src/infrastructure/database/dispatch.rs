@@ -169,6 +169,10 @@ mod boundary {
   enum Active {
     Sqlite,
     Native(NativeDatabase),
+    /// Non-serving state installed before the first reobserve await. If that
+    /// future is cancelled, consumers stay refused rather than serving stale
+    /// SQLite or observing the file beside an owner that may still be closing.
+    Reobserving,
     Unavailable(String),
     Shutdown,
   }
@@ -255,7 +259,16 @@ mod boundary {
     if matches!(&*guard, Active::Shutdown) {
       return Err(DispatchError::Shutdown);
     }
-    if let Active::Native(database) = std::mem::replace(guard, Active::Sqlite) {
+    if matches!(&*guard, Active::Reobserving) {
+      return Err(DispatchError::NativeUnavailable {
+        reason: "a previous native authority reobservation was interrupted; restart the app to establish a new owner".to_owned(),
+      });
+    }
+    // Set a non-serving state before close/open can yield. If this future is
+    // cancelled at either await, the write guard may be released, but SQLite
+    // must not answer while native remains durably selected.
+    let previous = std::mem::replace(guard, Active::Reobserving);
+    if let Active::Native(database) = previous {
       close_or_refuse(guard, database).await?;
     }
     let facts = observe_authority(&config.paths, config.expected_schema_version);
@@ -306,10 +319,10 @@ mod boundary {
 
   /// Close a native owner that was just taken out of the boundary.
   ///
-  /// The caller has already replaced the owner with the state it intends to
-  /// leave active. If close fails, the durable state may still say native is
-  /// selected, so the boundary is left [`Active::Unavailable`] rather than
-  /// answering from a stale SQLite copy.
+  /// The caller has already replaced the owner with a non-serving transition
+  /// state. If close fails, the durable state may still say native is selected,
+  /// so the boundary is left [`Active::Unavailable`] rather than answering
+  /// from a stale SQLite copy.
   async fn close_or_refuse(
     guard: &mut Active,
     database: NativeDatabase,
@@ -374,6 +387,9 @@ mod boundary {
       Active::Unavailable(reason) => Err(DispatchError::NativeUnavailable {
         reason: reason.clone(),
       }),
+      Active::Reobserving => Err(DispatchError::NativeUnavailable {
+        reason: "native authority reobservation did not finish; restart the app to establish a new owner".to_owned(),
+      }),
       Active::Shutdown => Err(DispatchError::Shutdown),
     }
   }
@@ -384,13 +400,14 @@ mod boundary {
       Arc,
       atomic::{AtomicUsize, Ordering},
     };
+    use std::time::Duration;
 
     use tokio::sync::RwLock;
 
     use super::{
       Active, Backend, Config, DispatchError, NativeDatabase, NativeDatabaseError,
       NativeDatabaseOptions, backend_from_active, mark_unavailable_after_close_failure,
-      resolve_backend_with,
+      reobserve_authority_locked, resolve_backend_with,
     };
     use crate::infrastructure::database::native_database::NativeCancellation;
     use crate::infrastructure::database::native_database::{
@@ -593,6 +610,109 @@ mod boundary {
         backend_from_active(&guard),
         Err(DispatchError::NativeUnavailable { .. })
       ));
+    }
+
+    #[tokio::test]
+    async fn cancelled_reobserve_stays_non_serving_until_the_old_owner_is_closed() {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      let active = Arc::new(active);
+      let config = Arc::new(config);
+
+      // Keep one lane busy so close awaits its join after installing the
+      // transition state. This makes cancellation land inside the handoff.
+      let (read_started_tx, read_started_rx) = tokio::sync::oneshot::channel();
+      let (release_read_tx, release_read_rx) = std::sync::mpsc::channel();
+      let blocked_read = {
+        let database = original.clone();
+        tokio::spawn(async move {
+          database
+            .request_read(NativeCancellation::new(), move |_| {
+              let _ = read_started_tx.send(());
+              release_read_rx
+                .recv()
+                .map_err(|error| NativeDatabaseError::Worker {
+                  message: error.to_string(),
+                })?;
+              Ok::<(), NativeDatabaseError>(())
+            })
+            .await
+        })
+      };
+      tokio::time::timeout(Duration::from_secs(3), read_started_rx)
+        .await
+        .expect("the blocked read should start before testing cancellation")
+        .unwrap();
+      original.inject_next_checkpoint_failure();
+      assert!(
+        original
+          .checkpoint(NativeCancellation::new())
+          .await
+          .is_err()
+      );
+
+      let recovery = {
+        let active = Arc::clone(&active);
+        let config = Arc::clone(&config);
+        tokio::spawn(
+          async move { resolve_backend_with(&active, Some(config.as_ref())).await },
+        )
+      };
+      tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+          if active.try_write().is_err() {
+            break;
+          }
+          tokio::task::yield_now().await;
+        }
+      })
+      .await
+      .expect("recovery should be waiting for the blocked lane to close");
+      recovery.abort();
+      assert!(recovery.await.unwrap_err().is_cancelled());
+
+      assert!(matches!(
+        resolve_backend_with(&active, Some(config.as_ref())).await,
+        Err(DispatchError::NativeUnavailable { .. })
+      ));
+      let mut guard = active.write().await;
+      assert!(matches!(
+        reobserve_authority_locked(&mut guard, config.as_ref()).await,
+        Err(DispatchError::NativeUnavailable { .. })
+      ));
+      drop(guard);
+
+      release_read_tx.send(()).unwrap();
+      blocked_read.await.unwrap().unwrap();
+
+      // close() continues joining its lane threads even after its caller is
+      // cancelled. Wait until their in-process file claim is released before
+      // this test drops its temporary database directory.
+      tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+          match NativeDatabase::open(
+            &config.paths.native_database,
+            NativeDatabaseOptions::new(7),
+          )
+          .await
+          {
+            Ok(database) => {
+              database.close().await.unwrap();
+              break;
+            }
+            Err(NativeDatabaseError::AlreadyOpen { .. }) => {
+              tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            Err(error) => panic!("the test database could not be reopened: {error}"),
+          }
+        }
+      })
+      .await
+      .expect("the cancelled close should eventually release the owner claim");
     }
   }
 }
