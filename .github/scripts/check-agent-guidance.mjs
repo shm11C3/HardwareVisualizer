@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   cleanRoomReferenceFiles,
   githubScriptsDir,
+  githubScriptIndexRows,
   githubScriptsIndex,
   listedGithubScripts,
   requiredGuidanceFiles,
@@ -212,9 +213,26 @@ async function checkRequiredFiles() {
   }
 }
 
+// Local shape of the index: every row names at least one consumer. Safe for
+// PostToolUse, which may run before the listed script exists.
+function checkGithubScriptsIndexRows(indexContent) {
+  const rows = githubScriptIndexRows(indexContent);
+  if (rows.length === 0) {
+    fail(`${githubScriptsIndex} has no "## Index" table rows`);
+  }
+  for (const row of rows) {
+    if (row.consumers === "") {
+      fail(
+        `${githubScriptsIndex} row for ${row.script} must name its GitHub Actions consumer`,
+      );
+    }
+  }
+}
+
 // .github/scripts only holds GitHub Actions plumbing; every file must be listed
 // in its README index so a new script states its consumer before it lands.
 async function checkGithubScriptsIndex() {
+  checkGithubScriptsIndexRows(await read(githubScriptsIndex));
   const entries = await readdir(path.join(root, githubScriptsDir), {
     recursive: true,
     withFileTypes: true,
@@ -843,8 +861,11 @@ async function checkTouchedFiles(relativePaths) {
       continue;
     }
 
+    // Only the local row shape here: the directory-versus-index comparison is
+    // cross-file and runs at Stop and in CI, so the index row can be added
+    // before the script it describes.
     if (normalized === githubScriptsIndex) {
-      await checkGithubScriptsIndex();
+      checkGithubScriptsIndexRows(content);
       continue;
     }
 

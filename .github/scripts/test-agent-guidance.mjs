@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { listedGithubScripts } from "./guidance-paths.mjs";
 
 const root = process.cwd();
 const checker = ".github/scripts/check-agent-guidance.mjs";
@@ -59,6 +60,36 @@ expectFailure(
   },
   "lists a missing script: removed-script.mjs",
 );
+
+expectFailure(
+  "index row without a consumer",
+  {
+    ".github/scripts/README.md": read(".github/scripts/README.md").replace(
+      /^\| `merge-gate\.ts` \|.*$/m,
+      "| `merge-gate.ts` |  |",
+    ),
+  },
+  "row for merge-gate.ts must name its GitHub Actions consumer",
+);
+
+const sampleIndex = [
+  "## Index",
+  "",
+  "| Script | Consumers |",
+  "| --- | --- |",
+  "| `listed.ts` | `ci.yml` |",
+  "| `no-consumer.ts` |  |",
+  "",
+  "## Known exceptions",
+  "",
+  "| `outside-index.ts` | `ci.yml` |",
+].join("\n");
+const sampleListed = [...listedGithubScripts(sampleIndex)];
+if (sampleListed.length !== 1 || sampleListed[0] !== "listed.ts") {
+  throw new Error(
+    `listedGithubScripts: expected only listed.ts, got ${JSON.stringify(sampleListed)}`,
+  );
+}
 
 expectFailure(
   "missing rule scope",

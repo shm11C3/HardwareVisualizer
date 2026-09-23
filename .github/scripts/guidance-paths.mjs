@@ -86,12 +86,23 @@ export function isGuidancePath(relativePath) {
 export const githubScriptsDir = ".github/scripts";
 export const githubScriptsIndex = `${githubScriptsDir}/README.md`;
 
-// Script paths (relative to .github/scripts) listed in the index table of
-// .github/scripts/README.md, one backticked path per row.
-export function listedGithubScripts(indexContent) {
-  const listed = new Set();
-  for (const match of indexContent.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)) {
-    listed.add(match[1]);
+// Rows of the "## Index" table in .github/scripts/README.md: a backticked
+// script path (relative to .github/scripts) and its consumers.
+export function githubScriptIndexRows(indexContent) {
+  const section = indexContent.split(/^## Index[ \t]*$/m)[1]?.split(/^## /m)[0];
+  if (section === undefined) {
+    return [];
   }
-  return listed;
+  return [...section.matchAll(/^\|\s*`([^`]+)`\s*\|([^|\n]*)\|/gm)].map(
+    (match) => ({ script: match[1], consumers: match[2].trim() }),
+  );
+}
+
+// A script counts as listed only when its row names a consumer.
+export function listedGithubScripts(indexContent) {
+  return new Set(
+    githubScriptIndexRows(indexContent)
+      .filter((row) => row.consumers !== "")
+      .map((row) => row.script),
+  );
 }

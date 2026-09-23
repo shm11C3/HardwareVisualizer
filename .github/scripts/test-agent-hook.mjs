@@ -115,6 +115,25 @@ runHook(
   0,
 );
 runHook(
+  "index row added before its script",
+  "post",
+  { tool_input: { file_path: ".github/scripts/README.md" } },
+  0,
+  {
+    env: {
+      AGENT_GUIDANCE_OVERRIDES: JSON.stringify({
+        ".github/scripts/README.md": readFileSync(
+          path.join(root, ".github/scripts/README.md"),
+          "utf8",
+        ).replace(
+          "| `merge-gate.ts` |",
+          "| `new-plumbing.mjs` | `ci.yml` |\n| `merge-gate.ts` |",
+        ),
+      }),
+    },
+  },
+);
+runHook(
   "touched guidance schema failure",
   "post",
   {
