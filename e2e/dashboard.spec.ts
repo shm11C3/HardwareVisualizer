@@ -85,9 +85,8 @@ test.describe("dashboard captures", () => {
   });
 
   test("NSIS build shows the MSI migration notice", async ({ page }) => {
-    await gotoApp(page, {
-      path: "/?navigationLayout=classic&nsisMigrationNotice=1",
-    });
+    const path = "/?navigationLayout=classic&nsisMigrationNotice=1";
+    await gotoApp(page, { path });
 
     const notice = page.getByRole("alertdialog", {
       name: "Switch to the MSI installer",
@@ -103,8 +102,28 @@ test.describe("dashboard captures", () => {
     const box = await notice.boundingBox();
     expect(box?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(420);
 
+    // "Remind me next time" hides it for this session only.
     await hide.click();
+    await page.getByRole("menuitem", { name: "Remind me next time" }).click();
+    await expect(notice).toHaveCount(0);
+    await gotoApp(page, { path });
+    await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+
+    // "Never show again" is saved, so the next launch does not show it.
+    await notice.getByRole("button", { name: "Hide" }).click();
     await page.getByRole("menuitem", { name: "Never show again" }).click();
     await expect(notice).toHaveCount(0);
+    await gotoApp(page, { path });
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__E2E__?.getInvokeCount("get_settings")),
+      )
+      .toBeGreaterThan(0);
+    await expect(notice).toHaveCount(0);
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("plugin:app|bundle_type"),
+      ),
+    ).toBe(0);
   });
 });
