@@ -124,6 +124,14 @@ pub enum DatabaseLifecycleState {
 /// native database's own already-committed metadata. Callers still own
 /// deciding what to do with the returned state, including whether to open
 /// the native database when it reports [`DatabaseLifecycleState::NativeAuthoritative`].
+///
+/// The repair adopts the native file without reconciling, which is sound
+/// only while nothing writes to SQLite after a selection commits. Every
+/// producer of the repairable state keeps that true: a crash between the
+/// commit and the marker happens with the producers paused, fresh creation
+/// has no SQLite source, and a selection that fails after its commit leaves
+/// the producers paused too (`native_conversion::settle_failed_selection`,
+/// #2238).
 pub fn inspect_startup_authority(
   paths: &AuthorityPaths,
   expected_schema_version: u32,

@@ -432,9 +432,11 @@ pub enum ConversionOutcome {
   /// The native database was already selected before this call ran; nothing
   /// to do.
   AlreadySelected,
-  /// Startup found an authority disagreement `inspect_authority` refused to
-  /// guess at. The driver never started; `NativeLifecycleOwner::state`
-  /// already reports why.
+  /// The call stopped rather than guess, and `NativeLifecycleOwner::state`
+  /// already reports why: either entry found an authority disagreement
+  /// `inspect_authority` refused to guess at and the driver never started,
+  /// or the selection became durable but could not be finished, opened or
+  /// handed over, and the producers were left paused.
   ActionRequired,
   /// The conversion selected the native database.
   Selected { total_rows: u64 },
@@ -697,6 +699,7 @@ pub async fn run_conversion(
     &paths,
     expected_schema_version,
     cancellation,
+    handoff,
   )
   .await
   {
@@ -708,8 +711,9 @@ pub async fn run_conversion(
 
   // Producers resume only onto a backend that is both authoritative and
   // being served. Inside this block `ActionRequired` has one meaning: the
-  // selection is already durable, but opening the selected database or
-  // handing it to dispatch failed. SQLite is then a stale recovery copy, and
+  // selection is already durable, but finishing it (see
+  // `settle_failed_selection`), opening the selected database or handing it
+  // to dispatch failed. SQLite is then a stale recovery copy, and
   // dispatch either still routes to it or refuses every consumer, so a
   // resumed producer would write rows the native database never gets, or
   // collect rows only to have them refused and logged. They stay stopped,
@@ -740,6 +744,7 @@ async fn reconcile_and_select(
   paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
   expected_schema_version: u32,
   cancellation: &ConversionCancellation,
+  handoff: SelectionHandoff,
 ) -> Result<ConversionOutcome, ConversionError> {
   if let Some(outcome) =
     check_cancelled(owner, cancellation, ConversionProgress::PausingProducers)
@@ -771,12 +776,13 @@ async fn reconcile_and_select(
   owner.set_state(DatabaseLifecycleState::Converting(
     ConversionProgress::Selecting,
   ));
-  select_native_database(paths.clone(), verified)
-    .await
-    .map_err(|error| {
-      fail(owner, ConversionProgress::Selecting, &error);
-      ConversionError::Select(error)
-    })?;
+  if let Err(error) = select_native_database(paths.clone(), verified).await
+    && let Some(outcome) =
+      settle_failed_selection(owner, paths, expected_schema_version, handoff, error)
+        .await?
+  {
+    return Ok(outcome);
+  }
 
   let total_rows = report.total_rows;
   // Selection already committed durably; a failure to *open* it here does
@@ -794,6 +800,110 @@ async fn reconcile_and_select(
       fail_open(owner, &error);
       Ok(ConversionOutcome::ActionRequired)
     }
+  }
+}
+
+/// Decide what a failed [`select_native_database`] left on disk.
+///
+/// `select_native_database` commits `selected` into the native file before
+/// it checkpoints, syncs and publishes the marker (Core's selection module
+/// explains why that order, and not the reverse, is the repairable one), so
+/// its error alone does not say whether SQLite is still authoritative. The
+/// files are inspected again, through the same function startup uses:
+///
+/// - The files positively show no selection ([`failed_before_commit`]): the
+///   failure came before the commit, and it is an ordinary, retryable
+///   conversion failure.
+/// - `NativeAuthoritative`: the commit landed, and
+///   [`inspect_startup_authority`] closed the gap by rewriting the marker
+///   from the committed metadata. Returns `Ok(None)` so the caller finishes
+///   the selection normally. The producers are still paused and the file was
+///   reconciled just now, so this is the one moment the repair cannot leave
+///   a SQLite row behind.
+/// - Anything else - the repair itself failed, or the native metadata cannot
+///   be read right now (the same I/O or `.wal` problem that failed the
+///   checkpoint can hide a committed `selected`): the commit may have
+///   landed, so SQLite must not be written again. Returns `ActionRequired`,
+///   which keeps the producers paused; under
+///   [`SelectionHandoff::ThroughDispatch`] the boundary is also told to
+///   refuse every consumer rather than keep routing on-demand writes to
+///   SQLite. A later [`run_conversion`] retries from its entry path once the
+///   cause is gone.
+///
+/// Treating every error as retryable resumed the producers on SQLite, and
+/// the next startup repaired the marker and retired SQLite without the rows
+/// they wrote in between (#2238).
+async fn settle_failed_selection(
+  owner: &NativeLifecycleOwner,
+  paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
+  expected_schema_version: u32,
+  handoff: SelectionHandoff,
+  error: NativeDatabaseError,
+) -> Result<Option<ConversionOutcome>, ConversionError> {
+  use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
+  let on_disk = inspect_startup_authority(paths, expected_schema_version);
+  let native_file = std::fs::symlink_metadata(&paths.native_database);
+  if failed_before_commit(&on_disk, &native_file) {
+    fail(owner, ConversionProgress::Selecting, &error);
+    return Err(ConversionError::Select(error));
+  }
+  log_error!(
+    "selecting the native database failed and the selection may have committed",
+    "app::native_conversion::settle_failed_selection",
+    Some(format!("{error}; the files now read as {on_disk:?}"))
+  );
+  let issue = match on_disk {
+    DatabaseLifecycleState::NativeAuthoritative => return Ok(None),
+    DatabaseLifecycleState::ActionRequired(issue) => issue,
+    _ => LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
+  };
+  if handoff == SelectionHandoff::ThroughDispatch {
+    // `refuse_consumers` leaves the boundary unavailable on every path;
+    // `reobserve_authority` would not, because unreadable metadata inspects
+    // as an interrupted conversion and it would answer from SQLite.
+    if let Err(close_error) =
+      hardviz_core::infrastructure::database::dispatch::refuse_consumers(format!(
+        "the native selection could not be completed: {error}"
+      ))
+      .await
+    {
+      log_error!(
+        "closing the dispatch boundary's native owner failed while refusing consumers",
+        "app::native_conversion::settle_failed_selection",
+        Some(close_error.to_string())
+      );
+    }
+  }
+  owner.set_state(DatabaseLifecycleState::ActionRequired(issue));
+  Ok(Some(ConversionOutcome::ActionRequired))
+}
+
+/// Whether the re-inspection after a failed selection positively shows that
+/// `selected` never committed. `native_file` is `symlink_metadata` of the
+/// native database path.
+///
+/// Only two facts count as proof: native metadata read back as finalized and
+/// unselected (`ConversionRecoverable { resumable: true }`), or no native file
+/// at all. The observer derives "no native file" from `is_file`, which a
+/// metadata error also makes false, so `SqliteAuthoritative` and
+/// `ConversionRecoverable { resumable: false }` count only when the probe
+/// reports `NotFound`. An inaccessible or unreadable file is uncertainty, not
+/// absence. (The marker needs no probe: the observer already reports it absent
+/// only on `NotFound`.)
+fn failed_before_commit(
+  on_disk: &DatabaseLifecycleState,
+  native_file: &std::io::Result<std::fs::Metadata>,
+) -> bool {
+  let native_absent = matches!(
+    native_file,
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound
+  );
+  match on_disk {
+    DatabaseLifecycleState::ConversionRecoverable { resumable: true } => true,
+    DatabaseLifecycleState::SqliteAuthoritative
+    | DatabaseLifecycleState::ConversionRecoverable { resumable: false } => native_absent,
+    _ => false,
   }
 }
 
@@ -1344,6 +1454,253 @@ mod tests {
       })
     ));
     assert!(!fixture.paths().native_database.exists());
+  }
+
+  /// Regression for #2238. The selection commits into the native file
+  /// before the marker is written, so a marker write that fails leaves a
+  /// durable selection behind. Treating that as a retryable failure resumed
+  /// the producers on SQLite, and the next startup repaired the marker and
+  /// retired SQLite without the rows they wrote in between.
+  #[tokio::test]
+  async fn a_failure_after_the_selection_commit_keeps_producers_off_sqlite() {
+    let fixture = Fixture::new().await;
+    // The marker's directory does not exist: entry reads the marker as
+    // absent, the conversion runs, the selection commits, and publishing
+    // the marker (and repairing it) fails.
+    let marker_directory = fixture.directory.path().join("marker");
+    let mut target = fixture.target();
+    target.paths.marker = marker_directory.join(AUTHORITY_MARKER_FILE_NAME);
+    let paths = target.paths.clone();
+    let owner = NativeLifecycleOwner::new();
+    let workers = WorkersState::default();
+
+    let outcome = run_conversion(
+      target,
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await;
+
+    assert!(
+      matches!(outcome, Ok(ConversionOutcome::ActionRequired)),
+      "a failure after the commit is not a retryable failure: {outcome:?}"
+    );
+    assert!(
+      !matches!(
+        owner.state(),
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed { .. })
+      ),
+      "{:?}",
+      owner.state()
+    );
+    assert!(
+      workers.cooling_rollup.lock().unwrap().is_none(),
+      "producers must not resume while SQLite is no longer authoritative"
+    );
+
+    // Once the cause is gone, a retry finishes the selection and only then
+    // starts the producers again.
+    std::fs::create_dir(&marker_directory).unwrap();
+    let retry = run_conversion(
+      ConversionTarget {
+        paths: paths.clone(),
+        workspace: fixture.workspace(),
+        expected_schema_version: native_schema::NATIVE_SCHEMA_VERSION,
+      },
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+
+    assert!(
+      matches!(retry, ConversionOutcome::AlreadySelected),
+      "{retry:?}"
+    );
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
+    assert!(paths.marker.is_file());
+    assert!(workers.cooling_rollup.lock().unwrap().is_some());
+  }
+
+  /// Candidate, finalize and reconcile against the fixture, returning the
+  /// proof `select_native_database` takes.
+  async fn reconciled(
+    fixture: &Fixture,
+  ) -> hardviz_core::infrastructure::database::native_database::VerifiedNativeDatabase {
+    let paths = fixture.paths();
+    let candidate = fixture.directory.path().join("candidate.duckdb");
+    build_candidate_database(
+      &paths.source_database,
+      &candidate,
+      migration::get_migrations(),
+    )
+    .await
+    .unwrap();
+    finalize_candidate_database(
+      &candidate,
+      &paths.native_database,
+      native_schema::get_native_schema(),
+    )
+    .await
+    .unwrap();
+    std::fs::remove_file(&candidate).unwrap();
+    reconcile_native_database(
+      &paths.source_database,
+      &paths.native_database,
+      migration::get_migrations(),
+      native_schema::get_native_schema(),
+    )
+    .await
+    .unwrap()
+    .1
+  }
+
+  fn injected_failure() -> NativeDatabaseError {
+    NativeDatabaseError::Worker {
+      message: "injected failure".to_owned(),
+    }
+  }
+
+  #[tokio::test]
+  async fn a_failure_after_the_commit_finishes_the_selection_when_the_marker_can_be_repaired()
+   {
+    // The most common post-commit failures (a checkpoint, `.wal` or sync
+    // error) leave the marker path usable, so the gap closes right away and
+    // the conversion carries on to open and hand over the database.
+    let fixture = Fixture::new().await;
+    let verified = reconciled(&fixture).await;
+    select_native_database(fixture.paths(), verified)
+      .await
+      .unwrap();
+    std::fs::remove_file(fixture.paths().marker).unwrap();
+    let owner = NativeLifecycleOwner::new();
+
+    let settled = settle_failed_selection(
+      &owner,
+      &fixture.paths(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      SelectionHandoff::OwnerOnly,
+      injected_failure(),
+    )
+    .await;
+
+    assert!(matches!(settled, Ok(None)), "{settled:?}");
+    assert!(fixture.paths().marker.is_file());
+    assert_eq!(
+      inspect_startup_authority(&fixture.paths(), native_schema::NATIVE_SCHEMA_VERSION),
+      DatabaseLifecycleState::NativeAuthoritative
+    );
+  }
+
+  #[tokio::test]
+  async fn a_failure_whose_native_metadata_cannot_be_read_keeps_producers_paused() {
+    // The I/O or `.wal` problem that failed the checkpoint can also hide a
+    // committed `selected` from the re-inspection, which then reads as an
+    // interrupted conversion. That is not proof the commit did not land, so
+    // the failure must not be treated as retryable with SQLite authoritative.
+    // Unreadable bytes stand in for "cannot be read right now".
+    let fixture = Fixture::new().await;
+    let verified = reconciled(&fixture).await;
+    select_native_database(fixture.paths(), verified)
+      .await
+      .unwrap();
+    std::fs::remove_file(fixture.paths().marker).unwrap();
+    std::fs::write(fixture.paths().native_database, b"not a database").unwrap();
+    assert_eq!(
+      inspect_startup_authority(&fixture.paths(), native_schema::NATIVE_SCHEMA_VERSION),
+      DatabaseLifecycleState::ConversionRecoverable { resumable: false }
+    );
+    let owner = NativeLifecycleOwner::new();
+
+    let settled = settle_failed_selection(
+      &owner,
+      &fixture.paths(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      SelectionHandoff::OwnerOnly,
+      injected_failure(),
+    )
+    .await;
+
+    // `run_conversion` leaves the producers paused for exactly this outcome.
+    assert!(
+      matches!(settled, Ok(Some(ConversionOutcome::ActionRequired))),
+      "{settled:?}"
+    );
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable
+      ))
+    );
+  }
+
+  #[test]
+  fn only_a_positive_absence_or_unselected_read_counts_as_before_the_commit() {
+    use std::io::{Error, ErrorKind};
+
+    let missing = || Err(Error::from(ErrorKind::NotFound));
+    let denied = || Err(Error::from(ErrorKind::PermissionDenied));
+    let other = || Err(Error::other("device not ready"));
+    let directory = tempfile::tempdir().unwrap();
+    let present = || std::fs::symlink_metadata(directory.path());
+
+    let sqlite = DatabaseLifecycleState::SqliteAuthoritative;
+    let unreadable = DatabaseLifecycleState::ConversionRecoverable { resumable: false };
+    let unselected = DatabaseLifecycleState::ConversionRecoverable { resumable: true };
+
+    // Absence is proven only by `NotFound`; any other probe result is doubt.
+    assert!(failed_before_commit(&sqlite, &missing()));
+    assert!(failed_before_commit(&unreadable, &missing()));
+    for probe in [denied(), other(), present()] {
+      assert!(!failed_before_commit(&sqlite, &probe), "{probe:?}");
+      assert!(!failed_before_commit(&unreadable, &probe), "{probe:?}");
+    }
+    // Metadata already read back as unselected needs no probe.
+    assert!(failed_before_commit(&unselected, &present()));
+    // A selection the files show, or a disagreement, is never "before".
+    for state in [
+      DatabaseLifecycleState::NativeAuthoritative,
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::SelectedWithoutMarker,
+      )),
+    ] {
+      assert!(!failed_before_commit(&state, &missing()), "{state:?}");
+    }
+  }
+
+  #[tokio::test]
+  async fn a_failure_before_the_commit_stays_a_retryable_conversion_failure() {
+    let fixture = Fixture::new().await;
+    reconciled(&fixture).await;
+    let owner = NativeLifecycleOwner::new();
+
+    let settled = settle_failed_selection(
+      &owner,
+      &fixture.paths(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      SelectionHandoff::OwnerOnly,
+      injected_failure(),
+    )
+    .await;
+
+    assert!(
+      matches!(settled, Err(ConversionError::Select(_))),
+      "{settled:?}"
+    );
+    assert!(matches!(
+      owner.state(),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::Selecting,
+        ..
+      })
+    ));
+    assert!(!fixture.paths().marker.exists());
   }
 
   #[tokio::test]
