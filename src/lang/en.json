@@ -895,7 +895,10 @@
       "updateAndRestart": "Update Now",
       "downloadingUpdate": "Downloading Update...",
       "installingUpdate": "Installing Update...",
-      "needRestart": "Please restart the application to complete the update."
+      "needRestart": "Please restart the application to complete the update.",
+      "installFailed": "The update failed: {{message}}",
+      "noPendingUpdate": "No pending update is available. Check for updates again.",
+      "restartRequired": "The updater could not safely continue after stopping background services. Restart the application to restore normal operation. Error: {{message}}"
     }
   },
   "error": {

@@ -22,17 +22,16 @@ vi.mock("react-i18next", () => ({
         "pages.updater.later": "Later",
         "pages.updater.updateAndRestart": "Update and Restart",
         "pages.updater.needRestart": "Please restart to complete the update",
+        "pages.updater.installFailed": `Update failed: ${params?.["message"] || ""}`,
+        "pages.updater.noPendingUpdate": "No pending update is available",
+        "pages.updater.restartRequired": `Restart to restore the app: ${params?.["message"] || ""}`,
+        "pages.settings.insights.needRestart.title": "Restart Required",
+        "pages.settings.insights.needRestart.restart": "Restart",
+        "pages.settings.insights.needRestart.cancel": "Restart later",
       };
       return translations[key] || key;
     },
   }),
-}));
-
-// Mock NeedRestart component
-vi.mock("@/components/shared/System", () => ({
-  NeedRestart: ({ description }: { description: string }) => (
-    <div data-testid="need-restart">{description}</div>
-  ),
 }));
 
 // Mock UpdateTopBar component
@@ -136,10 +135,65 @@ describe("AppUpdate", () => {
 
     render(<AppUpdate />);
 
-    expect(screen.getByTestId("need-restart")).toBeInTheDocument();
     expect(
       screen.getByText("Please restart to complete the update"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Restart later" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the app update error visible without requesting a restart", () => {
+    mockUseUpdater.mockReturnValue({
+      meta: {
+        version: "2.0.0",
+        currentVersion: "1.0.0",
+        notes: null,
+        pubDate: null,
+      },
+      installing: false,
+      percent: null,
+      downloaded: 0n,
+      total: null,
+      install: mockInstall,
+      isFinished: true,
+      installError: { kind: "before-shutdown", message: "network failure" },
+    });
+
+    render(<AppUpdate />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Update failed: network failure",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Restart" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("requires an undismissable restart prompt after shutdown failure", () => {
+    mockUseUpdater.mockReturnValue({
+      meta: null,
+      installing: false,
+      percent: null,
+      downloaded: 0n,
+      total: null,
+      install: mockInstall,
+      isFinished: true,
+      installError: {
+        kind: "restart-required",
+        message: "installer handoff failed",
+      },
+    });
+
+    render(<AppUpdate />);
+
+    expect(
+      screen.getByText("Restart to restore the app: installer handoff failed"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restart" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Restart later" }),
+    ).not.toBeInTheDocument();
   });
 
   it("should close modal when cancel button is clicked", async () => {

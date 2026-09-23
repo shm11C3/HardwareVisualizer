@@ -22,6 +22,7 @@ pub mod app_updates {
   pub enum UpdaterError {
     NoPendingUpdate,
     Updater(String),
+    RestartRequired(String),
   }
 
   impl std::fmt::Display for UpdaterError {
@@ -29,6 +30,7 @@ pub mod app_updates {
       match self {
         UpdaterError::NoPendingUpdate => write!(f, "there is no pending update"),
         UpdaterError::Updater(msg) => write!(f, "{msg}"),
+        UpdaterError::RestartRequired(msg) => write!(f, "{msg}"),
       }
     }
   }
@@ -155,9 +157,11 @@ pub mod app_updates {
         .map_err(UpdaterError::Updater)?;
       Ok::<(), UpdaterError>(())
     };
-    install_after_shutdown(shutdown, || {
-      update.install(bytes).map_err(UpdaterError::from)
-    })
+    install_after_shutdown(
+      shutdown,
+      || update.install(bytes).map_err(UpdaterError::from),
+      cfg!(target_os = "windows"),
+    )
     .await?;
 
     Ok(())
@@ -166,13 +170,41 @@ pub mod app_updates {
   async fn install_after_shutdown<Shutdown, Install>(
     shutdown: Shutdown,
     install: Install,
+    workers_stopped_before_handoff: bool,
   ) -> Result<(), UpdaterError>
   where
     Shutdown: Future<Output = Result<(), UpdaterError>>,
     Install: FnOnce() -> Result<(), UpdaterError>,
   {
-    shutdown.await?;
-    install()
+    shutdown.await.map_err(|error| {
+      UpdaterError::after_handoff_failure(
+        "app shutdown failed",
+        error,
+        workers_stopped_before_handoff,
+      )
+    })?;
+    install().map_err(|error| {
+      UpdaterError::after_handoff_failure(
+        "installer handoff failed",
+        error,
+        workers_stopped_before_handoff,
+      )
+    })
+  }
+
+  impl UpdaterError {
+    fn after_handoff_failure(
+      stage: &str,
+      error: Self,
+      workers_stopped_before_handoff: bool,
+    ) -> Self {
+      let message = format!("{stage}: {error}");
+      if workers_stopped_before_handoff {
+        Self::RestartRequired(message)
+      } else {
+        Self::Updater(message)
+      }
+    }
   }
 
   #[cfg(test)]
@@ -196,6 +228,7 @@ pub mod app_updates {
           let _ = installer_handoff_tx.send(());
           Ok(())
         },
+        true,
       );
       tokio::pin!(install);
       tokio::pin!(installer_handoff_rx);
@@ -221,7 +254,7 @@ pub mod app_updates {
     }
 
     #[tokio::test]
-    async fn refuses_installer_handoff_when_shutdown_fails() {
+    async fn shutdown_failure_requires_restart_and_refuses_installer_handoff() {
       let mut installer_called = false;
       let result = install_after_shutdown(
         async { Err(UpdaterError::Updater("database close failed".into())) },
@@ -229,14 +262,48 @@ pub mod app_updates {
           installer_called = true;
           Ok(())
         },
+        true,
       )
       .await;
 
       assert!(matches!(
         result,
-        Err(UpdaterError::Updater(message)) if message == "database close failed"
+        Err(UpdaterError::RestartRequired(message))
+          if message == "app shutdown failed: database close failed"
       ));
       assert!(!installer_called);
+    }
+
+    #[tokio::test]
+    async fn installer_failure_requires_restart_after_workers_stopped() {
+      let result = install_after_shutdown(
+        async { Ok(()) },
+        || Err(UpdaterError::Updater("installer launch failed".into())),
+        true,
+      )
+      .await;
+
+      assert!(matches!(
+        result,
+        Err(UpdaterError::RestartRequired(message))
+          if message == "installer handoff failed: installer launch failed"
+      ));
+    }
+
+    #[tokio::test]
+    async fn installer_failure_without_stopped_workers_does_not_require_restart() {
+      let result = install_after_shutdown(
+        async { Ok(()) },
+        || Err(UpdaterError::Updater("installer launch failed".into())),
+        false,
+      )
+      .await;
+
+      assert!(matches!(
+        result,
+        Err(UpdaterError::Updater(message))
+          if message == "installer handoff failed: installer launch failed"
+      ));
     }
   }
 }
