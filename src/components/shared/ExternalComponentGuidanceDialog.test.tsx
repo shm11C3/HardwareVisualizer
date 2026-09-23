@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@/lib/i18n";
@@ -139,6 +139,35 @@ describe("ExternalComponentGuidanceDialog", () => {
 
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
     await screen.findByRole("button", { name: "Restart as administrator" });
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("waits while another startup dialog is open and shows after it closes", async () => {
+    const onOpenChange = vi.fn();
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="dashboard"
+        deferred
+        onOpenChange={onOpenChange}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalled(),
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="dashboard"
+        deferred={false}
+        onOpenChange={onOpenChange}
+      />,
+    );
+    expect(
+      await screen.findByRole("button", { name: "Restart as administrator" }),
+    ).toBeInTheDocument();
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
   });
 

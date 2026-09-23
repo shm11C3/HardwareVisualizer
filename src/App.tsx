@@ -118,6 +118,10 @@ const AppContent = () => {
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [closeToTrayDialogOpen, setCloseToTrayDialogOpen] = useState(false);
+  const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
+  // True until the conversion prompt knows whether it will open, so the NSIS
+  // notice never opens first only to be replaced once the state arrives.
+  const [conversionPromptPending, setConversionPromptPending] = useState(true);
   const [guidanceDialogOpen, setGuidanceDialogOpen] = useState(false);
 
   useErrorModalListener();
@@ -358,16 +362,37 @@ const AppContent = () => {
             settingsLoaded={settingsLoaded}
             onOpenChange={setCloseToTrayDialogOpen}
           />
-          <DatabaseConversionPromptDialog settingsLoaded={settingsLoaded} />
+          {/* Startup dialogs open one at a time, in this order: the
+              close-to-tray prompt is a single decision and waits for
+              nothing; the external component guidance waits for it (both
+              can qualify on a first launch), keeping its candidate; the
+              database conversion prompt waits for both because it runs a
+              multi-step flow (progress, cancel, retry) that should not be
+              covered by a short prompt part-way through; the NSIS
+              migration notice waits for all three because it is a
+              recommendation the user can act on at any time, whereas the
+              conversion prompt is the point of this release. */}
+          <DatabaseConversionPromptDialog
+            settingsLoaded={settingsLoaded}
+            deferred={closeToTrayDialogOpen || guidanceDialogOpen}
+            onOpenChange={setConversionDialogOpen}
+            onPendingChange={setConversionPromptPending}
+          />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
+            deferred={closeToTrayDialogOpen}
             onOpenChange={setGuidanceDialogOpen}
           />
           <NsisMigrationNoticeDialog
             dismissed={settings.nsisMigrationNoticeDismissed}
             settingsLoaded={settingsLoaded}
-            deferred={closeToTrayDialogOpen || guidanceDialogOpen}
+            deferred={
+              closeToTrayDialogOpen ||
+              conversionPromptPending ||
+              conversionDialogOpen ||
+              guidanceDialogOpen
+            }
           />
           <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
         </div>

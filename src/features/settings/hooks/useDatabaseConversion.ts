@@ -22,19 +22,27 @@ export const useDatabaseConversion = () => {
   const [state, setState] = useState<DatabaseConversionState>(initialState);
   const [error, setError] = useState<string | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
+  // The initial state is indistinguishable from a real "not supported"
+  // answer, so callers that must wait for the first read watch this.
+  const [settled, setSettled] = useState(false);
   const previousKindRef = useRef<DatabaseConversionState["kind"] | null>(null);
 
   const refresh = useCallback(async () => {
-    const next = await commands.getDatabaseConversionState();
-    if (
-      previousKindRef.current === "converting" &&
-      next.kind === "nativeAuthoritative"
-    ) {
-      setJustCompleted(true);
+    try {
+      const next = await commands.getDatabaseConversionState();
+      if (
+        previousKindRef.current === "converting" &&
+        next.kind === "nativeAuthoritative"
+      ) {
+        setJustCompleted(true);
+      }
+      previousKindRef.current = next.kind;
+      setState(next);
+      return next;
+    } finally {
+      // A failed read still settles: nothing should wait on it forever.
+      setSettled(true);
     }
-    previousKindRef.current = next.kind;
-    setState(next);
-    return next;
   }, []);
 
   // Initial fetch, once per mount.
@@ -97,5 +105,13 @@ export const useDatabaseConversion = () => {
     setJustCompleted(false);
   }, []);
 
-  return { state, error, start, cancel, justCompleted, acknowledgeCompletion };
+  return {
+    state,
+    settled,
+    error,
+    start,
+    cancel,
+    justCompleted,
+    acknowledgeCompletion,
+  };
 };
