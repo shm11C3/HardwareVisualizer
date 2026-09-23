@@ -1,6 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { DownloadIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeedRestart } from "@/components/shared/System";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ export const ExternalComponentSetupSection = () => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const [entries, setEntries] = useState<ComponentEntry[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [runningComponent, setRunningComponent] =
     useState<ExternalComponent | null>(null);
   const [lastResult, setLastResult] =
@@ -48,29 +49,53 @@ export const ExternalComponentSetupSection = () => {
     elevationAvailability,
   );
 
-  const loadEntries = useCallback(async () => {
-    const components = await commands.getExternalComponentSetupComponents();
-    const loaded = await Promise.all(
-      components.map(async (component): Promise<ComponentEntry> => {
-        const result =
-          await commands.getExternalComponentSetupStatus(component);
-        if (isError(result)) {
-          console.error(
-            "Failed to read external component setup status:",
-            result.error,
-          );
-          return { component, status: null };
-        }
-        return { component, status: result.data };
-      }),
-    );
-    setEntries(loaded);
-  }, []);
-
   useEffect(() => {
     if (!isWindows) return;
+
+    let isCancelled = false;
+    const loadEntries = async () => {
+      try {
+        const components = await commands.getExternalComponentSetupComponents();
+        const loaded = await Promise.all(
+          components.map(async (component): Promise<ComponentEntry> => {
+            try {
+              const result =
+                await commands.getExternalComponentSetupStatus(component);
+              if (isError(result)) {
+                console.error(
+                  "Failed to read external component setup status:",
+                  result.error,
+                );
+                return { component, status: null };
+              }
+              return { component, status: result.data };
+            } catch (err) {
+              console.error(
+                "Failed to read external component setup status:",
+                err,
+              );
+              return { component, status: null };
+            }
+          }),
+        );
+        if (isCancelled) return;
+        setEntries(loaded);
+      } catch (err) {
+        console.error(
+          "Failed to list external component setup components:",
+          err,
+        );
+        if (isCancelled) return;
+        setEntries([]);
+        setLoadFailed(true);
+      }
+    };
     void loadEntries();
-  }, [isWindows, loadEntries]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isWindows]);
 
   if (!isWindows) {
     return null;
@@ -104,6 +129,13 @@ export const ExternalComponentSetupSection = () => {
       } else if (result.data.outcome === "failed") {
         await error(failureMessage(t, result.data));
       }
+    } catch (err) {
+      console.error("Failed to run external component setup:", err);
+      await error(
+        t("pages.settings.advanced.externalComponentSetup.result.failed", {
+          detail: err instanceof Error ? err.message : String(err),
+        }),
+      );
     } finally {
       setRunningComponent(null);
     }
@@ -122,6 +154,10 @@ export const ExternalComponentSetupSection = () => {
 
       {entries === null ? (
         <Skeleton className="h-24 w-full rounded-md" />
+      ) : loadFailed ? (
+        <p className="text-destructive text-sm">
+          {t("pages.settings.advanced.externalComponentSetup.statusError")}
+        </p>
       ) : (
         entries.map((entry) => (
           <ComponentCard

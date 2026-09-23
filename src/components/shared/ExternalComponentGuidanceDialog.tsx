@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
@@ -29,7 +30,10 @@ import {
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";
-import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
+import type {
+  ExternalComponentGuidanceCandidate,
+  ExternalComponentGuidanceView,
+} from "@/rspc/bindings";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import type { SelectedDisplayType } from "@/types/ui";
@@ -46,6 +50,8 @@ type ExternalComponentGuidanceDialogProps = {
   /** Another startup AlertDialog is open; keep the candidate, wait to show. */
   deferred?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Whether it is still unknown if guidance will open for this screen. */
+  onPendingChange?: (pending: boolean) => void;
 };
 
 export const ExternalComponentGuidanceDialog = ({
@@ -53,22 +59,32 @@ export const ExternalComponentGuidanceDialog = ({
   settingsLoaded = true,
   deferred = false,
   onOpenChange,
+  onPendingChange,
 }: ExternalComponentGuidanceDialogProps) => {
   const { t, i18n } = useTranslation();
   const { error } = useTauriDialog();
+  const { updateSettingAtom } = useSettingsAtom();
   const [candidates, setCandidates] = useState<
     ExternalComponentGuidanceCandidate[]
   >([]);
   const [isEnablingElevatedStartupMode, setIsEnablingElevatedStartupMode] =
     useState(false);
+  // The view whose first candidate lookup has completed. Derived per render
+  // rather than a boolean flipped in the effect, so a screen change counts
+  // as pending in the very render it happens, before any effect runs.
+  const [loadedView, setLoadedView] =
+    useState<ExternalComponentGuidanceView | null>(null);
 
   const view = useMemo(
     () => externalComponentGuidanceViewForDisplayTarget(displayTarget),
     [displayTarget],
   );
+  const screenKnown = displayTarget !== null;
+  const lookupPending =
+    !settingsLoaded || !screenKnown || (view !== null && loadedView !== view);
 
   useEffect(() => {
-    if (!settingsLoaded || !view) {
+    if (!settingsLoaded || !screenKnown || !view) {
       setCandidates([]);
       return;
     }
@@ -93,6 +109,10 @@ export const ExternalComponentGuidanceDialog = ({
       } catch (err) {
         if (isCancelled) return;
         console.error("Failed to fetch external component guidance:", err);
+      } finally {
+        if (!isCancelled) {
+          setLoadedView(view);
+        }
       }
     };
 
@@ -104,7 +124,7 @@ export const ExternalComponentGuidanceDialog = ({
       isCancelled = true;
       stopPolling();
     };
-  }, [settingsLoaded, view]);
+  }, [settingsLoaded, screenKnown, view]);
 
   const candidate = candidates[0] ?? null;
   const copyKey = candidate
@@ -192,26 +212,31 @@ export const ExternalComponentGuidanceDialog = ({
     }
   };
 
-  const isOpen = Boolean(candidate && copyKey && actionKey) && !deferred;
+  const wouldOpen = Boolean(candidate && copyKey && actionKey);
+  const isOpen = wouldOpen && !deferred;
+  // A candidate that is ready but held back still counts as pending: it will
+  // open the moment the blocker closes, so dialogs that yield to this one
+  // must not take that same render.
+  const pending = lookupPending || (wouldOpen && deferred);
 
   // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
+  useLayoutEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
 
   const handleEnableElevatedStartupMode = async () => {
     if (!candidate) return;
 
     setIsEnablingElevatedStartupMode(true);
     try {
-      const result = await commands.setElevatedStartupMode(true);
-      if (isError(result)) {
-        console.error(
-          "Failed to enable elevated startup mode from external component guidance:",
-          result.error,
-        );
-        await error(t("externalComponentGuidance.errors.elevatedStartupMode"));
-      }
+      // Through the settings atom, not the raw command: when the process is
+      // already elevated the backend persists "on" without relaunching, and
+      // the Settings toggle must show that saved value. The atom reports a
+      // command error itself (dialog + rollback), so only a throw is left here.
+      await updateSettingAtom("elevatedStartupMode", true);
     } catch (err) {
       console.error(
         "Failed to enable elevated startup mode from external component guidance:",

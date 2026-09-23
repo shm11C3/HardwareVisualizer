@@ -499,7 +499,7 @@ static HANDOFF_NOTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 /// after the parent that launched it has released both. A child that cannot
 /// confirm the parent's exit terminates here instead of starting.
 pub fn run_cli_mode_if_requested() -> Option<i32> {
-  let args = match cli::parse_cli_args(std::env::args()) {
+  let args = match cli::parse_cli_args(cli::process_args()) {
     Ok(args) => args,
     Err(error) => {
       eprintln!("invalid command line: {error:?}");
@@ -1028,7 +1028,13 @@ pub fn run() {
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_window_state::Builder::default().build())
+    // The transient flyout owns a fixed size and tray-relative position. A
+    // saved hidden-window size can make its Open button inaccessible.
+    .plugin(
+      tauri_plugin_window_state::Builder::default()
+        .with_denylist(&[tray::TRAY_WIDGET_FLYOUT_LABEL])
+        .build(),
+    )
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_autostart::init(
       MacosLauncher::LaunchAgent,

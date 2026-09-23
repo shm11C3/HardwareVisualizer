@@ -117,12 +117,19 @@ const AppContent = () => {
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // Each startup dialog reports whether it is open and, separately, whether
+  // it still does not know if it will open (its eligibility check is async).
+  // Lower-priority dialogs wait for both, so one never opens first only to
+  // be replaced once a higher-priority check resolves. All start pending.
   const [closeToTrayDialogOpen, setCloseToTrayDialogOpen] = useState(false);
-  const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
-  // True until the conversion prompt knows whether it will open, so the NSIS
-  // notice never opens first only to be replaced once the state arrives.
-  const [conversionPromptPending, setConversionPromptPending] = useState(true);
+  const [closeToTrayPending, setCloseToTrayPending] = useState(true);
   const [guidanceDialogOpen, setGuidanceDialogOpen] = useState(false);
+  const [guidancePending, setGuidancePending] = useState(true);
+  const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
+  const [conversionPromptPending, setConversionPromptPending] = useState(true);
+  const closeToTrayBusy = closeToTrayDialogOpen || closeToTrayPending;
+  const guidanceBusy = guidanceDialogOpen || guidancePending;
+  const conversionBusy = conversionDialogOpen || conversionPromptPending;
 
   useErrorModalListener();
   useDocumentVisibilityClass();
@@ -361,6 +368,7 @@ const AppContent = () => {
             closeToTrayChoiceMade={settings.closeToTrayChoiceMade}
             settingsLoaded={settingsLoaded}
             onOpenChange={setCloseToTrayDialogOpen}
+            onPendingChange={setCloseToTrayPending}
           />
           {/* Startup dialogs open one at a time, in this order: the
               close-to-tray prompt is a single decision and waits for
@@ -374,25 +382,21 @@ const AppContent = () => {
               conversion prompt is the point of this release. */}
           <DatabaseConversionPromptDialog
             settingsLoaded={settingsLoaded}
-            deferred={closeToTrayDialogOpen || guidanceDialogOpen}
+            deferred={closeToTrayBusy || guidanceBusy}
             onOpenChange={setConversionDialogOpen}
             onPendingChange={setConversionPromptPending}
           />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
-            deferred={closeToTrayDialogOpen}
+            deferred={closeToTrayBusy}
             onOpenChange={setGuidanceDialogOpen}
+            onPendingChange={setGuidancePending}
           />
           <NsisMigrationNoticeDialog
             dismissed={settings.nsisMigrationNoticeDismissed}
             settingsLoaded={settingsLoaded}
-            deferred={
-              closeToTrayDialogOpen ||
-              conversionPromptPending ||
-              conversionDialogOpen ||
-              guidanceDialogOpen
-            }
+            deferred={closeToTrayBusy || guidanceBusy || conversionBusy}
           />
           <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
         </div>

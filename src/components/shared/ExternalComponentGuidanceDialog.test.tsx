@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@/lib/i18n";
@@ -13,8 +13,16 @@ const mocks = vi.hoisted(() => ({
   openURL: vi.fn(),
   platform: vi.fn(() => "windows"),
   setElevatedStartupMode: vi.fn(),
+  updateSettingAtom: vi.fn(),
   useElevationAvailability: vi.fn((): string | null => "available"),
   useProcessElevated: vi.fn((): boolean | null => false),
+}));
+
+vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+  useSettingsAtom: () => ({
+    settings: { elevatedStartupMode: false },
+    updateSettingAtom: mocks.updateSettingAtom,
+  }),
 }));
 
 vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
@@ -77,6 +85,7 @@ describe("ExternalComponentGuidanceDialog", () => {
       status: "ok",
       data: null,
     });
+    mocks.updateSettingAtom.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -95,8 +104,42 @@ describe("ExternalComponentGuidanceDialog", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Open details" })).toBeNull();
-    expect(mocks.setElevatedStartupMode).toHaveBeenCalledWith(true);
+    // Through the settings atom so the toggle reflects the saved value even
+    // when the backend persists without relaunching (already elevated).
+    expect(mocks.updateSettingAtom).toHaveBeenCalledWith(
+      "elevatedStartupMode",
+      true,
+    );
+    expect(mocks.setElevatedStartupMode).not.toHaveBeenCalled();
     expect(mocks.openURL).not.toHaveBeenCalled();
+  });
+
+  it("shows the localized error dialog when the settings updater rethrows", async () => {
+    const user = userEvent.setup();
+    // The atom restores its own value and rethrows a rejected command; the
+    // dialog owns the user-facing message.
+    mocks.updateSettingAtom.mockRejectedValue(new Error("ipc failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Restart as administrator",
+      }),
+    );
+
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
+    expect(mocks.error).toHaveBeenCalledWith(
+      expect.stringMatching(/administrator/i),
+    );
+    expect(consoleError).toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Restart as administrator" }),
+    ).toBeEnabled();
+    consoleError.mockRestore();
   });
 
   it("offers details instead of a restart when elevation is refused here", async () => {
@@ -144,17 +187,29 @@ describe("ExternalComponentGuidanceDialog", () => {
 
   it("waits while another startup dialog is open and shows after it closes", async () => {
     const onOpenChange = vi.fn();
+    const onPendingChange = vi.fn();
+    let resolveCandidates: (value: unknown) => void = () => {};
+    mocks.getExternalComponentGuidanceCandidates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCandidates = resolve;
+      }),
+    );
     const { rerender } = render(
       <ExternalComponentGuidanceDialog
         displayTarget="dashboard"
         deferred
         onOpenChange={onOpenChange}
+        onPendingChange={onPendingChange}
       />,
     );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
 
-    await waitFor(() =>
-      expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalled(),
-    );
+    // The candidate arrives while still deferred: not shown, and still
+    // reported pending, since it opens as soon as the blocker closes.
+    await act(async () => {
+      resolveCandidates({ status: "ok", data: [candidate()] });
+    });
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
 
@@ -163,12 +218,56 @@ describe("ExternalComponentGuidanceDialog", () => {
         displayTarget="dashboard"
         deferred={false}
         onOpenChange={onOpenChange}
+        onPendingChange={onPendingChange}
       />,
     );
     expect(
       await screen.findByRole("button", { name: "Restart as administrator" }),
     ).toBeInTheDocument();
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("is pending again in the render that switches to a screen with guidance", async () => {
+    const onPendingChange = vi.fn();
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="usage"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+
+    let resolveCandidates: (value: unknown) => void = () => {};
+    mocks.getExternalComponentGuidanceCandidates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCandidates = resolve;
+      }),
+    );
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="dashboard"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    // Reported before the lookup even starts, not after an effect.
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    await act(async () => {
+      resolveCandidates({ status: "ok", data: [] });
+    });
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("is not pending on a screen without guidance", () => {
+    const onPendingChange = vi.fn();
+    render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="usage"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
   });
 
   it("keeps the details action for permission guidance outside Windows", async () => {
@@ -187,6 +286,7 @@ describe("ExternalComponentGuidanceDialog", () => {
       screen.queryByRole("button", { name: "Restart as administrator" }),
     ).toBeNull();
     expect(mocks.openURL).toHaveBeenCalledTimes(1);
+    expect(mocks.updateSettingAtom).not.toHaveBeenCalled();
     expect(mocks.setElevatedStartupMode).not.toHaveBeenCalled();
   });
 });

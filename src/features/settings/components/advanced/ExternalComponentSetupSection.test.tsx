@@ -334,4 +334,66 @@ describe("ExternalComponentSetupSection", () => {
       );
     });
   });
+
+  it("surfaces a thrown setup call as a failure and clears the spinner", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const user = userEvent.setup();
+    mocks.runExternalComponentSetup.mockRejectedValue(
+      new Error("IPC channel closed"),
+    );
+
+    render(<ExternalComponentSetupSection />);
+
+    await user.click(await screen.findByRole("button", { name: "Install" }));
+
+    await waitFor(() => {
+      expect(mocks.error).toHaveBeenCalledWith(
+        "Installation failed: IPC channel closed",
+      );
+    });
+    expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("shows the state error instead of the skeleton when the status call throws", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getExternalComponentSetupStatus.mockRejectedValue(
+      new Error("IPC channel closed"),
+    );
+
+    const { container } = render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByText("The component state could not be read."),
+    ).toBeInTheDocument();
+    expect(container.querySelector(".animate-pulse")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("shows the state error instead of the skeleton when the component list throws", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getExternalComponentSetupComponents.mockRejectedValue(
+      new Error("IPC channel closed"),
+    );
+
+    const { container } = render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByText("The component state could not be read."),
+    ).toBeInTheDocument();
+    expect(container.querySelector(".animate-pulse")).toBeNull();
+    expect(mocks.getExternalComponentSetupStatus).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
 });
