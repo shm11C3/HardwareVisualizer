@@ -5,7 +5,8 @@
 //! same instance - execute closures sent through bounded channels, so a slow
 //! reader can neither block a commit nor let callers queue unbounded work.
 
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -22,6 +23,13 @@ use super::compatibility::{
 use super::finalize::{
   FINALIZED_UNSELECTED, NATIVE_IDENTITY_TABLE, NATIVE_METADATA_TABLE, SELECTED,
 };
+
+/// The runtime owner's spill directory must not look like conversion work to
+/// authority inspection, which recognizes `.hardwarevisualizer-duckdb-*`.
+pub(super) const RUNTIME_SPILL_DIRECTORY_PREFIX: &str =
+  ".hardwarevisualizer-runtime-spill";
+
+const RUNTIME_SPILL_ENTRY_PREFIX: &str = "spill-";
 
 #[derive(Clone, Copy, Debug)]
 pub struct NativeDatabaseOptions {
@@ -526,21 +534,271 @@ fn open_connections(
     .ok_or_else(|| NativeDatabaseError::Unavailable {
       path: path.to_owned(),
     })?;
+  let spill_parent = runtime_spill_parent(
+    parent,
+    path
+      .file_name()
+      .ok_or_else(|| NativeDatabaseError::Unavailable {
+        path: path.to_owned(),
+      })?,
+  )?;
   let spill = tempfile::Builder::new()
-    .prefix(".hardwarevisualizer-duckdb-runtime-")
-    .tempdir_in(parent)
+    .prefix(RUNTIME_SPILL_ENTRY_PREFIX)
+    .tempdir_in(&spill_parent)
     .map_err(|error| NativeDatabaseError::Worker {
       message: format!("failed to create native spill directory: {error}"),
     })?;
   let config = native_config(AccessMode::ReadWrite, true)?;
   let writer = Connection::open_with_flags(path, config)
     .map_err(|error| NativeDatabaseError::duckdb("open native database", error))?;
+  // DuckDB's writer lock now proves no other process owns this exact database.
+  // The database-specific scope prevents cleanup from reaching another file's spill.
+  discard_stale_runtime_spill_directories(&spill_parent, spill.path());
   super::configure_spill(&writer, spill.path())?;
   validate_native_metadata(&writer, expected_version)?;
   let reader = writer
     .try_clone()
     .map_err(|error| NativeDatabaseError::duckdb("open native read connection", error))?;
   Ok((writer, reader, spill))
+}
+
+/// Prepare a spill scope scoped to the exact database file.
+///
+/// The database filename remains an OS path component, so this also works for
+/// filenames which cannot be represented as UTF-8. Existing reparse points and
+/// symlinks are refused before any nested directory is created.
+fn runtime_spill_parent(
+  parent: &Path,
+  database_file_name: &std::ffi::OsStr,
+) -> Result<PathBuf, NativeDatabaseError> {
+  let canonical_parent =
+    fs::canonicalize(parent).map_err(|error| NativeDatabaseError::Worker {
+      message: format!("failed to resolve native database parent: {error}"),
+    })?;
+  let spill_root = canonical_parent.join(RUNTIME_SPILL_DIRECTORY_PREFIX);
+  ensure_normal_directory(&spill_root)?;
+  ensure_directory_is_contained(&spill_root, &canonical_parent).map_err(|error| {
+    NativeDatabaseError::Worker {
+      message: format!("native spill root is outside its verified parent: {error}"),
+    }
+  })?;
+  let canonical_spill_root =
+    fs::canonicalize(&spill_root).map_err(|error| NativeDatabaseError::Worker {
+      message: format!("failed to resolve native spill root: {error}"),
+    })?;
+  if canonical_spill_root.parent() != Some(canonical_parent.as_path()) {
+    return Err(NativeDatabaseError::Worker {
+      message: "native spill root resolved outside the database parent".to_owned(),
+    });
+  }
+
+  let spill_parent = spill_root.join(database_file_name);
+  ensure_normal_directory(&spill_parent)?;
+  ensure_directory_is_contained(&spill_parent, &canonical_spill_root).map_err(
+    |error| NativeDatabaseError::Worker {
+      message: format!(
+        "native database spill scope is outside its verified root: {error}"
+      ),
+    },
+  )?;
+  let canonical_spill_parent =
+    fs::canonicalize(&spill_parent).map_err(|error| NativeDatabaseError::Worker {
+      message: format!("failed to resolve native database spill scope: {error}"),
+    })?;
+  if canonical_spill_parent.parent() != Some(canonical_spill_root.as_path()) {
+    return Err(NativeDatabaseError::Worker {
+      message: "native database spill scope resolved outside its spill root".to_owned(),
+    });
+  }
+  Ok(spill_parent)
+}
+
+fn ensure_normal_directory(path: &Path) -> Result<(), NativeDatabaseError> {
+  match fs::symlink_metadata(path) {
+    Ok(metadata) if is_normal_directory(&metadata) => Ok(()),
+    Ok(_) => Err(NativeDatabaseError::Worker {
+      message: format!(
+        "native spill path is not a normal directory: {}",
+        path.display()
+      ),
+    }),
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+      match fs::create_dir(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+          let metadata = fs::symlink_metadata(path).map_err(|inspect_error| {
+            NativeDatabaseError::Worker {
+              message: format!(
+                "failed to inspect existing native spill path {}: {inspect_error}",
+                path.display()
+              ),
+            }
+          })?;
+          if is_normal_directory(&metadata) {
+            Ok(())
+          } else {
+            Err(NativeDatabaseError::Worker {
+              message: format!(
+                "native spill path is not a normal directory: {}",
+                path.display()
+              ),
+            })
+          }
+        }
+        Err(error) => Err(NativeDatabaseError::Worker {
+          message: format!(
+            "failed to create native spill path {}: {error}",
+            path.display()
+          ),
+        }),
+      }
+    }
+    Err(error) => Err(NativeDatabaseError::Worker {
+      message: format!(
+        "failed to inspect native spill path {}: {error}",
+        path.display()
+      ),
+    }),
+  }
+}
+
+fn is_normal_directory(metadata: &fs::Metadata) -> bool {
+  metadata.is_dir() && !metadata.file_type().is_symlink() && !is_reparse_point(metadata)
+}
+
+#[cfg(windows)]
+fn is_reparse_point(metadata: &fs::Metadata) -> bool {
+  use std::os::windows::fs::MetadataExt;
+
+  const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+  metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(not(windows))]
+fn is_reparse_point(_metadata: &fs::Metadata) -> bool {
+  false
+}
+
+/// Remove spill directories left by a runtime owner that did not close cleanly.
+///
+/// This runs only after DuckDB opens the target database and acquires its
+/// cross-process writer lock. It only considers direct spill children in that
+/// database's verified scope and never follows symlinks or Windows reparse points.
+fn discard_stale_runtime_spill_directories(spill_parent: &Path, active_spill: &Path) {
+  let Some(spill_root) = spill_parent.parent() else {
+    return;
+  };
+  let canonical_root = match fs::canonicalize(spill_root) {
+    Ok(path) => path,
+    Err(error) => {
+      crate::log_warn!(
+        "failed to resolve native runtime spill root",
+        "native_database::discard_stale_runtime_spill_directories",
+        Some(format!("{}: {error}", spill_root.display()))
+      );
+      return;
+    }
+  };
+  if let Err(error) = ensure_directory_is_contained(spill_parent, &canonical_root) {
+    crate::log_warn!(
+      "native runtime spill directory is outside its verified scope",
+      "native_database::discard_stale_runtime_spill_directories",
+      Some(error)
+    );
+    return;
+  }
+  let canonical_scope = match fs::canonicalize(spill_parent) {
+    Ok(path) => path,
+    Err(error) => {
+      crate::log_warn!(
+        "failed to resolve native runtime spill directory",
+        "native_database::discard_stale_runtime_spill_directories",
+        Some(format!("{}: {error}", spill_parent.display()))
+      );
+      return;
+    }
+  };
+
+  let entries = match fs::read_dir(spill_parent) {
+    Ok(entries) => entries,
+    Err(error) => {
+      crate::log_warn!(
+        "failed to inspect stale native runtime spill directories",
+        "native_database::discard_stale_runtime_spill_directories",
+        Some(format!("{}: {error}", spill_parent.display()))
+      );
+      return;
+    }
+  };
+
+  for entry in entries {
+    let entry = match entry {
+      Ok(entry) => entry,
+      Err(error) => {
+        crate::log_warn!(
+          "failed to inspect a native runtime spill directory entry",
+          "native_database::discard_stale_runtime_spill_directories",
+          Some(error.to_string())
+        );
+        continue;
+      }
+    };
+    let file_name = entry.file_name();
+    if entry.path() == active_spill
+      || !file_name
+        .to_str()
+        .is_some_and(|name| name.starts_with(RUNTIME_SPILL_ENTRY_PREFIX))
+    {
+      continue;
+    }
+    let path = entry.path();
+    let metadata = match fs::symlink_metadata(&path) {
+      Ok(metadata) => metadata,
+      Err(error) => {
+        crate::log_warn!(
+          "failed to inspect a native runtime spill directory",
+          "native_database::discard_stale_runtime_spill_directories",
+          Some(format!("{}: {error}", path.display()))
+        );
+        continue;
+      }
+    };
+    if !is_normal_directory(&metadata) {
+      continue;
+    }
+    if let Err(error) = ensure_directory_is_contained(&path, &canonical_scope) {
+      crate::log_warn!(
+        "native runtime spill candidate is outside its verified scope",
+        "native_database::discard_stale_runtime_spill_directories",
+        Some(format!("{}: {error}", path.display()))
+      );
+      continue;
+    }
+    if let Err(error) = fs::remove_dir_all(&path) {
+      crate::log_warn!(
+        "failed to discard a stale native runtime spill directory",
+        "native_database::discard_stale_runtime_spill_directories",
+        Some(format!("{}: {error}", path.display()))
+      );
+    }
+  }
+}
+
+fn ensure_directory_is_contained(
+  path: &Path,
+  canonical_parent: &Path,
+) -> Result<(), String> {
+  let metadata = fs::symlink_metadata(path).map_err(|error| error.to_string())?;
+  if !is_normal_directory(&metadata) {
+    return Err("entry is a symlink, reparse point, or non-directory".to_owned());
+  }
+  let canonical_path = fs::canonicalize(path).map_err(|error| error.to_string())?;
+  if canonical_path.parent() != Some(canonical_parent) {
+    return Err(
+      "resolved entry is not an immediate child of its verified parent".to_owned(),
+    );
+  }
+  Ok(())
 }
 
 /// What identifies a native database file for the in-process claim.

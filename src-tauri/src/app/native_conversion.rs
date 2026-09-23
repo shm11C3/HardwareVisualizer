@@ -48,8 +48,9 @@ use std::path::{Path, PathBuf};
 
 use hardviz_core::infrastructure::database::candidate_database::build_candidate_database;
 use hardviz_core::infrastructure::database::native_database::{
-  NativeDatabaseError, finalize_candidate_database, plan_conversion_space,
-  reconcile_native_database, select_native_database,
+  LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX, NativeDatabaseError,
+  finalize_candidate_database, plan_conversion_space, reconcile_native_database,
+  select_native_database,
 };
 use hardviz_core::persistence::{
   ArchiveController, CoolingRollupController, StorageHealthController,
@@ -69,7 +70,7 @@ const DRIVER_WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-driver-";
 
 /// The shared root every conversion work directory's prefix starts with -
 /// this driver's own [`DRIVER_WORK_PREFIX`], and Core's own
-/// `.hardwarevisualizer-duckdb-finalize-`/`-reconcile-`/`-runtime-`
+/// `.hardwarevisualizer-duckdb-finalize-`/`-reconcile-`
 /// directories. The same root `inspect_authority`'s `work_directory_present`
 /// check recognizes.
 ///
@@ -78,9 +79,11 @@ const DRIVER_WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-driver-";
 /// literal prefix.
 pub(crate) const WORK_DEBRIS_PREFIX: &str = ".hardwarevisualizer-duckdb-";
 
-/// Best-effort removal of `.hardwarevisualizer-duckdb-*` directories already
-/// in `workspace`, left behind by an attempt that crashed before producing
-/// a usable finalized file.
+/// Best-effort removal of conversion work directories already in `workspace`,
+/// left behind by an attempt that crashed before producing a usable finalized
+/// file. Legacy runtime spill directories share the historical conversion
+/// prefix but have no database identity; Core excludes them from authority
+/// checks, so this sweep must leave them alone.
 ///
 /// A directory this cannot remove (still held open by another process, or a
 /// permissions issue) is left in place and logged; it cannot block a fresh
@@ -96,10 +99,12 @@ fn discard_stale_conversion_work(workspace: &Path) {
     return;
   };
   for entry in entries.filter_map(Result::ok) {
-    if !entry
-      .file_name()
-      .to_string_lossy()
-      .starts_with(WORK_DEBRIS_PREFIX)
+    let file_name = entry.file_name();
+    let Some(file_name) = file_name.to_str() else {
+      continue;
+    };
+    if !file_name.starts_with(WORK_DEBRIS_PREFIX)
+      || file_name.starts_with(LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX)
     {
       continue;
     }
@@ -1206,6 +1211,9 @@ mod tests {
       .path()
       .join(".hardwarevisualizer-duckdb-finalize-def456");
     let unrelated_dir = directory.path().join("not-debris");
+    let legacy_runtime_spill = directory
+      .path()
+      .join(format!("{LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX}crashed"));
     let unrelated_file = directory
       .path()
       .join(".hardwarevisualizer-duckdb-not-a-directory");
@@ -1214,12 +1222,14 @@ mod tests {
     std::fs::write(stale_driver.join("candidate.duckdb"), b"partial").unwrap();
     std::fs::create_dir(&stale_finalize).unwrap();
     std::fs::create_dir(&unrelated_dir).unwrap();
+    std::fs::create_dir(&legacy_runtime_spill).unwrap();
     std::fs::write(&unrelated_file, b"not a directory, must survive").unwrap();
 
     discard_stale_conversion_work(directory.path());
 
     assert!(!stale_driver.exists());
     assert!(!stale_finalize.exists());
+    assert!(legacy_runtime_spill.is_dir());
     assert!(unrelated_dir.exists());
     assert!(unrelated_file.exists());
   }
