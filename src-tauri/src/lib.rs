@@ -499,7 +499,7 @@ static HANDOFF_NOTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 /// after the parent that launched it has released both. A child that cannot
 /// confirm the parent's exit terminates here instead of starting.
 pub fn run_cli_mode_if_requested() -> Option<i32> {
-  let args = match cli::parse_cli_args(std::env::args()) {
+  let args = match cli::parse_cli_args(cli::process_args()) {
     Ok(args) => args,
     Err(error) => {
       eprintln!("invalid command line: {error:?}");
