@@ -118,6 +118,7 @@ const AppContent = () => {
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [closeToTrayDialogOpen, setCloseToTrayDialogOpen] = useState(false);
+  const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
   const [guidanceDialogOpen, setGuidanceDialogOpen] = useState(false);
 
   useErrorModalListener();
@@ -358,7 +359,20 @@ const AppContent = () => {
             settingsLoaded={settingsLoaded}
             onOpenChange={setCloseToTrayDialogOpen}
           />
-          <DatabaseConversionPromptDialog settingsLoaded={settingsLoaded} />
+          {/* Startup dialogs open one at a time, in this order: the
+              close-to-tray prompt and the external component guidance are
+              single-decision dialogs that do not wait for anything; the
+              database conversion prompt waits for them because it runs a
+              multi-step flow (progress, cancel, retry) that should not be
+              covered by a short prompt part-way through; the NSIS
+              migration notice waits for all three because it is a
+              recommendation the user can act on at any time, whereas the
+              conversion prompt is the point of this release. */}
+          <DatabaseConversionPromptDialog
+            settingsLoaded={settingsLoaded}
+            deferred={closeToTrayDialogOpen || guidanceDialogOpen}
+            onOpenChange={setConversionDialogOpen}
+          />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
@@ -367,7 +381,11 @@ const AppContent = () => {
           <NsisMigrationNoticeDialog
             dismissed={settings.nsisMigrationNoticeDismissed}
             settingsLoaded={settingsLoaded}
-            deferred={closeToTrayDialogOpen || guidanceDialogOpen}
+            deferred={
+              closeToTrayDialogOpen ||
+              conversionDialogOpen ||
+              guidanceDialogOpen
+            }
           />
           <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
         </div>

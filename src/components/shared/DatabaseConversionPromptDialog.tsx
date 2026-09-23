@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -20,6 +20,13 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 
 const DISMISSED_STORE_KEY = "databaseConversionPromptDismissed";
 
+type DatabaseConversionPromptDialogProps = {
+  settingsLoaded?: boolean;
+  /** Another startup AlertDialog is open; wait before opening. */
+  deferred?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
 /**
  * App-root, one-time prompt for the #2136 native database conversion:
  * users who already have Insights recording on must see this right after
@@ -27,7 +34,13 @@ const DISMISSED_STORE_KEY = "databaseConversionPromptDismissed";
  * point (`DatabaseConversionSettings`) alone isn't enough for that. Mounted
  * beside `NavigationRestructureNotice` and `CloseToTrayFirstRunDialog`,
  * following the same app-wide-one-time-dialog shape as the latter
- * (`AlertDialog`, a controlled `open` boolean, no `onOpenChange`).
+ * (`AlertDialog`, a controlled `open` boolean, no Radix `onOpenChange`, so
+ * only its own buttons close it).
+ *
+ * `deferred` holds back the first open while another startup AlertDialog
+ * is open, so modals never stack; App decides which ones count. It only
+ * gates the opening: once shown, a conversion in progress stays visible
+ * even if another dialog opens later.
  *
  * Shown only when the conversion is supported, the lifecycle state is
  * `sqliteAuthoritative` or `conversionRecoverable`, Insights recording
@@ -47,9 +60,9 @@ const DISMISSED_STORE_KEY = "databaseConversionPromptDismissed";
  */
 export const DatabaseConversionPromptDialog = ({
   settingsLoaded = true,
-}: {
-  settingsLoaded?: boolean;
-}) => {
+  deferred = false,
+  onOpenChange,
+}: DatabaseConversionPromptDialogProps) => {
   const { t } = useTranslation();
   const conversion = useDatabaseConversion();
   const { settings } = useSettingsAtom();
@@ -62,8 +75,14 @@ export const DatabaseConversionPromptDialog = ({
   const [open, setOpen] = useState(false);
   const [everOffered, setEverOffered] = useState(false);
 
+  // Before paint, so App defers other dialogs in the same frame.
+  useLayoutEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
+
   const eligible =
     settingsLoaded &&
+    !deferred &&
     !dismissedPending &&
     !dismissed &&
     settings.hardwareArchive.enabled &&
