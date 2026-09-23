@@ -682,6 +682,7 @@ mod boundary {
         Active::Native(database) => database.clone(),
         _ => unreachable!(),
       };
+      insert_probe(&original, 42).await;
       // Keep one lane busy so detached recovery waits in close after installing
       // the non-serving transition state.
       let (read_started_tx, read_started_rx) = tokio::sync::oneshot::channel();
