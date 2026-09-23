@@ -167,13 +167,13 @@ export const DatabaseConversionStateBody = ({
       state.kind === "actionRequired" &&
       // `start_database_conversion` re-inspects on-disk authority fresh
       // rather than trusting this owner's own previous state (see
-      // `run_conversion`'s own documentation), so retrying is safe
-      // exactly for the two issues the driver itself produced by failing
-      // or being cancelled mid-run - not for an
-      // `Authority`/open/creation disagreement `inspect_authority`
-      // refused to guess at, which a retry would refuse the same way.
+      // `run_conversion`'s own documentation). For unreadable native
+      // metadata, retry is safe because the driver does not rename or replace
+      // the file: it continues only if a fresh inspection can establish a
+      // supported state, and otherwise leaves the issue in ActionRequired.
       (state.reason === "conversionFailed" ||
-        state.reason === "conversionCancelled")
+        state.reason === "conversionCancelled" ||
+        state.reason === "nativeMetadataUnreadable")
     ) {
       return (
         <Button type="button" onClick={() => void start()}>

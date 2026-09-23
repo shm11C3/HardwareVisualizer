@@ -1028,7 +1028,11 @@ pub fn inspect_authority(facts: &AuthorityFacts) -> AuthorityState {
       }
       match &facts.native_metadata {
         NativeMetadataFacts::Unreadable => {
-          AuthorityState::ConversionInProgress { resumable: false }
+          // A native file can be selected even when its marker is absent;
+          // the marker is written after the database records selection. If
+          // the database cannot be read, treating it as partial conversion
+          // output sends retries into a conversion with an existing native file.
+          stop(AuthorityInconsistency::NativeMetadataUnreadable)
         }
         NativeMetadataFacts::Present { .. } => {
           // Finalized and unselected. A write-ahead log or leftover work
@@ -1172,15 +1176,17 @@ mod tests {
   }
 
   #[test]
-  fn an_incomplete_native_file_or_bare_work_directory_restarts_the_copy() {
+  fn an_unreadable_native_file_is_not_treated_as_interrupted_conversion() {
     let mut observed = facts();
     observed.marker = MarkerFacts::Absent;
     observed.native_metadata = NativeMetadataFacts::Unreadable;
     assert_eq!(
       inspect_authority(&observed),
-      AuthorityState::ConversionInProgress { resumable: false }
+      inconsistent(AuthorityInconsistency::NativeMetadataUnreadable)
     );
 
+    // A bare work directory with no native database is still interrupted
+    // conversion output and can safely restart from the SQLite source.
     observed.native_database_present = false;
     observed.native_metadata = NativeMetadataFacts::Absent;
     observed.work_directory_present = true;
@@ -1468,7 +1474,7 @@ mod tests {
 
   #[tokio::test]
   async fn legacy_spill_is_ignored_by_authority_and_new_stale_spills_are_removed_after_owner_opens()
-   {
+  {
     let directory = tempfile::tempdir().unwrap();
     let paths = fresh_paths(directory.path());
     create_empty_native_database(paths.clone(), fresh_schema())
@@ -1514,5 +1520,65 @@ mod tests {
     assert!(legacy_runtime_spill.is_dir());
     assert!(conversion_work.is_dir());
     owner.close().await.unwrap();
+  }
+
+  #[tokio::test]
+  async fn a_checkpointed_native_file_can_be_renamed_while_its_writer_lock_is_held() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    create_empty_native_database(paths.clone(), fresh_schema())
+      .await
+      .unwrap();
+
+    let spill = directory.path().join("rename-spill");
+    std::fs::create_dir(&spill).unwrap();
+    let connection =
+      open_database(&paths.native_database, AccessMode::ReadWrite, &spill).unwrap();
+    connection
+      .execute_batch(
+        "CREATE TABLE recovery_rename_probe(value INTEGER); \
+         INSERT INTO recovery_rename_probe VALUES (1)",
+      )
+      .unwrap();
+
+    let mut wal_path = paths.native_database.as_os_str().to_os_string();
+    wal_path.push(".wal");
+    let wal_path = PathBuf::from(wal_path);
+    assert!(
+      wal_path.is_file(),
+      "the write should leave a checkpointable WAL"
+    );
+    connection.execute_batch("CHECKPOINT").unwrap();
+    assert!(
+      !wal_path.exists(),
+      "CHECKPOINT must flush and remove the WAL"
+    );
+
+    let recovery_directory = directory.path().join("recovery");
+    std::fs::create_dir(&recovery_directory).unwrap();
+    let recovered_database = recovery_directory.join("hv-database.duckdb");
+    std::fs::rename(&paths.native_database, &recovered_database)
+      .expect("DuckDB's writer lock must allow same-volume rename while held");
+    let row_count: i64 = connection
+      .query_row("SELECT count(*) FROM recovery_rename_probe", [], |row| {
+        row.get(0)
+      })
+      .unwrap();
+    assert_eq!(row_count, 1);
+    drop(connection);
+
+    assert!(!paths.native_database.exists());
+    assert!(recovered_database.is_file());
+    assert!(!wal_path.exists());
+    let recovered_spill = directory.path().join("recovered-spill");
+    std::fs::create_dir(&recovered_spill).unwrap();
+    let recovered =
+      open_database(&recovered_database, AccessMode::ReadOnly, &recovered_spill).unwrap();
+    let recovered_count: i64 = recovered
+      .query_row("SELECT count(*) FROM recovery_rename_probe", [], |row| {
+        row.get(0)
+      })
+      .unwrap();
+    assert_eq!(recovered_count, 1);
   }
 }

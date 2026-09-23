@@ -122,7 +122,11 @@ describe("DatabaseConversionSettings", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["conversionFailed", "conversionCancelled"] as const)(
+  it.each([
+    "conversionFailed",
+    "conversionCancelled",
+    "nativeMetadataUnreadable",
+  ] as const)(
     "offers a retry action for %s, which re-invokes start()",
     (reason) => {
       mockState = {

@@ -1687,6 +1687,45 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn an_unreadable_unmarked_native_file_stays_blocked_without_changing_either_database()
+   {
+    let fixture = Fixture::new().await;
+    let paths = fixture.paths();
+    let source_before = std::fs::read(&paths.source_database).unwrap();
+    let native_before = b"unreadable native database bytes".to_vec();
+    std::fs::write(&paths.native_database, &native_before).unwrap();
+
+    let owner = NativeLifecycleOwner::new();
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+
+    assert!(matches!(outcome, ConversionOutcome::ActionRequired));
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable,
+      ))
+    );
+    assert_eq!(
+      std::fs::read(&paths.source_database).unwrap(),
+      source_before
+    );
+    assert_eq!(
+      std::fs::read(&paths.native_database).unwrap(),
+      native_before
+    );
+    assert!(!paths.marker.exists());
+  }
+
+  #[tokio::test]
   async fn a_real_producer_is_drained_before_reconciliation_and_running_again_after() {
     let fixture = Fixture::new().await;
     let owner = NativeLifecycleOwner::new();
@@ -2293,7 +2332,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn a_concurrently_held_database_is_reported_as_action_required_not_silently_skipped()
+  async fn a_concurrently_held_database_is_action_required_and_can_be_retried_after_close()
    {
     // Another owner in this process already holds the selected database. The
     // second owner must be refused and record why, never treat it as done.
@@ -2342,5 +2381,26 @@ mod tests {
       second_owner.state()
     );
     assert!(second_owner.selected_database().is_none());
+
+    first_owner
+      .selected_database()
+      .unwrap()
+      .close()
+      .await
+      .unwrap();
+
+    let retry_outcome = run_conversion(
+      fixture.target(),
+      &second_owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+
+    assert!(matches!(retry_outcome, ConversionOutcome::AlreadySelected));
+    assert!(second_owner.selected_database().is_some());
   }
 }
