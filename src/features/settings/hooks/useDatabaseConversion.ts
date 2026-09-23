@@ -69,6 +69,16 @@ export const useDatabaseConversion = () => {
       setError(result.error);
       return false;
     }
+    // A successful Start means a conversion is now nominally in flight
+    // from this call's perspective, even if the very first `refresh()`
+    // below already observes `nativeAuthoritative` directly (a fast
+    // completion that skipped over any `converting` poll this hook
+    // happened to catch). Priming `previousKindRef` here, rather than
+    // leaving it at whatever it was before Start, makes that refresh's
+    // own converting-to-native check in `refresh()` fire correctly - and
+    // is a no-op if the conversion is still genuinely running, since
+    // `refresh()` would set the same value anyway.
+    previousKindRef.current = "converting";
     await refresh();
     return true;
   }, [refresh]);

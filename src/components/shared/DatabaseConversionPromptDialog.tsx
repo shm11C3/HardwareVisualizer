@@ -5,13 +5,16 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { DatabaseConversionStateBody } from "@/features/settings/components/insights/DatabaseConversionStateBody";
+import {
+  DatabaseConversionStateBody,
+  showsDatabaseConversionNotice,
+} from "@/features/settings/components/insights/DatabaseConversionStateBody";
 import { useDatabaseConversion } from "@/features/settings/hooks/useDatabaseConversion";
+import { useDatabaseConversionNoticeShown } from "@/features/settings/hooks/useDatabaseConversionNoticeShown";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 
@@ -54,6 +57,8 @@ export const DatabaseConversionPromptDialog = ({
     DISMISSED_STORE_KEY,
     false,
   );
+  const [noticeShown, , noticeShownPending] =
+    useDatabaseConversionNoticeShown();
   const [open, setOpen] = useState(false);
   const [everOffered, setEverOffered] = useState(false);
 
@@ -83,6 +88,51 @@ export const DatabaseConversionPromptDialog = ({
     conversion.state.kind === "sqliteAuthoritative" ||
     conversion.state.kind === "conversionRecoverable";
   const isActionRequired = conversion.state.kind === "actionRequired";
+  // `nativeAuthoritative`'s only other exit is the completion notice's own
+  // two buttons - but the notice does not render every time this state is
+  // reached: `justCompleted` may already be false (this dialog observed
+  // the transition in an earlier render this session and already
+  // acknowledged it, or never observed it at all - e.g. the state was
+  // already `nativeAuthoritative` the first time this mount polled), or
+  // the "already shown" flag may already be `true` from a previous
+  // session. Without a fallback here, a user who reaches this state any
+  // way other than watching the notice appear would have no button at
+  // all - `useDatabaseConversion`'s own `start()` now also primes its
+  // completion detection for a conversion that finishes before this
+  // dialog observes an intermediate `converting` poll, but that only
+  // narrows the gap, it doesn't close every path into this state without
+  // `justCompleted`. `showsDatabaseConversionNotice` is the exact
+  // question `DatabaseConversionStateBody` answers internally to decide
+  // whether to render the notice; asking it here rather than re-deriving
+  // the condition keeps the two in agreement.
+  const isNativeWithoutNotice =
+    conversion.state.kind === "nativeAuthoritative" &&
+    !showsDatabaseConversionNotice(
+      conversion.state,
+      conversion.justCompleted,
+      noticeShown,
+      noticeShownPending,
+    );
+
+  // Paired with this state's own primary action (Convert/Retry/Cancel) in
+  // one footer row by `DatabaseConversionStateBody` - see its own
+  // `footerSecondaryAction` documentation. `converting` intentionally has
+  // none: Cancel sits alone in its footer row. Completion normally has
+  // none either - the completion notice's own two buttons are its own
+  // row - except the `isNativeWithoutNotice` fallback above.
+  const footerSecondaryAction = isInitialState ? (
+    <AlertDialogCancel onClick={dismissForGood}>
+      {t("databaseConversionPrompt.later")}
+    </AlertDialogCancel>
+  ) : isActionRequired ? (
+    <Button type="button" variant="outline" onClick={close}>
+      {t("databaseConversionPrompt.close")}
+    </Button>
+  ) : isNativeWithoutNotice ? (
+    <Button type="button" variant="outline" onClick={close}>
+      {t("databaseConversionPrompt.done")}
+    </Button>
+  ) : undefined;
 
   return (
     <AlertDialog open={open}>
@@ -96,22 +146,12 @@ export const DatabaseConversionPromptDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <DatabaseConversionStateBody {...conversion} onCompleted={close} />
-
-        {(isInitialState || isActionRequired) && (
-          <AlertDialogFooter>
-            {isInitialState && (
-              <AlertDialogCancel onClick={dismissForGood}>
-                {t("databaseConversionPrompt.later")}
-              </AlertDialogCancel>
-            )}
-            {isActionRequired && (
-              <Button type="button" variant="outline" onClick={close}>
-                {t("databaseConversionPrompt.close")}
-              </Button>
-            )}
-          </AlertDialogFooter>
-        )}
+        <DatabaseConversionStateBody
+          {...conversion}
+          onCompleted={close}
+          layout="footer"
+          footerSecondaryAction={footerSecondaryAction}
+        />
       </AlertDialogContent>
     </AlertDialog>
   );

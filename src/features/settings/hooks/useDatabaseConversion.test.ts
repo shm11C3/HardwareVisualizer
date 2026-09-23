@@ -181,6 +181,33 @@ describe("useDatabaseConversion", () => {
     expect(result.current.justCompleted).toBe(true);
   });
 
+  it("start() counts an immediate nativeAuthoritative result as its own completion, even without an observed converting poll", async () => {
+    (commands.getDatabaseConversionState as Mock)
+      .mockResolvedValueOnce({ kind: "sqliteAuthoritative" })
+      // The very first refresh() inside start() already reports
+      // nativeAuthoritative - a fast completion this mount's own polling
+      // never caught mid-flight as "converting".
+      .mockResolvedValue({ kind: "nativeAuthoritative" });
+    (commands.startDatabaseConversion as Mock).mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+
+    const { result } = renderHook(() => useDatabaseConversion());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.state).toEqual({ kind: "sqliteAuthoritative" });
+    expect(result.current.justCompleted).toBe(false);
+
+    await act(async () => {
+      await result.current.start();
+    });
+
+    expect(result.current.state).toEqual({ kind: "nativeAuthoritative" });
+    expect(result.current.justCompleted).toBe(true);
+  });
+
   it("cancel() refreshes state after a successful call", async () => {
     (commands.getDatabaseConversionState as Mock)
       .mockResolvedValueOnce({ kind: "converting", step: "reconciling" })

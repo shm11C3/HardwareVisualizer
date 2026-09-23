@@ -44,8 +44,12 @@ vi.mock("@/features/settings/hooks/useDatabaseConversion", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
-  useTauriStore: () => [mockNoticeShown, mockSetNoticeShown, false],
+vi.mock("@/features/settings/hooks/useDatabaseConversionNoticeShown", () => ({
+  useDatabaseConversionNoticeShown: () => [
+    mockNoticeShown,
+    mockSetNoticeShown,
+    false,
+  ],
 }));
 
 vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
