@@ -5,7 +5,7 @@ import {
   EyeOffIcon,
   ShieldIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -177,7 +177,8 @@ export const ExternalComponentGuidanceDialog = ({
 
   const isOpen = Boolean(candidate && copyKey && actionKey);
 
-  useEffect(() => {
+  // Before paint, so App defers other dialogs in the same frame.
+  useLayoutEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
 

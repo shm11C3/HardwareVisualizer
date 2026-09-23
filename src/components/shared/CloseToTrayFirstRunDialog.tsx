@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { XIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -38,7 +38,8 @@ export const CloseToTrayFirstRunDialog = ({
   const [promptReason, setPromptReason] = useState<PromptReason | null>(null);
   const isOpen = promptReason !== null;
 
-  useEffect(() => {
+  // Before paint, so App defers other dialogs in the same frame.
+  useLayoutEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
 
