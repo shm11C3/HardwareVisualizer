@@ -812,9 +812,11 @@ fn sync_directory(directory: &Path) -> Result<(), NativeDatabaseError> {
 /// # Call this before the backend is opened, never beside it
 ///
 /// Reading the native metadata means opening the file as a second DuckDB
-/// instance, and DuckDB refuses a file another instance already holds. Called
-/// while a [`super::NativeDatabase`] owner is live, this would therefore report
-/// the metadata as *unreadable* - which [`inspect_authority`] turns into
+/// instance beside the owner. On Windows DuckDB refuses that; on Linux and
+/// macOS its lock is process-scoped, so the read goes through against a file
+/// another connection is writing. Neither is a sound answer. Called while a
+/// [`super::NativeDatabase`] owner is live, this can therefore report the
+/// metadata as *unreadable* - which [`inspect_authority`] turns into
 /// `ConversionInProgress`, an alarming answer about a perfectly healthy
 /// database. It belongs at startup, before any owner is opened, and after one
 /// has been closed.

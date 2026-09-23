@@ -981,6 +981,46 @@ async fn checkpoint_after_close_reports_closed() {
   assert!(matches!(error, NativeDatabaseError::Closed), "{error:?}");
 }
 
+/// DuckDB's own lock does not stop this on Linux and macOS, where it is a
+/// process-scoped `fcntl` lock, so the owner has to refuse it itself.
+#[tokio::test]
+async fn a_second_owner_in_the_same_process_is_refused_until_the_first_closes() {
+  let fixture = seeded_native().await;
+  let first = fixture.open().await;
+
+  let error = fixture
+    .try_open(app_native_schema::NATIVE_SCHEMA_VERSION)
+    .await
+    .unwrap_err();
+  assert!(
+    matches!(error, NativeDatabaseError::AlreadyOpen { .. }),
+    "{error:?}"
+  );
+
+  // Another spelling of the same file is the same file.
+  let respelled = fixture
+    .finalized
+    .parent()
+    .unwrap()
+    .join(".")
+    .join(fixture.finalized.file_name().unwrap());
+  let error =
+    hardviz_core::infrastructure::database::native_database::NativeDatabase::open(
+      &respelled,
+      NativeDatabaseOptions::new(app_native_schema::NATIVE_SCHEMA_VERSION),
+    )
+    .await
+    .unwrap_err();
+  assert!(
+    matches!(error, NativeDatabaseError::AlreadyOpen { .. }),
+    "{error:?}"
+  );
+
+  first.close().await.unwrap();
+  let reopened = fixture.open().await;
+  reopened.close().await.unwrap();
+}
+
 async fn seeded_native() -> NativeFixture {
   let fixture = NativeFixture::new();
   let pool = fixture.migrated_pool().await;
