@@ -122,3 +122,4 @@ shared enforcement surface.
 - [Report across the elevation boundary by exit code](report-across-elevation-by-exit-code.md)
 - [Render untrusted text through GitHub's Markdown API](render-untrusted-text-through-github-markdown-api.md)
 - [Place scripts with their owner](place-scripts-with-their-owner.md)
+- [Keep tray flyout geometry transient](keep-tray-flyout-geometry-transient.md)
