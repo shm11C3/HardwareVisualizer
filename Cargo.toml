@@ -5,9 +5,18 @@ exclude = ["perf-monitor"]
 
 [profile.dev]
 opt-level = 0
-debug = true
+# Line tables are enough for panics, backtraces and test failures. Full
+# debuginfo for the whole workspace made each shared build subtree 40 GiB and
+# more (see docs/development/local-build-cache.md). For a session that steps
+# through workspace code in a debugger, run with CARGO_PROFILE_DEV_DEBUG=true.
+debug = "line-tables-only"
 overflow-checks = true
 lto = false
+
+# The bundled DuckDB C++ library carried 2.3 GiB of debuginfo per subtree, and
+# nothing in this repository debugs into it.
+[profile.dev.package.libduckdb-sys]
+debug = false
 
 [profile.release]
 opt-level = "s"

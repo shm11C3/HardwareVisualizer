@@ -127,6 +127,31 @@ source is identical. sccache also adds its own cache directory on disk
 (capped by `SCCACHE_CACHE_SIZE` above); it does not shrink any worktree's own
 build-dir subtree.
 
+### Dev-profile debuginfo is reduced on purpose
+
+Most of a subtree's size was debuginfo, not code. `Cargo.toml` therefore sets
+`[profile.dev] debug = "line-tables-only"` for the workspace and
+`[profile.dev.package.libduckdb-sys] debug = false` for the bundled DuckDB C++
+library. Line tables keep file and line numbers in panics, backtraces and test
+failures; what goes away is the type and variable information a debugger uses
+to step through code, and nothing in this repository steps into DuckDB.
+Measured on 2026-09-23 on Windows, `cargo build -p hardviz-core --features
+duckdb-archive --tests`, same worktree, before and after:
+
+| Artifact                          | `debug = true` | after     |
+| --------------------------------- | -------------- | --------- |
+| `liblibduckdb_sys-*.rlib`         | 2206 MiB       | 674 MiB   |
+| `libhardviz_core-*.rlib`          | 404 MiB        | 104 MiB   |
+| `hardviz_core-*.pdb` (lib tests)  | 522 MiB        | 136 MiB   |
+
+CI builds tests with the same `dev` profile, so its `target/` caches shrink by
+the same ratio. For a session that needs full debuginfo for workspace code,
+override the profile for that command only:
+
+```bash
+CARGO_PROFILE_DEV_DEBUG=true cargo test -p hardviz-core
+```
+
 ## What changes for you
 
 - The first build after upgrading repopulates the shared parent directory;
