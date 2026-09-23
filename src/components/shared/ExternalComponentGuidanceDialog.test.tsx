@@ -13,8 +13,16 @@ const mocks = vi.hoisted(() => ({
   openURL: vi.fn(),
   platform: vi.fn(() => "windows"),
   setElevatedStartupMode: vi.fn(),
+  updateSettingAtom: vi.fn(),
   useElevationAvailability: vi.fn((): string | null => "available"),
   useProcessElevated: vi.fn((): boolean | null => false),
+}));
+
+vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+  useSettingsAtom: () => ({
+    settings: { elevatedStartupMode: false },
+    updateSettingAtom: mocks.updateSettingAtom,
+  }),
 }));
 
 vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
@@ -77,6 +85,7 @@ describe("ExternalComponentGuidanceDialog", () => {
       status: "ok",
       data: null,
     });
+    mocks.updateSettingAtom.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -95,8 +104,32 @@ describe("ExternalComponentGuidanceDialog", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Open details" })).toBeNull();
-    expect(mocks.setElevatedStartupMode).toHaveBeenCalledWith(true);
+    // Through the settings atom so the toggle reflects the saved value even
+    // when the backend persists without relaunching (already elevated).
+    expect(mocks.updateSettingAtom).toHaveBeenCalledWith(
+      "elevatedStartupMode",
+      true,
+    );
+    expect(mocks.setElevatedStartupMode).not.toHaveBeenCalled();
     expect(mocks.openURL).not.toHaveBeenCalled();
+  });
+
+  it("shows the error dialog when enabling elevated startup mode throws", async () => {
+    const user = userEvent.setup();
+    mocks.updateSettingAtom.mockRejectedValue(new Error("ipc failed"));
+
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Restart as administrator",
+      }),
+    );
+
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole("button", { name: "Restart as administrator" }),
+    ).toBeEnabled();
   });
 
   it("offers details instead of a restart when elevation is refused here", async () => {
@@ -187,6 +220,7 @@ describe("ExternalComponentGuidanceDialog", () => {
       screen.queryByRole("button", { name: "Restart as administrator" }),
     ).toBeNull();
     expect(mocks.openURL).toHaveBeenCalledTimes(1);
+    expect(mocks.updateSettingAtom).not.toHaveBeenCalled();
     expect(mocks.setElevatedStartupMode).not.toHaveBeenCalled();
   });
 });
