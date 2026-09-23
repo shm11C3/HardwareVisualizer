@@ -1010,7 +1010,13 @@ pub fn run() {
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_window_state::Builder::default().build())
+    // The transient flyout owns a fixed size and tray-relative position. A
+    // saved hidden-window size can make its Open button inaccessible.
+    .plugin(
+      tauri_plugin_window_state::Builder::default()
+        .with_denylist(&[tray::TRAY_WIDGET_FLYOUT_LABEL])
+        .build(),
+    )
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_autostart::init(
       MacosLauncher::LaunchAgent,
