@@ -29,6 +29,36 @@ fn retired_path(source_database: &Path) -> Option<std::path::PathBuf> {
   Some(source_database.with_file_name(format!("{file_name}.retired")))
 }
 
+/// One removal step's failure during
+/// [`discard_native_authority_files`]. Carries the path and a short
+/// description of what step failed so
+/// [`crate::app::startup::reset_database_and_restart`] can show a specific
+/// dialog message instead of continuing past a file it could not remove.
+#[derive(Debug)]
+pub struct DiscardArtifactError {
+  path: std::path::PathBuf,
+  description: &'static str,
+  source: std::io::Error,
+}
+
+impl std::fmt::Display for DiscardArtifactError {
+  fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(
+      formatter,
+      "failed to remove {} ({}): {}",
+      self.description,
+      self.path.display(),
+      self.source
+    )
+  }
+}
+
+impl std::error::Error for DiscardArtifactError {
+  fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    Some(&self.source)
+  }
+}
+
 /// Remove every native-database-lifecycle artifact Reset owns: the
 /// finalized/selected native file and its write-ahead log, the authority
 /// marker, and any interrupted conversion work directories. Called by
@@ -47,27 +77,35 @@ fn retired_path(source_database: &Path) -> Option<std::path::PathBuf> {
 /// same clean, artifact-free state every time, and the next
 /// `inspect_authority` reports it as a fresh install.
 ///
-/// # Ordering: native database before marker
+/// # Ordering: native database before marker, and stop at the first failure
 ///
 /// The native database is removed **before** the marker, mirroring
 /// [`hardviz_core::infrastructure::database::native_database::select_native_database`]'s
 /// own write order (native metadata first, marker second) in reverse. If the
-/// process dies between the two removals here, the only state it can leave
-/// is "the marker still names a native database that is already gone" -
-/// which `inspect_authority` reports as
+/// process dies (or a step fails) between the two removals here, the only
+/// state it can leave is "the marker still names a native database that is
+/// already gone" - which `inspect_authority` reports as
 /// [`hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::MarkerWithoutNativeDatabase`]
 /// and refuses to guess at
 /// ([`hardviz_core::infrastructure::database::native_database::AuthorityRecovery::StopAndReport`]).
-/// The reverse order would be unsafe: deleting the marker first while the
+/// The reverse order would be unsafe: removing the marker first while the
 /// native database still says `state = 'selected'` recreates exactly the one
 /// state `inspect_startup_authority` auto-repairs
-/// (`SelectedWithoutMarker`) - the next startup would silently rewrite the
-/// marker from the database's own metadata and undo the reset it was in the
-/// middle of performing.
+/// (`SelectedWithoutMarker`) - a later startup (or, worse, this same reset
+/// continuing past the failure to delete the SQLite source next) would
+/// silently rewrite the marker from the database's own metadata and undo the
+/// reset it was in the middle of performing.
 ///
-/// An interruption anywhere in this sequence is safe to resume: the caller
-/// (the startup error dialog, or the native authority dialog) offers Reset
-/// again, and a second full pass converges on the same clean state.
+/// Every step here therefore stops at its own first failure and returns
+/// immediately, rather than logging and continuing: a native file this
+/// cannot remove (locked, permissions) must leave the marker - and every
+/// step after it - untouched, or the caller's later SQLite removal would run
+/// on top of a half-discarded, silently misleading state. The caller
+/// ([`crate::app::startup::reset_database_and_restart`]) reports the error
+/// and stops before touching the SQLite source or restarting; an interrupted
+/// or refused reset is safe to resume, because both startup dialogs keep
+/// offering Reset, and a second full pass either finishes the job or fails
+/// at the same, now-diagnosable step.
 ///
 /// # What is deliberately not removed
 ///
@@ -79,33 +117,85 @@ fn retired_path(source_database: &Path) -> Option<std::path::PathBuf> {
 /// path this function does touch - a `.retired`-suffixed name is never read
 /// by `observe_authority`/`inspect_authority`, so keeping it can never make a
 /// freshly reset profile look anything but clean.
-pub fn discard_native_authority_files(paths: &AuthorityPaths, workspace: &Path) {
+pub fn discard_native_authority_files(
+  paths: &AuthorityPaths,
+  workspace: &Path,
+) -> Result<(), DiscardArtifactError> {
   let native_write_ahead_log = {
     let mut path = paths.native_database.as_os_str().to_os_string();
     path.push(".wal");
     std::path::PathBuf::from(path)
   };
-  remove_file_best_effort(&paths.native_database, "the native database file");
-  remove_file_best_effort(
+  remove_required_file(&paths.native_database, "the native database file")?;
+  remove_required_file(
     &native_write_ahead_log,
     "the native database write-ahead log",
-  );
-  remove_file_best_effort(&paths.marker, "the native authority marker");
-  crate::app::native_conversion::discard_stale_conversion_work(workspace);
+  )?;
+  remove_required_file(&paths.marker, "the native authority marker")?;
+  discard_conversion_work_directories(workspace)
 }
 
-fn remove_file_best_effort(path: &Path, description: &str) {
+fn remove_required_file(
+  path: &Path,
+  description: &'static str,
+) -> Result<(), DiscardArtifactError> {
   match std::fs::remove_file(path) {
-    Ok(()) => {}
-    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-    Err(error) => {
-      log_error!(
-        "failed to remove a native database artifact during reset",
-        "app::native_maintenance::discard_native_authority_files",
-        Some(format!("{description} ({}): {error}", path.display()))
-      );
-    }
+    Ok(()) => Ok(()),
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+    Err(source) => Err(DiscardArtifactError {
+      path: path.to_owned(),
+      description,
+      source,
+    }),
   }
+}
+
+/// Remove every `.hardwarevisualizer-duckdb-*` directory already in
+/// `workspace`, stopping at the first one this cannot remove.
+///
+/// Deliberately not [`crate::app::native_conversion::discard_stale_conversion_work`]:
+/// that sweep is best-effort by design (a directory it cannot remove is
+/// logged and left in place so a fresh conversion attempt is not blocked by
+/// debris it does not even read) - see its own documentation. Reset needs
+/// the opposite policy, matching every other step in
+/// [`discard_native_authority_files`]: stop and report rather than continue
+/// past a removal this process could not perform.
+fn discard_conversion_work_directories(
+  workspace: &Path,
+) -> Result<(), DiscardArtifactError> {
+  let entries = match std::fs::read_dir(workspace) {
+    Ok(entries) => entries,
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+    Err(source) => {
+      return Err(DiscardArtifactError {
+        path: workspace.to_owned(),
+        description: "the database directory",
+        source,
+      });
+    }
+  };
+  for entry in entries {
+    let entry = entry.map_err(|source| DiscardArtifactError {
+      path: workspace.to_owned(),
+      description: "the database directory",
+      source,
+    })?;
+    if !entry
+      .file_name()
+      .to_string_lossy()
+      .starts_with(crate::app::native_conversion::WORK_DEBRIS_PREFIX)
+      || !entry.file_type().is_ok_and(|kind| kind.is_dir())
+    {
+      continue;
+    }
+    let path = entry.path();
+    std::fs::remove_dir_all(&path).map_err(|source| DiscardArtifactError {
+      path,
+      description: "an interrupted conversion work directory",
+      source,
+    })?;
+  }
+  Ok(())
 }
 
 /// Rename the SQLite source (and its `-wal`/`-shm` sidecars, if present) out
@@ -500,7 +590,7 @@ mod tests {
         AuthorityState::NativeSelected
       );
 
-      discard_native_authority_files(&paths, directory.path());
+      discard_native_authority_files(&paths, directory.path()).unwrap();
       std::fs::remove_file(&paths.source_database).unwrap();
 
       assert_fresh(&paths);
@@ -531,7 +621,7 @@ mod tests {
         AuthorityState::FinalizedUnselected
       );
 
-      discard_native_authority_files(&paths, directory.path());
+      discard_native_authority_files(&paths, directory.path()).unwrap();
       std::fs::remove_file(&paths.source_database).unwrap();
 
       assert_fresh(&paths);
@@ -547,7 +637,7 @@ mod tests {
         AuthorityState::SqliteAuthoritative
       );
 
-      discard_native_authority_files(&paths, directory.path());
+      discard_native_authority_files(&paths, directory.path()).unwrap();
       std::fs::remove_file(&paths.source_database).unwrap();
 
       assert_fresh(&paths);
@@ -572,7 +662,7 @@ mod tests {
         }
       ));
 
-      discard_native_authority_files(&paths, directory.path());
+      discard_native_authority_files(&paths, directory.path()).unwrap();
       std::fs::remove_file(&paths.source_database).unwrap();
 
       assert_fresh(&paths);
@@ -592,7 +682,7 @@ mod tests {
         AuthorityState::ConversionInProgress { resumable: false }
       );
 
-      discard_native_authority_files(&paths, directory.path());
+      discard_native_authority_files(&paths, directory.path()).unwrap();
       std::fs::remove_file(&paths.source_database).unwrap();
 
       assert!(!work.exists());
@@ -633,7 +723,7 @@ mod tests {
       std::fs::write(&retired, b"pre-conversion history").unwrap();
       std::fs::write(&retired_wal, b"pre-conversion wal").unwrap();
 
-      discard_native_authority_files(&paths, directory.path());
+      discard_native_authority_files(&paths, directory.path()).unwrap();
       std::fs::remove_file(&paths.source_database).unwrap();
 
       assert_eq!(std::fs::read(&retired).unwrap(), b"pre-conversion history");
@@ -641,6 +731,73 @@ mod tests {
       // Leaving it in place must not make the reset profile look anything
       // but clean: `.retired` is never read by `observe_authority`.
       assert_fresh(&paths);
+    }
+
+    /// A native file this process cannot remove must stop the whole reset,
+    /// not just log and continue - see `discard_native_authority_files`'s
+    /// own "stop at the first failure" documentation. A non-empty directory
+    /// at the native database's path is the deterministic, platform-
+    /// independent stand-in: `std::fs::remove_file` reliably refuses to
+    /// remove a directory on every target this crate builds for, unlike a
+    /// locked-file failure, whose exact semantics differ by OS (see the
+    /// Windows-only test below for that case too).
+    #[test]
+    fn reset_stops_at_the_first_unremovable_artifact_leaving_the_marker_and_source_intact()
+     {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = paths(directory.path());
+      std::fs::write(&paths.source_database, b"sqlite source").unwrap();
+      std::fs::create_dir(&paths.native_database).unwrap();
+      std::fs::write(paths.native_database.join("not-a-database"), b"x").unwrap();
+      std::fs::write(&paths.marker, b"marker artifact").unwrap();
+
+      let error = discard_native_authority_files(&paths, directory.path()).unwrap_err();
+      assert!(
+        error.to_string().contains("native database file"),
+        "{error}"
+      );
+
+      // Nothing after the failed step ran: the marker and SQLite source are
+      // untouched, so a caller that stops here - rather than continuing on
+      // to delete the SQLite source - never leaves a half-discarded,
+      // misleading state on disk.
+      assert!(paths.marker.is_file());
+      assert!(paths.source_database.is_file());
+      assert!(paths.native_database.is_dir());
+    }
+
+    /// The same failure mode as above, forced the way it would actually
+    /// happen on Windows - a file another handle still has open - rather
+    /// than the platform-independent directory stand-in.
+    #[cfg(windows)]
+    #[test]
+    fn reset_stops_when_the_native_database_file_is_locked_open_on_windows() {
+      use std::os::windows::fs::OpenOptionsExt;
+
+      let directory = tempfile::tempdir().unwrap();
+      let paths = paths(directory.path());
+      std::fs::write(&paths.source_database, b"sqlite source").unwrap();
+      std::fs::write(&paths.native_database, b"duckdb artifact").unwrap();
+      std::fs::write(&paths.marker, b"marker artifact").unwrap();
+
+      // `share_mode` narrowed to read-only sharing (no `FILE_SHARE_DELETE`)
+      // is what actually forces `remove_file` to fail on Windows; a plain
+      // `File::open` shares delete access by default and would not
+      // reproduce the failure this test exists to cover.
+      const FILE_SHARE_READ: u32 = 0x0000_0001;
+      let _lock = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .open(&paths.native_database)
+        .unwrap();
+
+      let error = discard_native_authority_files(&paths, directory.path()).unwrap_err();
+      assert!(
+        error.to_string().contains("native database file"),
+        "{error}"
+      );
+      assert!(paths.marker.is_file());
+      assert!(paths.source_database.is_file());
     }
   }
 }

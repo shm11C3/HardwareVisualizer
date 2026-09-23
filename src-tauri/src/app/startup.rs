@@ -12,6 +12,19 @@ const RESET_LABEL: &str = "Reset and Restart";
 const CONTINUE_LABEL: &str = "Continue Anyway";
 const EXIT_LABEL: &str = "Exit";
 
+/// The one Reset-consequence sentence both dialogs that offer it show.
+///
+/// Deliberately does not say "all" archived history: with `duckdb-archive`,
+/// a `.retired` pre-conversion copy (`hv-database.db.retired`) - if one
+/// exists - survives Reset on purpose (see
+/// `app::native_maintenance::discard_native_authority_files`'s "What is
+/// deliberately not removed"), so a blanket "all history" claim here would
+/// be false for exactly the profiles that have one. #2195 tracks removing
+/// that copy from Settings.
+const RESET_HISTORY_NOTE: &str = "* Resetting deletes the hardware monitoring history in the \
+   current database. A pre-conversion recovery copy (hv-database.db.retired), if one exists, \
+   is kept and can be removed from Settings later.";
+
 /// User's chosen action from the DB startup error dialog.
 pub enum StartupErrorAction {
   /// User chose to delete DB and restart.
@@ -96,7 +109,24 @@ pub fn reset_database_and_restart(handle: &tauri::AppHandle) {
   {
     let paths = crate::infrastructure::database::native_paths::authority_paths();
     let workspace = crate::infrastructure::database::native_paths::database_directory();
-    crate::app::native_maintenance::discard_native_authority_files(&paths, &workspace);
+    // Stop here, before the SQLite source is touched at all, if any native
+    // artifact could not be removed: continuing on to delete the SQLite
+    // source would leave a state `discard_native_authority_files`'s own
+    // documentation warns about - e.g. a marker removed while the native
+    // file it named survives (locked, permissions), which
+    // `inspect_startup_authority` treats as the one repairable gap and
+    // silently rewrites on the next boot, undoing the reset the user just
+    // asked for.
+    if let Err(e) =
+      crate::app::native_maintenance::discard_native_authority_files(&paths, &workspace)
+    {
+      show_error_dialog(
+        handle,
+        &format!("Failed to remove native database files: {e}"),
+      );
+      handle.exit(1);
+      return;
+    }
   }
 
   let db_path = utils::file::get_app_data_dir("hv-database.db");
@@ -194,19 +224,9 @@ pub fn prompt_native_authority_issue(
   handle: &tauri::AppHandle,
   issue: &LifecycleIssue,
 ) -> NativeAuthorityAction {
-  let message = format!(
-    "HardwareVisualizer found the native database files in an unexpected state and \
-     stopped rather than guess which one is correct.\n\n\
-     You can continue with real-time monitoring only - archived history and other \
-     database-backed features stay disabled for this session - reset the data to \
-     start fresh, or exit and inspect the app data directory.\n\n\
-     * Resetting will delete all archived hardware monitoring history.\n\n\
-     [Details: {issue:?}]"
-  );
-
   let result = handle
     .dialog()
-    .message(message)
+    .message(build_native_authority_message(issue))
     .title("Data Compatibility Issue")
     .kind(MessageDialogKind::Warning)
     .buttons(MessageDialogButtons::YesNoCancelCustom(
@@ -227,6 +247,19 @@ pub fn prompt_native_authority_issue(
   } else {
     NativeAuthorityAction::Exit
   }
+}
+
+#[cfg(feature = "duckdb-archive")]
+fn build_native_authority_message(issue: &LifecycleIssue) -> String {
+  format!(
+    "HardwareVisualizer found the native database files in an unexpected state and \
+     stopped rather than guess which one is correct.\n\n\
+     You can continue with real-time monitoring only - archived history and other \
+     database-backed features stay disabled for this session - reset the data to \
+     start fresh, or exit and inspect the app data directory.\n\n\
+     {RESET_HISTORY_NOTE}\n\n\
+     [Details: {issue:?}]"
+  )
 }
 
 fn show_error_dialog(handle: &tauri::AppHandle, message: &str) {
@@ -250,7 +283,7 @@ fn build_message(error: &DbStartupError) -> String {
          This usually happens when reverting to an older version of the app.\n\n\
          You can reset the data to continue using this version, \
          or update to the latest version to keep your data.\n\n\
-         * Resetting will delete all archived hardware monitoring history.\n\n\
+         {RESET_HISTORY_NOTE}\n\n\
          [Details: data schema v{db_max_version}, app supports up to v{app_max_version}]"
       )
     }
@@ -258,7 +291,7 @@ fn build_message(error: &DbStartupError) -> String {
       format!(
         "HardwareVisualizer could not read the existing data.\n\n\
          You can reset the data to continue using the app.\n\n\
-         * Resetting will delete all archived hardware monitoring history.\n\n\
+         {RESET_HISTORY_NOTE}\n\n\
          [Details: {msg}]"
       )
     }
@@ -288,6 +321,39 @@ mod tests {
     let msg = build_message(&DbStartupError::Other("disk I/O error".into()));
     assert!(msg.contains("disk I/O error"));
     assert!(msg.contains("could not read"));
+  }
+
+  /// The Reset consequence wording must stay honest about the one thing
+  /// Reset deliberately keeps: a `.retired` pre-conversion copy - see
+  /// `app::native_maintenance::discard_native_authority_files`'s "What is
+  /// deliberately not removed". A blanket "all history" claim would be false
+  /// for exactly the profiles that have one.
+  #[test]
+  fn reset_history_note_does_not_overclaim_and_names_the_retired_copy() {
+    assert!(!RESET_HISTORY_NOTE.to_lowercase().contains("all"));
+    assert!(RESET_HISTORY_NOTE.contains("hv-database.db.retired"));
+    assert!(RESET_HISTORY_NOTE.contains("kept"));
+  }
+
+  #[test]
+  fn build_message_variants_include_the_reset_history_note() {
+    let incompatible = build_message(&DbStartupError::IncompatibleVersion {
+      db_max_version: 6,
+      app_max_version: 5,
+    });
+    let other = build_message(&DbStartupError::Other("disk I/O error".into()));
+    assert!(incompatible.contains(RESET_HISTORY_NOTE));
+    assert!(other.contains(RESET_HISTORY_NOTE));
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  #[test]
+  fn native_authority_message_includes_the_reset_history_note_and_the_issue() {
+    let msg = build_native_authority_message(&LifecycleIssue::NativeOpenFailed {
+      message: "could not open the spill directory".to_owned(),
+    });
+    assert!(msg.contains(RESET_HISTORY_NOTE));
+    assert!(msg.contains("could not open the spill directory"));
   }
 
   #[test]
