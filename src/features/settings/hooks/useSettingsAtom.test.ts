@@ -443,11 +443,52 @@ describe("useSettingsAtom", () => {
     });
 
     expect(thrown).toBe(failure);
+    // The tray widget was already saved as enabled, so the backend must be
+    // put back too, not only the local atom.
+    expect(commands.setTrayWidgetSettings).toHaveBeenNthCalledWith(1, {
+      ...initialSettings.trayWidget,
+      enabled: true,
+    });
+    expect(commands.setTrayWidgetSettings).toHaveBeenNthCalledWith(
+      2,
+      initialSettings.trayWidget,
+    );
     expect(result.current.settings.closeToTray).toBe(
       initialSettings.closeToTray,
     );
     expect(result.current.settings.closeToTrayChoiceMade).toBe(
       initialSettings.closeToTrayChoiceMade,
+    );
+    expect(result.current.settings.trayWidget).toEqual(
+      initialSettings.trayWidget,
+    );
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("setCloseToTrayPreferenceAtom: a failed tray-widget undo does not mask the original rejection", async () => {
+    const failure = new Error("ipc failed");
+    (commands.setTrayWidgetSettings as Mock)
+      .mockResolvedValueOnce({ data: null })
+      .mockRejectedValueOnce(new Error("undo failed"));
+    (commands.setCloseToTrayPreference as Mock).mockRejectedValue(failure);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialSettings = result.current.settings;
+
+    let thrown: unknown;
+    await act(async () => {
+      thrown = await result.current
+        .setCloseToTrayPreferenceAtom(true)
+        .catch((err: unknown) => err);
+    });
+
+    expect(thrown).toBe(failure);
+    expect(commands.setTrayWidgetSettings).toHaveBeenCalledTimes(2);
+    expect(result.current.settings.closeToTray).toBe(
+      initialSettings.closeToTray,
     );
     expect(result.current.settings.trayWidget).toEqual(
       initialSettings.trayWidget,

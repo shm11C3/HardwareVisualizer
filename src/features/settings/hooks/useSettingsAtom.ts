@@ -526,6 +526,7 @@ export const useSettingsAtom = () => {
     }));
 
     const shouldEnableTrayWidget = value && !previousTrayWidget.enabled;
+    let trayWidgetPersisted = false;
 
     try {
       if (shouldEnableTrayWidget) {
@@ -544,6 +545,7 @@ export const useSettingsAtom = () => {
           }));
           return false;
         }
+        trayWidgetPersisted = true;
       }
 
       const result = await commands.setCloseToTrayPreference(value);
@@ -580,6 +582,20 @@ export const useSettingsAtom = () => {
       return true;
     } catch (err) {
       console.error(err);
+      if (trayWidgetPersisted) {
+        // The widget save already landed on disk; undo it best-effort so
+        // the backend matches the restored atom. Its own failure is only
+        // logged so it never masks the original rejection.
+        try {
+          const undoResult =
+            await commands.setTrayWidgetSettings(previousTrayWidget);
+          if (isError(undoResult)) {
+            console.error(undoResult.error);
+          }
+        } catch (undoErr) {
+          console.error(undoErr);
+        }
+      }
       setSettings((prev) => ({
         ...prev,
         closeToTray: previousCloseToTray,
