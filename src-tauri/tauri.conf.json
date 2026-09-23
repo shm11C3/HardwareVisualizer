@@ -25,6 +25,13 @@
       "timestampUrl": "",
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
+      },
+      "wix": {
+        "fragmentPaths": ["windows/wix/external-component-setup.wxs"],
+        "componentGroupRefs": ["ExternalComponentSetup"]
+      },
+      "nsis": {
+        "installerHooks": "windows/nsis/hooks.nsh"
       }
     },
     "longDescription": "",

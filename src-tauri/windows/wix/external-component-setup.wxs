@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  External Component Setup in the MSI (ADR 0024, #2118).
+
+  Adds an optional-components dialog between InstallDirDlg and VerifyReadyDlg
+  of Tauri's WixUI_InstallDir sequence. The checkbox property is defaulted to
+  1 only in the UI sequence, so `msiexec /qn`, `/passive` (the updater), and
+  winget run no setup unless the caller passes EXTERNAL_COMPONENT_PAWNIO=1.
+
+  The setup itself is the application's command-line mode, run as a deferred
+  custom action from the already elevated install script. Return="ignore"
+  keeps a failed setup from failing the product install.
+
+  Re-verify the Publish orders whenever the Tauri bundler template or its
+  WiX version changes: WixUI_InstallDir publishes InstallDirDlg Next at
+  Order 1-4 and VerifyReadyDlg Back at Order 1-2.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <!-- Referenced from tauri.conf.json (bundle.windows.wix.componentGroupRefs)
+         so the linker pulls in this fragment. -->
+    <ComponentGroup Id="ExternalComponentSetup" />
+
+    <Property Id="EXTERNAL_COMPONENT_PAWNIO" Secure="yes" />
+    <SetProperty
+      Id="EXTERNAL_COMPONENT_PAWNIO"
+      Value="1"
+      Sequence="ui"
+      After="CostFinalize">NOT Installed AND NOT EXTERNAL_COMPONENT_PAWNIO</SetProperty>
+
+    <CustomAction
+      Id="RunExternalComponentSetupPawnio"
+      FileKey="Path"
+      ExeCommand="--external-component-setup pawnio"
+      Execute="deferred"
+      Impersonate="no"
+      Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE</Custom>
+    </InstallExecuteSequence>
+
+    <UI>
+      <ProgressText Action="RunExternalComponentSetupPawnio">Setting up PawnIO</ProgressText>
+
+      <Dialog Id="ExternalComponentsDlg" Width="370" Height="270" Title="!(loc.InstallDirDlg_Title)">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Optional components" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose the optional components to set up after installation." />
+
+        <Control Id="PawnioCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="EXTERNAL_COMPONENT_PAWNIO" CheckBoxValue="1" Text="Set up PawnIO (CPU temperature and power, motherboard sensors)" />
+        <Control Id="PawnioDescription" Type="Text" X="38" Y="80" Width="312" Height="80" NoPrefix="yes" Text="HardwareVisualizer downloads the PawnIO driver and its sensor modules from their official releases, verifies them against pinned checksums, and installs only what is missing. PawnIO stays installed when you uninstall HardwareVisualizer. You can also set it up later from Settings, Advanced." />
+
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">
+          <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+
+      <!-- A later NewDialog event overrides the earlier ones on the same control. -->
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ExternalComponentsDlg" Order="5">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ExternalComponentsDlg" Order="3">NOT Installed</Publish>
+    </UI>
+  </Fragment>
+</Wix>
