@@ -3,6 +3,7 @@ use crate::workers::WorkersState;
 use hardviz_core::enums::error::PlatformError;
 use hardviz_core::platform::factory::PlatformFactory;
 use hardviz_core::platform::traits::{ElevationAvailability, ProcessElevationPlatform};
+use std::sync::Arc;
 use tauri::Manager;
 
 pub async fn restart_app(app_handle: &tauri::AppHandle) {
@@ -29,7 +30,7 @@ pub async fn restart_app_elevated(
 ) -> Result<(), PlatformError> {
   let platform = PlatformFactory::shared()?;
   let workers = app_handle.state::<WorkersState>();
-  hand_off_to_elevated_process(platform.as_ref(), &workers).await?;
+  hand_off_to_elevated_process(platform, &workers).await?;
   app_handle.exit(0);
   Ok(())
 }
@@ -39,14 +40,26 @@ pub async fn restart_app_elevated(
 /// (#2216 follow-up). The launch can go first only because the child waits
 /// for this process to exit (`cli::WAIT_FOR_PARENT_FLAG`) before it takes the
 /// single-instance lock or opens the database; the elevated launch itself
-/// refuses an executable outside Program Files before it prompts.
-async fn hand_off_to_elevated_process(
-  platform: &dyn ProcessElevationPlatform,
+/// refuses an executable outside Program Files before it prompts. The launch
+/// blocks until the prompt is answered, and the workers are still producing
+/// updates meanwhile, so it runs on the blocking pool rather than on a
+/// runtime worker thread.
+async fn hand_off_to_elevated_process<P>(
+  platform: Arc<P>,
   workers: &WorkersState,
-) -> Result<(), PlatformError> {
+) -> Result<(), PlatformError>
+where
+  P: ProcessElevationPlatform + ?Sized + 'static,
+{
   let this_process = platform.current_process_identity()?;
-  platform
-    .relaunch_current_process_elevated(&cli::elevated_handoff_args(&this_process))?;
+  let args = cli::elevated_handoff_args(&this_process);
+  tauri::async_runtime::spawn_blocking(move || {
+    platform.relaunch_current_process_elevated(&args)
+  })
+  .await
+  .map_err(|e| {
+    PlatformError::fault(format!("The elevated launch did not complete: {e}"))
+  })??;
   workers.terminate_all().await;
   Ok(())
 }
@@ -87,11 +100,25 @@ pub fn elevation_availability() -> ElevationAvailability {
 mod tests {
   use super::*;
   use hardviz_core::platform::traits::{ProcessExitWait, ProcessIdentity};
+  use std::sync::Mutex;
   use std::sync::atomic::Ordering;
 
-  /// A platform whose elevated launch succeeds or fails as configured.
+  const CREATION_TIME: u64 = 133_800_000_000_000_000;
+
+  /// A platform whose elevated launch succeeds or fails as configured and
+  /// records the arguments it was asked to launch.
   struct FakeElevation {
     launch: Result<(), PlatformError>,
+    launched_with: Mutex<Option<Vec<String>>>,
+  }
+
+  impl FakeElevation {
+    fn new(launch: Result<(), PlatformError>) -> Arc<Self> {
+      Arc::new(Self {
+        launch,
+        launched_with: Mutex::new(None),
+      })
+    }
   }
 
   impl ProcessElevationPlatform for FakeElevation {
@@ -101,8 +128,9 @@ mod tests {
 
     fn relaunch_current_process_elevated(
       &self,
-      _args: &[String],
+      args: &[String],
     ) -> Result<(), PlatformError> {
+      *self.launched_with.lock().unwrap() = Some(args.to_vec());
       self.launch.clone()
     }
 
@@ -112,8 +140,8 @@ mod tests {
 
     fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError> {
       Ok(ProcessIdentity {
-        pid: 1,
-        creation_time: 1,
+        pid: std::process::id(),
+        creation_time: CREATION_TIME,
       })
     }
 
@@ -127,25 +155,34 @@ mod tests {
 
   #[tokio::test]
   async fn a_declined_or_failed_launch_leaves_the_workers_running() {
-    let platform = FakeElevation {
-      launch: Err(PlatformError::fault("the elevation prompt was declined")),
-    };
+    let platform = FakeElevation::new(Err(PlatformError::fault(
+      "the elevation prompt was declined",
+    )));
     let workers = WorkersState::default();
 
-    let result = hand_off_to_elevated_process(&platform, &workers).await;
+    let result = hand_off_to_elevated_process(Arc::clone(&platform), &workers).await;
 
     assert!(result.is_err());
     assert!(!workers.shutting_down.load(Ordering::SeqCst));
   }
 
   #[tokio::test]
-  async fn a_successful_launch_stops_the_workers() {
-    let platform = FakeElevation { launch: Ok(()) };
+  async fn a_successful_launch_stops_the_workers_and_names_this_process() {
+    let platform = FakeElevation::new(Ok(()));
     let workers = WorkersState::default();
 
-    let result = hand_off_to_elevated_process(&platform, &workers).await;
+    let result = hand_off_to_elevated_process(Arc::clone(&platform), &workers).await;
 
     assert_eq!(result, Ok(()));
     assert!(workers.shutting_down.load(Ordering::SeqCst));
+    let launched_with = platform.launched_with.lock().unwrap().clone();
+    let launched_with = launched_with.expect("the launch received arguments");
+    assert_eq!(
+      &launched_with[launched_with.len() - 2..],
+      [
+        cli::WAIT_FOR_PARENT_FLAG.to_string(),
+        format!("{}:{CREATION_TIME}", std::process::id()),
+      ]
+    );
   }
 }
