@@ -20,7 +20,11 @@
        cannot modify. `<<` is a raw prefix check, so any ".." segment is
        rejected rather than trusted to resolve inside Program Files; a path
        that does not literally start with the Program Files folder (short
-       names, forward slashes, junctions elsewhere) fails the prefix check. -->
+       names, forward slashes) fails the prefix check.
+       The check assumes Program Files keeps its default ACL. A junction or
+       a writable subdirectory inside it can only be created by an
+       administrator, so that case is an environment an administrator has
+       already weakened, not one a same-user process can set up. -->
   <?define ProtectedInstallDir = ((INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder) AND NOT (INSTALLDIR >< "..")) ?>
   <Fragment>
     <!-- Referenced from tauri.conf.json (bundle.windows.wix.componentGroupRefs)
