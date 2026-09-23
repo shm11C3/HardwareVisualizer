@@ -79,7 +79,8 @@ repository-relative paths that must exist. A superseded lesson points
 ## Validation Surfaces
 
 - `PreToolUse` blocks direct edits to generated bindings when the target path
-  can be determined safely.
+  can be determined safely, and blocks creating a file under `.github/scripts/`
+  that its README index does not list.
 - `PostToolUse` validates only the touched guidance file's local syntax and
   schema. Cross-file checks are deferred so a new lesson and its index can be
   edited in separate tool calls.
@@ -120,3 +121,4 @@ shared enforcement surface.
 - [Keep Design Docs focused on decisions](keep-design-docs-focused-on-decisions.md)
 - [Report across the elevation boundary by exit code](report-across-elevation-by-exit-code.md)
 - [Render untrusted text through GitHub's Markdown API](render-untrusted-text-through-github-markdown-api.md)
+- [Place scripts with their owner](place-scripts-with-their-owner.md)

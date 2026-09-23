@@ -18,6 +18,7 @@ export const requiredGuidanceFiles = [
   ".agents/rules/frontend.md",
   ".agents/rules/rust.md",
   ".agents/rules/settings.md",
+  ".github/scripts/README.md",
   ".github/scripts/agent-hook.mjs",
   ".github/scripts/guidance-paths.mjs",
   ".github/scripts/test-agent-guidance.mjs",
@@ -50,6 +51,7 @@ const exactGuidancePaths = new Set([
   "src/README.md",
   ".codex/hooks.json",
   ".claude/settings.json",
+  ".github/scripts/README.md",
   ".github/scripts/agent-hook.mjs",
   ".github/scripts/guidance-paths.mjs",
   ".github/scripts/test-agent-guidance.mjs",
@@ -79,4 +81,17 @@ export function isGuidancePath(relativePath) {
     exactGuidancePaths.has(relativePath) ||
     guidancePathPrefixes.some((prefix) => relativePath.startsWith(prefix))
   );
+}
+
+export const githubScriptsDir = ".github/scripts";
+export const githubScriptsIndex = `${githubScriptsDir}/README.md`;
+
+// Script paths (relative to .github/scripts) listed in the index table of
+// .github/scripts/README.md, one backticked path per row.
+export function listedGithubScripts(indexContent) {
+  const listed = new Set();
+  for (const match of indexContent.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)) {
+    listed.add(match[1]);
+  }
+  return listed;
 }

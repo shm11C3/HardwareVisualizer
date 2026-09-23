@@ -39,6 +39,36 @@ const before = gitStatus();
 
 runHook("normal edit", "pre", { tool_input: { file_path: "src/App.tsx" } }, 0);
 runHook(
+  "new unlisted .github/scripts file",
+  "pre",
+  { tool_input: { file_path: ".github/scripts/new-owner-check.ps1" } },
+  2,
+);
+runHook(
+  "apply patch adding unlisted .github/scripts file",
+  "pre",
+  "*** Begin Patch\n*** Add File: .github/scripts/new-owner-check.ps1\n*** End Patch",
+  2,
+);
+runHook(
+  "edit of a listed .github/scripts file",
+  "pre",
+  { tool_input: { file_path: ".github/scripts/merge-gate.ts" } },
+  0,
+);
+runHook(
+  ".github/scripts index",
+  "pre",
+  { tool_input: { file_path: ".github/scripts/README.md" } },
+  0,
+);
+runHook(
+  "new script next to its owner",
+  "pre",
+  { tool_input: { file_path: "src-tauri/windows/wix/new-owner-check.ps1" } },
+  0,
+);
+runHook(
   "absolute generated binding",
   "pre",
   { tool_input: { file_path: `${root}/src/rspc/bindings.ts` } },

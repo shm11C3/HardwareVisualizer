@@ -39,6 +39,28 @@ function expectFailure(name, overrides, expectedText) {
 const before = gitStatus();
 
 expectFailure(
+  "unlisted .github/scripts file",
+  {
+    ".github/scripts/README.md": read(".github/scripts/README.md").replace(
+      /^\| `merge-gate\.ts` \|.*\n/m,
+      "",
+    ),
+  },
+  ".github/scripts/merge-gate.ts is not listed",
+);
+
+expectFailure(
+  "index lists a missing script",
+  {
+    ".github/scripts/README.md": read(".github/scripts/README.md").replace(
+      "| `merge-gate.ts` |",
+      "| `removed-script.mjs` | ci.yml |\n| `merge-gate.ts` |",
+    ),
+  },
+  "lists a missing script: removed-script.mjs",
+);
+
+expectFailure(
   "missing rule scope",
   {
     ".agents/rules/design.md": read(".agents/rules/design.md").replace(
