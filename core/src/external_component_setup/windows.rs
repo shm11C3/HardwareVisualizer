@@ -18,10 +18,10 @@
 //!   truncated.
 //! - Enumeration failures are reported as unknown state, never as absence.
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{Cursor, Read, Write};
-use std::os::windows::ffi::OsStrExt;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
@@ -29,19 +29,27 @@ use std::process::Command;
 use std::time::Duration;
 
 use windows::Win32::Foundation::{
-  ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, HANDLE, HLOCAL, LocalFree, WAIT_OBJECT_0,
+  CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, HANDLE, HLOCAL, LocalFree,
+  WAIT_OBJECT_0,
 };
 use windows::Win32::Security::Authorization::{
   ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
 };
 use windows::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 use windows::Win32::Storage::FileSystem::{CreateDirectoryW, FILE_SHARE_READ};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+  CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+  TH32CS_SNAPPROCESS,
+};
 use windows::Win32::System::Registry::{
   HKEY, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_64KEY, REG_SZ, REG_VALUE_TYPE,
   RegCloseKey, RegOpenKeyExW, RegQueryValueExW,
 };
-use windows::Win32::System::Threading::WaitForSingleObject;
-use windows::core::PCWSTR;
+use windows::Win32::System::Threading::{
+  OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+  QueryFullProcessImageNameW, WaitForSingleObject,
+};
+use windows::core::{PCWSTR, PWSTR};
 
 use super::{
   ExternalComponentSetupOutcome, ExternalComponentSetupPlan,
@@ -80,6 +88,10 @@ const TERMINATION_CONFIRM_TIMEOUT: Duration = Duration::from_secs(30);
 /// Protected DACL: full control for Administrators and SYSTEM, nothing for
 /// anyone else, no inheritance from `%SystemRoot%\Temp`.
 const STAGING_DIRECTORY_SDDL: &str = "D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)";
+/// Name prefix of every staging directory this module creates under
+/// `%SystemRoot%\Temp`; a random suffix follows. A process whose executable
+/// lives under such a directory is an installer a previous run left behind.
+const STAGING_DIRECTORY_PREFIX: &str = "hardviz-external-component-setup-";
 const PARTIAL_SUFFIX: &str = ".hardviz-partial";
 
 pub fn status(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupStatus {
@@ -142,6 +154,17 @@ pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
 
   let mut reboot_required = false;
   if matches!(before.runtime, RuntimeInstallState::NotInstalled) {
+    // A previous run may have abandoned its staging directory with the
+    // installer still executing from it (exit code 24); an app restart
+    // clears the app's in-flight mark but not that process, so it is looked
+    // for here, before anything is created or started.
+    if let Some(detail) = staged_installer_still_running() {
+      result.outcome = ExternalComponentSetupOutcome::failed(
+        SetupFailureStage::InstallerStillRunning,
+        detail,
+      );
+      return result;
+    }
     let mut staging = match StagingDirectory::create() {
       Ok(staging) => staging,
       Err(detail) => {
@@ -377,10 +400,8 @@ impl StagingDirectory {
   }
 
   fn create() -> Result<Self, String> {
-    let system_root = std::env::var_os("SystemRoot")
-      .ok_or_else(|| "SystemRoot is not set".to_string())?;
-    let name = format!("hardviz-external-component-setup-{}", random_hex::<16>()?);
-    let path = PathBuf::from(system_root).join("Temp").join(name);
+    let name = format!("{STAGING_DIRECTORY_PREFIX}{}", random_hex::<16>()?);
+    let path = staging_root()?.join(name);
 
     let sddl = wide_null(STAGING_DIRECTORY_SDDL);
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
@@ -408,6 +429,109 @@ impl StagingDirectory {
       abandoned: false,
     })
   }
+}
+
+/// `%SystemRoot%\Temp`, the parent of every staging directory.
+fn staging_root() -> Result<PathBuf, String> {
+  let system_root =
+    std::env::var_os("SystemRoot").ok_or_else(|| "SystemRoot is not set".to_string())?;
+  Ok(PathBuf::from(system_root).join("Temp"))
+}
+
+/// A detail naming the first process still executing from one of this
+/// module's staging directories, or `None` when there is none. A staging
+/// root that cannot be determined is treated as no process found: the
+/// following `StagingDirectory::create` reports that failure precisely.
+fn staged_installer_still_running() -> Option<String> {
+  let root = staging_root().ok()?;
+  let (pid, path) =
+    first_process_under_staging(&root, STAGING_DIRECTORY_PREFIX, process_image_paths())?;
+  Some(format!(
+    "a runtime installer from a previous run is still running (pid {pid}, {}); wait \
+     for it to end before trying again",
+    path.display()
+  ))
+}
+
+/// The first of `processes` whose image path lies under `root` in a directory
+/// whose name starts with `prefix`. Components are compared
+/// case-insensitively and on component boundaries, so `root` itself, a
+/// sibling whose name merely starts with `root`'s, and a file directly in
+/// `root` do not match.
+fn first_process_under_staging(
+  root: &Path,
+  prefix: &str,
+  processes: impl IntoIterator<Item = (u32, PathBuf)>,
+) -> Option<(u32, PathBuf)> {
+  let root: Vec<String> = root
+    .components()
+    .map(|component| component.as_os_str().to_string_lossy().to_lowercase())
+    .collect();
+  let prefix = prefix.to_lowercase();
+  processes.into_iter().find(|(_, path)| {
+    let mut components = path
+      .components()
+      .map(|component| component.as_os_str().to_string_lossy().to_lowercase());
+    let under_root = root
+      .iter()
+      .all(|expected| components.next().as_ref() == Some(expected));
+    let Some(directory) = components.next() else {
+      return false;
+    };
+    // The staged file sits directly in the staging directory, so exactly one
+    // component follows it.
+    under_root
+      && directory.starts_with(&prefix)
+      && components.next().is_some()
+      && components.next().is_none()
+  })
+}
+
+/// `(pid, full image path)` of every process this process may query. Ones
+/// that cannot be opened or whose path cannot be read are skipped: they are
+/// system or other-user processes, never our staged installer, which runs
+/// as an administrator like the caller.
+fn process_image_paths() -> Vec<(u32, PathBuf)> {
+  let Ok(snapshot) = (unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }) else {
+    return Vec::new();
+  };
+  let mut entries = Vec::new();
+  let mut entry = PROCESSENTRY32W {
+    dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+    ..Default::default()
+  };
+  if unsafe { Process32FirstW(snapshot, &mut entry) }.is_ok() {
+    loop {
+      if let Some(path) = process_image_path(entry.th32ProcessID) {
+        entries.push((entry.th32ProcessID, path));
+      }
+      if unsafe { Process32NextW(snapshot, &mut entry) }.is_err() {
+        break;
+      }
+    }
+  }
+  let _ = unsafe { CloseHandle(snapshot) };
+  entries
+}
+
+fn process_image_path(pid: u32) -> Option<PathBuf> {
+  let process =
+    unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
+  let mut buffer = vec![0u16; 32_768];
+  let mut length = buffer.len() as u32;
+  let queried = unsafe {
+    QueryFullProcessImageNameW(
+      process,
+      PROCESS_NAME_WIN32,
+      PWSTR(buffer.as_mut_ptr()),
+      &mut length,
+    )
+  };
+  let _ = unsafe { CloseHandle(process) };
+  queried.ok()?;
+  Some(PathBuf::from(OsString::from_wide(
+    &buffer[..length as usize],
+  )))
 }
 
 impl Drop for StagingDirectory {
@@ -897,6 +1021,89 @@ mod tests {
       other => panic!("unexpected stage {other:?}"),
     }
     assert!(started.elapsed() < Duration::from_secs(10));
+  }
+
+  #[test]
+  fn a_process_under_a_staging_directory_is_found_on_component_boundaries() {
+    let root = Path::new(r"C:\Windows\Temp");
+    let prefix = "hardviz-external-component-setup-";
+    let staged = (
+      7,
+      PathBuf::from(
+        r"c:\windows\temp\HARDVIZ-EXTERNAL-COMPONENT-SETUP-abc\PawnIO_setup.exe",
+      ),
+    );
+    let processes = vec![
+      (1, PathBuf::from(r"C:\Windows\Temp\PawnIO_setup.exe")),
+      (
+        2,
+        PathBuf::from(r"C:\Windows\Temp2\hardviz-external-component-setup-x\a.exe"),
+      ),
+      (3, PathBuf::from(r"C:\Windows\Temp\hardviz-other-x\a.exe")),
+      (
+        4,
+        PathBuf::from(r"C:\Windows\Temp\hardviz-external-component-setup-x\deep\a.exe"),
+      ),
+      (
+        5,
+        PathBuf::from(r"C:\Windows\Temp\hardviz-external-component-setup-x"),
+      ),
+      (6, PathBuf::from(r"C:\Windows\System32\svchost.exe")),
+      staged.clone(),
+    ];
+
+    assert_eq!(
+      first_process_under_staging(root, prefix, processes),
+      Some(staged)
+    );
+    assert_eq!(first_process_under_staging(root, prefix, Vec::new()), None);
+  }
+
+  #[test]
+  fn a_live_child_running_from_a_staging_directory_is_detected() {
+    // A copy of cmd.exe runs from a directory named like a staging
+    // directory under a temp root; the same copy running from a sibling
+    // outside the prefix must not be reported.
+    let root = std::env::temp_dir().join(format!(
+      "hardviz-scan-root-{}",
+      random_hex::<8>().expect("random name")
+    ));
+    let inside = root.join(format!("{STAGING_DIRECTORY_PREFIX}test"));
+    let outside = root.join("unrelated-test");
+    for directory in [&inside, &outside] {
+      fs::create_dir_all(directory).expect("test directory is created");
+    }
+    let system_root = std::env::var_os("SystemRoot").expect("SystemRoot is set");
+    let cmd = PathBuf::from(system_root).join("System32").join("cmd.exe");
+    let inside_exe = inside.join("staged.exe");
+    let outside_exe = outside.join("staged.exe");
+    fs::copy(&cmd, &inside_exe).expect("cmd.exe is copied");
+    fs::copy(&cmd, &outside_exe).expect("cmd.exe is copied");
+    let spawn = |exe: &Path| {
+      Command::new(exe)
+        .args(["/C", "ping", "-n", "30", "127.0.0.1"])
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("the copied cmd.exe runs")
+    };
+    let mut inside_child = spawn(&inside_exe);
+    let mut outside_child = spawn(&outside_exe);
+
+    let found =
+      first_process_under_staging(&root, STAGING_DIRECTORY_PREFIX, process_image_paths());
+
+    let _ = inside_child.kill();
+    let _ = outside_child.kill();
+    let _ = inside_child.wait();
+    let _ = outside_child.wait();
+    let _ = fs::remove_dir_all(&root);
+
+    let (pid, path) = found.expect("the staged child is detected");
+    assert_eq!(pid, inside_child.id());
+    assert_eq!(
+      path.to_string_lossy().to_lowercase(),
+      inside_exe.to_string_lossy().to_lowercase()
+    );
   }
 
   #[test]

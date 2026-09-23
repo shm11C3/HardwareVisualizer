@@ -96,6 +96,15 @@ but it does not read registers or share code with the provider.
    still be executing from it. The abandoned directory keeps its
    administrator-only DACL under `%SystemRoot%\Temp`, and its path is
    logged so an administrator can remove it once the installer has ended.
+   Before a later run creates any staging state or starts anything, it
+   looks for such a leftover installer: it snapshots the process list
+   (`CreateToolhelp32Snapshot`), reads each queryable process's image path
+   (`QueryFullProcessImageNameW`; processes it cannot open are skipped),
+   and refuses with `24` naming the pid and path when one runs from a
+   directory under `%SystemRoot%\Temp` whose name carries the staging
+   prefix. No cross-process mutex is used: the setup process exits while
+   the installer it could not stop lives on, so a mutex it held would not
+   cover that case.
 4. When at least one module file is missing, download the pinned modules zip,
    verify it, and place only the missing files into the install location
    resolved from the registry (fallback `%ProgramFiles%\PawnIO`). Each file
@@ -141,7 +150,7 @@ observe.
 | `21` | Unsupported platform |
 | `22` | The setup process panicked; the message went to its stderr only |
 | `23` | Runtime installer did not exit within its time limit (`INSTALLER_TIMEOUT`, five minutes) and was terminated; the runtime may be partially installed |
-| `24` | Runtime installer did not exit within its time limit and could not be confirmed terminated within `TERMINATION_CONFIRM_TIMEOUT`, so it may still be running; the staging directory was left in place for it |
+| `24` | Runtime installer did not exit within its time limit and could not be confirmed terminated within `TERMINATION_CONFIRM_TIMEOUT`, so it may still be running and the staging directory was left in place for it; also reported, before anything is staged, when an installer from a previous run is still executing from such a staging directory |
 
 The caller maps an exit code it does not recognize, and a process that
 exited without one, to the generic failure (`1`).
