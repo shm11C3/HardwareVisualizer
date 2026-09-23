@@ -72,6 +72,8 @@ pub enum LifecycleIssue {
   /// ADR 0022 rejects running on both, so this is reported rather than
   /// treated as "still on SQLite".
   NativeOpenFailed { message: String },
+  /// Creating the native database for an otherwise empty profile failed.
+  FreshCreationFailed { message: String },
   /// The running conversion failed at a named step. Produced by the
   /// conversion driver (#2135, stacked on this change).
   #[allow(dead_code)]
@@ -91,8 +93,9 @@ pub enum LifecycleIssue {
 /// is a translation of.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DatabaseLifecycleState {
-  /// The ordinary state: SQLite is authoritative and no conversion has
-  /// produced anything yet.
+  /// SQLite is authoritative and no conversion has produced anything yet.
+  /// Startup may replace this with native authority when the profile is empty
+  /// and the fresh-install path creates the database directly.
   SqliteAuthoritative,
   /// A previous conversion left recoverable state and SQLite is still
   /// authoritative. `resumable` says whether a complete finalized file
@@ -295,7 +298,7 @@ mod tests {
   }
 
   #[test]
-  fn a_fresh_install_is_sqlite_authoritative() {
+  fn an_empty_profile_is_sqlite_authoritative_before_fresh_creation() {
     let directory = tempfile::tempdir().unwrap();
     assert_eq!(
       inspect_startup_authority(&paths(directory.path()), 1),

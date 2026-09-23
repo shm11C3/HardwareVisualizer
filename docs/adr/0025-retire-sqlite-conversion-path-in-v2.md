@@ -42,6 +42,11 @@ Five facts decide when it can go.
   compatibility boundary"), so the `sqlx` SQLite dependency outlives the SQLite
   backend.
 
+Issue #2191 implements the fresh-profile path only behind the existing
+`duckdb-archive` feature. It must remain excluded from release defaults until
+#2137 qualifies native storage for production; that qualification is the gate
+for changing the production default, not this implementation alone.
+
 Minor releases have shipped every four to six weeks (v1.8.0 on 2026-05-06,
 v1.9.0 on 2026-06-21, v1.10.0 on 2026-08-22, per the project's
 [GitHub releases](https://github.com/shm11C3/HardwareVisualizer/releases)). The

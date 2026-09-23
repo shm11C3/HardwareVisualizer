@@ -100,6 +100,12 @@ fn apply_pending_migrations() -> Result<(), String> {
 /// `// #2134 seam:` in `app::native_conversion` after a later conversion
 /// selects a database.
 ///
+/// If the profile has no source, native database, marker or conversion work,
+/// the App asks Core to create and durably select the native schema directly.
+/// A fresh-install work directory is the only interrupted state this path may
+/// discard; conversion debris and missing-source states remain action
+/// required.
+///
 /// Runs on a short-lived current-thread runtime, the same pattern
 /// [`apply_pending_migrations`] uses: this executes during `run()` setup,
 /// before the Tauri (and its Tokio) runtime starts, and before dispatch's
@@ -119,9 +125,35 @@ pub fn resolve_native_authority(
 ) -> app::native_lifecycle::DatabaseLifecycleState {
   use app::native_lifecycle::{DatabaseLifecycleState, LifecycleIssue};
   use hardviz_core::infrastructure::database::dispatch;
+  use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
 
-  let state =
+  let inspected =
     app::native_lifecycle::inspect_startup_authority(paths, expected_schema_version);
+  let state = match inspected {
+    DatabaseLifecycleState::SqliteAuthoritative
+      if !path_exists(&paths.source_database)
+        && !path_exists(&paths.native_database)
+        && !path_exists(&paths.marker) =>
+    {
+      create_fresh_native_authority(paths, expected_schema_version)
+    }
+    other @ DatabaseLifecycleState::ConversionRecoverable { resumable: false }
+      if !path_exists(&paths.source_database)
+        && !path_exists(&paths.native_database)
+        && !path_exists(&paths.marker) =>
+    {
+      recreate_interrupted_fresh_native_authority(paths, expected_schema_version, other)
+    }
+    other @ DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+      AuthorityInconsistency::SourceDatabaseMissing,
+    )) if !path_exists(&paths.source_database)
+      && !path_exists(&paths.native_database)
+      && !path_exists(&paths.marker) =>
+    {
+      recreate_interrupted_fresh_native_authority(paths, expected_schema_version, other)
+    }
+    other => other,
+  };
 
   // Tell the dispatch boundary where to look. Harmless to call regardless of
   // `state`: it only records the path and expected schema version, and does
@@ -177,6 +209,79 @@ pub fn resolve_native_authority(
       })
     }
   }
+}
+
+#[cfg(feature = "duckdb-archive")]
+fn create_fresh_native_authority(
+  paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
+  expected_schema_version: u32,
+) -> app::native_lifecycle::DatabaseLifecycleState {
+  use app::native_lifecycle::{DatabaseLifecycleState, LifecycleIssue};
+  use hardviz_core::infrastructure::database::native_database::create_empty_native_database;
+
+  let runtime = match tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+  {
+    Ok(runtime) => runtime,
+    Err(error) => {
+      return DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::FreshCreationFailed {
+          message: format!("failed to build the fresh native database runtime: {error}"),
+        },
+      );
+    }
+  };
+  match runtime.block_on(create_empty_native_database(
+    paths.clone(),
+    infrastructure::database::native_schema::get_native_schema(),
+  )) {
+    Ok(marker) if marker.schema_version == expected_schema_version => {
+      DatabaseLifecycleState::NativeAuthoritative
+    }
+    Ok(marker) => {
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::FreshCreationFailed {
+        message: format!(
+          "fresh native database recorded schema version {}, expected {expected_schema_version}",
+          marker.schema_version
+        ),
+      })
+    }
+    Err(error) => {
+      log_error!(
+        "failed to create the fresh native database",
+        "lib::create_fresh_native_authority",
+        Some(error.to_string())
+      );
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::FreshCreationFailed {
+        message: error.to_string(),
+      })
+    }
+  }
+}
+
+#[cfg(feature = "duckdb-archive")]
+fn recreate_interrupted_fresh_native_authority(
+  paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
+  expected_schema_version: u32,
+  fallback: app::native_lifecycle::DatabaseLifecycleState,
+) -> app::native_lifecycle::DatabaseLifecycleState {
+  use app::native_lifecycle::{DatabaseLifecycleState, LifecycleIssue};
+  use hardviz_core::infrastructure::database::native_database::discard_interrupted_fresh_creation_work;
+  match discard_interrupted_fresh_creation_work(paths) {
+    Ok(true) => create_fresh_native_authority(paths, expected_schema_version),
+    Ok(false) => fallback,
+    Err(error) => {
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::FreshCreationFailed {
+        message: format!("could not discard interrupted fresh-install work: {error}"),
+      })
+    }
+  }
+}
+
+#[cfg(feature = "duckdb-archive")]
+fn path_exists(path: &std::path::Path) -> bool {
+  std::fs::symlink_metadata(path).is_ok()
 }
 
 fn build_specta_builder() -> Builder<Wry> {

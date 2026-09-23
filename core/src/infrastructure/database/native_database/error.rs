@@ -8,6 +8,8 @@ pub enum NativeDatabaseError {
   CandidateUnavailable { path: PathBuf },
   #[error("native database destination already exists: {path}")]
   DestinationExists { path: PathBuf },
+  #[error("fresh native database creation found an existing artifact: {path}")]
+  FreshInstallArtifactExists { path: PathBuf },
   #[error("native database request capacity must be greater than zero")]
   InvalidRequestCapacity,
   #[error("native database is not finalized")]

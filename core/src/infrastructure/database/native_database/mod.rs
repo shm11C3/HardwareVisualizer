@@ -62,7 +62,8 @@ pub use schema::{
 pub use selection::{
   AUTHORITY_MARKER_FILE_NAME, AuthorityFacts, AuthorityInconsistency, AuthorityMarker,
   AuthorityPaths, AuthorityRecovery, AuthorityState, MarkerFacts, NativeMetadataFacts,
-  NativeState, VerifiedNativeDatabase, inspect_authority, observe_authority,
+  NativeState, VerifiedNativeDatabase, create_empty_native_database,
+  discard_interrupted_fresh_creation_work, inspect_authority, observe_authority,
   repair_authority_marker, select_native_database,
 };
 pub use series::NativeSeriesWindow;
