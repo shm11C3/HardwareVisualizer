@@ -100,13 +100,24 @@ $dialogRow = Get-Rows "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog`` = '$di
 Assert ($dialogRow.Count -eq 1) "Dialog $dialog is missing"
 
 # NSIS-inherited install folder (#2215): a fresh install that only inherited
-# the NSIS folder under %LOCALAPPDATA% starts from Program Files. The UI copy
-# runs before the folder page; the execute copy only without the UI sequence.
+# the exact NSIS default folder starts from Program Files; a folder the user
+# chose for the NSIS build is kept. The UI copy runs before the folder page;
+# the execute copy only without the UI sequence.
 $installDirValue = "[ProgramFiles64Folder]HardwareVisualizer\"
-$installDirBase = "NOT HV_MSI_INSTALLDIR AND INSTALLDIR ~<< LocalAppDataFolder"
+$installDirBase = "NOT HV_MSI_INSTALLDIR AND (INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR OR INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR_DIR)"
 $uiSearchSequence = @{}
 foreach ($row in (Get-Rows "SELECT ``Action``, ``Condition``, ``Sequence`` FROM ``InstallUISequence``" 3)) {
   $uiSearchSequence[$row[0]] = $row
+}
+foreach ($default in @(
+  @{ property = "HV_NSIS_DEFAULT_INSTALLDIR"; value = "[LocalAppDataFolder]HardwareVisualizer" },
+  @{ property = "HV_NSIS_DEFAULT_INSTALLDIR_DIR"; value = "[LocalAppDataFolder]HardwareVisualizer\" })) {
+  $action = "Set$($default.property)"
+  $ca = Get-Rows "SELECT ``Type``, ``Source``, ``Target`` FROM ``CustomAction`` WHERE ``Action`` = '$action'" 3
+  Assert (($ca.Count -eq 1) -and ([int]$ca[0][0] -eq 51) -and ($ca[0][1] -ceq $default.property) -and ($ca[0][2] -ceq $default.value)) "CustomAction $action must set $($default.property) to $($default.value)"
+  foreach ($table in @($uiSearchSequence, $sequence)) {
+    Assert ($table.ContainsKey($action) -and [int]$table[$action][2] -gt [int]$table["AppSearch"][2]) "$action must run after AppSearch in both sequences"
+  }
 }
 foreach ($case in @(
   @{ action = "SetInstallDirFromNsisDefaultUi"; table = $uiSearchSequence; condition = "NOT Installed AND $installDirBase" },
