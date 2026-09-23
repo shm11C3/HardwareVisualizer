@@ -1308,6 +1308,16 @@ mod tests {
     ));
     assert!(!fixture.paths().native_database.exists());
 
+    // Regression for the bug found by the 2026-09-24 release audit: a
+    // cancelled conversion resumed the producers onto SQLite (see
+    // `run_conversion`'s resume/stay-paused branch above), so a history
+    // read must not be refused for the rest of the session either.
+    assert!(
+      crate::app::database_availability::database_available(&owner.state()).is_ok(),
+      "{:?}",
+      owner.state()
+    );
+
     // A restart resolves cleanly: nothing was produced, so authority is
     // exactly what it was before this call.
     assert_eq!(

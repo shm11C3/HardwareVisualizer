@@ -350,8 +350,34 @@ mod tests {
       DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
         AuthorityInconsistency::SourceDatabaseMissing,
       )),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+        message: "could not open handle".to_string(),
+      }),
     ] {
       assert!(!database_writable(&state), "{state:?}");
+    }
+  }
+
+  /// After a failed or cancelled conversion, `run_conversion`
+  /// (`app::native_conversion`) resumes the paused producers because SQLite
+  /// stayed authoritative throughout - see that function's own comment at
+  /// its resume/stay-paused branch. A write through dispatch must be
+  /// allowed in the same two cases, the same way reads are (see
+  /// `app::database_availability::database_available`), or on-demand writes
+  /// like `refresh_storage_devices` would be refused for the rest of the
+  /// session over an attempt that already resolved onto a healthy SQLite.
+  #[test]
+  fn database_is_writable_after_a_failed_or_cancelled_conversion() {
+    for state in [
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::BuildingCandidate,
+        message: "disk full".to_string(),
+      }),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionCancelled {
+        step: ConversionProgress::BuildingCandidate,
+      }),
+    ] {
+      assert!(database_writable(&state), "{state:?}");
     }
   }
 

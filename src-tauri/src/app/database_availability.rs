@@ -22,8 +22,12 @@
 /// Kept separate from [`ensure_database_available`] so the decision itself
 /// is testable without constructing a Tauri app: this module's tests build
 /// no `AppHandle` at all.
+///
+/// `pub(crate)` (rather than private) only so `native_conversion`'s own
+/// tests can assert against it directly after a cancelled/failed
+/// conversion; not part of the App's external command surface.
 #[cfg(feature = "duckdb-archive")]
-fn database_available(
+pub(crate) fn database_available(
   state: &crate::app::native_lifecycle::DatabaseLifecycleState,
 ) -> Result<(), String> {
   match state {
@@ -106,7 +110,9 @@ mod tests {
   use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
 
   use super::*;
-  use crate::app::native_lifecycle::{DatabaseLifecycleState, LifecycleIssue};
+  use crate::app::native_lifecycle::{
+    ConversionProgress, DatabaseLifecycleState, LifecycleIssue,
+  };
 
   #[test]
   fn answers_ok_for_every_state_but_action_required() {
@@ -120,13 +126,43 @@ mod tests {
     }
   }
 
+  /// Regression for the bug found by the 2026-09-24 release audit: SQLite
+  /// stays authoritative and its producers are resumed after a failed or
+  /// cancelled conversion (see `native_conversion::run_conversion`'s
+  /// resume/stay-paused branch), so reads must not be refused for the rest
+  /// of the session over an attempt that already resolved.
   #[test]
-  fn refuses_while_action_required() {
-    let state = DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
-      AuthorityInconsistency::SourceDatabaseMissing,
-    ));
-    let error = database_available(&state).unwrap_err();
-    assert!(error.contains("unavailable"), "{error}");
+  fn answers_ok_after_a_failed_or_cancelled_conversion_because_sqlite_stays_authoritative()
+   {
+    for state in [
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::BuildingCandidate,
+        message: "disk full".to_string(),
+      }),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionCancelled {
+        step: ConversionProgress::BuildingCandidate,
+      }),
+    ] {
+      assert!(database_available(&state).is_ok(), "{state:?}");
+    }
+  }
+
+  #[test]
+  fn refuses_while_action_required_and_no_backend_is_safely_answering() {
+    for state in [
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        AuthorityInconsistency::SourceDatabaseMissing,
+      )),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+        message: "could not open handle".to_string(),
+      }),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::FreshCreationFailed {
+        message: "could not create database".to_string(),
+      }),
+    ] {
+      let error = database_available(&state).unwrap_err();
+      assert!(error.contains("unavailable"), "{error}");
+    }
   }
 
   // `ensure_database_writable` is a thin `AppHandle` -> owner-state wrapper
