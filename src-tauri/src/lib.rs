@@ -32,6 +32,7 @@ mod _tests;
 use commands::ambient_sensor;
 use commands::background_image;
 use commands::cooling_insight;
+use commands::database_conversion;
 use commands::external_component_guidance;
 use commands::external_component_setup;
 use commands::hardware;
@@ -325,6 +326,9 @@ fn build_specta_builder() -> Builder<Wry> {
       cooling_insight::get_cooling_baseline_delta,
       cooling_insight::get_cooling_load_temperature_explorer,
       cooling_insight::get_cooling_covariate_comparison,
+      database_conversion::get_database_conversion_state,
+      database_conversion::start_database_conversion,
+      database_conversion::cancel_database_conversion,
       settings::commands::get_settings,
       settings::commands::set_language,
       settings::commands::set_theme,
@@ -408,7 +412,7 @@ fn export_typescript_bindings(builder: &Builder<Wry>) {
 /// error worth a dialog - it simply produces no readings, which #2043
 /// already reports as an unavailable source.
 #[cfg(target_os = "windows")]
-fn setup_environmental_sensors(
+pub(crate) fn setup_environmental_sensors(
   app: &tauri::AppHandle,
   core_settings: &hardviz_core::settings::CoreSettings,
   runtime: &tokio::runtime::Handle,
@@ -463,7 +467,7 @@ fn setup_environmental_sensors(
 /// only the radio layer is missing, so adding a platform means adding a
 /// scan rather than reworking this.
 #[cfg(not(target_os = "windows"))]
-fn setup_environmental_sensors(
+pub(crate) fn setup_environmental_sensors(
   _app: &tauri::AppHandle,
   _core_settings: &hardviz_core::settings::CoreSettings,
   _runtime: &tokio::runtime::Handle,
@@ -698,6 +702,14 @@ pub fn run() {
       let bus = hardviz_core::event_bus::EventBus::new();
       let window_adapter =
         adapters::window::WindowAdapter::setup(app.handle().clone(), bus.subscribe());
+
+      // #2136's explicit conversion commands need this same bus later in
+      // the session, when they rebuild the producers `run_conversion`
+      // paused - see `app::native_conversion::ConversionRuntime`.
+      #[cfg(feature = "duckdb-archive")]
+      app
+        .state::<app::native_conversion::ConversionRuntime>()
+        .set_bus(bus.clone());
 
       // Run the Core collector on Tauri's tokio runtime. Core has no
       // `tauri` dep, so it can't reach Tauri's static runtime directly —
@@ -1010,8 +1022,9 @@ pub fn run() {
     .manage(app_updates::PendingUpdate(Mutex::new(None)));
 
   #[cfg(feature = "duckdb-archive")]
-  let tauri_builder =
-    tauri_builder.manage(app::native_lifecycle::NativeLifecycleOwner::new());
+  let tauri_builder = tauri_builder
+    .manage(app::native_lifecycle::NativeLifecycleOwner::new())
+    .manage(app::native_conversion::ConversionRuntime::default());
 
   let mut context = tauri::generate_context!();
   utils::tauri::apply_runtime_config(context.config_mut());
