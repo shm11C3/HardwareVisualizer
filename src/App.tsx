@@ -14,6 +14,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
 import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
+import { DatabaseConversionPromptDialog } from "@/components/shared/DatabaseConversionPromptDialog";
 import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
 import { NavigationRestructureNotice } from "@/components/shared/NavigationRestructureNotice";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
@@ -352,6 +353,7 @@ const AppContent = () => {
             closeToTrayChoiceMade={settings.closeToTrayChoiceMade}
             settingsLoaded={settingsLoaded}
           />
+          <DatabaseConversionPromptDialog settingsLoaded={settingsLoaded} />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}

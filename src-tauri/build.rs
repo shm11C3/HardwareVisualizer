@@ -48,8 +48,21 @@ const FIELD_POLICIES: &[FieldPolicy] = &[
 ];
 
 fn main() {
+  restrict_static_dll_search_to_system32();
   generate_hardware_models();
   tauri_build::build()
+}
+
+/// Resolve the executable's static DLL imports from System32 only
+/// (`LOAD_LIBRARY_SEARCH_SYSTEM32`). Imports such as `dwmapi.dll` and
+/// `pdh.dll` are not KnownDLLs, so by default the loader searches the
+/// executable's own folder first, and a DLL planted there would run inside
+/// the genuine signed executable, elevated when it is elevated (#2216).
+/// Libraries loaded at run time (WebView2, NVML, PawnIO) are not affected.
+fn restrict_static_dll_search_to_system32() {
+  if env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc") {
+    println!("cargo:rustc-link-arg-bins=/DEPENDENTLOADFLAG:0x800");
+  }
 }
 
 fn generate_hardware_models() {
