@@ -24,16 +24,23 @@ type PromptReason = "startup" | "close";
 type CloseToTrayFirstRunDialogProps = {
   closeToTrayChoiceMade?: boolean;
   settingsLoaded?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export const CloseToTrayFirstRunDialog = ({
   closeToTrayChoiceMade = false,
   settingsLoaded = true,
+  onOpenChange,
 }: CloseToTrayFirstRunDialogProps) => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const { setCloseToTrayPreferenceAtom } = useSettingsAtom();
   const [promptReason, setPromptReason] = useState<PromptReason | null>(null);
+  const isOpen = promptReason !== null;
+
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The listener is registered once for the app lifetime.
   useEffect(() => {

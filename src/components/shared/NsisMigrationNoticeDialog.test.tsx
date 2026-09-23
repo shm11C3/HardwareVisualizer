@@ -50,6 +50,17 @@ describe("NsisMigrationNoticeDialog", () => {
     mocks.openURL.mockResolvedValue(undefined);
   });
 
+  it("waits while another startup dialog is open and shows after it closes", async () => {
+    const { rerender } = render(
+      <NsisMigrationNoticeDialog dismissed={false} deferred />,
+    );
+    await waitFor(() => expect(mocks.getBundleType).toHaveBeenCalled());
+    expect(screen.queryByText(title)).toBeNull();
+
+    rerender(<NsisMigrationNoticeDialog dismissed={false} deferred={false} />);
+    expect(await screen.findByText(title)).toBeInTheDocument();
+  });
+
   it("shows the notice only in the NSIS build", async () => {
     render(<NsisMigrationNoticeDialog dismissed={false} />);
     expect(await screen.findByText(title)).toBeInTheDocument();

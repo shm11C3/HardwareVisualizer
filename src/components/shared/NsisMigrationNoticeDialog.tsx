@@ -29,6 +29,8 @@ const MIGRATION_STEPS = ["step1", "step2", "step3", "step4"] as const;
 type NsisMigrationNoticeDialogProps = {
   dismissed: boolean;
   settingsLoaded?: boolean;
+  /** Another startup AlertDialog is open; wait so modals never stack. */
+  deferred?: boolean;
 };
 
 /**
@@ -42,6 +44,7 @@ type NsisMigrationNoticeDialogProps = {
 export const NsisMigrationNoticeDialog = ({
   dismissed,
   settingsLoaded = true,
+  deferred = false,
 }: NsisMigrationNoticeDialogProps) => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
@@ -70,7 +73,13 @@ export const NsisMigrationNoticeDialog = ({
     };
   }, [settingsLoaded, dismissed]);
 
-  if (!settingsLoaded || dismissed || hiddenThisSession || !isNsisBuild) {
+  if (
+    !settingsLoaded ||
+    dismissed ||
+    hiddenThisSession ||
+    !isNsisBuild ||
+    deferred
+  ) {
     return null;
   }
 

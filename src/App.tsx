@@ -115,6 +115,8 @@ const AppContent = () => {
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [closeToTrayDialogOpen, setCloseToTrayDialogOpen] = useState(false);
+  const [guidanceDialogOpen, setGuidanceDialogOpen] = useState(false);
 
   useErrorModalListener();
   useDocumentVisibilityClass();
@@ -352,14 +354,17 @@ const AppContent = () => {
           <CloseToTrayFirstRunDialog
             closeToTrayChoiceMade={settings.closeToTrayChoiceMade}
             settingsLoaded={settingsLoaded}
+            onOpenChange={setCloseToTrayDialogOpen}
           />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
+            onOpenChange={setGuidanceDialogOpen}
           />
           <NsisMigrationNoticeDialog
             dismissed={settings.nsisMigrationNoticeDismissed}
             settingsLoaded={settingsLoaded}
+            deferred={closeToTrayDialogOpen || guidanceDialogOpen}
           />
         </div>
       </div>
