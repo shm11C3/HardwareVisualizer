@@ -13,11 +13,16 @@ const mocks = vi.hoisted(() => ({
   openURL: vi.fn(),
   platform: vi.fn(() => "windows"),
   setElevatedStartupMode: vi.fn(),
-  useElevationAvailability: vi.fn(() => "available"),
+  useElevationAvailability: vi.fn((): string | null => "available"),
+  useProcessElevated: vi.fn((): boolean | null => false),
 }));
 
-vi.mock("@/hooks/useElevationAvailability", () => ({
+vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/hooks/useElevationAvailability")
+  >()),
   useElevationAvailability: mocks.useElevationAvailability,
+  useProcessElevated: mocks.useProcessElevated,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({

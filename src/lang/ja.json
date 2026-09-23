@@ -163,6 +163,7 @@
     }
   },
   "elevationUnavailable": {
+    "unknown": "HardwareVisualizer が安全に管理者として実行できるかを確認できなかったため、現在この機能は使えません。",
     "reason": "HardwareVisualizer が Program Files 配下にインストールされていないため、この場所からは安全に管理者として実行できません。この機能を使うには MSI 版をインストールしてください。",
     "elevatedStartupModeNotApplied": "オンで保存されていますが適用されていません。HardwareVisualizer が Program Files 配下にインストールされていないため、安全に管理者として実行できません。使うには MSI 版をインストールしてください。",
     "startupNotice": {

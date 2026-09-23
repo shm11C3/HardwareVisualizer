@@ -333,6 +333,7 @@ const buildInvokeHandlers = (
   // External Component Setup (ADR 0024): a machine with the PawnIO runtime
   // installed and one module file still missing, so the Settings capture
   // shows the install action.
+  is_process_elevated: () => false,
   get_elevation_availability: () =>
     fixtureOverrides.elevationUnprotected ? "unprotectedLocation" : "available",
   get_external_component_setup_components: () => ["pawnio"],

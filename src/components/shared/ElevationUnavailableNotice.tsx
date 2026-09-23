@@ -3,7 +3,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { useElevationAvailability } from "@/hooks/useElevationAvailability";
+import {
+  useElevationAvailability,
+  useProcessElevated,
+} from "@/hooks/useElevationAvailability";
 
 /**
  * Tells the user once per launch that Run as administrator on startup was not
@@ -19,12 +22,15 @@ export const ElevationUnavailableNotice = ({
   const { t } = useTranslation();
   const { settings, updateSettingAtom } = useSettingsAtom();
   const availability = useElevationAvailability();
+  const processElevated = useProcessElevated();
   const [dismissedThisLaunch, setDismissedThisLaunch] = useState(false);
 
   if (
     !settingsLoaded ||
     !settings.elevatedStartupMode ||
     availability !== "unprotectedLocation" ||
+    // Started as administrator by the user: the setting did take effect.
+    processElevated !== false ||
     dismissedThisLaunch
   ) {
     return null;

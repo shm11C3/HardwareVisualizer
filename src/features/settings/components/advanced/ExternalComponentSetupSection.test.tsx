@@ -13,7 +13,8 @@ const mocks = vi.hoisted(() => ({
   getExternalComponentSetupComponents: vi.fn(),
   getExternalComponentSetupStatus: vi.fn(),
   platform: vi.fn(() => "windows"),
-  useElevationAvailability: vi.fn(() => "available"),
+  useElevationAvailability: vi.fn((): string | null => "available"),
+  useProcessElevated: vi.fn((): boolean | null => false),
   restartApp: vi.fn(),
   runExternalComponentSetup: vi.fn(),
 }));
@@ -28,8 +29,12 @@ vi.mock("@/hooks/useTauriDialog", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useElevationAvailability", () => ({
+vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/hooks/useElevationAvailability")
+  >()),
   useElevationAvailability: mocks.useElevationAvailability,
+  useProcessElevated: mocks.useProcessElevated,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -146,6 +151,28 @@ describe("ExternalComponentSetupSection", () => {
       screen.getByText(/not installed under Program Files/),
     ).toBeInTheDocument();
     expect(mocks.runExternalComponentSetup).not.toHaveBeenCalled();
+  });
+
+  it("keeps setup disabled until elevation is positively available", async () => {
+    mocks.useElevationAvailability.mockReturnValue(null);
+
+    render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByRole("button", { name: "Install" }),
+    ).toBeDisabled();
+  });
+
+  it("does not blame the install folder when availability is unknown", async () => {
+    mocks.useElevationAvailability.mockReturnValue("unknown");
+
+    render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByRole("button", { name: "Install" }),
+    ).toBeDisabled();
+    expect(screen.getByText(/could not verify/)).toBeInTheDocument();
+    expect(screen.queryByText(/not installed under Program Files/)).toBeNull();
   });
 
   it("disables the action when setup has nothing left to do", async () => {

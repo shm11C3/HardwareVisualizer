@@ -7,11 +7,16 @@ import { ElevationUnavailableNotice } from "./ElevationUnavailableNotice";
 const mocks = vi.hoisted(() => ({
   settings: { elevatedStartupMode: true },
   updateSettingAtom: vi.fn(),
-  useElevationAvailability: vi.fn(() => "unprotectedLocation"),
+  useElevationAvailability: vi.fn((): string | null => "unprotectedLocation"),
+  useProcessElevated: vi.fn((): boolean | null => false),
 }));
 
-vi.mock("@/hooks/useElevationAvailability", () => ({
+vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/hooks/useElevationAvailability")
+  >()),
   useElevationAvailability: mocks.useElevationAvailability,
+  useProcessElevated: mocks.useProcessElevated,
 }));
 
 vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
@@ -32,6 +37,7 @@ describe("ElevationUnavailableNotice", () => {
     vi.clearAllMocks();
     mocks.settings.elevatedStartupMode = true;
     mocks.useElevationAvailability.mockReturnValue("unprotectedLocation");
+    mocks.useProcessElevated.mockReturnValue(false);
   });
 
   it("explains a skipped elevated startup outside Program Files", () => {
@@ -48,6 +54,15 @@ describe("ElevationUnavailableNotice", () => {
   ])("stays hidden when %s", (_case, enabled, availability) => {
     mocks.settings.elevatedStartupMode = enabled;
     mocks.useElevationAvailability.mockReturnValue(availability);
+    render(<ElevationUnavailableNotice settingsLoaded />);
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["the user started it as administrator", true],
+    ["the elevation state is not known yet", null],
+  ])("stays hidden when %s", (_case, elevated) => {
+    mocks.useProcessElevated.mockReturnValue(elevated);
     render(<ElevationUnavailableNotice settingsLoaded />);
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });

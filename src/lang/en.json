@@ -163,6 +163,7 @@
     }
   },
   "elevationUnavailable": {
+    "unknown": "HardwareVisualizer could not verify whether it can safely run itself as administrator, so this is unavailable right now.",
     "reason": "HardwareVisualizer is not installed under Program Files, so it cannot safely run itself as administrator from this location. Install the MSI version to use this.",
     "elevatedStartupModeNotApplied": "Saved as on, but not applied: HardwareVisualizer is not installed under Program Files, so it cannot safely run itself as administrator. Install the MSI version to use it.",
     "startupNotice": {
