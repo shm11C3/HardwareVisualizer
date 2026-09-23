@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { GPU_FIXTURES } from "../src/e2e/fixtures/hardware";
-import { gotoApp, saveCapture, seedHardwareHistory } from "./helpers";
+import {
+  BOOTSTRAP_TIMEOUT,
+  gotoApp,
+  saveCapture,
+  seedHardwareHistory,
+} from "./helpers";
 
 test.describe("dashboard captures", () => {
   test("dashboard renders fixture hardware data", async ({ page }) => {
@@ -77,5 +82,21 @@ test.describe("dashboard captures", () => {
     expect(selectedDeviceLabel).toContain("NVMe");
 
     await saveCapture(page, "dashboard-storage-many");
+  });
+
+  test("NSIS build shows the MSI migration notice", async ({ page }) => {
+    await gotoApp(page, {
+      path: "/?navigationLayout=classic&nsisMigrationNotice=1",
+    });
+
+    const notice = page.getByRole("alertdialog", {
+      name: "Switch to the MSI installer",
+    });
+    await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await saveCapture(page, "nsis-migration-notice");
+
+    await notice.getByRole("button", { name: "Hide" }).click();
+    await page.getByRole("menuitem", { name: "Never show again" }).click();
+    await expect(notice).toHaveCount(0);
   });
 });

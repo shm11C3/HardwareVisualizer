@@ -16,6 +16,7 @@ import { RootErrorFallback } from "@/components/RootErrorFallback";
 import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
 import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
 import { NavigationRestructureNotice } from "@/components/shared/NavigationRestructureNotice";
+import { NsisMigrationNoticeDialog } from "@/components/shared/NsisMigrationNoticeDialog";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useSelectedStorageDevicePersistence } from "@/features/hardware/hooks/useSelectedStorageDevicePersistence";
@@ -354,6 +355,10 @@ const AppContent = () => {
           />
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
+            settingsLoaded={settingsLoaded}
+          />
+          <NsisMigrationNoticeDialog
+            dismissed={settings.nsisMigrationNoticeDismissed}
             settingsLoaded={settingsLoaded}
           />
         </div>

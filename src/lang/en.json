@@ -209,6 +209,28 @@
       "openDetails": "Failed to open the details page."
     }
   },
+  "nsisMigrationNotice": {
+    "title": "Switch to the MSI installer",
+    "why": "This copy was installed with the .exe installer into your user folder, where other programs running under your account can change its files. That weakens the features that run HardwareVisualizer as administrator, such as PawnIO setup and Run as administrator on startup. The MSI installer puts the app in Program Files instead and can also set up PawnIO during installation.",
+    "stepsTitle": "How to switch",
+    "steps": {
+      "step1": "Close HardwareVisualizer.",
+      "step2": "Open Windows Settings > Apps > Installed apps and uninstall HardwareVisualizer. Leave \"Delete the application data\" unchecked.",
+      "step3": "Download the MSI installer from the download page (or run winget install shm11C3.HardwareVisualizer) and install it.",
+      "step4": "If you used Automatic startup at OS startup, turn it on again in Settings."
+    },
+    "data": "Your settings, history, and background images are kept. They are stored outside the install folder, and the uninstaller keeps them as long as \"Delete the application data\" stays unchecked.",
+    "actions": {
+      "openDownload": "Open download page",
+      "hide": "Hide",
+      "remindLater": "Remind me next time",
+      "neverShowAgain": "Never show again"
+    },
+    "errors": {
+      "dismiss": "Failed to save this preference.",
+      "openDownload": "Failed to open the download page."
+    }
+  },
   "navigation": {
     "performance": "Performance",
     "systemSpecifications": "System Specifications",
