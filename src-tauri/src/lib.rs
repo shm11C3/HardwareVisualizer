@@ -365,6 +365,7 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::set_tray_widget_settings,
       settings::commands::set_close_to_tray_preference,
       settings::commands::acknowledge_external_component_guidance_key,
+      settings::commands::dismiss_nsis_migration_notice,
       settings::commands::set_elevated_startup_mode,
       settings::commands::read_license_file,
       settings::commands::read_third_party_notices_file,

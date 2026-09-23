@@ -168,6 +168,7 @@ pub mod commands {
       text_selectable: settings.text_selectable,
       close_to_tray: settings.close_to_tray,
       close_to_tray_choice_made: settings.close_to_tray_choice_made,
+      nsis_migration_notice_dismissed: settings.nsis_migration_notice_dismissed,
       external_component_guidance: settings.external_component_guidance,
       elevated_startup_mode: settings.elevated_startup_mode,
       tray_widget: settings.tray_widget.normalized(),
@@ -952,6 +953,23 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_close_to_tray_preference(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
+    Ok(())
+  }
+
+  /// Persist "Don't show again" for the NSIS-to-MSI migration notice (#2215).
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn dismiss_nsis_migration_notice(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.dismiss_nsis_migration_notice() {
       emit_error(&window)?;
       return Err(e);
     }

@@ -4,8 +4,9 @@ import type { ClientSettings_Serialize } from "@/rspc/bindings";
  * Deterministic settings returned by the mocked `get_settings` command.
  *
  * - `language: "en"` keeps captured text stable across machines.
- * - `closeToTrayChoiceMade: true` suppresses the first-run tray dialog so it
- *   never overlaps capture screenshots.
+ * - `closeToTrayChoiceMade: true` and `nsisMigrationNoticeDismissed: true`
+ *   suppress the first-run tray dialog and the NSIS migration notice so they
+ *   never overlap capture screenshots.
  * - `selectedBackgroundImg: null` avoids loading a background image.
  */
 export const settingsFixture: ClientSettings_Serialize = {
@@ -61,6 +62,7 @@ export const settingsFixture: ClientSettings_Serialize = {
   textSelectable: false,
   closeToTray: false,
   closeToTrayChoiceMade: true,
+  nsisMigrationNoticeDismissed: true,
   externalComponentGuidance: {
     acknowledgedKeys: [],
   },
