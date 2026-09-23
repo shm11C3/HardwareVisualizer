@@ -8,8 +8,12 @@
 # - EXTERNAL_COMPONENT_PAWNIO has no default in the Property table and is only
 #   defaulted by the UI sequence at full UI, so /qn, /qr, /passive, and winget
 #   run no setup;
-# - the options dialog is inserted between InstallDirDlg and VerifyReadyDlg;
-# - an interactive, non-upgrade uninstall runs the notice mode before removal.
+# - the options dialog is inserted between InstallDirDlg and VerifyReadyDlg,
+#   keeps the template's path validation on the way in, links back into the
+#   chain on both sides, and its checkbox is the enabled control bound to
+#   EXTERNAL_COMPONENT_PAWNIO with value 1;
+# - an interactive, non-upgrade uninstall runs the notice mode before removal
+#   and after costing, so its INSTALLDIR condition is evaluated on a value.
 #
 # The interactive behaviour still needs a manual run on Windows; this check
 # catches a fragment that silently stopped linking or a template change that
@@ -90,6 +94,8 @@ if ($sequence.ContainsKey($noticeAction)) {
   $row = $sequence[$noticeAction]
   Assert ($row[1] -ceq "REMOVE = `"ALL`" AND NOT UPGRADINGPRODUCTCODE AND UILevel > 2 AND NOT (UILevel = 3 AND REBOOTPROMPT = `"S`") AND $locationCondition") "$noticeAction has condition '$($row[1])'"
   Assert ([int]$row[2] -lt [int]$sequence["InstallInitialize"][2]) "$noticeAction must run before InstallInitialize, while the executable still exists"
+  # Its condition reads INSTALLDIR, which is empty before costing resolves it.
+  Assert ([int]$row[2] -gt [int]$sequence["CostFinalize"][2]) "$noticeAction must run after CostFinalize, so INSTALLDIR is resolved when its condition is evaluated"
 }
 
 $defaultValue = Get-Rows "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = '$property'" 1
@@ -169,14 +175,36 @@ $placeholder = Get-Rows "SELECT ``Property``, ``Attributes`` FROM ``Control`` WH
 # property must not be the real one.
 Assert (($placeholder.Count -eq 1) -and ($placeholder[0][0] -cne $property) -and (([int]$placeholder[0][1] -band 0x2) -eq 0)) "PawnioUnavailableCheckBox must be disabled and bound to a property other than $property"
 
+# The consent itself: the real checkbox is enabled and bound to the property
+# the deferred action reads, and ticking it stores the value the action
+# compares against.
+$checkBox = Get-Rows "SELECT ``Property``, ``Attributes`` FROM ``Control`` WHERE ``Dialog_`` = '$dialog' AND ``Control`` = 'PawnioCheckBox'" 2
+Assert (($checkBox.Count -eq 1) -and ($checkBox[0][0] -ceq $property) -and (([int]$checkBox[0][1] -band 0x2) -ne 0)) "PawnioCheckBox must be enabled and bound to $property"
+$checkBoxValue = Get-Rows "SELECT ``Value`` FROM ``CheckBox`` WHERE ``Property`` = '$property'" 1
+Assert (($checkBoxValue.Count -eq 1) -and ($checkBoxValue[0][0] -ceq "1")) "CheckBox table must map $property to 1, the value the setup action is conditioned on"
+
 # The last NewDialog event wins, so the inserted dialog must have the highest
-# order on InstallDirDlg Next.
-$nextEvents = Get-Rows "SELECT ``Argument``, ``Ordering`` FROM ``ControlEvent`` WHERE ``Dialog_`` = 'InstallDirDlg' AND ``Control_`` = 'Next' AND ``Event`` = 'NewDialog'" 2
-$lastNext = $nextEvents | Sort-Object { [int]$_[1] } | Select-Object -Last 1
+# order on InstallDirDlg Next, and it must keep the template's path validation
+# condition (currently WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"):
+# a bare condition would skip the invalid-path check the template's own
+# NewDialog carries.
+$nextEvents = Get-Rows "SELECT ``Argument``, ``Ordering``, ``Condition`` FROM ``ControlEvent`` WHERE ``Dialog_`` = 'InstallDirDlg' AND ``Control_`` = 'Next' AND ``Event`` = 'NewDialog'" 3
+$sortedNext = @($nextEvents | Sort-Object { [int]$_[1] })
+$lastNext = $sortedNext | Select-Object -Last 1
 Assert ($null -ne $lastNext -and $lastNext[0] -ceq $dialog) "InstallDirDlg Next does not end on $dialog"
+$templateNext = $sortedNext | Where-Object { $_[0] -cne $dialog } | Select-Object -Last 1
+Assert (($null -ne $lastNext) -and ($null -ne $templateNext) -and ($lastNext[2] -ceq $templateNext[2])) "InstallDirDlg Next to $dialog has condition '$($lastNext[2])', expected the template's '$($templateNext[2])'"
 
 $backEvents = Get-Rows "SELECT ``Argument`` FROM ``ControlEvent`` WHERE ``Dialog_`` = 'VerifyReadyDlg' AND ``Control_`` = 'Back' AND ``Event`` = 'NewDialog' AND ``Argument`` = '$dialog'" 1
 Assert ($backEvents.Count -eq 1) "VerifyReadyDlg Back does not return to $dialog"
+
+# The inserted dialog must lead back into the template chain on both sides.
+foreach ($link in @(
+  @{ control = "Next"; target = "VerifyReadyDlg" },
+  @{ control = "Back"; target = "InstallDirDlg" })) {
+  $events = Get-Rows "SELECT ``Argument``, ``Condition`` FROM ``ControlEvent`` WHERE ``Dialog_`` = '$dialog' AND ``Control_`` = '$($link.control)' AND ``Event`` = 'NewDialog'" 2
+  Assert (($events.Count -eq 1) -and ($events[0][0] -ceq $link.target) -and ($events[0][1] -ceq "1")) "$dialog $($link.control) must always go to $($link.target)"
+}
 
 if ($failures.Count -gt 0) {
   foreach ($failure in $failures) { Write-Host "::error title=MSI External Component Setup::$failure" }
