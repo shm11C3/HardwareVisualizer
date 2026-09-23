@@ -178,8 +178,10 @@ Assert (($placeholder.Count -eq 1) -and ($placeholder[0][0] -cne $property) -and
 # The consent itself: the real checkbox is enabled and bound to the property
 # the deferred action reads, and ticking it stores the value the action
 # compares against.
-$checkBox = Get-Rows "SELECT ``Property``, ``Attributes`` FROM ``Control`` WHERE ``Dialog_`` = '$dialog' AND ``Control`` = 'PawnioCheckBox'" 2
-Assert (($checkBox.Count -eq 1) -and ($checkBox[0][0] -ceq $property) -and (([int]$checkBox[0][1] -band 0x2) -ne 0)) "PawnioCheckBox must be enabled and bound to $property"
+# Attribute 0x8 is "indirect", which would make Property name a property
+# that holds the property name instead of the property itself.
+$checkBox = Get-Rows "SELECT ``Type``, ``Property``, ``Attributes`` FROM ``Control`` WHERE ``Dialog_`` = '$dialog' AND ``Control`` = 'PawnioCheckBox'" 3
+Assert (($checkBox.Count -eq 1) -and ($checkBox[0][0] -ceq "CheckBox") -and ($checkBox[0][1] -ceq $property) -and (([int]$checkBox[0][2] -band 0x2) -ne 0) -and (([int]$checkBox[0][2] -band 0x8) -eq 0)) "PawnioCheckBox must be an enabled CheckBox bound directly to $property"
 $checkBoxValue = Get-Rows "SELECT ``Value`` FROM ``CheckBox`` WHERE ``Property`` = '$property'" 1
 Assert (($checkBoxValue.Count -eq 1) -and ($checkBoxValue[0][0] -ceq "1")) "CheckBox table must map $property to 1, the value the setup action is conditioned on"
 
@@ -194,6 +196,10 @@ $lastNext = $sortedNext | Select-Object -Last 1
 Assert ($null -ne $lastNext -and $lastNext[0] -ceq $dialog) "InstallDirDlg Next does not end on $dialog"
 $templateNext = $sortedNext | Where-Object { $_[0] -cne $dialog } | Select-Object -Last 1
 Assert (($null -ne $lastNext) -and ($null -ne $templateNext) -and ($lastNext[2] -ceq $templateNext[2])) "InstallDirDlg Next to $dialog has condition '$($lastNext[2])', expected the template's '$($templateNext[2])'"
+# Matching the template is not enough on its own: a template that dropped
+# the validation would let a bare inserted row pass too.
+$validationCondition = "WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=`"1`""
+Assert (($null -ne $lastNext) -and ($lastNext[2] -ceq $validationCondition)) "InstallDirDlg Next to $dialog has condition '$($lastNext[2])', expected '$validationCondition'"
 
 $backEvents = Get-Rows "SELECT ``Argument`` FROM ``ControlEvent`` WHERE ``Dialog_`` = 'VerifyReadyDlg' AND ``Control_`` = 'Back' AND ``Event`` = 'NewDialog' AND ``Argument`` = '$dialog'" 1
 Assert ($backEvents.Count -eq 1) "VerifyReadyDlg Back does not return to $dialog"
