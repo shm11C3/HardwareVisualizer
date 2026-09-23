@@ -19,11 +19,12 @@ const EXIT_LABEL: &str = "Exit";
 /// exists - survives Reset on purpose (see
 /// `app::native_maintenance::discard_native_authority_files`'s "What is
 /// deliberately not removed"), so a blanket "all history" claim here would
-/// be false for exactly the profiles that have one. #2195 tracks removing
-/// that copy from Settings.
+/// be false for exactly the profiles that have one. Does not promise a
+/// Settings-based way to remove that copy either - #2195 would add one, but
+/// it does not exist yet.
 const RESET_HISTORY_NOTE: &str = "* Resetting deletes the hardware monitoring history in the \
    current database. A pre-conversion recovery copy (hv-database.db.retired), if one exists, \
-   is kept and can be removed from Settings later.";
+   is kept.";
 
 /// User's chosen action from the DB startup error dialog.
 pub enum StartupErrorAction {
@@ -333,6 +334,9 @@ mod tests {
     assert!(!RESET_HISTORY_NOTE.to_lowercase().contains("all"));
     assert!(RESET_HISTORY_NOTE.contains("hv-database.db.retired"));
     assert!(RESET_HISTORY_NOTE.contains("kept"));
+    // #2195 (a Settings-based way to remove the retired copy) does not
+    // exist yet - the dialog must not promise it.
+    assert!(!RESET_HISTORY_NOTE.to_lowercase().contains("settings"));
   }
 
   #[test]
