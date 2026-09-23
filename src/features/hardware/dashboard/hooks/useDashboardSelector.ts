@@ -27,17 +27,27 @@ export const useDashboardSelector = ({
   visibleItemsVersionKey?: string;
   syncDashboardTitleVisibility?: boolean;
 } = {}) => {
-  const [visibleItems, setVisibleItems] = useTauriStore<
-    DashboardSelectItemType[]
-  >(visibleItemsKey, DEFAULT_VISIBLE_ITEMS);
-  const [visibleItemsVersion, setVisibleItemsVersion] = useTauriStore<number>(
-    visibleItemsVersionKey,
-    0,
-  );
+  const [visibleItems, setVisibleItems, , visibleItemsLoadFailed] =
+    useTauriStore<DashboardSelectItemType[]>(
+      visibleItemsKey,
+      DEFAULT_VISIBLE_ITEMS,
+    );
+  const [
+    visibleItemsVersion,
+    setVisibleItemsVersion,
+    ,
+    visibleItemsVersionLoadFailed,
+  ] = useTauriStore<number>(visibleItemsVersionKey, 0);
   const { toggleTitleIconVisibility } = useTitleIconVisualSelector();
 
   useEffect(() => {
     if (visibleItems == null || visibleItemsVersion == null) {
+      return;
+    }
+    // A failed read settles both keys to their defaults. Migrating from
+    // there would stamp the current version over a list that was never
+    // loaded, so the real list would skip its migration on the next launch.
+    if (visibleItemsLoadFailed || visibleItemsVersionLoadFailed) {
       return;
     }
     if (visibleItemsVersion >= CURRENT_VISIBLE_ITEMS_VERSION) {
@@ -73,7 +83,9 @@ export const useDashboardSelector = ({
     void migrateVisibleItems();
   }, [
     visibleItems,
+    visibleItemsLoadFailed,
     visibleItemsVersion,
+    visibleItemsVersionLoadFailed,
     setVisibleItems,
     setVisibleItemsVersion,
   ]);

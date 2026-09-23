@@ -16,7 +16,7 @@ let fakeStore: FakeStore;
 let useTauriStore: <T>(
   key: string,
   defaultValue: T,
-) => [T | null, (newValue: T) => Promise<void>, boolean];
+) => [T | null, (newValue: T) => Promise<void>, boolean, boolean];
 
 describe("useTauriStore", () => {
   beforeEach(async () => {
@@ -72,6 +72,7 @@ describe("useTauriStore", () => {
     });
 
     expect(result.current[0]).toBe("storedValue");
+    expect(result.current[3]).toBe(false);
     expect(fakeStore.has).toHaveBeenCalledWith("testKey");
     expect(fakeStore.get).toHaveBeenCalledWith("testKey");
   });
@@ -136,7 +137,9 @@ describe("useTauriStore", () => {
   it("isPending is true while loading", async () => {
     const { result } = renderHook(() => useTauriStore("someKey", "someValue"));
     expect(result.current[2]).toBe(true);
-    await waitFor(() => result.current[2] === false);
+    expect(result.current[3]).toBe(false);
+    await waitFor(() => expect(result.current[2]).toBe(false));
+    expect(result.current[3]).toBe(false);
   });
 
   it("Settles to the default with isPending false when the initial read rejects", async () => {
@@ -154,6 +157,8 @@ describe("useTauriStore", () => {
     await waitFor(() => expect(result.current[2]).toBe(false));
 
     expect(result.current[0]).toBe("defaultValue");
+    // Persisting consumers must be able to tell this apart from an absent key.
+    expect(result.current[3]).toBe(true);
     expect(consoleError).toHaveBeenCalled();
     expect(fakeStore.set).not.toHaveBeenCalled();
   });
@@ -175,6 +180,7 @@ describe("useTauriStore", () => {
     await waitFor(() => expect(result.current[2]).toBe(false));
 
     expect(result.current[0]).toBe("defaultValue");
+    expect(result.current[3]).toBe(true);
     expect(consoleError).toHaveBeenCalled();
   });
 

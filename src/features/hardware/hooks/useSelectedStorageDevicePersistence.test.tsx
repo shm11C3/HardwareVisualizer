@@ -9,10 +9,16 @@ const mocks = vi.hoisted(() => ({
   storeValue: null as string | null,
   setStored: vi.fn(),
   isPending: false,
+  loadFailed: false,
 }));
 
 vi.mock("@/hooks/useTauriStore", () => ({
-  useTauriStore: () => [mocks.storeValue, mocks.setStored, mocks.isPending],
+  useTauriStore: () => [
+    mocks.storeValue,
+    mocks.setStored,
+    mocks.isPending,
+    mocks.loadFailed,
+  ],
 }));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -29,7 +35,21 @@ describe("useSelectedStorageDevicePersistence", () => {
   beforeEach(() => {
     mocks.storeValue = null;
     mocks.isPending = false;
+    mocks.loadFailed = false;
     mocks.setStored.mockClear();
+  });
+
+  it("does not persist a fallback selection when hydration failed", () => {
+    mocks.storeValue = null;
+    mocks.loadFailed = true;
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() => {
+      result.current.setSelected("disk-c");
+    });
+
+    expect(result.current.selected).toBe("disk-c");
+    expect(mocks.setStored).not.toHaveBeenCalled();
   });
 
   it("restores the persisted storage device selection on mount", () => {
