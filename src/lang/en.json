@@ -803,10 +803,12 @@
             "details": "Technical details"
           },
           "notice": {
+            "heading": "Conversion complete",
             "title": "More history now fits in the same space",
             "description": "The native database can keep more history in the same disk space. The current Hardware Archive Retention Period is {{days}} days.",
             "setToOneYear": "Set to 1 Year",
-            "keep": "Keep Current Setting"
+            "keep": "Keep Current Setting",
+            "footnote": "This notice appears only once. You can change the Hardware Archive Retention Period under Insights at any time."
           }
         }
       },

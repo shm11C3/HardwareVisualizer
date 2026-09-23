@@ -160,13 +160,20 @@ test.describe("database conversion captures", () => {
     // documentation for why.
     await page.evaluate(() => window.__E2E__?.completeDatabaseConversion());
     await expect(
-      page.getByText("The database has been converted to the native format."),
+      page.getByRole("heading", { name: "Conversion complete" }),
     ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    // The offer copy and the plain "converted" line are gone: the notice
+    // is a follow-up to the action, not a description of the setting.
+    await expect(page.getByText(/^Switch the local database/)).toHaveCount(0);
+    await expect(
+      page.getByText("The database has been converted to the native format."),
+    ).toHaveCount(0);
 
     const noticeTitle = page.getByText(
       "More history now fits in the same space",
     );
     await expect(noticeTitle).toBeVisible();
+    await expect(page.getByText(/This notice appears only once/)).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Set to 1 Year" }),
     ).toBeVisible();
@@ -182,6 +189,10 @@ test.describe("database conversion captures", () => {
 
     await keepButton.click();
     await expect(noticeTitle).toHaveCount(0);
+    // Nothing is left to configure, so the section leaves with the notice.
+    await expect(
+      page.getByRole("heading", { name: "Native Database" }),
+    ).toHaveCount(0);
   });
 });
 
@@ -229,7 +240,7 @@ test.describe("database conversion app-root prompt dialog", () => {
     // `completeDatabaseConversion`'s own documentation for why.
     await page.evaluate(() => window.__E2E__?.completeDatabaseConversion());
     await expect(
-      page.getByText("The database has been converted to the native format."),
+      dialog.getByRole("heading", { name: "Conversion complete" }),
     ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
     const noticeTitle = page.getByText(
       "More history now fits in the same space",
