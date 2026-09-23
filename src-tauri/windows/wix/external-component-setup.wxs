@@ -31,6 +31,35 @@
          so the linker pulls in this fragment. -->
     <ComponentGroup Id="ExternalComponentSetup" />
 
+    <!-- Default install folder after moving from the NSIS build (#2215).
+         Tauri's template seeds INSTALLDIR from
+         HKCU\Software\HardwareVisualizer\HardwareVisualizer: first the default
+         value the NSIS installer writes, then the MSI's own InstallDir value.
+         A normal NSIS uninstall keeps the NSIS value, so a fresh MSI install
+         would silently land in %LOCALAPPDATA%, where the elevated features
+         cannot trust the executable (ADR 0024, #2216). When the MSI has never
+         recorded its own folder and the inherited one is under
+         %LOCALAPPDATA%, start from Program Files instead. The key path is
+         fixed because fragments are not templated.
+         The UI copy runs before the folder page, so a folder the user picks
+         there is kept; the execute copy only covers installs without the UI
+         sequence (UILevel below 4), so it never overrides that choice. -->
+    <Property Id="HV_MSI_INSTALLDIR">
+      <RegistrySearch Id="HvMsiInstallDir" Root="HKCU" Key="Software\HardwareVisualizer\HardwareVisualizer" Name="InstallDir" Type="raw" />
+    </Property>
+    <SetProperty
+      Id="INSTALLDIR"
+      Action="SetInstallDirFromNsisDefaultUi"
+      Value="[ProgramFiles64Folder]HardwareVisualizer\"
+      Sequence="ui"
+      After="AppSearch">NOT Installed AND NOT HV_MSI_INSTALLDIR AND INSTALLDIR ~&lt;&lt; LocalAppDataFolder</SetProperty>
+    <SetProperty
+      Id="INSTALLDIR"
+      Action="SetInstallDirFromNsisDefaultExecute"
+      Value="[ProgramFiles64Folder]HardwareVisualizer\"
+      Sequence="execute"
+      After="AppSearch">NOT Installed AND UILevel &lt; 4 AND NOT HV_MSI_INSTALLDIR AND INSTALLDIR ~&lt;&lt; LocalAppDataFolder</SetProperty>
+
     <Property Id="EXTERNAL_COMPONENT_PAWNIO" Secure="yes" />
     <SetProperty
       Id="EXTERNAL_COMPONENT_PAWNIO"
