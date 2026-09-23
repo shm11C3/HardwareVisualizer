@@ -36,8 +36,13 @@
       Impersonate="no"
       Return="ignore" />
 
+    <!-- The action runs the installed file as LocalSystem, so it only runs
+         when that file sits under Program Files, which medium-integrity
+         processes cannot modify. A user-chosen writable directory would let
+         a same-user process swap the executable before it is elevated;
+         there the setup stays available from Settings instead. -->
     <InstallExecuteSequence>
-      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE</Custom>
+      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE AND (INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder)</Custom>
     </InstallExecuteSequence>
 
     <UI>
@@ -49,8 +54,14 @@
         <Control Id="Title" Type="Text" X="15" Y="6" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Optional components" />
         <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose the optional components to set up after installation." />
 
-        <Control Id="PawnioCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="EXTERNAL_COMPONENT_PAWNIO" CheckBoxValue="1" Text="Set up PawnIO (CPU temperature and power, motherboard sensors)" />
+        <Control Id="PawnioCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="EXTERNAL_COMPONENT_PAWNIO" CheckBoxValue="1" Text="Set up PawnIO (CPU temperature and power, motherboard sensors)">
+          <Condition Action="disable">NOT (INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder)</Condition>
+          <Condition Action="enable">INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder</Condition>
+        </Control>
         <Control Id="PawnioDescription" Type="Text" X="38" Y="80" Width="312" Height="80" NoPrefix="yes" Text="HardwareVisualizer downloads the PawnIO driver and its sensor modules from their official releases, verifies them against pinned checksums, and installs only what is missing. PawnIO stays installed when you uninstall HardwareVisualizer. You can also set it up later from Settings, Advanced." />
+        <Control Id="PawnioLocationNote" Type="Text" X="38" Y="165" Width="312" Height="40" NoPrefix="yes" Hidden="yes" Text="The installer sets up PawnIO only when HardwareVisualizer is installed under Program Files. For this location, use Settings, Advanced after installation.">
+          <Condition Action="show">NOT (INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder)</Condition>
+        </Control>
 
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">

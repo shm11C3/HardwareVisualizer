@@ -122,7 +122,10 @@ installed and its fallbacks unchanged.
   non-impersonated custom action after `InstallFiles` runs
   `[#Path] --external-component-setup pawnio` as LocalSystem inside the
   already elevated install, so there is no second prompt; `Return="ignore"`
-  keeps a setup failure from failing the product install. It runs before
+  keeps a setup failure from failing the product install. Because it runs
+  the installed file as LocalSystem, it only runs when `INSTALLDIR` is under
+  Program Files; for a user-chosen directory that medium-integrity processes
+  could modify, the dialog disables the option and points to Settings. It runs before
   `InstallFinalize`, so the app launched from the finish dialog already sees
   the result. The installer does not request a reboot when PawnIO reports
   `3010`; Settings shows the resulting state.
