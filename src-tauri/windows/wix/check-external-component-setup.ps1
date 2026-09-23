@@ -129,6 +129,11 @@ foreach ($case in @(
   if ($null -ne $row) {
     Assert ($row[1] -ceq $case.condition) "$($case.action) has condition '$($row[1])'"
     Assert (([int]$row[2] -gt [int]$case.table["AppSearch"][2]) -and ([int]$row[2] -lt [int]$case.table["CostInitialize"][2])) "$($case.action) must run after AppSearch and before CostInitialize"
+    # Its condition reads the comparison properties, so they must be set first.
+    foreach ($propertyAction in @("SetHV_NSIS_DEFAULT_INSTALLDIR", "SetHV_NSIS_DEFAULT_INSTALLDIR_DIR")) {
+      $propertyRow = $case.table[$propertyAction]
+      Assert (($null -ne $propertyRow) -and ([int]$propertyRow[2] -lt [int]$row[2])) "$propertyAction must run before $($case.action)"
+    }
   }
 }
 Assert (-not $uiSearchSequence.ContainsKey("SetInstallDirFromNsisDefaultExecute")) "The execute copy must not run in the UI sequence"
