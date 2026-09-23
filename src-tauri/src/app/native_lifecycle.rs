@@ -526,6 +526,13 @@ mod tests {
         step: ConversionProgress::BuildingCandidate,
         message: "disk full".to_string(),
       }),
+      // A preflight failure with the source present (e.g. insufficient disk
+      // space) is the same retryable case, not the `Authority(..)` refusal
+      // tested above for a positively missing source.
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::Preflight,
+        message: "insufficient workspace".to_string(),
+      }),
       DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionCancelled {
         step: ConversionProgress::BuildingCandidate,
       }),
