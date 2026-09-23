@@ -16,6 +16,12 @@
   Order 1-4 and VerifyReadyDlg Back at Order 1-2.
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <!-- INSTALLDIR is under Program Files, which medium-integrity processes
+       cannot modify. `<<` is a raw prefix check, so any ".." segment is
+       rejected rather than trusted to resolve inside Program Files; a path
+       that does not literally start with the Program Files folder (short
+       names, forward slashes, junctions elsewhere) fails the prefix check. -->
+  <?define ProtectedInstallDir = ((INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder) AND NOT (INSTALLDIR >< "..")) ?>
   <Fragment>
     <!-- Referenced from tauri.conf.json (bundle.windows.wix.componentGroupRefs)
          so the linker pulls in this fragment. -->
@@ -42,7 +48,7 @@
          a same-user process swap the executable before it is elevated;
          there the setup stays available from Settings instead. -->
     <InstallExecuteSequence>
-      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE AND (INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder)</Custom>
+      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
     </InstallExecuteSequence>
 
     <UI>
@@ -55,12 +61,12 @@
         <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose the optional components to set up after installation." />
 
         <Control Id="PawnioCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="EXTERNAL_COMPONENT_PAWNIO" CheckBoxValue="1" Text="Set up PawnIO (CPU temperature and power, motherboard sensors)">
-          <Condition Action="disable">NOT (INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder)</Condition>
-          <Condition Action="enable">INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder</Condition>
+          <Condition Action="disable">NOT $(var.ProtectedInstallDir)</Condition>
+          <Condition Action="enable">$(var.ProtectedInstallDir)</Condition>
         </Control>
         <Control Id="PawnioDescription" Type="Text" X="38" Y="80" Width="312" Height="80" NoPrefix="yes" Text="HardwareVisualizer downloads the PawnIO driver and its sensor modules from their official releases, verifies them against pinned checksums, and installs only what is missing. PawnIO stays installed when you uninstall HardwareVisualizer. You can also set it up later from Settings, Advanced." />
         <Control Id="PawnioLocationNote" Type="Text" X="38" Y="165" Width="312" Height="40" NoPrefix="yes" Hidden="yes" Text="The installer sets up PawnIO only when HardwareVisualizer is installed under Program Files. For this location, use Settings, Advanced after installation.">
-          <Condition Action="show">NOT (INSTALLDIR ~&lt;&lt; ProgramFiles64Folder OR INSTALLDIR ~&lt;&lt; ProgramFilesFolder)</Condition>
+          <Condition Action="show">NOT $(var.ProtectedInstallDir)</Condition>
         </Control>
 
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />

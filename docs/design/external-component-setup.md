@@ -124,7 +124,8 @@ installed and its fallbacks unchanged.
   already elevated install, so there is no second prompt; `Return="ignore"`
   keeps a setup failure from failing the product install. Because it runs
   the installed file as LocalSystem, it only runs when `INSTALLDIR` is under
-  Program Files; for a user-chosen directory that medium-integrity processes
+  Program Files (a literal prefix match that also rejects any `..` segment);
+  for a user-chosen directory that medium-integrity processes
   could modify, the dialog disables the option and points to Settings. It runs before
   `InstallFinalize`, so the app launched from the finish dialog already sees
   the result. The installer does not request a reboot when PawnIO reports
