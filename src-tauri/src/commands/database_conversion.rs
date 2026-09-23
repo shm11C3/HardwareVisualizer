@@ -194,7 +194,7 @@ mod imp {
     let workspace = native_paths::database_directory();
     let schema_version = native_schema::NATIVE_SCHEMA_VERSION;
     let app_for_task = app.clone();
-    runtime_handle.spawn(async move {
+    runtime_handle.clone().spawn(async move {
       // The command RPC returns immediately. Keep preflight, the lock-held
       // archive, and conversion in this owned task so dropping the invoke
       // future cannot strand a moved file before `run_conversion` starts.

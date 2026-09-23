@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -200,9 +200,7 @@ export const DatabaseConversionStateBody = ({
             variant="outline"
             onClick={() => setConfirmRecovery(true)}
           >
-            {t(
-              "pages.settings.insights.databaseConversion.recovery.review",
-            )}
+            {t("pages.settings.insights.databaseConversion.recovery.review")}
           </Button>
         ) : (
           <div>
@@ -218,7 +216,9 @@ export const DatabaseConversionStateBody = ({
                 disabled={recovering}
                 onClick={() => setConfirmRecovery(false)}
               >
-                {t("pages.settings.insights.databaseConversion.recovery.cancel")}
+                {t(
+                  "pages.settings.insights.databaseConversion.recovery.cancel",
+                )}
               </Button>
               <Button
                 type="button"
