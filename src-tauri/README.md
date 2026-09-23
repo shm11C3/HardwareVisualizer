@@ -17,9 +17,16 @@ lives here; everything else belongs in `hardviz-core`.
 - Translate Core `MetricsSnapshot` events into Tauri events the frontend
   consumes (`HardwareMonitorUpdate`). This is the only place that calls
   `window.emit(...)` for sensor updates.
-- Drive App startup: resolve OS-specific paths, hand the SQLite path to Core,
-  surface the Core preflight result to the user (recovery dialog, restart),
-  bring up Tauri plugins.
+- Drive App startup: resolve OS-specific paths, hand the SQLite, native
+  database, and marker paths to Core, surface the Core preflight result to
+  the user (recovery dialog, restart), bring up Tauri plugins.
+- Own the native database lifecycle: `app::native_lifecycle::NativeLifecycleOwner`
+  tracks which of five states the conversion is in, and
+  `app::native_conversion::run_conversion` drives an explicit,
+  user-triggered conversion from SQLite to native (never started
+  automatically). `app::native_maintenance` retires the SQLite source (renamed
+  in place with a `.retired` suffix) once a later boot finds native
+  authoritative and verified.
 - Own UI-only settings (theme, language, line graph styling, burn-in shift,
   temperature unit, background image, …) that have no effect on Core.
 - Own App-side services for background images, language, settings, system
@@ -52,7 +59,10 @@ src-tauri/src/
 │   ├── window.rs           subscribes to MetricsSnapshot, emits HardwareMonitorUpdate
 │   └── tray.rs             subscribes to MetricsSnapshot, updates tray widget output
 ├── app/                  ← App lifecycle helpers
-│   └── startup.rs          DB preflight error dialog + reset-and-restart flow
+│   ├── startup.rs          DB preflight error dialog + reset-and-restart flow
+│   ├── native_lifecycle.rs NativeLifecycleOwner + DatabaseLifecycleState
+│   ├── native_conversion.rs explicit SQLite→native conversion driver
+│   └── native_maintenance.rs SQLite retirement + native artifact cleanup
 ├── lifecycle.rs          ← close-to-tray, second instance, and run-event policy
 ├── webview_memory.rs     ← Windows hidden-WebView suspend and resume lifecycle
 ├── workers/              ← WorkersState — holds Core controller / adapter handles
@@ -113,7 +123,12 @@ The `platform/` and `infrastructure/providers/` directories that the
 architecture document references now live in [`core/src/`](../core); the
 App crate retains only the App-specific `infrastructure/database/`
 (the ordered schema migration definitions, executed at startup by Core's
-migrator in `hardviz_core::infrastructure::database::migrate`).
+migrator in `hardviz_core::infrastructure::database::migrate`). The native
+database's own dispatch boundary, schema, and single-owner runtime live in
+Core (`hardviz_core::infrastructure::database::{dispatch, native_database}`);
+`app/native_lifecycle.rs`, `native_conversion.rs`, and `native_maintenance.rs`
+own only the App-side decision of which engine is authoritative and the
+explicit, user-triggered conversion between them.
 
 ## Frontend integration
 
