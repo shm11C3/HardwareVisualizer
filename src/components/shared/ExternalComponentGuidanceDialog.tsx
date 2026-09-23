@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
@@ -62,6 +63,7 @@ export const ExternalComponentGuidanceDialog = ({
 }: ExternalComponentGuidanceDialogProps) => {
   const { t, i18n } = useTranslation();
   const { error } = useTauriDialog();
+  const { updateSettingAtom } = useSettingsAtom();
   const [candidates, setCandidates] = useState<
     ExternalComponentGuidanceCandidate[]
   >([]);
@@ -230,14 +232,11 @@ export const ExternalComponentGuidanceDialog = ({
 
     setIsEnablingElevatedStartupMode(true);
     try {
-      const result = await commands.setElevatedStartupMode(true);
-      if (isError(result)) {
-        console.error(
-          "Failed to enable elevated startup mode from external component guidance:",
-          result.error,
-        );
-        await error(t("externalComponentGuidance.errors.elevatedStartupMode"));
-      }
+      // Through the settings atom, not the raw command: when the process is
+      // already elevated the backend persists "on" without relaunching, and
+      // the Settings toggle must show that saved value. The atom reports a
+      // command error itself (dialog + rollback), so only a throw is left here.
+      await updateSettingAtom("elevatedStartupMode", true);
     } catch (err) {
       console.error(
         "Failed to enable elevated startup mode from external component guidance:",
