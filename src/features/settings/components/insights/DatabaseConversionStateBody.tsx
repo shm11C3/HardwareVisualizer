@@ -166,14 +166,14 @@ export const DatabaseConversionStateBody = ({
     if (
       state.kind === "actionRequired" &&
       // `start_database_conversion` re-inspects on-disk authority fresh
-      // rather than trusting this owner's own previous state (see
-      // `run_conversion`'s own documentation), so retrying is safe
-      // exactly for the two issues the driver itself produced by failing
-      // or being cancelled mid-run - not for an
-      // `Authority`/open/creation disagreement `inspect_authority`
-      // refused to guess at, which a retry would refuse the same way.
+      // rather than trusting this owner's previous state (see
+      // `run_conversion`'s own documentation). A durable native selection
+      // whose database could not be opened or handed to dispatch is safe to
+      // retry once the open/handoff problem is gone; authority or fresh
+      // creation failures still need their own recovery path.
       (state.reason === "conversionFailed" ||
-        state.reason === "conversionCancelled")
+        state.reason === "conversionCancelled" ||
+        state.reason === "nativeOpenFailed")
     ) {
       return (
         <Button type="button" onClick={() => void start()}>

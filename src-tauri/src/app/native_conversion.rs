@@ -553,7 +553,7 @@ pub async fn run_conversion(
             outcome
           }
           Err(error) => {
-            fail_open(owner, &error);
+            fail_open_after_selection(owner, handoff, &error).await;
             ConversionOutcome::ActionRequired
           }
         },
@@ -797,7 +797,7 @@ async fn reconcile_and_select(
   match open_selected_database(owner, paths, expected_schema_version).await {
     Ok(()) => Ok(ConversionOutcome::Selected { total_rows }),
     Err(error) => {
-      fail_open(owner, &error);
+      fail_open_after_selection(owner, handoff, &error).await;
       Ok(ConversionOutcome::ActionRequired)
     }
   }
@@ -932,10 +932,10 @@ async fn open_selected_database(
 /// `src-tauri/tests/` for the proof this actually wires together end to end.
 ///
 /// Only [`AuthorityState::NativeSelected`] counts as a successful hand-over.
-/// `reobserve_authority` deliberately returns `Ok` for an inconsistent
-/// marker, metadata or file state while leaving the boundary refusing every
-/// consumer, so treating any `Ok` as success would report
-/// `NativeAuthoritative` over a backend that answers nothing.
+/// `reobserve_authority` also returns `Ok` for other states; for example,
+/// unreadable metadata with no marker can look like an interrupted
+/// conversion and leave dispatch on SQLite. Every other outcome is recorded
+/// as `NativeOpenFailed` and explicitly refused below.
 ///
 /// Respects the single-owner rule
 /// [`hardviz_core::infrastructure::database::dispatch::reobserve_authority`]'s
@@ -950,7 +950,10 @@ pub async fn adopt_selected_database_via_dispatch(
   use hardviz_core::infrastructure::database::native_database::AuthorityState;
 
   if let Some(database) = owner.take_selected_database() {
-    database.close().await?;
+    if let Err(error) = database.close().await {
+      fail_open_and_refuse_dispatch(owner, &error).await;
+      return Err(error);
+    }
   }
   match dispatch::reobserve_authority().await {
     Ok(AuthorityState::NativeSelected) => {
@@ -960,15 +963,14 @@ pub async fn adopt_selected_database_via_dispatch(
     Ok(other) => {
       let error = NativeDatabaseError::Worker {
         message: format!(
-          "the dispatch boundary observed {other:?} instead of the selected native \
-           database and is refusing every consumer"
+          "the dispatch boundary observed {other:?} instead of the selected native database"
         ),
       };
-      fail_open(owner, &error);
+      fail_open_and_refuse_dispatch(owner, &error).await;
       Err(error)
     }
     Err(error) => {
-      fail_open(owner, &error);
+      fail_open_and_refuse_dispatch(owner, &error).await;
       Err(error)
     }
   }
@@ -1013,21 +1015,58 @@ fn fail(
   ));
 }
 
-/// Record a failure to open an already, durably selected database - see
-/// `open_selected_database`'s own callers for why this is distinct from
+/// Record a failure to make an already, durably selected database available
+/// to consumers - see `open_selected_database` and
+/// `adopt_selected_database_via_dispatch` for why this is distinct from
 /// [`fail`]: the selection itself did not fail, so naming it a conversion
 /// step failure would be wrong, and unlike `LifecycleIssue::Authority` the
-/// files are not in question, only the runtime open.
+/// files were selected before the runtime open or dispatch hand-off failed.
 fn fail_open(owner: &NativeLifecycleOwner, error: &impl std::fmt::Display) {
   let message = error.to_string();
   log_error!(
-    "native database selected but could not be opened",
+    "native database selected but could not be made available to consumers",
     "app::native_conversion",
     Some(message.clone())
   );
   owner.set_state(DatabaseLifecycleState::ActionRequired(
     LifecycleIssue::NativeOpenFailed { message },
   ));
+}
+
+/// Record that opening a durably selected database failed and keep consumers
+/// off SQLite whenever this caller promised to hand the database to dispatch.
+async fn fail_open_after_selection(
+  owner: &NativeLifecycleOwner,
+  handoff: SelectionHandoff,
+  error: &impl std::fmt::Display,
+) {
+  if handoff == SelectionHandoff::ThroughDispatch {
+    fail_open_and_refuse_dispatch(owner, error).await;
+  } else {
+    fail_open(owner, error);
+  }
+}
+
+/// Record a selected database open or hand-off failure and refuse dispatch
+/// consumers. A failed `reobserve_authority` may already have done this, but
+/// an inconsistent observation can instead leave dispatch on SQLite.
+async fn fail_open_and_refuse_dispatch(
+  owner: &NativeLifecycleOwner,
+  error: &impl std::fmt::Display,
+) {
+  fail_open(owner, error);
+  if let Err(refusal_error) =
+    hardviz_core::infrastructure::database::dispatch::refuse_consumers(format!(
+      "the selected native database could not be opened or handed to dispatch: {error}"
+    ))
+    .await
+  {
+    log_error!(
+      "closing the dispatch boundary's native owner failed while refusing consumers",
+      "app::native_conversion::fail_open_and_refuse_dispatch",
+      Some(refusal_error.to_string())
+    );
+  }
 }
 
 fn check_cancelled(

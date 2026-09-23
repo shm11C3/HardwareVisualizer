@@ -64,13 +64,12 @@ pub enum LifecycleIssue {
   /// automatically by [`inspect_startup_authority`] and never reaches this
   /// variant unless the repair itself failed.
   Authority(AuthorityInconsistency),
-  /// `inspect_authority` reported `NativeSelected` - the files agree and
-  /// name the native database as authoritative - but opening it failed (the
-  /// spill directory, the read/write handle, or an owner thread). The files
-  /// are not in question here, unlike `Authority`; the runtime open itself
-  /// is. Never silently falls back to SQLite: once selection is durable,
-  /// ADR 0022 rejects running on both, so this is reported rather than
-  /// treated as "still on SQLite".
+  /// App had observed or just committed native selection, but could not make
+  /// that database available to consumers (the spill directory, read/write
+  /// handle, owner thread, or boundary hand-off failed). This does not prove
+  /// SQLite is authoritative. Once native selection is durable, ADR 0022
+  /// rejects running on both, so dispatch must refuse rather than silently
+  /// fall back to SQLite.
   NativeOpenFailed { message: String },
   /// Creating the native database for an otherwise empty profile failed.
   FreshCreationFailed { message: String },

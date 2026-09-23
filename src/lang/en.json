@@ -796,7 +796,7 @@
           "actionRequired": {
             "default": "The database needs attention before the conversion can continue. Your existing data is unaffected.",
             "authorityDisagreement": "HardwareVisualizer found the database files in an unexpected state and stopped rather than guess. Your existing data is unaffected.",
-            "nativeOpenFailed": "The converted database could not be opened. Your existing data is unaffected.",
+            "nativeOpenFailed": "The selected database could not be made available for recording. Your existing data is unaffected. Retry to resume recording.",
             "freshCreationFailed": "The native database could not be created. Your existing data is unaffected.",
             "conversionFailed": "The conversion failed. Your existing data is unaffected and you can try again.",
             "conversionCancelled": "The conversion was cancelled. Your existing data is unaffected and you can try again.",
