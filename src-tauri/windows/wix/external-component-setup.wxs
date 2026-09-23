@@ -64,9 +64,17 @@
         <Control Id="Title" Type="Text" X="15" Y="6" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Optional components" />
         <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose the optional components to set up after installation." />
 
+        <!-- Outside Program Files the real checkbox is swapped for a disabled,
+             always-unchecked placeholder bound to a property nothing sets, so
+             the dialog never shows a selected option that will not run. The
+             user's choice stays in EXTERNAL_COMPONENT_PAWNIO and reappears
+             when they go back and pick Program Files. -->
         <Control Id="PawnioCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="EXTERNAL_COMPONENT_PAWNIO" CheckBoxValue="1" Text="Set up PawnIO (CPU temperature and power, motherboard sensors)">
-          <Condition Action="disable">NOT $(var.ProtectedInstallDir)</Condition>
-          <Condition Action="enable">$(var.ProtectedInstallDir)</Condition>
+          <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
+          <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
+        </Control>
+        <Control Id="PawnioUnavailableCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="ExternalComponentPawnioUnavailable" CheckBoxValue="1" Disabled="yes" Hidden="yes" Text="Set up PawnIO (CPU temperature and power, motherboard sensors)">
+          <Condition Action="show">NOT $(var.ProtectedInstallDir)</Condition>
         </Control>
         <Control Id="PawnioDescription" Type="Text" X="38" Y="80" Width="312" Height="80" NoPrefix="yes" Text="HardwareVisualizer downloads the PawnIO driver and its sensor modules from their official releases, verifies them against pinned checksums, and installs only what is missing. PawnIO stays installed when you uninstall HardwareVisualizer. You can also set it up later from Settings, Advanced." />
         <Control Id="PawnioLocationNote" Type="Text" X="38" Y="165" Width="312" Height="40" NoPrefix="yes" Hidden="yes" Text="The installer sets up PawnIO only when HardwareVisualizer is installed under Program Files. For this location, use Settings, Advanced after installation.">

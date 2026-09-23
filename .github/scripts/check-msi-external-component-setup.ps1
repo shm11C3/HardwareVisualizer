@@ -99,6 +99,20 @@ if ($defaultAction.Count -eq 1) {
 $dialogRow = Get-Rows "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog`` = '$dialog'" 1
 Assert ($dialogRow.Count -eq 1) "Dialog $dialog is missing"
 
+# Outside Program Files the real checkbox must be hidden and replaced by an
+# unchecked placeholder, so the dialog never shows a selection that will not run.
+$locationCondition = $expectedActionCondition.Substring("$property = `"1`" AND NOT REMOVE AND ".Length)
+$controlConditions = @{}
+foreach ($row in (Get-Rows "SELECT ``Control_``, ``Action``, ``Condition`` FROM ``ControlCondition`` WHERE ``Dialog_`` = '$dialog'" 3)) {
+  $controlConditions["$($row[0])/$($row[1])"] = $row[2]
+}
+Assert ($controlConditions["PawnioCheckBox/Hide"] -ceq "NOT $locationCondition") "PawnioCheckBox is not hidden outside Program Files"
+Assert ($controlConditions["PawnioUnavailableCheckBox/Show"] -ceq "NOT $locationCondition") "PawnioUnavailableCheckBox is not shown outside Program Files"
+$placeholder = Get-Rows "SELECT ``Property``, ``Attributes`` FROM ``Control`` WHERE ``Dialog_`` = '$dialog' AND ``Control`` = 'PawnioUnavailableCheckBox'" 2
+# Attribute 0x2 is "enabled", so a disabled control has it cleared; the bound
+# property must not be the real one.
+Assert (($placeholder.Count -eq 1) -and ($placeholder[0][0] -cne $property) -and (([int]$placeholder[0][1] -band 0x2) -eq 0)) "PawnioUnavailableCheckBox must be disabled and bound to a property other than $property"
+
 # The last NewDialog event wins, so the inserted dialog must have the highest
 # order on InstallDirDlg Next.
 $nextEvents = Get-Rows "SELECT ``Argument``, ``Ordering`` FROM ``ControlEvent`` WHERE ``Dialog_`` = 'InstallDirDlg' AND ``Control_`` = 'Next' AND ``Event`` = 'NewDialog'" 2
