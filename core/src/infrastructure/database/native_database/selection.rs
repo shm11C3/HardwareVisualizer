@@ -1481,6 +1481,10 @@ mod tests {
       super::super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX
     ));
     std::fs::create_dir(&legacy_runtime_spill).unwrap();
+    assert!(
+      !observe_authority(&paths, 7).work_directory_present,
+      "legacy runtime spills must not be observed as conversion work"
+    );
 
     let runtime_spill_parent = directory
       .path()
@@ -1499,6 +1503,7 @@ mod tests {
 
     let conversion_work = directory.path().join(format!("{WORK_PREFIX}interrupted"));
     std::fs::create_dir(&conversion_work).unwrap();
+    assert!(observe_authority(&paths, 7).work_directory_present);
     let owner = crate::infrastructure::database::native_database::NativeDatabase::open(
       &paths.native_database,
       crate::infrastructure::database::native_database::NativeDatabaseOptions::new(7),
