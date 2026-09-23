@@ -116,7 +116,6 @@ jobs:
             windows-installer:
               - 'src-tauri/windows/**'
               - 'src-tauri/tauri.conf.json'
-              - '.github/scripts/check-msi-external-component-setup.ps1'
               - '.github/workflows/ci.yml'
             actions:
               - '.github/workflows/**'
@@ -825,7 +824,7 @@ jobs:
           if (-not (Get-ChildItem target/ci/bundle/nsis/*-setup.exe)) { throw "No NSIS installer was produced" }
           $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "No MSI was produced" }
-          ./.github/scripts/check-msi-external-component-setup.ps1 $msi.FullName
+          ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
 
   #
   # Frontend checks

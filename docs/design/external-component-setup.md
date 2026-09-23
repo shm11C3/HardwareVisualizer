@@ -155,7 +155,8 @@ installed and its fallbacks unchanged.
 - **Installer verification.** CI (`test-windows-installer`) builds both
   packages when `src-tauri/windows/**`, `tauri.conf.json`, or the CI workflow
   changes or a Tauri dependency moves, and asserts the MSI tables with
-  `.github/scripts/check-msi-external-component-setup.ps1`. The interactive
+  `src-tauri/windows/wix/check-external-component-setup.ps1`, which sits next
+  to the fragment it checks. The interactive
   behaviour needs a manual run on Windows whenever the Tauri bundler templates
   change: the dialog appears pre-selected, opting out runs nothing, the MSI
   setup runs without a second prompt, silent installs run nothing, and a
