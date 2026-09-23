@@ -174,7 +174,8 @@ installed and its fallbacks unchanged.
     with basic UI, which skips `InstallUISequence`, so only running the `.msi`
     again would show it. The immediate action runs as the user who started
     the uninstall and also shows in basic UI. It is skipped when
-    `UILevel` is 2 (`/qn`, winget), when `UPGRADINGPRODUCTCODE` is set (the
+    `UILevel` is 2 (`/qn`, winget), for `/passive` (`UILevel` 3 with
+    `REBOOTPROMPT=S`, unattended like NSIS `/P`), when `UPGRADINGPRODUCTCODE` is set (the
     old version being removed by an upgrade), and outside Program Files,
     because an uninstall started from an elevated prompt runs it elevated.
   - **NSIS:** `NSIS_HOOK_PREUNINSTALL` in `src-tauri/windows/nsis/hooks.nsh`,

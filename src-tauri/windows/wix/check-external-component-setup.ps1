@@ -85,7 +85,7 @@ Assert (($noticeRow.Count -eq 1) -and ([int]$noticeRow[0][0] -eq (18 + 0x40)) -a
 Assert ($sequence.ContainsKey($noticeAction)) "$noticeAction is not scheduled in InstallExecuteSequence"
 if ($sequence.ContainsKey($noticeAction)) {
   $row = $sequence[$noticeAction]
-  Assert ($row[1] -ceq "REMOVE = `"ALL`" AND NOT UPGRADINGPRODUCTCODE AND UILevel > 2 AND $locationCondition") "$noticeAction has condition '$($row[1])'"
+  Assert ($row[1] -ceq "REMOVE = `"ALL`" AND NOT UPGRADINGPRODUCTCODE AND UILevel > 2 AND NOT (UILevel = 3 AND REBOOTPROMPT = `"S`") AND $locationCondition") "$noticeAction has condition '$($row[1])'"
   Assert ([int]$row[2] -lt [int]$sequence["InstallInitialize"][2]) "$noticeAction must run before InstallInitialize, while the executable still exists"
 }
 
