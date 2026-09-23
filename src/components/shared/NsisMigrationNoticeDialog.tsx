@@ -100,7 +100,9 @@ export const NsisMigrationNoticeDialog = ({
 
   return (
     <AlertDialog open>
-      <AlertDialogContent className="text-foreground">
+      {/* Scroll inside the dialog so the actions stay reachable in compact
+          windows. */}
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto text-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle>{t("nsisMigrationNotice.title")}</AlertDialogTitle>
           <AlertDialogDescription asChild>

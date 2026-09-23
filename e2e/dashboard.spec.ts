@@ -95,7 +95,15 @@ test.describe("dashboard captures", () => {
     await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
     await saveCapture(page, "nsis-migration-notice");
 
-    await notice.getByRole("button", { name: "Hide" }).click();
+    // In a compact window the dialog scrolls, so its actions stay reachable.
+    await page.setViewportSize({ width: 520, height: 420 });
+    const hide = notice.getByRole("button", { name: "Hide" });
+    await hide.scrollIntoViewIfNeeded();
+    await expect(hide).toBeInViewport();
+    const box = await notice.boundingBox();
+    expect(box?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(420);
+
+    await hide.click();
     await page.getByRole("menuitem", { name: "Never show again" }).click();
     await expect(notice).toHaveCount(0);
   });
