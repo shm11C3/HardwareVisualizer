@@ -819,8 +819,11 @@ jobs:
           mkdir -p tmp
           printf '# Third-party notices placeholder for CI installer builds\n' > tmp/THIRD_PARTY_NOTICES.md
 
+      # pwsh, not bash: cache-sccache's expect-cpp initialises the MSVC
+      # environment (VCINSTALLDIR), after which rustc takes `link.exe` from PATH,
+      # and Git Bash puts its own /usr/bin/link.exe (GNU coreutils) first.
       - name: Build MSI and NSIS installers
-        shell: bash
+        shell: pwsh
         env:
           CARGO_INCREMENTAL: "0"
         run: npx tauri build --bundles msi,nsis -- --profile ci
