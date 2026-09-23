@@ -513,28 +513,25 @@ pub fn run() {
 
   // Which Hardware Archive Retention Period default applies to a
   // never-saved value (#2136): 30 days while SQLite is authoritative, 365
-  // while the native database is. This is a read-only, point-in-time peek
-  // at the same on-disk authority facts `resolve_native_authority` reads
-  // again below - see its own documentation for why re-observing is safe
-  // and expected. It must run before `AppState::new` loads `settings.json`,
-  // because the default only matters for values that load resolves at
-  // that moment.
+  // while the native database is (or will be). This is a read-only,
+  // point-in-time peek at the same on-disk authority facts
+  // `resolve_native_authority` reads again below - see its own
+  // documentation for why re-observing is safe and expected. It must run
+  // before `AppState::new` loads `settings.json`, because the default only
+  // matters for values that load resolves at that moment.
+  //
+  // An empty profile is special-cased to the native default even though
+  // `inspect_startup_authority` alone would still report
+  // `SqliteAuthoritative` for it: a fresh install creates and selects a
+  // native database directly moments later in this same startup (#2203),
+  // and `default_hardware_archive_retention_days` accounts for that -
+  // see its own documentation.
   #[cfg(feature = "duckdb-archive")]
-  let default_retention_days = {
-    use hardviz_core::settings::HardwareArchiveSettings;
-    let peek = app::native_lifecycle::inspect_startup_authority(
+  let default_retention_days =
+    app::native_lifecycle::default_hardware_archive_retention_days(
       &infrastructure::database::native_paths::authority_paths(),
       infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
     );
-    if matches!(
-      peek,
-      app::native_lifecycle::DatabaseLifecycleState::NativeAuthoritative
-    ) {
-      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
-    } else {
-      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
-    }
-  };
   #[cfg(not(feature = "duckdb-archive"))]
   let default_retention_days =
     hardviz_core::settings::HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS;

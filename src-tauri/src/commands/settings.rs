@@ -42,7 +42,14 @@ impl AppState {
     });
     match core_settings.ensure_storage_health_identity_key() {
       Ok(true) => {
-        if let Err(e) = core_settings.save_to_path(&settings_path) {
+        // Save only the identity section here, not the whole
+        // `CoreSettings` object: at this point `hardware_archive` may
+        // still hold nothing but `default_retention_days`'s never-saved
+        // default (fresh profile, or a saved section without a saved
+        // `retentionDays`), and `save_to_path` would persist it as if the
+        // user had explicitly chosen it, permanently defeating the
+        // backend-aware default (#2136).
+        if let Err(e) = core_settings.save_identity_only_to_path(&settings_path) {
           log_error!(
             "Failed to save storage health identity key",
             "AppState::new",
