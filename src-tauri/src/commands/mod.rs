@@ -1,6 +1,7 @@
 pub mod ambient_sensor;
 pub mod background_image;
 pub mod cooling_insight;
+pub mod database_conversion;
 pub mod external_component_guidance;
 pub mod external_component_setup;
 pub mod hardware;

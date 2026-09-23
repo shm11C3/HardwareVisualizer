@@ -239,6 +239,10 @@ impl models::settings::Settings {
     try_field!(text_selectable, "textSelectable");
     try_field!(close_to_tray, "closeToTray");
     try_field!(close_to_tray_choice_made, "closeToTrayChoiceMade");
+    try_field!(
+      nsis_migration_notice_dismissed,
+      "nsisMigrationNoticeDismissed"
+    );
     try_field!(external_component_guidance, "externalComponentGuidance");
     try_field!(elevated_startup_mode, "elevatedStartupMode");
     try_field!(tray_widget, "trayWidget");
@@ -626,6 +630,28 @@ impl models::settings::Settings {
     self.write_file()
   }
 
+  pub fn dismiss_nsis_migration_notice(&mut self) -> Result<(), String> {
+    self.dismiss_nsis_migration_notice_with_writer(|settings| settings.write_file())
+  }
+
+  fn dismiss_nsis_migration_notice_with_writer<F>(
+    &mut self,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let previous_value = self.nsis_migration_notice_dismissed;
+    self.nsis_migration_notice_dismissed = true;
+
+    if let Err(e) = write_file(self) {
+      self.nsis_migration_notice_dismissed = previous_value;
+      return Err(e);
+    }
+
+    Ok(())
+  }
+
   pub fn acknowledge_external_component_guidance_key(
     &mut self,
     key: String,
@@ -844,6 +870,48 @@ mod tests {
       .unwrap();
 
     assert!(settings.elevated_startup_mode);
+  }
+
+  #[test]
+  fn nsis_migration_notice_dismissal_loads_and_defaults_to_shown() {
+    assert!(!models::settings::Settings::default().nsis_migration_notice_dismissed);
+
+    let mut settings = models::settings::Settings::default();
+    settings
+      .merge_from_json_str(r#"{"nsisMigrationNoticeDismissed":true}"#)
+      .unwrap();
+    assert!(settings.nsis_migration_notice_dismissed);
+
+    // An invalid value keeps the notice showable instead of failing the load.
+    let mut settings = models::settings::Settings::default();
+    read_settings_from_str(
+      &mut settings,
+      r#"{"language":"en","nsisMigrationNoticeDismissed":"yes"}"#,
+    )
+    .unwrap();
+    assert_eq!(settings.language, "en");
+    assert!(!settings.nsis_migration_notice_dismissed);
+  }
+
+  #[test]
+  fn dismiss_nsis_migration_notice_persists_and_rolls_back_on_write_failure() {
+    let mut settings = models::settings::Settings::default();
+    let mut persisted_value = false;
+    settings
+      .dismiss_nsis_migration_notice_with_writer(|next_settings| {
+        persisted_value = next_settings.nsis_migration_notice_dismissed;
+        Ok(())
+      })
+      .unwrap();
+    assert!(settings.nsis_migration_notice_dismissed);
+    assert!(persisted_value);
+
+    let mut settings = models::settings::Settings::default();
+    let err = settings
+      .dismiss_nsis_migration_notice_with_writer(|_| Err("write failed".to_string()))
+      .unwrap_err();
+    assert_eq!(err, "write failed");
+    assert!(!settings.nsis_migration_notice_dismissed);
   }
 
   #[test]

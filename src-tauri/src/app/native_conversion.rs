@@ -210,6 +210,191 @@ pub fn resume_producers(workers: &WorkersState, resumers: ProducerResumers) {
   }
 }
 
+/// What #2136's explicit-user-intent conversion command needs that only
+/// `lib::run`'s own setup closure otherwise holds: the `EventBus` every
+/// database producer subscribes to, and a per-attempt cancellation flag.
+///
+/// Startup itself never pauses producers, so it never needed a way to
+/// rebuild them; the explicit conversion flow added here does, because it
+/// can run at any point in a session that is already producing rows. This
+/// is a thin coordination point, not a second lifecycle owner:
+/// [`NativeLifecycleOwner`] still owns the state vocabulary and the
+/// selected database.
+#[derive(Default)]
+pub struct ConversionRuntime {
+  bus: std::sync::Mutex<Option<hardviz_core::event_bus::EventBus>>,
+  cancellation: std::sync::Mutex<Option<ConversionCancellation>>,
+  in_progress: std::sync::atomic::AtomicBool,
+}
+
+impl ConversionRuntime {
+  /// Record the process's one `EventBus`, once, right after `lib::run`
+  /// creates it - the same bus `WindowAdapter`, `TrayAdapter` and every
+  /// database producer subscribe to.
+  pub fn set_bus(&self, bus: hardviz_core::event_bus::EventBus) {
+    self.bus.lock().unwrap().replace(bus);
+  }
+
+  pub fn bus(&self) -> Option<hardviz_core::event_bus::EventBus> {
+    self.bus.lock().unwrap().clone()
+  }
+
+  /// Claim the right to run one conversion attempt now, returning a fresh
+  /// cancellation flag. `None` if an attempt already claimed it and has
+  /// not called [`Self::end_attempt`] yet - callers use this to refuse a
+  /// second concurrent `start_database_conversion` rather than run two
+  /// drivers against the same files.
+  pub fn begin_attempt(&self) -> Option<ConversionCancellation> {
+    if self
+      .in_progress
+      .swap(true, std::sync::atomic::Ordering::SeqCst)
+    {
+      return None;
+    }
+    let cancellation = ConversionCancellation::new();
+    self
+      .cancellation
+      .lock()
+      .unwrap()
+      .replace(cancellation.clone());
+    Some(cancellation)
+  }
+
+  /// [`Self::begin_attempt`], but only after [`Self::bus`] resolves -
+  /// checked first and atomically with the claim, so a caller that also
+  /// needs the bus (`commands::database_conversion::start_database_conversion`)
+  /// can never claim the in-progress flag and then fail on a still-missing
+  /// bus, which would strand every later call as a silent no-op
+  /// ("another attempt already claimed it") until the process restarts.
+  ///
+  /// Returns the same `Err` [`Self::bus`]'s absence implies when the bus
+  /// is not ready yet - no claim is taken - `Ok(None)` when another
+  /// attempt already holds the claim (not an error), and `Ok(Some(..))`
+  /// with a fresh cancellation flag and the resolved bus otherwise.
+  pub fn begin_attempt_with_bus(
+    &self,
+  ) -> Result<Option<(ConversionCancellation, hardviz_core::event_bus::EventBus)>, String>
+  {
+    let bus = self
+      .bus()
+      .ok_or_else(|| "the database producer event bus is not ready yet".to_string())?;
+    Ok(self.begin_attempt().map(|cancellation| (cancellation, bus)))
+  }
+
+  /// Release the claim [`Self::begin_attempt`] took, once `run_conversion`
+  /// has returned - whatever the outcome.
+  pub fn end_attempt(&self) {
+    self.cancellation.lock().unwrap().take();
+    self
+      .in_progress
+      .store(false, std::sync::atomic::Ordering::SeqCst);
+  }
+
+  /// Signal cancellation to whichever attempt is currently running.
+  /// Returns `false` (and signals nothing) if no attempt is in flight.
+  pub fn cancel_current(&self) -> bool {
+    match self.cancellation.lock().unwrap().as_ref() {
+      Some(cancellation) => {
+        cancellation.cancel();
+        true
+      }
+      None => false,
+    }
+  }
+}
+
+/// Build the real [`ProducerResumers`] the driver uses to restart database
+/// producers it paused for reconciliation, mirroring the construction
+/// `lib::run`'s own startup performs for the same three producers. Reads
+/// `core_settings` fresh from [`crate::commands::settings::AppState`]
+/// rather than trusting a value captured at startup, since the user may
+/// have toggled Hardware Archive or Storage Health in this same session.
+pub fn build_producer_resumers(
+  app: &tauri::AppHandle,
+  bus: hardviz_core::event_bus::EventBus,
+  runtime: tokio::runtime::Handle,
+) -> ProducerResumers {
+  use tauri::Manager;
+
+  let core_settings = app
+    .state::<crate::commands::settings::AppState>()
+    .core_settings
+    .lock()
+    .unwrap()
+    .clone();
+
+  let hw_archive: Option<Box<dyn FnOnce() -> ArchiveController + Send>> =
+    if core_settings.hardware_archive.enabled {
+      let app_handle = app.clone();
+      let core_settings = core_settings.clone();
+      let runtime = runtime.clone();
+      Some(Box::new(move || {
+        let environmental_sensors =
+          crate::setup_environmental_sensors(&app_handle, &core_settings, &runtime);
+        ArchiveController::setup_with_environmental_sensors(
+          &bus,
+          runtime,
+          environmental_sensors,
+        )
+      }))
+    } else {
+      None
+    };
+
+  let cooling_rollup: Box<dyn FnOnce() -> CoolingRollupController + Send> = {
+    let runtime = runtime.clone();
+    Box::new(move || {
+      // No first-catch-up caller waiting on a resumed rollup - see
+      // `resume_producers`'s own documentation.
+      CoolingRollupController::setup(runtime).0
+    })
+  };
+
+  let storage_health: Option<Box<dyn FnOnce() -> StorageHealthController + Send>> =
+    if core_settings.storage_health.enabled {
+      match core_settings.storage_health_identity.hash_key_bytes() {
+        Ok(identity_hash_key) => {
+          let retention_days = core_settings.storage_health.retention_days;
+          let guidance_state = std::sync::Arc::clone(
+            &app.state::<std::sync::Arc<
+              crate::services::external_component_guidance_service::ExternalComponentGuidanceState,
+            >>(),
+          );
+          let runtime = runtime.clone();
+          Some(Box::new(move || {
+            let sink: hardviz_core::persistence::ExternalComponentGuidanceSink =
+              std::sync::Arc::new(move |candidates| {
+                guidance_state.record_candidates(candidates);
+              });
+            StorageHealthController::setup_with_guidance_sink(
+              runtime,
+              retention_days,
+              identity_hash_key,
+              Some(sink),
+            )
+          }))
+        }
+        Err(error) => {
+          log_error!(
+            "Storage Health producer was not resumed after conversion because the \
+             identity key is invalid",
+            "app::native_conversion::build_producer_resumers",
+            Some(error)
+          );
+          None
+        }
+      }
+    } else {
+      None
+    };
+
+  ProducerResumers {
+    hw_archive,
+    cooling_rollup,
+    storage_health,
+  }
+}
+
 /// Which databases one conversion works on. App resolves all three
 /// ([`crate::infrastructure::database::native_paths`] and
 /// [`native_schema::NATIVE_SCHEMA_VERSION`]); they travel together so a test
@@ -771,6 +956,100 @@ fn check_cancelled(
     LifecycleIssue::ConversionCancelled { step },
   ));
   Some(ConversionOutcome::Cancelled { step })
+}
+
+#[cfg(test)]
+mod conversion_runtime_tests {
+  use super::ConversionRuntime;
+
+  #[test]
+  fn a_second_attempt_is_refused_while_one_is_in_progress() {
+    let runtime = ConversionRuntime::default();
+
+    assert!(runtime.begin_attempt().is_some());
+    assert!(
+      runtime.begin_attempt().is_none(),
+      "a second concurrent attempt must not get its own cancellation flag"
+    );
+  }
+
+  #[test]
+  fn ending_an_attempt_allows_a_new_one_to_start() {
+    let runtime = ConversionRuntime::default();
+
+    let first = runtime.begin_attempt().unwrap();
+    runtime.end_attempt();
+
+    let second = runtime.begin_attempt();
+    assert!(second.is_some());
+    assert!(
+      !first.is_cancelled(),
+      "ending an attempt must not cancel it retroactively"
+    );
+  }
+
+  #[test]
+  fn cancel_current_signals_the_in_flight_attempt() {
+    let runtime = ConversionRuntime::default();
+    let cancellation = runtime.begin_attempt().unwrap();
+
+    assert!(runtime.cancel_current());
+    assert!(cancellation.is_cancelled());
+  }
+
+  #[test]
+  fn cancel_current_is_a_no_op_when_nothing_is_running() {
+    let runtime = ConversionRuntime::default();
+    assert!(!runtime.cancel_current());
+  }
+
+  #[test]
+  fn the_bus_survives_after_being_set() {
+    let runtime = ConversionRuntime::default();
+    assert!(runtime.bus().is_none());
+
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    assert!(runtime.bus().is_some());
+  }
+
+  /// Regression for the #2220 review finding: a missing bus must never
+  /// strand the in-progress claim. Before `begin_attempt_with_bus`
+  /// existed, the caller resolved the bus *after* `begin_attempt()`, so a
+  /// missing bus left `in_progress` set with nothing to call
+  /// `end_attempt()` - every later `start_database_conversion` would then
+  /// find `begin_attempt` already claimed and silently do nothing, forever.
+  #[test]
+  fn a_missing_bus_never_strands_the_in_progress_claim() {
+    let runtime = ConversionRuntime::default();
+
+    match runtime.begin_attempt_with_bus() {
+      Err(error) => assert!(error.contains("event bus")),
+      Ok(_) => panic!("expected an error while the bus is not set"),
+    }
+
+    // If the claim had been taken before the bus check, this would
+    // observe `Ok(None)` ("another attempt already claimed it") instead.
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    match runtime.begin_attempt_with_bus() {
+      Ok(Some(_)) => {}
+      other => panic!("expected a fresh claim once the bus is set, got {}", {
+        match &other {
+          Ok(None) => "Ok(None)",
+          Err(_) => "Err(_)",
+          Ok(Some(_)) => unreachable!(),
+        }
+      }),
+    }
+  }
+
+  #[test]
+  fn begin_attempt_with_bus_returns_none_when_another_attempt_is_in_progress() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+
+    assert!(runtime.begin_attempt_with_bus().unwrap().is_some());
+    assert!(runtime.begin_attempt_with_bus().unwrap().is_none());
+  }
 }
 
 #[cfg(test)]

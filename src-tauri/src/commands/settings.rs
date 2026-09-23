@@ -16,18 +16,30 @@ pub struct AppState {
 }
 
 impl AppState {
-  pub fn new() -> Self {
+  /// `default_retention_days` picks the Hardware Archive Retention Period
+  /// used when no value has ever been saved. Pass the SQLite-era default
+  /// ([`hardviz_core::settings::HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS`])
+  /// unless the caller already knows the database backend is native, in
+  /// which case pass
+  /// [`hardviz_core::settings::HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS`]
+  /// instead (#2136).
+  pub fn new(default_retention_days: u32) -> Self {
     let settings_path =
       utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
-    let mut core_settings =
-      CoreSettings::load_from_path(&settings_path).unwrap_or_else(|e| {
-        log_error!(
-          "Failed to load core settings",
-          "AppState::new",
-          Some(e.to_string())
-        );
-        CoreSettings::default()
-      });
+    let mut core_settings = CoreSettings::load_from_path_with_retention_default(
+      &settings_path,
+      default_retention_days,
+    )
+    .unwrap_or_else(|e| {
+      log_error!(
+        "Failed to load core settings",
+        "AppState::new",
+        Some(e.to_string())
+      );
+      let mut defaults = CoreSettings::default();
+      defaults.hardware_archive.retention_days = default_retention_days;
+      defaults
+    });
     match core_settings.ensure_storage_health_identity_key() {
       Ok(true) => {
         if let Err(e) = core_settings.save_to_path(&settings_path) {
@@ -168,6 +180,7 @@ pub mod commands {
       text_selectable: settings.text_selectable,
       close_to_tray: settings.close_to_tray,
       close_to_tray_choice_made: settings.close_to_tray_choice_made,
+      nsis_migration_notice_dismissed: settings.nsis_migration_notice_dismissed,
       external_component_guidance: settings.external_component_guidance,
       elevated_startup_mode: settings.elevated_startup_mode,
       tray_widget: settings.tray_widget.normalized(),
@@ -952,6 +965,23 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_close_to_tray_preference(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
+    Ok(())
+  }
+
+  /// Persist "Don't show again" for the NSIS-to-MSI migration notice (#2215).
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn dismiss_nsis_migration_notice(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.dismiss_nsis_migration_notice() {
       emit_error(&window)?;
       return Err(e);
     }

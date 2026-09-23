@@ -58,6 +58,7 @@ const settingsAtom = atom<ClientSettings>({
   textSelectable: false,
   closeToTray: false,
   closeToTrayChoiceMade: false,
+  nsisMigrationNoticeDismissed: false,
   externalComponentGuidance: {
     acknowledgedKeys: [],
   },
@@ -97,6 +98,7 @@ export const useSettingsAtom = () => {
       | "environmentalSensors"
       | "closeToTray"
       | "closeToTrayChoiceMade"
+      | "nsisMigrationNoticeDismissed"
       | "externalComponentGuidance"
       | "navigationLayout"
       | "uiAnnouncementVersion"
@@ -170,6 +172,7 @@ export const useSettingsAtom = () => {
       | "environmentalSensors"
       | "closeToTray"
       | "closeToTrayChoiceMade"
+      | "nsisMigrationNoticeDismissed"
       | "externalComponentGuidance"
       | "navigationLayout"
       | "uiAnnouncementVersion"
@@ -438,13 +441,14 @@ export const useSettingsAtom = () => {
     if (isError(result)) {
       error(result.error);
       console.error(result.error);
-      return;
+      return false;
     }
 
     setSettings((prev) => ({
       ...prev,
       hardwareArchive: { ...prev.hardwareArchive, retentionDays: value },
     }));
+    return true;
   };
 
   const setScheduledDataDeletion = async (value: boolean) => {

@@ -55,6 +55,7 @@ mod tests {
       text_selectable: false,
       close_to_tray: false,
       close_to_tray_choice_made: false,
+      nsis_migration_notice_dismissed: false,
       external_component_guidance:
         models::settings::ExternalComponentGuidanceSettings::default(),
       elevated_startup_mode: false,

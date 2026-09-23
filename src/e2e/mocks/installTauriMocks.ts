@@ -1,6 +1,7 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type {
   ArchiveBucketTimestamp,
+  DatabaseConversionState,
   HardwareMonitorUpdate,
 } from "@/rspc/bindings";
 import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
@@ -54,6 +55,20 @@ declare global {
         intervalMs?: number;
       }) => Promise<void>;
       stopHardwareUpdateStream: () => Promise<{ emittedCount: number }>;
+      /**
+       * Deterministically finish the #2136 database conversion mock: sets
+       * `get_database_conversion_state`'s answer to `nativeAuthoritative`
+       * immediately, regardless of scenario. Explicit rather than a timer
+       * so a test that needs the whole Convert-now -> converting ->
+       * completed flow controls exactly when the transition happens,
+       * instead of racing it against however many
+       * `useDatabaseConversion` instances happen to be polling this same
+       * mock at once (the Settings section's and the always-mounted
+       * app-root prompt dialog's) and however long page navigation itself
+       * takes under load - both of which a fixed wall-clock deadline
+       * proved flaky against under parallel test execution.
+       */
+      completeDatabaseConversion: () => Promise<void>;
     };
   }
 }
@@ -108,8 +123,41 @@ type FixtureOverrides = {
    * Unset is the default everywhere else, which is exactly the machine
    * that must render as it did before #2046. */
   coolingAmbientOverride: CoolingAmbientOverride;
+  /** `?databaseConversion=sqliteAuthoritative|converting|actionRequired`
+   * selects the #2136 native database conversion lifecycle state the
+   * Settings screen's `DatabaseConversionSettings` section (and the
+   * app-root prompt dialog) starts from. Unset (the default, matching a
+   * production build with the `duckdb-archive` feature off) reports
+   * `notSupported`, which hides both entirely. Reaching
+   * `nativeAuthoritative` from any of these is driven explicitly by
+   * `window.__E2E__.completeDatabaseConversion()` (see below), not by a
+   * timer - see that helper's own documentation for why. */
+  databaseConversionScenario: DatabaseConversionScenario;
+  /** `?insightsRecording=disabled` flips the mocked `get_settings`
+   * response's `hardwareArchive.enabled` to `false`, so the #2136 app-root
+   * prompt dialog's eligibility gate (conversion supported AND
+   * sqliteAuthoritative/conversionRecoverable AND Insights recording
+   * enabled AND not dismissed) can be exercised with recording off.
+   * Unset (the default) matches the fixture's own `enabled: true`. */
+  insightsRecordingDisabled: boolean;
+  /** `?databaseConversionPromptDismissed=1` seeds the mocked Tauri Store
+   * with the #2136 prompt dialog's own "dismissed" flag already set, so a
+   * capture or test that only cares about the Settings entry point (not
+   * the app-root dialog) doesn't also see the dialog auto-open over the
+   * same `sqliteAuthoritative` scenario. */
+  databaseConversionPromptDismissed: boolean;
 };
 type CoolingAmbientOverride = "present" | "only" | null;
+/** See `FixtureOverrides.databaseConversionScenario`. `"converting"` and
+ * `"actionRequired"` are fixed states, unless and until a test calls
+ * `window.__E2E__.completeDatabaseConversion()`. `"sqliteAuthoritative"`
+ * progresses to `converting` once `start_database_conversion` is invoked,
+ * matching a Convert click. */
+type DatabaseConversionScenario =
+  | "sqliteAuthoritative"
+  | "converting"
+  | "actionRequired"
+  | null;
 type CoolingObservationOverride =
   | "notComparable"
   | "sustainedMildRise"
@@ -184,7 +232,26 @@ const readFixtureOverrides = (): FixtureOverrides => {
       new URLSearchParams(window.location.search).get("coolingFan") ?? "",
     ),
     coolingAmbientOverride: readCoolingAmbientOverride(),
+    databaseConversionScenario: readDatabaseConversionScenario(),
+    insightsRecordingDisabled:
+      new URLSearchParams(window.location.search).get("insightsRecording") ===
+      "disabled",
+    databaseConversionPromptDismissed:
+      new URLSearchParams(window.location.search).get(
+        "databaseConversionPromptDismissed",
+      ) === "1",
   };
+};
+
+const readDatabaseConversionScenario = (): DatabaseConversionScenario => {
+  const raw = new URLSearchParams(window.location.search).get(
+    "databaseConversion",
+  );
+  return raw === "sqliteAuthoritative" ||
+    raw === "converting" ||
+    raw === "actionRequired"
+    ? raw
+    : null;
 };
 
 const readCoolingAmbientOverride = (): CoolingAmbientOverride => {
@@ -224,6 +291,36 @@ const externalComponentSetupStatus = () => ({
   setupBlocker: null,
 });
 
+/** Mutable holder for the #2136 conversion mock's current answer, so
+ * `start_database_conversion`/`cancel_database_conversion` can change what
+ * `get_database_conversion_state` reports next - the same "the handler
+ * answers from state the test's action already changed" shape a real
+ * lifecycle owner has, without reimplementing the driver. */
+type DatabaseConversionMockState = {
+  current: DatabaseConversionState;
+  scenario: DatabaseConversionScenario;
+};
+
+const initialDatabaseConversionState = (
+  scenario: DatabaseConversionScenario,
+): DatabaseConversionState => {
+  switch (scenario) {
+    case "sqliteAuthoritative":
+      return { kind: "sqliteAuthoritative" };
+    case "converting":
+      return { kind: "converting", step: "reconciling" };
+    case "actionRequired":
+      return {
+        kind: "actionRequired",
+        reason: "conversionFailed",
+        diagnostic:
+          'ConversionFailed { step: Reconciling, message: "disk full while writing the reconciled candidate" }',
+      };
+    default:
+      return { kind: "notSupported" };
+  }
+};
+
 /**
  * Dispatch table mapping invoke commands to their mocked handlers:
  * Tauri plugin commands (`plugin:<name>|<command>`) and generated
@@ -234,6 +331,7 @@ const buildInvokeHandlers = (
   store: Map<string, unknown>,
   eventListeners: Map<string, Set<number>>,
   fixtureOverrides: FixtureOverrides,
+  databaseConversion: DatabaseConversionMockState,
 ): Record<string, InvokeHandler> => ({
   // --- @tauri-apps/plugin-event ---
   "plugin:event|listen": (args) => {
@@ -305,6 +403,12 @@ const buildInvokeHandlers = (
     elevatedStartupMode:
       fixtureOverrides.elevationUnprotected ||
       settingsFixture.elevatedStartupMode,
+    hardwareArchive: {
+      ...settingsFixture.hardwareArchive,
+      enabled: fixtureOverrides.insightsRecordingDisabled
+        ? false
+        : settingsFixture.hardwareArchive.enabled,
+    },
   }),
   get_hardware_info: () =>
     fixtureOverrides.storageDeviceCount == null
@@ -572,6 +676,19 @@ const buildInvokeHandlers = (
         return coolingBaselineDeltaFixture;
     }
   },
+
+  // --- #2136 native database conversion ---
+  get_database_conversion_state: () => databaseConversion.current,
+  start_database_conversion: () => {
+    if (databaseConversion.scenario === "sqliteAuthoritative") {
+      databaseConversion.current = { kind: "converting", step: "preflight" };
+    }
+    return null;
+  },
+  cancel_database_conversion: () => {
+    databaseConversion.current = { kind: "sqliteAuthoritative" };
+    return null;
+  },
 });
 
 const dispatchTauriEvent = (
@@ -626,7 +743,21 @@ export const installTauriMocks = () => {
   if (fixtureOverrides.storedDisplayTarget != null) {
     store.set("display", fixtureOverrides.storedDisplayTarget);
   }
-  const handlers = buildInvokeHandlers(store, eventListeners, fixtureOverrides);
+  if (fixtureOverrides.databaseConversionPromptDismissed) {
+    store.set("databaseConversionPromptDismissed", true);
+  }
+  const databaseConversion: DatabaseConversionMockState = {
+    current: initialDatabaseConversionState(
+      fixtureOverrides.databaseConversionScenario,
+    ),
+    scenario: fixtureOverrides.databaseConversionScenario,
+  };
+  const handlers = buildInvokeHandlers(
+    store,
+    eventListeners,
+    fixtureOverrides,
+    databaseConversion,
+  );
   const invokeCounts = new Map<string, number>();
   let streamTimer: number | undefined;
   let streamIndex = 0;
@@ -706,5 +837,8 @@ export const installTauriMocks = () => {
       await tick();
     },
     stopHardwareUpdateStream: async () => stopHardwareUpdateStream(),
+    completeDatabaseConversion: async () => {
+      databaseConversion.current = { kind: "nativeAuthoritative" };
+    },
   };
 };
