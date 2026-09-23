@@ -111,7 +111,19 @@ async fn production_archive_writers_create_copyable_fractional_cells() {
       .await
       .unwrap();
   pool.close().await;
-  let source_hash = file_hash(&source);
+  // This fixture is the only one that writes through the production archive
+  // writers (`hardware_archive::insert`, `gpu_archive::insert`), and those
+  // open a fresh SQLite pool per call and drop it without an explicit
+  // `.close().await` (see `db::get_pool`). Dropping a `SqlitePool` closes its
+  // connections on a background task with no handle the caller can await, so
+  // SQLite's WAL auto-checkpoint from that teardown can rewrite the main
+  // file's bytes at an arbitrary later point - including between the two
+  // `file_hash` calls this assertion used to bracket - even though it changes
+  // no logical row. A raw byte hash can only prove "untouched" when nothing
+  // else in the process can still checkpoint the file, which is not true
+  // here. Hash logical content (schema + every table's rows) instead, so a
+  // late, unrelated checkpoint cannot flip this assertion.
+  let source_hash = logical_content_hash(&source).await;
 
   let report =
     build_candidate_database(&source, &destination, app_migrations::get_migrations())
@@ -119,7 +131,7 @@ async fn production_archive_writers_create_copyable_fractional_cells() {
       .unwrap();
   assert_eq!(report.tables.len(), 17);
   assert_eq!(report.total_rows, 25);
-  assert_eq!(file_hash(&source), source_hash);
+  assert_eq!(logical_content_hash(&source).await, source_hash);
   let connection = readonly_candidate(&destination);
   let hardware: (String, f64, f64, String) = connection
     .query_row(
@@ -652,6 +664,75 @@ fn readonly_candidate(path: &Path) -> Connection {
 
 fn file_hash(path: &Path) -> String {
   format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+}
+
+/// A digest over a SQLite database's logical content - its schema objects
+/// and every table's rows, in a stable order - rather than its raw bytes.
+///
+/// Unlike [`file_hash`], this is unaffected by a WAL checkpoint rewriting the
+/// main file (see the caller in `production_archive_writers_create_copyable_fractional_cells`
+/// for why that matters here): a checkpoint moves bytes between the WAL and
+/// the main file without changing what any query returns. `quote()` renders
+/// each cell with its exact SQLite storage class (`NULL`, integer, real,
+/// text, or blob), so this still distinguishes e.g. an integer `0` from a
+/// real `0.0`.
+async fn logical_content_hash(path: &Path) -> String {
+  let pool = open_pool(path, false).await;
+  let mut hasher = Sha256::new();
+
+  let objects: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+    "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name",
+  )
+  .fetch_all(&pool)
+  .await
+  .unwrap();
+  for (object_type, name, table_name, sql) in &objects {
+    hasher.update(object_type.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(name.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(table_name.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(sql.as_deref().unwrap_or("").as_bytes());
+    hasher.update(b"\n");
+  }
+
+  let mut table_names: Vec<&str> = objects
+    .iter()
+    .filter(|(object_type, ..)| object_type == "table")
+    .map(|(_, name, ..)| name.as_str())
+    .collect();
+  table_names.sort_unstable();
+
+  for table in table_names {
+    hasher.update(table.as_bytes());
+    hasher.update(b"\n");
+    let quoted_table = table.replace('"', "\"\"");
+    let columns: Vec<String> = sqlx::query_scalar(&format!(
+      "SELECT name FROM pragma_table_info(\"{quoted_table}\") ORDER BY cid"
+    ))
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let projection = columns
+      .iter()
+      .map(|column| format!("quote(\"{}\")", column.replace('"', "\"\"")))
+      .collect::<Vec<_>>()
+      .join(" || '|' || ");
+    let rows: Vec<String> = sqlx::query_scalar(&format!(
+      "SELECT {projection} FROM \"{quoted_table}\" ORDER BY rowid"
+    ))
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    for row in rows {
+      hasher.update(row.as_bytes());
+      hasher.update(b"\n");
+    }
+  }
+
+  pool.close().await;
+  format!("{:x}", hasher.finalize())
 }
 
 fn assert_no_candidate_workdirs(fixture: &Fixture) {
