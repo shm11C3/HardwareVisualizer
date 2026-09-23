@@ -14,7 +14,7 @@ name = "hardviz_core"
 path = "src/lib.rs"
 
 [features]
-default = []
+default = ["duckdb-archive"]
 duckdb-archive = ["dep:duckdb"]
 
 [dependencies]
