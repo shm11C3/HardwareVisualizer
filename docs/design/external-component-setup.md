@@ -83,7 +83,28 @@ but it does not read registers or share code with the provider.
    size and SHA-256, hold the file open with a share mode that denies write
    and delete while it runs with `-install -silent`, and map the exit code:
    `0` installed, `3010` installed with restart required, anything else
-   failed.
+   failed. The run is bounded: a normal unattended install finishes in
+   seconds, so an installer still running after five minutes
+   (`INSTALLER_TIMEOUT`) is a hung one, typically a dialog raised despite
+   `-silent` that nobody can answer in session 0 under the MSI custom
+   action. It is terminated and reported as its own failure stage (`23`) so
+   the product install still reaches `InstallFinalize`. Termination is
+   confirmed by waiting on the process object for a short, bounded time
+   (`TERMINATION_CONFIRM_TIMEOUT`, thirty seconds); if it is refused or the
+   process has not ended by then, the stage is `24` and the staging
+   directory is left in place rather than removed under a process that may
+   still be executing from it. The abandoned directory keeps its
+   administrator-only DACL under `%SystemRoot%\Temp`, and its path is
+   logged so an administrator can remove it once the installer has ended.
+   Before a later run creates any staging state or starts anything, it
+   looks for such a leftover installer: it snapshots the process list
+   (`CreateToolhelp32Snapshot`), reads each queryable process's image path
+   (`QueryFullProcessImageNameW`; processes it cannot open are skipped),
+   and refuses with `24` naming the pid and path when one runs from a
+   directory under `%SystemRoot%\Temp` whose name carries the staging
+   prefix. No cross-process mutex is used: the setup process exits while
+   the installer it could not stop lives on, so a mutex it held would not
+   cover that case.
 4. When at least one module file is missing, download the pinned modules zip,
    verify it, and place only the missing files into the install location
    resolved from the registry (fallback `%ProgramFiles%\PawnIO`). Each file
@@ -128,6 +149,8 @@ observe.
 | `20` | Every step ran, but the component is still not complete |
 | `21` | Unsupported platform |
 | `22` | The setup process panicked; the message went to its stderr only |
+| `23` | Runtime installer did not exit within its time limit (`INSTALLER_TIMEOUT`, five minutes) and was terminated; the runtime may be partially installed |
+| `24` | Runtime installer did not exit within its time limit and could not be confirmed terminated within `TERMINATION_CONFIRM_TIMEOUT`, so it may still be running and the staging directory was left in place for it; also reported, before anything is staged, when an installer from a previous run is still executing from such a staging directory |
 
 The caller maps an exit code it does not recognize, and a process that
 exited without one, to the generic failure (`1`).
@@ -156,7 +179,21 @@ installed and its fallbacks unchanged.
   elevated with the setup arguments, waits for exit, maps the exit code,
   refreshes the state, and shows the restart prompt on success. If the user
   declines the UAC prompt, the result is `cancelled` and nothing is shown as
-  an error. One run per component is allowed at a time.
+  an error. One run per component is allowed at a time. The wait is bounded
+  at twenty minutes (`ELEVATED_RUN_TIMEOUT`), beyond the child's own worst
+  case of three five-minute limits (two downloads and the installer). A
+  child still running after that is terminated, and the outcome depends on
+  whether the app can confirm it is gone: once the process object is
+  signaled the action reports a retryable failure (`setupTimedOut`) and
+  releases the per-component guard; when termination is refused (the handle
+  a medium-integrity parent holds for an elevated child may lack
+  `PROCESS_TERMINATE`) or the child has not ended within a short
+  confirmation wait, the action reports `setupStillRunning`, keeps the guard
+  held so no second installer can start beside the first, and tells the
+  user to restart the app before retrying. The guard is kept held in the
+  same way when the child exits with `24` (`installerStillRunning`), since
+  the installer it could not confirm stopped may still be running from the
+  abandoned staging directory.
 
   *Unprotected install folders (#2216).* The action elevates `current_exe()`
   through `ShellExecuteExW` with `runas`, like "restart as administrator" and

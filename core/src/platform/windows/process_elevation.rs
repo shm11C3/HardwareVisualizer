@@ -6,6 +6,7 @@ use crate::platform::traits::{
 use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use windows::Win32::Foundation::{
   CloseHandle, ERROR_ACCESS_DENIED, ERROR_CANCELLED, ERROR_INVALID_PARAMETER,
   ERROR_NOT_ALL_ASSIGNED, FILETIME, GetLastError, HANDLE, LUID, WAIT_OBJECT_0,
@@ -23,7 +24,7 @@ use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Threading::{
   GetCurrentProcess, GetExitCodeProcess, GetProcessTimes, INFINITE, OpenProcess,
   OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
-  WaitForSingleObject,
+  TerminateProcess, WaitForSingleObject,
 };
 use windows::Win32::UI::Shell::{
   FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86, IsUserAnAdmin, KF_FLAG_DEFAULT,
@@ -200,9 +201,28 @@ pub fn relaunch_current_process_elevated(args: &[String]) -> Result<(), Platform
   }
 }
 
+/// How long [`run_current_executable_elevated`] waits for the elevated child.
+/// Its only caller is External Component Setup, whose child bounds each of
+/// its own slow steps (two downloads and the runtime installer, five minutes
+/// each), so a run that is still going after twenty minutes is stuck outside
+/// those bounds. Without a limit the Settings action's blocking task never
+/// returns and its per-component in-flight guard refuses every retry until
+/// the app restarts.
+const ELEVATED_RUN_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+
+/// How long [`wait_for_exit_code`] waits for a terminated child to actually
+/// end. `TerminateProcess` only requests termination; the process object is
+/// signaled once the kernel has torn the process down, which normally takes
+/// milliseconds. A child that is still alive after this is reported as
+/// unconfirmed rather than assumed dead.
+const TERMINATION_CONFIRM_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Launch the current executable elevated with `args`, wait for it to exit,
 /// and return its exit code. A declined UAC prompt is reported as
-/// [`ElevatedProcessRun::Declined`], not as an error.
+/// [`ElevatedProcessRun::Declined`], not as an error. A child that outlives
+/// [`ELEVATED_RUN_TIMEOUT`] is terminated and reported as
+/// [`ElevatedProcessRun::TimedOut`] once it is confirmed gone, or as
+/// [`ElevatedProcessRun::StillRunning`] when it could not be.
 pub fn run_current_executable_elevated(
   args: &[String],
 ) -> Result<ElevatedProcessRun, PlatformError> {
@@ -212,9 +232,9 @@ pub fn run_current_executable_elevated(
     return Ok(ElevatedProcessRun::Declined);
   };
 
-  let exit_code = wait_for_exit_code(process);
+  let run = wait_for_exit_code(process, ELEVATED_RUN_TIMEOUT);
   let _ = unsafe { CloseHandle(process) };
-  Ok(ElevatedProcessRun::Exited { exit_code })
+  Ok(run)
 }
 
 /// Returns the process handle, or `None` when the user declined the prompt.
@@ -448,12 +468,68 @@ fn process_creation_time(process: HANDLE) -> Result<u64, PlatformError> {
   Ok((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime))
 }
 
-fn wait_for_exit_code(process: HANDLE) -> Option<i32> {
-  let _ = unsafe { WaitForSingleObject(process, INFINITE) };
-  let mut exit_code: u32 = 0;
-  unsafe { GetExitCodeProcess(process, &mut exit_code) }
-    .ok()
-    .map(|()| exit_code as i32)
+/// Wait up to `limit` for `process` to exit and read its exit code. On
+/// timeout the process is terminated so the caller does not leave a stray
+/// child behind. `TimedOut` is reported only once the process object is
+/// signaled, so the caller knows the child is gone; the handle
+/// `ShellExecuteExW` returns for an elevated child does not always carry
+/// `PROCESS_TERMINATE` for a medium-integrity parent, and termination is
+/// asynchronous, so a refused termination or a child that is still alive
+/// after [`TERMINATION_CONFIRM_TIMEOUT`] is reported as `StillRunning`.
+/// This wait is deliberately separate from [`wait_for_process_exit`], whose
+/// unbounded wait on a verified parent is part of the relaunch handoff.
+fn wait_for_exit_code(process: HANDLE, limit: Duration) -> ElevatedProcessRun {
+  wait_for_exit_code_confirming(process, limit, TERMINATION_CONFIRM_TIMEOUT)
+}
+
+fn wait_for_exit_code_confirming(
+  process: HANDLE,
+  limit: Duration,
+  confirm_limit: Duration,
+) -> ElevatedProcessRun {
+  if wait_signaled(process, limit) {
+    let mut exit_code: u32 = 0;
+    let exit_code = unsafe { GetExitCodeProcess(process, &mut exit_code) }
+      .ok()
+      .map(|()| exit_code as i32);
+    return ElevatedProcessRun::Exited { exit_code };
+  }
+
+  log_warn!(
+    format!(
+      "The elevated process did not exit within {} s; terminating it",
+      limit.as_secs()
+    ),
+    "process_elevation::wait_for_exit_code",
+    None::<&str>
+  );
+  if let Err(e) = unsafe { TerminateProcess(process, 1) } {
+    log_warn!(
+      format!("Failed to terminate the elevated process; it may still be running: {e}"),
+      "process_elevation::wait_for_exit_code",
+      None::<&str>
+    );
+    return ElevatedProcessRun::StillRunning;
+  }
+  if !wait_signaled(process, confirm_limit) {
+    log_warn!(
+      format!(
+        "The elevated process had not ended {} s after termination was requested",
+        confirm_limit.as_secs()
+      ),
+      "process_elevation::wait_for_exit_code",
+      None::<&str>
+    );
+    return ElevatedProcessRun::StillRunning;
+  }
+  ElevatedProcessRun::TimedOut
+}
+
+/// `true` once `process` is signaled (has ended) within `limit`.
+fn wait_signaled(process: HANDLE, limit: Duration) -> bool {
+  let limit_ms = u32::try_from(limit.as_millis()).unwrap_or(INFINITE - 1);
+  let wait = unsafe { WaitForSingleObject(process, limit_ms) };
+  wait == WAIT_OBJECT_0
 }
 
 fn os_wide_null(value: &OsStr) -> Vec<u16> {
@@ -513,9 +589,102 @@ fn quote_windows_arg(arg: &OsStr) -> String {
 mod tests {
   use super::{
     DebugPrivilege, current_process_identity, is_process_elevated, is_within_any_root,
-    process_creation_time, quote_windows_arg, resolved_roots, strip_verbatim_prefix,
-    wait_for_process_exit,
+    open_process, process_creation_time, quote_windows_arg, resolved_roots,
+    strip_verbatim_prefix, wait_for_exit_code, wait_for_exit_code_confirming,
+    wait_for_process_exit, wait_signaled,
   };
+  use crate::platform::traits::ElevatedProcessRun;
+  use std::time::Duration;
+  use windows::Win32::Foundation::CloseHandle;
+
+  /// A child that stays alive for about 30 s, far beyond any limit the
+  /// bounded-wait tests use.
+  fn long_lived_child() -> std::process::Child {
+    std::process::Command::new("ping")
+      .args(["-n", "30", "127.0.0.1"])
+      .stdout(std::process::Stdio::null())
+      .spawn()
+      .expect("ping runs")
+  }
+
+  #[test]
+  fn a_bounded_wait_reports_the_exit_code_of_a_child_that_finishes_in_time() {
+    let mut child = std::process::Command::new("cmd")
+      .args(["/C", "exit", "5"])
+      .spawn()
+      .expect("cmd runs");
+
+    let run = wait_for_exit_code(HANDLE(child.as_raw_handle()), Duration::from_secs(30));
+
+    assert_eq!(run, ElevatedProcessRun::Exited { exit_code: Some(5) });
+    let _ = child.wait();
+  }
+
+  #[test]
+  fn a_bounded_wait_terminates_a_child_that_outlives_the_limit() {
+    // The limit is far shorter than the child's life, so the wait must give
+    // up, terminate the child, and report `TimedOut` only once the process
+    // object is signaled, i.e. the child is confirmed gone.
+    let mut child = long_lived_child();
+    let process = HANDLE(child.as_raw_handle());
+    let started = std::time::Instant::now();
+
+    let run = wait_for_exit_code(process, Duration::from_millis(500));
+
+    assert_eq!(run, ElevatedProcessRun::TimedOut);
+    assert!(started.elapsed() < Duration::from_secs(10));
+    assert!(
+      wait_signaled(process, Duration::ZERO),
+      "the process object is signaled before TimedOut is reported"
+    );
+    // Reaping the terminated child returns promptly and not success.
+    let status = child.wait().expect("the terminated child is reaped");
+    assert!(!status.success());
+    assert!(started.elapsed() < Duration::from_secs(10));
+  }
+
+  #[test]
+  fn a_bounded_wait_reports_still_running_when_termination_is_refused() {
+    // A handle opened without `PROCESS_TERMINATE`, as a medium-integrity
+    // parent may hold for an elevated child: `TerminateProcess` is refused,
+    // so the child is not confirmed dead and must not be reported as such.
+    let mut child = long_lived_child();
+    let process = open_process(child.id())
+      .expect("the child can be opened")
+      .expect("the child is alive");
+
+    let run = wait_for_exit_code(process, Duration::from_millis(500));
+
+    assert_eq!(run, ElevatedProcessRun::StillRunning);
+    assert!(
+      !wait_signaled(process, Duration::ZERO),
+      "the child is still alive"
+    );
+    let _ = unsafe { CloseHandle(process) };
+    let _ = child.kill();
+    let _ = child.wait();
+  }
+
+  #[test]
+  fn a_bounded_wait_reports_still_running_when_the_child_has_not_ended_in_time() {
+    // With no time allowed for the termination to complete, a child that has
+    // not ended yet at the check is reported as unconfirmed. Whether the
+    // kernel has already torn it down is timing-dependent, so either outcome
+    // is acceptable; what must never happen is a `TimedOut` while the process
+    // object is still unsignaled.
+    let mut child = long_lived_child();
+    let process = HANDLE(child.as_raw_handle());
+
+    let run =
+      wait_for_exit_code_confirming(process, Duration::from_millis(500), Duration::ZERO);
+
+    match run {
+      ElevatedProcessRun::TimedOut => assert!(wait_signaled(process, Duration::ZERO)),
+      ElevatedProcessRun::StillRunning => {}
+      other => panic!("unexpected outcome {other:?}"),
+    }
+    let _ = child.wait();
+  }
 
   #[test]
   fn the_debug_privilege_is_held_exactly_by_a_full_administrator_token() {
