@@ -93,6 +93,16 @@ pub enum Launch {
   Exit(i32),
 }
 
+/// The arguments of this process, including the program name, converted
+/// lossily. `std::env::args()` panics while iterating over an argument that
+/// is not valid Unicode (an unpaired UTF-16 surrogate on Windows), and a
+/// stray argument from a shell association or a third-party launcher must
+/// not crash the app before a window exists. The App's own flags and their
+/// values are ASCII, so the lossy conversion changes nothing for them.
+pub fn process_args() -> impl Iterator<Item = String> {
+  std::env::args_os().map(|arg| arg.to_string_lossy().into_owned())
+}
+
 /// Recognize the App's own command-line arguments; anything else is left to
 /// Tauri.
 pub fn parse_cli_args<I, S>(args: I) -> Result<CliArgs, CliParseError>
@@ -149,7 +159,7 @@ fn parse_process_identity(value: &str) -> Option<ProcessIdentity> {
 /// the program name and without a handoff flag from its own launch, so a
 /// relaunch never waits on the parent of this process.
 pub fn relaunch_args() -> Vec<String> {
-  without_wait_for_parent(std::env::args().skip(1))
+  without_wait_for_parent(process_args().skip(1))
 }
 
 /// The arguments for the elevated child of this process: [`relaunch_args`]
@@ -386,6 +396,38 @@ mod tests {
       parse_cli_mode(["hardware-visualizer.exe", "--some-tauri-flag"]),
       Ok(None)
     );
+  }
+
+  /// An argument that is not valid Unicode, as `std::env::args_os()` would
+  /// yield it: an unpaired UTF-16 surrogate on Windows, an invalid UTF-8 byte
+  /// elsewhere.
+  fn non_unicode_arg() -> std::ffi::OsString {
+    #[cfg(windows)]
+    {
+      use std::os::windows::ffi::OsStringExt;
+      std::ffi::OsString::from_wide(&[0x0061, 0xD800, 0x0062])
+    }
+    #[cfg(not(windows))]
+    {
+      use std::os::unix::ffi::OsStringExt;
+      std::ffi::OsString::from_vec(vec![0x61, 0xFF, 0x62])
+    }
+  }
+
+  #[test]
+  fn accepts_lossily_converted_non_unicode_arguments() {
+    let raw = non_unicode_arg();
+    assert!(
+      raw.to_str().is_none(),
+      "the fixture must not be valid Unicode"
+    );
+
+    let args = ["hardware-visualizer.exe".into(), raw]
+      .into_iter()
+      .map(|arg| arg.to_string_lossy().into_owned())
+      .collect::<Vec<String>>();
+
+    assert_eq!(parse_cli_args(args), Ok(CliArgs::default()));
   }
 
   #[test]
