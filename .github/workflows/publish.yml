@@ -199,10 +199,12 @@ jobs:
       - name: Install cargo-license
         run: cargo install cargo-license
 
-      # Keep this feature set aligned with the release build. duckdb-archive is
-      # intentionally omitted until the production migration in #2090 lands.
+      # Keep this feature set aligned with the release build: `tauri build`
+      # takes its Cargo features from `build.features` in tauri.conf.json,
+      # which enables duckdb-archive, so the notices bundled here must cover
+      # the DuckDB tree too.
       - name: Generate THIRD_PARTY_NOTICES
-        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
+        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp duckdb-archive
 
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:

@@ -5,6 +5,7 @@
     "beforeDevCommand": "npm run dev",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1520",
+    "features": ["duckdb-archive"],
     "removeUnusedCommands": true
   },
   "bundle": {
