@@ -210,16 +210,28 @@ pub fn sqlite_source_is_authoritative(state: &DatabaseLifecycleState) -> bool {
 /// Broader than [`sqlite_source_is_authoritative`]: once dispatch is
 /// actually routing consumers, a write is fine in
 /// [`DatabaseLifecycleState::NativeAuthoritative`] too - dispatch answers it
-/// from the native database, not a possibly-retired SQLite file - so only
+/// from the native database, not a possibly-retired SQLite file - so
 /// [`DatabaseLifecycleState::Converting`] (reconciliation is capturing the
-/// snapshot a write outside the paused producers could otherwise race) and
-/// [`DatabaseLifecycleState::ActionRequired`] (dispatch itself refuses,
-/// `DispatchError::NativeUnavailable`) refuse here.
+/// snapshot a write outside the paused producers could otherwise race)
+/// refuses here.
+///
+/// `ActionRequired` is not a single case: `run_conversion`
+/// (`app::native_conversion`) resumes the paused producers, and SQLite
+/// stays authoritative, for `ConversionFailed` and `ConversionCancelled` -
+/// the same two issues [`crate::app::database_availability::database_available`]
+/// allows reads for, and for the same reason. Every other issue refuses,
+/// matching dispatch's own refusal (`DispatchError::NativeUnavailable`) in
+/// that underlying state.
 pub fn database_writable(state: &DatabaseLifecycleState) -> bool {
-  !matches!(
-    state,
-    DatabaseLifecycleState::Converting(_) | DatabaseLifecycleState::ActionRequired(_)
-  )
+  match state {
+    DatabaseLifecycleState::Converting(_) => false,
+    DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::ConversionFailed { .. }
+      | LifecycleIssue::ConversionCancelled { .. },
+    ) => true,
+    DatabaseLifecycleState::ActionRequired(_) => false,
+    _ => true,
+  }
 }
 
 /// The App's single owner of native database lifecycle state and the

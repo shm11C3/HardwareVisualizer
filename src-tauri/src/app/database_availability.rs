@@ -6,18 +6,31 @@
 //! there is no lifecycle owner and nothing to guard against, so the check is
 //! simply `Ok(())`.
 
-/// The decision, given the current lifecycle state: refuse only while it is
-/// `ActionRequired`.
+/// The decision, given the current lifecycle state: refuse only when no
+/// backend is safely answering.
 ///
-/// `inspect_authority` already refused to guess which database is correct
-/// in that state (see `app::native_lifecycle`), and dispatch (#2134) itself
-/// answers nothing while its own boundary is `Active::Unavailable` in that
-/// same state (`DispatchError::NativeUnavailable`). This is a second,
-/// App-level refusal in front of that one - a clearer error before the
-/// service layer is even reached, not a substitute for it - so a command
-/// that reads Hardware Archive, Cooling or Storage Health history never
-/// answers from whatever a stale SQLite pool happens to hold while the
-/// authority decision has refused to choose a backend.
+/// `ActionRequired` is not a single case for this purpose. `run_conversion`
+/// (`app::native_conversion`) resumes the paused producers, and SQLite stays
+/// authoritative, for exactly two of its issues: `ConversionFailed` (the
+/// step failed before a selection was made durable) and `ConversionCancelled`
+/// (the operator cancelled before that point). A read answered from SQLite
+/// in either case is answered from the same backend that was authoritative,
+/// open and being written to before the conversion attempt - there is
+/// nothing tentative about it, so refusing it would only strand every
+/// history read for the rest of the session over an attempt that already
+/// resolved.
+///
+/// Every other `ActionRequired` issue refuses, because no backend is safely
+/// answering: `Authority(..)` is a marker/native disagreement
+/// `inspect_authority` refused to guess at (see `app::native_lifecycle`);
+/// `NativeOpenFailed` means a durable selection exists but the native
+/// database could not be opened, so SQLite is a stale recovery copy and the
+/// producers stay paused; `FreshCreationFailed` means even a fresh profile
+/// has no working database at all. Dispatch (#2134) itself answers nothing
+/// while its own boundary is `Active::Unavailable` in the same underlying
+/// state (`DispatchError::NativeUnavailable`); this is a second, App-level
+/// refusal in front of that one - a clearer error before the service layer
+/// is even reached, not a substitute for it.
 ///
 /// Kept separate from [`ensure_database_available`] so the decision itself
 /// is testable without constructing a Tauri app: this module's tests build
@@ -30,14 +43,18 @@
 pub(crate) fn database_available(
   state: &crate::app::native_lifecycle::DatabaseLifecycleState,
 ) -> Result<(), String> {
+  use crate::app::native_lifecycle::{DatabaseLifecycleState, LifecycleIssue};
+
   match state {
-    crate::app::native_lifecycle::DatabaseLifecycleState::ActionRequired(issue) => {
-      Err(format!(
-        "the database is unavailable: startup found the native database files in an \
+    DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::ConversionFailed { .. }
+      | LifecycleIssue::ConversionCancelled { .. },
+    ) => Ok(()),
+    DatabaseLifecycleState::ActionRequired(issue) => Err(format!(
+      "the database is unavailable: startup found the native database files in an \
        unexpected state and stopped rather than guess which one is correct \
        ({issue:?})"
-      ))
-    }
+    )),
     _ => Ok(()),
   }
 }
