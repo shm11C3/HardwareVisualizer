@@ -138,9 +138,21 @@ installed and its fallbacks unchanged.
   parent's live owner. An id that no process holds, or one held by a process
   with a different creation time, means the parent has already exited. If the
   parent cannot be opened or verified for any other reason, or the wait
-  fails, the child prints the reason and exits with code `3` instead of
-  starting. Once the launch has succeeded, the parent stops its workers and
-  exits as before.
+  fails, the child prints the reason, says the app must be started again
+  manually, and exits with code `3` instead of starting. Once the launch has
+  succeeded, the parent stops its workers and exits as before. A plain
+  restart (Settings, or Reset and Restart) passes the same handoff, since
+  the restarted process has the same lock and database to wait for.
+
+  *Over-the-shoulder elevation.* When a standard user answers the UAC prompt
+  with another administrator's credentials, the elevated child runs as that
+  account, and the parent's default DACL refuses it `SYNCHRONIZE`. The child
+  then enables `SeDebugPrivilege`, which a full administrator token holds and
+  which opens any process regardless of its DACL, retries the open once, and
+  restores the privilege's previous state before waiting; the creation-time
+  check still decides whether the opened process is the parent. If the retry
+  still fails, the fail-closed exit above applies. That the child then runs
+  with the other account's profile (settings, app data) predates the handoff.
 - **MSI (implemented, #2118).** The WiX fragment
   `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between

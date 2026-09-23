@@ -205,8 +205,9 @@ pub fn decide_launch(
     },
     Err(e) => {
       eprintln!(
-        "Elevated relaunch handoff: could not confirm that the parent process {} has \
-         exited, so this process will not start beside it: {e}",
+        "Elevated relaunch handoff: the parent process {} could not be observed, so this \
+         process will not start beside it. Start HardwareVisualizer again manually once \
+         the previous process has exited. Cause: {e}",
         parent.pid
       );
       Launch::Exit(HANDOFF_FAILED_EXIT_CODE)

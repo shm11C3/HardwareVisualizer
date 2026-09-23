@@ -7,7 +7,12 @@ use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use windows::Win32::Foundation::{
-  CloseHandle, ERROR_CANCELLED, ERROR_INVALID_PARAMETER, FILETIME, HANDLE, WAIT_OBJECT_0,
+  CloseHandle, ERROR_ACCESS_DENIED, ERROR_CANCELLED, ERROR_INVALID_PARAMETER,
+  ERROR_NOT_ALL_ASSIGNED, FILETIME, GetLastError, HANDLE, LUID, WAIT_OBJECT_0,
+};
+use windows::Win32::Security::{
+  AdjustTokenPrivileges, LUID_AND_ATTRIBUTES, LookupPrivilegeValueW, SE_DEBUG_NAME,
+  SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES, TOKEN_QUERY,
 };
 use windows::Win32::Storage::FileSystem::{
   CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_NAME_NORMALIZED, FILE_READ_ATTRIBUTES,
@@ -17,7 +22,8 @@ use windows::Win32::Storage::FileSystem::{
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Threading::{
   GetCurrentProcess, GetExitCodeProcess, GetProcessTimes, INFINITE, OpenProcess,
-  PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, WaitForSingleObject,
+  OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
+  WaitForSingleObject,
 };
 use windows::Win32::UI::Shell::{
   FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86, IsUserAnAdmin, KF_FLAG_DEFAULT,
@@ -279,28 +285,14 @@ pub fn current_process_identity() -> Result<ProcessIdentity, PlatformError> {
 /// unbounded once the identity is verified: the handle keeps the id from
 /// being reused, so only the named process can end the wait. The access
 /// requested (`SYNCHRONIZE` and limited query) is granted to an elevated
-/// process on the unelevated process that launched it.
+/// process on the unelevated process that launched it when both run as the
+/// same account; see [`open_process_to_wait`] for the other case.
 pub fn wait_for_process_exit(
   identity: &ProcessIdentity,
 ) -> Result<ProcessExitWait, PlatformError> {
   let pid = identity.pid;
-  let process = match unsafe {
-    OpenProcess(
-      PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
-      false,
-      pid,
-    )
-  } {
-    Ok(process) => process,
-    // No process has this id any more, so the one that had it has exited.
-    Err(e) if e.code() == ERROR_INVALID_PARAMETER.to_hresult() => {
-      return Ok(ProcessExitWait::AlreadyExited);
-    }
-    Err(e) => {
-      return Err(PlatformError::fault(format!(
-        "Failed to open process {pid} to wait for it: {e}"
-      )));
-    }
+  let Some(process) = open_process_to_wait(pid)? else {
+    return Ok(ProcessExitWait::AlreadyExited);
   };
 
   let waited = match process_creation_time(process) {
@@ -320,6 +312,126 @@ pub fn wait_for_process_exit(
   };
   let _ = unsafe { CloseHandle(process) };
   waited
+}
+
+/// Open `pid` for waiting and reading its creation time. `None` when no
+/// process holds the id any more.
+///
+/// Over-the-shoulder elevation: when a standard user answers the UAC prompt
+/// with another administrator's credentials, the elevated child runs as that
+/// account, and the parent's default DACL (its creator and SYSTEM) refuses it
+/// with `ERROR_ACCESS_DENIED`. A full administrator token holds
+/// `SeDebugPrivilege`, which lets it open any process regardless of its DACL,
+/// so the open is retried once with that privilege enabled. It is enabled for
+/// the retry only: the handle keeps the access it was opened with, and the
+/// creation-time check still decides whether it is the parent.
+fn open_process_to_wait(pid: u32) -> Result<Option<HANDLE>, PlatformError> {
+  let open_error = |e: windows::core::Error| {
+    PlatformError::fault(format!("Failed to open process {pid} to wait for it: {e}"))
+  };
+  match open_process(pid) {
+    Ok(process) => Ok(process),
+    Err(e) if e.code() == ERROR_ACCESS_DENIED.to_hresult() => {
+      let Some(_debug_privilege) = DebugPrivilege::enable()? else {
+        return Err(PlatformError::fault(format!(
+          "Failed to open process {pid} to wait for it: access was denied and this \
+           process does not hold SeDebugPrivilege"
+        )));
+      };
+      open_process(pid).map_err(open_error)
+    }
+    Err(e) => Err(open_error(e)),
+  }
+}
+
+/// `Ok(None)` when no process holds `pid` any more.
+fn open_process(pid: u32) -> Result<Option<HANDLE>, windows::core::Error> {
+  match unsafe {
+    OpenProcess(
+      PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
+      false,
+      pid,
+    )
+  } {
+    Ok(process) => Ok(Some(process)),
+    Err(e) if e.code() == ERROR_INVALID_PARAMETER.to_hresult() => Ok(None),
+    Err(e) => Err(e),
+  }
+}
+
+/// `SeDebugPrivilege` enabled on this process's token for as long as the
+/// value lives; dropping it restores the privilege's previous state.
+struct DebugPrivilege {
+  previous: TOKEN_PRIVILEGES,
+}
+
+impl DebugPrivilege {
+  /// `Ok(None)` when the token does not hold the privilege at all, which is
+  /// the case for every token that is not a full administrator token.
+  fn enable() -> Result<Option<Self>, PlatformError> {
+    let mut previous = TOKEN_PRIVILEGES::default();
+    let held = with_process_token(|token| {
+      let mut luid = LUID::default();
+      unsafe { LookupPrivilegeValueW(PCWSTR::null(), SE_DEBUG_NAME, &mut luid) }
+        .map_err(|e| {
+          PlatformError::fault(format!("Failed to look up SeDebugPrivilege: {e}"))
+        })?;
+      let enabled = TOKEN_PRIVILEGES {
+        PrivilegeCount: 1,
+        Privileges: [LUID_AND_ATTRIBUTES {
+          Luid: luid,
+          Attributes: SE_PRIVILEGE_ENABLED,
+        }],
+      };
+      let mut returned_length = 0u32;
+      unsafe {
+        AdjustTokenPrivileges(
+          token,
+          false,
+          Some(&enabled),
+          std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,
+          Some(&mut previous),
+          Some(&mut returned_length),
+        )
+      }
+      .map_err(|e| {
+        PlatformError::fault(format!("Failed to enable SeDebugPrivilege: {e}"))
+      })?;
+      // The call succeeds even when the token does not hold the privilege;
+      // only the last error tells.
+      Ok(unsafe { GetLastError() } != ERROR_NOT_ALL_ASSIGNED)
+    })?;
+    Ok(held.then_some(Self { previous }))
+  }
+}
+
+impl Drop for DebugPrivilege {
+  fn drop(&mut self) {
+    let previous = self.previous;
+    let _ = with_process_token(|token| {
+      unsafe { AdjustTokenPrivileges(token, false, Some(&previous), 0, None, None) }
+        .map_err(|e| {
+          PlatformError::fault(format!("Failed to restore SeDebugPrivilege: {e}"))
+        })
+    });
+  }
+}
+
+fn with_process_token<T>(
+  f: impl FnOnce(HANDLE) -> Result<T, PlatformError>,
+) -> Result<T, PlatformError> {
+  let mut token = HANDLE::default();
+  unsafe {
+    OpenProcessToken(
+      GetCurrentProcess(),
+      TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+      &mut token,
+    )
+  }
+  .map_err(|e| PlatformError::fault(format!("Failed to open the process token: {e}")))?;
+  let result = f(token);
+  let _ = unsafe { CloseHandle(token) };
+  result
 }
 
 /// The creation time of `process` as one integer, so it can travel on a
@@ -400,9 +512,26 @@ fn quote_windows_arg(arg: &OsStr) -> String {
 #[cfg(test)]
 mod tests {
   use super::{
-    current_process_identity, is_within_any_root, process_creation_time,
-    quote_windows_arg, resolved_roots, strip_verbatim_prefix, wait_for_process_exit,
+    DebugPrivilege, current_process_identity, is_process_elevated, is_within_any_root,
+    process_creation_time, quote_windows_arg, resolved_roots, strip_verbatim_prefix,
+    wait_for_process_exit,
   };
+
+  #[test]
+  fn the_debug_privilege_is_held_exactly_by_a_full_administrator_token() {
+    // A full administrator token carries SeDebugPrivilege (disabled); a
+    // filtered administrator token and a standard user token do not. The
+    // test process may run either way, so both outcomes are checked against
+    // the elevation state rather than assumed.
+    let elevated = is_process_elevated().expect("elevation state is readable");
+    match DebugPrivilege::enable().expect("adjusting the token does not fail") {
+      Some(enabled) => {
+        assert!(elevated, "the privilege was enabled without elevation");
+        drop(enabled);
+      }
+      None => assert!(!elevated, "an elevated token holds SeDebugPrivilege"),
+    }
+  }
   use crate::platform::traits::{ProcessExitWait, ProcessIdentity};
   use std::ffi::OsStr;
   use std::os::windows::io::AsRawHandle;
