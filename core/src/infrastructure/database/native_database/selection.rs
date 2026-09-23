@@ -817,9 +817,9 @@ fn sync_directory(directory: &Path) -> Result<(), NativeDatabaseError> {
 /// another connection is writing. Neither is a sound answer. Called while a
 /// [`super::NativeDatabase`] owner is live, this can therefore report the
 /// metadata as *unreadable* - which [`inspect_authority`] turns into
-/// `ConversionInProgress`, an alarming answer about a perfectly healthy
-/// database. It belongs at startup, before any owner is opened, and after one
-/// has been closed.
+/// `NativeMetadataUnreadable` rather than treating an existing file as
+/// partial conversion output. It belongs at startup, before any owner is
+/// opened, and after one has been closed.
 pub fn observe_authority(
   paths: &AuthorityPaths,
   expected_schema_version: u32,
