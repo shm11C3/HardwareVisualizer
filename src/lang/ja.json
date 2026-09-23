@@ -227,6 +227,28 @@
       "openDetails": "詳細ページを開けませんでした。"
     }
   },
+  "nsisMigrationNotice": {
+    "title": "MSI インストーラーへの移行のおすすめ",
+    "why": "このアプリは .exe インストーラーでユーザーフォルダーにインストールされています。この場所は、同じアカウントで動く他のプログラムがファイルを書き換えられるため、PawnIO のセットアップや「管理者として起動」など、HardwareVisualizer を管理者として実行する機能の安全性が下がります。MSI インストーラーは Program Files にインストールし、インストール時に PawnIO のセットアップも選べます。",
+    "stepsTitle": "移行の手順",
+    "steps": {
+      "step1": "HardwareVisualizer を終了します。",
+      "step2": "Windows の設定 > アプリ > インストールされているアプリから HardwareVisualizer をアンインストールします。「Delete the application data」のチェックは外したままにしてください。",
+      "step3": "ダウンロードページから MSI インストーラーをダウンロードしてインストールします（winget install shm11C3.HardwareVisualizer でも構いません）。",
+      "step4": "「OS起動時に自動起動」を使っていた場合は、設定でもう一度オンにします。"
+    },
+    "data": "設定、履歴、背景画像はそのまま残ります。これらはインストールフォルダーの外に保存されており、「Delete the application data」にチェックを入れない限りアンインストーラーは削除しません。",
+    "actions": {
+      "openDownload": "ダウンロードページを開く",
+      "hide": "非表示",
+      "remindLater": "次回また表示",
+      "neverShowAgain": "今後表示しない"
+    },
+    "errors": {
+      "dismiss": "この設定を保存できませんでした。",
+      "openDownload": "ダウンロードページを開けませんでした。"
+    }
+  },
   "navigation": {
     "performance": "パフォーマンス",
     "systemSpecifications": "システム仕様",

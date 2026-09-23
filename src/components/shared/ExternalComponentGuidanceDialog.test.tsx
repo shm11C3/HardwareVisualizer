@@ -112,6 +112,21 @@ describe("ExternalComponentGuidanceDialog", () => {
     ).toBeNull();
   });
 
+  it("reports whether it is open so other startup dialogs can wait", async () => {
+    const onOpenChange = vi.fn();
+
+    render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="dashboard"
+        onOpenChange={onOpenChange}
+      />,
+    );
+
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    await screen.findByRole("button", { name: "Restart as administrator" });
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+  });
+
   it("keeps the details action for permission guidance outside Windows", async () => {
     const user = userEvent.setup();
     mocks.platform.mockReturnValue("linux");

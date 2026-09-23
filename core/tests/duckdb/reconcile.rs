@@ -161,6 +161,215 @@ async fn reconciliation_applies_inserts_updates_and_deletes_and_matches_a_fresh_
   database.close().await.unwrap();
 }
 
+/// The application rewrites `last_seen_at` (and `is_active`) on every run, so a
+/// device row a daily record references is practically always an update at
+/// reconciliation time. DuckDB refuses to delete a still-referenced parent row,
+/// so the update must reach the row without removing it.
+#[tokio::test]
+async fn a_referenced_device_row_that_changed_is_updated_in_place() {
+  let fixture = NativeFixture::new();
+  let pool = fixture.migrated_pool().await;
+  seed(&pool).await;
+  pool.close().await;
+  fixture.finalize().await;
+
+  let pool = open_pool(&fixture.source, false).await;
+  sqlx::query(
+    "UPDATE storage_devices SET last_seen_at = '2026-09-23', is_active = 0 \
+     WHERE id = ?",
+  )
+  .bind(SEEDED_DEVICE)
+  .execute(&pool)
+  .await
+  .unwrap();
+  pool.close().await;
+
+  let (report, _) = fixture.try_reconcile().await.unwrap();
+
+  let devices = table(&report, "storage_devices");
+  assert_eq!(
+    (
+      devices.inserted_rows,
+      devices.updated_rows,
+      devices.deleted_rows,
+      devices.unchanged_rows
+    ),
+    (0, 1, 0, 0)
+  );
+  let records = table(&report, "storage_health_daily_records");
+  assert_eq!(
+    (
+      records.inserted_rows,
+      records.updated_rows,
+      records.deleted_rows,
+      records.unchanged_rows
+    ),
+    (0, 0, 0, 1)
+  );
+  assert_eq!(devices.expected_digest, devices.reopened_digest);
+  let (last_seen_at, is_active): (String, i64) = read_only(&fixture.finalized)
+    .query_row(
+      "SELECT last_seen_at, is_active FROM storage_devices WHERE id = ?",
+      [SEEDED_DEVICE],
+      |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .unwrap();
+  assert_eq!((last_seen_at.as_str(), is_active), ("2026-09-23", 0));
+}
+
+/// No production writer removes a device row, but a source edited by hand
+/// can. DuckDB still counts child rows deleted earlier in the same transaction
+/// as referencing their parent, so removing a device together with its records
+/// cannot commit in the one reconciliation transaction. It must fail whole and
+/// leave the file exactly as it was, never half-applied.
+#[tokio::test]
+async fn a_device_removed_with_its_records_is_refused_without_a_partial_write() {
+  let fixture = NativeFixture::new();
+  let pool = fixture.migrated_pool().await;
+  seed(&pool).await;
+  pool.close().await;
+  fixture.finalize().await;
+
+  let pool = open_pool(&fixture.source, false).await;
+  for statement in [
+    "DELETE FROM storage_health_daily_records WHERE device_id = ?",
+    "DELETE FROM storage_devices WHERE id = ?",
+  ] {
+    sqlx::query(statement)
+      .bind(SEEDED_DEVICE)
+      .execute(&pool)
+      .await
+      .unwrap();
+  }
+  pool.close().await;
+
+  let before = file_hash(&fixture.finalized);
+
+  let error = fixture.try_reconcile().await.unwrap_err();
+
+  assert!(
+    matches!(error, NativeDatabaseError::DuckDb { .. })
+      && error.to_string().contains("foreign key"),
+    "{error:?}"
+  );
+  assert_eq!(file_hash(&fixture.finalized), before);
+  assert!(fixture.work_directories().is_empty());
+}
+
+/// The run the application actually produces: every device's `last_seen_at`
+/// and `is_active` rewritten, an old daily record pruned by retention, and a
+/// newly seen device with its first record.
+#[tokio::test]
+async fn devices_updated_and_added_with_pruned_records_reconcile_together() {
+  const RETIRED: &str = "storage:hmac-sha256:v1:1111111111111111111111111111111111111111111111111111111111111111";
+  const ADDED: &str = "storage:hmac-sha256:v1:2222222222222222222222222222222222222222222222222222222222222222";
+
+  let fixture = NativeFixture::new();
+  let pool = fixture.migrated_pool().await;
+  seed(&pool).await;
+  sqlx::query(
+    "INSERT INTO storage_devices \
+       (id,display_name,first_seen_at,last_seen_at,is_active) \
+     VALUES (?,'Old HDD','2026-01-01','2026-08-01',1)",
+  )
+  .bind(RETIRED)
+  .execute(&pool)
+  .await
+  .unwrap();
+  sqlx::query(
+    "INSERT INTO storage_health_daily_records \
+       (device_id,date,health_status,collected_at) \
+     VALUES (?,'2026-08-01','healthy','2026-08-01T23:59:00+00:00')",
+  )
+  .bind(RETIRED)
+  .execute(&pool)
+  .await
+  .unwrap();
+  pool.close().await;
+  fixture.finalize().await;
+
+  let pool = open_pool(&fixture.source, false).await;
+  // The device refresh: every row is deactivated, the present ones reactivated
+  // and stamped, so both existing rows change.
+  pool
+    .execute("UPDATE storage_devices SET is_active = 0")
+    .await
+    .unwrap();
+  sqlx::query(
+    "UPDATE storage_devices SET is_active = 1, last_seen_at = '2026-09-23' \
+     WHERE id = ?",
+  )
+  .bind(SEEDED_DEVICE)
+  .execute(&pool)
+  .await
+  .unwrap();
+  // Retention pruning of the old device's only record.
+  pool
+    .execute("DELETE FROM storage_health_daily_records WHERE date < '2026-09-01'")
+    .await
+    .unwrap();
+  sqlx::query(
+    "INSERT INTO storage_devices \
+       (id,display_name,first_seen_at,last_seen_at,is_active) \
+     VALUES (?,'New SSD','2026-09-23','2026-09-23',1)",
+  )
+  .bind(ADDED)
+  .execute(&pool)
+  .await
+  .unwrap();
+  sqlx::query(
+    "INSERT INTO storage_health_daily_records \
+       (device_id,date,health_status,collected_at) \
+     VALUES (?,'2026-09-23','healthy','2026-09-23T23:59:00+00:00')",
+  )
+  .bind(ADDED)
+  .execute(&pool)
+  .await
+  .unwrap();
+  pool.close().await;
+
+  let (report, _) = fixture.try_reconcile().await.unwrap();
+
+  let devices = table(&report, "storage_devices");
+  assert_eq!(
+    (
+      devices.inserted_rows,
+      devices.updated_rows,
+      devices.deleted_rows,
+      devices.unchanged_rows
+    ),
+    (1, 2, 0, 0)
+  );
+  let records = table(&report, "storage_health_daily_records");
+  assert_eq!(
+    (
+      records.inserted_rows,
+      records.updated_rows,
+      records.deleted_rows,
+      records.unchanged_rows
+    ),
+    (1, 0, 1, 1)
+  );
+  assert_eq!(orphaned_records(&fixture), 0);
+  let connection = read_only(&fixture.finalized);
+  let mut statement = connection
+    .prepare("SELECT id, last_seen_at, is_active FROM storage_devices ORDER BY id")
+    .unwrap();
+  let devices = statement
+    .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+    .unwrap()
+    .collect::<Result<Vec<(String, String, i64)>, _>>()
+    .unwrap();
+  assert_eq!(
+    devices,
+    vec![
+      (SEEDED_DEVICE.to_owned(), "2026-09-23".to_owned(), 1),
+      (RETIRED.to_owned(), "2026-08-01".to_owned(), 0),
+      (ADDED.to_owned(), "2026-09-23".to_owned(), 1),
+    ]
+  );
+}
+
 /// The whole reconciliation is one transaction. The proof is a production
 /// failure mode rather than a test hook: a legacy REAL in an INTEGER-declared
 /// column is refused by the third table, after two tables have already been
@@ -492,6 +701,19 @@ fn table_rows(fixture: &NativeFixture, table: &str) -> u64 {
   u64::try_from(count).unwrap()
 }
 
+/// Daily records whose device row no longer exists.
+fn orphaned_records(fixture: &NativeFixture) -> i64 {
+  read_only(&fixture.finalized)
+    .query_row(
+      "SELECT COUNT(*) FROM storage_health_daily_records AS record \
+       WHERE NOT EXISTS (SELECT 1 FROM storage_devices AS device \
+                         WHERE device.id = record.device_id)",
+      [],
+      |row| row.get(0),
+    )
+    .unwrap()
+}
+
 fn state_of(fixture: &NativeFixture) -> String {
   read_only(&fixture.finalized)
     .query_row("SELECT state FROM __hv_native_metadata", [], |row| {
@@ -514,6 +736,9 @@ fn identities(path: &std::path::Path) -> Vec<(String, String, i64)> {
     .collect::<Result<Vec<_>, _>>()
     .unwrap()
 }
+
+/// The one storage device [`seed`] inserts, which its daily record references.
+const SEEDED_DEVICE: &str = "storage:hmac-sha256:v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 /// One row in every table the stable schema declares, including the composite
 /// keyed cooling summaries, so the merge is exercised over every key shape.

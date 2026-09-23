@@ -756,16 +756,7 @@ pub(super) fn insert_from_staging_sql(
   let mut projections = Vec::with_capacity(plan.len());
   for (index, column) in plan.iter().enumerate() {
     names.push(quote_identifier(&column.name));
-    if column.kind == NativeColumnKind::TaggedNumeric {
-      projections.push(format!(
-        "CASE \"c{index:04}_tag\" \
-         WHEN 1 THEN union_value(i := \"c{index:04}_i\")::UNION(i BIGINT, r DOUBLE) \
-         WHEN 2 THEN union_value(r := \"c{index:04}_r\")::UNION(i BIGINT, r DOUBLE) \
-         ELSE NULL END"
-      ));
-    } else {
-      projections.push(format!("\"c{index:04}\""));
-    }
+    projections.push(staged_value_sql(index, column, ""));
   }
   format!(
     "INSERT INTO {} ({}) SELECT {} FROM temp.main.{} ORDER BY \"__hv_stage_ordinal\"",
@@ -774,6 +765,26 @@ pub(super) fn insert_from_staging_sql(
     projections.join(", "),
     quote_identifier(staging)
   )
+}
+
+/// The expression that reads plan column `index` back out of a staging row in
+/// its native type. `qualifier` is prepended to every staging column reference
+/// (for example `staging.`), or empty when the staging table is the only source.
+pub(super) fn staged_value_sql(
+  index: usize,
+  column: &ColumnPlan,
+  qualifier: &str,
+) -> String {
+  if column.kind == NativeColumnKind::TaggedNumeric {
+    format!(
+      "CASE {qualifier}\"c{index:04}_tag\" \
+       WHEN 1 THEN union_value(i := {qualifier}\"c{index:04}_i\")::UNION(i BIGINT, r DOUBLE) \
+       WHEN 2 THEN union_value(r := {qualifier}\"c{index:04}_r\")::UNION(i BIGINT, r DOUBLE) \
+       ELSE NULL END"
+    )
+  } else {
+    format!("{qualifier}\"c{index:04}\"")
+  }
 }
 
 /// Import the SQLite identity state the allocator has to keep reproducing.

@@ -104,6 +104,19 @@ describe("CloseToTrayFirstRunDialog", () => {
     expect(mocks.quitApp).not.toHaveBeenCalled();
   });
 
+  it("reports when the startup prompt opens and closes", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+
+    renderDialog(<CloseToTrayFirstRunDialog onOpenChange={onOpenChange} />);
+
+    await screen.findByText("Try system tray mode?");
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("dismisses the startup prompt from the close icon without saving a preference", async () => {
     const user = userEvent.setup();
 

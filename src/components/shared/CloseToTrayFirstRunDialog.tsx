@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { XIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -24,16 +24,24 @@ type PromptReason = "startup" | "close";
 type CloseToTrayFirstRunDialogProps = {
   closeToTrayChoiceMade?: boolean;
   settingsLoaded?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export const CloseToTrayFirstRunDialog = ({
   closeToTrayChoiceMade = false,
   settingsLoaded = true,
+  onOpenChange,
 }: CloseToTrayFirstRunDialogProps) => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const { setCloseToTrayPreferenceAtom } = useSettingsAtom();
   const [promptReason, setPromptReason] = useState<PromptReason | null>(null);
+  const isOpen = promptReason !== null;
+
+  // Before paint, so App defers other dialogs in the same frame.
+  useLayoutEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The listener is registered once for the app lifetime.
   useEffect(() => {
