@@ -857,10 +857,10 @@ fn work_directory_present(native_database: &Path) -> bool {
   };
   entries.filter_map(Result::ok).any(|entry| {
     let name = entry.file_name();
-    name.to_str().is_some_and(|name| {
-      name.starts_with(WORK_PREFIX)
-        && !name.starts_with(super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX)
-    }) && entry.file_type().is_ok_and(|kind| kind.is_dir())
+    let name = name.to_string_lossy();
+    name.starts_with(WORK_PREFIX)
+      && !name.starts_with(super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX)
+      && entry.file_type().is_ok_and(|kind| kind.is_dir())
   })
 }
 
