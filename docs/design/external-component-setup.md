@@ -135,7 +135,9 @@ installed and its fallbacks unchanged.
   installed copy from the installer would elevate a file that a same-user
   process could have swapped while the question was open. Keeping the option
   out of the installer avoids adding a new elevation entry point on top of
-  the existing Settings path; NSIS users set PawnIO up from Settings.
+  the existing Settings path; NSIS users set PawnIO up from Settings. The
+  `.exe` installer is kept for compatibility and almost all Windows users
+  install the MSI, so the MSI is where the installer option matters.
 - **Installer verification.** CI (`test-windows-installer`) builds both
   packages when `src-tauri/windows/**`, `tauri.conf.json`, or the CI workflow
   changes or a Tauri dependency moves, and asserts the MSI tables with
