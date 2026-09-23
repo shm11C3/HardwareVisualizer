@@ -83,7 +83,12 @@ but it does not read registers or share code with the provider.
    size and SHA-256, hold the file open with a share mode that denies write
    and delete while it runs with `-install -silent`, and map the exit code:
    `0` installed, `3010` installed with restart required, anything else
-   failed.
+   failed. The run is bounded: a normal unattended install finishes in
+   seconds, so an installer still running after five minutes
+   (`INSTALLER_TIMEOUT`) is a hung one, typically a dialog raised despite
+   `-silent` that nobody can answer in session 0 under the MSI custom
+   action. It is terminated and reported as its own failure stage (`23`) so
+   the product install still reaches `InstallFinalize`.
 4. When at least one module file is missing, download the pinned modules zip,
    verify it, and place only the missing files into the install location
    resolved from the registry (fallback `%ProgramFiles%\PawnIO`). Each file
@@ -128,6 +133,7 @@ observe.
 | `20` | Every step ran, but the component is still not complete |
 | `21` | Unsupported platform |
 | `22` | The setup process panicked; the message went to its stderr only |
+| `23` | Runtime installer did not exit within its time limit (`INSTALLER_TIMEOUT`, five minutes) and was terminated; the runtime may be partially installed |
 
 The caller maps an exit code it does not recognize, and a process that
 exited without one, to the generic failure (`1`).
@@ -156,7 +162,12 @@ installed and its fallbacks unchanged.
   elevated with the setup arguments, waits for exit, maps the exit code,
   refreshes the state, and shows the restart prompt on success. If the user
   declines the UAC prompt, the result is `cancelled` and nothing is shown as
-  an error. One run per component is allowed at a time.
+  an error. One run per component is allowed at a time. The wait is bounded
+  at twenty minutes (`ELEVATED_RUN_TIMEOUT`), beyond the child's own worst
+  case of three five-minute limits (two downloads and the installer); a
+  child still running after that is terminated when the handle allows it,
+  and the action reports a retryable failure (`setupTimedOut`) instead of
+  holding the per-component guard until the app restarts.
 
   *Unprotected install folders (#2216).* The action elevates `current_exe()`
   through `ShellExecuteExW` with `runas`, like "restart as administrator" and
