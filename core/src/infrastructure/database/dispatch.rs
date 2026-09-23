@@ -243,13 +243,21 @@ mod boundary {
   ///   reports something else.
   pub async fn reobserve_authority() -> Result<AuthorityState, DispatchError> {
     let mut guard = active().write().await;
+    reobserve_authority_locked(&mut guard, config()).await
+  }
+
+  /// Reobserve while the caller holds the active-state write lock. Keeping
+  /// the lock across close and reopen preserves the one-owner handoff.
+  async fn reobserve_authority_locked(
+    guard: &mut Active,
+    config: &Config,
+  ) -> Result<AuthorityState, DispatchError> {
     if matches!(&*guard, Active::Shutdown) {
       return Err(DispatchError::Shutdown);
     }
-    if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
-      close_or_refuse(&mut guard, database).await?;
+    if let Active::Native(database) = std::mem::replace(guard, Active::Sqlite) {
+      close_or_refuse(guard, database).await?;
     }
-    let config = config();
     let facts = observe_authority(&config.paths, config.expected_schema_version);
     let state = inspect_authority(&facts);
     let next = match state {
@@ -324,9 +332,38 @@ mod boundary {
 
   /// The backend to dispatch to, or the typed refusal if the durable state
   /// says native is selected (or ambiguous) and this boundary cannot safely
-  /// serve either engine.
+  /// serve either engine. A failed DuckDB checkpoint marks the current owner
+  /// invalid; the next consumer reuses the same close-and-reobserve handoff
+  /// before it can issue another request.
   pub(super) async fn resolve_backend() -> Result<Backend, DispatchError> {
-    match &*active().read().await {
+    resolve_backend_with(active(), None).await
+  }
+
+  async fn resolve_backend_with(
+    active: &RwLock<Active>,
+    configured: Option<&Config>,
+  ) -> Result<Backend, DispatchError> {
+    {
+      let guard = active.read().await;
+      match &*guard {
+        Active::Native(database) if database.is_invalidated() => {}
+        state => return backend_from_active(state),
+      }
+    }
+
+    // Another request can observe the same invalidation. Recheck after taking
+    // the write lock so only the first caller closes and reopens the owner.
+    let mut guard = active.write().await;
+    let should_reobserve =
+      matches!(&*guard, Active::Native(database) if database.is_invalidated());
+    if should_reobserve {
+      reobserve_authority_locked(&mut guard, configured.unwrap_or_else(config)).await?;
+    }
+    backend_from_active(&guard)
+  }
+
+  fn backend_from_active(active: &Active) -> Result<Backend, DispatchError> {
+    match active {
       Active::Sqlite => Ok(Backend::Sqlite),
       // Cloning is an `Arc` bump, not a new connection.
       Active::Native(database) => Ok(Backend::Native(database.clone())),
@@ -339,7 +376,85 @@ mod boundary {
 
   #[cfg(test)]
   mod tests {
-    use super::{Active, mark_unavailable_after_close_failure};
+    use std::sync::{
+      Arc,
+      atomic::{AtomicUsize, Ordering},
+    };
+
+    use tokio::sync::RwLock;
+
+    use super::{
+      Active, Backend, Config, DispatchError, NativeDatabase, NativeDatabaseError,
+      NativeDatabaseOptions, backend_from_active, mark_unavailable_after_close_failure,
+      resolve_backend_with,
+    };
+    use crate::infrastructure::database::native_database::NativeCancellation;
+    use crate::infrastructure::database::native_database::{
+      AuthorityPaths, NativeIdentity, NativeIdentityMode, NativeSchemaDefinition,
+      create_empty_native_database,
+    };
+
+    fn schema() -> NativeSchemaDefinition {
+      static IDENTITIES: &[NativeIdentity] = &[NativeIdentity {
+        table: "probe",
+        column: "id",
+        mode: NativeIdentityMode::RowId,
+      }];
+      NativeSchemaDefinition {
+        version: 7,
+        sql: "CREATE TABLE probe (id BIGINT PRIMARY KEY)",
+        tables: &["probe"],
+        timestamp_columns: &[],
+        identities: IDENTITIES,
+      }
+    }
+
+    async fn selected_boundary(
+      directory: &std::path::Path,
+      expected_schema_version: u32,
+    ) -> (RwLock<Active>, Config) {
+      let paths =
+        AuthorityPaths::in_directory(directory, "source.sqlite3", "native.duckdb");
+      create_empty_native_database(paths.clone(), schema())
+        .await
+        .unwrap();
+      let database =
+        NativeDatabase::open(&paths.native_database, NativeDatabaseOptions::new(7))
+          .await
+          .unwrap();
+      (
+        RwLock::new(Active::Native(database)),
+        Config {
+          paths,
+          expected_schema_version,
+        },
+      )
+    }
+
+    async fn insert_probe(database: &NativeDatabase, id: i64) {
+      database
+        .request_write(NativeCancellation::new(), move |context| {
+          context
+            .connection()
+            .execute("INSERT INTO probe VALUES (?)", duckdb::params![id])
+            .map(|_| ())
+            .map_err(|error| NativeDatabaseError::duckdb("insert test probe", error))
+        })
+        .await
+        .unwrap();
+    }
+
+    async fn read_probe(database: &NativeDatabase) -> i64 {
+      database
+        .request_read(NativeCancellation::new(), |context| {
+          context
+            .connection()
+            .query_row("SELECT id FROM probe", [], |row| row.get::<_, i64>(0))
+            .map_err(|error| NativeDatabaseError::duckdb("read test probe", error))
+        })
+        .await
+        .unwrap()
+    }
 
     #[test]
     fn native_close_failure_preserves_shutdown() {
@@ -363,6 +478,117 @@ mod boundary {
       );
 
       assert!(matches!(active, Active::Unavailable(_)));
+    }
+
+    #[tokio::test]
+    async fn sqlite_dispatch_does_not_require_native_configuration() {
+      let active = RwLock::new(Active::Sqlite);
+
+      assert!(matches!(
+        resolve_backend_with(&active, None).await,
+        Ok(Backend::Sqlite)
+      ));
+    }
+
+    #[tokio::test]
+    async fn explicit_checkpoint_failure_reopens_before_the_next_consumer() {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      insert_probe(&original, 42).await;
+      original.inject_next_checkpoint_failure();
+
+      assert!(
+        original
+          .checkpoint(NativeCancellation::new())
+          .await
+          .is_err()
+      );
+      assert!(original.is_invalidated());
+
+      let Backend::Native(reopened) =
+        resolve_backend_with(&active, Some(&config)).await.unwrap()
+      else {
+        panic!("the durable selection still names the native database");
+      };
+      assert_eq!(read_probe(&reopened).await, 42);
+      assert!(matches!(
+        original
+          .request_read(NativeCancellation::new(), |_| Ok(()))
+          .await,
+        Err(NativeDatabaseError::Invalidated)
+      ));
+    }
+
+    #[tokio::test]
+    async fn automatic_checkpoint_failure_is_not_retried_and_reopens_on_the_next_request()
+    {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      insert_probe(&original, 42).await;
+      let attempts = Arc::new(AtomicUsize::new(0));
+      let attempt_counter = Arc::clone(&attempts);
+      let failure = original
+        .request_write(NativeCancellation::new(), move |_| {
+          attempt_counter.fetch_add(1, Ordering::Relaxed);
+          Err::<(), _>(NativeDatabaseError::duckdb(
+            "commit transaction",
+            duckdb::Error::DuckDBFailure(
+              duckdb::ffi::Error::new(duckdb::ffi::DuckDBError),
+              Some(
+                "IO Error: Checkpoint failed for database. The database has been invalidated."
+                  .to_owned(),
+              ),
+            ),
+          ))
+        })
+        .await;
+
+      assert!(failure.is_err());
+      assert_eq!(attempts.load(Ordering::Relaxed), 1);
+      assert!(original.is_invalidated());
+
+      let Backend::Native(reopened) =
+        resolve_backend_with(&active, Some(&config)).await.unwrap()
+      else {
+        panic!("the durable selection still names the native database");
+      };
+      assert_eq!(attempts.load(Ordering::Relaxed), 1);
+      assert_eq!(read_probe(&reopened).await, 42);
+    }
+
+    #[tokio::test]
+    async fn failed_reopen_refuses_the_native_request_instead_of_using_sqlite() {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 8).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      original.inject_next_checkpoint_failure();
+      assert!(
+        original
+          .checkpoint(NativeCancellation::new())
+          .await
+          .is_err()
+      );
+
+      assert!(matches!(
+        resolve_backend_with(&active, Some(&config)).await,
+        Err(DispatchError::NativeUnavailable { .. })
+      ));
+      let guard = active.read().await;
+      assert!(matches!(
+        backend_from_active(&guard),
+        Err(DispatchError::NativeUnavailable { .. })
+      ));
     }
   }
 }
