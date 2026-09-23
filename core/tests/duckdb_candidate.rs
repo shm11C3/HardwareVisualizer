@@ -379,6 +379,44 @@ async fn refuses_schema_drift_noncanonical_cells_and_invalid_utf8() {
   .await;
 }
 
+#[tokio::test]
+async fn logical_content_hash_sees_past_an_embedded_nul_and_stays_stable_otherwise() {
+  let directory = tempfile::tempdir().unwrap();
+  let source = directory.path().join("nul-text.sqlite3");
+  let pool = open_pool(&source, true).await;
+  pool
+    .execute("CREATE TABLE cells (id INTEGER PRIMARY KEY, value TEXT)")
+    .await
+    .unwrap();
+  sqlx::query("INSERT INTO cells (id, value) VALUES (1, CAST(? AS TEXT))")
+    .bind(b"A\0x".to_vec())
+    .execute(&pool)
+    .await
+    .unwrap();
+  pool.close().await;
+
+  // Unrelated repeated calls against unchanged content must agree: this is
+  // not just "differs when it should" but also "stable when nothing moved".
+  let first = logical_content_hash(&source).await;
+  let second = logical_content_hash(&source).await;
+  assert_eq!(first, second);
+
+  let pool = open_pool(&source, false).await;
+  sqlx::query("UPDATE cells SET value = CAST(? AS TEXT) WHERE id = 1")
+    .bind(b"A\0y".to_vec())
+    .execute(&pool)
+    .await
+    .unwrap();
+  pool.close().await;
+
+  // `quote()` renders TEXT through SQLite's C-string formatting and
+  // truncates at the first embedded NUL, so a naive `quote()`-based digest
+  // would see "A\0x" and "A\0y" as identical. The byte after the NUL must
+  // still be able to change the digest.
+  let changed = logical_content_hash(&source).await;
+  assert_ne!(changed, first);
+}
+
 async fn copy(fixture: &Fixture) -> Result<CandidateReport, CandidateError> {
   build_candidate_database(
     &fixture.source,
@@ -672,10 +710,15 @@ fn file_hash(path: &Path) -> String {
 /// Unlike [`file_hash`], this is unaffected by a WAL checkpoint rewriting the
 /// main file (see the caller in `production_archive_writers_create_copyable_fractional_cells`
 /// for why that matters here): a checkpoint moves bytes between the WAL and
-/// the main file without changing what any query returns. `quote()` renders
-/// each cell with its exact SQLite storage class (`NULL`, integer, real,
-/// text, or blob), so this still distinguishes e.g. an integer `0` from a
-/// real `0.0`.
+/// the main file without changing what any query returns. Each cell is
+/// rendered as `typeof(cell) || ':' || hex(CAST(cell AS BLOB))`: the
+/// `typeof` prefix keeps storage classes apart (`NULL`, integer, real, text,
+/// blob - so an integer `0` still differs from a real `0.0`), and `hex` over
+/// the cell's raw bytes captures TEXT/BLOB content exactly. `quote()` was
+/// tried first, but it renders TEXT through SQLite's C-string formatting,
+/// which truncates at the first embedded NUL byte - two TEXT cells that
+/// differ only after an embedded NUL would quote identically and this
+/// digest would miss the difference.
 async fn logical_content_hash(path: &Path) -> String {
   let pool = open_pool(path, false).await;
   let mut hasher = Sha256::new();
@@ -716,7 +759,13 @@ async fn logical_content_hash(path: &Path) -> String {
     .unwrap();
     let projection = columns
       .iter()
-      .map(|column| format!("quote(\"{}\")", column.replace('"', "\"\"")))
+      .map(|column| {
+        let quoted_column = column.replace('"', "\"\"");
+        format!(
+          "(typeof(\"{quoted_column}\") || ':' || \
+           coalesce(hex(CAST(\"{quoted_column}\" AS BLOB)), ''))"
+        )
+      })
       .collect::<Vec<_>>()
       .join(" || '|' || ");
     let rows: Vec<String> = sqlx::query_scalar(&format!(
