@@ -5,7 +5,18 @@ import { ElevatedStartupModeToggle } from "./ElevatedStartupModeToggle";
 
 const mocks = vi.hoisted(() => ({
   platform: vi.fn(() => "windows"),
+  settings: { elevatedStartupMode: false },
   updateSettingAtom: vi.fn(),
+  useElevationAvailability: vi.fn((): string | null => "available"),
+  useProcessElevated: vi.fn((): boolean | null => false),
+}));
+
+vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/hooks/useElevationAvailability")
+  >()),
+  useElevationAvailability: mocks.useElevationAvailability,
+  useProcessElevated: mocks.useProcessElevated,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -20,15 +31,17 @@ vi.mock("react-i18next", () => ({
           "Run as administrator on startup",
         "pages.settings.advanced.elevatedStartupMode.description":
           "Restart as administrator.",
+        "elevationUnavailable.reason": "Not under Program Files.",
+        "elevationUnavailable.unknown": "Could not verify.",
+        "elevationUnavailable.elevatedStartupModeNotApplied":
+          "Saved but not applied.",
       })[key] ?? key,
   }),
 }));
 
 vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
-    settings: {
-      elevatedStartupMode: false,
-    },
+    settings: mocks.settings,
     updateSettingAtom: mocks.updateSettingAtom,
   }),
 }));
@@ -37,6 +50,9 @@ describe("ElevatedStartupModeToggle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("windows");
+    mocks.settings.elevatedStartupMode = false;
+    mocks.useElevationAvailability.mockReturnValue("available");
+    mocks.useProcessElevated.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -71,6 +87,61 @@ describe("ElevatedStartupModeToggle", () => {
     expect(mocks.updateSettingAtom).toHaveBeenCalledWith(
       "elevatedStartupMode",
       true,
+    );
+  });
+
+  it("cannot be turned on outside Program Files and says why", () => {
+    mocks.useElevationAvailability.mockReturnValue("unprotectedLocation");
+
+    render(<ElevatedStartupModeToggle />);
+
+    expect(screen.getByRole("switch")).toBeDisabled();
+    expect(screen.getByText("Not under Program Files.")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["still loading", null, null],
+    ["unknown", "unknown", "Could not verify."],
+    ["unsupported", "unsupported", "Could not verify."],
+  ])(
+    "cannot be turned on while availability is %s",
+    (_case, availability, note) => {
+      mocks.useElevationAvailability.mockReturnValue(availability);
+
+      render(<ElevatedStartupModeToggle />);
+
+      expect(screen.getByRole("switch")).toBeDisabled();
+      if (note) {
+        expect(screen.getByText(note)).toBeInTheDocument();
+      } else {
+        expect(screen.queryByText("Not under Program Files.")).toBeNull();
+      }
+    },
+  );
+
+  it("does not claim not applied when the user started it as administrator", () => {
+    mocks.useElevationAvailability.mockReturnValue("unprotectedLocation");
+    mocks.useProcessElevated.mockReturnValue(true);
+    mocks.settings.elevatedStartupMode = true;
+
+    render(<ElevatedStartupModeToggle />);
+
+    expect(screen.queryByText("Saved but not applied.")).toBeNull();
+    expect(screen.getByText("Not under Program Files.")).toBeInTheDocument();
+  });
+
+  it("keeps a saved on value switchable off and marks it not applied", async () => {
+    const user = userEvent.setup();
+    mocks.useElevationAvailability.mockReturnValue("unprotectedLocation");
+    mocks.settings.elevatedStartupMode = true;
+
+    render(<ElevatedStartupModeToggle />);
+
+    expect(screen.getByText("Saved but not applied.")).toBeInTheDocument();
+    await user.click(screen.getByRole("switch"));
+    expect(mocks.updateSettingAtom).toHaveBeenCalledWith(
+      "elevatedStartupMode",
+      false,
     );
   });
 });

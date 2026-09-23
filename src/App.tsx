@@ -15,6 +15,7 @@ import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
 import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
 import { DatabaseConversionPromptDialog } from "@/components/shared/DatabaseConversionPromptDialog";
+import { ElevationUnavailableNotice } from "@/components/shared/ElevationUnavailableNotice";
 import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
 import { NavigationRestructureNotice } from "@/components/shared/NavigationRestructureNotice";
 import { NsisMigrationNoticeDialog } from "@/components/shared/NsisMigrationNoticeDialog";
@@ -368,6 +369,7 @@ const AppContent = () => {
             settingsLoaded={settingsLoaded}
             deferred={closeToTrayDialogOpen || guidanceDialogOpen}
           />
+          <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
         </div>
       </div>
       <FullscreenExitButton

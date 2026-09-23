@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  elevationUnavailableReasonKey,
+  useElevationAvailability,
+} from "@/hooks/useElevationAvailability";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   commands,
@@ -37,6 +41,12 @@ export const ExternalComponentSetupSection = () => {
   const [restartDialogOpen, setRestartDialogOpen] = useState(false);
 
   const isWindows = platform() === "windows";
+  // Setup runs the app elevated, which is refused outside Program Files (#2216).
+  const elevationAvailability = useElevationAvailability();
+  const elevationUnavailable = elevationAvailability !== "available";
+  const elevationReasonKey = elevationUnavailableReasonKey(
+    elevationAvailability,
+  );
 
   const loadEntries = useCallback(async () => {
     const components = await commands.getExternalComponentSetupComponents();
@@ -119,6 +129,8 @@ export const ExternalComponentSetupSection = () => {
             entry={entry}
             running={runningComponent === entry.component}
             disabled={runningComponent !== null}
+            elevationUnavailable={elevationUnavailable}
+            elevationReasonKey={elevationReasonKey}
             result={
               lastResult?.component === entry.component ? lastResult : null
             }
@@ -207,6 +219,8 @@ type ComponentCardProps = {
   entry: ComponentEntry;
   running: boolean;
   disabled: boolean;
+  elevationUnavailable: boolean;
+  elevationReasonKey: ReturnType<typeof elevationUnavailableReasonKey>;
   result: ExternalComponentSetupResult | null;
   onSetup: () => void;
 };
@@ -215,6 +229,8 @@ const ComponentCard = ({
   entry,
   running,
   disabled,
+  elevationUnavailable,
+  elevationReasonKey,
   result,
   onSetup,
 }: ComponentCardProps) => {
@@ -318,6 +334,11 @@ const ComponentCard = ({
                   </span>
                 )}
               </li>
+              {elevationReasonKey && !status.complete && (
+                <li className="text-amber-600 dark:text-amber-400">
+                  {t(elevationReasonKey)}
+                </li>
+              )}
               {blocked && (
                 <li className="text-destructive">
                   {t(
@@ -334,7 +355,9 @@ const ComponentCard = ({
           <Button
             type="button"
             variant={status.complete ? "secondary" : "default"}
-            disabled={status.complete || blocked || disabled}
+            disabled={
+              status.complete || blocked || disabled || elevationUnavailable
+            }
             onClick={onSetup}
           >
             {running ? (

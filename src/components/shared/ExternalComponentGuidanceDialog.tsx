@@ -22,6 +22,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  elevationUnavailableReasonKey,
+  useElevationAvailability,
+} from "@/hooks/useElevationAvailability";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";
@@ -106,8 +110,18 @@ export const ExternalComponentGuidanceDialog = ({
   const actionKey = candidate
     ? externalComponentGuidanceActionKey(candidate)
     : null;
-  const shouldShowElevatedStartupAction =
+  const elevationAvailability = useElevationAvailability();
+  // Outside Program Files the app refuses to elevate (#2216), so offer the
+  // details page instead of a restart that would fail.
+  const isWindowsPermissionGuidance =
     candidate?.reasonKind === "permission" && platform() === "windows";
+  const shouldShowElevatedStartupAction =
+    isWindowsPermissionGuidance && elevationAvailability === "available";
+  // The permission copy suggests running as administrator, which is refused
+  // here, so say why instead.
+  const elevationReasonKey = isWindowsPermissionGuidance
+    ? elevationUnavailableReasonKey(elevationAvailability)
+    : null;
 
   const removeCandidate = (key: string) => {
     setCandidates((current) => current.filter((item) => item.key !== key));
@@ -234,7 +248,8 @@ export const ExternalComponentGuidanceDialog = ({
               <GuidanceRow
                 label={t("externalComponentGuidance.labels.action")}
                 value={t(
-                  `externalComponentGuidance.candidates.${copyKey}.${actionKey}`,
+                  elevationReasonKey ??
+                    `externalComponentGuidance.candidates.${copyKey}.${actionKey}`,
                 )}
               />
             </div>

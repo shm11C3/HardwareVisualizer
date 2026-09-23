@@ -13,6 +13,16 @@ const mocks = vi.hoisted(() => ({
   openURL: vi.fn(),
   platform: vi.fn(() => "windows"),
   setElevatedStartupMode: vi.fn(),
+  useElevationAvailability: vi.fn((): string | null => "available"),
+  useProcessElevated: vi.fn((): boolean | null => false),
+}));
+
+vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/hooks/useElevationAvailability")
+  >()),
+  useElevationAvailability: mocks.useElevationAvailability,
+  useProcessElevated: mocks.useProcessElevated,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -58,6 +68,7 @@ describe("ExternalComponentGuidanceDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("windows");
+    mocks.useElevationAvailability.mockReturnValue("available");
     mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
       status: "ok",
       data: [candidate()],
@@ -86,6 +97,34 @@ describe("ExternalComponentGuidanceDialog", () => {
     expect(screen.queryByRole("button", { name: "Open details" })).toBeNull();
     expect(mocks.setElevatedStartupMode).toHaveBeenCalledWith(true);
     expect(mocks.openURL).not.toHaveBeenCalled();
+  });
+
+  it("offers details instead of a restart when elevation is refused here", async () => {
+    mocks.useElevationAvailability.mockReturnValue("unprotectedLocation");
+
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+
+    expect(
+      await screen.findByRole("button", { name: "Open details" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Restart as administrator" }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/not installed under Program Files/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/enable Run as administrator/)).toBeNull();
+  });
+
+  it("does not blame the install folder when availability is unknown", async () => {
+    mocks.useElevationAvailability.mockReturnValue("unknown");
+
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+
+    expect(
+      await screen.findByText(/could not verify whether it can safely run/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/not installed under Program Files/)).toBeNull();
   });
 
   it("reports whether it is open so other startup dialogs can wait", async () => {

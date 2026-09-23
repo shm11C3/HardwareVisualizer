@@ -162,6 +162,17 @@
       "listenerReady": "トレイ格納ダイアログを初期化できませんでした。"
     }
   },
+  "elevationUnavailable": {
+    "unknown": "HardwareVisualizer が安全に管理者として実行できるかを確認できなかったため、現在この機能は使えません。",
+    "reason": "HardwareVisualizer が Program Files 配下にインストールされていないため、この場所からは安全に管理者として実行できません。この機能を使用するには MSI 版をインストールしてください。",
+    "elevatedStartupModeNotApplied": "オンで保存されていますが適用されていません。HardwareVisualizer が Program Files 配下にインストールされていないため、安全に管理者として実行できません。使用するには MSI 版をインストールしてください。",
+    "startupNotice": {
+      "title": "「管理者として起動」は適用されませんでした",
+      "description": "HardwareVisualizer が Program Files 配下にインストールされていないため、管理者として再起動しませんでした。設定はそのまま残しています。使用するには MSI 版をインストールするか、設定をオフにしてください。",
+      "turnOff": "設定をオフにする",
+      "dismiss": "閉じる"
+    }
+  },
   "databaseConversionPrompt": {
     "title": "より効率的なデータベースが利用可能です",
     "description": "ネイティブデータベースは同じディスク容量でより多くの履歴を保持できるため、冷却インサイトでさらに過去まで振り返れます。既存のデータは変換され、アーカイブの設定と保持期間の設定はそのまま維持されます。",
