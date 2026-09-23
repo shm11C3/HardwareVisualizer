@@ -47,6 +47,38 @@
 //! written. Both digests are carried in the report so a caller can still see
 //! that the source moved on.
 //!
+//! # Why a changed row is updated in place
+//!
+//! `storage_health_daily_records(device_id)` references `storage_devices`, and
+//! the application rewrites a device's `last_seen_at` on every run, so a parent
+//! row is practically always an update here. DuckDB checks foreign keys
+//! immediately and has no `ON DELETE CASCADE`, so replacing that row by delete
+//! and insert is refused while any daily record still points at it (#2231).
+//!
+//! Each table's changes are therefore applied as three different statements,
+//! table by table in schema order (parents first, so a new child row always
+//! finds its parent):
+//!
+//! - a deletion, a key the candidate no longer holds, is a `DELETE` by key;
+//! - an update runs `UPDATE ... SET <every non-key column> FROM` a staging
+//!   table. DuckDB executes an `UPDATE` touching an indexed column as a delete
+//!   followed by an insert and checks each half eagerly (see the index
+//!   limitations in its documentation), so key columns never appear in the
+//!   `SET` list; the key is what matched the row, so it is unchanged;
+//! - an insert, a key the native table does not hold, is a plain `INSERT`.
+//!
+//! # Why a removed device row is refused rather than deleted
+//!
+//! Deleting a device row that native daily records reference cannot succeed
+//! inside the one transaction below, whatever the statement order: DuckDB
+//! 1.5 still counts child rows deleted - or repointed - earlier in the same
+//! transaction as referencing the parent until that transaction commits.
+//! Deferring deletions until after the child tables, children first, would
+//! therefore not help, so the merge keeps deleting in table order and such a
+//! reconciliation fails and rolls back whole. No production writer deletes a
+//! `storage_devices` row: devices are deactivated, never removed, and only
+//! old daily records are pruned.
+//!
 //! # Atomicity
 //!
 //! All fifteen tables, the re-imported identity high-water marks and the
@@ -73,7 +105,7 @@ use super::finalize::{
   create_staging_sql, derive_epoch_milliseconds, insert_from_staging_sql, open_database,
   open_database_with_storage_version, plan_columns, read_candidate_provenance,
   read_columns, read_primary_key, require_every_candidate_table_is_declared,
-  require_no_wal, stage_cell, write_identities,
+  require_no_wal, stage_cell, staged_value_sql, write_identities,
 };
 use super::paging::{PagedReader, ReadColumn};
 use super::schema::NativeSchemaDefinition;
@@ -230,14 +262,16 @@ fn reconcile(
       prepared.push(prepare_table(&candidate, &native, &schema, table)?);
     }
     for table in &prepared {
-      native
-        .execute_batch(&create_staging_sql(&table.row_staging, &table.plan))
-        .map_err(|error| {
-          NativeDatabaseError::duckdb(
-            "create the reconciliation row staging table",
-            error,
-          )
-        })?;
+      for staging in [&table.insert_staging, &table.update_staging] {
+        native
+          .execute_batch(&create_staging_sql(staging, &table.plan))
+          .map_err(|error| {
+            NativeDatabaseError::duckdb(
+              "create the reconciliation row staging table",
+              error,
+            )
+          })?;
+      }
       native
         .execute_batch(&create_staging_sql(&table.key_staging, &table.key_plan))
         .map_err(|error| {
@@ -277,7 +311,11 @@ fn reconcile(
       NativeDatabaseError::duckdb("commit the reconciliation transaction", error)
     })?;
     for table in &prepared {
-      for staging in [&table.row_staging, &table.key_staging] {
+      for staging in [
+        &table.insert_staging,
+        &table.update_staging,
+        &table.key_staging,
+      ] {
         native
           .execute_batch(&format!(
             "DROP TABLE temp.main.{}",
@@ -389,7 +427,12 @@ struct PreparedTable {
   /// snapshot ordinal, so decoded cells stay index-aligned with `plan`.
   candidate_projection: Vec<ReadColumn>,
   native_projection: Vec<ReadColumn>,
-  row_staging: String,
+  /// Finalized rows whose key the native table does not hold yet.
+  insert_staging: String,
+  /// Finalized rows replacing the non-key columns of a row the native table
+  /// already holds under the same key.
+  update_staging: String,
+  /// Keys of native rows the candidate no longer holds.
   key_staging: String,
 }
 
@@ -498,7 +541,8 @@ fn prepare_table(
     key_columns,
     candidate_projection,
     native_projection,
-    row_staging: format!("__hv_reconcile_rows_{table}"),
+    insert_staging: format!("__hv_reconcile_inserts_{table}"),
+    update_staging: format!("__hv_reconcile_updates_{table}"),
     key_staging: format!("__hv_reconcile_keys_{table}"),
   })
 }
@@ -530,7 +574,7 @@ fn reconcile_table(
     table.key_columns.clone(),
   )?);
 
-  let mut change = ChangeBuffer::new();
+  let mut change = ChangeBuffer::default();
   let mut expected = RowMultisetDigest::default();
   let mut report = NativeReconciliationTableReport {
     name: table.name.clone(),
@@ -553,12 +597,12 @@ fn reconcile_table(
         expected.add_row(row);
         report.candidate_rows += 1;
         report.inserted_rows += 1;
-        change.push(native, table, Some((row, *ordinal)), row)?;
+        change.push(native, table, Change::Insert(row, *ordinal))?;
         wanted = candidate_rows.next(epoch, table)?;
       }
       (None, Some(row)) => {
         report.deleted_rows += 1;
-        change.push(native, table, None, row)?;
+        change.push(native, table, Change::Delete(row))?;
         held = native_rows.next()?;
       }
       (Some((row, ordinal)), Some(current)) => {
@@ -570,12 +614,12 @@ fn reconcile_table(
             expected.add_row(row);
             report.candidate_rows += 1;
             report.inserted_rows += 1;
-            change.push(native, table, Some((row, *ordinal)), row)?;
+            change.push(native, table, Change::Insert(row, *ordinal))?;
             wanted = candidate_rows.next(epoch, table)?;
           }
           std::cmp::Ordering::Greater => {
             report.deleted_rows += 1;
-            change.push(native, table, None, current)?;
+            change.push(native, table, Change::Delete(current))?;
             held = native_rows.next()?;
           }
           std::cmp::Ordering::Equal => {
@@ -585,7 +629,7 @@ fn reconcile_table(
               report.unchanged_rows += 1;
             } else {
               report.updated_rows += 1;
-              change.push(native, table, Some((row, *ordinal)), row)?;
+              change.push(native, table, Change::Update(row, *ordinal))?;
             }
             wanted = candidate_rows.next(epoch, table)?;
             held = native_rows.next()?;
@@ -733,64 +777,108 @@ impl<'a> NativeRows<'a> {
   }
 }
 
-/// Accumulates one flush worth of differences.
-///
-/// Every changed key is staged for deletion, including a key that is only being
-/// inserted: deleting first and inserting after makes the flush idempotent and
-/// keeps the result correct even if the two paged streams ever disagreed about
-/// an ordering, at the cost of one no-op delete per inserted row.
-struct ChangeBuffer {
-  key_values: Vec<Value>,
-  key_rows: usize,
-  row_values: Vec<Value>,
+/// One difference the merge found.
+enum Change<'a> {
+  /// A finalized row whose key the native table does not hold.
+  Insert(&'a [Cell], u64),
+  /// A finalized row whose key the native table holds with other content.
+  Update(&'a [Cell], u64),
+  /// A native row whose key the candidate no longer holds.
+  Delete(&'a [Cell]),
+}
+
+/// Values waiting to be appended to one staging table.
+#[derive(Default)]
+struct StagedBatch {
+  values: Vec<Value>,
   rows: usize,
 }
 
-impl ChangeBuffer {
-  fn new() -> Self {
-    Self {
-      key_values: Vec::new(),
-      key_rows: 0,
-      row_values: Vec::new(),
-      rows: 0,
+impl StagedBatch {
+  fn stage<'a>(
+    &mut self,
+    table: &str,
+    plan: &[ColumnPlan],
+    row_ordinal: u64,
+    cells: impl Iterator<Item = &'a Cell>,
+  ) -> Result<(), NativeDatabaseError> {
+    for (column, cell) in plan.iter().zip(cells) {
+      stage_cell(table, column, row_ordinal, cell, &mut self.values)?;
     }
+    self.values.push(Value::UBigInt(self.rows as u64));
+    self.rows += 1;
+    Ok(())
   }
 
-  /// Stage one difference: `insert` carries the finalized row to write (absent
-  /// for a pure deletion), and `key_source` is the row whose key is removed.
+  /// Append the batch to `staging` and empty it. False when it held nothing.
+  fn append(
+    &mut self,
+    native: &Connection,
+    staging: &str,
+    plan: &[ColumnPlan],
+  ) -> Result<bool, NativeDatabaseError> {
+    if self.rows == 0 {
+      return Ok(false);
+    }
+    append_staging(
+      native,
+      staging,
+      plan,
+      self.rows,
+      std::mem::take(&mut self.values),
+    )?;
+    self.rows = 0;
+    Ok(true)
+  }
+}
+
+/// Accumulates one flush worth of differences, so memory stays bounded by
+/// [`COPY_BATCH_ROWS`] whatever the table size.
+///
+/// A flush deletes the batch's removed keys first, then updates, then inserts,
+/// so a unique value a deleted row held is free again before a new row takes
+/// it.
+///
+/// An insert has no delete-first safety net: the merge proved its key absent.
+/// Were the two paged streams ever to disagree about an ordering, the primary
+/// key would refuse the insert and roll the transaction back, or the reopen
+/// verification would refuse the result - never a silently wrong file.
+#[derive(Default)]
+struct ChangeBuffer {
+  inserts: StagedBatch,
+  updates: StagedBatch,
+  deletions: StagedBatch,
+}
+
+impl ChangeBuffer {
   fn push(
     &mut self,
     native: &Connection,
     table: &PreparedTable,
-    insert: Option<(&Vec<Cell>, u64)>,
-    key_source: &[Cell],
+    change: Change<'_>,
   ) -> Result<(), NativeDatabaseError> {
-    for (index, column) in table.key_plan.iter().enumerate() {
-      stage_cell(
-        &table.name,
-        column,
-        insert.map_or(u64::MAX, |(_, ordinal)| ordinal),
-        &key_source[table.key_indices[index]],
-        &mut self.key_values,
-      )?;
-    }
-    self.key_values.push(Value::UBigInt(self.key_rows as u64));
-    self.key_rows += 1;
-
-    if let Some((row, ordinal)) = insert {
-      for (index, column) in table.plan.iter().enumerate() {
-        stage_cell(
+    match change {
+      Change::Insert(row, ordinal) => {
+        self
+          .inserts
+          .stage(&table.name, &table.plan, ordinal, row.iter())?;
+      }
+      Change::Update(row, ordinal) => {
+        self
+          .updates
+          .stage(&table.name, &table.plan, ordinal, row.iter())?;
+      }
+      Change::Delete(row) => {
+        self.deletions.stage(
           &table.name,
-          column,
-          ordinal,
-          &row[index],
-          &mut self.row_values,
+          &table.key_plan,
+          u64::MAX,
+          table.key_indices.iter().map(|index| &row[*index]),
         )?;
       }
-      self.row_values.push(Value::UBigInt(self.rows as u64));
-      self.rows += 1;
     }
-    if self.key_rows as u64 >= COPY_BATCH_ROWS {
+    let pending = self.inserts.rows + self.updates.rows + self.deletions.rows;
+    if pending as u64 >= COPY_BATCH_ROWS {
       self.flush(native, table)?;
     }
     Ok(())
@@ -801,53 +889,103 @@ impl ChangeBuffer {
     native: &Connection,
     table: &PreparedTable,
   ) -> Result<(), NativeDatabaseError> {
-    if self.key_rows == 0 {
-      return Ok(());
+    if self
+      .deletions
+      .append(native, &table.key_staging, &table.key_plan)?
+    {
+      native
+        .execute_batch(&delete_by_staged_key_sql(table))
+        .map_err(|error| {
+          NativeDatabaseError::duckdb("delete the reconciled rows", error)
+        })?;
+      clear_staging(native, &table.key_staging)?;
     }
-    append_staging(
-      native,
-      &table.key_staging,
-      &table.key_plan,
-      self.key_rows,
-      std::mem::take(&mut self.key_values),
-    )?;
-    native
-      .execute_batch(&delete_by_staged_key_sql(table))
-      .map_err(|error| {
-        NativeDatabaseError::duckdb("delete the reconciled rows being replaced", error)
-      })?;
-    if self.rows > 0 {
-      append_staging(
-        native,
-        &table.row_staging,
-        &table.plan,
-        self.rows,
-        std::mem::take(&mut self.row_values),
-      )?;
+    if self
+      .updates
+      .append(native, &table.update_staging, &table.plan)?
+    {
+      // A table whose every column is a key column never stages an update:
+      // equal keys already mean equal rows.
+      if let Some(update) = update_from_staging_sql(table) {
+        native.execute_batch(&update).map_err(|error| {
+          NativeDatabaseError::duckdb("update the reconciled rows", error)
+        })?;
+      }
+      clear_staging(native, &table.update_staging)?;
+    }
+    if self
+      .inserts
+      .append(native, &table.insert_staging, &table.plan)?
+    {
       native
         .execute_batch(&insert_from_staging_sql(
           &table.name,
-          &table.row_staging,
+          &table.insert_staging,
           &table.plan,
         ))
         .map_err(|error| {
-          NativeDatabaseError::duckdb("insert a reconciled page", error)
+          NativeDatabaseError::duckdb("insert the reconciled rows", error)
         })?;
+      clear_staging(native, &table.insert_staging)?;
     }
-    for staging in [&table.key_staging, &table.row_staging] {
-      native
-        .execute_batch(&format!(
-          "DELETE FROM temp.main.{}",
-          quote_identifier(staging)
-        ))
-        .map_err(|error| {
-          NativeDatabaseError::duckdb("clear a reconciliation staging table", error)
-        })?;
-    }
-    self.key_rows = 0;
-    self.rows = 0;
     Ok(())
   }
+}
+
+fn clear_staging(native: &Connection, staging: &str) -> Result<(), NativeDatabaseError> {
+  native
+    .execute_batch(&format!(
+      "DELETE FROM temp.main.{}",
+      quote_identifier(staging)
+    ))
+    .map_err(|error| {
+      NativeDatabaseError::duckdb("clear a reconciliation staging table", error)
+    })
+}
+
+/// Overwrite every non-key column of the native rows the update staging names
+/// by key.
+///
+/// Key columns never appear in the `SET` list: DuckDB executes an `UPDATE` of
+/// an indexed column as a delete and an insert, and the delete half would be
+/// refused while a child row still references the parent key. The key is what
+/// matched the row, so it is unchanged anyway. `None` when the table has no
+/// non-key column.
+fn update_from_staging_sql(table: &PreparedTable) -> Option<String> {
+  let assignments = table
+    .plan
+    .iter()
+    .enumerate()
+    .filter(|(index, _)| !table.key_indices.contains(index))
+    .map(|(index, column)| {
+      format!(
+        "{} = {}",
+        quote_identifier(&column.name),
+        staged_value_sql(index, column, "staging.")
+      )
+    })
+    .collect::<Vec<_>>();
+  if assignments.is_empty() {
+    return None;
+  }
+  let predicate = table
+    .key_indices
+    .iter()
+    .map(|index| {
+      format!(
+        "{}.{} = staging.\"c{index:04}\"",
+        quote_identifier(&table.name),
+        quote_identifier(&table.plan[*index].name)
+      )
+    })
+    .collect::<Vec<_>>()
+    .join(" AND ");
+  Some(format!(
+    "UPDATE {} SET {} FROM temp.main.{} AS staging WHERE {predicate}",
+    quote_identifier(&table.name),
+    assignments.join(", "),
+    quote_identifier(&table.update_staging)
+  ))
 }
 
 /// Staging column names are `c0000`-shaped, so they can never collide with a
