@@ -65,7 +65,7 @@ const status = (
     { fileName: "LpcIO.bin", present: false },
   ],
   pinnedRuntimeVersion: "2.2.0",
-  pinnedModulesVersion: "0.2.8",
+  pinnedModulesVersion: "0.2.11",
   complete: false,
   setupBlocker: null,
   ...overrides,
