@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
-| Status | Implementation-ready (rev 3) |
+| Revision | 4 |
+| Status | Implementation-ready (rev 4) |
 | Scope | CPU package/socket power (Watts) on AMD Family 17h (Zen/Zen+/Zen 2), 19h (Zen 3/Zen 4), and 1Ah (Zen 5) processors, derived from the RAPL energy counter MSRs (`MSRC001_0299` RAPL Power Unit, `MSRC001_029B` Package Energy Status). Excludes: per-core energy (`MSRC001_029A`, recorded as a future extension), power-limit interfaces, SMU PM-table power telemetry, pre-Zen families. |
 | Issue phase | Phase 5 (#1635) — sensor model extension beyond temperature |
 
@@ -16,7 +16,7 @@
 | S3 | AMD, *PPR for AMD Family 19h Model 61h B1*, document no. **56713-B1 Rev 3.05 (Mar 8, 2023)**: §2.2.2 "L3 Clocks and Test (CT) MSR Registers" pp. 291–292 (`MSRC001_0299/029B`); §2.1.11.1 p. 99 (`CPUID_Fn80000007_EDX`) | Primary |
 | S4 | AMD, *PPR Vol 1 for AMD Family 1Ah Model 02h C1*, document no. **57238 Rev 0.24 (Sep 29, 2024)**: §2.2.2 pp. 321–322; §2.1.14.1 p. 120 (`CPUID_Fn80000007_EDX`) | Primary |
 | S5 | AMD, *PPR for AMD Family 1Ah Model 44h B0*, document no. **57896-B0 Rev 3.00 (Aug 28, 2024)**: §2.2.2 pp. 295–296; §2.1.12.1 p. 98 (`CPUID_Fn80000007_EDX`) | Primary |
-| S6 | PawnIO `AMDFamily17.p` module source at PawnIO.Modules tag `0.2.8` (commit `754635b`, LGPL-2.1-or-later) | Upstream-published interface definition of the module this project calls across the IOCTL boundary (family gate, read/write allow-lists). Not used as a source for any hardware register fact. No code was copied. |
+| S6 | PawnIO `AMDFamily17.p` module source at PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`, LGPL-2.1-or-later); originally authored against tag `0.2.8` (commit `dcd5c1f`) | Upstream-published interface definition of the module this project calls across the IOCTL boundary (family gate, read/write allow-lists). Not used as a source for any hardware register fact. No code was copied. |
 
 AMD removed these PPR PDFs from its live documentation site (the
 former TechDocs URLs return 404 at authoring time). Each document was
@@ -237,3 +237,4 @@ Width-agnostic decode rationale (why step 3 truncates to 32 bits):
 | 1 | 2026-08-30 | Initial version, authored with all provenance pinned against AMD PPRs 54945 Rev 3.03, 56214-B0 Rev 3.05, 56713-B1 Rev 3.05, 57238 Rev 0.24, 57896-B0 Rev 3.00 and PawnIO.Modules tag 0.2.8. Proposed Implementation-ready per the README status-transition checklist; effective upon maintainer approval of the introducing PR. |
 | 2 | 2026-08-30 | PR #2033 review follow-up. Provenance: `CPUID_Fn80000007_EDX[14]` (`RAPL`) pinned for all five models — added S2 §2.1.13.1 p. 84, S4 §2.1.14.1 p. 120, S5 §2.1.12.1 p. 98; corrected the S3 CPUID section number to §2.1.11.1 (p. 99 unchanged). Normative addition: wrap-safe gap check — gaps exceeding `T_max = 2^32 × 2^-ESU J / 1000 W` (≈ 65 s at `ESU = 16`) publish no power value and re-baseline (DP-02), because the modular difference cannot detect complete wraps across oversized gaps. Status remains Implementation-ready. |
 | 3 | 2026-08-30 | Corrected the normative wrap-safe boundary from `> T_max` to `≥ T_max`: at equality and `P_gate`, the true delta is exactly `2^32` energy units and decodes as a zero low-32-bit modular difference. Maintainer approved the revision 3 status transition; status is Implementation-ready. |
+| 4 | 2026-09-26 | Re-verified S6 against PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`): the `AMDFamily17` family gate (`0x17`–`0x1A`) is unchanged, `0xC0010299`/`0xC001029A`/`0xC001029B` remain on the read allow-list and off the write allow-list, `ioctl_read_msr` keeps 1 input and 1 output cell, and only the SMN ioctl carries the `Access_PCI` `@warning`. Allow-list additions since `0.2.8` (machine-check, SMCA diagnostic, and cache-configuration MSRs) are not used here. Corrected the S6 commit label: `754635b` was the `0.2.8` annotated tag object; its commit is `dcd5c1f`. No register fact changed. Status remains Implementation-ready. |

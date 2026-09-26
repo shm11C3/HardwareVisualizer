@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 4 |
-| Status | Implementation-ready (rev 4) |
+| Revision | 5 |
+| Status | Implementation-ready (rev 5) |
 | Scope | Package control temperature (Tctl) and die temperature (Tdie) on AMD Family 17h (Zen/Zen+/Zen 2) and Family 19h (Zen 3/Zen 4) processors, read from the SMU thermal controller (THM) over the System Management Network (SMN). Family 1Ah (Zen 5) is recognized and enabled best-effort as experimental pending verification (see Detection and ADR 0011). Excludes: per-CCD temperatures, SMU PM-table metrics, pre-Zen (Family 15h/16h) thermal registers. |
 | Issue phase | Phase 1 (#1635) |
 
@@ -15,7 +15,7 @@
 | S2 | AMD, *Open-Source Register Reference (OSRR) for AMD Family 17h Processors, Models 00h–2Fh*, document no. **56255 Rev 3.03 (July 2018), §4.2.1 "Registers" (p. 243)**: `SMUTHMx00000000 (SMU::THM::THM_TCON_CUR_TMP)`, `SMUTHM=0005_9800h`; bits 31:21 `CUR_TEMP` "Provides current control temperature"; bit 19 `CUR_TEMP_RANGE_SEL` "0=Report on 0C to 225C scale range. 1=Report on -49C to 206C scale range."; bits 18:0 Reserved | Primary; the AMD PDF was fetched (GitHub mirror) and text-verified directly during authoring |
 | S3 | AMD public statements on Tctl offsets: "AMD Ryzen™ Community Update #3" (R. Hallock, Apr 2017) and 2nd-gen Ryzen launch documentation | Primary for offsets |
 | S4 | Linux `k10temp` hwmon driver (GPL-2.0) | **Non-normative corroboration only.** No fact in this document relies solely on this source. No code, structure, identifiers, or tables were copied. |
-| S5 | PawnIO `RyzenSMU.p` module source (LGPL-2.1-or-later) | Upstream-published interface definition of the module this project calls across the IOCTL boundary (allowed SMN windows, family gate, caller-mutex `@warning` docs). Not used as a source for any hardware register fact. No code was copied. |
+| S5 | PawnIO `RyzenSMU.p` module source (LGPL-2.1-or-later), verified at PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`) | Upstream-published interface definition of the module this project calls across the IOCTL boundary (allowed SMN windows, family gate, caller-mutex `@warning` docs). Not used as a source for any hardware register fact. No code was copied. |
 | S6 | AMD, `asic_reg/thm/thm_9_0_sh_mask.h` (MIT, © 2017 AMD): `CUR_TEMP_MASK 0xFFE00000` (bits 31:21), `CUR_TEMP_RANGE_SEL_MASK 0x00080000` (bit 19) | Primary; AMD-published, permissively licensed field masks, consistent with S2. The header (a GPU THM IP description) additionally defines `CUR_TEMP_TJ_SEL`/`TJ_SLEW_SEL` in bits 18:16, which the CPU OSRR (S2) marks Reserved — see Open questions |
 | S7 | PPR 55898 Vol 2 **§6.2.5–6.2.6 (SB-TSI)**: SB-TSI delivers Tctl encoded in 0.125 °C increments spanning 0–255.875 | Primary; scaling corroboration (11-bit × 0.125 °C = 255.875) |
 | S8 | FreeBSD `amdtemp(4)` driver, `sys/dev/amdtemp/amdtemp.c` (BSD-2-Clause) | **Non-normative engineering corroboration only** (non-copyleft): carries an OSRR quote (superseded by the direct S2 pin), a `TJ_SEL` 49 °C note attributed to an AMD-authored Linux patch (not adopted — see Open questions), and CCD-register leads. Facts only; no code copied. |
@@ -26,7 +26,7 @@
 | --- | --- |
 | CPU vendor string is `AuthenticAMD` (CPUID leaf 0) | AMD APM / CPUID convention |
 | Effective family = `BaseFamily + ExtendedFamily` (CPUID leaf 1; extended family is added when base family is `0xF`) | AMD CPUID convention |
-| The PawnIO `RyzenSMU` module accepts families `0x17`, `0x19`, `0x1A` and rejects other vendors/families with an error status, providing a second layer of gating | S5 |
+| The PawnIO `RyzenSMU` module loads only on families `0x17`, `0x19`, `0x1A` and on three pre-Zen family `0x15` parts (Carrizo, Bristol Ridge, Stoney Ridge), and only for family/model combinations it recognizes; it rejects other vendors, families, and models with an error status, providing a second layer of gating. This project does not enable family `0x15` (see Scope) | S5 |
 
 "Recognized by the PawnIO module", "verified by this spec", and
 "enabled by this project" are separate decisions. A family is marked
@@ -173,3 +173,4 @@ non-normative):
 | 2 | 2026-06-11 | Provenance pinned: PPR 55898 Vol 2 §10.3 (p. 2-179), AMD OSRR 17h §4.2.1, AMD MIT register header, SB-TSI scaling corroboration. Added `CUR_TEMP_TJ_SEL` field and decode rule. Corrected `Access_PCI` ownership to caller-held. Open questions resolved or annotated non-blocking. Status → Implementation-ready. |
 | 3 | 2026-06-11 | OSRR 56255 Rev 3.03 §4.2.1 (p. 243) fetched and pinned directly (GitHub mirror of the AMD PDF), replacing the FreeBSD-carried quote as the Family 17h primary; S8 demoted to non-normative corroboration. `TJ_SEL` removed from the register map and decode path (the CPU OSRR marks bits 18:0 Reserved) and recorded as a non-blocking open question. Fixed the contradictory zero-offset wording in the Tctl-offset table. Status remains Implementation-ready. |
 | 4 | 2026-07-20 | Runtime enablement policy updated per ADR 0011: Family 1Ah remains unverified by this spec but is no longer hard-disabled by default; it is enabled best-effort as an experimental, plausibility-gated reading until THM facts are verified by a primary source or accepted hardware dump. No new register facts were added. Status remains Implementation-ready. |
+| 5 | 2026-09-26 | Pinned S5 to PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`). Updated the module-gating fact: since `0.2.11` the `RyzenSMU` module also loads on three pre-Zen family `0x15` parts, and load requires a recognized family/model combination. This project's own family gate (`0x17`/`0x19`/`0x1A`) is unchanged and does not enable family `0x15`. Re-verified: `ioctl_read_smu_register` (1 input and 1 output cell), the SMN window `0x56000`–`0x5AFFF`, and the caller-held `Access_PCI` `@warning` are unchanged. No register fact changed. Status remains Implementation-ready. |
