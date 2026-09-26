@@ -995,9 +995,9 @@ async fn settle_failed_selection(
     _ => LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
   };
   if handoff == SelectionHandoff::ThroughDispatch {
-    // `refuse_consumers` leaves the boundary unavailable on every path;
-    // `reobserve_authority` would not, because unreadable metadata inspects
-    // as an interrupted conversion and it would answer from SQLite.
+    // `refuse_consumers` leaves the boundary unavailable on every path.
+    // `reobserve_authority` would decide again from whatever the files show
+    // now, and a fresh read is not proof that the selection did not commit.
     if let Err(close_error) =
       hardviz_core::infrastructure::database::dispatch::refuse_consumers(format!(
         "the native selection could not be completed: {error}"
@@ -2226,10 +2226,13 @@ mod tests {
   #[tokio::test]
   async fn a_failure_whose_native_metadata_cannot_be_read_keeps_producers_paused() {
     // The I/O or `.wal` problem that failed the checkpoint can also hide a
-    // committed `selected` from the re-inspection, which then reads as an
-    // interrupted conversion. That is not proof the commit did not land, so
-    // the failure must not be treated as retryable with SQLite authoritative.
+    // committed `selected` from the re-inspection. That is not proof the
+    // commit did not land, so the failure must not be treated as retryable
+    // with SQLite authoritative; it may only offer the guarded recovery
+    // check, which refuses unless it proves the file is unselected.
     // Unreadable bytes stand in for "cannot be read right now".
+    use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
     let fixture = Fixture::new().await;
     let verified = reconciled(&fixture).await;
     select_native_database(fixture.paths(), verified)
@@ -2237,9 +2240,14 @@ mod tests {
       .unwrap();
     std::fs::remove_file(fixture.paths().marker).unwrap();
     std::fs::write(fixture.paths().native_database, b"not a database").unwrap();
+    let inspection_required = DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::NativeRebuildInspectionRequired {
+        reason: AuthorityInconsistency::NativeMetadataUnreadable,
+      },
+    );
     assert_eq!(
       inspect_startup_authority(&fixture.paths(), native_schema::NATIVE_SCHEMA_VERSION),
-      DatabaseLifecycleState::ConversionRecoverable { resumable: false }
+      inspection_required
     );
     let owner = NativeLifecycleOwner::new();
 
@@ -2257,12 +2265,8 @@ mod tests {
       matches!(settled, Ok(Some(ConversionOutcome::ActionRequired))),
       "{settled:?}"
     );
-    assert_eq!(
-      owner.state(),
-      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
-        hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable
-      ))
-    );
+    assert_eq!(owner.state(), inspection_required);
+    assert!(fixture.paths().native_database.is_file());
   }
 
   #[test]

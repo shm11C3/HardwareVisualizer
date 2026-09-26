@@ -285,10 +285,10 @@ mod boundary {
   /// again, closing a live native owner first.
   ///
   /// For a caller that knows more than the files can show right now: a
-  /// selection that committed while its metadata cannot be read inspects as
-  /// an interrupted conversion, which [`reobserve_authority`] would answer
-  /// from SQLite. Refusal holds on every path, including a failed close
-  /// ([`close_or_refuse`]).
+  /// selection may have committed even though a fresh read cannot prove it,
+  /// so the refusal must not depend on what [`reobserve_authority`] would
+  /// infer from the files at that moment. Refusal holds on every path,
+  /// including a failed close ([`close_or_refuse`]).
   pub async fn refuse_consumers(reason: String) -> Result<(), NativeDatabaseError> {
     let mut guard = active().write().await;
     if let Active::Native(database) =
