@@ -21,6 +21,8 @@
 | S8 | PawnIO.Modules `README.md` and GitHub Releases, <https://github.com/namazso/PawnIO.Modules/releases>; CI workflow `.github/workflows/ci.yml` in S2 | Primary; module-blob distribution channels and signing status. Release 0.2.11 (published 2026-08-30) assets, per `gh release view 0.2.11 -R namazso/PawnIO.Modules`: `release_0_2_11.zip` (69,582 bytes, SHA-256 `43608cb89bc84247fef1368a139013f7d043e17db6d6c8dfc9b46bf0905a81f4`) + source archives; archive contents listed from the downloaded asset on 2026-09-26. Earlier pin: release 0.2.8, `release_0_2_8.zip`. `README.md` and `.github/workflows/ci.yml` are unchanged between tags `0.2.8` and `0.2.11` (upstream compare) |
 | S9 | PawnIO repo in S1: `PawnIOUtil/PawnIOUtil.cpp` (the `sign` command and signed-blob layout), `PawnIO/PawnIO.inf.in` (device security descriptor), `PawnIO/src/driver.cpp` (`IoCreateDevice`) | Primary; signed-module format and device access control. Interface facts only; no code was copied |
 | S10 | Implementer field validation on AMD Ryzen 7 7800X3D (Windows), reported 2026-06-13: installed module file names, `pawnio_open` access-denied without elevation, `Global\Access_PCI` open-vs-create behavior | Independent runtime observation (clean-room: the implementer ran the actual hardware and PawnIO; no prohibited source consulted). Corroborates the primary-source facts above |
+| S11 | PawnIO.Modules PR #85, "RyzenSMU: Fix Bergamo family", <https://github.com/namazso/PawnIO.Modules/pull/85> (commit `a8706056`, merged 2026-07-26 via `75cea484`), and the release 0.2.10 notes, <https://github.com/namazso/PawnIO.Modules/releases/tag/0.2.10> (published 2026-07-27, lists PR #85) | Primary (upstream project's own description of its interface change); the PR cites the Bergamo CPUID `0xAA0F02` from the InstLatx64 CPUID dump `AuthenticAMD0AA0F02_K19_Bergamo_04_CPUID.txt`. The PR author states it was not tested on real hardware. No code was copied |
+| S12 | AMD, *Revision Guide for AMD Family 19h Models A0h-AFh Processors*, publication 57926, revision 1.05 (November 2025), docs.amd.com document id `aBaGVEhC_kN7n61TYp_76A`; references PPR order # 57228 (*PPR for AMD Family 19h Model A0h, Revision A2 Processors*) | Primary (vendor document); Overview p. 5 (covered products: EPYC 9004, EPYC 8004), Tables 2–3 p. 8 (CPUID `00AA0F02h` per package). Family 1Ah document list from a docs.amd.com search on 2026-09-26 |
 
 ## Licensing facts
 
@@ -263,10 +265,31 @@ does not enable family `0x15` (see
     the three family `0x15` parts.
   - The codename values returned by `ioctl_get_code_name` for the
     Zen families are unchanged; the three pre-Zen codenames were
-    appended after the existing values (release 0.2.11). From release
-    0.2.10 the family `0x19` model `0xA0` part is recognized (as
-    Bergamo), and family `0x1A` model `0xA0` is no longer recognized,
-    so the module rejects that model at load.
+    appended after the existing values (release 0.2.11).
+  - Model `0xA0` recognition (family correction). At tags `0.2.8` and
+    `0.2.9` the Bergamo entry was listed under family `0x1A` model
+    `0xA0`, and family `0x19` model `0xA0` was not recognized. Upstream
+    PR #85 ("RyzenSMU: Fix Bergamo family", commit `a8706056`, released
+    in 0.2.10) describes that entry as incorrectly listed under family
+    `0x1A` and moves it to family `0x19` model `0xA0`; Bergamo reports
+    CPUID `00AA0F02h` (family `0x19`, model `0xA0`, stepping 2) (S5,
+    S11). From release 0.2.10 the module therefore recognizes family
+    `0x19` model `0xA0` as Bergamo and rejects family `0x1A` model
+    `0xA0` at load (`STATUS_NOT_SUPPORTED`) (S5).
+  - AMD documents CPUID `00AA0F02h` (Zen4c-A2) for AMD EPYC 9004
+    Series (SP5) and AMD EPYC 8004 Series (SP6) processors, both
+    within Family 19h Models A0h–AFh (S12, Overview p. 5 and
+    Tables 2–3 p. 8). No AMD document for a Family 1Ah model `0xA0`
+    part was found at authoring (2026-09-26 search of the AMD
+    documentation portal; AMD Family 1Ah documents found cover
+    models 00h–0Fh, 10h–1Fh, 11h, 50h–57h, and 70h) (S12).
+  - Consequence for this project: no known shipping CPU loses
+    `RyzenSMU` support from this change. Family `0x19` model `0xA0`
+    parts (EPYC 9004 "Bergamo" / EPYC 8004 "Siena"), which the `0.2.8`
+    module rejected at load, are now recognized. A future Family
+    `0x1A` model `0xA0` part, if one ships, would be rejected at load
+    by the `0.2.11` module; this affects only the Experimental family
+    `0x1A` Tctl path (S5, S12).
   - From release 0.2.10, module load no longer resolves or maps the SMU
     PM table; the table is mapped on the first PM-table read instead.
     A PM-table failure therefore no longer fails module load.
@@ -410,4 +433,4 @@ phase of #1635, not part of the Phase 1 read path.
 | 4 | 2026-06-13 | Implementer field-validation corrections (Ryzen 7 7800X3D, S10), all cross-checked against PawnIO primary sources (S9): signed modules are `*.bin` (`PawnIOUtil sign` blob layout) shipped inside the release archive `release_0_2_8.zip`, vs unsigned `*.amx` build output — `pawnio_load` is extension-agnostic, so dropped the `.amx`-only naming claim; `pawnio_open` requires elevation (device DACL `D:P(A;;GA;;;SY)(A;;GA;;;BA)`; non-elevated → `0x80070005`), added three-state detection; core installer excludes modules; mutex acquisition must open-before-create to avoid ACL failures on shared mutants; added a follow-up-scope note for installer UX. Resolved the asset-packaging open question. Status remains Implementation-ready. |
 | 5 | 2026-08-30 | Added the `AMDFamily17` module contract for the CPU package-power phase (family gate `0x17`–`0x1A`, `ioctl_read_msr`/`ioctl_write_msr`/`ioctl_read_smn`, RAPL MSR read allow-list membership, no caller mutex on MSR reads, execution context, `AMDFamily17.bin` in the 0.2.8 release archive), verified against tag `0.2.8` (commit `754635b`). Recorded the `IntelMSR` RAPL read allow-list additions (`0x606`, `0x611`, and other RAPL-domain registers). Status remains Implementation-ready. |
 | 6 | 2026-09-03 | Licensing facts reworded for the repository relicense from MIT to GPL-3.0-or-later (ADR 0020) and a note added that the client's license does not change the IOCTL-exception / LGPL facts. No hardware, API, or IOCTL fact changed. Status remains Implementation-ready. |
-| 7 | 2026-09-26 | Re-verified all module facts against PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`, release asset `release_0_2_11.zip`) by diffing `IntelMSR.p`, `RyzenSMU.p`, `AMDFamily17.p`, and `LpcIO.p` against tag `0.2.8` and listing the release archive. Unchanged: every `ioctl_*` name and input/output cell count, the caller-mutex `@warning` docs, the `IntelMSR` vendor gate and `AMDFamily17` family gate, allow-list membership of `0x19C`/`0x1B1`/`0x1A2`/`0x606`/`0x611` and `0xC0010299`/`0xC001029A`/`0xC001029B` (none on a write allow-list), the `RyzenSMU` SMN window `0x56000`–`0x5AFFF`, the signed `.bin` file names, and the README/CI distribution facts. Recorded additive changes: `IntelMSR` read/write allow-list gained `0x1A4`; `AMDFamily17` read allow-list gained machine-check and SMCA diagnostic MSRs and read/write gained four cache-configuration MSRs; `RyzenSMU` accepts three family `0x15` parts, moved the family `0x19`/`0x1A` model `0xA0` recognition, and no longer maps the PM table at load; `LpcIO` never allows ports `0xCF8`–`0xCFF` and bounds the BAR list. Corrected the provenance label: `754635b` identifies the `0.2.8` annotated tag object, whose commit is `dcd5c1f`. No blocking change. Status remains Implementation-ready. |
+| 7 | 2026-09-26 | Re-verified all module facts against PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`, release asset `release_0_2_11.zip`) by diffing `IntelMSR.p`, `RyzenSMU.p`, `AMDFamily17.p`, and `LpcIO.p` against tag `0.2.8` and listing the release archive. Unchanged: every `ioctl_*` name and input/output cell count, the caller-mutex `@warning` docs, the `IntelMSR` vendor gate and `AMDFamily17` family gate, allow-list membership of `0x19C`/`0x1B1`/`0x1A2`/`0x606`/`0x611` and `0xC0010299`/`0xC001029A`/`0xC001029B` (none on a write allow-list), the `RyzenSMU` SMN window `0x56000`–`0x5AFFF`, the signed `.bin` file names, and the README/CI distribution facts. Recorded additive changes: `IntelMSR` read/write allow-list gained `0x1A4`; `AMDFamily17` read allow-list gained machine-check and SMCA diagnostic MSRs and read/write gained four cache-configuration MSRs; `RyzenSMU` accepts three family `0x15` parts, moved the Bergamo model `0xA0` recognition from family `0x1A` to family `0x19` (upstream PR #85 describes the old entry as a wrongly assigned family, S11; AMD RG 57926 places EPYC 9004/8004 at CPUID `00AA0F02h`, S12; no AMD Family 1Ah model `0xA0` document found at authoring, so no known shipping CPU loses support), and no longer maps the PM table at load; `LpcIO` never allows ports `0xCF8`–`0xCFF` and bounds the BAR list. Corrected the provenance label: `754635b` identifies the `0.2.8` annotated tag object, whose commit is `dcd5c1f`. No blocking change. Status remains Implementation-ready. |
