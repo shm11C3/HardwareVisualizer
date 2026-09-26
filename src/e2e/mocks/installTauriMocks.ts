@@ -282,6 +282,30 @@ const readCoolingObservationOverride = (): CoolingObservationOverride => {
     : null;
 };
 
+/** `?externalComponentModules=outdated` reports two module files from an
+ * earlier PawnIO.Modules release, so Settings offers the update (#2284). */
+const readExternalComponentModulesOverride = (): "outdated" | null =>
+  new URLSearchParams(window.location.search).get(
+    "externalComponentModules",
+  ) === "outdated"
+    ? "outdated"
+    : null;
+
+const externalComponentModuleFiles = () =>
+  readExternalComponentModulesOverride() === "outdated"
+    ? [
+        { fileName: "IntelMSR.bin", condition: "outdated" },
+        { fileName: "RyzenSMU.bin", condition: "current" },
+        { fileName: "AMDFamily17.bin", condition: "current" },
+        { fileName: "LpcIO.bin", condition: "outdated" },
+      ]
+    : [
+        { fileName: "IntelMSR.bin", condition: "current" },
+        { fileName: "RyzenSMU.bin", condition: "current" },
+        { fileName: "AMDFamily17.bin", condition: "current" },
+        { fileName: "LpcIO.bin", condition: "missing" },
+      ];
+
 const externalComponentSetupStatus = () => ({
   component: "pawnio",
   support: "supported",
@@ -291,12 +315,7 @@ const externalComponentSetupStatus = () => ({
     installLocation: "C:\\Program Files\\PawnIO",
     detail: null,
   },
-  moduleFiles: [
-    { fileName: "IntelMSR.bin", condition: "current" },
-    { fileName: "RyzenSMU.bin", condition: "current" },
-    { fileName: "AMDFamily17.bin", condition: "current" },
-    { fileName: "LpcIO.bin", condition: "missing" },
-  ],
+  moduleFiles: externalComponentModuleFiles(),
   pinnedRuntimeVersion: "2.2.0",
   pinnedModulesVersion: "0.2.11",
   complete: false,
