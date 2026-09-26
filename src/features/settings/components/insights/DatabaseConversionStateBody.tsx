@@ -178,7 +178,9 @@ export const DatabaseConversionStateBody = ({
       // the file: it continues only if a fresh inspection can establish a
       // supported state, and otherwise leaves the issue in ActionRequired.
       // Authority or fresh creation failures still need their own recovery
-      // path.
+      // path. Keep this list equal to what `is_startable_state`
+      // (`src-tauri/src/app/native_conversion.rs`) admits; a reason it refuses
+      // turns Retry into a silent no-op.
       (state.reason === "conversionFailed" ||
         state.reason === "conversionCancelled" ||
         state.reason === "nativeOpenFailed" ||

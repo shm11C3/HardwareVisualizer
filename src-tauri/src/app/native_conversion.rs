@@ -233,14 +233,27 @@ pub fn resume_producers(workers: &WorkersState, resumers: ProducerResumers) {
 ///   `NativeAuthoritative` there, and retries the open - it does not redo
 ///   the conversion itself. Refusing this state instead would make "Try
 ///   Again" a permanent no-op for the one issue it exists to recover from.
+/// - `Authority(NativeMetadataUnreadable)`: the files could not be read, not
+///   a disagreement they positively show, and the cause (a lock, an I/O
+///   error) can clear while the app runs. Settings offers Retry for it. The
+///   retry is the same fresh entry inspection: no native owner holds the file
+///   in this state (startup never adopts it into dispatch, and
+///   `settle_failed_selection` closes dispatch's owner before recording it),
+///   the inspection only reads the files or repairs the marker from committed
+///   metadata, and a still-unreadable file returns `ActionRequired` again
+///   before anything is moved, written or resumed. A readable file continues
+///   from whatever it shows, exactly as a restart would (#2287).
 ///
 /// Every other state refuses: [`DatabaseLifecycleState::NativeAuthoritative`]
 /// and [`DatabaseLifecycleState::Converting`] because nothing needs
-/// starting or one already is, and every other [`LifecycleIssue`]
-/// (`Authority`, `FreshCreationFailed`) because those name a files-level
-/// disagreement or a fresh-profile failure a plain restart of this same
-/// flow cannot resolve.
+/// starting or one already is, and every other [`LifecycleIssue`] (every
+/// other `Authority` reason, `FreshCreationFailed`, and the guarded
+/// recovery issues) because those name a files-level disagreement, a
+/// fresh-profile failure, or a state with its own recovery command that a
+/// plain restart of this same flow cannot resolve.
 fn is_startable_state(state: &DatabaseLifecycleState) -> bool {
+  use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
   matches!(
     state,
     DatabaseLifecycleState::SqliteAuthoritative
@@ -249,6 +262,7 @@ fn is_startable_state(state: &DatabaseLifecycleState) -> bool {
         LifecycleIssue::ConversionFailed { .. }
           | LifecycleIssue::ConversionCancelled { .. }
           | LifecycleIssue::NativeOpenFailed { .. }
+          | LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable)
       )
   )
 }
@@ -1323,6 +1337,7 @@ mod conversion_runtime_tests {
   use crate::app::native_lifecycle::{
     ConversionProgress, DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
   };
+  use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
 
   #[test]
   fn a_second_attempt_is_refused_while_one_is_in_progress() {
@@ -1557,7 +1572,8 @@ mod conversion_runtime_tests {
 
   /// Regression for a PR #2252 review finding: `ActionRequired(Authority(_)
   /// | FreshCreationFailed)` names a files-level disagreement or a
-  /// fresh-profile failure a plain restart of this flow cannot resolve, so
+  /// fresh-profile failure a plain restart of this flow cannot resolve
+  /// (`NativeMetadataUnreadable` is the one admitted `Authority` reason), so
   /// a stale Start control must not paper over it with an optimistic
   /// `Converting`.
   #[test]
@@ -1629,6 +1645,60 @@ mod conversion_runtime_tests {
         DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
         "{issue:?} must mark Converting(Preflight)"
       );
+    }
+  }
+
+  /// Regression for #2287: Settings offers Retry for unreadable native
+  /// metadata, and that retry is only real if the claim admits it. The
+  /// driver's entry re-inspects the files, so the retry moves nothing and
+  /// reports the same issue again while the metadata stays unreadable.
+  #[test]
+  fn starting_after_unreadable_native_metadata_is_admitted() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+    owner.set_state(DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
+    ));
+
+    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+    assert!(claim.is_some());
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight)
+    );
+  }
+
+  /// Admitting `NativeMetadataUnreadable` must not widen the admission to
+  /// the other files-level disagreements, which a retry of this flow cannot
+  /// resolve.
+  #[test]
+  fn starting_while_any_other_authority_disagreement_is_refused() {
+    use AuthorityInconsistency as A;
+    for reason in [
+      A::MarkerUnreadable,
+      A::MarkerWithoutNativeDatabase,
+      A::MarkerNamesAnotherDatabase,
+      A::MarkerAheadOfNativeState,
+      A::SchemaVersionMismatch,
+      A::StorageVersionMetadataMissing,
+      A::StorageVersionMismatch,
+      A::MarkerDisagreesWithNativeDatabase,
+      A::SelectedWithoutMarker,
+      A::SourceDatabaseMissing,
+    ] {
+      let runtime = ConversionRuntime::default();
+      runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+      let owner = NativeLifecycleOwner::new();
+      let state =
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(reason));
+      owner.set_state(state.clone());
+
+      let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+      assert!(claim.is_none(), "{reason:?} must be refused");
+      assert_eq!(owner.state(), state, "{reason:?} must be left untouched");
     }
   }
 
@@ -2639,5 +2709,102 @@ mod tests {
 
     assert!(matches!(retry_outcome, ConversionOutcome::AlreadySelected));
     assert!(second_owner.selected_database().is_some());
+  }
+
+  /// #2287: Settings offers Retry for `Authority(NativeMetadataUnreadable)`.
+  /// The retry goes through the same claim `start_database_conversion`
+  /// takes, and the driver's entry re-inspects the files: while the metadata
+  /// is still unreadable it reports the same issue and leaves both databases
+  /// and the marker exactly as they were, and once the metadata reads again
+  /// it opens the selected database instead of converting anything.
+  #[tokio::test]
+  async fn a_retry_while_native_metadata_is_unreadable_moves_nothing_and_recovers_once_readable()
+   {
+    use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
+    let fixture = Fixture::new().await;
+    let paths = fixture.paths();
+    let verified = reconciled(&fixture).await;
+    select_native_database(paths.clone(), verified)
+      .await
+      .unwrap();
+    let source_before = std::fs::read(&paths.source_database).unwrap();
+    let native_selected = std::fs::read(&paths.native_database).unwrap();
+    let marker_before = std::fs::read(&paths.marker).unwrap();
+    // Unreadable bytes stand in for metadata that cannot be read right now.
+    let native_unreadable = b"unreadable native database bytes".to_vec();
+    std::fs::write(&paths.native_database, &native_unreadable).unwrap();
+    let unreadable = DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+      AuthorityInconsistency::NativeMetadataUnreadable,
+    ));
+    assert_eq!(
+      inspect_startup_authority(&paths, native_schema::NATIVE_SCHEMA_VERSION),
+      unreadable
+    );
+
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+    owner.set_state(unreadable.clone());
+    let workers = WorkersState::default();
+
+    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    assert!(claim.is_some(), "Retry must start an attempt");
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    runtime.end_attempt();
+
+    assert!(matches!(outcome, ConversionOutcome::ActionRequired));
+    assert_eq!(owner.state(), unreadable);
+    assert!(owner.selected_database().is_none());
+    assert_eq!(
+      std::fs::read(&paths.source_database).unwrap(),
+      source_before
+    );
+    assert_eq!(
+      std::fs::read(&paths.native_database).unwrap(),
+      native_unreadable
+    );
+    assert_eq!(std::fs::read(&paths.marker).unwrap(), marker_before);
+    assert!(
+      workers.cooling_rollup.lock().unwrap().is_none(),
+      "producers must not start while authority is unresolved"
+    );
+
+    // The cause is gone: the next Retry opens the selected database.
+    std::fs::write(&paths.native_database, &native_selected).unwrap();
+    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    assert!(claim.is_some());
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    runtime.end_attempt();
+
+    assert!(
+      matches!(outcome, ConversionOutcome::AlreadySelected),
+      "{outcome:?}"
+    );
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
+    assert!(owner.selected_database().is_some());
+    assert_eq!(
+      std::fs::read(&paths.source_database).unwrap(),
+      source_before
+    );
+    assert_eq!(std::fs::read(&paths.marker).unwrap(), marker_before);
   }
 }
