@@ -155,6 +155,19 @@ export const useDatabaseConversion = () => {
     return true;
   }, [refresh]);
 
+  const recover = useCallback(async () => {
+    setError(null);
+    const result = await commands.rebuildNativeDatabaseFromSqlite();
+    if (isError(result)) {
+      setError(result.error);
+      await refresh();
+      return false;
+    }
+    previousKindRef.current = "converting";
+    await refresh();
+    return true;
+  }, [refresh]);
+
   const cancel = useCallback(async () => {
     const result = await commands.cancelDatabaseConversion();
     if (isError(result)) {
@@ -174,6 +187,7 @@ export const useDatabaseConversion = () => {
     settled,
     error,
     start,
+    recover,
     cancel,
     justCompleted,
     acknowledgeCompletion,

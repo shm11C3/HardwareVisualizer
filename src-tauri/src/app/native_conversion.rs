@@ -995,9 +995,9 @@ async fn settle_failed_selection(
     _ => LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
   };
   if handoff == SelectionHandoff::ThroughDispatch {
-    // `refuse_consumers` leaves the boundary unavailable on every path;
-    // `reobserve_authority` would not, because unreadable metadata inspects
-    // as an interrupted conversion and it would answer from SQLite.
+    // `refuse_consumers` leaves the boundary unavailable on every path.
+    // `reobserve_authority` would decide again from whatever the files show
+    // now, and a fresh read is not proof that the selection did not commit.
     if let Err(close_error) =
       hardviz_core::infrastructure::database::dispatch::refuse_consumers(format!(
         "the native selection could not be completed: {error}"
@@ -1596,7 +1596,7 @@ mod tests {
   use hardviz_core::event_bus::EventBus;
   use hardviz_core::infrastructure::database::migrate;
   use hardviz_core::infrastructure::database::native_database::{
-    AUTHORITY_MARKER_FILE_NAME, AuthorityPaths,
+    AUTHORITY_MARKER_FILE_NAME, AuthorityPaths, archive_unselected_native_for_rebuild,
   };
   use sqlx::ConnectOptions;
   use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -1690,6 +1690,132 @@ mod tests {
     // health resumers were `None` because nothing was running to begin with.
     assert!(workers.cooling_rollup.lock().unwrap().is_some());
     assert!(workers.hw_archive.lock().unwrap().is_none());
+  }
+
+  #[tokio::test]
+  async fn an_unreadable_unmarked_native_file_stays_blocked_without_changing_either_database()
+   {
+    let fixture = Fixture::new().await;
+    let paths = fixture.paths();
+    let source_before = std::fs::read(&paths.source_database).unwrap();
+    let native_before = b"unreadable native database bytes".to_vec();
+    std::fs::write(&paths.native_database, &native_before).unwrap();
+
+    let owner = NativeLifecycleOwner::new();
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+
+    assert!(matches!(outcome, ConversionOutcome::ActionRequired));
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::NativeRebuildInspectionRequired {
+          reason: hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable,
+        }
+      )
+    );
+    assert_eq!(
+      std::fs::read(&paths.source_database).unwrap(),
+      source_before
+    );
+    assert_eq!(
+      std::fs::read(&paths.native_database).unwrap(),
+      native_before
+    );
+    assert!(!paths.marker.exists());
+  }
+
+  #[tokio::test]
+  async fn an_unselected_old_schema_is_backed_up_before_rebuild_and_backup_survives_cancel()
+   {
+    let fixture = Fixture::new().await;
+    let paths = fixture.paths();
+    let candidate = fixture.directory.path().join("old-schema-candidate.duckdb");
+    let mut old_schema = native_schema::get_native_schema();
+    old_schema.version = 0;
+    build_candidate_database(
+      &paths.source_database,
+      &candidate,
+      migration::get_migrations(),
+    )
+    .await
+    .unwrap();
+    finalize_candidate_database(&candidate, &paths.native_database, old_schema)
+      .await
+      .unwrap();
+    std::fs::remove_file(candidate).unwrap();
+
+    assert!(matches!(
+      inspect_startup_authority(&paths, native_schema::NATIVE_SCHEMA_VERSION),
+      DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::NativeRebuildInspectionRequired {
+          reason: hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::SchemaVersionMismatch,
+        }
+      )
+    ));
+
+    hardviz_core::infrastructure::database::candidate_database::verify_source_schema(
+      &paths.source_database,
+      migration::get_migrations(),
+    )
+    .await
+    .unwrap();
+    let source_before = std::fs::read(&paths.source_database).unwrap();
+    let backup = archive_unselected_native_for_rebuild(&paths).await.unwrap();
+    let backup_before = std::fs::read(&backup).unwrap();
+    assert!(!paths.native_database.exists());
+    assert!(!paths.marker.exists());
+
+    let owner = NativeLifecycleOwner::new();
+    let workers = WorkersState::default();
+    let cancelled = ConversionCancellation::new();
+    cancelled.cancel();
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &cancelled,
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+      outcome,
+      ConversionOutcome::Cancelled {
+        step: ConversionProgress::Preflight
+      }
+    ));
+    assert_eq!(std::fs::read(&backup).unwrap(), backup_before);
+    assert_eq!(
+      std::fs::read(&paths.source_database).unwrap(),
+      source_before
+    );
+    assert!(!paths.native_database.exists());
+    assert!(!paths.marker.exists());
+
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(outcome, ConversionOutcome::Selected { .. }));
+    assert!(paths.native_database.is_file());
+    assert!(paths.marker.is_file());
+    assert_eq!(std::fs::read(&backup).unwrap(), backup_before);
   }
 
   #[tokio::test]
@@ -2106,10 +2232,13 @@ mod tests {
   #[tokio::test]
   async fn a_failure_whose_native_metadata_cannot_be_read_keeps_producers_paused() {
     // The I/O or `.wal` problem that failed the checkpoint can also hide a
-    // committed `selected` from the re-inspection, which then reads as an
-    // interrupted conversion. That is not proof the commit did not land, so
-    // the failure must not be treated as retryable with SQLite authoritative.
+    // committed `selected` from the re-inspection. That is not proof the
+    // commit did not land, so the failure must not be treated as retryable
+    // with SQLite authoritative; it may only offer the guarded recovery
+    // check, which refuses unless it proves the file is unselected.
     // Unreadable bytes stand in for "cannot be read right now".
+    use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
     let fixture = Fixture::new().await;
     let verified = reconciled(&fixture).await;
     select_native_database(fixture.paths(), verified)
@@ -2117,9 +2246,14 @@ mod tests {
       .unwrap();
     std::fs::remove_file(fixture.paths().marker).unwrap();
     std::fs::write(fixture.paths().native_database, b"not a database").unwrap();
+    let inspection_required = DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::NativeRebuildInspectionRequired {
+        reason: AuthorityInconsistency::NativeMetadataUnreadable,
+      },
+    );
     assert_eq!(
       inspect_startup_authority(&fixture.paths(), native_schema::NATIVE_SCHEMA_VERSION),
-      DatabaseLifecycleState::ConversionRecoverable { resumable: false }
+      inspection_required
     );
     let owner = NativeLifecycleOwner::new();
 
@@ -2137,12 +2271,8 @@ mod tests {
       matches!(settled, Ok(Some(ConversionOutcome::ActionRequired))),
       "{settled:?}"
     );
-    assert_eq!(
-      owner.state(),
-      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
-        hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable
-      ))
-    );
+    assert_eq!(owner.state(), inspection_required);
+    assert!(fixture.paths().native_database.is_file());
   }
 
   #[test]
@@ -2299,7 +2429,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn a_concurrently_held_database_is_reported_as_action_required_not_silently_skipped()
+  async fn a_concurrently_held_database_is_action_required_and_can_be_retried_after_close()
    {
     // Another owner in this process already holds the selected database. The
     // second owner must be refused and record why, never treat it as done.
@@ -2348,5 +2478,26 @@ mod tests {
       second_owner.state()
     );
     assert!(second_owner.selected_database().is_none());
+
+    first_owner
+      .selected_database()
+      .unwrap()
+      .close()
+      .await
+      .unwrap();
+
+    let retry_outcome = run_conversion(
+      fixture.target(),
+      &second_owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+
+    assert!(matches!(retry_outcome, ConversionOutcome::AlreadySelected));
+    assert!(second_owner.selected_database().is_some());
   }
 }

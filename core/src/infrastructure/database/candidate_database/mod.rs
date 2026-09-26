@@ -147,6 +147,60 @@ pub async fn build_candidate_database(
   })?
 }
 
+/// Check that the still-authoritative SQLite source is readable and its schema
+/// still matches the caller's migration reference before a recovery moves an
+/// unselected native file aside.
+///
+/// This deliberately validates schema and table metadata only. The normal
+/// candidate build remains responsible for validating and copying every row.
+pub async fn verify_source_schema(
+  source: &Path,
+  migrations: Vec<SchemaMigration>,
+) -> Result<(), CandidateError> {
+  let source_metadata =
+    std::fs::metadata(source).map_err(|_| CandidateError::SourceUnavailable {
+      path: source.to_owned(),
+    })?;
+  if !source_metadata.is_file() {
+    return Err(CandidateError::SourceUnavailable {
+      path: source.to_owned(),
+    });
+  }
+  let source = source.to_owned();
+  tokio::task::spawn_blocking(move || {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .map_err(|error| CandidateError::Worker {
+        message: error.to_string(),
+      })?;
+    runtime.block_on(async move {
+      let reference = source::reference_schema(migrations).await?;
+      let mut connection = source::open_source(&source).await?;
+      sqlx::query("BEGIN")
+        .execute(&mut connection)
+        .await
+        .map_err(|error| CandidateError::SourceRead {
+          message: error.to_string(),
+        })?;
+      let schema = source::inspect_schema(&mut connection).await?;
+      source::verify_schema(&schema, &reference)?;
+      reject_reserved_columns(&schema)?;
+      sqlx::query("ROLLBACK")
+        .execute(&mut connection)
+        .await
+        .map_err(|error| CandidateError::SourceRead {
+          message: error.to_string(),
+        })?;
+      Ok(())
+    })
+  })
+  .await
+  .map_err(|error| CandidateError::Worker {
+    message: error.to_string(),
+  })?
+}
+
 async fn copy_snapshot(
   source_path: &Path,
   destination: &Path,
