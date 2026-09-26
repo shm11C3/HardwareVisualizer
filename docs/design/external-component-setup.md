@@ -305,12 +305,46 @@ installed and its fallbacks unchanged.
 ### What is deliberately not done
 
 - No bundled artifacts, no version checks against upstream, no automatic
-  upgrades of an installed PawnIO.
+  upgrades of the PawnIO runtime. Module files are refreshed as described in
+  [Planned: outdated module refresh](#planned-outdated-module-refresh-2284).
 - No first-launch prompt, no change to External Component Guidance conditions.
 - No in-process install when the app already runs elevated; the single
   command-line path is used everywhere to keep one tested route.
 - No download proxy configuration; the download uses the platform certificate
   store and the system proxy through the HTTP client defaults.
+
+### Planned: outdated module refresh (#2284)
+
+Decided in [ADR 0026](../adr/0026-refresh-outdated-external-component-files.md);
+not implemented yet.
+
+- **File states.** The catalog pins the SHA-256 of each module file in the
+  pinned release and in every earlier upstream release that shipped it.
+  Detection reports each file as missing, current (matches the pinned
+  release), outdated (matches only an earlier release), or unrecognized (any
+  other content, including a newer release). A root that cannot be read stays
+  unknown state. The component is complete when the runtime is installed and
+  every file is current or unrecognized.
+- **Refresh.** When at least one file is outdated, the executor downloads and
+  verifies the pinned modules archive, writes each replacement to a sibling
+  partial file, verifies it, re-checks that the target is still outdated, and
+  swaps it in with a single replacing rename. A file that cannot be replaced
+  keeps its old contents and becomes a failure stage of its own. Current,
+  unrecognized, and missing files are not touched by the refresh.
+- **Update trigger.** The MSI fragment gains a deferred, non-impersonated
+  custom action after `InstallFiles` that runs a refresh-only command-line
+  mode when `WIX_UPGRADE_DETECTED` is set (the Tauri template uses
+  `MajorUpgrade`), `REMOVE` is not set, and the install directory is under
+  Program Files, at every UI level. It never installs the runtime and never
+  adds a missing file, and `Return="ignore"` keeps a refresh failure from
+  failing the update. The NSIS updater does not run it.
+- **Settings.** Outdated files show as "update available", and the existing
+  setup action fills missing files and replaces outdated ones in one
+  elevated run.
+- **Slices.** (1) Core: per-release hash catalog, file-state detection,
+  refresh executor, and the refresh-only command-line mode. (2) Settings:
+  wire DTO, state display, and action copy. (3) MSI: the upgrade custom
+  action and its table checks.
 
 ## Slices
 
@@ -325,6 +359,9 @@ installed and its fallbacks unchanged.
 3. **Uninstall notice** (`feat/`): the notice mode, the MSI immediate custom
    action and NSIS pre-uninstall hook that run it, plus the winget manifest
    review.
+4. **Outdated module refresh** (#2284): see
+   [Planned: outdated module refresh](#planned-outdated-module-refresh-2284)
+   for its own slices.
 
 ## Decided: no winget dependency on PawnIO
 

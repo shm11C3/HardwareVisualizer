@@ -219,5 +219,5 @@ A user-facing notice shown after hardware collection tries and cannot use an opt
 _Avoid_: Startup dependency check, install prompt, dependency error, missing component alert
 
 **External Component Setup**:
-The explicit, user-initiated action in which HardwareVisualizer downloads a pinned upstream release of an optional external component, verifies it, and installs it with the user's elevation consent, from the installer or from Settings.
+The explicit, user-initiated action in which HardwareVisualizer downloads a pinned upstream release of an optional external component, verifies it, and installs it with the user's elevation consent, from the installer or from Settings. Replacing files that match an older upstream release with the pinned release, from Settings or during an MSI upgrade, is part of the same action (ADR 0026).
 _Avoid_: Auto-install, bundled driver, dependency bootstrap, silent install, first-run setup
