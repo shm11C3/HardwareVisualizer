@@ -21,6 +21,8 @@
 //! called in the instant after [`super::native_database::select_native_database`]
 //! has committed but before this boundary has been told - keeps getting a
 //! consistent answer instead of racing a filesystem check.
+//! Process shutdown also closes the boundary after its database-backed workers
+//! drain, so later consumers are refused without reopening either backend.
 //!
 //! # Feature-disabled behaviour
 //!
@@ -70,11 +72,12 @@
 //!   authoritative backend, so the boundary answers nothing rather than
 //!   guess. See `boundary::reobserve_authority`'s own doc for the exact
 //!   three-way split.
-//! - [`shutdown()`](shutdown) - close the live native owner without
-//!   deciding a new backend. Idempotent; call it during process shutdown,
-//!   after database-backed workers have drained and before the process
-//!   exits, so the two DuckDB lane threads are joined deliberately instead
-//!   of torn down with the process.
+//! - [`shutdown()`](shutdown) - close the live native owner and move the
+//!   boundary to a closed state without deciding a new backend. Idempotent;
+//!   call it during process shutdown, after database-backed workers have
+//!   drained and before the process exits, so the two DuckDB lane threads are
+//!   joined deliberately instead of torn down with the process. Any later
+//!   consumer is refused before it can reopen SQLite or native storage.
 //!
 //! `reobserve_authority` was chosen over a "hand me an already-open database"
 //! entry point because it is the one that cannot race a second instance
@@ -134,6 +137,11 @@ pub enum DispatchError {
      because the durable authority record no longer treats it as authoritative"
   )]
   NativeUnavailable { reason: String },
+  /// The App has drained database-backed workers and shut down this boundary.
+  /// A late consumer must not reopen SQLite or the native database.
+  #[cfg(feature = "duckdb-archive")]
+  #[error("the database dispatch boundary has shut down; refusing database access")]
+  Shutdown,
 }
 
 #[cfg(feature = "duckdb-archive")]
@@ -154,13 +162,15 @@ mod boundary {
   }
 
   /// Which backend this boundary currently answers from. `Unavailable`
-  /// exists only so a consumer can be refused with a typed error rather
-  /// than silently reading stale SQLite rows - see the module doc's "What
-  /// decides the answer" and [`DispatchError::NativeUnavailable`].
+  /// refuses a consumer rather than silently reading stale SQLite rows - see
+  /// the module doc's "What decides the answer" and
+  /// [`DispatchError::NativeUnavailable`]. `Shutdown` refuses any consumer
+  /// after the App has drained its database-backed workers.
   enum Active {
     Sqlite,
     Native(NativeDatabase),
     Unavailable(String),
+    Shutdown,
   }
 
   /// What a dispatch function actually dispatches to. Not `Unavailable`:
@@ -210,7 +220,8 @@ mod boundary {
 
   /// Close whatever native owner this boundary currently holds, then look at
   /// disk again and decide the next answer. See the module doc's "Seam for
-  /// #2135" for when to call this.
+  /// #2135" for when to call this. Once [`shutdown`] has run, reobservation
+  /// returns [`DispatchError::Shutdown`] without changing the terminal state.
   ///
   /// Three outcomes, by durable state:
   /// - [`AuthorityState::SqliteAuthoritative`],
@@ -230,8 +241,11 @@ mod boundary {
   ///   [`super::super::native_database::repair_authority_marker`]), but the
   ///   boundary answers nothing until a later `reobserve_authority` call
   ///   reports something else.
-  pub async fn reobserve_authority() -> Result<AuthorityState, NativeDatabaseError> {
+  pub async fn reobserve_authority() -> Result<AuthorityState, DispatchError> {
     let mut guard = active().write().await;
+    if matches!(&*guard, Active::Shutdown) {
+      return Err(DispatchError::Shutdown);
+    }
     if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
       close_or_refuse(&mut guard, database).await?;
     }
@@ -258,7 +272,7 @@ mod boundary {
             *guard = Active::Unavailable(format!(
               "the durable state says selected, but opening it failed: {error}"
             ));
-            return Err(error);
+            return Err(DispatchError::Native(error));
           }
         }
       }
@@ -270,12 +284,13 @@ mod boundary {
     Ok(state)
   }
 
-  /// Close the live native owner, if any, without deciding a new backend.
-  /// Leaves the boundary on SQLite - correct at process shutdown, where
-  /// nothing answers a dispatch call again before the process exits.
+  /// Close the live native owner, if any, without deciding a new backend, and
+  /// refuse every later consumer. The App calls this after database-backed
+  /// workers have drained; returning to SQLite here could let a late consumer
+  /// recreate the database file while the process is shutting down.
   pub async fn shutdown() -> Result<(), NativeDatabaseError> {
     let mut guard = active().write().await;
-    if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
+    if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Shutdown) {
       close_or_refuse(&mut guard, database).await?;
     }
     Ok(())
@@ -301,20 +316,28 @@ mod boundary {
 
   /// Close a native owner that was just taken out of the boundary.
   ///
-  /// The caller has already put [`Active::Sqlite`] in its place, which is only
-  /// true once the owner is really gone. If the close fails, the durable state
-  /// may still say native is selected, so the boundary is left
-  /// [`Active::Unavailable`] rather than answering from a stale SQLite copy.
+  /// The caller has already replaced the owner with the state it intends to
+  /// leave active. If close fails, the durable state may still say native is
+  /// selected, so the boundary is left [`Active::Unavailable`] rather than
+  /// answering from a stale SQLite copy.
   async fn close_or_refuse(
     guard: &mut Active,
     database: NativeDatabase,
   ) -> Result<(), NativeDatabaseError> {
     if let Err(error) = database.close().await {
-      *guard =
-        Active::Unavailable(format!("closing the previous native owner failed: {error}"));
+      mark_unavailable_after_close_failure(
+        guard,
+        format!("closing the previous native owner failed: {error}"),
+      );
       return Err(error);
     }
     Ok(())
+  }
+
+  fn mark_unavailable_after_close_failure(guard: &mut Active, reason: String) {
+    if !matches!(&*guard, Active::Shutdown) {
+      *guard = Active::Unavailable(reason);
+    }
   }
 
   /// The backend to dispatch to, or the typed refusal if the durable state
@@ -328,6 +351,36 @@ mod boundary {
       Active::Unavailable(reason) => Err(DispatchError::NativeUnavailable {
         reason: reason.clone(),
       }),
+      Active::Shutdown => Err(DispatchError::Shutdown),
+    }
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::{Active, mark_unavailable_after_close_failure};
+
+    #[test]
+    fn native_close_failure_preserves_shutdown() {
+      let mut active = Active::Shutdown;
+
+      mark_unavailable_after_close_failure(
+        &mut active,
+        "closing the previous native owner failed".to_owned(),
+      );
+
+      assert!(matches!(active, Active::Shutdown));
+    }
+
+    #[test]
+    fn native_close_failure_refuses_consumers_before_shutdown() {
+      let mut active = Active::Sqlite;
+
+      mark_unavailable_after_close_failure(
+        &mut active,
+        "closing the previous native owner failed".to_owned(),
+      );
+
+      assert!(matches!(active, Active::Unavailable(_)));
     }
   }
 }

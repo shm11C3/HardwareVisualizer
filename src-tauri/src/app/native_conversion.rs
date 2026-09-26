@@ -1123,6 +1123,12 @@ pub async fn adopt_selected_database_via_dispatch(
       Err(error)
     }
     Err(error) => {
+      let error = match error {
+        dispatch::DispatchError::Native(error) => error,
+        error => NativeDatabaseError::Worker {
+          message: error.to_string(),
+        },
+      };
       fail_open(owner, &error);
       Err(error)
     }
