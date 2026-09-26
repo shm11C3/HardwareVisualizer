@@ -39,7 +39,9 @@ use windows::Win32::Security::Authorization::{
   ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
 };
 use windows::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
-use windows::Win32::Storage::FileSystem::{CreateDirectoryW, FILE_SHARE_READ};
+use windows::Win32::Storage::FileSystem::{
+  CreateDirectoryW, FILE_SHARE_DELETE, FILE_SHARE_READ,
+};
 use windows::Win32::System::Diagnostics::ToolHelp::{
   CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
   TH32CS_SNAPPROCESS,
@@ -990,18 +992,44 @@ fn replace_outdated_file(
     return Err(format!("failed to write {}: {e}", partial.display()));
   }
 
-  match is_outdated(target, file) {
-    Ok(true) => {}
+  let guard = match open_if_outdated(target, file) {
+    Ok(Some(guard)) => guard,
     other => {
       let _ = fs::remove_file(&partial);
-      return other;
+      return other.map(|_| false);
     }
-  }
-  if let Err(e) = fs::rename(&partial, target) {
+  };
+  let renamed = fs::rename(&partial, target);
+  drop(guard);
+  if let Err(e) = renamed {
     let _ = fs::remove_file(&partial);
     return Err(format!("failed to replace {}: {e}", target.display()));
   }
   Ok(true)
+}
+
+/// Open `target` when it holds the contents of an earlier release of `file`,
+/// and return the handle the contents were checked through. The handle denies
+/// writes but allows the replacing rename, so while it is open the checked
+/// contents cannot be rewritten in place. A missing target is not outdated.
+fn open_if_outdated(
+  target: &Path,
+  file: &ModuleFile,
+) -> Result<Option<fs::File>, String> {
+  let mut guard = match fs::OpenOptions::new()
+    .read(true)
+    .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
+    .open(target)
+  {
+    Ok(guard) => guard,
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+    Err(e) => return Err(format!("failed to open {}: {e}", target.display())),
+  };
+  let mut contents = Vec::new();
+  guard
+    .read_to_end(&mut contents)
+    .map_err(|e| format!("failed to read {}: {e}", target.display()))?;
+  Ok((file.classify(&contents) == ModuleFileCondition::Outdated).then_some(guard))
 }
 
 /// Whether `target` holds the contents of an earlier release of `file`. A
@@ -1433,6 +1461,28 @@ mod tests {
     assert_eq!(replaced, Ok(false));
     assert_eq!(fs::read(&target).expect("target"), b"a newer release");
     assert_eq!(directory_entries(&directory), vec!["Test.bin"]);
+    fs::remove_dir_all(&directory).expect("test directory is removed");
+  }
+
+  #[test]
+  fn a_checked_target_cannot_be_rewritten_but_can_be_replaced() {
+    let directory = test_directory("replace-guard");
+    let target = directory.join("Test.bin");
+    fs::write(&target, b"hello").expect("outdated file is written");
+    let partial = directory.join("Test.bin.partial");
+    fs::write(&partial, b"hello world").expect("replacement is written");
+
+    let guard = open_if_outdated(&target, &TEST_MODULE)
+      .expect("target is readable")
+      .expect("target is outdated");
+
+    assert!(
+      fs::OpenOptions::new().write(true).open(&target).is_err(),
+      "the checked contents cannot be rewritten while the guard is open"
+    );
+    fs::rename(&partial, &target).expect("the rename replaces the guarded target");
+    drop(guard);
+    assert_eq!(fs::read(&target).expect("target"), b"hello world");
     fs::remove_dir_all(&directory).expect("test directory is removed");
   }
 
