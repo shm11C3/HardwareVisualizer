@@ -61,6 +61,13 @@ test.describe("insights captures", () => {
     // Wait for the debounced archive query (250ms) + chart render.
     await page.waitForTimeout(1_000);
 
+    await expect(
+      page
+        .getByTestId("cooling-load-band-panel")
+        .getByText(/Baseline: \d+ min \/ recent: \d+ min/)
+        .first(),
+    ).toBeVisible();
+
     // No environmental sensor: the co-variate panel (#2068) has no Thermal
     // Delta to read the factors against and stays out of the layout.
     await expect(page.getByTestId("cooling-covariate-panel")).toHaveCount(0);
