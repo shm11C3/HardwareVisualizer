@@ -242,6 +242,28 @@ mod boundary {
   ///   boundary answers nothing until a later `reobserve_authority` call
   ///   reports something else.
   pub async fn reobserve_authority() -> Result<AuthorityState, DispatchError> {
+    reobserve(Expectation::Observed).await
+  }
+
+  /// [`reobserve_authority`] for a caller that has just durably selected the
+  /// native database and is handing it to this boundary. Any observation
+  /// other than [`AuthorityState::NativeSelected`] leaves the boundary
+  /// [`Active::Unavailable`] instead of answering from SQLite, decided under
+  /// the same write lock, so no consumer can reach the stale SQLite source
+  /// between the observation and the caller's refusal. The observed state is
+  /// still returned as `Ok` for the caller to report.
+  pub async fn reobserve_expecting_selected() -> Result<AuthorityState, DispatchError> {
+    reobserve(Expectation::Selected).await
+  }
+
+  /// Whether a SQLite-authoritative observation may answer from SQLite.
+  #[derive(Clone, Copy)]
+  enum Expectation {
+    Observed,
+    Selected,
+  }
+
+  async fn reobserve(expectation: Expectation) -> Result<AuthorityState, DispatchError> {
     let mut guard = active().write().await;
     if matches!(&*guard, Active::Shutdown) {
       return Err(DispatchError::Shutdown);
@@ -255,7 +277,12 @@ mod boundary {
     let next = match state {
       AuthorityState::SqliteAuthoritative
       | AuthorityState::ConversionInProgress { .. }
-      | AuthorityState::FinalizedUnselected => Active::Sqlite,
+      | AuthorityState::FinalizedUnselected => match expectation {
+        Expectation::Observed => Active::Sqlite,
+        Expectation::Selected => Active::Unavailable(format!(
+          "expected the selected native database, but observed {state:?}"
+        )),
+      },
       AuthorityState::NativeSelected => {
         match NativeDatabase::open(
           &config.paths.native_database,
@@ -391,7 +418,9 @@ mod boundary {
 }
 
 #[cfg(feature = "duckdb-archive")]
-pub use boundary::{init, refuse_consumers, reobserve_authority, shutdown};
+pub use boundary::{
+  init, refuse_consumers, reobserve_authority, reobserve_expecting_selected, shutdown,
+};
 
 /// Checkpoint the native database if it is the currently selected backend;
 /// a no-op on SQLite (there is nothing to checkpoint, and no live owner to

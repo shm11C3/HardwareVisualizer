@@ -1087,10 +1087,12 @@ async fn open_selected_database(
 /// `src-tauri/tests/` for the proof this actually wires together end to end.
 ///
 /// Only [`AuthorityState::NativeSelected`] counts as a successful hand-over.
-/// `reobserve_authority` also returns `Ok` for other states; for example,
-/// unreadable metadata with no marker can look like an interrupted
-/// conversion and leave dispatch on SQLite. Every other outcome is recorded
-/// as `NativeOpenFailed` and explicitly refused below.
+/// The observation can report other states; for example, unreadable
+/// metadata with no marker can look like an interrupted conversion.
+/// `reobserve_expecting_selected` therefore leaves dispatch refusing
+/// consumers for every other state within the same lock, so none can reach
+/// the stale SQLite source before the refusal below. Every other outcome is
+/// recorded as `NativeOpenFailed`.
 ///
 /// Respects the single-owner rule
 /// [`hardviz_core::infrastructure::database::dispatch::reobserve_authority`]'s
@@ -1110,7 +1112,7 @@ pub async fn adopt_selected_database_via_dispatch(
     fail_open_and_refuse_dispatch(owner, &error).await;
     return Err(error);
   }
-  match dispatch::reobserve_authority().await {
+  match dispatch::reobserve_expecting_selected().await {
     Ok(AuthorityState::NativeSelected) => {
       owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
       Ok(())
@@ -1240,8 +1242,9 @@ async fn fail_open_after_selection(
 }
 
 /// Record a selected database open or hand-off failure and refuse dispatch
-/// consumers. A failed `reobserve_authority` may already have done this, but
-/// an inconsistent observation can instead leave dispatch on SQLite.
+/// consumers. The hand-off's `reobserve_expecting_selected` already refuses
+/// them, but a failed open outside the hand-off (`open_selected_database`)
+/// leaves dispatch untouched, and this refusal also records the reason.
 async fn fail_open_and_refuse_dispatch(
   owner: &NativeLifecycleOwner,
   error: &impl std::fmt::Display,
