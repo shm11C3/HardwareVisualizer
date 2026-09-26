@@ -326,10 +326,12 @@ not implemented yet.
   unknown state. The component is complete when the runtime is installed and
   every file is current or unrecognized.
 - **Refresh.** When at least one file is outdated, the executor downloads and
-  verifies the pinned modules archive, writes each replacement to a sibling
-  partial file, verifies it, re-checks that the target is still outdated, and
-  swaps it in with a single replacing rename. A file that cannot be replaced
-  keeps its old contents and becomes a failure stage of its own. Current,
+  verifies the pinned modules archive, checks each extracted file against its
+  pinned digest, writes each replacement to a sibling partial file, re-checks
+  that the target is still outdated, and swaps it in with a single replacing
+  rename. A file that cannot be replaced
+  keeps its old contents and is reported through the module placement stage
+  (`19`), so the exit codes and the Settings copy stay unchanged. Current,
   unrecognized, and missing files are not touched by the refresh.
 - **Update trigger.** The MSI fragment gains a deferred, non-impersonated
   custom action after `InstallFiles` that runs a refresh-only command-line
@@ -341,10 +343,10 @@ not implemented yet.
 - **Settings.** Outdated files show as "update available", and the existing
   setup action fills missing files and replaces outdated ones in one
   elevated run.
-- **Slices.** (1) Core: per-release hash catalog, file-state detection,
-  refresh executor, and the refresh-only command-line mode. (2) Settings:
-  wire DTO, state display, and action copy. (3) MSI: the upgrade custom
-  action and its table checks.
+- **Slices.** (1) Core: per-release hash catalog, file-state detection, and
+  the refresh executor behind the platform trait. (2) Settings: wire DTO,
+  state display, and action copy. (3) MSI: the refresh-only command-line
+  mode, the upgrade custom action, and its table checks.
 
 ## Slices
 
