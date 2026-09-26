@@ -146,7 +146,7 @@ pub enum DispatchError {
 
 #[cfg(feature = "duckdb-archive")]
 mod boundary {
-  use std::sync::OnceLock;
+  use std::sync::{Arc, OnceLock};
 
   use tokio::sync::RwLock;
 
@@ -169,6 +169,10 @@ mod boundary {
   enum Active {
     Sqlite,
     Native(NativeDatabase),
+    /// Non-serving state installed before the first reobserve await. Recovery
+    /// runs in a detached task while holding the write lock, so readers cannot
+    /// reach this state or serve stale SQLite during the handoff.
+    Reobserving,
     Unavailable(String),
     Shutdown,
   }
@@ -182,14 +186,14 @@ mod boundary {
   }
 
   static CONFIG: OnceLock<Config> = OnceLock::new();
-  static ACTIVE: OnceLock<RwLock<Active>> = OnceLock::new();
+  static ACTIVE: OnceLock<Arc<RwLock<Active>>> = OnceLock::new();
 
   /// The ordinary state before [`reobserve_authority`] has ever run - a
   /// fresh install, or a consumer called before App startup wiring reaches
   /// it (every current test does this deliberately, to prove the
   /// not-selected path needs no configuration).
-  fn active() -> &'static RwLock<Active> {
-    ACTIVE.get_or_init(|| RwLock::new(Active::Sqlite))
+  fn active() -> Arc<RwLock<Active>> {
+    Arc::clone(ACTIVE.get_or_init(|| Arc::new(RwLock::new(Active::Sqlite))))
   }
 
   fn config() -> &'static Config {
@@ -242,14 +246,38 @@ mod boundary {
   ///   boundary answers nothing until a later `reobserve_authority` call
   ///   reports something else.
   pub async fn reobserve_authority() -> Result<AuthorityState, DispatchError> {
-    let mut guard = active().write().await;
+    let active = active();
+    tokio::spawn(async move {
+      let mut guard = active.write().await;
+      reobserve_authority_locked(&mut guard, config()).await
+    })
+    .await
+    .map_err(|error| DispatchError::NativeUnavailable {
+      reason: format!("the native authority reobservation task failed: {error}"),
+    })?
+  }
+
+  /// Reobserve while the caller holds the active-state write lock. Keeping
+  /// the lock across close and reopen preserves the one-owner handoff.
+  async fn reobserve_authority_locked(
+    guard: &mut Active,
+    config: &Config,
+  ) -> Result<AuthorityState, DispatchError> {
     if matches!(&*guard, Active::Shutdown) {
       return Err(DispatchError::Shutdown);
     }
-    if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
-      close_or_refuse(&mut guard, database).await?;
+    if matches!(&*guard, Active::Reobserving) {
+      return Err(DispatchError::NativeUnavailable {
+        reason: "a previous native authority reobservation was interrupted; restart the app to establish a new owner".to_owned(),
+      });
     }
-    let config = config();
+    // Set a non-serving state before close/open can yield. If this future is
+    // cancelled at either await, the write guard may be released, but SQLite
+    // must not answer while native remains durably selected.
+    let previous = std::mem::replace(guard, Active::Reobserving);
+    if let Active::Native(database) = previous {
+      close_or_refuse(guard, database).await?;
+    }
     let facts = observe_authority(&config.paths, config.expected_schema_version);
     let state = inspect_authority(&facts);
     let next = match state {
@@ -289,7 +317,8 @@ mod boundary {
   /// workers have drained; returning to SQLite here could let a late consumer
   /// recreate the database file while the process is shutting down.
   pub async fn shutdown() -> Result<(), NativeDatabaseError> {
-    let mut guard = active().write().await;
+    let active = active();
+    let mut guard = active.write().await;
     if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Shutdown) {
       close_or_refuse(&mut guard, database).await?;
     }
@@ -305,7 +334,8 @@ mod boundary {
   /// infer from the files at that moment. Refusal holds on every path,
   /// including a failed close ([`close_or_refuse`]).
   pub async fn refuse_consumers(reason: String) -> Result<(), NativeDatabaseError> {
-    let mut guard = active().write().await;
+    let active = active();
+    let mut guard = active.write().await;
     if let Active::Native(database) =
       std::mem::replace(&mut *guard, Active::Unavailable(reason))
     {
@@ -316,10 +346,10 @@ mod boundary {
 
   /// Close a native owner that was just taken out of the boundary.
   ///
-  /// The caller has already replaced the owner with the state it intends to
-  /// leave active. If close fails, the durable state may still say native is
-  /// selected, so the boundary is left [`Active::Unavailable`] rather than
-  /// answering from a stale SQLite copy.
+  /// The caller has already replaced the owner with a non-serving transition
+  /// state. If close fails, the durable state may still say native is selected,
+  /// so the boundary is left [`Active::Unavailable`] rather than answering
+  /// from a stale SQLite copy.
   async fn close_or_refuse(
     guard: &mut Active,
     database: NativeDatabase,
@@ -342,14 +372,59 @@ mod boundary {
 
   /// The backend to dispatch to, or the typed refusal if the durable state
   /// says native is selected (or ambiguous) and this boundary cannot safely
-  /// serve either engine.
+  /// serve either engine. A failed DuckDB checkpoint marks the current owner
+  /// invalid; the next consumer reuses the same close-and-reobserve handoff
+  /// before it can issue another request.
   pub(super) async fn resolve_backend() -> Result<Backend, DispatchError> {
-    match &*active().read().await {
+    resolve_backend_with(active(), None).await
+  }
+
+  async fn resolve_backend_with(
+    active: Arc<RwLock<Active>>,
+    configured: Option<Arc<Config>>,
+  ) -> Result<Backend, DispatchError> {
+    {
+      let guard = active.read().await;
+      match &*guard {
+        Active::Native(database) if database.is_invalidated() => {}
+        state => return backend_from_active(state),
+      }
+    }
+
+    // Another request can observe the same invalidation. Recheck after taking
+    // the write lock so only the first task closes and reopens the owner.
+    // Detaching the handoff means cancelling this consumer only drops its join
+    // handle; it cannot interrupt close/open or expose stale SQLite.
+    let recovery = tokio::spawn(async move {
+      let mut guard = active.write().await;
+      let should_reobserve =
+        matches!(&*guard, Active::Native(database) if database.is_invalidated());
+      if should_reobserve {
+        let config = match configured.as_deref() {
+          Some(config) => config,
+          None => config(),
+        };
+        reobserve_authority_locked(&mut guard, config).await?;
+      }
+      backend_from_active(&guard)
+    });
+    recovery
+      .await
+      .map_err(|error| DispatchError::NativeUnavailable {
+        reason: format!("the native database recovery task failed: {error}"),
+      })?
+  }
+
+  fn backend_from_active(active: &Active) -> Result<Backend, DispatchError> {
+    match active {
       Active::Sqlite => Ok(Backend::Sqlite),
       // Cloning is an `Arc` bump, not a new connection.
       Active::Native(database) => Ok(Backend::Native(database.clone())),
       Active::Unavailable(reason) => Err(DispatchError::NativeUnavailable {
         reason: reason.clone(),
+      }),
+      Active::Reobserving => Err(DispatchError::NativeUnavailable {
+        reason: "native authority reobservation did not finish; restart the app to establish a new owner".to_owned(),
       }),
       Active::Shutdown => Err(DispatchError::Shutdown),
     }
@@ -357,7 +432,86 @@ mod boundary {
 
   #[cfg(test)]
   mod tests {
-    use super::{Active, mark_unavailable_after_close_failure};
+    use std::sync::{
+      Arc,
+      atomic::{AtomicUsize, Ordering},
+    };
+    use std::time::Duration;
+
+    use tokio::sync::RwLock;
+
+    use super::{
+      Active, Backend, Config, DispatchError, NativeDatabase, NativeDatabaseError,
+      NativeDatabaseOptions, backend_from_active, mark_unavailable_after_close_failure,
+      resolve_backend_with,
+    };
+    use crate::infrastructure::database::native_database::NativeCancellation;
+    use crate::infrastructure::database::native_database::{
+      AuthorityPaths, NativeIdentity, NativeIdentityMode, NativeSchemaDefinition,
+      create_empty_native_database,
+    };
+
+    fn schema() -> NativeSchemaDefinition {
+      static IDENTITIES: &[NativeIdentity] = &[NativeIdentity {
+        table: "probe",
+        column: "id",
+        mode: NativeIdentityMode::RowId,
+      }];
+      NativeSchemaDefinition {
+        version: 7,
+        sql: "CREATE TABLE probe (id BIGINT PRIMARY KEY)",
+        tables: &["probe"],
+        timestamp_columns: &[],
+        identities: IDENTITIES,
+      }
+    }
+
+    async fn selected_boundary(
+      directory: &std::path::Path,
+      expected_schema_version: u32,
+    ) -> (Arc<RwLock<Active>>, Arc<Config>) {
+      let paths =
+        AuthorityPaths::in_directory(directory, "source.sqlite3", "native.duckdb");
+      create_empty_native_database(paths.clone(), schema())
+        .await
+        .unwrap();
+      let database =
+        NativeDatabase::open(&paths.native_database, NativeDatabaseOptions::new(7))
+          .await
+          .unwrap();
+      (
+        Arc::new(RwLock::new(Active::Native(database))),
+        Arc::new(Config {
+          paths,
+          expected_schema_version,
+        }),
+      )
+    }
+
+    async fn insert_probe(database: &NativeDatabase, id: i64) {
+      database
+        .request_write(NativeCancellation::new(), move |context| {
+          context
+            .connection()
+            .execute("INSERT INTO probe VALUES (?)", duckdb::params![id])
+            .map(|_| ())
+            .map_err(|error| NativeDatabaseError::duckdb("insert test probe", error))
+        })
+        .await
+        .unwrap();
+    }
+
+    async fn read_probe(database: &NativeDatabase) -> i64 {
+      database
+        .request_read(NativeCancellation::new(), |context| {
+          context
+            .connection()
+            .query_row("SELECT id FROM probe", [], |row| row.get::<_, i64>(0))
+            .map_err(|error| NativeDatabaseError::duckdb("read test probe", error))
+        })
+        .await
+        .unwrap()
+    }
 
     #[test]
     fn native_close_failure_preserves_shutdown() {
@@ -381,6 +535,252 @@ mod boundary {
       );
 
       assert!(matches!(active, Active::Unavailable(_)));
+    }
+
+    #[tokio::test]
+    async fn sqlite_dispatch_does_not_require_native_configuration() {
+      let active = Arc::new(RwLock::new(Active::Sqlite));
+
+      assert!(matches!(
+        resolve_backend_with(Arc::clone(&active), None).await,
+        Ok(Backend::Sqlite)
+      ));
+    }
+
+    #[tokio::test]
+    async fn explicit_checkpoint_failure_reopens_before_the_next_consumer() {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      insert_probe(&original, 42).await;
+      original.inject_next_checkpoint_failure();
+
+      assert!(
+        original
+          .checkpoint(NativeCancellation::new())
+          .await
+          .is_err()
+      );
+      assert!(original.is_invalidated());
+
+      let Backend::Native(reopened) =
+        resolve_backend_with(Arc::clone(&active), Some(Arc::clone(&config)))
+          .await
+          .unwrap()
+      else {
+        panic!("the durable selection still names the native database");
+      };
+      assert_eq!(read_probe(&reopened).await, 42);
+      assert!(matches!(
+        original
+          .request_read(NativeCancellation::new(), |_| Ok(()))
+          .await,
+        Err(NativeDatabaseError::Invalidated)
+      ));
+    }
+
+    #[tokio::test]
+    async fn automatic_checkpoint_failure_is_not_retried_and_reopens_on_the_next_request()
+    {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      insert_probe(&original, 42).await;
+      let attempts = Arc::new(AtomicUsize::new(0));
+      let attempt_counter = Arc::clone(&attempts);
+      let failure = original
+        .request_write(NativeCancellation::new(), move |_| {
+          attempt_counter.fetch_add(1, Ordering::Relaxed);
+          Err::<(), _>(NativeDatabaseError::duckdb(
+            "commit transaction",
+            duckdb::Error::DuckDBFailure(
+              duckdb::ffi::Error::new(duckdb::ffi::DuckDBError),
+              Some(
+                "IO Error: Checkpoint failed for database. The database has been invalidated."
+                  .to_owned(),
+              ),
+            ),
+          ))
+        })
+        .await;
+
+      assert!(failure.is_err());
+      assert_eq!(attempts.load(Ordering::Relaxed), 1);
+      assert!(original.is_invalidated());
+
+      let Backend::Native(reopened) =
+        resolve_backend_with(Arc::clone(&active), Some(Arc::clone(&config)))
+          .await
+          .unwrap()
+      else {
+        panic!("the durable selection still names the native database");
+      };
+      assert_eq!(attempts.load(Ordering::Relaxed), 1);
+      assert_eq!(read_probe(&reopened).await, 42);
+    }
+
+    #[tokio::test]
+    async fn unhealthy_lane_worker_error_reopens_before_the_next_request() {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      insert_probe(&original, 42).await;
+      let attempts = Arc::new(AtomicUsize::new(0));
+      let attempt_counter = Arc::clone(&attempts);
+      original.inject_next_unhealthy_request();
+
+      let failure = original
+        .request_write(NativeCancellation::new(), move |_| {
+          attempt_counter.fetch_add(1, Ordering::Relaxed);
+          Err::<(), _>(NativeDatabaseError::Worker {
+            message: "injected rollback failure".to_owned(),
+          })
+        })
+        .await;
+
+      assert!(matches!(
+        failure,
+        Err(NativeDatabaseError::Worker { ref message })
+          if message == "injected rollback failure"
+      ));
+      assert_eq!(attempts.load(Ordering::Relaxed), 1);
+      assert!(original.is_invalidated());
+
+      let Backend::Native(reopened) =
+        resolve_backend_with(Arc::clone(&active), Some(Arc::clone(&config)))
+          .await
+          .unwrap()
+      else {
+        panic!("the durable selection still names the native database");
+      };
+      assert_eq!(attempts.load(Ordering::Relaxed), 1);
+      assert_eq!(read_probe(&reopened).await, 42);
+    }
+
+    #[tokio::test]
+    async fn failed_reopen_refuses_the_native_request_instead_of_using_sqlite() {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 8).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      original.inject_next_checkpoint_failure();
+      assert!(
+        original
+          .checkpoint(NativeCancellation::new())
+          .await
+          .is_err()
+      );
+
+      assert!(matches!(
+        resolve_backend_with(Arc::clone(&active), Some(Arc::clone(&config))).await,
+        Err(DispatchError::NativeUnavailable { .. })
+      ));
+      let guard = active.read().await;
+      assert!(matches!(
+        backend_from_active(&guard),
+        Err(DispatchError::NativeUnavailable { .. })
+      ));
+    }
+
+    #[tokio::test]
+    async fn cancelled_consumer_does_not_cancel_native_recovery() {
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let original = match &*active.read().await {
+        Active::Native(database) => database.clone(),
+        _ => unreachable!(),
+      };
+      insert_probe(&original, 42).await;
+      // Keep one lane busy so detached recovery waits in close after installing
+      // the non-serving transition state.
+      let (read_started_tx, read_started_rx) = tokio::sync::oneshot::channel();
+      let (release_read_tx, release_read_rx) = std::sync::mpsc::channel();
+      let blocked_read = {
+        let database = original.clone();
+        tokio::spawn(async move {
+          database
+            .request_read(NativeCancellation::new(), move |_| {
+              let _ = read_started_tx.send(());
+              release_read_rx
+                .recv()
+                .map_err(|error| NativeDatabaseError::Worker {
+                  message: error.to_string(),
+                })?;
+              Ok::<(), NativeDatabaseError>(())
+            })
+            .await
+        })
+      };
+      tokio::time::timeout(Duration::from_secs(3), read_started_rx)
+        .await
+        .expect("the blocked read should start before testing cancellation")
+        .unwrap();
+      original.inject_next_checkpoint_failure();
+      assert!(
+        original
+          .checkpoint(NativeCancellation::new())
+          .await
+          .is_err()
+      );
+
+      let recovery = {
+        let active = Arc::clone(&active);
+        let config = Arc::clone(&config);
+        tokio::spawn(async move { resolve_backend_with(active, Some(config)).await })
+      };
+      tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+          if active.try_write().is_err() {
+            break;
+          }
+          tokio::task::yield_now().await;
+        }
+      })
+      .await
+      .expect("recovery should be waiting for the blocked lane to close");
+      recovery.abort();
+      assert!(matches!(recovery.await, Err(error) if error.is_cancelled()));
+
+      // A later consumer waits for the detached handoff instead of being
+      // refused or starting to serve SQLite while the old owner is closing.
+      let mut next_consumer = {
+        let active = Arc::clone(&active);
+        let config = Arc::clone(&config);
+        tokio::spawn(async move { resolve_backend_with(active, Some(config)).await })
+      };
+      assert!(
+        tokio::time::timeout(Duration::from_millis(50), &mut next_consumer)
+          .await
+          .is_err()
+      );
+
+      release_read_tx.send(()).unwrap();
+      blocked_read.await.unwrap().unwrap();
+
+      let reopened = tokio::time::timeout(Duration::from_secs(10), next_consumer)
+        .await
+        .expect("the later consumer should complete after detached recovery")
+        .expect("the later consumer task should not panic")
+        .unwrap_or_else(|error| {
+          panic!("the selected native database should reopen: {error}")
+        });
+      let Backend::Native(reopened) = reopened else {
+        panic!("the durable selection still names the native database");
+      };
+      assert_eq!(read_probe(&reopened).await, 42);
+      reopened.close().await.unwrap();
+      original.close().await.unwrap();
     }
   }
 }

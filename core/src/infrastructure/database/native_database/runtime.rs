@@ -303,6 +303,11 @@ struct NativeDatabaseInner {
   lifecycle: RwLock<()>,
   close_lock: AsyncMutex<()>,
   closed: AtomicBool,
+  invalidated: Arc<AtomicBool>,
+  #[cfg(test)]
+  inject_next_checkpoint_failure: AtomicBool,
+  #[cfg(test)]
+  inject_next_unhealthy_request: AtomicBool,
   joins: AsyncMutex<Option<(JoinHandle<()>, JoinHandle<()>)>>,
 }
 
@@ -386,6 +391,11 @@ impl NativeDatabase {
         lifecycle: RwLock::new(()),
         close_lock: AsyncMutex::new(()),
         closed: AtomicBool::new(false),
+        invalidated: Arc::new(AtomicBool::new(false)),
+        #[cfg(test)]
+        inject_next_checkpoint_failure: AtomicBool::new(false),
+        #[cfg(test)]
+        inject_next_unhealthy_request: AtomicBool::new(false),
         joins: AsyncMutex::new(Some((read_join, write_join))),
       }),
     })
@@ -467,16 +477,52 @@ impl NativeDatabase {
     &self,
     cancellation: NativeCancellation,
   ) -> Result<(), NativeDatabaseError> {
+    let invalidated = Arc::clone(&self.inner.invalidated);
+    #[cfg(test)]
+    let inject_failure = self
+      .inner
+      .inject_next_checkpoint_failure
+      .swap(false, Ordering::AcqRel);
     self
-      .request_write(cancellation, |context| {
-        context
-          .connection()
-          .execute_batch("CHECKPOINT")
-          .map_err(|error| {
-            NativeDatabaseError::duckdb("checkpoint the native database", error)
-          })
+      .request_write(cancellation, move |context| {
+        context.check_cancelled()?;
+        #[cfg(test)]
+        let checkpoint = if inject_failure {
+          Err(injected_checkpoint_error())
+        } else {
+          context.connection().execute_batch("CHECKPOINT")
+        };
+        #[cfg(not(test))]
+        let checkpoint = context.connection().execute_batch("CHECKPOINT");
+        checkpoint.map_err(|error| {
+          // An explicit checkpoint failure leaves DuckDB's live instance in
+          // an unknown state, even when its error lacks the fatal marker used
+          // to recognize automatic checkpoints below.
+          invalidated.store(true, Ordering::Release);
+          NativeDatabaseError::duckdb("checkpoint the native database", error)
+        })
       })
       .await
+  }
+
+  pub(crate) fn is_invalidated(&self) -> bool {
+    self.inner.invalidated.load(Ordering::Acquire)
+  }
+
+  #[cfg(test)]
+  pub(crate) fn inject_next_checkpoint_failure(&self) {
+    self
+      .inner
+      .inject_next_checkpoint_failure
+      .store(true, Ordering::Release);
+  }
+
+  #[cfg(test)]
+  pub(crate) fn inject_next_unhealthy_request(&self) {
+    self
+      .inner
+      .inject_next_unhealthy_request
+      .store(true, Ordering::Release);
   }
 
   async fn request_on_lane<T, F>(
@@ -491,11 +537,36 @@ impl NativeDatabase {
       + Send
       + 'static,
   {
+    if self.is_invalidated() {
+      return Err(NativeDatabaseError::Invalidated);
+    }
     cancellation.claim()?;
     let (result_sender, result_receiver) = oneshot::channel();
     let request_cancellation = cancellation.clone();
+    let invalidated = Arc::clone(&self.inner.invalidated);
+    #[cfg(test)]
+    let inject_unhealthy = self
+      .inner
+      .inject_next_unhealthy_request
+      .swap(false, Ordering::AcqRel);
     let operation = Box::new(move |context: &mut NativeConnectionContext<'_>| {
-      let result = context.check_cancelled().and_then(|_| operation(context));
+      let result = if invalidated.load(Ordering::Acquire) {
+        Err(NativeDatabaseError::Invalidated)
+      } else {
+        context.check_cancelled().and_then(|_| operation(context))
+      };
+      #[cfg(test)]
+      if inject_unhealthy {
+        // Simulate `with_transaction` failing to roll back its transaction.
+        context.healthy = false;
+      }
+      if !context.healthy
+        || result
+          .as_ref()
+          .is_err_and(|error| error.invalidates_database_instance())
+      {
+        invalidated.store(true, Ordering::Release);
+      }
       // A DuckDB interrupt surfaces as an ordinary statement error; the token
       // is what says the error was asked for.
       let result = if request_cancellation.is_cancelled() && result.is_err() {
@@ -524,6 +595,14 @@ impl NativeDatabase {
         message: "native database owner ended before returning a request".to_owned(),
       })?
   }
+}
+
+#[cfg(test)]
+fn injected_checkpoint_error() -> duckdb::Error {
+  duckdb::Error::DuckDBFailure(
+    duckdb::ffi::Error::new(duckdb::ffi::DuckDBError),
+    Some("IO Error: Checkpoint failed for injected native database error".to_owned()),
+  )
 }
 
 fn open_connections(
