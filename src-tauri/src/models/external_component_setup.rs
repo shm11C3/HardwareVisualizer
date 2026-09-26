@@ -33,11 +33,34 @@ pub struct ExternalComponentRuntimeState {
   pub detail: Option<String>,
 }
 
+/// Whether a module file is missing, matches the pinned release, matches
+/// only an earlier release (setup replaces it), or has any other contents
+/// (setup leaves it alone).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ExternalComponentModuleFileCondition {
+  Missing,
+  Current,
+  Outdated,
+  Unrecognized,
+}
+
+impl From<core_setup::ModuleFileCondition> for ExternalComponentModuleFileCondition {
+  fn from(value: core_setup::ModuleFileCondition) -> Self {
+    match value {
+      core_setup::ModuleFileCondition::Missing => Self::Missing,
+      core_setup::ModuleFileCondition::Current => Self::Current,
+      core_setup::ModuleFileCondition::Outdated => Self::Outdated,
+      core_setup::ModuleFileCondition::Unrecognized => Self::Unrecognized,
+    }
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalComponentModuleFileState {
   pub file_name: String,
-  pub present: bool,
+  pub condition: ExternalComponentModuleFileCondition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -153,8 +176,8 @@ impl From<core_setup::ExternalComponentSetupStatus> for ExternalComponentSetupSt
         .module_files
         .into_iter()
         .map(|file| ExternalComponentModuleFileState {
-          present: file.is_present(),
           file_name: file.file_name,
+          condition: file.condition.into(),
         })
         .collect(),
       pinned_runtime_version: src.pinned_runtime_version,
@@ -336,6 +359,47 @@ mod tests {
     );
     assert!(wire.complete);
     assert_eq!(wire.setup_blocker, None);
+  }
+
+  #[test]
+  fn carries_each_module_file_condition_and_leaves_outdated_files_incomplete() {
+    let mut status =
+      core_setup::ExternalComponentSetupStatus::unsupported_platform(plan());
+    status.support = core_setup::ExternalComponentSetupSupport::Supported;
+    status.runtime = core_setup::RuntimeInstallState::Installed {
+      version: Some("2.2.0".to_string()),
+      install_location: None,
+    };
+    let conditions = [
+      core_setup::ModuleFileCondition::Missing,
+      core_setup::ModuleFileCondition::Current,
+      core_setup::ModuleFileCondition::Outdated,
+      core_setup::ModuleFileCondition::Unrecognized,
+    ];
+    for (file, condition) in status.module_files.iter_mut().zip(conditions) {
+      file.condition = condition;
+    }
+
+    let wire: ExternalComponentSetupStatus = status.into();
+
+    assert_eq!(
+      wire
+        .module_files
+        .iter()
+        .map(|file| file.condition)
+        .collect::<Vec<_>>(),
+      vec![
+        ExternalComponentModuleFileCondition::Missing,
+        ExternalComponentModuleFileCondition::Current,
+        ExternalComponentModuleFileCondition::Outdated,
+        ExternalComponentModuleFileCondition::Unrecognized,
+      ]
+    );
+    assert!(!wire.complete);
+    assert_eq!(
+      serde_json::to_value(&wire.module_files[2]).unwrap()["condition"],
+      "outdated"
+    );
   }
 
   #[test]

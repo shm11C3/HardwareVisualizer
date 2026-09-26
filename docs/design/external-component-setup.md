@@ -185,8 +185,11 @@ installed and its fallbacks unchanged.
 
 - **Settings → Advanced → External components (implemented).** On Windows,
   each supported component shows its state (runtime installed, not installed,
-  or unknown; which module files are present) and an action button that is
-  disabled while the state is unknown. The action launches the executable
+  or unknown; which module files are present, and which are outdated and have
+  an update to the pinned release available) and an action button that is
+  disabled while the state is unknown. The button names what the run will do
+  (install, install missing files, update files, or both), and a run that
+  only replaced outdated files reports an update. The action launches the executable
   elevated with the setup arguments, waits for exit, maps the exit code,
   refreshes the state, and shows the restart prompt on success. If the user
   declines the UAC prompt, the result is `cancelled` and nothing is shown as
@@ -327,8 +330,8 @@ installed and its fallbacks unchanged.
 ### Outdated module refresh (#2284)
 
 Decided in [ADR 0026](../adr/0026-refresh-outdated-external-component-files.md).
-The Core slice is implemented (steps 2 and 4 of the setup plan above); the
-Settings and MSI slices are not yet.
+The Core slice (steps 2 and 4 of the setup plan above) and the Settings slice
+(see Entry points) are implemented; the MSI slice is not yet.
 
 - **File states.** The catalog pins the SHA-256 of each module file in the
   pinned release and in every earlier upstream release that shipped it.

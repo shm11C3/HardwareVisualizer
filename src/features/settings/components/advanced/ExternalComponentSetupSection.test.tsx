@@ -59,10 +59,10 @@ const status = (
     detail: null,
   },
   moduleFiles: [
-    { fileName: "IntelMSR.bin", present: false },
-    { fileName: "RyzenSMU.bin", present: true },
-    { fileName: "AMDFamily17.bin", present: false },
-    { fileName: "LpcIO.bin", present: false },
+    { fileName: "IntelMSR.bin", condition: "missing" },
+    { fileName: "RyzenSMU.bin", condition: "current" },
+    { fileName: "AMDFamily17.bin", condition: "missing" },
+    { fileName: "LpcIO.bin", condition: "missing" },
   ],
   pinnedRuntimeVersion: "2.2.0",
   pinnedModulesVersion: "0.2.11",
@@ -81,10 +81,17 @@ const completeStatus = (): ExternalComponentSetupStatus =>
     },
     moduleFiles: status().moduleFiles.map((file) => ({
       ...file,
-      present: true,
+      condition: "current",
     })),
     complete: true,
   });
+
+const outdatedStatus = (): ExternalComponentSetupStatus => {
+  const outdated = completeStatus();
+  outdated.moduleFiles[0] = { fileName: "IntelMSR.bin", condition: "outdated" };
+  outdated.moduleFiles[3] = { fileName: "LpcIO.bin", condition: "outdated" };
+  return { ...outdated, complete: false };
+};
 
 const result = (
   overrides: Partial<ExternalComponentSetupResult> = {},
@@ -137,6 +144,102 @@ describe("ExternalComponentSetupSection", () => {
       screen.getByText("Missing: IntelMSR.bin, AMDFamily17.bin, LpcIO.bin"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
+  });
+
+  it("offers to update outdated files when nothing is missing", async () => {
+    mocks.getExternalComponentSetupStatus.mockResolvedValue({
+      status: "ok",
+      data: outdatedStatus(),
+    });
+
+    render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByText("Module files: 4 of 4 present.", {
+        exact: false,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Update available (0.2.11): IntelMSR.bin, LpcIO.bin"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Missing:/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Update files" })).toBeEnabled();
+  });
+
+  it("names both steps when files are missing and outdated", async () => {
+    const withMissing = outdatedStatus();
+    withMissing.moduleFiles[1] = {
+      fileName: "RyzenSMU.bin",
+      condition: "missing",
+    };
+    mocks.getExternalComponentSetupStatus.mockResolvedValue({
+      status: "ok",
+      data: withMissing,
+    });
+
+    render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByRole("button", { name: "Install and update files" }),
+    ).toBeEnabled();
+    expect(screen.getByText("Missing: RyzenSMU.bin")).toBeInTheDocument();
+  });
+
+  it("counts an unrecognized file as present and does not offer to replace it", async () => {
+    const unrecognized = completeStatus();
+    unrecognized.moduleFiles[0] = {
+      fileName: "IntelMSR.bin",
+      condition: "unrecognized",
+    };
+    mocks.getExternalComponentSetupStatus.mockResolvedValue({
+      status: "ok",
+      data: unrecognized,
+    });
+
+    render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByText("Module files: 4 of 4 present.", {
+        exact: false,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Update available/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Installed" })).toBeDisabled();
+  });
+
+  it("reports an update instead of an installation", async () => {
+    const user = userEvent.setup();
+    mocks.getExternalComponentSetupStatus.mockResolvedValue({
+      status: "ok",
+      data: outdatedStatus(),
+    });
+    mocks.runExternalComponentSetup.mockResolvedValue({
+      status: "ok",
+      data: result(),
+    });
+
+    render(<ExternalComponentSetupSection />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Update files" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Restart HardwareVisualizer to start using the updated module files.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Restart HardwareVisualizer to start using the newly installed component.",
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        "PawnIO module files were updated. Restart HardwareVisualizer to use them.",
+      ),
+    ).toBeInTheDocument();
+    expect(mocks.error).not.toHaveBeenCalled();
   });
 
   it("disables setup outside Program Files and says why", async () => {

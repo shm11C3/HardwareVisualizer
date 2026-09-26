@@ -856,8 +856,11 @@
           "runtimeMissing": "ランタイム: 未インストール（セットアップでバージョン {{version}} を導入）",
           "moduleFiles": "モジュールファイル: {{total}} 件中 {{present}} 件あり。",
           "missingModuleFiles": "不足: {{files}}",
+          "outdatedModuleFiles": "更新あり（{{version}}）: {{files}}",
           "install": "インストール",
           "installMissing": "不足ファイルをインストール",
+          "updateFiles": "ファイルを更新",
+          "installAndUpdate": "ファイルを追加・更新",
           "complete": "インストール済み",
           "running": "インストール中… Windows が管理者承認を求める場合があります。",
           "statusError": "コンポーネントの状態を取得できませんでした。",
@@ -873,7 +876,7 @@
             "downloadModules": "モジュールファイルをダウンロードできませんでした。",
             "verifyModules": "ダウンロードしたモジュールアーカイブが期待するダイジェストと一致しませんでした。",
             "archiveContents": "モジュールアーカイブに必要なファイルが含まれていません。",
-            "placeModules": "モジュールファイルをインストール先に配置できませんでした。",
+            "placeModules": "モジュールファイルをインストール先に配置または置き換えできませんでした。",
             "incomplete": "セットアップは終了しましたが、コンポーネントはまだ完全ではありません。",
             "unsupportedPlatform": "このプラットフォームではセットアップを利用できません。",
             "panicked": "セットアップ処理が予期せず停止しました。",
@@ -884,9 +887,11 @@
             "other": "セットアップに失敗しました。"
           },
           "restartDescription": "インストールしたコンポーネントを使うには HardwareVisualizer を再起動してください。",
+          "restartDescriptionUpdated": "更新したモジュールファイルを使うには HardwareVisualizer を再起動してください。",
           "result": {
             "installed": "{{component}} をインストールしました。新しいセンサーを使うには HardwareVisualizer を再起動してください。",
             "rebootRequired": "{{component}} をインストールしましたが、ドライバーを使うには Windows の再起動が必要です。",
+            "updated": "{{component}} のモジュールファイルを更新しました。反映するには HardwareVisualizer を再起動してください。",
             "alreadyInstalled": "{{component}} はすでにインストールされています。",
             "cancelled": "管理者承認でキャンセルされたため、インストールしませんでした。",
             "failed": "インストールに失敗しました: {{detail}}"

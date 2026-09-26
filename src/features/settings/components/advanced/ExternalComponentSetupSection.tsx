@@ -15,6 +15,7 @@ import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   commands,
   type ExternalComponent,
+  type ExternalComponentModuleFileCondition,
   type ExternalComponentSetupFailureStage,
   type ExternalComponentSetupResult,
   type ExternalComponentSetupStatus,
@@ -39,6 +40,9 @@ export const ExternalComponentSetupSection = () => {
     useState<ExternalComponent | null>(null);
   const [lastResult, setLastResult] =
     useState<ExternalComponentSetupResult | null>(null);
+  // Whether the last run started with only outdated files to replace, so its
+  // success is reported as an update rather than an installation.
+  const [lastRunUpdateOnly, setLastRunUpdateOnly] = useState(false);
   const [restartDialogOpen, setRestartDialogOpen] = useState(false);
 
   const isWindows = platform() === "windows";
@@ -104,6 +108,11 @@ export const ExternalComponentSetupSection = () => {
   const handleSetup = async (component: ExternalComponent) => {
     setRunningComponent(component);
     setLastResult(null);
+    setLastRunUpdateOnly(
+      isUpdateOnly(
+        entries?.find((entry) => entry.component === component)?.status ?? null,
+      ),
+    );
     try {
       const result = await commands.runExternalComponentSetup(component);
       if (isError(result)) {
@@ -170,6 +179,7 @@ export const ExternalComponentSetupSection = () => {
             result={
               lastResult?.component === entry.component ? lastResult : null
             }
+            resultIsUpdate={lastRunUpdateOnly}
             onSetup={() => void handleSetup(entry.component)}
           />
         ))
@@ -178,9 +188,15 @@ export const ExternalComponentSetupSection = () => {
       <NeedRestart
         alertOpen={restartDialogOpen}
         setAlertOpen={setRestartDialogOpen}
-        description={t(
-          "pages.settings.advanced.externalComponentSetup.restartDescription",
-        )}
+        description={
+          lastRunUpdateOnly
+            ? t(
+                "pages.settings.advanced.externalComponentSetup.restartDescriptionUpdated",
+              )
+            : t(
+                "pages.settings.advanced.externalComponentSetup.restartDescription",
+              )
+        }
       />
     </div>
   );
@@ -259,6 +275,20 @@ const componentCopyKeys = (component: ExternalComponent) => {
   }
 };
 
+const filesWith = (
+  status: ExternalComponentSetupStatus | null,
+  condition: ExternalComponentModuleFileCondition,
+): string[] =>
+  (status?.moduleFiles ?? [])
+    .filter((f) => f.condition === condition)
+    .map((f) => f.fileName);
+
+/** Whether a run from `status` would only replace outdated files. */
+const isUpdateOnly = (status: ExternalComponentSetupStatus | null): boolean =>
+  status?.runtime.state === "installed" &&
+  filesWith(status, "missing").length === 0 &&
+  filesWith(status, "outdated").length > 0;
+
 type ComponentCardProps = {
   entry: ComponentEntry;
   running: boolean;
@@ -266,6 +296,8 @@ type ComponentCardProps = {
   elevationUnavailable: boolean;
   elevationReasonKey: ReturnType<typeof elevationUnavailableReasonKey>;
   result: ExternalComponentSetupResult | null;
+  /** Whether `result` comes from a run that only replaced outdated files. */
+  resultIsUpdate: boolean;
   onSetup: () => void;
 };
 
@@ -276,6 +308,7 @@ const ComponentCard = ({
   elevationUnavailable,
   elevationReasonKey,
   result,
+  resultIsUpdate,
   onSetup,
 }: ComponentCardProps) => {
   const { t } = useTranslation();
@@ -283,14 +316,20 @@ const ComponentCard = ({
   const copy = componentCopyKeys(component);
   const componentName = copy ? t(copy.name) : component;
 
-  const presentCount = status?.moduleFiles.filter((f) => f.present).length ?? 0;
-  const missingFiles =
-    status?.moduleFiles.filter((f) => !f.present).map((f) => f.fileName) ?? [];
+  const presentCount =
+    status?.moduleFiles.filter((f) => f.condition !== "missing").length ?? 0;
+  const missingFiles = filesWith(status, "missing");
+  const outdatedFiles = filesWith(status, "outdated");
+  const runtimeInstalled = status?.runtime.state === "installed";
+  const updateOnly = isUpdateOnly(status);
 
-  const actionLabel =
-    status?.runtime.state === "installed"
-      ? t("pages.settings.advanced.externalComponentSetup.installMissing")
-      : t("pages.settings.advanced.externalComponentSetup.install");
+  const actionLabel = !runtimeInstalled
+    ? t("pages.settings.advanced.externalComponentSetup.install")
+    : updateOnly
+      ? t("pages.settings.advanced.externalComponentSetup.updateFiles")
+      : outdatedFiles.length > 0
+        ? t("pages.settings.advanced.externalComponentSetup.installAndUpdate")
+        : t("pages.settings.advanced.externalComponentSetup.installMissing");
 
   const runtimeLine = (setupStatus: ExternalComponentSetupStatus): string => {
     switch (setupStatus.runtime.state) {
@@ -318,10 +357,14 @@ const ComponentCard = ({
   const resultMessage = (setupResult: ExternalComponentSetupResult): string => {
     switch (setupResult.outcome) {
       case "installed":
-        return t(
-          "pages.settings.advanced.externalComponentSetup.result.installed",
-          { component: componentName },
-        );
+        return resultIsUpdate
+          ? t("pages.settings.advanced.externalComponentSetup.result.updated", {
+              component: componentName,
+            })
+          : t(
+              "pages.settings.advanced.externalComponentSetup.result.installed",
+              { component: componentName },
+            );
       case "rebootRequired":
         return t(
           "pages.settings.advanced.externalComponentSetup.result.rebootRequired",
@@ -378,6 +421,17 @@ const ComponentCard = ({
                   </span>
                 )}
               </li>
+              {outdatedFiles.length > 0 && (
+                <li>
+                  {t(
+                    "pages.settings.advanced.externalComponentSetup.outdatedModuleFiles",
+                    {
+                      version: status.pinnedModulesVersion,
+                      files: outdatedFiles.join(", "),
+                    },
+                  )}
+                </li>
+              )}
               {elevationReasonKey && !status.complete && (
                 <li className="text-amber-600 dark:text-amber-400">
                   {t(elevationReasonKey)}
