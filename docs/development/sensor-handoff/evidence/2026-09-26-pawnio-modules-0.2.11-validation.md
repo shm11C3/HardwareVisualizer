@@ -35,7 +35,8 @@ or access error was observed.
 | Baseboard | NZXT N7 B650E |
 | Super I/O | Nuvoton, raw chip ID `0xD802` |
 | OS | Microsoft Windows 11 Pro 10.0.26200 |
-| PawnIO runtime | 2.2.0 (`pawnio_version` = `0x00020000`) |
+| PawnIO runtime | 2.2.0 (`DisplayVersion` `2.2.0.0` under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO`) |
+| `pawnio_version` API result | `0x00020000` (decodes to 2.0.0 per `(major << 16) \| (minor << 8) \| patch`) |
 | Elevated | True |
 | ISA mutex | `Global\Access_ISABUS.HTP.Method`, opened-existing, acquired |
 
