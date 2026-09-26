@@ -163,7 +163,7 @@ mod imp {
         ),
       }
 
-      let restart_after_recovery = should_restart_after_native_open_failure_retry(
+      let restart_after_recovery = should_restart_after_recovery_retry(
         &previous_state,
         result.as_ref().ok(),
         &owner.state(),
@@ -341,14 +341,26 @@ mod imp {
     Ok(())
   }
 
-  fn should_restart_after_native_open_failure_retry(
+  /// Whether a retry recovered from an issue that can block startup's
+  /// database-dependent services (live Storage Health, retention cleanup,
+  /// SQLite retirement), which run only when startup's state allows them.
+  /// A process restart is the one way to run them after such a recovery.
+  /// Both `NativeOpenFailed` and `Authority(NativeMetadataUnreadable)` can be
+  /// startup's own state; they are the only `ActionRequired` issues a retry
+  /// can recover to `NativeAuthoritative` from.
+  fn should_restart_after_recovery_retry(
     previous_state: &DatabaseLifecycleState,
     outcome: Option<&ConversionOutcome>,
     current_state: &DatabaseLifecycleState,
   ) -> bool {
+    use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
     matches!(
       previous_state,
-      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed { .. })
+      DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::NativeOpenFailed { .. }
+          | LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable)
+      )
     ) && matches!(
       outcome,
       Some(ConversionOutcome::AlreadySelected | ConversionOutcome::Selected { .. })
@@ -372,27 +384,57 @@ mod imp {
     use super::*;
 
     #[test]
-    fn restart_after_retry_only_when_native_open_failure_recovers() {
+    fn restart_after_retry_only_when_a_startup_blocking_issue_recovers() {
+      use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
       let native_open_failed =
         DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
           message: "native database could not be opened".to_owned(),
         });
+      let metadata_unreadable = DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
+      );
       let native_authoritative = DatabaseLifecycleState::NativeAuthoritative;
       let recovered = ConversionOutcome::AlreadySelected;
 
-      assert!(should_restart_after_native_open_failure_retry(
+      assert!(should_restart_after_recovery_retry(
         &native_open_failed,
         Some(&recovered),
         &native_authoritative,
       ));
-      assert!(!should_restart_after_native_open_failure_retry(
+      assert!(!should_restart_after_recovery_retry(
         &native_open_failed,
         None,
         &native_open_failed,
       ));
-      assert!(!should_restart_after_native_open_failure_retry(
+      assert!(!should_restart_after_recovery_retry(
         &DatabaseLifecycleState::SqliteAuthoritative,
         Some(&ConversionOutcome::Selected { total_rows: 1 }),
+        &native_authoritative,
+      ));
+
+      // #2287: unreadable metadata at startup also skipped the
+      // database-dependent startup services.
+      assert!(should_restart_after_recovery_retry(
+        &metadata_unreadable,
+        Some(&recovered),
+        &native_authoritative,
+      ));
+      assert!(should_restart_after_recovery_retry(
+        &metadata_unreadable,
+        Some(&ConversionOutcome::Selected { total_rows: 1 }),
+        &native_authoritative,
+      ));
+      assert!(!should_restart_after_recovery_retry(
+        &metadata_unreadable,
+        Some(&ConversionOutcome::ActionRequired),
+        &metadata_unreadable,
+      ));
+      assert!(!should_restart_after_recovery_retry(
+        &DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+          AuthorityInconsistency::MarkerUnreadable,
+        )),
+        Some(&recovered),
         &native_authoritative,
       ));
     }
