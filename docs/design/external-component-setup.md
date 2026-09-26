@@ -330,8 +330,8 @@ installed and its fallbacks unchanged.
 ### Outdated module refresh (#2284)
 
 Decided in [ADR 0026](../adr/0026-refresh-outdated-external-component-files.md).
-The Core slice is implemented (steps 2 and 4 of the setup plan above); the
-Settings and MSI slices are not yet.
+The Core slice (steps 2 and 4 of the setup plan above) and the Settings slice
+(see Entry points) are implemented; the MSI slice is not yet.
 
 - **File states.** The catalog pins the SHA-256 of each module file in the
   pinned release and in every earlier upstream release that shipped it.
