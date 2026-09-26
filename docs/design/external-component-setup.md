@@ -327,19 +327,32 @@ not implemented yet.
   every file is current or unrecognized.
 - **Refresh.** When at least one file is outdated, the executor downloads and
   verifies the pinned modules archive, checks each extracted file against its
-  pinned digest, writes each replacement to a sibling partial file, re-checks
-  that the target is still outdated, and swaps it in with a single replacing
-  rename. A file that cannot be replaced
+  pinned digest, writes each replacement to a sibling partial file, and swaps
+  it in with a single replacing rename. Right before the swap it opens the
+  target with a share mode that denies writes but allows the rename, checks
+  through that handle that the contents are still outdated, and keeps the
+  handle open until the rename returns, so the contents that passed the check
+  cannot be rewritten in place before they are replaced. A process could
+  still rename the target away and put another file in its place in that
+  window; the target is under the PawnIO install directory, which only
+  administrators can modify, so only an already elevated process could do
+  that. A file that cannot be replaced
   keeps its old contents and is reported through the module placement stage
   (`19`), so the exit codes and the Settings copy stay unchanged. Current,
   unrecognized, and missing files are not touched by the refresh.
-- **Update trigger.** The MSI fragment gains a deferred, non-impersonated
-  custom action after `InstallFiles` that runs a refresh-only command-line
+- **Update trigger.** The MSI fragment gains a non-impersonated commit
+  custom action (`Execute="commit"`) that runs a refresh-only command-line
   mode when `WIX_UPGRADE_DETECTED` is set (the Tauri template uses
   `MajorUpgrade`), `REMOVE` is not set, and the install directory is under
-  Program Files, at every UI level. It never installs the runtime and never
-  adds a missing file, and `Return="ignore"` keeps a refresh failure from
-  failing the update. The NSIS updater does not run it.
+  Program Files, at every UI level. Windows Installer runs commit actions only
+  after `InstallFinalize` succeeds, so an update that fails and rolls back
+  never leaves the previous version with module files it was not verified
+  against, which a deferred action scheduled after `InstallFiles` could do.
+  Commit actions do not run when rollback is disabled (`DisableRollback`
+  policy or property); such an update keeps the outdated files, and Settings
+  offers the refresh as it does after any failed refresh. It never installs
+  the runtime and never adds a missing file, and `Return="ignore"` keeps a
+  refresh failure from failing the update. The NSIS updater does not run it.
 - **Settings.** Outdated files show as "update available", and the existing
   setup action fills missing files and replaces outdated ones in one
   elevated run.

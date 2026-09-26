@@ -39,10 +39,13 @@ tag the specification was verified against.
    replaces the "never replacing an existing file" part of ADR 0024 decision 4.
    Setup still never removes a file and never uninstalls the runtime.
 3. **An update of HardwareVisualizer triggers the refresh.** When the MSI
-   upgrades an existing installation, a deferred custom action runs the
-   refresh from the already elevated install, at every UI level, including the
-   in-app updater (`/passive`) and `msiexec /qn` package-manager upgrades. It
-   runs only under Program Files, like the setup action. A refresh maintains a
+   upgrades an existing installation, a commit custom action runs the refresh
+   from the already elevated install, at every UI level, including the in-app
+   updater (`/passive`) and `msiexec /qn` package-manager upgrades. Windows
+   Installer runs commit actions only after the installation script has
+   succeeded, so an update that rolls back never leaves refreshed files behind
+   the previous version. It runs only under Program Files, like the setup
+   action. A refresh maintains a
    component that is already on the machine and adds nothing new, so it does
    not need the per-install consent that decision 1 of ADR 0024 requires for
    setup. It never installs the runtime and never adds a missing module file.
