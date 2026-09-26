@@ -19,6 +19,12 @@ pub(super) fn native_config(
     .access_mode(access_mode)
     .and_then(|config| config.threads(2))
     .and_then(|config| config.max_memory("128MB"))
+    .and_then(|config| {
+      config.with(
+        "default_block_size",
+        super::super::NATIVE_DATABASE_DEFAULT_BLOCK_SIZE_BYTES,
+      )
+    })
     .and_then(|config| config.enable_autoload_extension(false))
     .and_then(|config| {
       if pin_storage_version {
