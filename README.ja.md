@@ -10,9 +10,9 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
 
-![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
+![CPU、メモリ、GPU のゲージと使用率グラフ、プロセス、コアごとの使用率、マザーボードセンサー、消費電力を表示する HardwareVisualizer のパフォーマンス画面](docs/images/readme/performance-ja.png)
 
-HardwareVisualizer は、コンピュータのハードウェアパフォーマンスをリアルタイムで監視するためのツールです。直感的なダッシュボード、詳細な使用率グラフ、カスタマイズ可能な設定を備えており、システムの重要な統計情報を把握するのに役立ちます。
+HardwareVisualizer は、コンピュータのハードウェアをリアルタイムで監視し、数日から数か月にわたる動作を振り返るためのデスクトップアプリです。リアルタイムのパフォーマンス表示、システム仕様の一覧、そして PC 内に保存したハードウェア履歴にもとづくインサイトを備えています。
 
 Web サイト: <https://hardviz.com/>
 
@@ -38,15 +38,15 @@ Web サイト: <https://hardviz.com/>
     - [Windows へのインストール](#windows-へのインストール)
       - [インストーラを使用する](#インストーラを使用する)
       - [Winget コマンドを使用する](#winget-コマンドを使用する)
+    - [macOS へのインストール](#macos-へのインストール)
     - [Linux へのインストール](#linux-へのインストール)
     - [初期設定](#初期設定)
   - [機能一覧](#機能一覧)
+    - [プラットフォーム別の対応状況](#プラットフォーム別の対応状況)
   - [サポート OS](#サポート-os)
   - [スクリーンショット](#スクリーンショット)
-    - [ダッシュボード](#ダッシュボード)
-    - [使用率グラフ](#使用率グラフ)
-    - [インサイト](#インサイト)
-    - [カスタムグラフ](#カスタムグラフ)
+    - [システム仕様](#システム仕様)
+    - [Cooling Insight](#cooling-insight)
     - [背景画像](#背景画像)
   - [権限とセキュリティについて](#権限とセキュリティについて)
   - [ロードマップ](#ロードマップ)
@@ -72,22 +72,24 @@ Web サイト: <https://hardviz.com/>
 
 #### インストーラを使用する
 
-1. ダウンロードページから `HardwareVisualizer_x.x.x_x64-setup_windows.exe` または `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` をダウンロードします。
-2. インストーラー（`.exe` または `.msi` ファイル）を実行します。
+1. ダウンロードページから `HardwareVisualizer_x.x.x_x64_en-US.msi`（推奨）または `HardwareVisualizer_x.x.x_x64-setup.exe` をダウンロードします。
+2. インストーラー（`.msi` または `.exe` ファイル）を実行します。
 3. インストールウィザードの指示に従います。
 4. スタートメニューまたはデスクトップのショートカットから **HardwareVisualizer** を起動します。
+
+`.msi` インストーラーの利用を推奨します。`.msi` は HardwareVisualizer を Program Files 配下にインストールします。**管理者として起動** を使うには、Program Files 配下へのインストールが必要です。
 
 `.msi` インストーラーでは、CPU 温度・消費電力とマザーボードのセンサーを取得できるようにする [PawnIO](https://pawnio.eu/) のセットアップを選択できます。この項目は既定で選択されており、選択を外すこともできます。選択した場合、インストーラーは固定されたバージョンの PawnIO をダウンロードして検証し、不足しているものだけをインストールします。この項目は、HardwareVisualizer を Program Files 配下（既定のインストール先）にインストールする場合に選択できます。HardwareVisualizer をアンインストールしても PawnIO は削除されません。`.exe` インストーラーを使う場合や後からセットアップする場合は、**設定 → 高度な設定** から実行してください。
 
 MSI のサイレントインストールでは、明示的に指定した場合のみ PawnIO をセットアップします。
 
 ```powershell
-msiexec /i HardwareVisualizer_x.x.x_x64_en-US_windows.msi /qn EXTERNAL_COMPONENT_PAWNIO=1
+msiexec /i HardwareVisualizer_x.x.x_x64_en-US.msi /qn EXTERNAL_COMPONENT_PAWNIO=1
 ```
 
 #### Winget コマンドを使用する
 
-Windows の場合、Windows Package Manager（Winget）を使用してインストールすることもできます。　　
+Windows の場合、Windows Package Manager（Winget）を使用してインストールすることもできます。
 PowerShell またはコマンドプロンプトで以下のコマンドを実行してください。
 
 ```powershell
@@ -97,16 +99,34 @@ winget install shm11C3.HardwareVisualizer
 Winget でのインストールでは PawnIO はセットアップされません。インストール後に **設定 → 高度な設定** から実行してください。
 
 > [!NOTE]
-> Windows では追加の権限は必要ありません。
+> 基本的な監視には管理者権限は必要ありません。PawnIO 経由で取得するセンサー
+> （CPU 温度・消費電力、マザーボードの温度とファン）には管理者権限が必要です。
+> 利用するには **設定 → 高度な設定 → 管理者として起動** を有効にしてください。
+
+### macOS へのインストール
+
+1. ダウンロードページから `HardwareVisualizer_x.x.x_aarch64.dmg`（Apple Silicon）または `HardwareVisualizer_x.x.x_x64.dmg`（Intel）をダウンロードします。
+2. `.dmg` ファイルを開き、**HardwareVisualizer** をアプリケーションフォルダへドラッグします。
+3. アプリケーションフォルダまたは Launchpad から **HardwareVisualizer** を起動します。
 
 ### Linux へのインストール
 
-1. ダウンロードページから `hardware-visualizer_x.x.x_amd64.deb` をダウンロードします。
-2. パッケージマネージャー経由でインストールします。
+1. ダウンロードページから、以下のいずれかのパッケージをダウンロードします。
+   - Debian / Ubuntu: `HardwareVisualizer_x.x.x_amd64.deb`
+   - Fedora / RHEL: `HardwareVisualizer-x.x.x-1.x86_64.rpm`
+   - その他のディストリビューション: `HardwareVisualizer_x.x.x_amd64.AppImage`
+2. パッケージをインストールします。
 
    ```bash
-   sudo dpkg -i hardware-visualizer_*.deb
-   sudo apt-get install -f  # 必要に応じて依存関係をインストール
+   sudo apt install ./HardwareVisualizer_*.deb   # Debian / Ubuntu
+   sudo dnf install ./HardwareVisualizer-*.rpm   # Fedora / RHEL
+   ```
+
+   AppImage を使う場合は、実行権限を付けて直接起動します。
+
+   ```bash
+   chmod +x HardwareVisualizer_*.AppImage
+   ./HardwareVisualizer_*.AppImage
    ```
 
 3. アプリケーションメニューまたはターミナルから起動します。
@@ -119,11 +139,16 @@ Winget でのインストールでは PawnIO はセットアップされませ�
 >
 > ### ハードウェアデータが表示されない場合
 >
-> 一部のメトリクスには管理者権限が必要です。すべてのハードウェア情報にアクセスするには、sudo で再起動してください。
+> - メモリの詳細情報を取得するときは、polkit（`pkexec dmidecode`）による認証を求められます。
+> - ストレージの健康状態は `smartctl`（smartmontools）、Intel GPU の使用率は
+>   `intel_gpu_top` を使って取得します。どちらも通常は root 権限が必要です。
+>   取得するには sudo で再起動してください。
 >
-> ```bash
-> sudo hardware-visualizer
-> ```
+>   ```bash
+>   sudo hardware-visualizer
+>   ```
+>
+> - CPU 温度、消費電力、マザーボードのセンサーは、Linux ではまだ取得できません。
 
 ### 初期設定
 
@@ -132,65 +157,64 @@ Winget でのインストールでは PawnIO はセットアップされませ�
 1. **設定**（サイドバーの ⚙️ アイコン）へ移動します。
 2. お好みの**テーマ**と**言語**を選択します。
 3. （任意）カスタムの**背景画像**を設定します。
+4. （任意、Windows）**設定 → 高度な設定** から PawnIO をセットアップすると、CPU 温度・消費電力とマザーボードのセンサーを取得できます。
 
 ## 機能一覧
 
-| カテゴリ                     | ステータス | 備考                                                  |
-| ---------------------------- | ---------- | ----------------------------------------------------- |
-| CPU / RAM 使用率             | ✅         | リアルタイム + 履歴                                   |
-| GPU 使用率                   | ✅         | NVIDIA は完全対応 / その他は一部対応                  |
-| GPU 温度                     | ✅         | NVIDIA は完全対応 / その他は一部対応                  |
-| CPU / センサー温度           | ✅         | Windows のみ（ACPI サーマルゾーン、ベストエフォート） |
-| ファン監視                   | ⏳         | 計画中                                                |
-| ストレージ監視               | ✅         | デバイスの概要                                        |
-| ネットワーク監視             | ✅         | 基本的なインターフェース / 使用量は計画中             |
-| カスタムグラフテーマ         | ✅         | 設定保存可能                                          |
-| ダッシュボードのカスタマイズ | ✅         | レイアウト編集は一部対応                              |
-| 背景画像                     | ✅         | ローカル画像を使用可能                                |
-| 履歴インサイト               | ✅         | デフォルトで最大 30 日間                              |
-| GPU インサイト               | ✅         | NVIDIA は完全対応 / その他は一部対応                  |
-| 言語サポート                 | ✅         | 英語、日本語、ロシア語                                |
+- **パフォーマンス**: CPU、メモリ、GPU のゲージと使用率グラフ、コアごとの使用率、実行中のプロセス、マザーボードのセンサーとファン、消費電力をリアルタイムで表示します。パネル・コンパクト・モニターの各表示を切り替えられ、パネルの表示や並び順も変更できます。複数の GPU を搭載している場合は、表示する GPU を選択できます。
+- **システム仕様**: CPU、GPU、メモリ、ストレージ、プラットフォーム、マザーボード / BIOS、ネットワークの情報を一覧表示し、ハードウェアレポートとしてコピーできます。ストレージの健康状態では、ドライブごとに SMART の状態、温度、摩耗度などを確認できます。
+- **インサイト**: CPU・メモリ使用率と CPU 温度、GPU ごとの使用率・温度・メモリ使用量について、平均・最大・最小の履歴を最大 30 日間表示します。プロセスの履歴とスナップショットでは、CPU とメモリを使っていたプロセスを確認できます。
+- **Cooling Insight**（インサイトの「冷却」タブ）: 似た負荷のときの CPU 温度を、その PC 自身のベースラインと最大 1 年間比較します。CPU 温度、負荷、パッケージ電力、ファン回転数、室温を 1 つのタイムラインで表示するため、冷却性能が落ちているのか、室温が上がっただけなのかを見分けられます。
+- **室温の取得**（Windows）: 近くにある SwitchBot 温湿度計から Bluetooth で室温を読み取ります。SwitchBot アカウント、インターネット接続、ペアリングはいずれも不要です。
+- **トレイウィジェット**: CPU 使用率、GPU 使用率、GPU 温度をシステムトレイまたはメニューバーに表示します。ウィンドウを閉じてもトレイで動作を続けることもできます。
+- **カスタマイズ**: カラーテーマ、透過 UI、グラフのスタイルと色、ウィンドウに合わせたグラフサイズ、ローカル画像による背景、℃ / ℉ の切り替えに対応しています。
+- **ローカルの履歴**: ハードウェアの履歴は既定で 365 日間保存され、**設定 → インサイト** で変更できます。v1.11.0 より前に作成したプロファイルは、同じ画面で変換するまで以前のデータベースを使い続けます。
+- **言語**: 英語、日本語、ロシア語
+
+### プラットフォーム別の対応状況
+
+| 機能                               | Windows                                | Linux                | macOS                                         |
+| ---------------------------------- | -------------------------------------- | -------------------- | --------------------------------------------- |
+| CPU / メモリ使用率、プロセス       | ✅                                     | ✅                   | ✅                                            |
+| GPU 使用率                         | ✅ NVIDIA、AMD、その他は PDH 経由      | ✅ AMD、Intel ¹      | ✅                                            |
+| GPU 温度                           | ✅ NVIDIA、AMD                         | ✅ AMD               | —                                             |
+| CPU 温度                           | ✅ PawnIO ² または ACPI サーマルゾーン | —                    | —                                             |
+| 消費電力                           | ✅ CPU パッケージ ²                    | —                    | ✅ CPU、GPU、ANE、パッケージ（Apple Silicon） |
+| マザーボードの温度とファン         | ✅ 対応する Super I/O チップ ²         | —                    | —                                             |
+| ストレージの健康状態（SMART）      | ✅                                     | ✅ `smartctl` 経由 ³ | ✅ `smartctl` 経由 ³                          |
+| ネットワークインターフェースの情報 | ✅                                     | ✅                   | ✅                                            |
+| 室温（SwitchBot）                  | ✅                                     | —                    | —                                             |
+| Cooling Insight                    | ✅ ⁴                                   | —                    | —                                             |
+| トレイウィジェット                 | ✅ フライアウト                        | ✅ トレイのタイトル  | ✅ メニューバー                               |
+
+1. Linux では NVIDIA GPU は一覧に表示されますが、値はまだ取得できません。Intel GPU の使用率の取得には `intel_gpu_top` が必要です。
+2. PawnIO と管理者権限が必要です。マザーボードのセンサーは Nuvoton NCT6799D に対応しています。NCT6796D と ITE IT8728F（温度のみ）は実験的な対応です。
+3. smartmontools が必要です。
+4. CPU 温度が必要です。電力、ファン、室温の各レーンは、対応するセンサーがある場合に表示されます。
 
 ## サポート OS
 
-| OS      | ステータス  | ダウンロード                                  |
-| ------- | ----------- | --------------------------------------------- |
-| Windows | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download) |
-| Linux   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download) |
-| macOS   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download) |
+| OS      | ステータス  | アーキテクチャ              | ダウンロード                                  |
+| ------- | ----------- | --------------------------- | --------------------------------------------- |
+| Windows | ✅ 対応済み | x64（Windows 10 / 11）      | [ダウンロード](https://hardviz.com/#download) |
+| Linux   | ✅ 対応済み | x86_64                      | [ダウンロード](https://hardviz.com/#download) |
+| macOS   | ✅ 対応済み | Apple Silicon、Intel（x64） | [ダウンロード](https://hardviz.com/#download) |
 
 ## スクリーンショット
 
-### ダッシュボード
+パフォーマンス画面は、このページの冒頭に掲載しています。
 
-ハードウェアの現在の状態を一目で確認できます。
+### システム仕様
 
-![image](https://github.com/user-attachments/assets/a578909a-5b85-4d3a-98cb-a885dc10eaec)
+ストレージごとの健康状態を含め、ハードウェアの情報を一目で確認できます。
 
-### 使用率グラフ
+![CPU、GPU、RAM、ストレージの情報とストレージの健康状態を表示するシステム仕様画面](docs/images/readme/system-specifications-ja.png)
 
-直近 1 分間のリソース使用状況を確認できます。
+### Cooling Insight
 
-![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
+似た負荷のときの CPU 温度がベースラインより上がっていないかを確認できます。CPU 負荷、パッケージ電力、ファン回転数、室温も同じタイムラインに表示します。
 
-![image](https://github.com/user-attachments/assets/7b786e00-12c0-4627-8b2a-cc3482072eb7)
-
-### インサイト
-
-過去最大 30 日間のリソース使用状況を表示します。
-使用率は 1 分単位で計算されます。
-
-![image](https://github.com/user-attachments/assets/dd849d54-37a0-4f00-bec8-9c7f994d49fa)
-
-![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
-
-![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
-
-### カスタムグラフ
-
-柔軟なグラフのカスタマイズが可能です。
-
-![image](https://github.com/user-attachments/assets/b6b2436b-c4c7-4252-9654-c5f2ca89e499)
+![サーマルタイムライン、負荷帯ごとの比較、データの状態を表示する Cooling Insight 画面](docs/images/readme/cooling-insight-ja.png)
 
 ### 背景画像
 
@@ -198,23 +222,29 @@ Winget でのインストールでは PawnIO はセットアップされませ�
 
 ## 権限とセキュリティについて
 
-| 項目               | 理由                                                   |
-| ------------------ | ------------------------------------------------------ |
-| Linux の sudo 権限 | 特定のデバイスファイル（GPU、センサー）へのアクセス    |
-| Windows の WMI     | メモリ・システムの詳細なメトリクス、サーマルゾーン取得 |
-| Windows の PDH     | GPU エンジン使用率                                     |
-| 外部送信なし       | テレメトリなし。アプリは外部へデータを一切送信しません |
+| 項目                           | 理由                                                                  |
+| ------------------------------ | --------------------------------------------------------------------- |
+| Windows の WMI                 | メモリ・システム・ストレージの詳細情報、サーマルゾーンの取得          |
+| Windows の PDH                 | GPU エンジン使用率                                                    |
+| Windows の管理者権限（PawnIO） | CPU 温度・消費電力、マザーボードの温度とファン                        |
+| Windows の Bluetooth           | SwitchBot 温湿度計の読み取り（設定で有効にした場合のみ）              |
+| Linux の polkit（`pkexec`）    | `dmidecode` によるメモリの詳細情報                                    |
+| Linux の sudo 権限             | ストレージの健康状態の `smartctl`、Intel GPU 使用率の `intel_gpu_top` |
+
+HardwareVisualizer にテレメトリはなく、ハードウェアのデータは PC の外へ送信されません。アプリがインターネットに接続するのは、GitHub Releases で更新を確認するときと、ユーザーがセットアップを選んだ場合に PawnIO を公式の GitHub リリースからダウンロードするときだけです。
 
 ## ロードマップ
 
-| 項目                             | ステータス |
-| -------------------------------- | ---------- |
-| macOS への対応                   | ✅ 完了    |
-| AMD GPU への対応                 | ✅ 完了    |
-| 全ベンダー共通のファン・温度制御 | 調査中     |
-| ゲームモード                     | 計画中     |
-| 消費電力の推定機能               | 検討中     |
-| プラグインシステム               | 検討中     |
+| 項目                                                       | ステータス |
+| ---------------------------------------------------------- | ---------- |
+| macOS への対応                                             | ✅ 完了    |
+| AMD GPU への対応                                           | ✅ 完了    |
+| ファン監視（Windows、対応する Super I/O チップ）           | ✅ 完了    |
+| 消費電力の表示（Windows の CPU パッケージ、Apple Silicon） | ✅ 完了    |
+| 全ベンダー共通のファン・温度制御                           | 調査中     |
+| ゲームモード                                               | 計画中     |
+| 消費電力の推定機能                                         | 検討中     |
+| プラグインシステム                                         | 検討中     |
 
 ## フィードバックと Discussion
 

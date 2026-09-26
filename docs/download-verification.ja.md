@@ -40,7 +40,7 @@ shasum -a 256 HardwareVisualizer_x.x.x_aarch64.dmg
 Linux:
 
 ```bash
-sha256sum hardware-visualizer_x.x.x_amd64.deb
+sha256sum HardwareVisualizer_x.x.x_amd64.deb
 ```
 
 v1.8.1 より前のリリースでは、`SHA256SUMS.txt` が提供されていない場合があります。
