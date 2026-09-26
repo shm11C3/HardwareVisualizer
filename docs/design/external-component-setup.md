@@ -317,17 +317,18 @@ installed and its fallbacks unchanged.
 
 - No bundled artifacts, no version checks against upstream, no automatic
   upgrades of the PawnIO runtime. Module files are refreshed as described in
-  [Planned: outdated module refresh](#planned-outdated-module-refresh-2284).
+  [Outdated module refresh](#outdated-module-refresh-2284).
 - No first-launch prompt, no change to External Component Guidance conditions.
 - No in-process install when the app already runs elevated; the single
   command-line path is used everywhere to keep one tested route.
 - No download proxy configuration; the download uses the platform certificate
   store and the system proxy through the HTTP client defaults.
 
-### Planned: outdated module refresh (#2284)
+### Outdated module refresh (#2284)
 
-Decided in [ADR 0026](../adr/0026-refresh-outdated-external-component-files.md);
-not implemented yet.
+Decided in [ADR 0026](../adr/0026-refresh-outdated-external-component-files.md).
+The Core slice is implemented (steps 2 and 4 of the setup plan above); the
+Settings and MSI slices are not yet.
 
 - **File states.** The catalog pins the SHA-256 of each module file in the
   pinned release and in every earlier upstream release that shipped it.
@@ -395,7 +396,7 @@ not implemented yet.
    action and NSIS pre-uninstall hook that run it, plus the winget manifest
    review.
 4. **Outdated module refresh** (#2284): see
-   [Planned: outdated module refresh](#planned-outdated-module-refresh-2284)
+   [Outdated module refresh](#outdated-module-refresh-2284)
    for its own slices.
 
 ## Decided: no winget dependency on PawnIO

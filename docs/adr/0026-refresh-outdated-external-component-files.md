@@ -5,8 +5,9 @@ Status: accepted
 Tracking issue: [#2284](https://github.com/shm11C3/HardwareVisualizer/issues/2284).
 
 This amends decisions 1 and 4 of
-[ADR 0024](0024-external-component-setup.md), decided on 2026-09-26. The
-direction is agreed; nothing here is implemented yet.
+[ADR 0024](0024-external-component-setup.md), decided on 2026-09-26.
+Implementation status is kept in the design document linked under
+Consequences.
 
 ## Context
 
