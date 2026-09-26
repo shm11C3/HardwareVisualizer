@@ -153,8 +153,8 @@ impl From<core_setup::ExternalComponentSetupStatus> for ExternalComponentSetupSt
         .module_files
         .into_iter()
         .map(|file| ExternalComponentModuleFileState {
+          present: file.is_present(),
           file_name: file.file_name,
-          present: file.present,
         })
         .collect(),
       pinned_runtime_version: src.pinned_runtime_version,
@@ -320,7 +320,7 @@ mod tests {
       install_location: Some(std::path::PathBuf::from(r"C:\Program Files\PawnIO")),
     };
     for file in &mut status.module_files {
-      file.present = true;
+      file.condition = core_setup::ModuleFileCondition::Current;
     }
 
     let wire: ExternalComponentSetupStatus = status.into();

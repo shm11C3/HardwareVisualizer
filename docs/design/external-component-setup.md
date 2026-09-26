@@ -75,9 +75,14 @@ but it does not read registers or share code with the provider.
    absent; any other failure is unknown state and stops the run without
    changing anything.
 2. Resolve the module state. The plan lists the module files the app can use:
-   `IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin`, `LpcIO.bin`. A file is
-   present when it exists under any known PawnIO root; a root that cannot be
-   read is unknown state, not absence.
+   `IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin`, `LpcIO.bin`. Each file
+   is looked up under the known PawnIO roots in the provider's order, and the
+   first one found is classified by its SHA-256 against the catalog: current
+   (the pinned release), outdated (only an earlier release), or unrecognized
+   (anything else, including a newer release). A root or file that cannot be
+   read is unknown state, not absence. The component is complete when the
+   runtime is installed and every file is current or unrecognized
+   ([ADR 0026](../adr/0026-refresh-outdated-external-component-files.md)).
 3. Create an administrator-only staging directory under `%SystemRoot%\Temp`
    (protected DACL, random name), download `PawnIO_setup.exe` into it, verify
    size and SHA-256, hold the file open with a share mode that denies write
@@ -105,12 +110,18 @@ but it does not read registers or share code with the provider.
    prefix. No cross-process mutex is used: the setup process exits while
    the installer it could not stop lives on, so a mutex it held would not
    cover that case.
-4. When at least one module file is missing, download the pinned modules zip,
-   verify it, and place only the missing files into the install location
-   resolved from the registry (fallback `%ProgramFiles%\PawnIO`). Each file
-   is written to a sibling partial file and linked into its final name; the
-   link fails when the name already exists, so existing files are never
-   replaced and a partial file never carries the final name.
+4. When at least one module file is missing or outdated, download the pinned
+   modules zip, verify it, and check every extracted file against its pinned
+   digest. Missing files go into the install location resolved from the
+   registry (fallback `%ProgramFiles%\PawnIO`): each is written to a sibling
+   partial file and linked into its final name, and the link fails when the
+   name already exists, so a partial file never carries the final name. Each
+   outdated file is replaced where it was found: the new contents go to a
+   sibling partial file, the target is checked again, and the partial file is
+   renamed over it only while the target is still outdated. Current and
+   unrecognized files are never replaced. The refresh-only entry point
+   (`refresh` in `core/src/external_component_setup/windows.rs`) runs only
+   this replacement; it never installs the runtime or adds a missing file.
 5. Re-read the state. Report success only when the component is complete
    (or the installer asked for a restart), then exit with a code that encodes
    the outcome. The caller derives the outcome from the exit code of the
@@ -145,7 +156,7 @@ observe.
 | `16` | Modules archive download failed |
 | `17` | Modules archive failed size or SHA-256 verification |
 | `18` | Verified archive does not contain a required module file |
-| `19` | Module files could not be placed |
+| `19` | Module files could not be placed or replaced, or a file is still outdated after a refresh |
 | `20` | Every step ran, but the component is still not complete |
 | `21` | Unsupported platform |
 | `22` | The setup process panicked; the message went to its stderr only |

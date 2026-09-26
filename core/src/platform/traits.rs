@@ -192,6 +192,14 @@ pub trait ExternalComponentSetupPlatform: Send + Sync {
     plan: &crate::external_component_setup::ExternalComponentSetupPlan,
   ) -> crate::external_component_setup::ExternalComponentSetupResult;
 
+  /// Replace the component's outdated files with the pinned release in the
+  /// current process, and change nothing else (ADR 0026). The caller must
+  /// already be elevated where the platform requires it.
+  fn refresh_external_component_files(
+    &self,
+    plan: &crate::external_component_setup::ExternalComponentSetupPlan,
+  ) -> crate::external_component_setup::ExternalComponentSetupResult;
+
   /// Launch the current executable elevated with `args` and wait for exit.
   fn run_current_executable_elevated(
     &self,

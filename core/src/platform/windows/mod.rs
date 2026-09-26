@@ -142,6 +142,13 @@ impl ExternalComponentSetupPlatform for WindowsPlatform {
     crate::external_component_setup::windows::run(plan)
   }
 
+  fn refresh_external_component_files(
+    &self,
+    plan: &crate::external_component_setup::ExternalComponentSetupPlan,
+  ) -> crate::external_component_setup::ExternalComponentSetupResult {
+    crate::external_component_setup::windows::refresh(plan)
+  }
+
   fn run_current_executable_elevated(
     &self,
     args: &[String],

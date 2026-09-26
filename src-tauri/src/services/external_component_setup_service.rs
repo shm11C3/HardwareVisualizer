@@ -246,6 +246,13 @@ mod tests {
       unreachable!("the service never runs setup in process")
     }
 
+    fn refresh_external_component_files(
+      &self,
+      _plan: &ExternalComponentSetupPlan,
+    ) -> core_setup::ExternalComponentSetupResult {
+      unreachable!("the service never refreshes in process")
+    }
+
     fn run_current_executable_elevated(
       &self,
       _args: &[String],

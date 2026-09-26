@@ -3,9 +3,11 @@
 //! This module runs inside an already elevated process: the App launches the
 //! executable elevated in its setup command-line mode, or the installer's
 //! custom action calls it from its elevated context. It downloads the pinned
-//! artifacts, verifies them, runs the runtime installer unattended, and places
-//! only the module files that are missing. It never overwrites or removes
-//! anything, and it reports back through the process exit code only.
+//! artifacts, verifies them, runs the runtime installer unattended, places the
+//! module files that are missing, and replaces the ones whose contents match
+//! an earlier upstream release (ADR 0026). It never replaces any other file,
+//! never removes anything, and reports back through the process exit code
+//! only.
 //!
 //! Elevation-boundary rules this file keeps:
 //!
@@ -13,9 +15,10 @@
 //!   under `%SystemRoot%\Temp`, not in the user's temp directory, and is held
 //!   open with an exclusive share mode while it runs, so a same-user
 //!   medium-integrity process cannot swap it between verification and start.
-//! - Module files are published atomically with no-clobber semantics, so a
-//!   partial file never counts as present and a concurrent writer is never
-//!   truncated.
+//! - Missing module files are published atomically with no-clobber
+//!   semantics, so a partial file never counts as present and a concurrent
+//!   writer is never truncated. An outdated file is replaced by renaming a
+//!   fully written sibling over it, after its contents were checked again.
 //! - Enumeration failures are reported as unknown state, never as absence.
 
 use std::ffi::{OsStr, OsString};
@@ -54,9 +57,10 @@ use windows::core::{PCWSTR, PWSTR};
 use super::{
   ExternalComponentSetupOutcome, ExternalComponentSetupPlan,
   ExternalComponentSetupResult, ExternalComponentSetupStatus,
-  ExternalComponentSetupSupport, FileBundleStep, InstallerExitOutcome, ModuleFileState,
-  PinnedArtifact, RuntimeInstallState, SetupFailureStage, interpret_installer_exit_code,
-  select_bundle_entries, verify_artifact,
+  ExternalComponentSetupSupport, FileBundleStep, InstallerExitOutcome, ModuleFile,
+  ModuleFileCondition, ModuleFileState, PinnedArtifact, RuntimeInstallState,
+  SetupFailureStage, interpret_installer_exit_code, select_bundle_entries,
+  verify_artifact,
 };
 use crate::models::ExternalComponent;
 use crate::{log_info, log_warn};
@@ -95,19 +99,56 @@ const STAGING_DIRECTORY_PREFIX: &str = "hardviz-external-component-setup-";
 const PARTIAL_SUFFIX: &str = ".hardviz-partial";
 
 pub fn status(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupStatus {
+  scan(plan).0
+}
+
+/// The status together with the path of every module file found, in the
+/// order of `status.module_files`.
+fn scan(
+  plan: &ExternalComponentSetupPlan,
+) -> (ExternalComponentSetupStatus, Vec<LocatedModuleFile>) {
   let runtime = runtime_install_state(plan.component);
   let roots = install_roots(&runtime);
+  let (located, enumeration_error) = locate_module_files(plan.file_bundle.files, &roots);
+
+  let status = ExternalComponentSetupStatus {
+    component: plan.component,
+    support: ExternalComponentSetupSupport::Supported,
+    runtime,
+    module_files: located.iter().map(|file| file.state.clone()).collect(),
+    enumeration_error,
+    pinned_runtime_version: plan.installer.artifact.version.to_string(),
+    pinned_modules_version: plan.file_bundle.artifact.version.to_string(),
+  };
+  (status, located)
+}
+
+/// A module file as found on disk.
+#[derive(Debug)]
+struct LocatedModuleFile {
+  file: &'static ModuleFile,
+  state: ModuleFileState,
+  /// Where it was found, when it was.
+  path: Option<PathBuf>,
+}
+
+/// Find each file under `roots` in the provider's candidate order, so the
+/// file judged here is the one collection loads, and classify its contents.
+/// A directory or file that cannot be read is reported as an enumeration
+/// error, because it is not evidence of absence or of any content.
+fn locate_module_files(
+  files: &'static [ModuleFile],
+  roots: &[PathBuf],
+) -> (Vec<LocatedModuleFile>, Option<String>) {
   let mut enumeration_error = None;
-  let module_files = plan
-    .file_bundle
-    .file_names
+  let located = files
     .iter()
-    .map(|file_name| {
-      let mut present = false;
-      for root in &roots {
-        match find_named_file(root, file_name, MODULE_SEARCH_DEPTH) {
-          Ok(Some(_)) => {
-            present = true;
+    .map(|file| {
+      let mut path = None;
+      for root in roots {
+        match find_named_file(root, file.file_name, MODULE_SEARCH_DEPTH) {
+          Ok(Some(found)) => {
+            path = Some(found);
             break;
           }
           Ok(None) => {}
@@ -116,22 +157,27 @@ pub fn status(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupStatus
           }
         }
       }
-      ModuleFileState {
-        file_name: (*file_name).to_string(),
-        present,
+      let condition = match &path {
+        None => ModuleFileCondition::Missing,
+        Some(found) => match fs::read(found) {
+          Ok(contents) => file.classify(&contents),
+          Err(e) => {
+            enumeration_error.get_or_insert_with(|| format!("{}: {e}", found.display()));
+            ModuleFileCondition::Unrecognized
+          }
+        },
+      };
+      LocatedModuleFile {
+        file,
+        state: ModuleFileState {
+          file_name: file.file_name.to_string(),
+          condition,
+        },
+        path,
       }
     })
     .collect();
-
-  ExternalComponentSetupStatus {
-    component: plan.component,
-    support: ExternalComponentSetupSupport::Supported,
-    runtime,
-    module_files,
-    enumeration_error,
-    pinned_runtime_version: plan.installer.artifact.version.to_string(),
-    pinned_modules_version: plan.file_bundle.artifact.version.to_string(),
-  }
+  (located, enumeration_error)
 }
 
 pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
@@ -140,6 +186,7 @@ pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
     outcome: ExternalComponentSetupOutcome::AlreadyInstalled,
     runtime_installed: false,
     module_files_placed: Vec::new(),
+    module_files_replaced: Vec::new(),
   };
 
   let before = status(plan);
@@ -204,17 +251,21 @@ pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
     }
   }
 
-  let after = status(plan);
+  let (after, located) = scan(plan);
   if let Some(blocker) = after.setup_blocker() {
     result.outcome =
       ExternalComponentSetupOutcome::failed(SetupFailureStage::StateUnknown, blocker);
     return result;
   }
   let missing = after.missing_module_files();
-  if !missing.is_empty() {
+  let outdated = outdated_files(&located);
+  if !missing.is_empty() || !outdated.is_empty() {
     let destination = module_destination(&after.runtime);
-    match place_module_files(&plan.file_bundle, &missing, &destination) {
-      Ok(placed) => result.module_files_placed = placed,
+    match update_module_files(&plan.file_bundle, &missing, &outdated, &destination) {
+      Ok(changes) => {
+        result.module_files_placed = changes.placed;
+        result.module_files_replaced = changes.replaced;
+      }
       Err((stage, detail)) => {
         result.outcome = ExternalComponentSetupOutcome::failed(stage, detail);
         return result;
@@ -228,12 +279,13 @@ pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
   if !final_state.is_complete() && !reboot_required {
     let detail = final_state.setup_blocker().unwrap_or_else(|| {
       format!(
-        "runtime {} and {} module file(s) still missing",
+        "runtime {}, {} module file(s) still missing and {} still outdated",
         match final_state.runtime {
           RuntimeInstallState::Installed { .. } => "installed",
           _ => "not registered",
         },
-        final_state.missing_module_files().len()
+        final_state.missing_module_files().len(),
+        final_state.outdated_module_files().len()
       )
     });
     result.outcome =
@@ -247,6 +299,67 @@ pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
     ExternalComponentSetupOutcome::Installed
   };
   result
+}
+
+/// Replace the module files that match an earlier release with the pinned
+/// release (ADR 0026), and nothing else: the runtime is not installed and a
+/// missing file is not added. The MSI runs this when it upgrades
+/// HardwareVisualizer. `AlreadyInstalled` means nothing was outdated;
+/// `Installed` means every outdated file was replaced.
+pub fn refresh(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
+  let mut result = ExternalComponentSetupResult {
+    component: plan.component,
+    outcome: ExternalComponentSetupOutcome::AlreadyInstalled,
+    runtime_installed: false,
+    module_files_placed: Vec::new(),
+    module_files_replaced: Vec::new(),
+  };
+
+  let (before, located) = scan(plan);
+  if let Some(blocker) = before.setup_blocker() {
+    result.outcome =
+      ExternalComponentSetupOutcome::failed(SetupFailureStage::StateUnknown, blocker);
+    return result;
+  }
+  let outdated = outdated_files(&located);
+  if outdated.is_empty() {
+    return result;
+  }
+
+  let destination = module_destination(&before.runtime);
+  match update_module_files(&plan.file_bundle, &[], &outdated, &destination) {
+    Ok(changes) => result.module_files_replaced = changes.replaced,
+    Err((stage, detail)) => {
+      result.outcome = ExternalComponentSetupOutcome::failed(stage, detail);
+      return result;
+    }
+  }
+
+  let after = status(plan);
+  if let Some(blocker) = after.setup_blocker() {
+    result.outcome =
+      ExternalComponentSetupOutcome::failed(SetupFailureStage::StateUnknown, blocker);
+    return result;
+  }
+  let still_outdated = after.outdated_module_files();
+  result.outcome = if still_outdated.is_empty() {
+    ExternalComponentSetupOutcome::Installed
+  } else {
+    ExternalComponentSetupOutcome::failed(
+      SetupFailureStage::PlaceModules,
+      format!("{} is still outdated", still_outdated.join(", ")),
+    )
+  };
+  result
+}
+
+/// The outdated files among `located` with the path each was found at.
+fn outdated_files(located: &[LocatedModuleFile]) -> Vec<(&'static ModuleFile, &Path)> {
+  located
+    .iter()
+    .filter(|file| file.state.condition == ModuleFileCondition::Outdated)
+    .filter_map(|file| file.path.as_deref().map(|path| (file.file, path)))
+    .collect()
 }
 
 fn runtime_install_state(component: ExternalComponent) -> RuntimeInstallState {
@@ -708,11 +821,22 @@ fn wait_signaled(child: &std::process::Child, limit: Duration) -> bool {
   waited == WAIT_OBJECT_0
 }
 
-fn place_module_files(
+/// Files a module-file update changed.
+struct ModuleFileChanges {
+  placed: Vec<String>,
+  replaced: Vec<String>,
+}
+
+/// Download the pinned modules archive once, place `missing` files under
+/// `destination`, and replace each `outdated` file where it was found. Every
+/// extracted file must match its pinned digest, so an archive that disagrees
+/// with the catalog changes nothing.
+fn update_module_files(
   bundle: &FileBundleStep,
   missing: &[&str],
+  outdated: &[(&'static ModuleFile, &Path)],
   destination: &Path,
-) -> Result<Vec<String>, (SetupFailureStage, String)> {
+) -> Result<ModuleFileChanges, (SetupFailureStage, String)> {
   let bytes = download_verified(&bundle.artifact).map_err(|(stage, detail)| {
     (
       match stage {
@@ -728,14 +852,19 @@ fn place_module_files(
       format!("failed to open {}: {e}", bundle.artifact.file_name),
     )
   })?;
+  let needed = missing
+    .iter()
+    .copied()
+    .chain(outdated.iter().map(|(file, _)| file.file_name))
+    .collect::<Vec<_>>();
   let entry_names = archive.file_names().map(str::to_string).collect::<Vec<_>>();
-  let selected = select_bundle_entries(&entry_names, missing);
-  if selected.len() != missing.len() {
+  let selected = select_bundle_entries(&entry_names, &needed);
+  if selected.len() != needed.len() {
     let found = selected
       .iter()
       .map(|(_, file_name)| *file_name)
       .collect::<Vec<_>>();
-    let absent = missing
+    let absent = needed
       .iter()
       .filter(|file_name| !found.contains(file_name))
       .copied()
@@ -750,14 +879,7 @@ fn place_module_files(
     ));
   }
 
-  fs::create_dir_all(destination).map_err(|e| {
-    (
-      SetupFailureStage::PlaceModules,
-      format!("failed to create {}: {e}", destination.display()),
-    )
-  })?;
-
-  let mut placed = Vec::new();
+  let mut extracted = Vec::with_capacity(selected.len());
   for (entry_name, file_name) in selected {
     let mut entry = archive.by_name(entry_name).map_err(|e| {
       (
@@ -772,14 +894,124 @@ fn place_module_files(
         format!("failed to read {entry_name}: {e}"),
       )
     })?;
-    if publish_file_no_clobber(destination, file_name, &contents)
+    let matches_catalog = bundle
+      .file(file_name)
+      .is_some_and(|file| file.classify(&contents) == ModuleFileCondition::Current);
+    if !matches_catalog {
+      return Err((
+        SetupFailureStage::ArchiveContents,
+        format!(
+          "{entry_name} in {} does not match its pinned digest",
+          bundle.artifact.file_name
+        ),
+      ));
+    }
+    extracted.push((file_name, contents));
+  }
+  let contents_of = |file_name: &str| {
+    extracted
+      .iter()
+      .find(|(name, _)| *name == file_name)
+      .map(|(_, contents)| contents.as_slice())
+      .unwrap_or_default()
+  };
+
+  let mut changes = ModuleFileChanges {
+    placed: Vec::new(),
+    replaced: Vec::new(),
+  };
+  if !missing.is_empty() {
+    fs::create_dir_all(destination).map_err(|e| {
+      (
+        SetupFailureStage::PlaceModules,
+        format!("failed to create {}: {e}", destination.display()),
+      )
+    })?;
+  }
+  for file_name in missing {
+    if publish_file_no_clobber(destination, file_name, contents_of(file_name))
       .map_err(|detail| (SetupFailureStage::PlaceModules, detail))?
     {
-      placed.push(file_name.to_string());
+      changes.placed.push((*file_name).to_string());
+    }
+  }
+  for (file, path) in outdated {
+    if replace_outdated_file(path, file, contents_of(file.file_name))
+      .map_err(|detail| (SetupFailureStage::PlaceModules, detail))?
+    {
+      log_info!(
+        format!("replaced the outdated module file {}", path.display()),
+        "external_component_setup::update_module_files",
+        None::<&str>
+      );
+      changes.replaced.push(file.file_name.to_string());
     }
   }
 
-  Ok(placed)
+  Ok(changes)
+}
+
+/// Replace `target` with `contents` when, and only when, it still holds the
+/// contents of an earlier release of `file`. The new contents are written to
+/// a sibling partial file first, the target is checked again, and the partial
+/// file is renamed over it, so the target is never left partially written. A
+/// target that is missing or no longer outdated is left alone and reported as
+/// not replaced. The target lives under the PawnIO install directory, which
+/// only administrators can modify, so no unelevated process can change it
+/// between the last check and the rename.
+fn replace_outdated_file(
+  target: &Path,
+  file: &ModuleFile,
+  contents: &[u8],
+) -> Result<bool, String> {
+  if !is_outdated(target, file)? {
+    return Ok(false);
+  }
+  let (Some(directory), Some(file_name)) = (target.parent(), target.file_name()) else {
+    return Err(format!("{} has no parent directory", target.display()));
+  };
+  let partial = directory.join(format!(
+    "{}{PARTIAL_SUFFIX}.{}",
+    file_name.to_string_lossy(),
+    random_hex::<8>()?
+  ));
+
+  let mut partial_file = fs::OpenOptions::new()
+    .write(true)
+    .create_new(true)
+    .open(&partial)
+    .map_err(|e| format!("failed to create {}: {e}", partial.display()))?;
+  let written = partial_file
+    .write_all(contents)
+    .and_then(|()| partial_file.sync_all());
+  drop(partial_file);
+  if let Err(e) = written {
+    let _ = fs::remove_file(&partial);
+    return Err(format!("failed to write {}: {e}", partial.display()));
+  }
+
+  match is_outdated(target, file) {
+    Ok(true) => {}
+    other => {
+      let _ = fs::remove_file(&partial);
+      return other;
+    }
+  }
+  if let Err(e) = fs::rename(&partial, target) {
+    let _ = fs::remove_file(&partial);
+    return Err(format!("failed to replace {}: {e}", target.display()));
+  }
+  Ok(true)
+}
+
+/// Whether `target` holds the contents of an earlier release of `file`. A
+/// missing target is not outdated.
+fn is_outdated(target: &Path, file: &ModuleFile) -> Result<bool, String> {
+  match fs::read(target) {
+    Ok(contents) => Ok(file.classify(&contents) == ModuleFileCondition::Outdated),
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+    Err(e) => Err(format!("failed to read {}: {e}", target.display())),
+  }
 }
 
 /// Write `contents` to `<directory>\<file_name>` atomically without ever
@@ -1141,6 +1373,113 @@ mod tests {
     });
 
     assert!(!path.exists(), "the directory is removed on drop");
+  }
+
+  /// Current contents are `hello world`, the one earlier release `hello`.
+  const TEST_MODULE: ModuleFile = ModuleFile {
+    file_name: "Test.bin",
+    sha256_hex: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+    earlier_sha256_hex: &[
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+    ],
+  };
+
+  fn test_directory(label: &str) -> PathBuf {
+    let path = std::env::temp_dir().join(format!(
+      "hardviz-{label}-{}",
+      random_hex::<8>().expect("random name")
+    ));
+    fs::create_dir(&path).expect("test directory is created");
+    path
+  }
+
+  fn directory_entries(directory: &Path) -> Vec<String> {
+    let mut names = fs::read_dir(directory)
+      .expect("test directory is readable")
+      .map(|entry| {
+        entry
+          .expect("entry")
+          .file_name()
+          .to_string_lossy()
+          .into_owned()
+      })
+      .collect::<Vec<_>>();
+    names.sort();
+    names
+  }
+
+  #[test]
+  fn an_outdated_file_is_replaced_in_place() {
+    let directory = test_directory("replace-outdated");
+    let target = directory.join("Test.bin");
+    fs::write(&target, b"hello").expect("outdated file is written");
+
+    let replaced = replace_outdated_file(&target, &TEST_MODULE, b"hello world");
+
+    assert_eq!(replaced, Ok(true));
+    assert_eq!(fs::read(&target).expect("target"), b"hello world");
+    assert_eq!(directory_entries(&directory), vec!["Test.bin"]);
+    fs::remove_dir_all(&directory).expect("test directory is removed");
+  }
+
+  #[test]
+  fn a_file_that_is_no_longer_outdated_is_left_alone() {
+    let directory = test_directory("replace-changed");
+    let target = directory.join("Test.bin");
+    fs::write(&target, b"a newer release").expect("unrecognized file is written");
+
+    let replaced = replace_outdated_file(&target, &TEST_MODULE, b"hello world");
+
+    assert_eq!(replaced, Ok(false));
+    assert_eq!(fs::read(&target).expect("target"), b"a newer release");
+    assert_eq!(directory_entries(&directory), vec!["Test.bin"]);
+    fs::remove_dir_all(&directory).expect("test directory is removed");
+  }
+
+  #[test]
+  fn a_missing_file_is_not_created_by_a_replacement() {
+    let directory = test_directory("replace-missing");
+    let target = directory.join("Test.bin");
+
+    let replaced = replace_outdated_file(&target, &TEST_MODULE, b"hello world");
+
+    assert_eq!(replaced, Ok(false));
+    assert!(directory_entries(&directory).is_empty());
+    fs::remove_dir_all(&directory).expect("test directory is removed");
+  }
+
+  #[test]
+  fn located_module_files_are_classified_by_their_contents() {
+    let directory = test_directory("locate");
+    let nested = directory.join("modules");
+    fs::create_dir(&nested).expect("nested directory is created");
+    fs::write(nested.join("test.BIN"), b"hello").expect("module file is written");
+    let roots = vec![directory.join("absent"), directory.clone()];
+
+    let (located, error) = locate_module_files(&[TEST_MODULE], &roots);
+
+    assert_eq!(error, None);
+    assert_eq!(located.len(), 1);
+    assert_eq!(located[0].state.condition, ModuleFileCondition::Outdated);
+    // Windows paths compare case-insensitively; the search may return the
+    // catalog spelling of the file name.
+    assert_eq!(
+      located[0]
+        .path
+        .as_ref()
+        .map(|path| path.to_string_lossy().to_lowercase()),
+      Some(nested.join("test.bin").to_string_lossy().to_lowercase())
+    );
+
+    fs::write(nested.join("test.BIN"), b"hello world").expect("module file is rewritten");
+    let (located, _) = locate_module_files(&[TEST_MODULE], &roots);
+    assert_eq!(located[0].state.condition, ModuleFileCondition::Current);
+
+    fs::remove_dir_all(&directory).expect("test directory is removed");
+    let (located, error) = locate_module_files(&[TEST_MODULE], &roots);
+    assert_eq!(error, None);
+    assert_eq!(located[0].state.condition, ModuleFileCondition::Missing);
+    assert_eq!(located[0].path, None);
   }
 
   #[test]
