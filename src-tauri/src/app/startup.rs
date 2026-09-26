@@ -258,7 +258,7 @@ fn build_native_authority_message(issue: &LifecycleIssue) -> String {
     issue,
     LifecycleIssue::NativeRebuildInspectionRequired { .. }
   ) {
-    "\n\nAfter continuing, open Settings > Insights to check whether a backup-and-rebuild from SQLite is safe. The check refuses to move files unless it proves under the native writer lock that the native database is unselected."
+    "After continuing, open Settings > Insights to check whether a backup-and-rebuild from SQLite is safe. The check refuses to move files unless it proves under the native writer lock that the native database is unselected.\n\n"
   } else {
     ""
   };
@@ -268,7 +268,7 @@ fn build_native_authority_message(issue: &LifecycleIssue) -> String {
      You can continue with real-time monitoring only - archived history and other \
      database-backed features stay disabled for this session - reset the data to \
      start fresh, or exit and inspect the app data directory.\n\n\
-     {recovery_hint}\n\n\
+     {recovery_hint}\
      {RESET_HISTORY_NOTE}\n\n\
      [Details: {issue:?}]"
   )
@@ -369,6 +369,7 @@ mod tests {
     });
     assert!(msg.contains(RESET_HISTORY_NOTE));
     assert!(msg.contains("could not open the spill directory"));
+    assert!(!msg.contains("\n\n\n"), "{msg:?}");
   }
 
   #[cfg(feature = "duckdb-archive")]
@@ -382,6 +383,7 @@ mod tests {
     assert!(msg.contains("Settings > Insights"));
     assert!(msg.contains("refuses to move files"));
     assert!(msg.contains("unselected"));
+    assert!(!msg.contains("\n\n\n"), "{msg:?}");
   }
 
   #[test]
