@@ -2,6 +2,11 @@
 
 Status: accepted
 
+Amended by [ADR 0026](0026-refresh-outdated-external-component-files.md)
+(2026-09-26): outdated module files are replaced with the pinned release,
+and an MSI upgrade runs that refresh at every UI level. Decisions 1 and 4
+below still hold for setup itself, with those two exceptions.
+
 HardwareVisualizer can collect deeper Windows sensor data through PawnIO, but
 until now the user had to find the PawnIO runtime installer and the separate
 signed module blobs, install them by hand, and place the module files under
