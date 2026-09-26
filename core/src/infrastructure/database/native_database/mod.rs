@@ -40,6 +40,11 @@ use std::path::Path;
 
 use duckdb::Connection;
 
+/// Runtime spills created by earlier releases used the conversion-work prefix.
+/// Keep this exact prefix classified as runtime data rather than conversion work.
+pub const LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX: &str =
+  ".hardwarevisualizer-duckdb-runtime-";
+
 pub use cooling_rollup::DayRollup;
 pub use error::NativeDatabaseError;
 pub use finalize::{

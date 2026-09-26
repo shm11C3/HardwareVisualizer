@@ -856,7 +856,10 @@ fn work_directory_present(native_database: &Path) -> bool {
     return false;
   };
   entries.filter_map(Result::ok).any(|entry| {
-    entry.file_name().to_string_lossy().starts_with(WORK_PREFIX)
+    let name = entry.file_name();
+    let name = name.to_string_lossy();
+    name.starts_with(WORK_PREFIX)
+      && !name.starts_with(super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX)
       && entry.file_type().is_ok_and(|kind| kind.is_dir())
   })
 }
@@ -1461,5 +1464,55 @@ mod tests {
       inspect_authority(&observe_authority(&paths, 7)),
       AuthorityState::NativeSelected
     );
+  }
+
+  #[tokio::test]
+  async fn legacy_spill_is_ignored_by_authority_and_new_stale_spills_are_removed_after_owner_opens()
+   {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    create_empty_native_database(paths.clone(), fresh_schema())
+      .await
+      .unwrap();
+    std::fs::remove_file(&paths.marker).unwrap();
+
+    let legacy_runtime_spill = directory.path().join(format!(
+      "{}interrupted",
+      super::super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX
+    ));
+    std::fs::create_dir(&legacy_runtime_spill).unwrap();
+    assert!(
+      !observe_authority(&paths, 7).work_directory_present,
+      "legacy runtime spills must not be observed as conversion work"
+    );
+
+    let runtime_spill_parent = directory
+      .path()
+      .join(super::super::runtime::RUNTIME_SPILL_DIRECTORY_PREFIX)
+      .join(paths.native_database.file_name().unwrap());
+    std::fs::create_dir_all(&runtime_spill_parent).unwrap();
+    let runtime_spill = runtime_spill_parent.join("spill-interrupted");
+    std::fs::create_dir(&runtime_spill).unwrap();
+    assert_eq!(
+      inspect_authority(&observe_authority(&paths, 7)),
+      AuthorityState::Inconsistent {
+        reason: AuthorityInconsistency::SelectedWithoutMarker,
+        recovery: AuthorityRecovery::RepairSelectionMarkerFromNativeMetadata,
+      }
+    );
+
+    let conversion_work = directory.path().join(format!("{WORK_PREFIX}interrupted"));
+    std::fs::create_dir(&conversion_work).unwrap();
+    assert!(observe_authority(&paths, 7).work_directory_present);
+    let owner = crate::infrastructure::database::native_database::NativeDatabase::open(
+      &paths.native_database,
+      crate::infrastructure::database::native_database::NativeDatabaseOptions::new(7),
+    )
+    .await
+    .unwrap();
+    assert!(!runtime_spill.exists());
+    assert!(legacy_runtime_spill.is_dir());
+    assert!(conversion_work.is_dir());
+    owner.close().await.unwrap();
   }
 }

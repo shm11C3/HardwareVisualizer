@@ -180,10 +180,12 @@ fn discard_conversion_work_directories(
       description: "the database directory",
       source,
     })?;
-    if !entry
-      .file_name()
-      .to_string_lossy()
-      .starts_with(crate::app::native_conversion::WORK_DEBRIS_PREFIX)
+    let file_name = entry.file_name();
+    let file_name = file_name.to_string_lossy();
+    if !file_name.starts_with(crate::app::native_conversion::WORK_DEBRIS_PREFIX)
+      || file_name.starts_with(
+        hardviz_core::infrastructure::database::native_database::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX,
+      )
       || !entry.file_type().is_ok_and(|kind| kind.is_dir())
     {
       continue;
@@ -686,6 +688,30 @@ mod tests {
       std::fs::remove_file(&paths.source_database).unwrap();
 
       assert!(!work.exists());
+      assert_fresh(&paths);
+    }
+
+    #[test]
+    fn reset_preserves_legacy_runtime_spill_directories() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = paths(directory.path());
+      std::fs::write(&paths.source_database, b"sqlite source").unwrap();
+      let legacy_spill = directory.path().join(format!(
+        "{}crashed",
+        hardviz_core::infrastructure::database::native_database::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX
+      ));
+      std::fs::create_dir(&legacy_spill).unwrap();
+      let spill_artifact = legacy_spill.join("spill-file");
+      std::fs::write(&spill_artifact, b"owned by another native database").unwrap();
+
+      discard_native_authority_files(&paths, directory.path()).unwrap();
+      std::fs::remove_file(&paths.source_database).unwrap();
+
+      assert!(legacy_spill.is_dir());
+      assert_eq!(
+        std::fs::read(spill_artifact).unwrap(),
+        b"owned by another native database"
+      );
       assert_fresh(&paths);
     }
 
