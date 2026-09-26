@@ -15,8 +15,37 @@ import { UpdateTopBar } from "./components/UpdateBar";
 import { useUpdater } from "./hooks/useAppUpdate";
 
 export function AppUpdate() {
-  const { meta, installing, percent, downloaded, total, install, isFinished } =
-    useUpdater();
+  const {
+    meta,
+    installing,
+    percent,
+    downloaded,
+    total,
+    install,
+    isFinished,
+    installError,
+  } = useUpdater();
+  const { t } = useTranslation();
+
+  const errorMessage = installError
+    ? installError.message === "NoPendingUpdate"
+      ? t("pages.updater.noPendingUpdate")
+      : t("pages.updater.installFailed", { message: installError.message })
+    : null;
+
+  if (installError?.kind === "restart-required") {
+    return <RestartRequiredAfterUpdate message={installError.message} />;
+  }
+
+  if (errorMessage) {
+    return (
+      <AppUpdateModal
+        meta={meta}
+        install={install}
+        errorMessage={errorMessage}
+      />
+    );
+  }
 
   if (installing && !isFinished && percent !== null) {
     return (
@@ -32,24 +61,26 @@ export function AppUpdate() {
     return <RestartOnUpdateComplete />;
   }
 
-  return <AppUpdateModal meta={meta} install={install} />;
+  return <AppUpdateModal meta={meta} install={install} errorMessage={null} />;
 }
 
 function AppUpdateModal({
   meta,
   install,
+  errorMessage,
 }: {
   meta: ReturnType<typeof useUpdater>["meta"];
   install: ReturnType<typeof useUpdater>["install"];
+  errorMessage: string | null;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (meta) {
+    if (meta || errorMessage) {
       setOpen(true);
     }
-  }, [meta]);
+  }, [meta, errorMessage]);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -61,6 +92,11 @@ function AppUpdateModal({
           <AlertDialogDescription>
             {t("pages.updater.description", { version: meta?.version })}
           </AlertDialogDescription>
+          {errorMessage && (
+            <AlertDialogDescription role="alert">
+              {errorMessage}
+            </AlertDialogDescription>
+          )}
         </AlertDialogHeader>
         <p
           className="text-neutral-700 text-sm dark:text-neutral-200"
@@ -88,6 +124,7 @@ function AppUpdateModal({
             {t("pages.updater.later")}
           </AlertDialogCancel>
           <AlertDialogAction
+            disabled={!meta}
             onClick={() => {
               setOpen(false);
               install();
@@ -110,6 +147,20 @@ function RestartOnUpdateComplete() {
       alertOpen={alertOpen}
       setAlertOpen={setAlertOpen}
       description={t("pages.updater.needRestart")}
+    />
+  );
+}
+
+function RestartRequiredAfterUpdate({ message }: { message: string }) {
+  const { t } = useTranslation();
+  const [alertOpen, setAlertOpen] = useState(true);
+
+  return (
+    <NeedRestart
+      alertOpen={alertOpen}
+      setAlertOpen={setAlertOpen}
+      dismissible={false}
+      description={t("pages.updater.restartRequired", { message })}
     />
   );
 }

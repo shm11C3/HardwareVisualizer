@@ -1,6 +1,10 @@
 import { Channel } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
-import { commands, type DownloadEvent } from "@/rspc/bindings";
+import {
+  commands,
+  type DownloadEvent,
+  type UpdaterError,
+} from "@/rspc/bindings";
 import { isOk } from "@/types/result";
 
 type UpdateMeta = {
@@ -10,6 +14,33 @@ type UpdateMeta = {
   pubDate?: string | null;
 };
 
+export type UpdateInstallError =
+  | { kind: "before-shutdown"; message: string }
+  | { kind: "restart-required"; message: string };
+
+function installErrorFrom(error: UpdaterError): UpdateInstallError {
+  if (error === "NoPendingUpdate") {
+    return {
+      kind: "before-shutdown",
+      message: "NoPendingUpdate",
+    };
+  }
+  if ("RestartRequired" in error) {
+    return {
+      kind: "restart-required",
+      message: error.RestartRequired,
+    };
+  }
+  return {
+    kind: "before-shutdown",
+    message: error.Updater,
+  };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function useUpdater() {
   const [meta, setMeta] = useState<UpdateMeta | null>(null);
 
@@ -17,6 +48,9 @@ export function useUpdater() {
   const [downloaded, setDownloaded] = useState<bigint>(0n);
   const [total, setTotal] = useState<bigint | null>(null);
   const [isFinished, setIsFinished] = useState(false);
+  const [installError, setInstallError] = useState<UpdateInstallError | null>(
+    null,
+  );
 
   const percent = useMemo(() => {
     if (!total || total === 0n) return null;
@@ -39,6 +73,9 @@ export function useUpdater() {
     setInstalling(true);
     setDownloaded(0n);
     setTotal(null);
+    setIsFinished(false);
+    setInstallError(null);
+    let downloadCompleted = false;
 
     const ch: Channel<DownloadEvent> = new Channel<DownloadEvent>();
     ch.onmessage = (e) => {
@@ -53,14 +90,55 @@ export function useUpdater() {
           break;
         }
         case "finished": {
-          setIsFinished(true);
+          downloadCompleted = true;
           break;
         }
       }
     };
 
-    await commands.installUpdate(ch);
-    await commands.restartApp();
+    try {
+      const result = await commands.installUpdate(ch);
+      if (isOk(result)) {
+        setIsFinished(true);
+        try {
+          await commands.restartApp();
+        } catch (error) {
+          setInstalling(false);
+          setInstallError({
+            kind: "restart-required",
+            message: errorMessage(error),
+          });
+        }
+        return;
+      }
+
+      const failure = installErrorFrom(result.error);
+      setInstalling(false);
+      setIsFinished(false);
+      setInstallError(failure);
+
+      if (failure.kind === "before-shutdown") {
+        // install_update consumes PendingUpdate before downloading. Recheck
+        // after a download failure so the update button can retry with a new
+        // pending value, without restarting an app whose workers are running.
+        try {
+          const refreshed = await commands.fetchUpdate();
+          if (isOk(refreshed)) {
+            setMeta(refreshed.data);
+          }
+        } catch {
+          // Preserve the install error; the modal remains available to close.
+        }
+      }
+    } catch (error) {
+      const message = errorMessage(error);
+      setInstalling(false);
+      setIsFinished(false);
+      setInstallError({
+        kind: downloadCompleted ? "restart-required" : "before-shutdown",
+        message,
+      });
+    }
   };
 
   return {
@@ -71,5 +149,6 @@ export function useUpdater() {
     total,
     install,
     isFinished,
+    installError,
   };
 }

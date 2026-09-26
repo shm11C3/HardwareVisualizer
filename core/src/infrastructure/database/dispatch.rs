@@ -325,6 +325,25 @@ mod boundary {
     Ok(())
   }
 
+  /// Refuse every consumer until a later [`reobserve_authority`] decides
+  /// again, closing a live native owner first.
+  ///
+  /// For a caller that knows more than the files can show right now: a
+  /// selection that committed while its metadata cannot be read inspects as
+  /// an interrupted conversion, which [`reobserve_authority`] would answer
+  /// from SQLite. Refusal holds on every path, including a failed close
+  /// ([`close_or_refuse`]).
+  pub async fn refuse_consumers(reason: String) -> Result<(), NativeDatabaseError> {
+    let active = active();
+    let mut guard = active.write().await;
+    if let Active::Native(database) =
+      std::mem::replace(&mut *guard, Active::Unavailable(reason))
+    {
+      close_or_refuse(&mut guard, database).await?;
+    }
+    Ok(())
+  }
+
   /// Close a native owner that was just taken out of the boundary.
   ///
   /// The caller has already replaced the owner with a non-serving transition
@@ -767,7 +786,7 @@ mod boundary {
 }
 
 #[cfg(feature = "duckdb-archive")]
-pub use boundary::{init, reobserve_authority, shutdown};
+pub use boundary::{init, refuse_consumers, reobserve_authority, shutdown};
 
 /// Checkpoint the native database if it is the currently selected backend;
 /// a no-op on SQLite (there is nothing to checkpoint, and no live owner to

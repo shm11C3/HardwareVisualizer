@@ -115,6 +115,82 @@ describe("useUpdater", () => {
     expect(result.current.isFinished).toBe(true);
   });
 
+  it("install: does not restart after a download error and refreshes the pending update", async () => {
+    (commands.installUpdate as Mock).mockResolvedValue({
+      status: "error",
+      error: { Updater: "network failure" },
+    });
+    (commands.fetchUpdate as Mock).mockResolvedValue({
+      status: "ok",
+      data: {
+        version: "2.0.0",
+        currentVersion: "1.0.0",
+        notes: null,
+        pubDate: null,
+      },
+    });
+
+    const { result } = renderHook(() => useUpdater());
+
+    await act(async () => {
+      await result.current.install();
+    });
+
+    expect(commands.restartApp).not.toHaveBeenCalled();
+    expect(result.current.installing).toBe(false);
+    expect(result.current.installError).toEqual({
+      kind: "before-shutdown",
+      message: "network failure",
+    });
+    expect(commands.fetchUpdate).toHaveBeenCalledTimes(2);
+    expect(result.current.meta?.version).toBe("2.0.0");
+  });
+
+  it("install: requires an explicit restart after a post-shutdown failure", async () => {
+    (commands.installUpdate as Mock).mockResolvedValue({
+      status: "error",
+      error: { RestartRequired: "installer handoff failed" },
+    });
+
+    const { result } = renderHook(() => useUpdater());
+
+    await act(async () => {
+      await result.current.install();
+    });
+
+    expect(commands.restartApp).not.toHaveBeenCalled();
+    expect(result.current.installError).toEqual({
+      kind: "restart-required",
+      message: "installer handoff failed",
+    });
+  });
+
+  it("install: does not mark a finished download complete when handoff fails", async () => {
+    (commands.installUpdate as Mock).mockImplementation(async (ch: unknown) => {
+      (ch as TestChannel).onmessage?.({
+        event: "finished",
+        data: {},
+      });
+      return {
+        status: "error",
+        error: { RestartRequired: "installer handoff failed" },
+      };
+    });
+
+    const { result } = renderHook(() => useUpdater());
+
+    await act(async () => {
+      await result.current.install();
+    });
+
+    expect(result.current.isFinished).toBe(false);
+    expect(result.current.installError).toEqual({
+      kind: "restart-required",
+      message: "installer handoff failed",
+    });
+    expect(commands.restartApp).not.toHaveBeenCalled();
+  });
+
   it("percent: null when total is null", () => {
     const { result } = renderHook(() => useUpdater());
     expect(result.current.total).toBeNull();

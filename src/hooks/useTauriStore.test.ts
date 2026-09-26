@@ -16,7 +16,7 @@ let fakeStore: FakeStore;
 let useTauriStore: <T>(
   key: string,
   defaultValue: T,
-) => [T | null, (newValue: T) => Promise<void>, boolean];
+) => [T | null, (newValue: T) => Promise<void>, boolean, boolean];
 
 describe("useTauriStore", () => {
   beforeEach(async () => {
@@ -72,6 +72,7 @@ describe("useTauriStore", () => {
     });
 
     expect(result.current[0]).toBe("storedValue");
+    expect(result.current[3]).toBe(false);
     expect(fakeStore.has).toHaveBeenCalledWith("testKey");
     expect(fakeStore.get).toHaveBeenCalledWith("testKey");
   });
@@ -120,6 +121,21 @@ describe("useTauriStore", () => {
     expect(fakeStore.save).toHaveBeenCalled();
   });
 
+  it("Preserves a stored false instead of writing the default over it", async () => {
+    // Only a truly absent key may be initialized. A falsy stored value is a
+    // real value (e.g. window_decorated = false) and must not be replaced.
+    fakeStore.data["testKey"] = false;
+
+    const { result } = renderHook(() =>
+      useTauriStore<boolean>("testKey", true),
+    );
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    expect(result.current[0]).toBe(false);
+    expect(fakeStore.set).not.toHaveBeenCalled();
+    expect(fakeStore.save).not.toHaveBeenCalled();
+  });
+
   it("Can handle undefined defaultValue", async () => {
     const { result } = renderHook(() =>
       useTauriStore<undefined>("testKey", undefined),
@@ -136,13 +152,115 @@ describe("useTauriStore", () => {
   it("isPending is true while loading", async () => {
     const { result } = renderHook(() => useTauriStore("someKey", "someValue"));
     expect(result.current[2]).toBe(true);
-    await waitFor(() => result.current[2] === false);
+    expect(result.current[3]).toBe(false);
+    await waitFor(() => expect(result.current[2]).toBe(false));
+    expect(result.current[3]).toBe(false);
+  });
+
+  it("Settles to the default with isPending false when the initial read rejects", async () => {
+    // A store read failure must not leave consumers gated on isPending forever
+    // (e.g. the conversion prompt and the NSIS migration notice).
+    fakeStore.has = vi.fn(() => Promise.reject(new Error("store read failed")));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() =>
+      useTauriStore<string>("testKey", "defaultValue"),
+    );
+
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    expect(result.current[0]).toBe("defaultValue");
+    // Persisting consumers must be able to tell this apart from an absent key.
+    expect(result.current[3]).toBe(true);
+    expect(consoleError).toHaveBeenCalled();
+    expect(fakeStore.set).not.toHaveBeenCalled();
+  });
+
+  it("Settles to the default with isPending false when the store cannot be loaded", async () => {
+    vi.doMock("@tauri-apps/plugin-store", () => ({
+      load: vi.fn(() => Promise.reject(new Error("store load failed"))),
+    }));
+    vi.resetModules();
+    const module = await import("@/hooks/useTauriStore");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() =>
+      module.useTauriStore<string>("testKey", "defaultValue"),
+    );
+
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    expect(result.current[0]).toBe("defaultValue");
+    expect(result.current[3]).toBe(true);
+    expect(consoleError).toHaveBeenCalled();
+  });
+
+  it("Rejects setValue and keeps the previous value when the store write fails", async () => {
+    fakeStore.data["testKey"] = "storedValue";
+    const { result } = renderHook(() =>
+      useTauriStore<string>("testKey", "defaultValue"),
+    );
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    fakeStore.set = vi.fn(() =>
+      Promise.reject(new Error("store write failed")),
+    );
+
+    await act(async () => {
+      await expect(result.current[1]("newValue")).rejects.toThrow(
+        "store write failed",
+      );
+    });
+
+    expect(result.current[0]).toBe("storedValue");
+    expect(fakeStore.save).not.toHaveBeenCalled();
+  });
+
+  it("Does not let a superseded key's read overwrite the current key", async () => {
+    // The key changes while the first read is still in flight. The first
+    // read then finishes last; its result belongs to a key the hook no longer
+    // renders and must not replace the second key's value.
+    const resolveHas = new Map<string, (exists: boolean) => void>();
+    fakeStore.data = { first: "firstValue", second: "secondValue" };
+    fakeStore.has = vi.fn(
+      (key: string) =>
+        new Promise<boolean>((resolve) => {
+          resolveHas.set(key, resolve);
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ key }) => useTauriStore<string>(key, "defaultValue"),
+      { initialProps: { key: "first" } },
+    );
+    await waitFor(() => expect(resolveHas.get("first")).toBeDefined());
+
+    rerender({ key: "second" });
+    await waitFor(() => expect(resolveHas.get("second")).toBeDefined());
+
+    await act(async () => {
+      resolveHas.get("second")?.(true);
+    });
+    await waitFor(() => expect(result.current[0]).toBe("secondValue"));
+
+    await act(async () => {
+      resolveHas.get("first")?.(true);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current[0]).toBe("secondValue");
+    expect(result.current[2]).toBe(false);
   });
 
   it("Does not update state after unmount (cleanup guard)", async () => {
     // Unmounting before the store resolves exercises two uncovered paths:
-    //  1. The cleanup function (line 40: `isMountedRef.current = false`)
-    //  2. The mounted guard (line 31: `if (isMountedRef.current)` → false branch)
+    //  1. The cleanup function (`isCancelled = true`)
+    //  2. The cancellation guard (`if (isCancelled) return`)
     const { result, unmount } = renderHook(() =>
       useTauriStore<string>("testKey", "default"),
     );
@@ -154,13 +272,13 @@ describe("useTauriStore", () => {
     unmount();
 
     // Drain the microtask queue so fetchValue completes after unmount.
-    // The mounted guard prevents any subsequent setState call.
+    // The cancellation guard prevents any subsequent setState call.
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    // If the mounted guard did NOT work, setValueState would throw a
+    // If the cancellation guard did NOT work, setValueState would throw a
     // "Can't perform a React state update on an unmounted component" warning.
     // Reaching this line without errors confirms correct behaviour.
     expect(result.current[2]).toBe(true);

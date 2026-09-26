@@ -124,6 +124,14 @@ pub enum DatabaseLifecycleState {
 /// native database's own already-committed metadata. Callers still own
 /// deciding what to do with the returned state, including whether to open
 /// the native database when it reports [`DatabaseLifecycleState::NativeAuthoritative`].
+///
+/// The repair adopts the native file without reconciling, which is sound
+/// only while nothing writes to SQLite after a selection commits. Every
+/// producer of the repairable state keeps that true: a crash between the
+/// commit and the marker happens with the producers paused, fresh creation
+/// has no SQLite source, and a selection that fails after its commit leaves
+/// the producers paused too (`native_conversion::settle_failed_selection`,
+/// #2238).
 pub fn inspect_startup_authority(
   paths: &AuthorityPaths,
   expected_schema_version: u32,
@@ -256,16 +264,28 @@ pub fn sqlite_source_is_authoritative(state: &DatabaseLifecycleState) -> bool {
 /// Broader than [`sqlite_source_is_authoritative`]: once dispatch is
 /// actually routing consumers, a write is fine in
 /// [`DatabaseLifecycleState::NativeAuthoritative`] too - dispatch answers it
-/// from the native database, not a possibly-retired SQLite file - so only
+/// from the native database, not a possibly-retired SQLite file - so
 /// [`DatabaseLifecycleState::Converting`] (reconciliation is capturing the
-/// snapshot a write outside the paused producers could otherwise race) and
-/// [`DatabaseLifecycleState::ActionRequired`] (dispatch itself refuses,
-/// `DispatchError::NativeUnavailable`) refuse here.
+/// snapshot a write outside the paused producers could otherwise race)
+/// refuses here.
+///
+/// `ActionRequired` is not a single case: `run_conversion`
+/// (`app::native_conversion`) resumes the paused producers, and SQLite
+/// stays authoritative, for `ConversionFailed` and `ConversionCancelled` -
+/// the same two issues [`crate::app::database_availability::database_available`]
+/// allows reads for, and for the same reason. Every other issue refuses,
+/// matching dispatch's own refusal (`DispatchError::NativeUnavailable`) in
+/// that underlying state.
 pub fn database_writable(state: &DatabaseLifecycleState) -> bool {
-  !matches!(
-    state,
-    DatabaseLifecycleState::Converting(_) | DatabaseLifecycleState::ActionRequired(_)
-  )
+  match state {
+    DatabaseLifecycleState::Converting(_) => false,
+    DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::ConversionFailed { .. }
+      | LifecycleIssue::ConversionCancelled { .. },
+    ) => true,
+    DatabaseLifecycleState::ActionRequired(_) => false,
+    _ => true,
+  }
 }
 
 /// The App's single owner of native database lifecycle state and the
@@ -301,6 +321,32 @@ impl NativeLifecycleOwner {
 
   pub fn set_state(&self, state: DatabaseLifecycleState) {
     *self.state.lock().unwrap() = state;
+  }
+
+  /// Check `predicate` against the current state and, only if it holds,
+  /// replace it with `next` - both under the same lock acquisition, so no
+  /// concurrent [`Self::set_state`] (from a different in-flight attempt
+  /// reaching a terminal state, for example) can land between the check and
+  /// the write. Returns whether the transition happened.
+  ///
+  /// Exists for callers like
+  /// `ConversionRuntime::begin_attempt_marking_converting` that must decide
+  /// whether to start from the current state and, if so, mark it in one
+  /// indivisible step - reading [`Self::state`] and calling
+  /// [`Self::set_state`] separately would leave a window where a concurrent
+  /// write could be silently overwritten.
+  pub fn set_state_if(
+    &self,
+    predicate: impl FnOnce(&DatabaseLifecycleState) -> bool,
+    next: DatabaseLifecycleState,
+  ) -> bool {
+    let mut guard = self.state.lock().unwrap();
+    if predicate(&guard) {
+      *guard = next;
+      true
+    } else {
+      false
+    }
   }
 
   // #2134 seam: the selected native database, once startup
@@ -457,8 +503,41 @@ mod tests {
       DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
         AuthorityInconsistency::SourceDatabaseMissing,
       )),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+        message: "could not open handle".to_string(),
+      }),
     ] {
       assert!(!database_writable(&state), "{state:?}");
+    }
+  }
+
+  /// After a failed or cancelled conversion, `run_conversion`
+  /// (`app::native_conversion`) resumes the paused producers because SQLite
+  /// stayed authoritative throughout - see that function's own comment at
+  /// its resume/stay-paused branch. A write through dispatch must be
+  /// allowed in the same two cases, the same way reads are (see
+  /// `app::database_availability::database_available`), or on-demand writes
+  /// like `refresh_storage_devices` would be refused for the rest of the
+  /// session over an attempt that already resolved onto a healthy SQLite.
+  #[test]
+  fn database_is_writable_after_a_failed_or_cancelled_conversion() {
+    for state in [
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::BuildingCandidate,
+        message: "disk full".to_string(),
+      }),
+      // A preflight failure with the source present (e.g. insufficient disk
+      // space) is the same retryable case, not the `Authority(..)` refusal
+      // tested above for a positively missing source.
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::Preflight,
+        message: "insufficient workspace".to_string(),
+      }),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionCancelled {
+        step: ConversionProgress::BuildingCandidate,
+      }),
+    ] {
+      assert!(database_writable(&state), "{state:?}");
     }
   }
 
@@ -560,5 +639,45 @@ mod tests {
       paths.marker.is_file(),
       "the repair must have rewritten the marker"
     );
+  }
+
+  #[test]
+  fn set_state_if_writes_only_when_the_predicate_holds_for_the_current_state() {
+    let owner = NativeLifecycleOwner::new();
+
+    let refused = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::NativeAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+    assert!(!refused);
+    assert_eq!(owner.state(), DatabaseLifecycleState::SqliteAuthoritative);
+
+    let applied = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+    assert!(applied);
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight)
+    );
+  }
+
+  #[test]
+  fn set_state_if_evaluates_the_predicate_against_the_state_at_call_time_not_a_cached_read()
+   {
+    let owner = NativeLifecycleOwner::new();
+    // A state change between an earlier `state()` read and this call must
+    // still be what the predicate sees - this is the whole point of
+    // `set_state_if` over a separate read-then-write.
+    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+
+    let applied = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+
+    assert!(!applied);
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
   }
 }

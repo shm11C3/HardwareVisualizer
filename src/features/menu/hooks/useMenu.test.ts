@@ -26,10 +26,10 @@ describe("useMenu", () => {
       .mocked(useTauriStore)
       .mockImplementation((key: string, defaultValue: unknown) => {
         if (key === "sideMenuOpen")
-          return [defaultValue, mockSetMenuOpen, false];
+          return [defaultValue, mockSetMenuOpen, false, false];
         if (key === "display")
-          return [defaultValue, mockSetDisplayTarget, false];
-        return [defaultValue, vi.fn(), false];
+          return [defaultValue, mockSetDisplayTarget, false, false];
+        return [defaultValue, vi.fn(), false, false];
       }) as unknown as typeof useTauriStore;
   });
 
@@ -43,6 +43,25 @@ describe("useMenu", () => {
     expect(result.current.displayTarget).toBe("performance");
     expect(typeof result.current.toggleMenu).toBe("function");
     expect(typeof result.current.handleMenuClick).toBe("function");
+  });
+
+  it("does not persist the normalized default when the display target failed to load", () => {
+    vi
+      .mocked(useTauriStore)
+      .mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === "sideMenuOpen")
+          return [defaultValue, mockSetMenuOpen, false, false];
+        if (key === "display")
+          return [defaultValue, mockSetDisplayTarget, false, true];
+        return [defaultValue, vi.fn(), false, false];
+      }) as unknown as typeof useTauriStore;
+
+    const { result } = renderHook(() => useMenu("grouped", true), {
+      wrapper: Provider,
+    });
+
+    expect(result.current.displayTarget).toBe("performance");
+    expect(mockSetDisplayTarget).not.toHaveBeenCalled();
   });
 
   it("toggleMenu: calls setMenuOpen with toggled value", () => {
@@ -71,9 +90,9 @@ describe("useMenu", () => {
 
   it("useEffect: does not call setDisplayTargetAtom when displayTarget is null", () => {
     vi.mocked(useTauriStore).mockImplementation((key: string) => {
-      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false];
-      if (key === "display") return [null, mockSetDisplayTarget, true];
-      return [null, vi.fn(), true];
+      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false, false];
+      if (key === "display") return [null, mockSetDisplayTarget, true, false];
+      return [null, vi.fn(), true, false];
     }) as unknown as typeof useTauriStore;
     const { result } = renderHook(() => useMenu("grouped", true), {
       wrapper: Provider,
@@ -100,9 +119,10 @@ describe("useMenu", () => {
 
   it("preserves a classic display selection while settings are loading", () => {
     vi.mocked(useTauriStore).mockImplementation((key: string) => {
-      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false];
-      if (key === "display") return ["usage", mockSetDisplayTarget, false];
-      return [null, vi.fn(), false];
+      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false, false];
+      if (key === "display")
+        return ["usage", mockSetDisplayTarget, false, false];
+      return [null, vi.fn(), false, false];
     }) as unknown as typeof useTauriStore;
 
     const { result, rerender } = renderHook(
@@ -128,10 +148,10 @@ describe("useMenu", () => {
 
   it("does not publish a legacy Grouped Dashboard target before settings load", () => {
     vi.mocked(useTauriStore).mockImplementation((key: string) => {
-      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false];
+      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false, false];
       if (key === "display")
-        return ["groupedDashboard", mockSetDisplayTarget, false];
-      return [null, vi.fn(), false];
+        return ["groupedDashboard", mockSetDisplayTarget, false, false];
+      return [null, vi.fn(), false, false];
     }) as unknown as typeof useTauriStore;
 
     const { result, rerender } = renderHook(

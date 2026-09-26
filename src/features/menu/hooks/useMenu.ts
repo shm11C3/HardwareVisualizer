@@ -64,7 +64,7 @@ export const useMenu = (
   const [displayTargetValue, setDisplayTargetAtom] = useAtom(displayTargetAtom);
   const [, setSideMenuOpenAtom] = useAtom(sideMenuOpenAtom);
   const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
-  const [displayTarget, setDisplayTarget, isDisplayPending] =
+  const [displayTarget, setDisplayTarget, isDisplayPending, displayLoadFailed] =
     useTauriStore<SelectedDisplayType>("display", DEFAULT_DISPLAY_TARGET);
 
   useEffect(() => {
@@ -79,13 +79,16 @@ export const useMenu = (
         navigationLayout,
       );
 
-      if (normalizedTarget !== displayTarget) {
+      // After a failed read `displayTarget` is the default, not the stored
+      // choice; persisting its normalization would overwrite that choice.
+      if (normalizedTarget !== displayTarget && !displayLoadFailed) {
         setDisplayTarget(normalizedTarget);
       }
       setDisplayTargetAtom(normalizedTarget);
     }
   }, [
     displayTarget,
+    displayLoadFailed,
     isDisplayPending,
     navigationLayout,
     settingsLoaded,

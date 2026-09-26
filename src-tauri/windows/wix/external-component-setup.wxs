@@ -4,8 +4,9 @@
 
   Adds an optional-components dialog between InstallDirDlg and VerifyReadyDlg
   of Tauri's WixUI_InstallDir sequence. The checkbox property is defaulted to
-  1 only in the UI sequence, so `msiexec /qn`, `/passive` (the updater), and
-  winget run no setup unless the caller passes EXTERNAL_COMPONENT_PAWNIO=1.
+  1 only in the UI sequence and only at full UI (UILevel 5), so `msiexec /qn`,
+  `/qr`, `/passive` (the updater), and winget run no setup unless the caller
+  passes EXTERNAL_COMPONENT_PAWNIO=1.
 
   The setup itself is the application's command-line mode, run as a deferred
   custom action from the already elevated install script. Return="ignore"
@@ -73,12 +74,16 @@
       Sequence="execute"
       After="SetHV_NSIS_DEFAULT_INSTALLDIR_DIR">NOT Installed AND UILevel &lt; 4 AND NOT HV_MSI_INSTALLDIR AND (INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR OR INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR_DIR)</SetProperty>
 
+    <!-- The InstallUISequence also runs at reduced UI (`/qr`, UILevel 4),
+         where authored dialogs are suppressed, so the checkbox would never be
+         shown; the default is therefore limited to full UI (UILevel 5), where
+         the dialog is the consent. -->
     <Property Id="EXTERNAL_COMPONENT_PAWNIO" Secure="yes" />
     <SetProperty
       Id="EXTERNAL_COMPONENT_PAWNIO"
       Value="1"
       Sequence="ui"
-      After="CostFinalize">NOT Installed AND NOT EXTERNAL_COMPONENT_PAWNIO</SetProperty>
+      After="CostFinalize">NOT Installed AND NOT EXTERNAL_COMPONENT_PAWNIO AND UILevel = 5</SetProperty>
 
     <CustomAction
       Id="RunExternalComponentSetupPawnio"
