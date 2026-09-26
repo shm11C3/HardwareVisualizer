@@ -11,7 +11,8 @@
 //! process redirect an elevated write or forge the result; the exit code of a
 //! process handle the caller owns cannot be forged.
 //!
-//! See `docs/adr/0024-external-component-setup.md` and
+//! See `docs/adr/0024-external-component-setup.md`,
+//! `docs/adr/0026-refresh-outdated-external-component-files.md`, and
 //! `docs/design/external-component-setup.md`.
 
 use sha2::{Digest, Sha256};
@@ -43,12 +44,54 @@ pub struct InstallerStep {
   pub reboot_required_exit_codes: &'static [i32],
 }
 
+/// One file of a [`FileBundleStep`], with the digest of its contents in the
+/// pinned release and in every earlier upstream release that shipped it
+/// (ADR 0026). A later release is deliberately not listed, so a newer file
+/// classifies as unrecognized and is never rolled back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModuleFile {
+  pub file_name: &'static str,
+  pub sha256_hex: &'static str,
+  pub earlier_sha256_hex: &'static [&'static str],
+}
+
+impl ModuleFile {
+  pub fn classify(&self, contents: &[u8]) -> ModuleFileCondition {
+    self.condition_of_digest(&sha256_hex(contents))
+  }
+
+  pub fn condition_of_digest(&self, digest_hex: &str) -> ModuleFileCondition {
+    if digest_hex.eq_ignore_ascii_case(self.sha256_hex) {
+      ModuleFileCondition::Current
+    } else if self
+      .earlier_sha256_hex
+      .iter()
+      .any(|earlier| digest_hex.eq_ignore_ascii_case(earlier))
+    {
+      ModuleFileCondition::Outdated
+    } else {
+      ModuleFileCondition::Unrecognized
+    }
+  }
+}
+
 /// The module-file step of a setup plan: a zip archive whose listed entries
-/// are placed under the component install location when missing.
+/// are placed under the component install location when missing, and which
+/// replace a present file whose contents match an earlier release.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FileBundleStep {
   pub artifact: PinnedArtifact,
-  pub file_names: &'static [&'static str],
+  pub files: &'static [ModuleFile],
+}
+
+impl FileBundleStep {
+  pub fn file_names(&self) -> impl Iterator<Item = &'static str> {
+    self.files.iter().map(|file| file.file_name)
+  }
+
+  pub fn file(&self, file_name: &str) -> Option<&'static ModuleFile> {
+    self.files.iter().find(|file| file.file_name == file_name)
+  }
 }
 
 /// Everything Core needs to set up one component.
@@ -86,11 +129,66 @@ const PAWNIO_MODULES: PinnedArtifact = PinnedArtifact {
 /// Signed module blobs the Windows providers can load. Names match the
 /// provider's production file names; unsigned `.amx` fallbacks are not
 /// installed because the production driver rejects them.
-const PAWNIO_MODULE_FILES: &[&str] = &[
-  "IntelMSR.bin",
-  "RyzenSMU.bin",
-  "AMDFamily17.bin",
-  "LpcIO.bin",
+///
+/// Digests were computed on 2026-09-26 from the files in the
+/// `release_<version>.zip` asset of every PawnIO.Modules release from 0.1.0
+/// to the pinned one. Earlier digests are listed oldest first with the
+/// releases that shipped them; a release that left a file unchanged adds no
+/// entry. When the pin moves, the old current digest joins the earlier list.
+const PAWNIO_MODULE_FILES: &[ModuleFile] = &[
+  ModuleFile {
+    file_name: "IntelMSR.bin",
+    // 0.2.10-0.2.11
+    sha256_hex: "d6ed85d65ab17a22f813ef98207d6d537155ee2ded5976a21cb48413c9b92e5f",
+    earlier_sha256_hex: &[
+      "3a12e321e219e27c646e12c294a0ca26fc815166816889933c1063f88e437594", // 0.1.0-0.1.2
+      "f3ab69f0a2686813de2f47efcda6271e176c4ee50fab5f107254f7d6a4e77361", // 0.1.3-0.1.6
+      "0dba915f95b5c6a084bf6c75c535233c90e79c154d49a0da1afb4d64215dcf7d", // 0.2.0
+      "d09fa2d4232f92d9902fc90b058adc55ae5469b9b6f2f3f1441184796945bad1", // 0.2.1
+      "ed41a0d0de082f4668a9caccb9681ebbad97a8ed3452c41918dda1eb454b77a9", // 0.2.2-0.2.3
+      "74508721ede84765e53dc3533ac23283b89fa328275e0079d9508b22b6677ea4", // 0.2.4
+      "344cb99053883e42876ac3194fb0336b0c00795e78c46dd651f8b75625f17e78", // 0.2.5-0.2.6
+      "5bfda87500160076158befc77300f81a388d72b11df2c794a3939ebe66777098", // 0.2.7-0.2.9
+    ],
+  },
+  ModuleFile {
+    file_name: "RyzenSMU.bin",
+    // 0.2.11
+    sha256_hex: "301d9ca397108e09f31bfbd5ac4c9bb4f352a5de68532c32db3ba7ddcde93450",
+    earlier_sha256_hex: &[
+      "8642d4b11287f4968f7a9186339af5c381f681289778dc7893e7915023f76d8b", // 0.1.0-0.1.2
+      "5f4c157935b70f542c653e4e54bed4f419b1268eee5a65b1966a977c57fac773", // 0.1.3-0.1.6
+      "1d29404b02b4247ddb27544638e38586ce19f52c0774dd6e4a17ed7a2fd1eca8", // 0.2.0
+      "8cec3a2d03b19d585fd75e36be2875fde8825834968509582d4351201dc2871a", // 0.2.1
+      "0cf0fe1296c5c38f4bee0f96352b35f14d32ab97cb58fd17600646d98507d8aa", // 0.2.2
+      "c505fdaf67d3dccca1c39c91cc69ccab4b4a99bebe8b13d3e7632bf7876df965", // 0.2.3
+      "b84eca7f32c63b3d8c14b2c6d45482706df8683aa6f43eb8bead9dc62181d38f", // 0.2.4-0.2.6
+      "dad38b36a08e2da982d4397619aee7264e32be088ea6bcb781b066adfb00efc0", // 0.2.7-0.2.9
+      "54da61c2653ed0afabc20d1349636023cb90e7582c4ee4ab93fa77d673e33f26", // 0.2.10
+    ],
+  },
+  ModuleFile {
+    file_name: "AMDFamily17.bin",
+    // 0.2.10-0.2.11
+    sha256_hex: "dae74615761b78bdf064dfb3e136252ddcc6fc727d88f14738d0e5800d427a91",
+    earlier_sha256_hex: &[
+      "cd59598344b54a23178ccf9223239f60a3111bd86ff2c7bea2c9d1cef89e095b", // 0.1.3-0.1.6
+      "18084c329a9b674571ad20a1844b0d3032b044261a43750e5c1dec18075bb514", // 0.2.0
+      "374d4bc3e88284d08f2c65e292df5340c6a034affc30b614db6e780d7094d117", // 0.2.1
+      "099dc01d6db97ea997fec4a461e191cc64b9d7ce47c9d2153c451c56c2adcf50", // 0.2.2-0.2.9
+    ],
+  },
+  ModuleFile {
+    file_name: "LpcIO.bin",
+    // 0.2.10-0.2.11
+    sha256_hex: "b3896a1cab0d808fca31fe2ebcae045d59dac690da87b17c858bb8da357eb45e",
+    earlier_sha256_hex: &[
+      "e872948accba4287b7f231860f9a7569eb530238e02f89dc01347b1247dbd388", // 0.1.0-0.1.2
+      "b7c9ecd2a4c044b2c55d10e5a2a02b1fcac5322804fd4aee697e8d393c892d49", // 0.1.3-0.1.5
+      "3dcf8b2bc80ff642d97c4608511a818642b5bf315ff53df3df393d043e71d101", // 0.1.6-0.2.7
+      "4247d588b9da9c598a65c6f5b8255a90bedee510ee1c354f9a909a2f959cd4df", // 0.2.8-0.2.9
+    ],
+  },
 ];
 
 /// `ERROR_SUCCESS_REBOOT_REQUIRED`: the PawnIO installer returns it in silent
@@ -107,7 +205,7 @@ const PAWNIO_SETUP_PLAN: ExternalComponentSetupPlan = ExternalComponentSetupPlan
   },
   file_bundle: FileBundleStep {
     artifact: PAWNIO_MODULES,
-    file_names: PAWNIO_MODULE_FILES,
+    files: PAWNIO_MODULE_FILES,
   },
 };
 
@@ -146,11 +244,30 @@ pub enum RuntimeInstallState {
   },
 }
 
-/// Presence of one module file the plan can place.
+/// What a module file on disk is, compared with the pinned catalog.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleFileCondition {
+  Missing,
+  /// Matches the pinned release.
+  Current,
+  /// Matches only an earlier release; setup replaces it.
+  Outdated,
+  /// Any other contents, including a release newer than the pin. Setup
+  /// leaves it alone and counts it as present.
+  Unrecognized,
+}
+
+/// One module file the plan can place, as found on disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleFileState {
   pub file_name: String,
-  pub present: bool,
+  pub condition: ModuleFileCondition,
+}
+
+impl ModuleFileState {
+  pub fn is_present(&self) -> bool {
+    self.condition != ModuleFileCondition::Missing
+  }
 }
 
 /// Why setup is not offered on this platform.
@@ -182,11 +299,10 @@ impl ExternalComponentSetupStatus {
       runtime: RuntimeInstallState::NotInstalled,
       module_files: plan
         .file_bundle
-        .file_names
-        .iter()
+        .file_names()
         .map(|file_name| ModuleFileState {
-          file_name: (*file_name).to_string(),
-          present: false,
+          file_name: file_name.to_string(),
+          condition: ModuleFileCondition::Missing,
         })
         .collect(),
       enumeration_error: None,
@@ -195,12 +311,18 @@ impl ExternalComponentSetupStatus {
     }
   }
 
-  /// True when the runtime is installed and every module file is present, so
-  /// setup has nothing left to do. Uncertain enumeration is never complete.
+  /// True when the runtime is installed and every module file is present and
+  /// not outdated, so setup has nothing left to do. Uncertain enumeration is
+  /// never complete.
   pub fn is_complete(&self) -> bool {
     matches!(self.runtime, RuntimeInstallState::Installed { .. })
       && self.enumeration_error.is_none()
-      && self.module_files.iter().all(|file| file.present)
+      && self.module_files.iter().all(|file| {
+        matches!(
+          file.condition,
+          ModuleFileCondition::Current | ModuleFileCondition::Unrecognized
+        )
+      })
   }
 
   /// Why setup must not run right now, if the state is not trustworthy.
@@ -218,10 +340,18 @@ impl ExternalComponentSetupStatus {
   }
 
   pub fn missing_module_files(&self) -> Vec<&str> {
+    self.module_files_in(ModuleFileCondition::Missing)
+  }
+
+  pub fn outdated_module_files(&self) -> Vec<&str> {
+    self.module_files_in(ModuleFileCondition::Outdated)
+  }
+
+  fn module_files_in(&self, condition: ModuleFileCondition) -> Vec<&str> {
     self
       .module_files
       .iter()
-      .filter(|file| !file.present)
+      .filter(|file| file.condition == condition)
       .map(|file| file.file_name.as_str())
       .collect()
   }
@@ -371,6 +501,8 @@ pub struct ExternalComponentSetupResult {
   pub outcome: ExternalComponentSetupOutcome,
   pub runtime_installed: bool,
   pub module_files_placed: Vec<String>,
+  /// Outdated module files replaced with the pinned release (ADR 0026).
+  pub module_files_replaced: Vec<String>,
 }
 
 impl ExternalComponentSetupResult {
@@ -384,12 +516,21 @@ impl ExternalComponentSetupResult {
       outcome: ExternalComponentSetupOutcome::failed(stage, detail),
       runtime_installed: false,
       module_files_placed: Vec::new(),
+      module_files_replaced: Vec::new(),
     }
   }
 
   pub fn exit_code(&self) -> i32 {
     self.outcome.exit_code()
   }
+}
+
+/// Lowercase hex SHA-256 of `bytes`.
+pub fn sha256_hex(bytes: &[u8]) -> String {
+  Sha256::digest(bytes)
+    .iter()
+    .map(|byte| format!("{byte:02x}"))
+    .collect()
 }
 
 /// Check a downloaded artifact against its pinned size and digest.
@@ -403,11 +544,7 @@ pub fn verify_artifact(bytes: &[u8], artifact: &PinnedArtifact) -> Result<(), St
     ));
   }
 
-  let digest = Sha256::digest(bytes);
-  let digest_hex = digest
-    .iter()
-    .map(|byte| format!("{byte:02x}"))
-    .collect::<String>();
+  let digest_hex = sha256_hex(bytes);
   if !digest_hex.eq_ignore_ascii_case(artifact.sha256_hex) {
     return Err(format!(
       "{} SHA-256 mismatch: expected {}, downloaded {}",
@@ -490,8 +627,8 @@ mod tests {
     assert_eq!(plan.installer.unattended_args, &["-install", "-silent"]);
     assert_eq!(plan.file_bundle.artifact.version, "0.2.11");
     assert_eq!(
-      plan.file_bundle.file_names,
-      &[
+      plan.file_bundle.file_names().collect::<Vec<_>>(),
+      vec![
         "IntelMSR.bin",
         "RyzenSMU.bin",
         "AMDFamily17.bin",
@@ -575,6 +712,108 @@ mod tests {
     );
   }
 
+  fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+      && value
+        .chars()
+        .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+  }
+
+  #[test]
+  fn module_catalog_pins_lowercase_digests_and_keeps_releases_apart() {
+    let plan = setup_plan(ExternalComponent::Pawnio).unwrap();
+
+    for file in plan.file_bundle.files {
+      assert!(is_sha256_hex(file.sha256_hex), "{}", file.file_name);
+      for (index, earlier) in file.earlier_sha256_hex.iter().enumerate() {
+        assert!(is_sha256_hex(earlier), "{} {earlier}", file.file_name);
+        assert_ne!(*earlier, file.sha256_hex, "{}", file.file_name);
+        assert!(
+          !file.earlier_sha256_hex[..index].contains(earlier),
+          "{} lists {earlier} twice",
+          file.file_name
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn module_file_contents_classify_against_the_catalog() {
+    let file = ModuleFile {
+      file_name: "Example.bin",
+      sha256_hex: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+      earlier_sha256_hex: &[
+        "5eb63bbbe01eeed093cb22bb8f5acdc3c49b31f3e03c4f0e0e1cdc1bb1bb1d6b",
+      ],
+    };
+
+    assert_eq!(file.classify(b"hello world"), ModuleFileCondition::Current);
+    assert_eq!(
+      file.classify(b"hello worle"),
+      ModuleFileCondition::Unrecognized
+    );
+    assert_eq!(sha256_hex(b"hello world"), file.sha256_hex);
+  }
+
+  #[test]
+  fn an_earlier_release_digest_is_outdated() {
+    let plan = setup_plan(ExternalComponent::Pawnio).unwrap();
+    let file = plan.file_bundle.files[0];
+    let earlier = file.earlier_sha256_hex[0];
+
+    assert_eq!(
+      file.condition_of_digest(earlier),
+      ModuleFileCondition::Outdated
+    );
+    assert_eq!(
+      file.condition_of_digest(&earlier.to_uppercase()),
+      ModuleFileCondition::Outdated
+    );
+    assert_eq!(
+      file.condition_of_digest(file.sha256_hex),
+      ModuleFileCondition::Current
+    );
+  }
+
+  fn installed_status(
+    conditions: [ModuleFileCondition; 4],
+  ) -> ExternalComponentSetupStatus {
+    let plan = setup_plan(ExternalComponent::Pawnio).unwrap();
+    let mut status = ExternalComponentSetupStatus::unsupported_platform(plan);
+    status.support = ExternalComponentSetupSupport::Supported;
+    status.runtime = RuntimeInstallState::Installed {
+      version: Some("2.2.0".to_string()),
+      install_location: None,
+    };
+    for (file, condition) in status.module_files.iter_mut().zip(conditions) {
+      file.condition = condition;
+    }
+    status
+  }
+
+  #[test]
+  fn an_outdated_file_leaves_the_component_incomplete() {
+    use ModuleFileCondition::{Current, Outdated, Unrecognized};
+
+    let status = installed_status([Current, Outdated, Unrecognized, Current]);
+
+    assert!(!status.is_complete());
+    assert!(status.missing_module_files().is_empty());
+    assert_eq!(status.outdated_module_files(), vec!["RyzenSMU.bin"]);
+    assert_eq!(status.setup_blocker(), None);
+  }
+
+  #[test]
+  fn an_unrecognized_file_counts_as_complete_and_is_never_outdated() {
+    use ModuleFileCondition::{Current, Unrecognized};
+
+    let status = installed_status([Current, Unrecognized, Unrecognized, Current]);
+
+    assert!(status.is_complete());
+    assert!(status.outdated_module_files().is_empty());
+    assert!(status.module_files.iter().all(ModuleFileState::is_present));
+  }
+
   #[test]
   fn status_reports_completeness_and_missing_files() {
     let plan = setup_plan(ExternalComponent::Pawnio).unwrap();
@@ -589,7 +828,7 @@ mod tests {
       install_location: None,
     };
     for file in &mut status.module_files {
-      file.present = true;
+      file.condition = ModuleFileCondition::Current;
     }
     assert!(status.is_complete());
     assert!(status.missing_module_files().is_empty());
@@ -606,7 +845,7 @@ mod tests {
       install_location: None,
     };
     for file in &mut status.module_files {
-      file.present = true;
+      file.condition = ModuleFileCondition::Current;
     }
 
     status.enumeration_error = Some("access denied".to_string());

@@ -151,6 +151,13 @@ impl ExternalComponentSetupPlatform for LinuxPlatform {
     )
   }
 
+  fn refresh_external_component_files(
+    &self,
+    plan: &crate::external_component_setup::ExternalComponentSetupPlan,
+  ) -> crate::external_component_setup::ExternalComponentSetupResult {
+    self.run_external_component_setup(plan)
+  }
+
   fn run_current_executable_elevated(
     &self,
     _args: &[String],
