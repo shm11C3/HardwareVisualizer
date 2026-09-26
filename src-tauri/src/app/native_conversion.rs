@@ -711,16 +711,32 @@ pub async fn run_conversion(
   // must not also reserve room for creating a second one - the caller's
   // available-space measurement already counts the existing file as not
   // free.
-  plan_conversion_space(
+  if let Err(error) = plan_conversion_space(
     &paths.source_database,
     &workspace,
     None,
     resume_from_reconciliation,
-  )
-  .map_err(|error| {
+  ) {
+    // A missing source is not a retryable conversion failure: the source
+    // half of the authority pair is gone, the same disagreement
+    // `inspect_authority` already refuses to guess at (see
+    // `AuthorityInconsistency::SourceDatabaseMissing`). Recording it as
+    // `ConversionFailed` instead would let the guards
+    // (`database_available`, `database_writable`) treat this as a resolved,
+    // retryable attempt and resume answering/writing through dispatch on
+    // SQLite - which would recreate the missing file empty on the next
+    // pooled connection (`create_if_missing(true)`) instead of leaving the
+    // disagreement for the operator to resolve. Every other preflight error
+    // (insufficient disk space, a present-but-unreadable source) keeps the
+    // existing `ConversionFailed` handling below; the source's presence
+    // itself is not otherwise in question for those.
+    if source_database_missing(&paths.source_database) {
+      fail_missing_source(owner, &error);
+      return Ok(ConversionOutcome::ActionRequired);
+    }
     fail(owner, ConversionProgress::Preflight, &error);
-    ConversionError::Preflight(error)
-  })?;
+    return Err(ConversionError::Preflight(error));
+  }
 
   if let Some(outcome) =
     check_cancelled(owner, cancellation, ConversionProgress::Preflight)
@@ -837,7 +853,8 @@ pub async fn run_conversion(
   // so those resume exactly as before.
   if matches!(result, Ok(ConversionOutcome::ActionRequired)) {
     log_error!(
-      "database producers left paused: the native database is selected but not served",
+      "database producers left paused: native database selection could not be \
+       confirmed safe to serve",
       "app::native_conversion::run_conversion",
       None::<&str>
     );
@@ -1143,6 +1160,37 @@ fn fail(
   );
   owner.set_state(DatabaseLifecycleState::ActionRequired(
     LifecycleIssue::ConversionFailed { step, message },
+  ));
+}
+
+/// Whether `path` is positively absent. Only `NotFound` counts as proof: a
+/// different probe error (permission denied, a transient I/O error) leaves
+/// the source's presence uncertain rather than confirmed missing, so it does
+/// not take [`fail_missing_source`]'s branch - see
+/// `settle_failed_selection`'s own `symlink_metadata` probe for the same
+/// distinction.
+fn source_database_missing(path: &Path) -> bool {
+  matches!(
+    std::fs::symlink_metadata(path),
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound
+  )
+}
+
+/// Record a preflight failure caused by a missing SQLite source as the
+/// `Authority` disagreement it is, not a conversion step failure - see this
+/// function's one caller for why [`fail`] (`ConversionFailed`) would let the
+/// availability/writability guards resume answering through dispatch onto a
+/// source that is no longer there.
+fn fail_missing_source(owner: &NativeLifecycleOwner, error: &impl std::fmt::Display) {
+  use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
+  log_error!(
+    "native database conversion preflight found the SQLite source database missing",
+    "app::native_conversion::run_conversion",
+    Some(error.to_string())
+  );
+  owner.set_state(DatabaseLifecycleState::ActionRequired(
+    LifecycleIssue::Authority(AuthorityInconsistency::SourceDatabaseMissing),
   ));
 }
 
@@ -1788,6 +1836,16 @@ mod tests {
     ));
     assert!(!fixture.paths().native_database.exists());
 
+    // Regression for the bug found by the 2026-09-24 release audit: a
+    // cancelled conversion resumed the producers onto SQLite (see
+    // `run_conversion`'s resume/stay-paused branch above), so a history
+    // read must not be refused for the rest of the session either.
+    assert!(
+      crate::app::database_availability::database_available(&owner.state()).is_ok(),
+      "{:?}",
+      owner.state()
+    );
+
     // A restart resolves cleanly: nothing was produced, so authority is
     // exactly what it was before this call.
     assert_eq!(
@@ -1797,14 +1855,25 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn a_missing_source_database_fails_at_preflight_without_side_effects() {
+  async fn a_missing_source_database_at_preflight_is_an_authority_disagreement_not_a_conversion_failure()
+   {
+    // CodeRabbit review finding on PR #2250 (thread PRRT_kwDOMD0CPs6lXovL,
+    // native_lifecycle.rs:285): recording this as `ConversionFailed` let the
+    // availability/writability guards treat the attempt as resolved and
+    // retryable, so a later SQLite call through dispatch
+    // (`db::get_pool(create_if_missing(true))`) could silently create an
+    // empty `hv-database.db` in the missing source's place. A preflight
+    // failure for lack of disk space, with the source present, must still be
+    // `ConversionFailed` and stay retryable - see the sibling test below.
+    use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
+
     let fixture = Fixture::new().await;
     std::fs::remove_file(fixture.paths().source_database).unwrap();
 
     let owner = NativeLifecycleOwner::new();
     let workers = WorkersState::default();
 
-    let error = run_conversion(
+    let outcome = run_conversion(
       fixture.target(),
       &owner,
       &workers,
@@ -1813,9 +1882,54 @@ mod tests {
       SelectionHandoff::OwnerOnly,
     )
     .await
-    .unwrap_err();
+    .unwrap();
 
-    assert!(matches!(error, ConversionError::Preflight(_)));
+    assert!(
+      matches!(outcome, ConversionOutcome::ActionRequired),
+      "{outcome:?}"
+    );
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        AuthorityInconsistency::SourceDatabaseMissing
+      ))
+    );
+    assert!(!fixture.paths().native_database.exists());
+    // Producers were never paused for this outcome (it returns before
+    // `pause_and_drain_producers`), but the guards must still refuse a
+    // consumer that reads this state directly, unlike a retryable
+    // `ConversionFailed`/`ConversionCancelled` - see the guard tests in
+    // `app::database_availability` and `app::native_lifecycle`.
+    assert!(
+      crate::app::database_availability::database_available(&owner.state()).is_err()
+    );
+    assert!(!crate::app::native_lifecycle::database_writable(
+      &owner.state()
+    ));
+  }
+
+  /// The counterpart to the missing-source test above: a preflight failure
+  /// with the source present must stay the ordinary, retryable
+  /// `ConversionFailed` this function already produced before the missing-
+  /// source branch existed - `source_database_missing` must not fire just
+  /// because `plan_conversion_space` failed for some other reason (here,
+  /// insufficient workspace, with the source file still present and
+  /// readable).
+  #[tokio::test]
+  async fn a_preflight_failure_with_the_source_present_stays_a_retryable_conversion_failure()
+   {
+    let fixture = Fixture::new().await;
+    let owner = NativeLifecycleOwner::new();
+
+    // `source_database_missing` only fires on `ErrorKind::NotFound`; a
+    // present source makes this false regardless of why preflight failed,
+    // so drive `fail`/`fail_missing_source`'s shared caller decision
+    // directly rather than trying to force a real `InsufficientWorkspace`
+    // error past a real disk's actual free space.
+    assert!(!source_database_missing(&fixture.paths().source_database));
+
+    fail(&owner, ConversionProgress::Preflight, &"disk full");
+
     assert!(matches!(
       owner.state(),
       DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
@@ -1823,7 +1937,12 @@ mod tests {
         ..
       })
     ));
-    assert!(!fixture.paths().native_database.exists());
+    assert!(
+      crate::app::database_availability::database_available(&owner.state()).is_ok()
+    );
+    assert!(crate::app::native_lifecycle::database_writable(
+      &owner.state()
+    ));
   }
 
   /// Regression for #2238. The selection commits into the native file
