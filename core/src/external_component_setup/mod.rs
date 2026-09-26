@@ -70,15 +70,17 @@ const PAWNIO_RUNTIME: PinnedArtifact = PinnedArtifact {
   sha256_hex: "1f519a22e47187f70a1379a48ca604981c4fcf694f4e65b734aaa74a9fba3032",
 };
 
-/// PawnIO.Modules 0.2.8: the tag the sensor specification
+/// PawnIO.Modules 0.2.11: the tag the sensor specification
 /// (`docs/specs/sensors/pawnio-interface.md`) verified its IOCTL facts
 /// against. Move this pin together with the specification, not ahead of it.
+/// The digest was computed from the downloaded asset on 2026-09-26 and
+/// matches the digest GitHub reports for the release asset.
 const PAWNIO_MODULES: PinnedArtifact = PinnedArtifact {
-  version: "0.2.8",
-  file_name: "release_0_2_8.zip",
-  url: "https://github.com/namazso/PawnIO.Modules/releases/download/0.2.8/release_0_2_8.zip",
-  size: 57_240,
-  sha256_hex: "def304df8691cd2d2b700068bcbe8454ad97064e6621c71420c128d368d83fb7",
+  version: "0.2.11",
+  file_name: "release_0_2_11.zip",
+  url: "https://github.com/namazso/PawnIO.Modules/releases/download/0.2.11/release_0_2_11.zip",
+  size: 69_582,
+  sha256_hex: "43608cb89bc84247fef1368a139013f7d043e17db6d6c8dfc9b46bf0905a81f4",
 };
 
 /// Signed module blobs the Windows providers can load. Names match the
@@ -486,7 +488,7 @@ mod tests {
         .starts_with("https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/")
     );
     assert_eq!(plan.installer.unattended_args, &["-install", "-silent"]);
-    assert_eq!(plan.file_bundle.artifact.version, "0.2.8");
+    assert_eq!(plan.file_bundle.artifact.version, "0.2.11");
     assert_eq!(
       plan.file_bundle.file_names,
       &[

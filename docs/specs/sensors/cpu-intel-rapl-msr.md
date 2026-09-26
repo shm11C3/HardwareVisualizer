@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
-| Status | Implementation-ready (rev 3) |
+| Revision | 4 |
+| Status | Implementation-ready (rev 4) |
 | Scope | CPU package power (Watts) on Intel x86-64 CPUs, derived from the RAPL package-domain energy counter MSRs (`MSR_RAPL_POWER_UNIT`, `MSR_PKG_ENERGY_STATUS`). Covers Sandy Bridge-and-newer Core/Xeon parts with the standard RAPL unit semantics. Excludes: power-limit programming, PP0/PP1/DRAM/PSys domains, Atom parts with deviant RAPL unit semantics (see Quirks), pre-Sandy-Bridge CPUs. |
 | Issue phase | Phase 5 (#1635) — sensor model extension beyond temperature |
 
@@ -14,7 +14,7 @@
 | S1 | Intel SDM, Volume 3B, **§14.10 "Platform Specific Power Management Support"**: §14.10.1 "RAPL Interfaces" (Figure 14-35, `MSR_RAPL_POWER_UNIT` layout; pp. 14-46–14-47) and §14.10.3 "Package RAPL Domain" (Figure 14-37, `MSR_PKG_ENERGY_STATUS` layout; pp. 14-48–14-49) | Primary; semantics and layouts |
 | S2 | Intel SDM, Volume 4, **Table 2-20** "MSRs Supported by Intel Processors Based on Sandy Bridge Microarchitecture": rows `606H` `MSR_RAPL_POWER_UNIT` (Scope: Package, "Unit Multipliers used in RAPL Interfaces (R/O)", p. 2-188) and `611H` `MSR_PKG_ENERGY_STATUS` (Scope: Package, "PKG Energy Status (R/O)", p. 2-189) | Primary; register rows, package scope |
 | S3 | Intel SDM, Volume 4, **Table 2-8** "Specific MSRs Supported by Intel Atom Processors with CPUID Signatures 06_37H, 06_4AH, 06_5AH, 06_5DH": rows `606H` (p. 2-100) and `611H` (p. 2-101) | Primary; documents the deviant Silvermont unit semantics (see Quirks) |
-| S4 | PawnIO `IntelMSR.p` module source at PawnIO.Modules tag `0.2.8` (commit `754635b`, LGPL-2.1-or-later) | Upstream-published interface definition of the module this project calls across the IOCTL boundary (read allow-list membership of `0x606`/`0x611`). Not used as a source for any hardware register fact. No code was copied. |
+| S4 | PawnIO `IntelMSR.p` module source at PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`, LGPL-2.1-or-later); originally authored against tag `0.2.8` (commit `dcd5c1f`) | Upstream-published interface definition of the module this project calls across the IOCTL boundary (read allow-list membership of `0x606`/`0x611`). Not used as a source for any hardware register fact. No code was copied. |
 
 All SDM section/figure/table identifiers above were verified against
 the combined-volume revision **325462-076US (December 2021)** (PDF
@@ -179,3 +179,4 @@ Notes:
 | 1 | 2026-08-30 | Initial version, authored with all provenance pinned against SDM 325462-076US (Vol 3B §14.10.1/§14.10.3, Vol 4 Tables 2-20 and 2-8) and PawnIO.Modules tag 0.2.8. Proposed Implementation-ready per the README status-transition checklist; effective upon maintainer approval of the introducing PR. |
 | 2 | 2026-08-30 | PR #2033 review follow-up. Normative addition: wrap-safe gap check — gaps exceeding `T_max = 2^32 × 2^-ESU J / 1000 W` (≈ 65 s at `ESU = 16`) publish no power value and re-baseline (DP-02), because the modular difference cannot detect complete wraps across oversized gaps (sleep, timer suspension, collector delay). No register facts changed. Status remains Implementation-ready. |
 | 3 | 2026-08-30 | Corrected the normative wrap-safe boundary from `> T_max` to `≥ T_max`: at equality and `P_gate`, the true delta is exactly `2^32` energy units and decodes as a zero low-32-bit modular difference. Maintainer approved the revision 3 status transition; status is Implementation-ready. |
+| 4 | 2026-09-26 | Re-verified S4 against PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`): `0x606` and `0x611` remain on the `IntelMSR` read allow-list and off its write allow-list, and `ioctl_read_msr` keeps 1 input and 1 output cell. The only allow-list change since `0.2.8` is the addition of `0x1A4` (not used here). Corrected the S4 commit label: `754635b` was the `0.2.8` annotated tag object; its commit is `dcd5c1f`. No register fact changed. Status remains Implementation-ready. |
