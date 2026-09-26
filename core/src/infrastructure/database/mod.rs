@@ -7,6 +7,12 @@
 //! the ordered migration definitions and hands them to the runner. Every
 //! read / write that Core executes goes through this module.
 
+/// 64 KiB reduces append-time memory in the measured sparse history workload;
+/// dense synthetic files grew about 40% versus 256 KiB. DuckDB applies this
+/// only when creating a file; existing archives keep their recorded block size.
+#[cfg(feature = "duckdb-archive")]
+pub(crate) const NATIVE_DATABASE_DEFAULT_BLOCK_SIZE_BYTES: &str = "65536";
+
 pub mod ambient_archive;
 pub mod archive_queries;
 #[cfg(feature = "duckdb-archive")]
