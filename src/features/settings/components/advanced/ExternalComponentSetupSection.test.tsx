@@ -226,6 +226,16 @@ describe("ExternalComponentSetupSection", () => {
 
     expect(
       await screen.findByText(
+        "Restart HardwareVisualizer to start using the updated module files.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Restart HardwareVisualizer to start using the newly installed component.",
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByText(
         "PawnIO module files were updated. Restart HardwareVisualizer to use them.",
       ),
     ).toBeInTheDocument();

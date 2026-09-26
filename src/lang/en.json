@@ -887,6 +887,7 @@
             "other": "Setup failed."
           },
           "restartDescription": "Restart HardwareVisualizer to start using the newly installed component.",
+          "restartDescriptionUpdated": "Restart HardwareVisualizer to start using the updated module files.",
           "result": {
             "installed": "{{component}} was installed. Restart HardwareVisualizer to use the new sensors.",
             "rebootRequired": "{{component}} was installed, but Windows must restart before the driver can be used.",

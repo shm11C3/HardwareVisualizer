@@ -858,6 +858,7 @@
             "other": "Установка не удалась."
           },
           "restartDescription": "Перезапустите HardwareVisualizer, чтобы начать использовать установленный компонент.",
+          "restartDescriptionUpdated": "Перезапустите HardwareVisualizer, чтобы начать использовать обновлённые файлы модулей.",
           "result": {
             "installed": "{{component}} установлен. Перезапустите HardwareVisualizer, чтобы использовать новые датчики.",
             "rebootRequired": "{{component}} установлен, но для использования драйвера требуется перезагрузка Windows.",

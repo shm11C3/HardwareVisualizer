@@ -887,6 +887,7 @@
             "other": "セットアップに失敗しました。"
           },
           "restartDescription": "インストールしたコンポーネントを使うには HardwareVisualizer を再起動してください。",
+          "restartDescriptionUpdated": "更新したモジュールファイルを使うには HardwareVisualizer を再起動してください。",
           "result": {
             "installed": "{{component}} をインストールしました。新しいセンサーを使うには HardwareVisualizer を再起動してください。",
             "rebootRequired": "{{component}} をインストールしましたが、ドライバーを使うには Windows の再起動が必要です。",
