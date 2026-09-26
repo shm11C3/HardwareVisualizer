@@ -59,7 +59,7 @@ pub use reconcile::{
 };
 pub use runtime::{
   NativeCancellation, NativeConnectionContext, NativeDatabase, NativeDatabaseOptions,
-  NativeTransactionContext,
+  NativeTransactionContext, archive_unselected_native_for_rebuild,
 };
 pub use schema::{
   NativeIdentity, NativeIdentityMode, NativeSchemaDefinition, NativeTimestampColumn,

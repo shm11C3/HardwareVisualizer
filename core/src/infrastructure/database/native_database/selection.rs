@@ -817,9 +817,9 @@ fn sync_directory(directory: &Path) -> Result<(), NativeDatabaseError> {
 /// another connection is writing. Neither is a sound answer. Called while a
 /// [`super::NativeDatabase`] owner is live, this can therefore report the
 /// metadata as *unreadable* - which [`inspect_authority`] turns into
-/// `ConversionInProgress`, an alarming answer about a perfectly healthy
-/// database. It belongs at startup, before any owner is opened, and after one
-/// has been closed.
+/// `NativeMetadataUnreadable` rather than treating an existing file as
+/// partial conversion output. It belongs at startup, before any owner is
+/// opened, and after one has been closed.
 pub fn observe_authority(
   paths: &AuthorityPaths,
   expected_schema_version: u32,
@@ -852,16 +852,50 @@ fn work_directory_present(native_database: &Path) -> bool {
   let Some(directory) = native_database.parent() else {
     return false;
   };
-  let Ok(entries) = fs::read_dir(directory) else {
-    return false;
-  };
-  entries.filter_map(Result::ok).any(|entry| {
+  conversion_work_directory_present(directory).unwrap_or(false)
+}
+
+/// Fail-closed scan for an operation that must not race interrupted or live
+/// conversion work. Authority observation remains best-effort, so it maps an
+/// unreadable directory to `false`; explicit recovery cannot.
+pub(super) fn conversion_work_directory_present(
+  directory: &Path,
+) -> Result<bool, NativeDatabaseError> {
+  let entries =
+    fs::read_dir(directory).map_err(|error| NativeDatabaseError::Verification {
+      message: format!(
+        "failed to inspect the native database directory for conversion work: {error}"
+      ),
+    })?;
+  for entry in entries {
+    let entry = entry.map_err(|error| NativeDatabaseError::Verification {
+      message: format!(
+        "failed to inspect an entry in the native database directory: {error}"
+      ),
+    })?;
     let name = entry.file_name();
     let name = name.to_string_lossy();
-    name.starts_with(WORK_PREFIX)
+    if name.starts_with(WORK_PREFIX)
       && !name.starts_with(super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX)
-      && entry.file_type().is_ok_and(|kind| kind.is_dir())
-  })
+    {
+      let metadata = fs::symlink_metadata(entry.path()).map_err(|error| {
+        NativeDatabaseError::Verification {
+          message: format!("failed to inspect a conversion work candidate: {error}"),
+        }
+      })?;
+      if metadata.is_dir() {
+        return Ok(true);
+      }
+      if metadata.file_type().is_symlink() {
+        return Err(NativeDatabaseError::Verification {
+          message:
+            "a conversion work candidate is a symlink and cannot be classified safely"
+              .to_owned(),
+        });
+      }
+    }
+  }
+  Ok(false)
 }
 
 fn observe_marker(path: &Path) -> MarkerFacts {
@@ -1028,7 +1062,20 @@ pub fn inspect_authority(facts: &AuthorityFacts) -> AuthorityState {
       }
       match &facts.native_metadata {
         NativeMetadataFacts::Unreadable => {
-          AuthorityState::ConversionInProgress { resumable: false }
+          // A native file can be selected even when its marker is absent;
+          // the marker is written after the database records selection. If
+          // the database cannot be read, treating it as partial conversion
+          // output sends retries into a conversion with an existing native file.
+          stop(AuthorityInconsistency::NativeMetadataUnreadable)
+        }
+        NativeMetadataFacts::Present { schema_version, .. }
+          if *schema_version != facts.expected_schema_version =>
+        {
+          // A complete but unselected database from an older/newer schema
+          // cannot resume reconciliation with this build. Keep that distinct
+          // from a selected database, which was handled above and remains the
+          // authority even when this build cannot open it.
+          stop(AuthorityInconsistency::SchemaVersionMismatch)
         }
         NativeMetadataFacts::Present { .. } => {
           // Finalized and unselected. A write-ahead log or leftover work
@@ -1172,21 +1219,43 @@ mod tests {
   }
 
   #[test]
-  fn an_incomplete_native_file_or_bare_work_directory_restarts_the_copy() {
+  fn an_unreadable_native_file_is_not_treated_as_interrupted_conversion() {
     let mut observed = facts();
     observed.marker = MarkerFacts::Absent;
     observed.native_metadata = NativeMetadataFacts::Unreadable;
     assert_eq!(
       inspect_authority(&observed),
-      AuthorityState::ConversionInProgress { resumable: false }
+      inconsistent(AuthorityInconsistency::NativeMetadataUnreadable)
     );
 
+    // A bare work directory with no native database is still interrupted
+    // conversion output and can safely restart from the SQLite source.
     observed.native_database_present = false;
     observed.native_metadata = NativeMetadataFacts::Absent;
     observed.work_directory_present = true;
     assert_eq!(
       inspect_authority(&observed),
       AuthorityState::ConversionInProgress { resumable: false }
+    );
+  }
+
+  #[test]
+  fn an_unselected_present_database_with_an_old_schema_needs_explicit_recovery() {
+    let mut observed = facts();
+    observed.marker = MarkerFacts::Absent;
+    observed.expected_schema_version = 2;
+    observed.native_metadata = NativeMetadataFacts::Present {
+      state: NativeState::FinalizedUnselected,
+      schema_version: 1,
+      storage_version: "v1.0.0+".to_owned(),
+      engine_storage_version: "v1.0.0+".to_owned(),
+      source_schema_sha256: "abc".to_owned(),
+      source_rows: 10,
+    };
+
+    assert_eq!(
+      inspect_authority(&observed),
+      inconsistent(AuthorityInconsistency::SchemaVersionMismatch)
     );
   }
 
@@ -1514,5 +1583,65 @@ mod tests {
     assert!(legacy_runtime_spill.is_dir());
     assert!(conversion_work.is_dir());
     owner.close().await.unwrap();
+  }
+
+  #[tokio::test]
+  async fn a_checkpointed_native_file_can_be_renamed_while_its_writer_lock_is_held() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    create_empty_native_database(paths.clone(), fresh_schema())
+      .await
+      .unwrap();
+
+    let spill = directory.path().join("rename-spill");
+    std::fs::create_dir(&spill).unwrap();
+    let connection =
+      open_database(&paths.native_database, AccessMode::ReadWrite, &spill).unwrap();
+    connection
+      .execute_batch(
+        "CREATE TABLE recovery_rename_probe(value INTEGER); \
+         INSERT INTO recovery_rename_probe VALUES (1)",
+      )
+      .unwrap();
+
+    let mut wal_path = paths.native_database.as_os_str().to_os_string();
+    wal_path.push(".wal");
+    let wal_path = PathBuf::from(wal_path);
+    assert!(
+      wal_path.is_file(),
+      "the write should leave a checkpointable WAL"
+    );
+    connection.execute_batch("CHECKPOINT").unwrap();
+    assert!(
+      !wal_path.exists(),
+      "CHECKPOINT must flush and remove the WAL"
+    );
+
+    let recovery_directory = directory.path().join("recovery");
+    std::fs::create_dir(&recovery_directory).unwrap();
+    let recovered_database = recovery_directory.join("hv-database.duckdb");
+    std::fs::rename(&paths.native_database, &recovered_database)
+      .expect("DuckDB's writer lock must allow same-volume rename while held");
+    let row_count: i64 = connection
+      .query_row("SELECT count(*) FROM recovery_rename_probe", [], |row| {
+        row.get(0)
+      })
+      .unwrap();
+    assert_eq!(row_count, 1);
+    drop(connection);
+
+    assert!(!paths.native_database.exists());
+    assert!(recovered_database.is_file());
+    assert!(!wal_path.exists());
+    let recovered_spill = directory.path().join("recovered-spill");
+    std::fs::create_dir(&recovered_spill).unwrap();
+    let recovered =
+      open_database(&recovered_database, AccessMode::ReadOnly, &recovered_spill).unwrap();
+    let recovered_count: i64 = recovered
+      .query_row("SELECT count(*) FROM recovery_rename_probe", [], |row| {
+        row.get(0)
+      })
+      .unwrap();
+    assert_eq!(recovered_count, 1);
   }
 }

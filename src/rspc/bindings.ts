@@ -161,6 +161,13 @@ export const commands = {
 	 */
 	startDatabaseConversion: () => typedError<null, string>(__TAURI_INVOKE("start_database_conversion")),
 	/**
+	 *  After the user asks for a recovery check, validate SQLite and verify under
+	 *  the DuckDB writer lock that the native file is finalized but unselected.
+	 *  Move it to a retained backup and start conversion only when those checks
+	 *  pass; otherwise leave the database files in place.
+	 */
+	rebuildNativeDatabaseFromSqlite: () => typedError<null, string>(__TAURI_INVOKE("rebuild_native_database_from_sqlite")),
+	/**
 	 *  Ask the currently running conversion to stop at the next step boundary.
 	 *  A no-op (not an error) if nothing is running: cancellation racing
 	 *  completion is expected, not exceptional.

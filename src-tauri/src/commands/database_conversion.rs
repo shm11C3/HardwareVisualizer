@@ -35,6 +35,18 @@ pub async fn start_database_conversion(app: tauri::AppHandle) -> Result<(), Stri
   imp::start_database_conversion(app).await
 }
 
+/// After the user asks for a recovery check, validate SQLite and verify under
+/// the DuckDB writer lock that the native file is finalized but unselected.
+/// Move it to a retained backup and start conversion only when those checks
+/// pass; otherwise leave the database files in place.
+#[command]
+#[specta::specta]
+pub async fn rebuild_native_database_from_sqlite(
+  app: tauri::AppHandle,
+) -> Result<(), String> {
+  imp::rebuild_native_database_from_sqlite(app).await
+}
+
 /// Ask the currently running conversion to stop at the next step boundary.
 /// A no-op (not an error) if nothing is running: cancellation racing
 /// completion is expected, not exceptional.
@@ -53,12 +65,24 @@ mod imp {
     build_producer_resumers, run_conversion,
   };
   use crate::app::native_lifecycle::{
-    DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
+    ConversionProgress, DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
   };
   use crate::infrastructure::database::{native_paths, native_schema};
   use crate::models::database_conversion::DatabaseConversionState;
   use crate::workers::WorkersState;
   use crate::{log_error, log_info};
+  use hardviz_core::infrastructure::database::candidate_database::verify_source_schema;
+  use hardviz_core::infrastructure::database::native_database::{
+    NativeDatabaseError, archive_unselected_native_for_rebuild, plan_conversion_space,
+  };
+
+  struct ConversionAttemptGuard(tauri::AppHandle);
+
+  impl Drop for ConversionAttemptGuard {
+    fn drop(&mut self) {
+      self.0.state::<ConversionRuntime>().end_attempt();
+    }
+  }
 
   pub(super) async fn get_database_conversion_state(
     app: tauri::AppHandle,
@@ -174,6 +198,143 @@ mod imp {
     Ok(())
   }
 
+  pub(super) async fn rebuild_native_database_from_sqlite(
+    app: tauri::AppHandle,
+  ) -> Result<(), String> {
+    let runtime_handle = tauri::async_runtime::handle().inner().clone();
+    let conversion_runtime = app.state::<ConversionRuntime>();
+    let Some((cancellation, bus)) = conversion_runtime.begin_attempt_with_bus()? else {
+      return Ok(());
+    };
+
+    let owner = app.state::<NativeLifecycleOwner>();
+    let previous_state = owner.state();
+    if owner.selected_database().is_some()
+      || matches!(previous_state, DatabaseLifecycleState::NativeAuthoritative)
+    {
+      conversion_runtime.end_attempt();
+      return Err(
+        "the selected native database cannot be rebuilt from SQLite".to_owned(),
+      );
+    }
+    owner.set_state(DatabaseLifecycleState::Converting(
+      ConversionProgress::Preflight,
+    ));
+
+    let paths = native_paths::authority_paths();
+    let workspace = native_paths::database_directory();
+    let schema_version = native_schema::NATIVE_SCHEMA_VERSION;
+    let app_for_task = app.clone();
+    runtime_handle.clone().spawn(async move {
+      // The command RPC returns immediately. Keep preflight, the lock-held
+      // archive, and conversion in this owned task so dropping the invoke
+      // future cannot strand a moved file before `run_conversion` starts.
+      let _attempt_guard = ConversionAttemptGuard(app_for_task.clone());
+      let owner = app_for_task.state::<NativeLifecycleOwner>();
+      let preflight = async {
+        plan_conversion_space(&paths.source_database, &workspace, None, false)
+          .map_err(|error| error.to_string())?;
+        verify_source_schema(
+          &paths.source_database,
+          crate::infrastructure::database::migration::get_migrations(),
+        )
+        .await
+        .map_err(|error| format!("SQLite source schema preflight failed: {error}"))
+      }
+      .await;
+      if let Err(message) = preflight {
+        owner.set_state(DatabaseLifecycleState::ActionRequired(
+          LifecycleIssue::NativeRecoveryRefused {
+            message: message.clone(),
+          },
+        ));
+        log_error!(
+          "native rebuild recovery stopped before moving the native database",
+          "commands::database_conversion::rebuild_native_database_from_sqlite",
+          Some(message)
+        );
+        return;
+      }
+      if cancellation.is_cancelled() {
+        let message = "native database recovery was cancelled before backup".to_owned();
+        owner.set_state(DatabaseLifecycleState::ActionRequired(
+          LifecycleIssue::NativeRecoveryRefused {
+            message: message.clone(),
+          },
+        ));
+        log_info!(
+          "native rebuild recovery was cancelled before moving the native database",
+          "commands::database_conversion::rebuild_native_database_from_sqlite",
+          Some(message)
+        );
+        return;
+      }
+
+      let backup_path = match archive_unselected_native_for_rebuild(&paths).await {
+        Ok(path) => path,
+        Err(error) => {
+          let message = error.to_string();
+          let issue = if matches!(
+            &error,
+            NativeDatabaseError::RecoveryBackupVerification { .. }
+          ) {
+            LifecycleIssue::NativeRecoveryFailed {
+              message: message.clone(),
+            }
+          } else {
+            LifecycleIssue::NativeRecoveryRefused {
+              message: message.clone(),
+            }
+          };
+          owner.set_state(DatabaseLifecycleState::ActionRequired(issue));
+          log_error!(
+            "native rebuild recovery could not archive the native database",
+            "commands::database_conversion::rebuild_native_database_from_sqlite",
+            Some(message)
+          );
+          return;
+        }
+      };
+
+      log_info!(
+        "archived an unselected native database before explicit SQLite rebuild",
+        "commands::database_conversion::rebuild_native_database_from_sqlite",
+        Some(backup_path.display().to_string())
+      );
+      let resumers = build_producer_resumers(&app_for_task, bus, runtime_handle.clone());
+      let target = ConversionTarget {
+        paths,
+        workspace,
+        expected_schema_version: schema_version,
+      };
+      let workers = app_for_task.state::<WorkersState>();
+      let result = run_conversion(
+        target,
+        &owner,
+        &workers,
+        resumers,
+        &cancellation,
+        SelectionHandoff::ThroughDispatch,
+      )
+      .await;
+
+      match &result {
+        Ok(outcome) => log_info!(
+          "explicit SQLite rebuild after native backup finished",
+          "commands::database_conversion::rebuild_native_database_from_sqlite",
+          Some(format!("{outcome:?}"))
+        ),
+        Err(error) => log_error!(
+          "explicit SQLite rebuild after native backup failed",
+          "commands::database_conversion::rebuild_native_database_from_sqlite",
+          Some(error.to_string())
+        ),
+      }
+    });
+
+    Ok(())
+  }
+
   pub(super) async fn cancel_database_conversion(
     app: tauri::AppHandle,
   ) -> Result<(), String> {
@@ -250,6 +411,12 @@ mod imp {
   }
 
   pub(super) async fn start_database_conversion(
+    _app: tauri::AppHandle,
+  ) -> Result<(), String> {
+    Err("this build does not include the native database conversion feature".to_string())
+  }
+
+  pub(super) async fn rebuild_native_database_from_sqlite(
     _app: tauri::AppHandle,
   ) -> Result<(), String> {
     Err("this build does not include the native database conversion feature".to_string())

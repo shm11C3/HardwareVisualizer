@@ -711,6 +711,10 @@ const buildInvokeHandlers = (
     }
     return null;
   },
+  rebuild_native_database_from_sqlite: () => {
+    databaseConversion.current = { kind: "converting", step: "preflight" };
+    return null;
+  },
   cancel_database_conversion: () => {
     databaseConversion.current = { kind: "sqliteAuthoritative" };
     return null;

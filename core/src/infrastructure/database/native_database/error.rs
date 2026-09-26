@@ -32,6 +32,8 @@ pub enum NativeDatabaseError {
   Cancelled,
   #[error("native database is closed")]
   Closed,
+  #[error("native database instance was invalidated and must be reopened")]
+  Invalidated,
   #[error("native database worker failed: {message}")]
   Worker { message: String },
   #[error("native database operation failed during {context}: {source}")]
@@ -71,6 +73,13 @@ pub enum NativeDatabaseError {
   },
   #[error("finalized native database failed verification: {message}")]
   Verification { message: String },
+  #[error(
+    "native database was moved to recovery backup {backup_path}, but the backup could not be verified: {message}"
+  )]
+  RecoveryBackupVerification {
+    backup_path: PathBuf,
+    message: String,
+  },
   #[error(
     "the exact sum of {column} for Process ({pid}, {process_name:?}) exceeds a signed 64-bit integer, where SQLite's average is no longer exact"
   )]
@@ -131,6 +140,18 @@ pub enum NativeDatabaseError {
 }
 
 impl NativeDatabaseError {
+  /// DuckDB reports a fatal checkpoint failure (including an already
+  /// invalidated instance) through the error message rather than a stable
+  /// error code. Keep this deliberately narrow: ordinary constraint and SQL
+  /// errors must not cause the dispatcher to replace a healthy owner.
+  pub(crate) fn invalidates_database_instance(&self) -> bool {
+    let Self::DuckDb { source, .. } = self else {
+      return matches!(self, Self::Invalidated);
+    };
+    let message = source.to_string().to_ascii_lowercase();
+    message.contains("database has been invalidated")
+  }
+
   pub(crate) fn duckdb(context: &'static str, source: duckdb::Error) -> Self {
     Self::DuckDb { context, source }
   }
@@ -153,5 +174,50 @@ impl NativeDatabaseError {
       context,
       message: message.to_string(),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::NativeDatabaseError;
+
+  fn duckdb_error(message: &str) -> NativeDatabaseError {
+    NativeDatabaseError::duckdb(
+      "test operation",
+      duckdb::Error::DuckDBFailure(
+        duckdb::ffi::Error::new(duckdb::ffi::DuckDBError),
+        Some(message.to_owned()),
+      ),
+    )
+  }
+
+  #[test]
+  fn only_duckdb_invalidated_errors_mark_the_instance() {
+    assert!(
+      duckdb_error(
+        "IO Error: Checkpoint failed for database. The database has been invalidated."
+      )
+      .invalidates_database_instance()
+    );
+    assert!(
+      duckdb_error(
+        "FATAL Error: database has been invalidated because of a previous fatal error"
+      )
+      .invalidates_database_instance()
+    );
+    assert!(
+      !duckdb_error("IO Error: Checkpoint failed without invalidating the database")
+        .invalidates_database_instance()
+    );
+    assert!(
+      !duckdb_error("Constraint Error: duplicate key violates primary key")
+        .invalidates_database_instance()
+    );
+    assert!(
+      !NativeDatabaseError::Worker {
+        message: "checkpoint failed in a worker wrapper".to_owned(),
+      }
+      .invalidates_database_instance()
+    );
   }
 }

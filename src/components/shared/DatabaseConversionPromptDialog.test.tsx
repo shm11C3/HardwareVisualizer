@@ -45,6 +45,7 @@ vi.mock("@/features/settings/hooks/useDatabaseConversion", () => ({
     settled: mockSettled,
     error: mockError,
     start: mockStart,
+    recover: vi.fn(async () => true),
     cancel: mockCancel,
     justCompleted: mockJustCompleted,
     acknowledgeCompletion: mockAcknowledgeCompletion,

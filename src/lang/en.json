@@ -784,6 +784,13 @@
           "converting": "Converting… {{step}}",
           "cancel": "Cancel",
           "complete": "The database has been converted to the native format.",
+          "recovery": {
+            "review": "Review SQLite rebuild",
+            "confirmation": "If you continue, HardwareVisualizer will first verify under DuckDB's writer lock that the native database is finalized but unselected. If it cannot prove this, it will refuse without moving files. If eligible, the native database will be kept in a backup and conversion will use SQLite; the backup remains if conversion fails or is cancelled.",
+            "confirm": "Keep native backup and rebuild",
+            "cancel": "Cancel",
+            "working": "Checking recovery eligibility…"
+          },
           "step": {
             "preflight": "Checking available disk space",
             "buildingCandidate": "Copying existing data",
@@ -796,6 +803,11 @@
           "actionRequired": {
             "default": "The database needs attention before the conversion can continue. Your existing data is unaffected.",
             "authorityDisagreement": "HardwareVisualizer found the database files in an unexpected state and stopped rather than guess. Your existing data is unaffected.",
+            "nativeMetadataUnreadable": "HardwareVisualizer could not read the native database. Close any other app that may be using it and check that temporary storage is available, then try again. HardwareVisualizer did not change either database file during this attempt.",
+            "nativeMetadataUnreadableInspectionRequired": "HardwareVisualizer could not read the native database. Close any other app that may be using it and check that temporary storage is available. You can ask it to inspect rebuild eligibility; it will move nothing unless it proves under the writer lock that the native database is finalized and unselected.",
+            "nativeRebuildInspectionRequired": "HardwareVisualizer could not confirm whether the native database is selected. You can ask it to inspect recovery eligibility. It will move nothing unless it verifies under the writer lock that the database is finalized and unselected.",
+            "nativeRecoveryRefused": "The recovery check stopped before moving either database file. Review the technical details, resolve the cause, and inspect recovery eligibility again.",
+            "nativeRecoveryFailed": "The native database was moved to a backup, but HardwareVisualizer could not verify the backup. The SQLite rebuild did not start; the backup path is in the technical details.",
             "nativeOpenFailed": "The selected database could not be made available for recording. Your existing data is unaffected. After resolving the cause, retry. If the database opens, the app will restart to initialize its database services.",
             "freshCreationFailed": "The native database could not be created. Your existing data is unaffected.",
             "conversionFailed": "The conversion failed. Your existing data is unaffected and you can try again.",

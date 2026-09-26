@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export type DatabaseConversionStateBodyProps = {
   state: DatabaseConversionState;
   error: string | null;
   start: () => Promise<boolean>;
+  recover: () => Promise<boolean>;
   cancel: () => Promise<boolean>;
   justCompleted: boolean;
   acknowledgeCompletion: () => void;
@@ -73,6 +74,7 @@ export const DatabaseConversionStateBody = ({
   state,
   error,
   start,
+  recover,
   cancel,
   justCompleted,
   acknowledgeCompletion,
@@ -81,6 +83,8 @@ export const DatabaseConversionStateBody = ({
   footerSecondaryAction,
 }: DatabaseConversionStateBodyProps) => {
   const { t } = useTranslation();
+  const [confirmRecovery, setConfirmRecovery] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [noticeShown, setNoticeShown, noticeShownPending] =
     useDatabaseConversionNoticeShown();
 
@@ -169,11 +173,16 @@ export const DatabaseConversionStateBody = ({
       // rather than trusting this owner's previous state (see
       // `run_conversion`'s own documentation). A durable native selection
       // whose database could not be opened or handed to dispatch is safe to
-      // retry once the open/handoff problem is gone; authority or fresh
-      // creation failures still need their own recovery path.
+      // retry once the open/handoff problem is gone. For unreadable native
+      // metadata, retry is safe because the driver does not rename or replace
+      // the file: it continues only if a fresh inspection can establish a
+      // supported state, and otherwise leaves the issue in ActionRequired.
+      // Authority or fresh creation failures still need their own recovery
+      // path.
       (state.reason === "conversionFailed" ||
         state.reason === "conversionCancelled" ||
-        state.reason === "nativeOpenFailed")
+        state.reason === "nativeOpenFailed" ||
+        state.reason === "nativeMetadataUnreadable")
     ) {
       return (
         <Button type="button" onClick={() => void start()}>
@@ -183,6 +192,62 @@ export const DatabaseConversionStateBody = ({
     }
     return null;
   })();
+
+  const recoveryAction =
+    state.kind === "actionRequired" &&
+    (state.reason === "nativeRebuildInspectionRequired" ||
+      state.reason === "nativeMetadataUnreadableInspectionRequired" ||
+      state.reason === "nativeRecoveryRefused") ? (
+      <div className="mt-3 rounded-md border p-3">
+        {!confirmRecovery ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConfirmRecovery(true)}
+          >
+            {t("pages.settings.insights.databaseConversion.recovery.review")}
+          </Button>
+        ) : (
+          <div>
+            <p className="text-sm">
+              {t(
+                "pages.settings.insights.databaseConversion.recovery.confirmation",
+              )}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={recovering}
+                onClick={() => setConfirmRecovery(false)}
+              >
+                {t(
+                  "pages.settings.insights.databaseConversion.recovery.cancel",
+                )}
+              </Button>
+              <Button
+                type="button"
+                disabled={recovering}
+                onClick={async () => {
+                  setRecovering(true);
+                  const started = await recover();
+                  setRecovering(false);
+                  if (started) {
+                    setConfirmRecovery(false);
+                  }
+                }}
+              >
+                {t(
+                  recovering
+                    ? "pages.settings.insights.databaseConversion.recovery.working"
+                    : "pages.settings.insights.databaseConversion.recovery.confirm",
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    ) : null;
 
   const footerLayout = layout === "footer";
   const footerRow = (primaryActionNode: ReactNode, sizeClassName = "") =>
@@ -258,6 +323,7 @@ export const DatabaseConversionStateBody = ({
             {footerLayout
               ? footerRow(primaryAction, "mt-2")
               : primaryAction && <div className="mt-2">{primaryAction}</div>}
+            {recoveryAction}
           </div>
         )}
 

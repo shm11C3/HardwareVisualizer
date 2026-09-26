@@ -25,8 +25,9 @@
 use std::sync::Mutex;
 
 use hardviz_core::infrastructure::database::native_database::{
-  AuthorityInconsistency, AuthorityPaths, AuthorityRecovery, AuthorityState,
-  NativeDatabase, inspect_authority, observe_authority, repair_authority_marker,
+  AuthorityFacts, AuthorityInconsistency, AuthorityPaths, AuthorityRecovery,
+  AuthorityState, MarkerFacts, NativeDatabase, NativeMetadataFacts, NativeState,
+  inspect_authority, observe_authority, repair_authority_marker,
 };
 
 use crate::{log_error, log_info};
@@ -64,6 +65,18 @@ pub enum LifecycleIssue {
   /// automatically by [`inspect_startup_authority`] and never reaches this
   /// variant unless the repair itself failed.
   Authority(AuthorityInconsistency),
+  /// The marker is absent, but the native metadata inspection was unreadable
+  /// or incompatible. A user may ask the recovery command to check eligibility;
+  /// it moves nothing unless it proves `FinalizedUnselected` under DuckDB's
+  /// writer lock and the SQLite source still passes preflight.
+  NativeRebuildInspectionRequired { reason: AuthorityInconsistency },
+  /// The explicitly requested recovery stopped before moving the native
+  /// database. The diagnostic explains which eligibility check refused it.
+  NativeRecoveryRefused { message: String },
+  /// The recovery backup was moved but could not be synced or reopened for
+  /// verification. The backup path remains in this diagnostic and conversion
+  /// does not continue.
+  NativeRecoveryFailed { message: String },
   /// App had observed or just committed native selection, but could not make
   /// that database available to consumers (the spill directory, read/write
   /// handle, owner thread, or boundary hand-off failed). This does not prove
@@ -135,7 +148,13 @@ pub fn inspect_startup_authority(
   paths: &AuthorityPaths,
   expected_schema_version: u32,
 ) -> DatabaseLifecycleState {
-  let decision = inspect_authority(&observe_authority(paths, expected_schema_version));
+  let facts = observe_authority(paths, expected_schema_version);
+  if let Some(reason) = native_rebuild_availability(&facts) {
+    return DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::NativeRebuildInspectionRequired { reason },
+    );
+  }
+  let decision = inspect_authority(&facts);
   match decision {
     AuthorityState::Inconsistent {
       reason,
@@ -166,6 +185,53 @@ pub fn inspect_startup_authority(
       }
     },
     other => translate(other),
+  }
+}
+
+/// Offer an explicit eligibility check only while the marker is absent and the
+/// native file is unreadable or finalized but incompatible with this build.
+/// An unreadable file may still be selected; the recovery command must prove
+/// `FinalizedUnselected` under the writer lock before it moves anything.
+/// Selected databases, conversion work, unreadable markers, and missing sources
+/// keep their existing recovery path. A WAL is checked only after DuckDB opens
+/// the file under its writer lock and checkpoints it; a preexisting WAL can be
+/// recoverable and does not by itself rule out an explicit inspection.
+fn native_rebuild_availability(facts: &AuthorityFacts) -> Option<AuthorityInconsistency> {
+  if !facts.source_database_present
+    || !facts.native_database_present
+    || facts.work_directory_present
+    || !matches!(facts.marker, MarkerFacts::Absent)
+  {
+    return None;
+  }
+  match &facts.native_metadata {
+    NativeMetadataFacts::Unreadable => {
+      Some(AuthorityInconsistency::NativeMetadataUnreadable)
+    }
+    NativeMetadataFacts::Legacy {
+      state: NativeState::FinalizedUnselected,
+      schema_version,
+    } => Some(if *schema_version != facts.expected_schema_version {
+      AuthorityInconsistency::SchemaVersionMismatch
+    } else {
+      AuthorityInconsistency::StorageVersionMetadataMissing
+    }),
+    NativeMetadataFacts::Present {
+      state: NativeState::FinalizedUnselected,
+      schema_version,
+      ..
+    } if *schema_version != facts.expected_schema_version => {
+      Some(AuthorityInconsistency::SchemaVersionMismatch)
+    }
+    NativeMetadataFacts::Present {
+      state: NativeState::FinalizedUnselected,
+      storage_version,
+      engine_storage_version,
+      ..
+    } if storage_version != engine_storage_version => {
+      Some(AuthorityInconsistency::StorageVersionMismatch)
+    }
+    _ => None,
   }
 }
 
@@ -552,6 +618,25 @@ mod tests {
     let owner = NativeLifecycleOwner::new();
     owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
     assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
+  }
+
+  #[test]
+  fn a_preexisting_wal_does_not_hide_the_explicit_recovery_inspection() {
+    let facts = AuthorityFacts {
+      source_database_present: true,
+      native_database_present: true,
+      native_database_file_name: "hv-database.duckdb".to_owned(),
+      native_write_ahead_log_present: true,
+      work_directory_present: false,
+      marker: MarkerFacts::Absent,
+      native_metadata: NativeMetadataFacts::Unreadable,
+      expected_schema_version: 1,
+    };
+
+    assert_eq!(
+      native_rebuild_availability(&facts),
+      Some(AuthorityInconsistency::NativeMetadataUnreadable)
+    );
   }
 
   /// A real, production-built "selected, marker missing" database: SQLite
