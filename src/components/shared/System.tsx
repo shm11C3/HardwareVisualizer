@@ -18,10 +18,12 @@ export const NeedRestart = ({
   alertOpen,
   setAlertOpen,
   description,
+  dismissible = true,
 }: {
   alertOpen: boolean;
   setAlertOpen: Dispatch<SetStateAction<boolean>>;
   description?: string;
+  dismissible?: boolean;
 }) => {
   const { t } = useTranslation();
   const setIsRequiredRestart = useSetAtom(settingAtoms.isRequiredRestart);
@@ -39,14 +41,16 @@ export const NeedRestart = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel
-            onClick={() => {
-              setAlertOpen(false);
-              setIsRequiredRestart(true);
-            }}
-          >
-            {t("pages.settings.insights.needRestart.cancel")}
-          </AlertDialogCancel>
+          {dismissible && (
+            <AlertDialogCancel
+              onClick={() => {
+                setAlertOpen(false);
+                setIsRequiredRestart(true);
+              }}
+            >
+              {t("pages.settings.insights.needRestart.cancel")}
+            </AlertDialogCancel>
+          )}
           <AlertDialogAction onClick={commands.restartApp}>
             {t("pages.settings.insights.needRestart.restart")}
           </AlertDialogAction>

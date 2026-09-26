@@ -946,7 +946,7 @@ export type ExternalComponentRuntimeState = {
 	detail: string | null,
 };
 
-export type ExternalComponentSetupFailureStage = "stateUnknown" | "stagingDirectory" | "downloadRuntime" | "verifyRuntime" | "startInstaller" | "installerExit" | "downloadModules" | "verifyModules" | "archiveContents" | "placeModules" | "incomplete" | "unsupportedPlatform" | "panicked" | "other";
+export type ExternalComponentSetupFailureStage = "stateUnknown" | "stagingDirectory" | "downloadRuntime" | "verifyRuntime" | "startInstaller" | "installerExit" | "downloadModules" | "verifyModules" | "archiveContents" | "placeModules" | "incomplete" | "unsupportedPlatform" | "panicked" | "installerTimedOut" | "installerStillRunning" | "setupTimedOut" | "setupStillRunning" | "other";
 
 export type ExternalComponentSetupOutcome = "alreadyInstalled" | "installed" | "rebootRequired" | "cancelled" | "failed";
 
@@ -1297,7 +1297,7 @@ export type UpdateMetadata = {
 	pubDate: string | null,
 };
 
-export type UpdaterError = "NoPendingUpdate" | { Updater: string };
+export type UpdaterError = "NoPendingUpdate" | ({ Updater: string }) & { RestartRequired?: never } | ({ RestartRequired: string }) & { Updater?: never };
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

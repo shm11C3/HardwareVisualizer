@@ -13,6 +13,7 @@ pub mod app_updates {
   use crate::{log_debug, log_error, log_info};
   use serde::Serialize;
   use specta;
+  use std::future::Future;
   use std::sync::Mutex;
   use tauri;
   use tauri_plugin_updater::{Update, UpdaterExt};
@@ -21,6 +22,7 @@ pub mod app_updates {
   pub enum UpdaterError {
     NoPendingUpdate,
     Updater(String),
+    RestartRequired(String),
   }
 
   impl std::fmt::Display for UpdaterError {
@@ -28,6 +30,7 @@ pub mod app_updates {
       match self {
         UpdaterError::NoPendingUpdate => write!(f, "there is no pending update"),
         UpdaterError::Updater(msg) => write!(f, "{msg}"),
+        UpdaterError::RestartRequired(msg) => write!(f, "{msg}"),
       }
     }
   }
@@ -105,6 +108,7 @@ pub mod app_updates {
   #[tauri::command]
   #[specta::specta]
   pub async fn install_update(
+    _app_handle: tauri::AppHandle,
     pending_update: tauri::State<'_, PendingUpdate>,
     on_event: tauri::ipc::Channel<DownloadEvent>,
   ) -> Result<(), UpdaterError> {
@@ -117,8 +121,8 @@ pub mod app_updates {
 
     let mut started = false;
 
-    update
-      .download_and_install(
+    let bytes = update
+      .download(
         |chunk_length, content_length| {
           if !started {
             log_info!(
@@ -144,7 +148,163 @@ pub mod app_updates {
       )
       .await?;
 
+    // Windows exits the process as soon as the installer starts. Ask the App
+    // lifecycle owner to drain producers and close the native owner before handoff.
+    let shutdown = async {
+      #[cfg(target_os = "windows")]
+      crate::lifecycle::prepare_for_update_install(&_app_handle)
+        .await
+        .map_err(UpdaterError::Updater)?;
+      Ok::<(), UpdaterError>(())
+    };
+    install_after_shutdown(
+      shutdown,
+      || update.install(bytes).map_err(UpdaterError::from),
+      cfg!(target_os = "windows"),
+    )
+    .await?;
+
     Ok(())
+  }
+
+  async fn install_after_shutdown<Shutdown, Install>(
+    shutdown: Shutdown,
+    install: Install,
+    workers_stopped_before_handoff: bool,
+  ) -> Result<(), UpdaterError>
+  where
+    Shutdown: Future<Output = Result<(), UpdaterError>>,
+    Install: FnOnce() -> Result<(), UpdaterError>,
+  {
+    shutdown.await.map_err(|error| {
+      UpdaterError::after_handoff_failure(
+        "app shutdown failed",
+        error,
+        workers_stopped_before_handoff,
+      )
+    })?;
+    install().map_err(|error| {
+      UpdaterError::after_handoff_failure(
+        "installer handoff failed",
+        error,
+        workers_stopped_before_handoff,
+      )
+    })
+  }
+
+  impl UpdaterError {
+    fn after_handoff_failure(
+      stage: &str,
+      error: Self,
+      workers_stopped_before_handoff: bool,
+    ) -> Self {
+      let message = format!("{stage}: {error}");
+      if workers_stopped_before_handoff {
+        Self::RestartRequired(message)
+      } else {
+        Self::Updater(message)
+      }
+    }
+  }
+
+  #[cfg(test)]
+  mod install_tests {
+    use super::{UpdaterError, install_after_shutdown};
+    use tokio::sync::oneshot;
+
+    #[tokio::test]
+    async fn waits_for_shutdown_before_handing_off_to_the_installer() {
+      let (shutdown_started_tx, shutdown_started_rx) = oneshot::channel();
+      let (finish_shutdown_tx, finish_shutdown_rx) = oneshot::channel();
+      let (installer_handoff_tx, installer_handoff_rx) = oneshot::channel();
+
+      let install = install_after_shutdown(
+        async move {
+          let _ = shutdown_started_tx.send(());
+          let _ = finish_shutdown_rx.await;
+          Ok(())
+        },
+        move || {
+          let _ = installer_handoff_tx.send(());
+          Ok(())
+        },
+        true,
+      );
+      tokio::pin!(install);
+      tokio::pin!(installer_handoff_rx);
+
+      tokio::select! {
+        shutdown_started = shutdown_started_rx => {
+          shutdown_started.expect("shutdown should start before installation");
+        }
+        result = &mut install => panic!("installer returned before shutdown started: {result:?}"),
+        handoff = &mut installer_handoff_rx => {
+          panic!("installer ran before shutdown started: {handoff:?}");
+        }
+      }
+      assert!(installer_handoff_rx.as_mut().get_mut().try_recv().is_err());
+
+      finish_shutdown_tx
+        .send(())
+        .expect("shutdown should still be waiting");
+      assert!(install.await.is_ok());
+      installer_handoff_rx
+        .await
+        .expect("installer should run after shutdown completes");
+    }
+
+    #[tokio::test]
+    async fn shutdown_failure_requires_restart_and_refuses_installer_handoff() {
+      let mut installer_called = false;
+      let result = install_after_shutdown(
+        async { Err(UpdaterError::Updater("database close failed".into())) },
+        || {
+          installer_called = true;
+          Ok(())
+        },
+        true,
+      )
+      .await;
+
+      assert!(matches!(
+        result,
+        Err(UpdaterError::RestartRequired(message))
+          if message == "app shutdown failed: database close failed"
+      ));
+      assert!(!installer_called);
+    }
+
+    #[tokio::test]
+    async fn installer_failure_requires_restart_after_workers_stopped() {
+      let result = install_after_shutdown(
+        async { Ok(()) },
+        || Err(UpdaterError::Updater("installer launch failed".into())),
+        true,
+      )
+      .await;
+
+      assert!(matches!(
+        result,
+        Err(UpdaterError::RestartRequired(message))
+          if message == "installer handoff failed: installer launch failed"
+      ));
+    }
+
+    #[tokio::test]
+    async fn installer_failure_without_stopped_workers_does_not_require_restart() {
+      let result = install_after_shutdown(
+        async { Ok(()) },
+        || Err(UpdaterError::Updater("installer launch failed".into())),
+        false,
+      )
+      .await;
+
+      assert!(matches!(
+        result,
+        Err(UpdaterError::Updater(message))
+          if message == "installer handoff failed: installer launch failed"
+      ));
+    }
   }
 }
 

@@ -5,9 +5,9 @@ use std::{
     atomic::{AtomicBool, Ordering},
   },
 };
+use tokio::sync::watch;
 
 use hardviz_core::monitoring::MonitoringState;
-use tokio::sync::watch;
 
 use crate::adapters::tray::TrayAdapter;
 use crate::adapters::window::WindowAdapter;
@@ -107,27 +107,40 @@ impl Default for WorkersState {
 }
 
 impl WorkersState {
-  pub async fn terminate_all(&self) {
-    if let Err(error) = self.terminate_all_checked().await {
-      hardviz_core::log_error!(
-        "Failed to close the native database owner during shutdown",
-        "workers::WorkersState::terminate_all",
-        Some(error)
-      );
-    }
+  pub async fn terminate_all(&self) -> Result<(), String> {
+    self.terminate_all_with(close_native_database_owner).await
   }
 
-  /// Drain every worker and report whether the dispatch owner closed cleanly.
-  ///
-  /// The shutdown path for a recovered native database uses the result before
-  /// restarting, so it can log a close failure while still letting process
-  /// exit release any remaining native handles.
-  pub async fn terminate_all_checked(&self) -> Result<(), String> {
-    run_shutdown_once_with_completion(&self.shutting_down, &self.shutdown_result, || {
+  async fn terminate_all_with<Close, CloseFuture>(
+    &self,
+    close_native_database: Close,
+  ) -> Result<(), String>
+  where
+    Close: FnOnce() -> CloseFuture + Send + 'static,
+    CloseFuture: Future<Output = Result<(), String>> + Send + 'static,
+  {
+    let mut shutdown_result = self.shutdown_result.subscribe();
+    if self
+      .shutting_down
+      .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+      .is_ok()
+    {
       let workers = self.take_for_shutdown();
-      async move { terminate_workers(workers).await }
-    })
-    .await
+      let result_sender = self.shutdown_result.clone();
+      tokio::spawn(async move {
+        let result = terminate_workers(workers, close_native_database).await;
+        result_sender.send_replace(Some(result));
+      });
+    }
+
+    loop {
+      if let Some(result) = shutdown_result.borrow_and_update().clone() {
+        return result;
+      }
+      shutdown_result.changed().await.map_err(|_| {
+        "shutdown completion channel closed before workers stopped".to_owned()
+      })?;
+    }
   }
 
   fn take_for_shutdown(&self) -> ShutdownWorkers {
@@ -145,40 +158,14 @@ impl WorkersState {
   }
 }
 
-async fn run_shutdown_once_with_completion<Start, Shutdown>(
-  shutting_down: &AtomicBool,
-  shutdown_result: &watch::Sender<Option<Result<(), String>>>,
-  start_shutdown: Start,
+async fn terminate_workers<Close, CloseFuture>(
+  mut workers: ShutdownWorkers,
+  close_native_database: Close,
 ) -> Result<(), String>
 where
-  Start: FnOnce() -> Shutdown,
-  Shutdown: Future<Output = Result<(), String>> + Send + 'static,
+  Close: FnOnce() -> CloseFuture,
+  CloseFuture: Future<Output = Result<(), String>>,
 {
-  let mut result = shutdown_result.subscribe();
-  // Keep the drain alive if its first caller is cancelled, and make every
-  // later caller wait for that same drain instead of treating the flag as completion.
-  if shutting_down
-    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-    .is_ok()
-  {
-    let shutdown = start_shutdown();
-    let result_sender = shutdown_result.clone();
-    tokio::spawn(async move {
-      result_sender.send_replace(Some(shutdown.await));
-    });
-  }
-
-  loop {
-    if let Some(shutdown_result) = result.borrow_and_update().clone() {
-      return shutdown_result;
-    }
-    result.changed().await.map_err(|_| {
-      "shutdown completion channel closed before workers stopped".to_owned()
-    })?;
-  }
-}
-
-async fn terminate_workers(mut workers: ShutdownWorkers) -> Result<(), String> {
   // Stop the source first so no further realtime snapshots are produced, then
   // drain the adapter, then shut down the archive worker.
   if let Some(monitor) = workers.monitor.take() {
@@ -235,9 +222,20 @@ async fn terminate_workers(mut workers: ShutdownWorkers) -> Result<(), String> {
   // stay last: closing the boundary's owner before the writers above
   // have drained would close the file out from under a still-running
   // archive/cooling/storage-health/cleanup write.
+  close_native_database().await
+}
+
+async fn close_native_database_owner() -> Result<(), String> {
   #[cfg(feature = "duckdb-archive")]
   if let Err(error) = hardviz_core::infrastructure::database::dispatch::shutdown().await {
-    return Err(error.to_string());
+    hardviz_core::log_error!(
+      "Failed to close the native database owner during shutdown",
+      "workers::WorkersState::terminate_all",
+      Some(error.to_string())
+    );
+    return Err(format!(
+      "failed to close the native database owner: {error}"
+    ));
   }
 
   Ok(())
@@ -245,69 +243,63 @@ async fn terminate_workers(mut workers: ShutdownWorkers) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-  use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-  };
+  use std::{sync::Arc, time::Duration};
 
-  use tokio::sync::{oneshot, watch};
+  use tokio::sync::oneshot;
 
-  use super::run_shutdown_once_with_completion;
+  use super::WorkersState;
 
   #[tokio::test]
-  async fn concurrent_shutdown_waits_for_and_receives_the_shared_result() {
-    let shutting_down = Arc::new(AtomicBool::new(false));
-    let (shutdown_result, _) = watch::channel(None);
-    let (started_tx, started_rx) = oneshot::channel();
-    let (finish_tx, finish_rx) = oneshot::channel();
+  async fn concurrent_or_cancelled_termination_waits_for_the_active_drain() {
+    let workers = Arc::new(WorkersState::default());
+    let (drain_started_tx, drain_started_rx) = oneshot::channel();
+    let (finish_drain_tx, finish_drain_rx) = oneshot::channel();
+    workers
+      .scheduled_cleanup
+      .lock()
+      .unwrap()
+      .replace(tokio::spawn(async move {
+        let _ = drain_started_tx.send(());
+        let _ = finish_drain_rx.await;
+      }));
 
-    let initiator = {
-      let shutting_down = shutting_down.clone();
-      let shutdown_result = shutdown_result.clone();
-      tokio::spawn(async move {
-        run_shutdown_once_with_completion(
-          &shutting_down,
-          &shutdown_result,
-          || async move {
-            let _ = started_tx.send(());
-            let _ = finish_rx.await;
-            Err("native owner close failed".to_owned())
-          },
-        )
+    let first_workers = Arc::clone(&workers);
+    let first = tokio::spawn(async move { first_workers.terminate_all().await });
+    drain_started_rx
+      .await
+      .expect("cleanup should begin draining");
+
+    let second_workers = Arc::clone(&workers);
+    let mut second = tokio::spawn(async move { second_workers.terminate_all().await });
+    assert!(
+      tokio::time::timeout(Duration::from_millis(20), &mut second)
         .await
-      })
-    };
-    started_rx.await.expect("shutdown should start");
+        .is_err(),
+      "concurrent termination must wait until the first drain completes"
+    );
 
-    let second_start_called = Arc::new(AtomicBool::new(false));
-    let concurrent_call = {
-      let shutting_down = shutting_down.clone();
-      let shutdown_result = shutdown_result.clone();
-      let second_start_called = second_start_called.clone();
-      tokio::spawn(async move {
-        run_shutdown_once_with_completion(&shutting_down, &shutdown_result, || {
-          second_start_called.store(true, Ordering::SeqCst);
-          async { Ok(()) }
-        })
+    first.abort();
+    assert!(first.await.is_err(), "the first waiter should be cancelled");
+    assert!(
+      tokio::time::timeout(Duration::from_millis(20), &mut second)
         .await
-      })
-    };
-    tokio::task::yield_now().await;
-    assert!(!concurrent_call.is_finished());
-    assert!(!second_start_called.load(Ordering::SeqCst));
+        .is_err(),
+      "cancelling the first waiter must not cancel the shared drain"
+    );
 
-    finish_tx
+    finish_drain_tx
       .send(())
-      .expect("shutdown should still be running");
-    assert_eq!(
-      initiator.await.expect("initiator should complete"),
-      Err("native owner close failed".to_owned())
-    );
-    assert_eq!(
-      concurrent_call
-        .await
-        .expect("concurrent caller should complete"),
-      Err("native owner close failed".to_owned())
-    );
+      .expect("cleanup should still be running");
+    assert!(second.await.unwrap().is_ok());
+  }
+
+  #[tokio::test]
+  async fn native_database_close_failure_is_returned_to_the_caller() {
+    let workers = WorkersState::default();
+    let result = workers
+      .terminate_all_with(|| async { Err("injected native close failure".to_owned()) })
+      .await;
+
+    assert_eq!(result, Err("injected native close failure".to_owned()));
   }
 }

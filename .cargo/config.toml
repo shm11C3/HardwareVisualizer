@@ -19,6 +19,20 @@
 # tool such as sccache instead).
 build-dir = "{cargo-cache-home}/build/shared/{workspace-path-hash}"
 
+# Link the MSVC C/C++ runtime statically. The bundled DuckDB C++ library is
+# compiled by the `cc` crate with `/MD` unless the target has `crt-static`,
+# and tauri-build's own static-vcruntime pass only swaps the C runtime
+# (msvcrt / vcruntime / ucrt), never the C++ standard library (msvcprt), so a
+# feature-on build otherwise imports MSVCP140.dll. That DLL ships with the
+# VC++ Redistributable, not with Windows, and `/DEPENDENTLOADFLAG:0x800` in
+# src-tauri/build.rs means it must come from System32. Measured on
+# 2026-09-24 on the ci profile: without this flag the executable imports
+# msvcp140.dll, vcruntime140.dll, vcruntime140_1.dll and the
+# api-ms-win-crt-* forwarders; with it, none of them. `cc` honours the flag
+# through CARGO_CFG_TARGET_FEATURE and compiles DuckDB with `/MT`.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
 [alias]
 tauri-test = "test --workspace -- --test-threads=1 --nocapture"
 tauri-test-cov = "llvm-cov --workspace -- --test-threads=1 --nocapture"

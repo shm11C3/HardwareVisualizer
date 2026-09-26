@@ -1,10 +1,20 @@
 use crate::enums::error::PlatformError;
 use crate::log_warn;
-use crate::platform::traits::{ElevatedProcessRun, ElevationAvailability};
+use crate::platform::traits::{
+  ElevatedProcessRun, ElevationAvailability, ProcessExitWait, ProcessIdentity,
+};
 use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use windows::Win32::Foundation::{CloseHandle, ERROR_CANCELLED, HANDLE};
+use std::time::Duration;
+use windows::Win32::Foundation::{
+  CloseHandle, ERROR_ACCESS_DENIED, ERROR_CANCELLED, ERROR_INVALID_PARAMETER,
+  ERROR_NOT_ALL_ASSIGNED, FILETIME, GetLastError, HANDLE, LUID, WAIT_OBJECT_0,
+};
+use windows::Win32::Security::{
+  AdjustTokenPrivileges, LUID_AND_ATTRIBUTES, LookupPrivilegeValueW, SE_DEBUG_NAME,
+  SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES, TOKEN_QUERY,
+};
 use windows::Win32::Storage::FileSystem::{
   CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_NAME_NORMALIZED, FILE_READ_ATTRIBUTES,
   FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, GETFINALPATHNAMEBYHANDLE_FLAGS,
@@ -12,7 +22,9 @@ use windows::Win32::Storage::FileSystem::{
 };
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Threading::{
-  GetExitCodeProcess, INFINITE, WaitForSingleObject,
+  GetCurrentProcess, GetExitCodeProcess, GetProcessTimes, INFINITE, OpenProcess,
+  OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
+  TerminateProcess, WaitForSingleObject,
 };
 use windows::Win32::UI::Shell::{
   FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86, IsUserAnAdmin, KF_FLAG_DEFAULT,
@@ -172,8 +184,8 @@ pub fn is_process_elevated() -> Result<bool, PlatformError> {
   Ok(unsafe { IsUserAnAdmin().as_bool() })
 }
 
-pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
-  let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+pub fn relaunch_current_process_elevated(args: &[String]) -> Result<(), PlatformError> {
+  let args = args.iter().map(OsString::from).collect::<Vec<_>>();
   let launched = launch_current_executable_elevated(&args, "restart as administrator")?;
 
   match launched {
@@ -189,9 +201,28 @@ pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
   }
 }
 
+/// How long [`run_current_executable_elevated`] waits for the elevated child.
+/// Its only caller is External Component Setup, whose child bounds each of
+/// its own slow steps (two downloads and the runtime installer, five minutes
+/// each), so a run that is still going after twenty minutes is stuck outside
+/// those bounds. Without a limit the Settings action's blocking task never
+/// returns and its per-component in-flight guard refuses every retry until
+/// the app restarts.
+const ELEVATED_RUN_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+
+/// How long [`wait_for_exit_code`] waits for a terminated child to actually
+/// end. `TerminateProcess` only requests termination; the process object is
+/// signaled once the kernel has torn the process down, which normally takes
+/// milliseconds. A child that is still alive after this is reported as
+/// unconfirmed rather than assumed dead.
+const TERMINATION_CONFIRM_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Launch the current executable elevated with `args`, wait for it to exit,
 /// and return its exit code. A declined UAC prompt is reported as
-/// [`ElevatedProcessRun::Declined`], not as an error.
+/// [`ElevatedProcessRun::Declined`], not as an error. A child that outlives
+/// [`ELEVATED_RUN_TIMEOUT`] is terminated and reported as
+/// [`ElevatedProcessRun::TimedOut`] once it is confirmed gone, or as
+/// [`ElevatedProcessRun::StillRunning`] when it could not be.
 pub fn run_current_executable_elevated(
   args: &[String],
 ) -> Result<ElevatedProcessRun, PlatformError> {
@@ -201,9 +232,9 @@ pub fn run_current_executable_elevated(
     return Ok(ElevatedProcessRun::Declined);
   };
 
-  let exit_code = wait_for_exit_code(process);
+  let run = wait_for_exit_code(process, ELEVATED_RUN_TIMEOUT);
   let _ = unsafe { CloseHandle(process) };
-  Ok(ElevatedProcessRun::Exited { exit_code })
+  Ok(run)
 }
 
 /// Returns the process handle, or `None` when the user declined the prompt.
@@ -262,12 +293,243 @@ fn launch_current_executable_elevated(
   Ok(Some(execute_info.hProcess))
 }
 
-fn wait_for_exit_code(process: HANDLE) -> Option<i32> {
-  let _ = unsafe { WaitForSingleObject(process, INFINITE) };
-  let mut exit_code: u32 = 0;
-  unsafe { GetExitCodeProcess(process, &mut exit_code) }
-    .ok()
-    .map(|()| exit_code as i32)
+pub fn current_process_identity() -> Result<ProcessIdentity, PlatformError> {
+  let creation_time = process_creation_time(unsafe { GetCurrentProcess() })?;
+  Ok(ProcessIdentity {
+    pid: std::process::id(),
+    creation_time,
+  })
+}
+
+/// Block until the process `identity` names has exited. The wait is
+/// unbounded once the identity is verified: the handle keeps the id from
+/// being reused, so only the named process can end the wait. The access
+/// requested (`SYNCHRONIZE` and limited query) is granted to an elevated
+/// process on the unelevated process that launched it when both run as the
+/// same account; see [`open_process_to_wait`] for the other case.
+pub fn wait_for_process_exit(
+  identity: &ProcessIdentity,
+) -> Result<ProcessExitWait, PlatformError> {
+  let pid = identity.pid;
+  let Some(process) = open_process_to_wait(pid)? else {
+    return Ok(ProcessExitWait::AlreadyExited);
+  };
+
+  let waited = match process_creation_time(process) {
+    // The id now belongs to a process started later: the named one has
+    // exited and its id was reused.
+    Ok(creation_time) if creation_time != identity.creation_time => {
+      Ok(ProcessExitWait::AlreadyExited)
+    }
+    Ok(_) => match unsafe { WaitForSingleObject(process, INFINITE) } {
+      WAIT_OBJECT_0 => Ok(ProcessExitWait::Exited),
+      _ => Err(PlatformError::fault(format!(
+        "Failed to wait for process {pid}: {}",
+        windows::core::Error::from_thread()
+      ))),
+    },
+    Err(e) => Err(e),
+  };
+  let _ = unsafe { CloseHandle(process) };
+  waited
+}
+
+/// Open `pid` for waiting and reading its creation time. `None` when no
+/// process holds the id any more.
+///
+/// Over-the-shoulder elevation: when a standard user answers the UAC prompt
+/// with another administrator's credentials, the elevated child runs as that
+/// account, and the parent's default DACL (its creator and SYSTEM) refuses it
+/// with `ERROR_ACCESS_DENIED`. A full administrator token holds
+/// `SeDebugPrivilege`, which lets it open any process regardless of its DACL,
+/// so the open is retried once with that privilege enabled. It is enabled for
+/// the retry only: the handle keeps the access it was opened with, and the
+/// creation-time check still decides whether it is the parent.
+fn open_process_to_wait(pid: u32) -> Result<Option<HANDLE>, PlatformError> {
+  let open_error = |e: windows::core::Error| {
+    PlatformError::fault(format!("Failed to open process {pid} to wait for it: {e}"))
+  };
+  match open_process(pid) {
+    Ok(process) => Ok(process),
+    Err(e) if e.code() == ERROR_ACCESS_DENIED.to_hresult() => {
+      let Some(_debug_privilege) = DebugPrivilege::enable()? else {
+        return Err(PlatformError::fault(format!(
+          "Failed to open process {pid} to wait for it: access was denied and this \
+           process does not hold SeDebugPrivilege"
+        )));
+      };
+      open_process(pid).map_err(open_error)
+    }
+    Err(e) => Err(open_error(e)),
+  }
+}
+
+/// `Ok(None)` when no process holds `pid` any more.
+fn open_process(pid: u32) -> Result<Option<HANDLE>, windows::core::Error> {
+  match unsafe {
+    OpenProcess(
+      PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
+      false,
+      pid,
+    )
+  } {
+    Ok(process) => Ok(Some(process)),
+    Err(e) if e.code() == ERROR_INVALID_PARAMETER.to_hresult() => Ok(None),
+    Err(e) => Err(e),
+  }
+}
+
+/// `SeDebugPrivilege` enabled on this process's token for as long as the
+/// value lives; dropping it restores the privilege's previous state.
+struct DebugPrivilege {
+  previous: TOKEN_PRIVILEGES,
+}
+
+impl DebugPrivilege {
+  /// `Ok(None)` when the token does not hold the privilege at all, which is
+  /// the case for every token that is not a full administrator token.
+  fn enable() -> Result<Option<Self>, PlatformError> {
+    let mut previous = TOKEN_PRIVILEGES::default();
+    let held = with_process_token(|token| {
+      let mut luid = LUID::default();
+      unsafe { LookupPrivilegeValueW(PCWSTR::null(), SE_DEBUG_NAME, &mut luid) }
+        .map_err(|e| {
+          PlatformError::fault(format!("Failed to look up SeDebugPrivilege: {e}"))
+        })?;
+      let enabled = TOKEN_PRIVILEGES {
+        PrivilegeCount: 1,
+        Privileges: [LUID_AND_ATTRIBUTES {
+          Luid: luid,
+          Attributes: SE_PRIVILEGE_ENABLED,
+        }],
+      };
+      let mut returned_length = 0u32;
+      unsafe {
+        AdjustTokenPrivileges(
+          token,
+          false,
+          Some(&enabled),
+          std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,
+          Some(&mut previous),
+          Some(&mut returned_length),
+        )
+      }
+      .map_err(|e| {
+        PlatformError::fault(format!("Failed to enable SeDebugPrivilege: {e}"))
+      })?;
+      // The call succeeds even when the token does not hold the privilege;
+      // only the last error tells.
+      Ok(unsafe { GetLastError() } != ERROR_NOT_ALL_ASSIGNED)
+    })?;
+    Ok(held.then_some(Self { previous }))
+  }
+}
+
+impl Drop for DebugPrivilege {
+  fn drop(&mut self) {
+    let previous = self.previous;
+    let _ = with_process_token(|token| {
+      unsafe { AdjustTokenPrivileges(token, false, Some(&previous), 0, None, None) }
+        .map_err(|e| {
+          PlatformError::fault(format!("Failed to restore SeDebugPrivilege: {e}"))
+        })
+    });
+  }
+}
+
+fn with_process_token<T>(
+  f: impl FnOnce(HANDLE) -> Result<T, PlatformError>,
+) -> Result<T, PlatformError> {
+  let mut token = HANDLE::default();
+  unsafe {
+    OpenProcessToken(
+      GetCurrentProcess(),
+      TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+      &mut token,
+    )
+  }
+  .map_err(|e| PlatformError::fault(format!("Failed to open the process token: {e}")))?;
+  let result = f(token);
+  let _ = unsafe { CloseHandle(token) };
+  result
+}
+
+/// The creation time of `process` as one integer, so it can travel on a
+/// command line and be compared exactly.
+fn process_creation_time(process: HANDLE) -> Result<u64, PlatformError> {
+  let mut creation = FILETIME::default();
+  let mut exit = FILETIME::default();
+  let mut kernel = FILETIME::default();
+  let mut user = FILETIME::default();
+  unsafe { GetProcessTimes(process, &mut creation, &mut exit, &mut kernel, &mut user) }
+    .map_err(|e| {
+    PlatformError::fault(format!("Failed to read the process creation time: {e}"))
+  })?;
+  Ok((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime))
+}
+
+/// Wait up to `limit` for `process` to exit and read its exit code. On
+/// timeout the process is terminated so the caller does not leave a stray
+/// child behind. `TimedOut` is reported only once the process object is
+/// signaled, so the caller knows the child is gone; the handle
+/// `ShellExecuteExW` returns for an elevated child does not always carry
+/// `PROCESS_TERMINATE` for a medium-integrity parent, and termination is
+/// asynchronous, so a refused termination or a child that is still alive
+/// after [`TERMINATION_CONFIRM_TIMEOUT`] is reported as `StillRunning`.
+/// This wait is deliberately separate from [`wait_for_process_exit`], whose
+/// unbounded wait on a verified parent is part of the relaunch handoff.
+fn wait_for_exit_code(process: HANDLE, limit: Duration) -> ElevatedProcessRun {
+  wait_for_exit_code_confirming(process, limit, TERMINATION_CONFIRM_TIMEOUT)
+}
+
+fn wait_for_exit_code_confirming(
+  process: HANDLE,
+  limit: Duration,
+  confirm_limit: Duration,
+) -> ElevatedProcessRun {
+  if wait_signaled(process, limit) {
+    let mut exit_code: u32 = 0;
+    let exit_code = unsafe { GetExitCodeProcess(process, &mut exit_code) }
+      .ok()
+      .map(|()| exit_code as i32);
+    return ElevatedProcessRun::Exited { exit_code };
+  }
+
+  log_warn!(
+    format!(
+      "The elevated process did not exit within {} s; terminating it",
+      limit.as_secs()
+    ),
+    "process_elevation::wait_for_exit_code",
+    None::<&str>
+  );
+  if let Err(e) = unsafe { TerminateProcess(process, 1) } {
+    log_warn!(
+      format!("Failed to terminate the elevated process; it may still be running: {e}"),
+      "process_elevation::wait_for_exit_code",
+      None::<&str>
+    );
+    return ElevatedProcessRun::StillRunning;
+  }
+  if !wait_signaled(process, confirm_limit) {
+    log_warn!(
+      format!(
+        "The elevated process had not ended {} s after termination was requested",
+        confirm_limit.as_secs()
+      ),
+      "process_elevation::wait_for_exit_code",
+      None::<&str>
+    );
+    return ElevatedProcessRun::StillRunning;
+  }
+  ElevatedProcessRun::TimedOut
+}
+
+/// `true` once `process` is signaled (has ended) within `limit`.
+fn wait_signaled(process: HANDLE, limit: Duration) -> bool {
+  let limit_ms = u32::try_from(limit.as_millis()).unwrap_or(INFINITE - 1);
+  let wait = unsafe { WaitForSingleObject(process, limit_ms) };
+  wait == WAIT_OBJECT_0
 }
 
 fn os_wide_null(value: &OsStr) -> Vec<u16> {
@@ -326,9 +588,188 @@ fn quote_windows_arg(arg: &OsStr) -> String {
 #[cfg(test)]
 mod tests {
   use super::{
-    is_within_any_root, quote_windows_arg, resolved_roots, strip_verbatim_prefix,
+    DebugPrivilege, current_process_identity, is_process_elevated, is_within_any_root,
+    open_process, process_creation_time, quote_windows_arg, resolved_roots,
+    strip_verbatim_prefix, wait_for_exit_code, wait_for_exit_code_confirming,
+    wait_for_process_exit, wait_signaled,
   };
+  use crate::platform::traits::ElevatedProcessRun;
+  use std::time::Duration;
+  use windows::Win32::Foundation::CloseHandle;
+
+  /// A child that stays alive for about 30 s, far beyond any limit the
+  /// bounded-wait tests use.
+  fn long_lived_child() -> std::process::Child {
+    std::process::Command::new("ping")
+      .args(["-n", "30", "127.0.0.1"])
+      .stdout(std::process::Stdio::null())
+      .spawn()
+      .expect("ping runs")
+  }
+
+  #[test]
+  fn a_bounded_wait_reports_the_exit_code_of_a_child_that_finishes_in_time() {
+    let mut child = std::process::Command::new("cmd")
+      .args(["/C", "exit", "5"])
+      .spawn()
+      .expect("cmd runs");
+
+    let run = wait_for_exit_code(HANDLE(child.as_raw_handle()), Duration::from_secs(30));
+
+    assert_eq!(run, ElevatedProcessRun::Exited { exit_code: Some(5) });
+    let _ = child.wait();
+  }
+
+  #[test]
+  fn a_bounded_wait_terminates_a_child_that_outlives_the_limit() {
+    // The limit is far shorter than the child's life, so the wait must give
+    // up, terminate the child, and report `TimedOut` only once the process
+    // object is signaled, i.e. the child is confirmed gone.
+    let mut child = long_lived_child();
+    let process = HANDLE(child.as_raw_handle());
+    let started = std::time::Instant::now();
+
+    let run = wait_for_exit_code(process, Duration::from_millis(500));
+
+    assert_eq!(run, ElevatedProcessRun::TimedOut);
+    assert!(started.elapsed() < Duration::from_secs(10));
+    assert!(
+      wait_signaled(process, Duration::ZERO),
+      "the process object is signaled before TimedOut is reported"
+    );
+    // Reaping the terminated child returns promptly and not success.
+    let status = child.wait().expect("the terminated child is reaped");
+    assert!(!status.success());
+    assert!(started.elapsed() < Duration::from_secs(10));
+  }
+
+  #[test]
+  fn a_bounded_wait_reports_still_running_when_termination_is_refused() {
+    // A handle opened without `PROCESS_TERMINATE`, as a medium-integrity
+    // parent may hold for an elevated child: `TerminateProcess` is refused,
+    // so the child is not confirmed dead and must not be reported as such.
+    let mut child = long_lived_child();
+    let process = open_process(child.id())
+      .expect("the child can be opened")
+      .expect("the child is alive");
+
+    let run = wait_for_exit_code(process, Duration::from_millis(500));
+
+    assert_eq!(run, ElevatedProcessRun::StillRunning);
+    assert!(
+      !wait_signaled(process, Duration::ZERO),
+      "the child is still alive"
+    );
+    let _ = unsafe { CloseHandle(process) };
+    let _ = child.kill();
+    let _ = child.wait();
+  }
+
+  #[test]
+  fn a_bounded_wait_reports_still_running_when_the_child_has_not_ended_in_time() {
+    // With no time allowed for the termination to complete, a child that has
+    // not ended yet at the check is reported as unconfirmed. Whether the
+    // kernel has already torn it down is timing-dependent, so either outcome
+    // is acceptable; what must never happen is a `TimedOut` while the process
+    // object is still unsignaled.
+    let mut child = long_lived_child();
+    let process = HANDLE(child.as_raw_handle());
+
+    let run =
+      wait_for_exit_code_confirming(process, Duration::from_millis(500), Duration::ZERO);
+
+    match run {
+      ElevatedProcessRun::TimedOut => assert!(wait_signaled(process, Duration::ZERO)),
+      ElevatedProcessRun::StillRunning => {}
+      other => panic!("unexpected outcome {other:?}"),
+    }
+    let _ = child.wait();
+  }
+
+  #[test]
+  fn the_debug_privilege_is_held_exactly_by_a_full_administrator_token() {
+    // A full administrator token carries SeDebugPrivilege (disabled); a
+    // filtered administrator token and a standard user token do not. The
+    // test process may run either way, so both outcomes are checked against
+    // the elevation state rather than assumed.
+    let elevated = is_process_elevated().expect("elevation state is readable");
+    match DebugPrivilege::enable().expect("adjusting the token does not fail") {
+      Some(enabled) => {
+        assert!(elevated, "the privilege was enabled without elevation");
+        drop(enabled);
+      }
+      None => assert!(!elevated, "an elevated token holds SeDebugPrivilege"),
+    }
+  }
+  use crate::platform::traits::{ProcessExitWait, ProcessIdentity};
   use std::ffi::OsStr;
+  use std::os::windows::io::AsRawHandle;
+  use windows::Win32::Foundation::HANDLE;
+
+  fn identity_of(child: &std::process::Child) -> ProcessIdentity {
+    let creation_time = process_creation_time(HANDLE(child.as_raw_handle()))
+      .expect("the child's creation time is readable");
+    ProcessIdentity {
+      pid: child.id(),
+      creation_time,
+    }
+  }
+
+  fn spawn_short_lived_child() -> std::process::Child {
+    std::process::Command::new("cmd")
+      .args(["/C", "exit", "0"])
+      .spawn()
+      .expect("cmd runs")
+  }
+
+  #[test]
+  fn the_current_identity_names_this_process() {
+    let identity = current_process_identity().expect("own identity is readable");
+    assert_eq!(identity.pid, std::process::id());
+    assert_ne!(identity.creation_time, 0);
+  }
+
+  #[test]
+  fn waiting_returns_once_the_verified_process_has_exited() {
+    let mut child = spawn_short_lived_child();
+
+    // The `Child` keeps a handle open, so the id cannot be reused before
+    // the wait below has observed the exit.
+    assert_eq!(
+      wait_for_process_exit(&identity_of(&child)),
+      Ok(ProcessExitWait::Exited)
+    );
+    assert!(child.wait().expect("child is reaped").success());
+  }
+
+  #[test]
+  fn a_different_creation_time_counts_as_already_exited() {
+    // The running test process would block an unbounded wait forever, so
+    // the mismatch must be decided before waiting.
+    let mut identity = current_process_identity().expect("own identity is readable");
+    identity.creation_time += 1;
+
+    assert_eq!(
+      wait_for_process_exit(&identity),
+      Ok(ProcessExitWait::AlreadyExited)
+    );
+  }
+
+  #[test]
+  fn an_id_no_process_holds_counts_as_already_exited() {
+    // Waiting on a child whose id was just released would be racy here: a
+    // process another test spawns in the same timer tick can take that id
+    // with the same creation time. The System Idle Process id cannot be
+    // opened at all and is documented to fail with `ERROR_INVALID_PARAMETER`,
+    // which is the same error a released id produces.
+    assert_eq!(
+      wait_for_process_exit(&ProcessIdentity {
+        pid: 0,
+        creation_time: 0,
+      }),
+      Ok(ProcessExitWait::AlreadyExited)
+    );
+  }
 
   fn roots() -> Vec<String> {
     vec![
@@ -389,7 +830,7 @@ mod tests {
       super::elevation_availability(),
       crate::platform::traits::ElevationAvailability::UnprotectedLocation
     );
-    assert!(super::relaunch_current_process_elevated().is_err());
+    assert!(super::relaunch_current_process_elevated(&[]).is_err());
   }
 
   #[test]

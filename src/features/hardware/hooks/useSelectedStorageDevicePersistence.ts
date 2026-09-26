@@ -14,10 +14,9 @@ const STORE_KEY = "selectedStorageDeviceId";
  * if the device is reconnected.
  */
 export const useSelectedStorageDevicePersistence = () => {
-  const [storedId, setStoredId, isPending] = useTauriStore<string | null>(
-    STORE_KEY,
-    null,
-  );
+  const [storedId, setStoredId, isPending, loadFailed] = useTauriStore<
+    string | null
+  >(STORE_KEY, null);
   const [selectedStorageDeviceId, setSelectedStorageDeviceId] = useAtom(
     selectedStorageDeviceIdAtom,
   );
@@ -32,8 +31,11 @@ export const useSelectedStorageDevicePersistence = () => {
   }, [isPending, storedId, setSelectedStorageDeviceId]);
 
   useEffect(() => {
-    if (!hydratedRef.current) return;
+    // A failed read settles `storedId` to null without knowing what is on
+    // disk; writing the fallback selection back would replace the stored
+    // intent for good (DP-06).
+    if (!hydratedRef.current || loadFailed) return;
     if (selectedStorageDeviceId === storedId) return;
     setStoredId(selectedStorageDeviceId);
-  }, [selectedStorageDeviceId, storedId, setStoredId]);
+  }, [loadFailed, selectedStorageDeviceId, storedId, setStoredId]);
 };

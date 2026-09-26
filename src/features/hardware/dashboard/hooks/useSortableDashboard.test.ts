@@ -124,6 +124,7 @@ describe("useSortableDashboard", () => {
       null,
       mockSetDashboardItemMap,
       true,
+      false,
     ]);
 
     const { result } = renderHook(() => useSortableDashboard(), {

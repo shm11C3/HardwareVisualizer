@@ -803,10 +803,12 @@
             "details": "Technical details"
           },
           "notice": {
+            "heading": "Conversion complete",
             "title": "More history now fits in the same space",
             "description": "The native database can keep more history in the same disk space. The current Hardware Archive Retention Period is {{days}} days.",
             "setToOneYear": "Set to 1 Year",
-            "keep": "Keep Current Setting"
+            "keep": "Keep Current Setting",
+            "footnote": "This notice appears only once. You can change the Hardware Archive Retention Period under Insights at any time."
           }
         }
       },
@@ -863,6 +865,10 @@
             "incomplete": "Setup finished, but the component is still not complete.",
             "unsupportedPlatform": "Setup is not available on this platform.",
             "panicked": "The setup process stopped unexpectedly.",
+            "installerTimedOut": "The runtime installer did not finish in time and was stopped.",
+            "installerStillRunning": "The runtime installer did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again.",
+            "setupTimedOut": "Setup did not finish in time and was stopped.",
+            "setupStillRunning": "Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again.",
             "other": "Setup failed."
           },
           "restartDescription": "Restart HardwareVisualizer to start using the newly installed component.",
@@ -893,7 +899,10 @@
       "updateAndRestart": "Update Now",
       "downloadingUpdate": "Downloading Update...",
       "installingUpdate": "Installing Update...",
-      "needRestart": "Please restart the application to complete the update."
+      "needRestart": "Please restart the application to complete the update.",
+      "installFailed": "The update failed: {{message}}",
+      "noPendingUpdate": "No pending update is available. Check for updates again.",
+      "restartRequired": "The updater could not safely continue after stopping background services. Restart the application to restore normal operation. Error: {{message}}"
     }
   },
   "error": {

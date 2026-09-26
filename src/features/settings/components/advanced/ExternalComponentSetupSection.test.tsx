@@ -293,6 +293,54 @@ describe("ExternalComponentSetupSection", () => {
     });
   });
 
+  it("explains a timed-out setup as a retryable failure", async () => {
+    const user = userEvent.setup();
+    mocks.runExternalComponentSetup.mockResolvedValue({
+      status: "ok",
+      data: result({
+        outcome: "failed",
+        failureStage: "setupTimedOut",
+        detail: "the setup process did not finish in time and was stopped",
+        status: status(),
+      }),
+    });
+
+    render(<ExternalComponentSetupSection />);
+
+    await user.click(await screen.findByRole("button", { name: "Install" }));
+
+    await waitFor(() => {
+      expect(mocks.error).toHaveBeenCalledWith(
+        "Installation failed: Setup did not finish in time and was stopped. (the setup process did not finish in time and was stopped)",
+      );
+    });
+    expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
+  });
+
+  it("tells the user to restart the app when a timed-out setup may still be running", async () => {
+    const user = userEvent.setup();
+    mocks.runExternalComponentSetup.mockResolvedValue({
+      status: "ok",
+      data: result({
+        outcome: "failed",
+        failureStage: "setupStillRunning",
+        detail:
+          "the setup process did not finish in time and may still be running; restart the app before trying again",
+        status: status(),
+      }),
+    });
+
+    render(<ExternalComponentSetupSection />);
+
+    await user.click(await screen.findByRole("button", { name: "Install" }));
+
+    await waitFor(() => {
+      expect(mocks.error).toHaveBeenCalledWith(
+        "Installation failed: Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again. (the setup process did not finish in time and may still be running; restart the app before trying again)",
+      );
+    });
+  });
+
   it("surfaces a command error as a failure", async () => {
     const user = userEvent.setup();
     mocks.runExternalComponentSetup.mockResolvedValue({
@@ -309,5 +357,67 @@ describe("ExternalComponentSetupSection", () => {
         "Installation failed: External Component Setup for pawnio is already running",
       );
     });
+  });
+
+  it("surfaces a thrown setup call as a failure and clears the spinner", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const user = userEvent.setup();
+    mocks.runExternalComponentSetup.mockRejectedValue(
+      new Error("IPC channel closed"),
+    );
+
+    render(<ExternalComponentSetupSection />);
+
+    await user.click(await screen.findByRole("button", { name: "Install" }));
+
+    await waitFor(() => {
+      expect(mocks.error).toHaveBeenCalledWith(
+        "Installation failed: IPC channel closed",
+      );
+    });
+    expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("shows the state error instead of the skeleton when the status call throws", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getExternalComponentSetupStatus.mockRejectedValue(
+      new Error("IPC channel closed"),
+    );
+
+    const { container } = render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByText("The component state could not be read."),
+    ).toBeInTheDocument();
+    expect(container.querySelector(".animate-pulse")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("shows the state error instead of the skeleton when the component list throws", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getExternalComponentSetupComponents.mockRejectedValue(
+      new Error("IPC channel closed"),
+    );
+
+    const { container } = render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByText("The component state could not be read."),
+    ).toBeInTheDocument();
+    expect(container.querySelector(".animate-pulse")).toBeNull();
+    expect(mocks.getExternalComponentSetupStatus).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
