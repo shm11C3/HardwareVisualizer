@@ -128,6 +128,7 @@ describe("DatabaseConversionSettings", () => {
   it.each([
     "conversionFailed",
     "conversionCancelled",
+    "nativeOpenFailed",
     "nativeMetadataUnreadable",
   ] as const)(
     "offers a retry action for %s, which re-invokes start()",

@@ -170,13 +170,18 @@ export const DatabaseConversionStateBody = ({
     if (
       state.kind === "actionRequired" &&
       // `start_database_conversion` re-inspects on-disk authority fresh
-      // rather than trusting this owner's own previous state (see
-      // `run_conversion`'s own documentation). For unreadable native
+      // rather than trusting this owner's previous state (see
+      // `run_conversion`'s own documentation). A durable native selection
+      // whose database could not be opened or handed to dispatch is safe to
+      // retry once the open/handoff problem is gone. For unreadable native
       // metadata, retry is safe because the driver does not rename or replace
       // the file: it continues only if a fresh inspection can establish a
       // supported state, and otherwise leaves the issue in ActionRequired.
+      // Authority or fresh creation failures still need their own recovery
+      // path.
       (state.reason === "conversionFailed" ||
         state.reason === "conversionCancelled" ||
+        state.reason === "nativeOpenFailed" ||
         state.reason === "nativeMetadataUnreadable")
     ) {
       return (

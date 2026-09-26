@@ -808,7 +808,7 @@
             "nativeRebuildInspectionRequired": "HardwareVisualizer could not confirm whether the native database is selected. You can ask it to inspect recovery eligibility. It will move nothing unless it verifies under the writer lock that the database is finalized and unselected.",
             "nativeRecoveryRefused": "The recovery check stopped before moving either database file. Review the technical details, resolve the cause, and inspect recovery eligibility again.",
             "nativeRecoveryFailed": "The native database was moved to a backup, but HardwareVisualizer could not verify the backup. The SQLite rebuild did not start; the backup path is in the technical details.",
-            "nativeOpenFailed": "The converted database could not be opened. Your existing data is unaffected.",
+            "nativeOpenFailed": "The selected database could not be made available for recording. Your existing data is unaffected. After resolving the cause, retry. If the database opens, the app will restart to initialize its database services.",
             "freshCreationFailed": "The native database could not be created. Your existing data is unaffected.",
             "conversionFailed": "The conversion failed. Your existing data is unaffected and you can try again.",
             "conversionCancelled": "The conversion was cancelled. Your existing data is unaffected and you can try again.",

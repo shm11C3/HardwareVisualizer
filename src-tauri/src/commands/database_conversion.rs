@@ -61,8 +61,8 @@ mod imp {
   use tauri::Manager;
 
   use crate::app::native_conversion::{
-    ConversionRuntime, ConversionTarget, SelectionHandoff, build_producer_resumers,
-    run_conversion,
+    ClaimedStart, ConversionOutcome, ConversionRuntime, ConversionTarget,
+    SelectionHandoff, build_producer_resumers, run_conversion,
   };
   use crate::app::native_lifecycle::{
     ConversionProgress, DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
@@ -105,9 +105,13 @@ mod imp {
     // documentation for the race this closes, why it is safe to mark
     // `owner` on a successful claim, and why a claim is refused (and
     // `owner` left untouched) whenever `owner`'s current state is not one a
-    // start actually begins from.
-    let Some((cancellation, bus)) =
-      conversion_runtime.begin_attempt_marking_converting(&owner_for_start_state)?
+    // start actually begins from. The claim also returns the state it
+    // replaced, which the recovery restart decision after the attempt needs.
+    let Some(ClaimedStart {
+      cancellation,
+      bus,
+      previous_state,
+    }) = conversion_runtime.begin_attempt_marking_converting(&owner_for_start_state)?
     else {
       // Nothing to do: either another attempt already claimed it (the
       // frontend already shows that attempt's progress), or `owner` was
@@ -159,9 +163,35 @@ mod imp {
         ),
       }
 
+      let restart_after_recovery = should_restart_after_native_open_failure_retry(
+        &previous_state,
+        result.as_ref().ok(),
+        &owner.state(),
+      );
+
       // Looked up fresh here too, not carried across the spawn boundary -
       // see the comment above this task's construction.
       app_for_task.state::<ConversionRuntime>().end_attempt();
+
+      if restart_after_recovery {
+        log_info!(
+          "restarting after native database recovery so startup services can initialize",
+          "commands::database_conversion::start_database_conversion",
+          None::<&str>
+        );
+        // `terminate_all` waits for every producer and the dispatch owner to
+        // close before Tauri starts the replacement process. Even if native
+        // close reports an error, process exit releases any remaining handle
+        // and the next startup rechecks durable authority.
+        if let Err(error) = workers.terminate_all().await {
+          log_error!(
+            "native database shutdown reported an error before recovery restart",
+            "commands::database_conversion::start_database_conversion",
+            Some(error)
+          );
+        }
+        app_for_task.restart();
+      }
     });
 
     Ok(())
@@ -311,18 +341,62 @@ mod imp {
     Ok(())
   }
 
-  // No `#[cfg(test)] mod tests` here: `start_database_conversion` resolves
-  // its `ConversionTarget` from `native_paths::authority_paths()` /
-  // `database_directory()`, which read the *real* OS app-data directory
-  // with no test seam to redirect them (see `native_paths.rs`). Actually
-  // invoking this command in a test would spawn a task that runs the real
-  // conversion driver against whatever profile happens to exist on the
-  // machine running the tests. The claim-and-mark ordering this command
-  // depends on is covered instead by
+  fn should_restart_after_native_open_failure_retry(
+    previous_state: &DatabaseLifecycleState,
+    outcome: Option<&ConversionOutcome>,
+    current_state: &DatabaseLifecycleState,
+  ) -> bool {
+    matches!(
+      previous_state,
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed { .. })
+    ) && matches!(
+      outcome,
+      Some(ConversionOutcome::AlreadySelected | ConversionOutcome::Selected { .. })
+    ) && matches!(current_state, DatabaseLifecycleState::NativeAuthoritative)
+  }
+
+  // These tests cover only the pure restart decision, never
+  // `start_database_conversion` itself: it resolves its `ConversionTarget`
+  // from `native_paths::authority_paths()` / `database_directory()`, which
+  // read the *real* OS app-data directory with no test seam to redirect them
+  // (see `native_paths.rs`). Actually invoking this command in a test would
+  // spawn a task that runs the real conversion driver against whatever
+  // profile happens to exist on the machine running the tests. The
+  // claim-and-mark ordering this command depends on is covered instead by
   // `ConversionRuntime::begin_attempt_marking_converting`'s own tests in
   // `app::native_conversion`, which use only a `NativeLifecycleOwner` and a
   // `ConversionRuntime` - no paths, no disk access - matching how this
   // module's sibling driver tests already avoid touching real app data.
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    #[test]
+    fn restart_after_retry_only_when_native_open_failure_recovers() {
+      let native_open_failed =
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+          message: "native database could not be opened".to_owned(),
+        });
+      let native_authoritative = DatabaseLifecycleState::NativeAuthoritative;
+      let recovered = ConversionOutcome::AlreadySelected;
+
+      assert!(should_restart_after_native_open_failure_retry(
+        &native_open_failed,
+        Some(&recovered),
+        &native_authoritative,
+      ));
+      assert!(!should_restart_after_native_open_failure_retry(
+        &native_open_failed,
+        None,
+        &native_open_failed,
+      ));
+      assert!(!should_restart_after_native_open_failure_retry(
+        &DatabaseLifecycleState::SqliteAuthoritative,
+        Some(&ConversionOutcome::Selected { total_rows: 1 }),
+        &native_authoritative,
+      ));
+    }
+  }
 }
 
 #[cfg(not(feature = "duckdb-archive"))]

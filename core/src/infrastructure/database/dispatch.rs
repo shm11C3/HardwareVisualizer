@@ -246,10 +246,32 @@ mod boundary {
   ///   boundary answers nothing until a later `reobserve_authority` call
   ///   reports something else.
   pub async fn reobserve_authority() -> Result<AuthorityState, DispatchError> {
+    reobserve(Expectation::Observed).await
+  }
+
+  /// [`reobserve_authority`] for a caller that has just durably selected the
+  /// native database and is handing it to this boundary. Any observation
+  /// other than [`AuthorityState::NativeSelected`] leaves the boundary
+  /// [`Active::Unavailable`] instead of answering from SQLite, decided under
+  /// the same write lock, so no consumer can reach the stale SQLite source
+  /// between the observation and the caller's refusal. The observed state is
+  /// still returned as `Ok` for the caller to report.
+  pub async fn reobserve_expecting_selected() -> Result<AuthorityState, DispatchError> {
+    reobserve(Expectation::Selected).await
+  }
+
+  /// Whether a SQLite-authoritative observation may answer from SQLite.
+  #[derive(Clone, Copy)]
+  enum Expectation {
+    Observed,
+    Selected,
+  }
+
+  async fn reobserve(expectation: Expectation) -> Result<AuthorityState, DispatchError> {
     let active = active();
     tokio::spawn(async move {
       let mut guard = active.write().await;
-      reobserve_authority_locked(&mut guard, config()).await
+      reobserve_authority_locked(&mut guard, config(), expectation).await
     })
     .await
     .map_err(|error| DispatchError::NativeUnavailable {
@@ -262,6 +284,7 @@ mod boundary {
   async fn reobserve_authority_locked(
     guard: &mut Active,
     config: &Config,
+    expectation: Expectation,
   ) -> Result<AuthorityState, DispatchError> {
     if matches!(&*guard, Active::Shutdown) {
       return Err(DispatchError::Shutdown);
@@ -283,7 +306,12 @@ mod boundary {
     let next = match state {
       AuthorityState::SqliteAuthoritative
       | AuthorityState::ConversionInProgress { .. }
-      | AuthorityState::FinalizedUnselected => Active::Sqlite,
+      | AuthorityState::FinalizedUnselected => match expectation {
+        Expectation::Observed => Active::Sqlite,
+        Expectation::Selected => Active::Unavailable(format!(
+          "expected the selected native database, but observed {state:?}"
+        )),
+      },
       AuthorityState::NativeSelected => {
         match NativeDatabase::open(
           &config.paths.native_database,
@@ -332,10 +360,16 @@ mod boundary {
   /// selection may have committed even though a fresh read cannot prove it,
   /// so the refusal must not depend on what [`reobserve_authority`] would
   /// infer from the files at that moment. Refusal holds on every path,
-  /// including a failed close ([`close_or_refuse`]).
+  /// including a failed close ([`close_or_refuse`]). After [`shutdown`], or
+  /// after an interrupted reobservation, this is a no-op: both already refuse
+  /// every consumer, and unlike a refusal no later [`reobserve_authority`]
+  /// may reopen them.
   pub async fn refuse_consumers(reason: String) -> Result<(), NativeDatabaseError> {
     let active = active();
     let mut guard = active.write().await;
+    if matches!(&*guard, Active::Shutdown | Active::Reobserving) {
+      return Ok(());
+    }
     if let Active::Native(database) =
       std::mem::replace(&mut *guard, Active::Unavailable(reason))
     {
@@ -404,7 +438,7 @@ mod boundary {
           Some(config) => config,
           None => config(),
         };
-        reobserve_authority_locked(&mut guard, config).await?;
+        reobserve_authority_locked(&mut guard, config, Expectation::Observed).await?;
       }
       backend_from_active(&guard)
     });
@@ -786,7 +820,9 @@ mod boundary {
 }
 
 #[cfg(feature = "duckdb-archive")]
-pub use boundary::{init, refuse_consumers, reobserve_authority, shutdown};
+pub use boundary::{
+  init, refuse_consumers, reobserve_authority, reobserve_expecting_selected, shutdown,
+};
 
 /// Checkpoint the native database if it is the currently selected backend;
 /// a no-op on SQLite (there is nothing to checkpoint, and no live owner to
