@@ -11,7 +11,7 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/shm11C3/HardwareVisualizer/badge)](https://scorecard.dev/viewer/?uri=github.com/shm11C3/HardwareVisualizer)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
 
-![HardwareVisualizer Performance view showing CPU, memory, and GPU gauges, usage graphs, processes, per-core usage, motherboard sensors, and power draw](docs/images/readme/performance-en.png)
+![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
 HardwareVisualizer is a desktop app for monitoring your computer's hardware in real time and looking back at how it behaved over days and months. It combines live performance views, a system specifications sheet, and Insights built from a hardware history that stays on your computer.
 
@@ -50,6 +50,7 @@ Web: <https://hardviz.com/>
     - [Platform Support](#platform-support)
   - [Supported OS](#supported-os)
   - [Screenshots](#screenshots)
+    - [Performance](#performance)
     - [System Specifications](#system-specifications)
     - [Cooling Insight](#cooling-insight)
     - [Background Image](#background-image)
@@ -210,7 +211,11 @@ After launching the app:
 
 ## Screenshots
 
-The Performance view is shown at the top of this page.
+### Performance
+
+Live CPU, memory, and GPU readings with usage graphs, processes, per-core usage, motherboard sensors, and power draw.
+
+![Performance view showing CPU, memory, and GPU gauges, usage graphs, processes, per-core usage, motherboard sensors, and power draw](docs/images/readme/performance-en.png)
 
 ### System Specifications
 

@@ -10,7 +10,7 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
 
-![CPU、メモリ、GPU のゲージと使用率グラフ、プロセス、コアごとの使用率、マザーボードセンサー、消費電力を表示する HardwareVisualizer のパフォーマンス画面](docs/images/readme/performance-ja.png)
+![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
 HardwareVisualizer は、コンピュータのハードウェアをリアルタイムで監視し、数日から数か月にわたる動作を振り返るためのデスクトップアプリです。リアルタイムのパフォーマンス表示、システム仕様の一覧、そして PC 内に保存したハードウェア履歴にもとづくインサイトを備えています。
 
@@ -45,6 +45,7 @@ Web サイト: <https://hardviz.com/>
     - [プラットフォーム別の対応状況](#プラットフォーム別の対応状況)
   - [サポート OS](#サポート-os)
   - [スクリーンショット](#スクリーンショット)
+    - [パフォーマンス](#パフォーマンス)
     - [システム仕様](#システム仕様)
     - [Cooling Insight](#cooling-insight)
     - [背景画像](#背景画像)
@@ -202,7 +203,11 @@ Winget でのインストールでは PawnIO はセットアップされませ�
 
 ## スクリーンショット
 
-パフォーマンス画面は、このページの冒頭に掲載しています。
+### パフォーマンス
+
+CPU、メモリ、GPU の状態を、使用率グラフ、プロセス、コアごとの使用率、マザーボードのセンサー、消費電力とあわせてリアルタイムで確認できます。
+
+![CPU、メモリ、GPU のゲージと使用率グラフ、プロセス、コアごとの使用率、マザーボードセンサー、消費電力を表示するパフォーマンス画面](docs/images/readme/performance-ja.png)
 
 ### システム仕様
 
