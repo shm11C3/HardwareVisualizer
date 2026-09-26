@@ -50,6 +50,7 @@ Web: <https://hardviz.com/>
     - [Platform Support](#platform-support)
   - [Supported OS](#supported-os)
   - [Screenshots](#screenshots)
+    - [Performance](#performance)
     - [System Specifications](#system-specifications)
     - [Cooling Insight](#cooling-insight)
     - [Background Image](#background-image)
@@ -210,7 +211,11 @@ After launching the app:
 
 ## Screenshots
 
-The Performance view is shown at the top of this page.
+### Performance
+
+Live CPU, memory, and GPU readings with usage graphs, processes, per-core usage, motherboard sensors, and power draw.
+
+![Performance view showing CPU, memory, and GPU gauges, usage graphs, processes, per-core usage, motherboard sensors, and power draw](docs/images/readme/performance-en.png)
 
 ### System Specifications
 
