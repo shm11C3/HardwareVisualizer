@@ -55,7 +55,17 @@ impl HistoryStore {
   pub fn new() -> Self {
     Self {
       inner: Arc::new(HistoryStoreInner {
-        system: Arc::new(Mutex::new(System::new_all())),
+        // Sampling and history readers use CPU, RAM, and process CPU/memory.
+        system: Arc::new(Mutex::new(System::new_with_specifics(
+          sysinfo::RefreshKind::nothing()
+            .with_cpu(sysinfo::CpuRefreshKind::everything())
+            .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram())
+            .with_processes(
+              sysinfo::ProcessRefreshKind::nothing()
+                .with_cpu()
+                .with_memory(),
+            ),
+        ))),
         cpu_history: Arc::new(Mutex::new(VecDeque::with_capacity(
           HARDWARE_HISTORY_BUFFER_SIZE,
         ))),
