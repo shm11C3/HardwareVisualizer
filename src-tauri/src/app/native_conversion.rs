@@ -253,6 +253,14 @@ fn is_startable_state(state: &DatabaseLifecycleState) -> bool {
   )
 }
 
+/// A successful [`ConversionRuntime::begin_attempt_marking_converting`]
+/// claim: what the attempt runs with, and the state it replaced.
+pub struct ClaimedStart {
+  pub cancellation: ConversionCancellation,
+  pub bus: hardviz_core::event_bus::EventBus,
+  pub previous_state: DatabaseLifecycleState,
+}
+
 /// What #2136's explicit-user-intent conversion command needs that only
 /// `lib::run`'s own setup closure otherwise holds: the `EventBus` every
 /// database producer subscribes to, and a per-attempt cancellation flag.
@@ -367,23 +375,34 @@ impl ConversionRuntime {
   /// already succeeded, the claim is released via [`Self::end_attempt`]
   /// before returning `Ok(None)`, so a doomed request never strands the
   /// in-progress flag for a real one behind it.
+  ///
+  /// The state the claim replaced is captured by the same check-and-write,
+  /// so [`ClaimedStart::previous_state`] is exactly what this attempt
+  /// started from even if another attempt finished just before the claim.
   pub fn begin_attempt_marking_converting(
     &self,
     owner: &NativeLifecycleOwner,
-  ) -> Result<Option<(ConversionCancellation, hardviz_core::event_bus::EventBus)>, String>
-  {
+  ) -> Result<Option<ClaimedStart>, String> {
     let Some((cancellation, bus)) = self.begin_attempt_with_bus()? else {
       return Ok(None);
     };
+    let mut previous_state = None;
     let marked = owner.set_state_if(
-      is_startable_state,
+      |state| {
+        previous_state = Some(state.clone());
+        is_startable_state(state)
+      },
       DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
     );
-    if !marked {
+    let (true, Some(previous_state)) = (marked, previous_state) else {
       self.end_attempt();
       return Ok(None);
-    }
-    Ok(Some((cancellation, bus)))
+    };
+    Ok(Some(ClaimedStart {
+      cancellation,
+      bus,
+      previous_state,
+    }))
   }
 
   /// Release the claim [`Self::begin_attempt`] took, once `run_conversion`
@@ -645,7 +664,11 @@ pub async fn run_conversion(
   let entry = inspect_startup_authority(&paths, expected_schema_version);
   let resume_from_reconciliation = match entry {
     DatabaseLifecycleState::NativeAuthoritative => {
-      owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+      // Not recorded yet: `NativeAuthoritative` is published only once the
+      // database is open and, for a dispatch hand-off, adopted there (see
+      // `open_selected_database`). Until then the owner keeps reporting the
+      // attempt, so a poller never stops on a state a failed hand-off undoes.
+      //
       // Durably selected on disk, but the guard above already established
       // this process holds no open handle - either a fresh call after
       // another process's selection, or a retry after this same process's
@@ -654,7 +677,9 @@ pub async fn run_conversion(
       // left to do, is what makes that failure recoverable without a
       // process restart.
       return Ok(
-        match open_selected_database(owner, &paths, expected_schema_version).await {
+        match open_selected_database(owner, &paths, expected_schema_version, handoff)
+          .await
+        {
           Ok(()) => {
             let outcome =
               hand_off(owner, handoff, ConversionOutcome::AlreadySelected).await;
@@ -930,7 +955,7 @@ async fn reconcile_and_select(
   // `NativeAuthoritative` on disk, finds no open database in the owner, and
   // attempts the open again there - the same path a fresh process's startup
   // uses - rather than requiring a process restart to recover.
-  match open_selected_database(owner, paths, expected_schema_version).await {
+  match open_selected_database(owner, paths, expected_schema_version, handoff).await {
     Ok(()) => Ok(ConversionOutcome::Selected { total_rows }),
     Err(error) => {
       fail_open_after_selection(owner, handoff, &error).await;
@@ -1050,10 +1075,17 @@ fn failed_before_commit(
 /// checks - see `run_conversion`'s entry) and is deliberately not the one
 /// #2134's dispatch boundary answers consumers from; see
 /// [`adopt_selected_database_via_dispatch`] for that hand-over.
+///
+/// For [`SelectionHandoff::ThroughDispatch`] the owner's state is left as it
+/// is: the hand-over can still fail, and publishing `NativeAuthoritative`
+/// here would let a poller stop before the later `NativeOpenFailed`.
+/// `adopt_selected_database_via_dispatch` publishes it once dispatch holds
+/// the database.
 async fn open_selected_database(
   owner: &NativeLifecycleOwner,
   paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
   expected_schema_version: u32,
+  handoff: SelectionHandoff,
 ) -> Result<(), NativeDatabaseError> {
   use hardviz_core::infrastructure::database::native_database::{
     NativeDatabase, NativeDatabaseOptions,
@@ -1064,7 +1096,9 @@ async fn open_selected_database(
   )
   .await?;
   owner.set_selected_database(database);
-  owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+  if handoff == SelectionHandoff::OwnerOnly {
+    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+  }
   Ok(())
 }
 
@@ -1596,6 +1630,28 @@ mod conversion_runtime_tests {
         "{issue:?} must mark Converting(Preflight)"
       );
     }
+  }
+
+  /// The recovery restart decision needs the state an attempt started from.
+  /// A read taken before the claim can be stale when another attempt ends in
+  /// between, so the claim itself reports the state it replaced.
+  #[test]
+  fn a_claim_reports_the_state_it_replaced() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+    let open_failed =
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+        message: "test fixture".to_string(),
+      });
+    owner.set_state(open_failed.clone());
+
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .unwrap()
+      .unwrap();
+
+    assert_eq!(claim.previous_state, open_failed);
   }
 
   /// Regression for a PR #2252 review finding on atomicity: the eligibility
@@ -2409,6 +2465,48 @@ mod tests {
     .unwrap();
 
     assert!(matches!(second, ConversionOutcome::AlreadySelected));
+  }
+
+  /// A hand-off through dispatch may still fail after the owner's own open,
+  /// so the owner must keep reporting `Converting` until
+  /// `adopt_selected_database_via_dispatch` succeeds. Publishing
+  /// `NativeAuthoritative` earlier lets the UI stop polling before a later
+  /// `NativeOpenFailed`.
+  #[tokio::test]
+  async fn opening_for_a_dispatch_hand_off_does_not_publish_native_authoritative() {
+    let fixture = Fixture::new().await;
+    let selecting_owner = NativeLifecycleOwner::new();
+    run_conversion(
+      fixture.target(),
+      &selecting_owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    selecting_owner
+      .selected_database()
+      .unwrap()
+      .close()
+      .await
+      .unwrap();
+
+    let owner = NativeLifecycleOwner::new();
+    let converting = DatabaseLifecycleState::Converting(ConversionProgress::Preflight);
+    owner.set_state(converting.clone());
+    open_selected_database(
+      &owner,
+      &fixture.paths(),
+      fixture.target().expected_schema_version,
+      SelectionHandoff::ThroughDispatch,
+    )
+    .await
+    .unwrap();
+
+    assert!(owner.selected_database().is_some());
+    assert_eq!(owner.state(), converting);
   }
 
   #[tokio::test]

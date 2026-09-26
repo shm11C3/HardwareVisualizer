@@ -61,8 +61,8 @@ mod imp {
   use tauri::Manager;
 
   use crate::app::native_conversion::{
-    ConversionOutcome, ConversionRuntime, ConversionTarget, SelectionHandoff,
-    build_producer_resumers, run_conversion,
+    ClaimedStart, ConversionOutcome, ConversionRuntime, ConversionTarget,
+    SelectionHandoff, build_producer_resumers, run_conversion,
   };
   use crate::app::native_lifecycle::{
     ConversionProgress, DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
@@ -96,11 +96,6 @@ mod imp {
     let runtime_handle = tauri::async_runtime::handle().inner().clone();
     let conversion_runtime = app.state::<ConversionRuntime>();
     let owner_for_start_state = app.state::<NativeLifecycleOwner>();
-    // Read before the claim below, which replaces it with `Converting`: the
-    // recovery restart decision after the attempt needs the state this start
-    // began from. Only a claimed attempt changes it, so it cannot move
-    // between this read and a successful claim.
-    let previous_state = owner_for_start_state.state();
 
     // Claims the in-progress flag, resolves the bus, and marks `owner` as
     // `Converting` - all atomically with the claim - so a caller that polls
@@ -110,9 +105,13 @@ mod imp {
     // documentation for the race this closes, why it is safe to mark
     // `owner` on a successful claim, and why a claim is refused (and
     // `owner` left untouched) whenever `owner`'s current state is not one a
-    // start actually begins from.
-    let Some((cancellation, bus)) =
-      conversion_runtime.begin_attempt_marking_converting(&owner_for_start_state)?
+    // start actually begins from. The claim also returns the state it
+    // replaced, which the recovery restart decision after the attempt needs.
+    let Some(ClaimedStart {
+      cancellation,
+      bus,
+      previous_state,
+    }) = conversion_runtime.begin_attempt_marking_converting(&owner_for_start_state)?
     else {
       // Nothing to do: either another attempt already claimed it (the
       // frontend already shows that attempt's progress), or `owner` was
