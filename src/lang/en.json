@@ -856,8 +856,11 @@
           "runtimeMissing": "Runtime not installed (setup installs version {{version}})",
           "moduleFiles": "Module files: {{present}} of {{total}} present.",
           "missingModuleFiles": "Missing: {{files}}",
+          "outdatedModuleFiles": "Update available ({{version}}): {{files}}",
           "install": "Install",
           "installMissing": "Install missing files",
+          "updateFiles": "Update files",
+          "installAndUpdate": "Install and update files",
           "complete": "Installed",
           "running": "Installing… Windows may ask for administrator approval.",
           "statusError": "The component state could not be read.",
@@ -873,7 +876,7 @@
             "downloadModules": "The module files could not be downloaded.",
             "verifyModules": "The downloaded module archive did not match its expected digest.",
             "archiveContents": "The module archive does not contain the required files.",
-            "placeModules": "The module files could not be placed in the install directory.",
+            "placeModules": "The module files could not be placed or replaced in the install directory.",
             "incomplete": "Setup finished, but the component is still not complete.",
             "unsupportedPlatform": "Setup is not available on this platform.",
             "panicked": "The setup process stopped unexpectedly.",
@@ -887,6 +890,7 @@
           "result": {
             "installed": "{{component}} was installed. Restart HardwareVisualizer to use the new sensors.",
             "rebootRequired": "{{component}} was installed, but Windows must restart before the driver can be used.",
+            "updated": "{{component}} module files were updated. Restart HardwareVisualizer to use them.",
             "alreadyInstalled": "{{component}} is already installed.",
             "cancelled": "Installation was cancelled at the administrator prompt.",
             "failed": "Installation failed: {{detail}}"

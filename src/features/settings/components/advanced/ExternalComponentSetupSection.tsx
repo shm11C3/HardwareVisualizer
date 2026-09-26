@@ -15,6 +15,7 @@ import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   commands,
   type ExternalComponent,
+  type ExternalComponentModuleFileCondition,
   type ExternalComponentSetupFailureStage,
   type ExternalComponentSetupResult,
   type ExternalComponentSetupStatus,
@@ -283,14 +284,34 @@ const ComponentCard = ({
   const copy = componentCopyKeys(component);
   const componentName = copy ? t(copy.name) : component;
 
-  const presentCount = status?.moduleFiles.filter((f) => f.present).length ?? 0;
-  const missingFiles =
-    status?.moduleFiles.filter((f) => !f.present).map((f) => f.fileName) ?? [];
+  // Whether the last run started with only outdated files to replace, so its
+  // success is reported as an update rather than an installation.
+  const [ranUpdateOnly, setRanUpdateOnly] = useState(false);
 
-  const actionLabel =
-    status?.runtime.state === "installed"
-      ? t("pages.settings.advanced.externalComponentSetup.installMissing")
-      : t("pages.settings.advanced.externalComponentSetup.install");
+  const moduleFiles = status?.moduleFiles ?? [];
+  const presentCount = moduleFiles.filter(
+    (f) => f.condition !== "missing",
+  ).length;
+  const filesIn = (condition: ExternalComponentModuleFileCondition) =>
+    moduleFiles.filter((f) => f.condition === condition).map((f) => f.fileName);
+  const missingFiles = filesIn("missing");
+  const outdatedFiles = filesIn("outdated");
+  const runtimeInstalled = status?.runtime.state === "installed";
+  const updateOnly =
+    runtimeInstalled && missingFiles.length === 0 && outdatedFiles.length > 0;
+
+  const actionLabel = !runtimeInstalled
+    ? t("pages.settings.advanced.externalComponentSetup.install")
+    : updateOnly
+      ? t("pages.settings.advanced.externalComponentSetup.updateFiles")
+      : outdatedFiles.length > 0
+        ? t("pages.settings.advanced.externalComponentSetup.installAndUpdate")
+        : t("pages.settings.advanced.externalComponentSetup.installMissing");
+
+  const handleClick = () => {
+    setRanUpdateOnly(updateOnly);
+    onSetup();
+  };
 
   const runtimeLine = (setupStatus: ExternalComponentSetupStatus): string => {
     switch (setupStatus.runtime.state) {
@@ -318,10 +339,14 @@ const ComponentCard = ({
   const resultMessage = (setupResult: ExternalComponentSetupResult): string => {
     switch (setupResult.outcome) {
       case "installed":
-        return t(
-          "pages.settings.advanced.externalComponentSetup.result.installed",
-          { component: componentName },
-        );
+        return ranUpdateOnly
+          ? t("pages.settings.advanced.externalComponentSetup.result.updated", {
+              component: componentName,
+            })
+          : t(
+              "pages.settings.advanced.externalComponentSetup.result.installed",
+              { component: componentName },
+            );
       case "rebootRequired":
         return t(
           "pages.settings.advanced.externalComponentSetup.result.rebootRequired",
@@ -378,6 +403,17 @@ const ComponentCard = ({
                   </span>
                 )}
               </li>
+              {outdatedFiles.length > 0 && (
+                <li>
+                  {t(
+                    "pages.settings.advanced.externalComponentSetup.outdatedModuleFiles",
+                    {
+                      version: status.pinnedModulesVersion,
+                      files: outdatedFiles.join(", "),
+                    },
+                  )}
+                </li>
+              )}
               {elevationReasonKey && !status.complete && (
                 <li className="text-amber-600 dark:text-amber-400">
                   {t(elevationReasonKey)}
@@ -402,7 +438,7 @@ const ComponentCard = ({
             disabled={
               status.complete || blocked || disabled || elevationUnavailable
             }
-            onClick={onSetup}
+            onClick={handleClick}
           >
             {running ? (
               <Spinner className="size-4" />

@@ -185,8 +185,11 @@ installed and its fallbacks unchanged.
 
 - **Settings → Advanced → External components (implemented).** On Windows,
   each supported component shows its state (runtime installed, not installed,
-  or unknown; which module files are present) and an action button that is
-  disabled while the state is unknown. The action launches the executable
+  or unknown; which module files are present, and which are outdated and have
+  an update to the pinned release available) and an action button that is
+  disabled while the state is unknown. The button names what the run will do
+  (install, install missing files, update files, or both), and a run that
+  only replaced outdated files reports an update. The action launches the executable
   elevated with the setup arguments, waits for exit, maps the exit code,
   refreshes the state, and shows the restart prompt on success. If the user
   declines the UAC prompt, the result is `cancelled` and nothing is shown as

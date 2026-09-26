@@ -936,9 +936,16 @@ export type ExternalComponentGuidanceSettings = {
 
 export type ExternalComponentGuidanceView = "dashboard" | "cpuDetail" | "storageHealth";
 
+/**
+ *  Whether a module file is missing, matches the pinned release, matches
+ *  only an earlier release (setup replaces it), or has any other contents
+ *  (setup leaves it alone).
+ */
+export type ExternalComponentModuleFileCondition = "missing" | "current" | "outdated" | "unrecognized";
+
 export type ExternalComponentModuleFileState = {
 	fileName: string,
-	present: boolean,
+	condition: ExternalComponentModuleFileCondition,
 };
 
 export type ExternalComponentReasonKind = "missing" | "permission" | "misconfigured" | "failed";
