@@ -20,7 +20,7 @@ pub async fn restart_app(app_handle: &tauri::AppHandle) {
     .expect("Failed to restart process");
 
   let state = app_handle.state::<WorkersState>();
-  state.terminate_all().await;
+  let _ = state.terminate_all().await;
 
   app_handle.exit(0);
 }
@@ -60,7 +60,7 @@ where
   .map_err(|e| {
     PlatformError::fault(format!("The elevated launch did not complete: {e}"))
   })??;
-  workers.terminate_all().await;
+  let _ = workers.terminate_all().await;
   Ok(())
 }
 

@@ -239,5 +239,5 @@ async fn converted_and_selected_database_answers_dispatch_consumers() {
   // `run_conversion` resumed the cooling-rollup worker into `workers`, and it
   // reads and writes through dispatch. `terminate_all` drains it first and
   // closes the dispatch boundary last, the order the App's own quit path uses.
-  workers.terminate_all().await;
+  workers.terminate_all().await.unwrap();
 }

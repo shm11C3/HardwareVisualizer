@@ -899,7 +899,10 @@
       "updateAndRestart": "更新する",
       "downloadingUpdate": "アップデートをダウンロード中...",
       "installingUpdate": "アップデートをインストール中...",
-      "needRestart": "アップデートを完了するためにアプリケーションを再起動してください。"
+      "needRestart": "アップデートを完了するためにアプリケーションを再起動してください。",
+      "installFailed": "アップデートに失敗しました: {{message}}",
+      "noPendingUpdate": "利用できる保留中のアップデートがありません。もう一度確認してください。",
+      "restartRequired": "バックグラウンドサービスを停止した後、アップデートを安全に続行できませんでした。通常の動作に戻すにはアプリケーションを再起動してください。詳細: {{message}}"
     }
   },
   "error": {

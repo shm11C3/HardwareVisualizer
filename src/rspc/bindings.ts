@@ -1297,7 +1297,7 @@ export type UpdateMetadata = {
 	pubDate: string | null,
 };
 
-export type UpdaterError = "NoPendingUpdate" | { Updater: string };
+export type UpdaterError = "NoPendingUpdate" | ({ Updater: string }) & { RestartRequired?: never } | ({ RestartRequired: string }) & { Updater?: never };
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
