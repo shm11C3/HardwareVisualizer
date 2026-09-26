@@ -348,6 +348,15 @@ not implemented yet.
   after `InstallFinalize` succeeds, so an update that fails and rolls back
   never leaves the previous version with module files it was not verified
   against, which a deferred action scheduled after `InstallFiles` could do.
+  That holds only while no commit action that can fail runs after the
+  refresh, because a failing commit action starts a rollback that does not
+  undo the refreshed files. Today the package has no other commit action:
+  Tauri's template emits its `CreateUpdateTask` commit action
+  (`Return="check"`) only with `enableElevatedUpdateTask`, which this project
+  does not set, and the refresh itself uses `Return="ignore"`. The MSI table
+  check must assert that no other commit action with `Return="check"` exists,
+  so enabling that option later fails CI instead of silently weakening the
+  guarantee.
   Commit actions do not run when rollback is disabled (`DisableRollback`
   policy or property); such an update keeps the outdated files, and Settings
   offers the refresh as it does after any failed refresh. It never installs

@@ -223,5 +223,5 @@ The explicit, user-initiated action in which HardwareVisualizer downloads a pinn
 _Avoid_: Auto-install, bundled driver, dependency bootstrap, silent install, first-run setup
 
 **External Component Refresh**:
-The maintenance step that replaces files of an already installed external component that match an older upstream release with the pinned release, and changes nothing else. An MSI upgrade of HardwareVisualizer runs it automatically at every UI level without asking again, because it adds nothing new to the machine; Settings runs it as part of External Component Setup (ADR 0026).
+The maintenance step that replaces files of an already installed external component that match an older upstream release with the pinned release, and changes nothing else. See ADR 0026 for when it runs.
 _Avoid_: Auto-update, driver update, silent setup, module sync
