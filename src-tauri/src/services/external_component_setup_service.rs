@@ -19,7 +19,10 @@ use hardviz_core::platform::traits::{
 
 use crate::cli::{EXTERNAL_COMPONENT_SETUP_FLAG, component_cli_id};
 use crate::log_warn;
-use crate::models::external_component_setup::ExternalComponentSetupResult;
+use crate::models::external_component_setup::{
+  ExternalComponentSetupOutcome, ExternalComponentSetupResult,
+};
+use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
 
 /// Components with a setup run in flight. One elevated setup per component at
 /// a time; a second request while one runs is rejected instead of starting a
@@ -86,12 +89,42 @@ pub fn status(
 /// Run setup for `component` in an elevated child process and report the
 /// outcome together with the refreshed state. Blocks until the child exits;
 /// call it from a blocking task.
-pub fn run(component: ExternalComponent) -> Result<ExternalComponentSetupResult, String> {
+///
+/// A run that installed the component also defers its External Component
+/// Guidance for the session through `guidance`. The sensor providers keep the
+/// failed probe cached until the app restarts, so the snapshot would otherwise
+/// keep offering "install, then restart" for a component the user just
+/// installed (#2249). The deferral lives here rather than in the command so
+/// that the outcome-to-guidance rule is tested with the run itself; both the
+/// guidance state and this service are App-owned, so no ownership boundary is
+/// crossed.
+pub fn run(
+  component: ExternalComponent,
+  guidance: &ExternalComponentGuidanceState,
+) -> Result<ExternalComponentSetupResult, String> {
   let platform = PlatformFactory::shared().map_err(|e| e.to_string())?;
-  run_with(platform.as_ref(), component)
+  run_with(platform.as_ref(), component, guidance)
 }
 
 fn run_with(
+  platform: &dyn ExternalComponentSetupPlatform,
+  component: ExternalComponent,
+  guidance: &ExternalComponentGuidanceState,
+) -> Result<ExternalComponentSetupResult, String> {
+  let result = run_elevated(platform, component)?;
+  // `AlreadyInstalled` is excluded: nothing changed, so a guidance the
+  // providers still report (for example a permission problem) stays valid.
+  if matches!(
+    result.outcome,
+    ExternalComponentSetupOutcome::Installed
+      | ExternalComponentSetupOutcome::RebootRequired
+  ) {
+    guidance.defer_component_for_session(component);
+  }
+  Ok(result)
+}
+
+fn run_elevated(
   platform: &dyn ExternalComponentSetupPlatform,
   component: ExternalComponent,
 ) -> Result<ExternalComponentSetupResult, String> {
@@ -216,9 +249,8 @@ mod tests {
     drop(other);
   }
 
-  use crate::models::external_component_setup::{
-    ExternalComponentSetupFailureStage, ExternalComponentSetupOutcome,
-  };
+  use crate::models::external_component_setup::ExternalComponentSetupFailureStage;
+  use crate::services::external_component_guidance_service::ExternalComponentGuidanceView;
   use hardviz_core::enums::error::PlatformError;
   use hardviz_core::external_component_setup::{
     ExternalComponentSetupPlan, ExternalComponentSetupStatus,
@@ -271,19 +303,101 @@ mod tests {
       .unwrap_or_else(|poisoned| poisoned.into_inner())
   }
 
+  fn guidance() -> ExternalComponentGuidanceState {
+    ExternalComponentGuidanceState::default()
+  }
+
+  /// The snapshot candidates the providers keep reporting until the app
+  /// restarts, as the guidance command re-records them on every poll.
+  fn record_cached_pawnio_candidates(guidance: &ExternalComponentGuidanceState) {
+    use hardviz_core::models::ExternalComponentGuidanceCandidate;
+    guidance.record_candidates(vec![
+      ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
+        "PawnIOLib.dll not found".to_string(),
+      ),
+      ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+        "PawnIOLib.dll not found".to_string(),
+      ),
+    ]);
+  }
+
+  fn pending_dashboard_keys(guidance: &ExternalComponentGuidanceState) -> Vec<String> {
+    guidance
+      .pending_candidates(ExternalComponentGuidanceView::Dashboard, &[])
+      .into_iter()
+      .map(|candidate| candidate.key)
+      .collect()
+  }
+
+  #[test]
+  fn a_successful_install_defers_the_component_guidance_for_the_session() {
+    let _serialized = serialized();
+    let platform = FakePlatform(ElevatedProcessRun::Exited { exit_code: Some(0) });
+    let guidance = guidance();
+    record_cached_pawnio_candidates(&guidance);
+
+    let result = run_with(&platform, ExternalComponent::Pawnio, &guidance).unwrap();
+
+    assert_eq!(result.outcome, ExternalComponentSetupOutcome::Installed);
+    // The next poll re-records the still-cached candidates; they stay hidden.
+    record_cached_pawnio_candidates(&guidance);
+    assert!(pending_dashboard_keys(&guidance).is_empty());
+  }
+
+  #[test]
+  fn an_install_that_needs_a_reboot_defers_the_component_guidance_for_the_session() {
+    let _serialized = serialized();
+    let exit_code = core_setup::ExternalComponentSetupOutcome::RebootRequired.exit_code();
+    let platform = FakePlatform(ElevatedProcessRun::Exited {
+      exit_code: Some(exit_code),
+    });
+    let guidance = guidance();
+    record_cached_pawnio_candidates(&guidance);
+
+    let result = run_with(&platform, ExternalComponent::Pawnio, &guidance).unwrap();
+
+    assert_eq!(
+      result.outcome,
+      ExternalComponentSetupOutcome::RebootRequired
+    );
+    assert!(pending_dashboard_keys(&guidance).is_empty());
+  }
+
+  #[test]
+  fn a_failed_install_leaves_the_component_guidance_pending() {
+    let _serialized = serialized();
+    let exit_code = core_setup::SetupFailureStage::InstallerExit.exit_code();
+    let platform = FakePlatform(ElevatedProcessRun::Exited {
+      exit_code: Some(exit_code),
+    });
+    let guidance = guidance();
+    record_cached_pawnio_candidates(&guidance);
+
+    let result = run_with(&platform, ExternalComponent::Pawnio, &guidance).unwrap();
+
+    assert_eq!(result.outcome, ExternalComponentSetupOutcome::Failed);
+    assert_eq!(
+      pending_dashboard_keys(&guidance),
+      vec![
+        "pawnio:cpu-package-temperature:v1".to_string(),
+        "pawnio:motherboard-sensors:v1".to_string(),
+      ]
+    );
+  }
+
   #[test]
   fn a_confirmed_timeout_frees_the_component_for_a_retry() {
     let _serialized = serialized();
     let platform = FakePlatform(ElevatedProcessRun::TimedOut);
 
-    let result = run_with(&platform, ExternalComponent::Pawnio).unwrap();
+    let result = run_with(&platform, ExternalComponent::Pawnio, &guidance()).unwrap();
 
     assert_eq!(result.outcome, ExternalComponentSetupOutcome::Failed);
     assert_eq!(
       result.failure_stage,
       Some(ExternalComponentSetupFailureStage::SetupTimedOut)
     );
-    let retry = run_with(&platform, ExternalComponent::Pawnio);
+    let retry = run_with(&platform, ExternalComponent::Pawnio, &guidance());
     assert!(retry.is_ok(), "the guard was released: {retry:?}");
   }
 
@@ -292,7 +406,7 @@ mod tests {
     let _serialized = serialized();
     let platform = FakePlatform(ElevatedProcessRun::StillRunning);
 
-    let result = run_with(&platform, ExternalComponent::Pawnio).unwrap();
+    let result = run_with(&platform, ExternalComponent::Pawnio, &guidance()).unwrap();
 
     assert_eq!(result.outcome, ExternalComponentSetupOutcome::Failed);
     assert_eq!(
@@ -308,6 +422,7 @@ mod tests {
     let retry = run_with(
       &FakePlatform(ElevatedProcessRun::Exited { exit_code: Some(0) }),
       ExternalComponent::Pawnio,
+      &guidance(),
     );
     assert_eq!(
       retry.unwrap_err(),
@@ -329,7 +444,7 @@ mod tests {
       exit_code: Some(exit_code),
     });
 
-    let result = run_with(&platform, ExternalComponent::Pawnio).unwrap();
+    let result = run_with(&platform, ExternalComponent::Pawnio, &guidance()).unwrap();
 
     assert_eq!(result.outcome, ExternalComponentSetupOutcome::Failed);
     assert_eq!(
@@ -345,6 +460,7 @@ mod tests {
     let retry = run_with(
       &FakePlatform(ElevatedProcessRun::Exited { exit_code: Some(0) }),
       ExternalComponent::Pawnio,
+      &guidance(),
     );
     assert_eq!(
       retry.unwrap_err(),
@@ -364,13 +480,13 @@ mod tests {
       exit_code: Some(exit_code),
     });
 
-    let result = run_with(&platform, ExternalComponent::Pawnio).unwrap();
+    let result = run_with(&platform, ExternalComponent::Pawnio, &guidance()).unwrap();
 
     assert_eq!(
       result.failure_stage,
       Some(ExternalComponentSetupFailureStage::InstallerExit)
     );
-    assert!(run_with(&platform, ExternalComponent::Pawnio).is_ok());
+    assert!(run_with(&platform, ExternalComponent::Pawnio, &guidance()).is_ok());
   }
 
   #[cfg(not(target_os = "windows"))]
@@ -381,7 +497,7 @@ mod tests {
       ExternalComponentSetupSupport,
     };
 
-    let result = run(ExternalComponent::Pawnio).unwrap();
+    let result = run(ExternalComponent::Pawnio, &guidance()).unwrap();
 
     assert_eq!(result.outcome, ExternalComponentSetupOutcome::Failed);
     assert_eq!(
