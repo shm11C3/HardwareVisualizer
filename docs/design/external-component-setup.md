@@ -312,9 +312,11 @@ installed and its fallbacks unchanged.
     old version being removed by an upgrade), and outside Program Files,
     because an uninstall started from an elevated prompt runs it elevated.
   - **NSIS:** `NSIS_HOOK_PREUNINSTALL` in `src-tauri/windows/nsis/hooks.nsh`,
-    skipped for `/S`, `/P`, and `/UPDATE`. The uninstaller runs as the user
-    and lives in the same per-user folder as the executable, so the notice
-    adds no elevation path.
+    skipped for `/S`, `/P`, `/UPDATE`, and when the command line carries
+    `_?=` (Tauri's `PageLeaveReinstall` runs the old uninstaller that way
+    when a newer `*-setup.exe` is run by hand, and Apps & features never
+    passes it). The uninstaller runs as the user and lives in the same
+    per-user folder as the executable, so the notice adds no elevation path.
 
 ### What is deliberately not done
 
