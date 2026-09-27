@@ -57,6 +57,55 @@ const recordObservedDatabaseConversionKindAtom = atom(
   },
 );
 
+/**
+ * Guards the two atoms above against an out-of-order write from across
+ * mounts. Every mount's own local `startGenerationRef`/`requestGeneration`
+ * check only orders that *one instance's* requests against its own later
+ * ones; it says nothing about a *different* instance's request. Without a
+ * cross-mount guard, the app-root prompt dialog's own initial `refresh()` -
+ * issued before any conversion exists, so it is a perfectly ordinary read -
+ * can still be slow enough to resolve with `sqliteAuthoritative` *after*
+ * Settings has already started a conversion and recorded `converting` (or
+ * further progress); an unconditional write would then clobber the shared
+ * state right back to `sqliteAuthoritative`, undoing the observation this
+ * fix exists to preserve.
+ *
+ * A plain module-scoped counter is enough here - unlike the atoms above, its
+ * value is only ever compared, never rendered. `reserve()` hands out the
+ * next sequence number when a read is issued (or a definite state change,
+ * like `start()`'s own priming, happens); the caller passes that same
+ * number back once the read resolves (or immediately, for a synchronous
+ * change), and it is only allowed to write if no *later-issued* sequence
+ * number has already written - i.e. it is not stale relative to every write
+ * that has happened since it was reserved, regardless of resolution order.
+ */
+let latestDatabaseConversionSequence = 0;
+let committedDatabaseConversionSequence = 0;
+
+const reserveDatabaseConversionSequence = () =>
+  ++latestDatabaseConversionSequence;
+
+/** See `reserveDatabaseConversionSequence`. Returns whether `sequence` was
+ * still current enough to write, and records that a write for it happened
+ * either way (a lower/equal sequence than one that already wrote is always
+ * stale, whether or not it goes on to write anything of its own next). */
+const shouldRecordDatabaseConversionSequence = (sequence: number) => {
+  if (sequence < committedDatabaseConversionSequence) {
+    return false;
+  }
+  committedDatabaseConversionSequence = sequence;
+  return true;
+};
+
+/** For a definite, synchronous state change (`start()`/`recover()`'s own
+ * priming) rather than a read racing anything else: reserves and commits a
+ * fresh sequence number in one step, so it always supersedes any
+ * earlier-issued, still in-flight read from another mount - see
+ * `shouldRecordDatabaseConversionSequence`. */
+const commitFreshDatabaseConversionSequence = () => {
+  shouldRecordDatabaseConversionSequence(reserveDatabaseConversionSequence());
+};
+
 /** The first step the backend driver reports - `start()`'s own optimistic
  * placeholder before a real progress read arrives. See `start()`. */
 const OPTIMISTIC_STARTING_STATE: DatabaseConversionState = {
@@ -112,6 +161,10 @@ export const useDatabaseConversion = () => {
 
   const refresh = useCallback(async () => {
     const requestGeneration = startGenerationRef.current;
+    // Reserved *before* issuing the read, so it reflects this read's place
+    // among every mount's reads and writes at the moment it was issued -
+    // see `reserveDatabaseConversionSequence`.
+    const sequence = reserveDatabaseConversionSequence();
     try {
       const next = await commands.getDatabaseConversionState();
       if (requestGeneration < startGenerationRef.current) {
@@ -134,7 +187,16 @@ export const useDatabaseConversion = () => {
         return;
       }
       startPendingRef.current = false;
-      recordObservedKind(next.kind);
+      // Cross-mount staleness guard: skip the *shared* write (only) if a
+      // later-issued read or state change, from any mount, already wrote -
+      // see `shouldRecordDatabaseConversionSequence`. This instance's own
+      // local `state` still updates either way, matching this hook's
+      // existing per-instance behavior for an ordinary out-of-order
+      // response (see `startGenerationRef` above for the one case that is
+      // guarded already).
+      if (shouldRecordDatabaseConversionSequence(sequence)) {
+        recordObservedKind(next.kind);
+      }
       setState(next);
       return next;
     } finally {
@@ -198,6 +260,14 @@ export const useDatabaseConversion = () => {
     // always-mounted observer with no local `converting` state of its own
     // (e.g. the app-root prompt dialog) starts polling right away instead
     // of waiting for its own next `refresh()`.
+    //
+    // This is a definite state change, not a read racing anything, so it
+    // supersedes any earlier-issued, still in-flight read from another
+    // mount (e.g. the app-root prompt dialog's own slow initial
+    // `refresh()`) - see `commitFreshDatabaseConversionSequence` - so that
+    // read cannot resolve afterward and clobber this write back to a stale
+    // kind.
+    commitFreshDatabaseConversionSequence();
     recordObservedKind("converting");
     // Set directly, rather than only relying on `refresh()` below to
     // observe it: the command can resolve before the backend's own first
@@ -225,6 +295,9 @@ export const useDatabaseConversion = () => {
       await refresh();
       return false;
     }
+    // See `start()`'s identical priming above for why this commits a fresh
+    // sequence number before writing.
+    commitFreshDatabaseConversionSequence();
     recordObservedKind("converting");
     await refresh();
     return true;

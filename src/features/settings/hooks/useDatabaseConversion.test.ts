@@ -466,5 +466,80 @@ describe("useDatabaseConversion", () => {
       expect(result.current.state).toEqual({ kind: "nativeAuthoritative" });
       expect(result.current.justCompleted).toBe(true);
     });
+
+    it("discards a slower mount's stale read instead of letting it clobber a newer shared state", async () => {
+      // Regression coverage for a review finding on this PR: sharing state
+      // across mounts is only safe if a *slow* read from one mount cannot
+      // resolve after a *faster* one from another mount and overwrite what
+      // it already recorded. `startGenerationRef` alone does not cover this
+      // - it only orders one instance's own requests against its own later
+      // ones, not against a different instance's.
+      let resolveObserverMountRead: (value: {
+        kind: string;
+        step?: string;
+      }) => void = () => {};
+      const observerMountReadPromise = new Promise<{
+        kind: string;
+        step?: string;
+      }>((resolve) => {
+        resolveObserverMountRead = resolve;
+      });
+
+      (commands.getDatabaseConversionState as Mock)
+        // The observer's (e.g. the app-root prompt dialog) own initial read
+        // - issued first, but held open so it resolves only after Settings
+        // has already started and progressed a conversion.
+        .mockImplementationOnce(() => observerMountReadPromise)
+        .mockResolvedValueOnce({ kind: "sqliteAuthoritative" }) // Settings' own initial read
+        .mockResolvedValueOnce({ kind: "converting", step: "preflight" }) // Settings' start()-triggered refresh
+        .mockResolvedValue({ kind: "nativeAuthoritative" }); // the observer's next poll, once armed
+      (commands.startDatabaseConversion as Mock).mockResolvedValue({
+        status: "ok",
+        data: null,
+      });
+
+      const observer = renderHook(() => useDatabaseConversion());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(observer.result.current.state).toEqual({ kind: "notSupported" });
+
+      const settings = renderHook(() => useDatabaseConversion());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(settings.result.current.state).toEqual({
+        kind: "sqliteAuthoritative",
+      });
+
+      await act(async () => {
+        await settings.result.current.start();
+      });
+      expect(settings.result.current.state.kind).toBe("converting");
+
+      // The user navigates away before the conversion finishes.
+      settings.unmount();
+
+      // The observer's original, now-stale mount read finally resolves,
+      // reporting the pre-conversion state. Without the cross-mount
+      // sequence guard this would overwrite the shared `converting` kind
+      // Settings just recorded, and the observer's own polling effect -
+      // armed only by that shared kind, since its own local state is still
+      // this stale read - would never arm to see the real completion.
+      await act(async () => {
+        resolveObserverMountRead({ kind: "sqliteAuthoritative" });
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // The observer keeps polling and eventually observes the real
+      // completion that only it was left mounted to see.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(800);
+      });
+      expect(observer.result.current.state).toEqual({
+        kind: "nativeAuthoritative",
+      });
+      expect(observer.result.current.justCompleted).toBe(true);
+    });
   });
 });
