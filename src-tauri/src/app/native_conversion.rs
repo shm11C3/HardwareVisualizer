@@ -393,7 +393,7 @@ impl ConversionRuntime {
   /// The state the claim replaced is captured by the same check-and-write,
   /// so [`ClaimedStart::previous_state`] is exactly what this attempt
   /// started from even if another attempt finished just before the claim.
-  pub fn begin_attempt_marking_converting(
+  pub async fn begin_attempt_marking_converting(
     &self,
     owner: &NativeLifecycleOwner,
   ) -> Result<Option<ClaimedStart>, String> {
@@ -401,13 +401,15 @@ impl ConversionRuntime {
       return Ok(None);
     };
     let mut previous_state = None;
-    let marked = owner.set_state_if(
-      |state| {
-        previous_state = Some(state.clone());
-        is_startable_state(state)
-      },
-      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
-    );
+    let marked = owner
+      .set_state_if(
+        |state| {
+          previous_state = Some(state.clone());
+          is_startable_state(state)
+        },
+        DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+      )
+      .await;
     let (true, Some(previous_state)) = (marked, previous_state) else {
       self.end_attempt();
       return Ok(None);
@@ -658,7 +660,9 @@ pub async fn run_conversion(
   if owner.selected_database().is_some()
     || matches!(owner.state(), DatabaseLifecycleState::NativeAuthoritative)
   {
-    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+    owner
+      .set_state(DatabaseLifecycleState::NativeAuthoritative)
+      .await;
     return Ok(ConversionOutcome::AlreadySelected);
   }
 
@@ -717,7 +721,7 @@ pub async fn run_conversion(
       );
     }
     DatabaseLifecycleState::ActionRequired(_) => {
-      owner.set_state(entry);
+      owner.set_state(entry).await;
       return Ok(ConversionOutcome::ActionRequired);
     }
     // `inspect_startup_authority` never returns this; it only ever reports a
@@ -739,9 +743,11 @@ pub async fn run_conversion(
   // below fail for lack of space it would otherwise have found.
   discard_stale_conversion_work(&workspace);
 
-  owner.set_state(DatabaseLifecycleState::Converting(
-    ConversionProgress::Preflight,
-  ));
+  owner
+    .set_state(DatabaseLifecycleState::Converting(
+      ConversionProgress::Preflight,
+    ))
+    .await;
   // Covers the whole conversion's peak, not just this call's first step:
   // reconciliation (below) captures a second candidate while the finalized
   // file it is updating is still on disk, which is the largest simultaneous
@@ -775,81 +781,90 @@ pub async fn run_conversion(
     // existing `ConversionFailed` handling below; the source's presence
     // itself is not otherwise in question for those.
     if source_database_missing(&paths.source_database) {
-      fail_missing_source(owner, &error);
+      fail_missing_source(owner, &error).await;
       return Ok(ConversionOutcome::ActionRequired);
     }
-    fail(owner, ConversionProgress::Preflight, &error);
+    fail(owner, ConversionProgress::Preflight, &error).await;
     return Err(ConversionError::Preflight(error));
   }
 
   if let Some(outcome) =
-    check_cancelled(owner, cancellation, ConversionProgress::Preflight)
+    check_cancelled(owner, cancellation, ConversionProgress::Preflight).await
   {
     return Ok(outcome);
   }
 
   if !resume_from_reconciliation {
-    owner.set_state(DatabaseLifecycleState::Converting(
-      ConversionProgress::BuildingCandidate,
-    ));
-    let work = tempfile::Builder::new()
+    owner
+      .set_state(DatabaseLifecycleState::Converting(
+        ConversionProgress::BuildingCandidate,
+      ))
+      .await;
+    let work = match tempfile::Builder::new()
       .prefix(DRIVER_WORK_PREFIX)
       .tempdir_in(&workspace)
-      .map_err(|error| {
+    {
+      Ok(work) => work,
+      Err(io_error) => {
         let error =
           hardviz_core::infrastructure::database::candidate_database::CandidateError::Worker {
-            message: format!("failed to reserve a conversion work directory: {error}"),
+            message: format!("failed to reserve a conversion work directory: {io_error}"),
           };
-        fail(owner, ConversionProgress::BuildingCandidate, &error);
-        ConversionError::Candidate(error)
-      })?;
+        fail(owner, ConversionProgress::BuildingCandidate, &error).await;
+        return Err(ConversionError::Candidate(error));
+      }
+    };
     let candidate_path: PathBuf = work.path().join("candidate.duckdb");
-    build_candidate_database(
+    if let Err(error) = build_candidate_database(
       &paths.source_database,
       &candidate_path,
       migration::get_migrations(),
     )
     .await
-    .map_err(|error| {
-      fail(owner, ConversionProgress::BuildingCandidate, &error);
-      ConversionError::Candidate(error)
-    })?;
+    {
+      fail(owner, ConversionProgress::BuildingCandidate, &error).await;
+      return Err(ConversionError::Candidate(error));
+    }
 
     if let Some(outcome) =
-      check_cancelled(owner, cancellation, ConversionProgress::BuildingCandidate)
+      check_cancelled(owner, cancellation, ConversionProgress::BuildingCandidate).await
     {
       return Ok(outcome);
     }
 
-    owner.set_state(DatabaseLifecycleState::Converting(
-      ConversionProgress::Finalizing,
-    ));
-    finalize_candidate_database(
+    owner
+      .set_state(DatabaseLifecycleState::Converting(
+        ConversionProgress::Finalizing,
+      ))
+      .await;
+    if let Err(error) = finalize_candidate_database(
       &candidate_path,
       &paths.native_database,
       native_schema::get_native_schema(),
     )
     .await
-    .map_err(|error| {
-      fail(owner, ConversionProgress::Finalizing, &error);
-      ConversionError::Finalize(error)
-    })?;
+    {
+      fail(owner, ConversionProgress::Finalizing, &error).await;
+      return Err(ConversionError::Finalize(error));
+    }
     // The candidate is only ever a finalization input; the finalized file is
     // the durable artifact from here on.
     drop(work);
   }
 
   if let Some(outcome) =
-    check_cancelled(owner, cancellation, ConversionProgress::Finalizing)
+    check_cancelled(owner, cancellation, ConversionProgress::Finalizing).await
   {
     return Ok(outcome);
   }
 
-  owner.set_state(DatabaseLifecycleState::Converting(
-    ConversionProgress::PausingProducers,
-  ));
+  owner
+    .set_state(DatabaseLifecycleState::Converting(
+      ConversionProgress::PausingProducers,
+    ))
+    .await;
   if let Some(outcome) =
-    check_cancelled(owner, cancellation, ConversionProgress::PausingProducers)
+    check_cancelled(owner, cancellation, ConversionProgress::PausingProducers).await
   {
     return Ok(outcome);
   }
@@ -922,35 +937,42 @@ async fn reconcile_and_select(
   handoff: SelectionHandoff,
 ) -> Result<ConversionOutcome, ConversionError> {
   if let Some(outcome) =
-    check_cancelled(owner, cancellation, ConversionProgress::PausingProducers)
+    check_cancelled(owner, cancellation, ConversionProgress::PausingProducers).await
   {
     return Ok(outcome);
   }
 
-  owner.set_state(DatabaseLifecycleState::Converting(
-    ConversionProgress::Reconciling,
-  ));
-  let (report, verified) = reconcile_native_database(
+  owner
+    .set_state(DatabaseLifecycleState::Converting(
+      ConversionProgress::Reconciling,
+    ))
+    .await;
+  let (report, verified) = match reconcile_native_database(
     &paths.source_database,
     &paths.native_database,
     migration::get_migrations(),
     native_schema::get_native_schema(),
   )
   .await
-  .map_err(|error| {
-    fail(owner, ConversionProgress::Reconciling, &error);
-    ConversionError::Reconcile(error)
-  })?;
+  {
+    Ok(reconciled) => reconciled,
+    Err(error) => {
+      fail(owner, ConversionProgress::Reconciling, &error).await;
+      return Err(ConversionError::Reconcile(error));
+    }
+  };
 
   if let Some(outcome) =
-    check_cancelled(owner, cancellation, ConversionProgress::Reconciling)
+    check_cancelled(owner, cancellation, ConversionProgress::Reconciling).await
   {
     return Ok(outcome);
   }
 
-  owner.set_state(DatabaseLifecycleState::Converting(
-    ConversionProgress::Selecting,
-  ));
+  owner
+    .set_state(DatabaseLifecycleState::Converting(
+      ConversionProgress::Selecting,
+    ))
+    .await;
   if let Err(error) = select_native_database(paths.clone(), verified).await
     && let Some(outcome) =
       settle_failed_selection(owner, paths, expected_schema_version, handoff, error)
@@ -1020,7 +1042,7 @@ async fn settle_failed_selection(
   let on_disk = inspect_startup_authority(paths, expected_schema_version);
   let native_file = std::fs::symlink_metadata(&paths.native_database);
   if failed_before_commit(&on_disk, &native_file) {
-    fail(owner, ConversionProgress::Selecting, &error);
+    fail(owner, ConversionProgress::Selecting, &error).await;
     return Err(ConversionError::Select(error));
   }
   log_error!(
@@ -1050,7 +1072,9 @@ async fn settle_failed_selection(
       );
     }
   }
-  owner.set_state(DatabaseLifecycleState::ActionRequired(issue));
+  owner
+    .set_state(DatabaseLifecycleState::ActionRequired(issue))
+    .await;
   Ok(Some(ConversionOutcome::ActionRequired))
 }
 
@@ -1111,7 +1135,9 @@ async fn open_selected_database(
   .await?;
   owner.set_selected_database(database);
   if handoff == SelectionHandoff::OwnerOnly {
-    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+    owner
+      .set_state(DatabaseLifecycleState::NativeAuthoritative)
+      .await;
   }
   Ok(())
 }
@@ -1162,7 +1188,9 @@ pub async fn adopt_selected_database_via_dispatch(
   }
   match dispatch::reobserve_expecting_selected().await {
     Ok(AuthorityState::NativeSelected) => {
-      owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+      owner
+        .set_state(DatabaseLifecycleState::NativeAuthoritative)
+        .await;
       Ok(())
     }
     Ok(other) => {
@@ -1210,7 +1238,7 @@ async fn hand_off(
 /// Record a step failure both in the log and on the lifecycle owner, so a
 /// caller reading `NativeLifecycleOwner::state` afterward sees *why*
 /// without re-deriving it from the returned `ConversionError`.
-fn fail(
+async fn fail(
   owner: &NativeLifecycleOwner,
   step: ConversionProgress,
   error: &impl std::fmt::Display,
@@ -1221,9 +1249,11 @@ fn fail(
     "app::native_conversion",
     Some(message.clone())
   );
-  owner.set_state(DatabaseLifecycleState::ActionRequired(
-    LifecycleIssue::ConversionFailed { step, message },
-  ));
+  owner
+    .set_state(DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::ConversionFailed { step, message },
+    ))
+    .await;
 }
 
 /// Whether `path` is positively absent. Only `NotFound` counts as proof: a
@@ -1244,7 +1274,10 @@ fn source_database_missing(path: &Path) -> bool {
 /// function's one caller for why [`fail`] (`ConversionFailed`) would let the
 /// availability/writability guards resume answering through dispatch onto a
 /// source that is no longer there.
-fn fail_missing_source(owner: &NativeLifecycleOwner, error: &impl std::fmt::Display) {
+async fn fail_missing_source(
+  owner: &NativeLifecycleOwner,
+  error: &impl std::fmt::Display,
+) {
   use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
 
   log_error!(
@@ -1252,9 +1285,11 @@ fn fail_missing_source(owner: &NativeLifecycleOwner, error: &impl std::fmt::Disp
     "app::native_conversion::run_conversion",
     Some(error.to_string())
   );
-  owner.set_state(DatabaseLifecycleState::ActionRequired(
-    LifecycleIssue::Authority(AuthorityInconsistency::SourceDatabaseMissing),
-  ));
+  owner
+    .set_state(DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::Authority(AuthorityInconsistency::SourceDatabaseMissing),
+    ))
+    .await;
 }
 
 /// Record a failure to make an already, durably selected database available
@@ -1263,16 +1298,18 @@ fn fail_missing_source(owner: &NativeLifecycleOwner, error: &impl std::fmt::Disp
 /// [`fail`]: the selection itself did not fail, so naming it a conversion
 /// step failure would be wrong, and unlike `LifecycleIssue::Authority` the
 /// files were selected before the runtime open or dispatch hand-off failed.
-fn fail_open(owner: &NativeLifecycleOwner, error: &impl std::fmt::Display) {
+async fn fail_open(owner: &NativeLifecycleOwner, error: &impl std::fmt::Display) {
   let message = error.to_string();
   log_error!(
     "native database selected but could not be made available to consumers",
     "app::native_conversion",
     Some(message.clone())
   );
-  owner.set_state(DatabaseLifecycleState::ActionRequired(
-    LifecycleIssue::NativeOpenFailed { message },
-  ));
+  owner
+    .set_state(DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::NativeOpenFailed { message },
+    ))
+    .await;
 }
 
 /// Record that opening a durably selected database failed and keep consumers
@@ -1285,7 +1322,7 @@ async fn fail_open_after_selection(
   if handoff == SelectionHandoff::ThroughDispatch {
     fail_open_and_refuse_dispatch(owner, error).await;
   } else {
-    fail_open(owner, error);
+    fail_open(owner, error).await;
   }
 }
 
@@ -1297,7 +1334,7 @@ async fn fail_open_and_refuse_dispatch(
   owner: &NativeLifecycleOwner,
   error: &impl std::fmt::Display,
 ) {
-  fail_open(owner, error);
+  fail_open(owner, error).await;
   if let Err(refusal_error) =
     hardviz_core::infrastructure::database::dispatch::refuse_consumers(format!(
       "the selected native database could not be opened or handed to dispatch: {error}"
@@ -1312,7 +1349,7 @@ async fn fail_open_and_refuse_dispatch(
   }
 }
 
-fn check_cancelled(
+async fn check_cancelled(
   owner: &NativeLifecycleOwner,
   cancellation: &ConversionCancellation,
   step: ConversionProgress,
@@ -1325,9 +1362,11 @@ fn check_cancelled(
     "app::native_conversion::check_cancelled",
     None::<&str>
   );
-  owner.set_state(DatabaseLifecycleState::ActionRequired(
-    LifecycleIssue::ConversionCancelled { step },
-  ));
+  owner
+    .set_state(DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::ConversionCancelled { step },
+    ))
+    .await;
   Some(ConversionOutcome::Cancelled { step })
 }
 
@@ -1440,8 +1479,8 @@ mod conversion_runtime_tests {
   /// running. A successful claim must leave `owner` reporting `Converting`
   /// synchronously, before this call returns - not later, once some task
   /// eventually gets scheduled.
-  #[test]
-  fn a_successful_claim_marks_the_owner_converting_synchronously() {
+  #[tokio::test]
+  async fn a_successful_claim_marks_the_owner_converting_synchronously() {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
@@ -1456,6 +1495,7 @@ mod conversion_runtime_tests {
     assert!(
       runtime
         .begin_attempt_marking_converting(&owner)
+        .await
         .unwrap()
         .is_some()
     );
@@ -1472,8 +1512,8 @@ mod conversion_runtime_tests {
   /// `owner` exactly as it found it - it is not this call's place to
   /// report anything when it is not the one that will drive the
   /// conversion forward.
-  #[test]
-  fn a_refused_claim_does_not_touch_the_owner() {
+  #[tokio::test]
+  async fn a_refused_claim_does_not_touch_the_owner() {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
@@ -1481,6 +1521,7 @@ mod conversion_runtime_tests {
     assert!(
       runtime
         .begin_attempt_marking_converting(&owner)
+        .await
         .unwrap()
         .is_some()
     );
@@ -1490,6 +1531,7 @@ mod conversion_runtime_tests {
     assert!(
       runtime
         .begin_attempt_marking_converting(&second_owner)
+        .await
         .unwrap()
         .is_none()
     );
@@ -1503,12 +1545,17 @@ mod conversion_runtime_tests {
   /// mark must not be separate fallible steps" guarantee
   /// `begin_attempt_with_bus` documents, extended to the state write this
   /// method adds.
-  #[test]
-  fn a_missing_bus_does_not_mark_the_owner_converting() {
+  #[tokio::test]
+  async fn a_missing_bus_does_not_mark_the_owner_converting() {
     let runtime = ConversionRuntime::default();
     let owner = NativeLifecycleOwner::new();
 
-    assert!(runtime.begin_attempt_marking_converting(&owner).is_err());
+    assert!(
+      runtime
+        .begin_attempt_marking_converting(&owner)
+        .await
+        .is_err()
+    );
     assert_eq!(owner.state(), DatabaseLifecycleState::SqliteAuthoritative);
   }
 
@@ -1523,8 +1570,8 @@ mod conversion_runtime_tests {
   /// `run_conversion`'s own already-selected guard miss, and send a task to
   /// re-inspect files while dispatch's own `NativeDatabase` still holds the
   /// file open.
-  #[test]
-  fn starting_after_a_dispatch_hand_off_leaves_native_authoritative_untouched_and_spawns_nothing()
+  #[tokio::test]
+  async fn starting_after_a_dispatch_hand_off_leaves_native_authoritative_untouched_and_spawns_nothing()
    {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
@@ -1532,9 +1579,14 @@ mod conversion_runtime_tests {
     // Mirrors `adopt_selected_database_via_dispatch` after a successful
     // hand-off: `state()` is `NativeAuthoritative` but `selected_database()`
     // is empty, because dispatch (not `owner`) holds the open file.
-    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+    owner
+      .set_state(DatabaseLifecycleState::NativeAuthoritative)
+      .await;
 
-    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
 
     assert!(
       claim.is_none(),
@@ -1552,16 +1604,21 @@ mod conversion_runtime_tests {
   /// And for an already-running `Converting` attempt observed through a
   /// different owner instance (or a state a caller set directly): a second
   /// Start must not reset its progress back to `Preflight`.
-  #[test]
-  fn starting_while_already_converting_leaves_its_progress_untouched() {
+  #[tokio::test]
+  async fn starting_while_already_converting_leaves_its_progress_untouched() {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
-    owner.set_state(DatabaseLifecycleState::Converting(
-      ConversionProgress::Reconciling,
-    ));
+    owner
+      .set_state(DatabaseLifecycleState::Converting(
+        ConversionProgress::Reconciling,
+      ))
+      .await;
 
-    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
 
     assert!(claim.is_none());
     assert_eq!(
@@ -1576,34 +1633,44 @@ mod conversion_runtime_tests {
   /// (`NativeMetadataUnreadable` is the one admitted `Authority` reason), so
   /// a stale Start control must not paper over it with an optimistic
   /// `Converting`.
-  #[test]
-  fn starting_while_a_files_level_action_required_leaves_it_untouched_and_spawns_nothing()
-  {
+  #[tokio::test]
+  async fn starting_while_a_files_level_action_required_leaves_it_untouched_and_spawns_nothing()
+   {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
     let issue = LifecycleIssue::Authority(
       hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::MarkerUnreadable,
     );
-    owner.set_state(DatabaseLifecycleState::ActionRequired(issue.clone()));
+    owner
+      .set_state(DatabaseLifecycleState::ActionRequired(issue.clone()))
+      .await;
 
-    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
 
     assert!(claim.is_none());
     assert_eq!(owner.state(), DatabaseLifecycleState::ActionRequired(issue));
   }
 
-  #[test]
-  fn starting_while_fresh_creation_failed_leaves_it_untouched_and_spawns_nothing() {
+  #[tokio::test]
+  async fn starting_while_fresh_creation_failed_leaves_it_untouched_and_spawns_nothing() {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
     let issue = LifecycleIssue::FreshCreationFailed {
       message: "test fixture".to_string(),
     };
-    owner.set_state(DatabaseLifecycleState::ActionRequired(issue.clone()));
+    owner
+      .set_state(DatabaseLifecycleState::ActionRequired(issue.clone()))
+      .await;
 
-    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
 
     assert!(claim.is_none());
     assert_eq!(owner.state(), DatabaseLifecycleState::ActionRequired(issue));
@@ -1616,8 +1683,8 @@ mod conversion_runtime_tests {
   /// `run_conversion`, which re-reads the already-durable disk selection and
   /// retries the open - see `is_startable_state`'s own documentation). These
   /// three reasons must still admit a fresh claim and mark `Converting`.
-  #[test]
-  fn starting_after_a_failed_cancelled_or_open_failed_attempt_is_admitted() {
+  #[tokio::test]
+  async fn starting_after_a_failed_cancelled_or_open_failed_attempt_is_admitted() {
     let recoverable_issues = [
       LifecycleIssue::ConversionFailed {
         step: ConversionProgress::Reconciling,
@@ -1635,9 +1702,14 @@ mod conversion_runtime_tests {
       let runtime = ConversionRuntime::default();
       runtime.set_bus(hardviz_core::event_bus::EventBus::new());
       let owner = NativeLifecycleOwner::new();
-      owner.set_state(DatabaseLifecycleState::ActionRequired(issue.clone()));
+      owner
+        .set_state(DatabaseLifecycleState::ActionRequired(issue.clone()))
+        .await;
 
-      let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+      let claim = runtime
+        .begin_attempt_marking_converting(&owner)
+        .await
+        .unwrap();
 
       assert!(claim.is_some(), "{issue:?} must be admitted");
       assert_eq!(
@@ -1652,16 +1724,21 @@ mod conversion_runtime_tests {
   /// metadata, and that retry is only real if the claim admits it. The
   /// driver's entry re-inspects the files, so the retry moves nothing and
   /// reports the same issue again while the metadata stays unreadable.
-  #[test]
-  fn starting_after_unreadable_native_metadata_is_admitted() {
+  #[tokio::test]
+  async fn starting_after_unreadable_native_metadata_is_admitted() {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
-    owner.set_state(DatabaseLifecycleState::ActionRequired(
-      LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
-    ));
+    owner
+      .set_state(DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
+      ))
+      .await;
 
-    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
 
     assert!(claim.is_some());
     assert_eq!(
@@ -1673,8 +1750,8 @@ mod conversion_runtime_tests {
   /// Admitting `NativeMetadataUnreadable` must not widen the admission to
   /// the other files-level disagreements, which a retry of this flow cannot
   /// resolve.
-  #[test]
-  fn starting_while_any_other_authority_disagreement_is_refused() {
+  #[tokio::test]
+  async fn starting_while_any_other_authority_disagreement_is_refused() {
     use AuthorityInconsistency as A;
     for reason in [
       A::MarkerUnreadable,
@@ -1693,9 +1770,12 @@ mod conversion_runtime_tests {
       let owner = NativeLifecycleOwner::new();
       let state =
         DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(reason));
-      owner.set_state(state.clone());
+      owner.set_state(state.clone()).await;
 
-      let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+      let claim = runtime
+        .begin_attempt_marking_converting(&owner)
+        .await
+        .unwrap();
 
       assert!(claim.is_none(), "{reason:?} must be refused");
       assert_eq!(owner.state(), state, "{reason:?} must be left untouched");
@@ -1705,8 +1785,8 @@ mod conversion_runtime_tests {
   /// The recovery restart decision needs the state an attempt started from.
   /// A read taken before the claim can be stale when another attempt ends in
   /// between, so the claim itself reports the state it replaced.
-  #[test]
-  fn a_claim_reports_the_state_it_replaced() {
+  #[tokio::test]
+  async fn a_claim_reports_the_state_it_replaced() {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
@@ -1714,10 +1794,11 @@ mod conversion_runtime_tests {
       DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
         message: "test fixture".to_string(),
       });
-    owner.set_state(open_failed.clone());
+    owner.set_state(open_failed.clone()).await;
 
     let claim = runtime
       .begin_attempt_marking_converting(&owner)
+      .await
       .unwrap()
       .unwrap();
 
@@ -1734,21 +1815,29 @@ mod conversion_runtime_tests {
   /// admission (simulating a different in-flight attempt reaching a
   /// terminal state while this one was still marked `Converting`) must be
   /// exactly what the next admission's check observes.
-  #[test]
-  fn a_state_change_between_two_admissions_is_observed_by_the_next_ones_check() {
+  #[tokio::test]
+  async fn a_state_change_between_two_admissions_is_observed_by_the_next_ones_check() {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     let owner = NativeLifecycleOwner::new();
 
-    let first = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let first = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
     assert!(first.is_some());
     // Simulates a concurrent completion: the in-flight attempt this claim
     // was for finishes and reaches a terminal state, without this test
     // going through the full driver.
     runtime.end_attempt();
-    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+    owner
+      .set_state(DatabaseLifecycleState::NativeAuthoritative)
+      .await;
 
-    let second = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let second = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
 
     assert!(
       second.is_none(),
@@ -2238,7 +2327,7 @@ mod tests {
     // error past a real disk's actual free space.
     assert!(!source_database_missing(&fixture.paths().source_database));
 
-    fail(&owner, ConversionProgress::Preflight, &"disk full");
+    fail(&owner, ConversionProgress::Preflight, &"disk full").await;
 
     assert!(matches!(
       owner.state(),
@@ -2565,7 +2654,7 @@ mod tests {
 
     let owner = NativeLifecycleOwner::new();
     let converting = DatabaseLifecycleState::Converting(ConversionProgress::Preflight);
-    owner.set_state(converting.clone());
+    owner.set_state(converting.clone()).await;
     open_selected_database(
       &owner,
       &fixture.paths(),
@@ -2745,10 +2834,13 @@ mod tests {
     let runtime = ConversionRuntime::default();
     runtime.set_bus(EventBus::new());
     let owner = NativeLifecycleOwner::new();
-    owner.set_state(unreadable.clone());
+    owner.set_state(unreadable.clone()).await;
     let workers = WorkersState::default();
 
-    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
     assert!(claim.is_some(), "Retry must start an attempt");
     let outcome = run_conversion(
       fixture.target(),
@@ -2781,7 +2873,10 @@ mod tests {
 
     // The cause is gone: the next Retry opens the selected database.
     std::fs::write(&paths.native_database, &native_selected).unwrap();
-    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    let claim = runtime
+      .begin_attempt_marking_converting(&owner)
+      .await
+      .unwrap();
     assert!(claim.is_some());
     let outcome = run_conversion(
       fixture.target(),

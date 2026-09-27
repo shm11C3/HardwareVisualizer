@@ -461,11 +461,16 @@ pub(crate) async fn resolve_baseline_state(
         // candidate snapshot was already taken and before the reconciled
         // selection commits, so it would never reach the native database -
         // it would then be silently re-pinned later, letting
-        // `established_at` shift. Skipping the write here is safe: the
-        // derived state above is still returned honestly, and the next
-        // resolution (once the window closes) retries the pin exactly like
-        // a transient write failure already would.
-        if dispatch::lazy_pin_writable() {
+        // `established_at` shift. The permit is held across the write
+        // itself (not just checked beforehand): a point-in-time check
+        // alone would not stop the conversion driver from closing the gate
+        // and taking its snapshot while this insert is still in flight -
+        // see `dispatch::acquire_write_permit`'s own doc. Skipping the
+        // write when no permit is granted is safe: the derived state above
+        // is still returned honestly, and the next resolution (once the
+        // window closes) retries the pin exactly like a transient write
+        // failure already would.
+        if let Some(_permit) = dispatch::acquire_write_permit().await {
           // Same write-once, retry-on-failure bookkeeping as the
           // `_from_pool` resolver above.
           if let Err(e) =
@@ -945,16 +950,16 @@ mod tests {
   }
 
   /// #2271: `resolve_baseline_state` (the dispatch-routed resolver every
-  /// production caller uses) checks `dispatch::lazy_pin_writable()` before
-  /// writing its lazy pin, so a read reached while the App's conversion
-  /// lifecycle owner reports `Converting` does not write a pin that could
-  /// land in SQLite after the conversion's candidate snapshot was already
-  /// taken. This test cannot drive `resolve_baseline_state` itself (it is
-  /// routed through Core's process-wide pool via the dispatch boundary,
-  /// which is `OnceLock`-configured once per process - see
-  /// `infrastructure::database::db::init`'s own doc), so it exercises the
-  /// same select/derive/gate/insert shape directly against an isolated
-  /// pool, using the real, shared `dispatch::lazy_pin_writable` flag the
+  /// production caller uses) holds a `dispatch::acquire_write_permit()`
+  /// across its lazy pin write, so a read reached while the App's
+  /// conversion lifecycle owner reports `Converting` does not write a pin
+  /// that could land in SQLite after the conversion's candidate snapshot
+  /// was already taken. This test cannot drive `resolve_baseline_state`
+  /// itself (it is routed through Core's process-wide pool via the
+  /// dispatch boundary, which is `OnceLock`-configured once per process -
+  /// see `infrastructure::database::db::init`'s own doc), so it exercises
+  /// the same select/derive/permit/insert shape directly against an
+  /// isolated pool, using the real, shared `dispatch` write gate the
   /// production resolver reads.
   ///
   /// `dispatch::test_support` (and the gate it guards) only exists with
@@ -968,7 +973,7 @@ mod tests {
     use crate::infrastructure::database;
     use crate::infrastructure::database::dispatch;
 
-    let _guard = dispatch::test_support::lock_lazy_pin_writable().await;
+    let _guard = dispatch::test_support::lock_write_gate().await;
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     setup_tables(&pool).await;
     insert_establishing_days(&pool, date(2026, 8, 1), 42.0).await;
@@ -983,9 +988,9 @@ mod tests {
       EstablishedBaseline::from_state(&derived).expect("this window must establish");
 
     // The App marks the lifecycle owner `Converting`: the gate the resolver
-    // checks before writing closes.
-    dispatch::set_lazy_pin_writable(false);
-    if dispatch::lazy_pin_writable() {
+    // must hold a permit from before writing closes.
+    dispatch::set_writable(false).await;
+    if let Some(_permit) = dispatch::acquire_write_permit().await {
       database::cooling_baseline::insert_established_baseline_from_pool(
         &pool,
         &established,
@@ -1005,8 +1010,8 @@ mod tests {
     // The conversion resolves and the owner leaves `Converting`: the gate
     // reopens, and the very next resolution's write-back succeeds exactly
     // as the retry-on-failure bookkeeping already promises.
-    dispatch::set_lazy_pin_writable(true);
-    if dispatch::lazy_pin_writable() {
+    dispatch::set_writable(true).await;
+    if let Some(_permit) = dispatch::acquire_write_permit().await {
       database::cooling_baseline::insert_established_baseline_from_pool(
         &pool,
         &established,

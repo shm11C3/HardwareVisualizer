@@ -315,9 +315,9 @@ pub(crate) async fn resolve_delta_baseline_state(
       if let Some(baseline) = EstablishedDeltaBaseline::from_state(&derived) {
         // #2271: same conversion-window guard as
         // `cooling_baseline::resolve_baseline_state` - see its comment for
-        // why a read command's lazy pin must not write while the App's
-        // conversion lifecycle owner reports `Converting`.
-        if dispatch::lazy_pin_writable() {
+        // why the permit must be held across the write itself, not just
+        // checked beforehand.
+        if let Some(_permit) = dispatch::acquire_write_permit().await {
           // Write-once bookkeeping, not part of the answer - a transient
           // failure must not turn a valid derivation into a read error.
           // Retried on the next resolution, same rule as the `_from_pool`
@@ -697,7 +697,7 @@ mod tests {
     };
     use sqlx::SqlitePool;
 
-    let _guard = dispatch::test_support::lock_lazy_pin_writable().await;
+    let _guard = dispatch::test_support::lock_write_gate().await;
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     create_tables(&pool, &[COOLING_DELTA_BASELINE_DDL]).await;
     let days = qualifying_days("Desk", date(2026, 8, 1), REQUIRED, 12.0);
@@ -706,9 +706,9 @@ mod tests {
       EstablishedDeltaBaseline::from_state(&derived).expect("this window must establish");
 
     // The App marks the lifecycle owner `Converting`: the gate the
-    // resolver checks before writing closes.
-    dispatch::set_lazy_pin_writable(false);
-    if dispatch::lazy_pin_writable() {
+    // resolver must hold a permit from before writing closes.
+    dispatch::set_writable(false).await;
+    if let Some(_permit) = dispatch::acquire_write_permit().await {
       database::cooling_delta_baseline::insert_established_delta_baseline_from_pool(
         &pool,
         &established,
@@ -729,8 +729,8 @@ mod tests {
 
     // The conversion resolves and the owner leaves `Converting`: the gate
     // reopens, and the very next resolution's write-back succeeds.
-    dispatch::set_lazy_pin_writable(true);
-    if dispatch::lazy_pin_writable() {
+    dispatch::set_writable(true).await;
+    if let Some(_permit) = dispatch::acquire_write_permit().await {
       database::cooling_delta_baseline::insert_established_delta_baseline_from_pool(
         &pool,
         &established,

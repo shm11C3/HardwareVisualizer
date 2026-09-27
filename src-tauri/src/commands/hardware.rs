@@ -289,17 +289,13 @@ pub async fn refresh_storage_devices(
   // caller's own request, so a conversion's producer pause cannot see or
   // wait for it. Refused only while a conversion is actively reconciling or
   // the lifecycle is `ActionRequired` - a native-authoritative boot is fine,
-  // dispatch answers this write from the native database.
+  // dispatch answers this write from the native database. This is a fast,
+  // preliminary check only: the actual write is a blocking device
+  // enumeration and a SMART collection away, so what makes the write itself
+  // safe is `persistence::storage_health::store_storage_health_collection`
+  // holding a `dispatch::acquire_write_permit` across it (#2271) - see that
+  // function's doc.
   ensure_database_writable(&app)?;
-
-  // #2271: the check above and the actual write below are separated by a
-  // blocking device enumeration, wide enough for a conversion to start and
-  // reach `Converting` in between. `hardware_service::refresh_storage_devices`
-  // re-runs this same check right before it writes, closing that window;
-  // pass it a fresh closure rather than the `Result` this call already
-  // produced, since that result is a point-in-time answer from before the
-  // enumeration even starts.
-  let app_for_write_check = app.clone();
 
   let (retention_days, identity_hash_key) = {
     let settings = state.core_settings.lock().unwrap();
@@ -322,7 +318,6 @@ pub async fn refresh_storage_devices(
     identity_hash_key,
     collector,
     Some(guidance_sink),
-    move || ensure_database_writable(&app_for_write_check),
   )
   .await
   .map(|records| records.into_iter().map(Into::into).collect())
