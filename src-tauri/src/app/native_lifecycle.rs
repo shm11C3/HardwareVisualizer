@@ -208,6 +208,7 @@ fn native_rebuild_availability(facts: &AuthorityFacts) -> Option<AuthorityIncons
     NativeMetadataFacts::Unreadable => {
       Some(AuthorityInconsistency::NativeMetadataUnreadable)
     }
+    NativeMetadataFacts::Invalid => Some(AuthorityInconsistency::NativeMetadataInvalid),
     NativeMetadataFacts::Legacy {
       state: NativeState::FinalizedUnselected,
       schema_version,
