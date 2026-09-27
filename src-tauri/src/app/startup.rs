@@ -137,6 +137,12 @@ pub fn reset_database_and_restart(handle: &tauri::AppHandle) {
     return;
   }
 
+  restart(handle);
+}
+
+/// Start a fresh copy of this process and exit this one. Used from a startup
+/// dialog, before any database-backed worker has started.
+fn restart(handle: &tauri::AppHandle) {
   let exe_path = match std::env::current_exe() {
     Ok(path) => path,
     Err(e) => {
