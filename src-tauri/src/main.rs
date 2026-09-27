@@ -4,5 +4,8 @@ fn main() {
   if let Some(exit_code) = hardware_monitor_lib::run_cli_mode_if_requested() {
     std::process::exit(exit_code);
   }
+  if hardware_monitor_lib::activate_running_instance() {
+    return;
+  }
   hardware_monitor_lib::run();
 }

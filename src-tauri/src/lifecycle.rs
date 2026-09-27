@@ -12,6 +12,9 @@ use std::{
 
 use tauri::{AppHandle, Emitter, Manager, Window};
 
+#[cfg(target_os = "windows")]
+pub mod activation;
+
 use crate::log_warn;
 use crate::workers::WorkersState;
 

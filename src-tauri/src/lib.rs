@@ -519,6 +519,39 @@ pub fn run_cli_mode_if_requested() -> Option<i32> {
   }
 }
 
+/// A note from a failed attempt to reopen an already running instance,
+/// raised before the logger exists and logged by `run()` once it does.
+static ACTIVATION_NOTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Ask an already running instance to show its window instead of starting.
+///
+/// Returns `true` when the running instance was asked and this launch must
+/// exit. Called after [`run_cli_mode_if_requested`], so an elevated relaunch
+/// child has already waited for its parent, and before `run()` loads settings
+/// or opens the database. See `lifecycle::activation` for why this does not
+/// rely on `tauri-plugin-single-instance` alone (#2291).
+pub fn activate_running_instance() -> bool {
+  #[cfg(target_os = "windows")]
+  {
+    use lifecycle::activation::{
+      Delivery, activation_event_name, signal_running_instance,
+    };
+
+    match signal_running_instance(&activation_event_name(&utils::tauri::get_identifier()))
+    {
+      Delivery::Delivered => return true,
+      Delivery::NoRunningInstance => {}
+      Delivery::Failed(detail) => {
+        let note =
+          format!("Could not ask the running instance to show its window: {detail}");
+        eprintln!("{note}");
+        let _ = ACTIVATION_NOTE.set(note);
+      }
+    }
+  }
+  false
+}
+
 pub fn run() {
   let builder = build_specta_builder();
 
@@ -704,6 +737,18 @@ pub fn run() {
           }
         }
       }
+
+      if let Some(note) = ACTIVATION_NOTE.get() {
+        log_warn!(note, "lib::setup", None::<&str>);
+      }
+
+      // Only the process that stays running owns the reopen channel, so a
+      // process that just handed off to its elevated child above never does.
+      #[cfg(target_os = "windows")]
+      lifecycle::activation::listen(
+        app.handle(),
+        &lifecycle::activation::activation_event_name(&utils::tauri::get_identifier()),
+      );
 
       // Initialize UI and real-time monitoring (independent of DB)
       commands::ui::init(app);
