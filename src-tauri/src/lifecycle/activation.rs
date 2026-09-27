@@ -333,25 +333,11 @@ mod tests {
     assert!(ActivationEvent::create(&name).is_err());
   }
 
-  #[test]
-  fn the_created_event_carries_the_reviewed_dacl_and_label() {
-    let name = unique_event_name("security");
-    let event = ActivationEvent::create(&name).expect("the event is created");
-
-    let mut descriptor = PSECURITY_DESCRIPTOR::default();
-    let status = unsafe {
-      GetSecurityInfo(
-        event.0.0,
-        SE_KERNEL_OBJECT,
-        DACL_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION,
-        None,
-        None,
-        None,
-        None,
-        Some(&mut descriptor),
-      )
-    };
-    assert!(status.is_ok(), "GetSecurityInfo failed: {status:?}");
+  /// Render a descriptor's DACL and label as SDDL, so the expected and the
+  /// stored descriptor are compared in the same canonical form (Windows
+  /// abbreviates well-known SIDs, such as `LA` for the built-in
+  /// Administrator a CI runner may run as).
+  fn dacl_and_label_sddl(descriptor: PSECURITY_DESCRIPTOR) -> String {
     let mut sddl = PWSTR::null();
     unsafe {
       ConvertSecurityDescriptorToStringSecurityDescriptorW(
@@ -363,16 +349,52 @@ mod tests {
       )
     }
     .expect("the descriptor converts to SDDL");
-    let actual = unsafe { sddl.to_string() }.expect("the SDDL is UTF-16");
+    let rendered = unsafe { sddl.to_string() }.expect("the SDDL is UTF-16");
     let _ = unsafe { LocalFree(Some(HLOCAL(sddl.0 as *mut c_void))) };
-    let _ = unsafe { LocalFree(Some(HLOCAL(descriptor.0))) };
+    // The kernel marks a stored SACL auto-inherited (`AI`); that flag does
+    // not change the label.
+    rendered.replacen("S:AI(", "S:(", 1)
+  }
+
+  #[test]
+  fn the_created_event_carries_the_reviewed_dacl_and_label() {
+    let name = unique_event_name("security");
+    let event = ActivationEvent::create(&name).expect("the event is created");
+
+    let mut stored = PSECURITY_DESCRIPTOR::default();
+    let status = unsafe {
+      GetSecurityInfo(
+        event.0.0,
+        SE_KERNEL_OBJECT,
+        DACL_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION,
+        None,
+        None,
+        None,
+        None,
+        Some(&mut stored),
+      )
+    };
+    assert!(status.is_ok(), "GetSecurityInfo failed: {status:?}");
+    let actual = dacl_and_label_sddl(stored);
+    let _ = unsafe { LocalFree(Some(HLOCAL(stored.0))) };
 
     let user_sid = current_user_sid().expect("the user SID resolves");
-    // The kernel marks the stored SACL auto-inherited (`AI`); that flag does
-    // not change the label.
-    assert_eq!(
-      actual.replacen("S:AI(", "S:(", 1),
-      format!("D:P(A;;0x100002;;;{user_sid})S:(ML;;NW;;;ME)")
-    );
+    let reviewed = wide_null(&activation_event_sddl(&user_sid));
+    let mut expected = PSECURITY_DESCRIPTOR::default();
+    unsafe {
+      ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        PCWSTR(reviewed.as_ptr()),
+        SDDL_REVISION_1,
+        &mut expected,
+        None,
+      )
+    }
+    .expect("the reviewed SDDL parses");
+    let expected_sddl = dacl_and_label_sddl(expected);
+    let _ = unsafe { LocalFree(Some(HLOCAL(expected.0))) };
+
+    assert_eq!(actual, expected_sddl);
+    assert!(actual.starts_with("D:P(A;;0x100002;;;"), "{actual}");
+    assert!(actual.ends_with(")S:(ML;;NW;;;ME)"), "{actual}");
   }
 }
