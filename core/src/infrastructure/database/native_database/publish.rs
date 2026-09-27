@@ -15,11 +15,12 @@
 //! configurations, and some network shares reject them outright, which
 //! turned a fresh install into `FreshCreationFailed` on those volumes (#2272).
 //! This module tries the hard link first - unchanged fast path on every
-//! volume that supports it - and falls back to a copy-based publish that
-//! keeps the same "second writer loses, and the loser never sees a partial
-//! file" guarantee without needing hard-link support.
+//! volume that supports it - and falls back to a copy staged under a
+//! temporary name and published with a no-replace rename, which keeps the
+//! same "the destination is either absent or one complete file, and a second
+//! publisher always loses" guarantee without needing hard-link support.
 
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::{self, ErrorKind};
 use std::path::Path;
 
@@ -94,44 +95,53 @@ fn hard_link_unsupported(error: &io::Error) -> bool {
   }
 }
 
-/// The fallback publish: claim `destination` exclusively, copy `source`'s
-/// bytes into it, and fsync before returning.
+/// The fallback publish: copy `source`'s bytes into a temporary file beside
+/// `destination`, fsync it while it still has no name anyone else can open,
+/// and only then give it the destination name with a no-replace rename.
 ///
-/// # Why not an atomic rename
+/// # Why the copy must stay unnamed until it is complete
+///
+/// `destination` must never be observable half-written. Claiming the
+/// destination name first (for example with `create_new`) and copying into it
+/// afterward would let a crash, a power loss, or a concurrent reader between
+/// those two steps see or keep a truncated file at the name every other part
+/// of this codebase treats as either absent or a complete, verified database -
+/// `inspect_authority` has no state for "present but partial", so that would
+/// turn into a stuck `ActionRequired` exactly like the bug this fallback
+/// fixes. Staging the copy under a temporary name and publishing it with one
+/// rename keeps the same "the destination is either absent or complete"
+/// invariant the hard link gave: nothing ever names an incomplete file
+/// `destination`.
+///
+/// # Why a rename, and why `tempfile`'s
 ///
 /// `std::fs::rename` maps to `MoveFileExW` *with* `MOVEFILE_REPLACE_EXISTING`
 /// on Windows and to POSIX `rename(2)` on Unix, both of which silently
 /// replace an existing destination - exactly the clobber the hard link was
-/// chosen to prevent. A true no-replace rename exists on some platforms
-/// (`renameat2(RENAME_NOREPLACE)` on Linux, `MoveFileExW` without the replace
-/// flag on Windows) but not portably through `std`, and this crate already
-/// depends on the `windows` crate for other Win32 access, so it would be free
-/// to reach for it here - but only for one platform, which would leave every
-/// other target on this same fallback anyway. Publishing happens once per
-/// finalize or fresh install, not on a hot path, so `create_new` gives the
-/// same "second writer loses" atomicity `hard_link` did, using only `std`,
-/// uniformly across platforms, at the cost of one file copy.
-///
-/// A destination left partially written by a failed copy is removed so a
-/// retry is not permanently blocked by this attempt's own leftovers.
+/// chosen to prevent. [`NamedTempFile::persist_noclobber`] is the same
+/// no-replace rename this module already trusts for the authority marker
+/// (see [`super::selection::write_marker_atomically_noclobber`]): a true
+/// `renameat2(RENAME_NOREPLACE)` on Linux and macOS, `MoveFileExW` without the
+/// replace flag on Windows, refusing with `AlreadyExists` rather than
+/// clobbering when `destination` appeared in the meantime.
 fn publish_by_copy_without_replacing(
   source: &Path,
   destination: &Path,
 ) -> io::Result<()> {
-  let mut destination_file = OpenOptions::new()
-    .write(true)
-    .create_new(true)
-    .open(destination)?;
-  let result = (|| {
-    let mut source_file = fs::File::open(source)?;
-    io::copy(&mut source_file, &mut destination_file)?;
-    destination_file.sync_all()
-  })();
-  if result.is_err() {
-    drop(destination_file);
-    let _ = fs::remove_file(destination);
-  }
-  result
+  let directory = destination.parent().ok_or_else(|| {
+    io::Error::new(
+      ErrorKind::InvalidInput,
+      "publish destination must have a parent directory",
+    )
+  })?;
+  let mut staged = tempfile::NamedTempFile::new_in(directory)?;
+  let mut source_file = fs::File::open(source)?;
+  io::copy(&mut source_file, staged.as_file_mut())?;
+  staged.as_file().sync_all()?;
+  staged
+    .persist_noclobber(destination)
+    .map(|_file| ())
+    .map_err(|error| error.error)
 }
 
 #[cfg(test)]
@@ -212,6 +222,35 @@ mod tests {
 
     assert_eq!(error.kind(), ErrorKind::AlreadyExists);
     assert_eq!(fs::read(&destination).unwrap(), b"already published");
+  }
+
+  #[test]
+  fn a_failed_fallback_copy_never_names_destination_and_leaves_no_stray_file() {
+    let directory = tempfile::tempdir().unwrap();
+    // A source that cannot be opened makes the copy fail after the temporary
+    // file has already been created beside `destination`, exercising the
+    // property that matters most: `destination` must never be observable
+    // half-written, and a failed attempt must not block a retry with its own
+    // leftovers.
+    let source = directory.path().join("missing-source");
+    let destination = directory.path().join("destination");
+
+    let error = publish_without_replacing_with(
+      |_, _| Err(unsupported_error()),
+      &source,
+      &destination,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.kind(), ErrorKind::NotFound);
+    assert!(
+      !destination.exists(),
+      "destination must not exist until the copy is complete"
+    );
+    assert!(
+      fs::read_dir(directory.path()).unwrap().next().is_none(),
+      "a failed fallback must not leave a partial file behind"
+    );
   }
 
   #[test]
