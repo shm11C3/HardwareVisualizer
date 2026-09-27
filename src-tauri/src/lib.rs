@@ -779,6 +779,15 @@ pub fn run() {
         .state::<app::native_lifecycle::NativeLifecycleOwner>()
         .set_state(native_lifecycle_state.clone());
 
+      // #2269: a SQLite source this build could not verify must never be
+      // converted, even after the user continues past the startup dialog.
+      #[cfg(feature = "duckdb-archive")]
+      if let Some(db_err) = &db_error {
+        app
+          .state::<app::native_conversion::ConversionRuntime>()
+          .refuse_for_unverified_sqlite_source(format!("{db_err:?}"));
+      }
+
       if is_db_ok {
         // Retire the SQLite source (rename in place; decided 2026-09-13,
         // Design Doc) on a startup that finds native authority *already*

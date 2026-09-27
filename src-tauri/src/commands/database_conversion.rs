@@ -87,7 +87,10 @@ mod imp {
   pub(super) async fn get_database_conversion_state(
     app: tauri::AppHandle,
   ) -> DatabaseConversionState {
-    app.state::<NativeLifecycleOwner>().state().into()
+    crate::models::database_conversion::conversion_state_for(
+      app.state::<NativeLifecycleOwner>().state(),
+      app.state::<ConversionRuntime>().unverified_sqlite_source(),
+    )
   }
 
   pub(super) async fn start_database_conversion(

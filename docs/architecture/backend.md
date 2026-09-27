@@ -253,7 +253,10 @@ Startup flow:
    (`dispatch::init` then `dispatch::reobserve_authority`), so every
    consumer answers consistently from that point on.
 5. DB-dependent Core workers start only when startup preflight (SQLite path)
-   or the dispatch boundary (native path) allows it.
+   or the dispatch boundary (native path) allows it. When SQLite preflight
+   fails and the user continues anyway, those workers stay stopped and
+   conversion is refused for the rest of that session, since it would copy
+   from a schema this build could not verify (#2269).
 6. On a later boot that finds the native database already authoritative and
    verified, App retires the SQLite source in place (renamed with a
    `.retired` suffix) rather than deleting it.

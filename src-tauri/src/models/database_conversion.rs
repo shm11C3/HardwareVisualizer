@@ -89,6 +89,34 @@ impl From<crate::app::native_lifecycle::DatabaseLifecycleState>
   }
 }
 
+/// What the frontend should see for `state` when startup's SQLite
+/// compatibility preflight may have failed this session (#2269).
+///
+/// `unverified_sqlite_source` is
+/// `app::native_conversion::ConversionRuntime::unverified_sqlite_source`.
+/// While SQLite is still the source a conversion would copy from, a failed
+/// preflight is reported as `ActionRequired` with its own reason key, so
+/// neither the startup prompt nor Settings offers a Convert action the
+/// backend refuses. The lifecycle state itself stays as it is: SQLite is
+/// still authoritative for reads.
+#[cfg(feature = "duckdb-archive")]
+pub fn conversion_state_for(
+  state: crate::app::native_lifecycle::DatabaseLifecycleState,
+  unverified_sqlite_source: Option<String>,
+) -> DatabaseConversionState {
+  match unverified_sqlite_source {
+    Some(diagnostic)
+      if crate::app::native_lifecycle::sqlite_source_is_authoritative(&state) =>
+    {
+      DatabaseConversionState::ActionRequired {
+        reason: "sqliteSourceUnverified".to_string(),
+        diagnostic,
+      }
+    }
+    _ => state.into(),
+  }
+}
+
 /// A stable i18n key per [`crate::app::native_lifecycle::LifecycleIssue`]
 /// case, paired with the `Debug` detail for diagnostics. None of these
 /// leak a file path or an internal type into the normal-flow message; the
@@ -132,6 +160,39 @@ mod tests {
     assert_eq!(
       DatabaseConversionState::from(DatabaseLifecycleState::SqliteAuthoritative),
       DatabaseConversionState::SqliteAuthoritative
+    );
+  }
+
+  /// #2269: a session whose SQLite compatibility check failed must not
+  /// report a startable state, from either state a start begins from.
+  #[test]
+  fn an_unverified_sqlite_source_is_reported_as_action_required() {
+    for state in [
+      DatabaseLifecycleState::SqliteAuthoritative,
+      DatabaseLifecycleState::ConversionRecoverable { resumable: false },
+    ] {
+      assert_eq!(
+        conversion_state_for(state, Some("IncompatibleVersion".to_owned())),
+        DatabaseConversionState::ActionRequired {
+          reason: "sqliteSourceUnverified".to_owned(),
+          diagnostic: "IncompatibleVersion".to_owned(),
+        }
+      );
+    }
+  }
+
+  #[test]
+  fn a_verified_sqlite_source_reports_the_lifecycle_state_unchanged() {
+    assert_eq!(
+      conversion_state_for(DatabaseLifecycleState::SqliteAuthoritative, None),
+      DatabaseConversionState::SqliteAuthoritative
+    );
+    assert_eq!(
+      conversion_state_for(
+        DatabaseLifecycleState::NativeAuthoritative,
+        Some("IncompatibleVersion".to_owned())
+      ),
+      DatabaseConversionState::NativeAuthoritative
     );
   }
 
