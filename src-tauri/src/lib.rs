@@ -24,6 +24,8 @@ mod services;
 mod tray;
 mod utils;
 mod webview_memory;
+#[cfg(target_os = "windows")]
+mod windows_activation;
 pub mod workers;
 
 #[cfg(test)]
@@ -520,6 +522,20 @@ pub fn run_cli_mode_if_requested() -> Option<i32> {
 }
 
 pub fn run() {
+  // Claim this launch before settings or database startup. A second Windows
+  // launch only signals the first process and exits, so it cannot open another
+  // database owner while the existing app is hidden in the tray.
+  #[cfg(target_os = "windows")]
+  let activation_event =
+    match windows_activation::claim_or_forward(&utils::tauri::get_identifier()) {
+      Ok(windows_activation::StartupInstance::Primary(event)) => event,
+      Ok(windows_activation::StartupInstance::Forwarded) => return,
+      Err(error) => {
+        windows_activation::report_startup_error(&error);
+        std::process::exit(windows_activation::ACTIVATION_FAILED_EXIT_CODE);
+      }
+    };
+
   let builder = build_specta_builder();
 
   #[cfg(debug_assertions)]
@@ -991,6 +1007,10 @@ pub fn run() {
           });
         }
       }
+
+      #[cfg(target_os = "windows")]
+      windows_activation::start_receiver(activation_event, app.handle().clone())
+        .map_err(std::io::Error::other)?;
 
       Ok(())
     })
