@@ -942,7 +942,8 @@ pub async fn run_conversion(
 /// committed is `ConversionFailed` recorded and the producers resumed, with
 /// fresh `make_resumers`, because the panicked task consumed its own. A
 /// state other than `Converting` means the attempt already recorded its
-/// outcome before panicking, so nothing is overwritten.
+/// outcome before panicking, so nothing is overwritten; producers that
+/// outcome runs on are still restored.
 ///
 /// Why not a `Drop` guard inside the task instead: settling can close the
 /// owner's database handle and refuse dispatch consumers, both async, and
@@ -987,22 +988,61 @@ pub async fn await_conversion_task(
     Some(message.clone())
   );
 
-  let DatabaseLifecycleState::Converting(step) = owner.state() else {
-    return None;
+  let producers_should_run = match owner.state() {
+    DatabaseLifecycleState::Converting(step) => {
+      settle_panicked_step(
+        owner,
+        paths,
+        expected_schema_version,
+        handoff,
+        step,
+        &message,
+      )
+      .await
+    }
+    // The attempt recorded its outcome and then panicked, for example in a
+    // resumer closure: the recorded outcome stands, but these outcomes are
+    // the ones `run_conversion` resumes the producers for.
+    DatabaseLifecycleState::NativeAuthoritative
+    | DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::ConversionFailed { .. }
+      | LifecycleIssue::ConversionCancelled { .. },
+    ) => true,
+    _ => false,
   };
+  if producers_should_run {
+    start_missing_producers(workers, make_resumers());
+    log_info!(
+      "database producers restored after a conversion panic",
+      "app::native_conversion::await_conversion_task",
+      None::<&str>
+    );
+  }
+  None
+}
+
+/// Record what a conversion that panicked in `step` left behind, and
+/// whether the producers may run.
+async fn settle_panicked_step(
+  owner: &NativeLifecycleOwner,
+  paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
+  expected_schema_version: u32,
+  handoff: SelectionHandoff,
+  step: ConversionProgress,
+  message: &str,
+) -> bool {
   // The inspection must not run beside this process's own open handle: a
   // panic between `open_selected_database` and the dispatch hand-off leaves
-  // the owner's copy open.
+  // the owner's copy open. That copy exists only after the commit, and a
+  // failed close does not prove the handle is gone, so fail closed without
+  // inspecting, the same way a failed close in the hand-off does.
   if let Some(database) = owner.take_selected_database()
     && let Err(error) = database.close().await
   {
-    log_error!(
-      "closing the owner's native database after a conversion panic failed",
-      "app::native_conversion::await_conversion_task",
-      Some(error.to_string())
-    );
+    fail_open_after_selection(owner, handoff, &format!("{message}; {error}")).await;
+    return false;
   }
-  let settled = settle_uncertain_selection(
+  match settle_uncertain_selection(
     owner,
     paths,
     expected_schema_version,
@@ -1010,29 +1050,42 @@ pub async fn await_conversion_task(
     step,
     &message,
   )
-  .await;
-  match settled {
-    SettledSelection::NotCommitted => {
-      // The cooling rollup always runs unless paused, so its absence says
-      // the pause took them; never start a second set beside a live one.
-      if workers.cooling_rollup.lock().unwrap().is_none() {
-        resume_producers(workers, make_resumers());
-        log_info!(
-          "database producers resumed after a conversion panic",
-          "app::native_conversion::await_conversion_task",
-          None::<&str>
-        );
-      }
-    }
+  .await
+  {
+    SettledSelection::NotCommitted => true,
     // The selection is durable but was not handed over. Recorded like a
     // failed open, so a retry takes `run_conversion`'s entry path, which
     // opens and hands it over and then resumes the producers.
     SettledSelection::Committed => {
       fail_open_after_selection(owner, handoff, &message).await;
+      false
     }
-    SettledSelection::ActionRequired => {}
+    SettledSelection::ActionRequired => false,
   }
-  None
+}
+
+/// Start each producer whose slot in `workers` is empty. A panic can leave
+/// any subset paused - partway through the pause, or partway through
+/// [`resume_producers`] - and replacing a live controller would run two.
+fn start_missing_producers(workers: &WorkersState, resumers: ProducerResumers) {
+  if let Some(make) = resumers.hw_archive {
+    let mut slot = workers.hw_archive.lock().unwrap();
+    if slot.is_none() {
+      slot.replace(make());
+    }
+  }
+  {
+    let mut slot = workers.cooling_rollup.lock().unwrap();
+    if slot.is_none() {
+      slot.replace((resumers.cooling_rollup)());
+    }
+  }
+  if let Some(make) = resumers.storage_health {
+    let mut slot = workers.storage_health.lock().unwrap();
+    if slot.is_none() {
+      slot.replace(make());
+    }
+  }
 }
 
 async fn reconcile_and_select(
@@ -3154,5 +3207,48 @@ mod tests {
     assert!(matches!(result, Some(Err(ConversionError::Finalize(_)))));
     assert_eq!(owner.state(), recorded);
     assert!(workers.cooling_rollup.lock().unwrap().is_none());
+  }
+
+  /// A resumer closure can panic after the attempt already recorded its
+  /// outcome; the outcome stands, and the producers it runs on come back.
+  #[tokio::test]
+  async fn a_panic_after_the_outcome_is_recorded_keeps_it_and_restores_producers() {
+    let fixture = Fixture::new().await;
+    let handle = tokio::runtime::Handle::current();
+    let owner = std::sync::Arc::new(NativeLifecycleOwner::new());
+    let workers = running_producers(handle.clone());
+    let recorded =
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionCancelled {
+        step: ConversionProgress::Reconciling,
+      });
+
+    let task = tokio::spawn({
+      let owner = owner.clone();
+      let workers = workers.clone();
+      let recorded = recorded.clone();
+      async move {
+        pause_and_drain_producers(&workers).await;
+        owner.set_state(recorded);
+        panicking_resumer()
+      }
+    });
+    let result = await_conversion_task(
+      task,
+      &owner,
+      &workers,
+      &fixture.paths(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      SelectionHandoff::OwnerOnly,
+      || empty_resumers(handle.clone()),
+    )
+    .await;
+
+    assert!(result.is_none());
+    assert_eq!(owner.state(), recorded);
+    assert!(workers.cooling_rollup.lock().unwrap().is_some());
+  }
+
+  fn panicking_resumer() -> Result<ConversionOutcome, ConversionError> {
+    panic!("stub resumer closure panicked");
   }
 }
