@@ -11,6 +11,10 @@ use crate::app::native_lifecycle::LifecycleIssue;
 const RESET_LABEL: &str = "Reset and Restart";
 const CONTINUE_LABEL: &str = "Continue Anyway";
 const EXIT_LABEL: &str = "Exit";
+#[cfg(feature = "duckdb-archive")]
+const RETRY_LABEL: &str = "Retry";
+#[cfg(feature = "duckdb-archive")]
+const MORE_OPTIONS_LABEL: &str = "More Options";
 
 /// The one Reset-consequence sentence both dialogs that offer it show.
 ///
@@ -137,6 +141,12 @@ pub fn reset_database_and_restart(handle: &tauri::AppHandle) {
     return;
   }
 
+  restart(handle);
+}
+
+/// Start a fresh copy of this process and exit this one. Used from a startup
+/// dialog, before any database-backed worker has started.
+pub fn restart(handle: &tauri::AppHandle) {
   let exe_path = match std::env::current_exe() {
     Ok(path) => path,
     Err(e) => {
@@ -199,7 +209,11 @@ pub(crate) fn delete_database_files(db_path: &Path) -> std::io::Result<()> {
 
 /// User's chosen action from the native authority issue dialog.
 #[cfg(feature = "duckdb-archive")]
+#[derive(Debug, PartialEq, Eq)]
 pub enum NativeAuthorityAction {
+  /// Restart and inspect the same files again, changing nothing. Offered
+  /// first when the issue may clear on its own ([`offers_retry_first`]).
+  Retry,
   /// Delete every database artifact (SQLite and native) and restart on a
   /// clean profile. The only way forward when continuing means running with
   /// database-backed features disabled indefinitely and the user wants a
@@ -222,11 +236,33 @@ pub enum NativeAuthorityAction {
 /// two disagreeing files is correct the way a narrower "keep one, discard
 /// the other" repair would. The only files `inspect_authority` still refuses
 /// to guess about are the ones Reset removes entirely.
+///
+/// When the files could not be read rather than shown to disagree
+/// ([`offers_retry_first`]), a first dialog offers only Retry, More Options
+/// and Exit. Reset is reached only through More Options, so the destructive
+/// path is never the first or default choice for a lock or a missing
+/// temporary directory that clears on its own (#2268).
 #[cfg(feature = "duckdb-archive")]
 pub fn prompt_native_authority_issue(
   handle: &tauri::AppHandle,
   issue: &LifecycleIssue,
 ) -> NativeAuthorityAction {
+  if offers_retry_first(issue) {
+    let result = handle
+      .dialog()
+      .message(build_native_retry_message(issue))
+      .title("Data Temporarily Unavailable")
+      .kind(MessageDialogKind::Warning)
+      .buttons(MessageDialogButtons::YesNoCancelCustom(
+        RETRY_LABEL.into(),
+        MORE_OPTIONS_LABEL.into(),
+        EXIT_LABEL.into(),
+      ))
+      .blocking_show_with_result();
+    if let Some(action) = retry_first_action(&result) {
+      return action;
+    }
+  }
   let result = handle
     .dialog()
     .message(build_native_authority_message(issue))
@@ -250,6 +286,57 @@ pub fn prompt_native_authority_issue(
   } else {
     NativeAuthorityAction::Exit
   }
+}
+
+/// Whether startup offers Retry before Reset for `issue`: the native database
+/// could not be opened this time, which a lock or a missing temporary
+/// directory explains, rather than the files showing a disagreement. Core owns
+/// which authority reasons may clear
+/// ([`AuthorityInconsistency::may_clear_on_retry`]); `NativeOpenFailed` is the
+/// same failure to open a database already selected, which Reset would delete.
+///
+/// [`AuthorityInconsistency::may_clear_on_retry`]: hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::may_clear_on_retry
+#[cfg(feature = "duckdb-archive")]
+fn offers_retry_first(issue: &LifecycleIssue) -> bool {
+  match issue {
+    LifecycleIssue::Authority(reason)
+    | LifecycleIssue::NativeRebuildInspectionRequired { reason } => {
+      reason.may_clear_on_retry()
+    }
+    LifecycleIssue::NativeOpenFailed { .. } => true,
+    _ => false,
+  }
+}
+
+/// The retry-first dialog's result: an action, or `None` for More Options,
+/// which shows the full dialog. Closing the dialog exits; no result resets.
+#[cfg(feature = "duckdb-archive")]
+fn retry_first_action(result: &MessageDialogResult) -> Option<NativeAuthorityAction> {
+  if *result == MessageDialogResult::Yes
+    || *result == MessageDialogResult::Custom(RETRY_LABEL.into())
+  {
+    Some(NativeAuthorityAction::Retry)
+  } else if *result == MessageDialogResult::No
+    || *result == MessageDialogResult::Custom(MORE_OPTIONS_LABEL.into())
+  {
+    None
+  } else {
+    Some(NativeAuthorityAction::Exit)
+  }
+}
+
+#[cfg(feature = "duckdb-archive")]
+fn build_native_retry_message(issue: &LifecycleIssue) -> String {
+  format!(
+    "HardwareVisualizer could not open the native database to check its state. This is \
+     often temporary: another app may be using the file, or temporary storage may be \
+     unavailable.\n\n\
+     Close any app that may be using the database and choose Retry. Nothing has been \
+     deleted.\n\n\
+     More Options lets you continue with real-time monitoring only, or reset the data if \
+     retrying does not help.\n\n\
+     [Details: {issue:?}]"
+  )
 }
 
 #[cfg(feature = "duckdb-archive")]
@@ -369,6 +456,84 @@ mod tests {
     });
     assert!(msg.contains(RESET_HISTORY_NOTE));
     assert!(msg.contains("could not open the spill directory"));
+    assert!(!msg.contains("\n\n\n"), "{msg:?}");
+  }
+
+  /// #2268: a native database that could not be opened offers Retry first;
+  /// a disagreement the files positively show keeps the full dialog.
+  #[cfg(feature = "duckdb-archive")]
+  #[test]
+  fn only_an_issue_that_may_clear_offers_retry_first() {
+    use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency as A;
+
+    for issue in [
+      LifecycleIssue::Authority(A::NativeMetadataUnreadable),
+      LifecycleIssue::NativeRebuildInspectionRequired {
+        reason: A::NativeMetadataUnreadable,
+      },
+      LifecycleIssue::NativeOpenFailed {
+        message: "could not open the spill directory".to_owned(),
+      },
+    ] {
+      assert!(offers_retry_first(&issue), "{issue:?}");
+    }
+    for issue in [
+      LifecycleIssue::Authority(A::NativeMetadataInvalid),
+      LifecycleIssue::Authority(A::MarkerDisagreesWithNativeDatabase),
+      LifecycleIssue::NativeRebuildInspectionRequired {
+        reason: A::NativeMetadataInvalid,
+      },
+      LifecycleIssue::FreshCreationFailed {
+        message: "disk full".to_owned(),
+      },
+    ] {
+      assert!(!offers_retry_first(&issue), "{issue:?}");
+    }
+  }
+
+  /// #2268: the retry-first dialog never resets. Its first button retries,
+  /// its second opens the full dialog, and closing it exits.
+  #[cfg(feature = "duckdb-archive")]
+  #[test]
+  fn the_retry_first_dialog_never_maps_to_reset() {
+    assert_eq!(
+      retry_first_action(&MessageDialogResult::Yes),
+      Some(NativeAuthorityAction::Retry)
+    );
+    assert_eq!(
+      retry_first_action(&MessageDialogResult::Custom(RETRY_LABEL.into())),
+      Some(NativeAuthorityAction::Retry)
+    );
+    assert_eq!(retry_first_action(&MessageDialogResult::No), None);
+    assert_eq!(
+      retry_first_action(&MessageDialogResult::Custom(MORE_OPTIONS_LABEL.into())),
+      None
+    );
+    for result in [
+      MessageDialogResult::Cancel,
+      MessageDialogResult::Ok,
+      MessageDialogResult::Custom(EXIT_LABEL.into()),
+      MessageDialogResult::Custom(RESET_LABEL.into()),
+    ] {
+      assert_eq!(
+        retry_first_action(&result),
+        Some(NativeAuthorityAction::Exit),
+        "{result:?}"
+      );
+    }
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  #[test]
+  fn native_retry_message_names_retry_and_keeps_reset_secondary() {
+    let msg = build_native_retry_message(&LifecycleIssue::Authority(
+      hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable,
+    ));
+    assert!(msg.contains("Retry"));
+    assert!(msg.contains("More Options"));
+    assert!(msg.contains("Nothing has been deleted"));
+    assert!(msg.contains("NativeMetadataUnreadable"));
+    assert!(!msg.contains(RESET_HISTORY_NOTE));
     assert!(!msg.contains("\n\n\n"), "{msg:?}");
   }
 

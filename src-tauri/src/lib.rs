@@ -994,6 +994,7 @@ pub fn run() {
           std::thread::spawn(move || {
             use app::startup::{self, NativeAuthorityAction};
             match startup::prompt_native_authority_issue(&handle, &issue) {
+              NativeAuthorityAction::Retry => startup::restart(&handle),
               NativeAuthorityAction::ResetAndRestart => {
                 startup::reset_database_and_restart(&handle);
               }
