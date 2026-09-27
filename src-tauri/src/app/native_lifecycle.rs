@@ -385,6 +385,15 @@ impl NativeLifecycleOwner {
   }
 
   pub fn set_state(&self, state: DatabaseLifecycleState) {
+    // #2271: keep Core's cooling baseline pin gate
+    // (`dispatch::set_lazy_pin_writable`) in lock-step with every state
+    // change, computed before the state lock is even taken - see the
+    // `set_state_if` doc below for why this is the one place that must not
+    // miss a transition, and `database_writable`'s own doc for why its
+    // verdict is the right one to reuse here.
+    hardviz_core::infrastructure::database::dispatch::set_lazy_pin_writable(
+      database_writable(&state),
+    );
     *self.state.lock().unwrap() = state;
   }
 
@@ -400,6 +409,13 @@ impl NativeLifecycleOwner {
   /// indivisible step - reading [`Self::state`] and calling
   /// [`Self::set_state`] separately would leave a window where a concurrent
   /// write could be silently overwritten.
+  ///
+  /// Also the other place (besides [`Self::set_state`]) that must keep
+  /// Core's cooling baseline pin gate in step (#2271): every transition this
+  /// owner can reach goes through one of these two methods, so gating the
+  /// pin here too, before the transition is actually written, means no
+  /// caller anywhere in the conversion driver has to remember to do it
+  /// itself.
   pub fn set_state_if(
     &self,
     predicate: impl FnOnce(&DatabaseLifecycleState) -> bool,
@@ -407,6 +423,9 @@ impl NativeLifecycleOwner {
   ) -> bool {
     let mut guard = self.state.lock().unwrap();
     if predicate(&guard) {
+      hardviz_core::infrastructure::database::dispatch::set_lazy_pin_writable(
+        database_writable(&next),
+      );
       *guard = next;
       true
     } else {

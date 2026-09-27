@@ -313,19 +313,25 @@ pub(crate) async fn resolve_delta_baseline_state(
     None => {
       let derived = derive_delta_baseline_state(days);
       if let Some(baseline) = EstablishedDeltaBaseline::from_state(&derived) {
-        // Write-once bookkeeping, not part of the answer - a transient
-        // failure must not turn a valid derivation into a read error.
-        // Retried on the next resolution, same rule as the `_from_pool`
-        // resolver above.
-        if let Err(e) =
-          dispatch::cooling_delta_baseline::insert_established_delta_baseline(&baseline)
-            .await
-        {
-          crate::log_error!(
-            "Failed to pin the established ΔT cooling baseline; retrying on the next resolution",
-            "persistence::cooling_delta_baseline::resolve_delta_baseline_state",
-            Some(e.to_string())
-          );
+        // #2271: same conversion-window guard as
+        // `cooling_baseline::resolve_baseline_state` - see its comment for
+        // why a read command's lazy pin must not write while the App's
+        // conversion lifecycle owner reports `Converting`.
+        if dispatch::lazy_pin_writable() {
+          // Write-once bookkeeping, not part of the answer - a transient
+          // failure must not turn a valid derivation into a read error.
+          // Retried on the next resolution, same rule as the `_from_pool`
+          // resolver above.
+          if let Err(e) =
+            dispatch::cooling_delta_baseline::insert_established_delta_baseline(&baseline)
+              .await
+          {
+            crate::log_error!(
+              "Failed to pin the established ΔT cooling baseline; retrying on the next resolution",
+              "persistence::cooling_delta_baseline::resolve_delta_baseline_state",
+              Some(e.to_string())
+            );
+          }
         }
       }
       Ok(derived)
@@ -673,5 +679,74 @@ mod tests {
 
     assert_eq!(window_start_date, start);
     assert_eq!(delta_temperature_avg, 12.0);
+  }
+
+  /// #2271: same conversion-window guard as
+  /// `cooling_baseline`'s own `a_read_during_conversion_does_not_pin_and_pins_normally_once_the_window_closes`
+  /// - see that test's doc for why this exercises the resolver's
+  /// select/derive/gate/insert shape directly against an isolated pool
+  /// instead of driving `resolve_delta_baseline_state` itself.
+  #[cfg(feature = "duckdb-archive")]
+  #[tokio::test]
+  async fn a_read_during_conversion_does_not_pin_the_delta_baseline_and_pins_normally_after()
+   {
+    use crate::infrastructure::database;
+    use crate::infrastructure::database::dispatch;
+    use crate::infrastructure::database::test_schema::{
+      COOLING_DELTA_BASELINE_DDL, create_tables,
+    };
+    use sqlx::SqlitePool;
+
+    let _guard = dispatch::test_support::lock_lazy_pin_writable().await;
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    create_tables(&pool, &[COOLING_DELTA_BASELINE_DDL]).await;
+    let days = qualifying_days("Desk", date(2026, 8, 1), REQUIRED, 12.0);
+    let derived = derive_delta_baseline_state(&days);
+    let established =
+      EstablishedDeltaBaseline::from_state(&derived).expect("this window must establish");
+
+    // The App marks the lifecycle owner `Converting`: the gate the
+    // resolver checks before writing closes.
+    dispatch::set_lazy_pin_writable(false);
+    if dispatch::lazy_pin_writable() {
+      database::cooling_delta_baseline::insert_established_delta_baseline_from_pool(
+        &pool,
+        &established,
+        chrono::Utc::now(),
+      )
+      .await
+      .unwrap();
+    }
+    assert_eq!(
+      database::cooling_delta_baseline::select_established_delta_baseline_from_pool(
+        &pool
+      )
+      .await
+      .unwrap(),
+      None,
+      "the ΔT pin must not be written while the gate reports Converting"
+    );
+
+    // The conversion resolves and the owner leaves `Converting`: the gate
+    // reopens, and the very next resolution's write-back succeeds.
+    dispatch::set_lazy_pin_writable(true);
+    if dispatch::lazy_pin_writable() {
+      database::cooling_delta_baseline::insert_established_delta_baseline_from_pool(
+        &pool,
+        &established,
+        chrono::Utc::now(),
+      )
+      .await
+      .unwrap();
+    }
+    assert_eq!(
+      database::cooling_delta_baseline::select_established_delta_baseline_from_pool(
+        &pool
+      )
+      .await
+      .unwrap(),
+      Some(established),
+      "the ΔT pin establishes normally once the conversion window closes"
+    );
   }
 }

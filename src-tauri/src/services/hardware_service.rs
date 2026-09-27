@@ -158,6 +158,7 @@ pub async fn refresh_storage_devices(
   identity_hash_key: [u8; hardviz_core::settings::STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
   collector: Option<std::sync::Arc<hardviz_core::collector::LiveStorageHealthCollector>>,
   guidance_sink: Option<hardviz_core::persistence::ExternalComponentGuidanceSink>,
+  ensure_writable: impl FnOnce() -> Result<(), String>,
 ) -> Result<Vec<hardviz_core::models::hardware::StorageHealthRecord>, String> {
   let Some(collector) = collector else {
     return Err("Storage device re-detection is unavailable".to_string());
@@ -186,6 +187,13 @@ pub async fn refresh_storage_devices(
       Vec::new()
     }
   };
+
+  // #2271: the command's own `ensure_database_writable` check happens
+  // before the (blocking, I/O-bound) device enumeration above; a conversion
+  // can start and reach `Converting` in that gap. Re-checking here, right
+  // before the write, closes the window down to this call's own await
+  // instead of leaving it open for the whole enumeration.
+  ensure_writable()?;
 
   hardviz_core::persistence::refresh_storage_health_for_date(
     retention_days,
@@ -229,11 +237,45 @@ mod tests {
 
   #[tokio::test]
   async fn refresh_storage_devices_errors_when_collector_is_absent() {
-    let error = refresh_storage_devices(1, [0x42; 32], None, None)
+    let error = refresh_storage_devices(1, [0x42; 32], None, None, || Ok(()))
       .await
       .expect_err("missing collector should be reported");
 
     assert!(error.contains("unavailable"));
+  }
+
+  /// #2271: the collector-absent check happens before `ensure_writable` is
+  /// ever called, so this proves the guard added for the conversion-window
+  /// race does not shadow that earlier, unrelated refusal.
+  #[tokio::test]
+  async fn refresh_storage_devices_does_not_consult_ensure_writable_when_collector_is_absent()
+   {
+    let error = refresh_storage_devices(1, [0x42; 32], None, None, || {
+      panic!("ensure_writable must not be called without a collector")
+    })
+    .await
+    .expect_err("missing collector should be reported");
+
+    assert!(error.contains("unavailable"));
+  }
+
+  /// #2271: a conversion can reach `Converting` during the (blocking)
+  /// device enumeration this function awaits before its write. Re-checking
+  /// writability right before the write - not only at the command's own
+  /// entry, before enumeration - must refuse instead of writing through a
+  /// window a caller believed was already closed.
+  #[tokio::test]
+  async fn refresh_storage_devices_refuses_the_write_when_ensure_writable_fails_after_enumeration()
+   {
+    let collector = Arc::new(LiveStorageHealthCollector::new([0x42; 32]));
+
+    let error = refresh_storage_devices(1, [0x42; 32], Some(collector), None, || {
+      Err("the database is unavailable for writing right now".to_string())
+    })
+    .await
+    .expect_err("a writability check that fails after enumeration must refuse the write");
+
+    assert!(error.contains("unavailable for writing"));
   }
 
   #[cfg(not(target_os = "windows"))]

@@ -292,6 +292,15 @@ pub async fn refresh_storage_devices(
   // dispatch answers this write from the native database.
   ensure_database_writable(&app)?;
 
+  // #2271: the check above and the actual write below are separated by a
+  // blocking device enumeration, wide enough for a conversion to start and
+  // reach `Converting` in between. `hardware_service::refresh_storage_devices`
+  // re-runs this same check right before it writes, closing that window;
+  // pass it a fresh closure rather than the `Result` this call already
+  // produced, since that result is a point-in-time answer from before the
+  // enumeration even starts.
+  let app_for_write_check = app.clone();
+
   let (retention_days, identity_hash_key) = {
     let settings = state.core_settings.lock().unwrap();
     if !settings.storage_health.enabled {
@@ -313,6 +322,7 @@ pub async fn refresh_storage_devices(
     identity_hash_key,
     collector,
     Some(guidance_sink),
+    move || ensure_database_writable(&app_for_write_check),
   )
   .await
   .map(|records| records.into_iter().map(Into::into).collect())

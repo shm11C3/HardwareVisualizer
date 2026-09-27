@@ -378,6 +378,42 @@ mod boundary {
     Ok(())
   }
 
+  /// Whether a write reached from a *read* command's lazy write-back (the
+  /// cooling absolute/ΔT baseline pins - #2271) is currently safe.
+  ///
+  /// This is a second, narrower gate than [`Active`]: `Active` says which
+  /// backend answers a call, but SQLite stays `Active::Sqlite` for the
+  /// entire `Converting` window - the durable selection is not recorded
+  /// until reconciliation commits it. A pin written to SQLite after the
+  /// conversion's candidate snapshot was taken but before that commit is
+  /// never in the native database; it gets pinned again later, letting
+  /// `established_at` shift. The App's conversion lifecycle owner
+  /// (`native_lifecycle::NativeLifecycleOwner`) is the only writer, kept in
+  /// lock-step with its own state through `set_state`/`set_state_if`, using
+  /// the same [`database_writable`][dw]-shaped verdict that already governs
+  /// `commands::hardware::refresh_storage_devices`'s on-demand write.
+  ///
+  /// Only the two baseline pins consult this: every other dispatch-routed
+  /// write either goes through a producer `native_conversion::pause_and_drain_producers`
+  /// already stops, or is `refresh_storage_devices`'s own on-demand write,
+  /// guarded separately by `ensure_database_writable`. Defaults to
+  /// writable so a process that never starts a conversion (or a unit test
+  /// that never touches this module) behaves exactly as before.
+  ///
+  /// [dw]: ../../../../src-tauri/src/app/native_lifecycle.rs
+  static LAZY_PIN_WRITABLE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(true);
+
+  /// Set by the App's conversion lifecycle owner whenever its state changes.
+  pub fn set_lazy_pin_writable(writable: bool) {
+    LAZY_PIN_WRITABLE.store(writable, std::sync::atomic::Ordering::SeqCst);
+  }
+
+  /// Read by the cooling baseline resolvers before writing their lazy pin.
+  pub fn lazy_pin_writable() -> bool {
+    LAZY_PIN_WRITABLE.load(std::sync::atomic::Ordering::SeqCst)
+  }
+
   /// Close a native owner that was just taken out of the boundary.
   ///
   /// The caller has already replaced the owner with a non-serving transition
@@ -579,6 +615,37 @@ mod boundary {
         resolve_backend_with(Arc::clone(&active), None).await,
         Ok(Backend::Sqlite)
       ));
+    }
+
+    /// #2271: the cooling baseline pins (`persistence::cooling_baseline`,
+    /// `persistence::cooling_delta_baseline`) check
+    /// [`super::lazy_pin_writable`] before writing their lazy pin; the
+    /// App's conversion lifecycle owner drives it through
+    /// [`super::set_lazy_pin_writable`]. Defaults to writable so a process
+    /// that never starts a conversion behaves exactly as before, and a
+    /// round trip proves the flag actually holds whatever was last set
+    /// rather than resetting itself.
+    ///
+    /// Left `true` on every exit path because this flag is process-wide for
+    /// the whole test binary; `test_support::lock_lazy_pin_writable` keeps
+    /// this test from interleaving with
+    /// `persistence::cooling_baseline`'s own use of the same flag.
+    #[tokio::test]
+    async fn lazy_pin_writable_defaults_to_true_and_reflects_the_last_value_set() {
+      let _guard =
+        crate::infrastructure::database::dispatch::test_support::lock_lazy_pin_writable()
+          .await;
+
+      assert!(
+        super::lazy_pin_writable(),
+        "a process that never starts a conversion must not skip its lazy pin"
+      );
+
+      super::set_lazy_pin_writable(false);
+      assert!(!super::lazy_pin_writable());
+
+      super::set_lazy_pin_writable(true);
+      assert!(super::lazy_pin_writable());
     }
 
     #[tokio::test]
@@ -821,8 +888,45 @@ mod boundary {
 
 #[cfg(feature = "duckdb-archive")]
 pub use boundary::{
-  init, refuse_consumers, reobserve_authority, reobserve_expecting_selected, shutdown,
+  init, lazy_pin_writable, refuse_consumers, reobserve_authority,
+  reobserve_expecting_selected, set_lazy_pin_writable, shutdown,
 };
+
+/// [`boundary::lazy_pin_writable`] with `duckdb-archive` disabled: there is
+/// no conversion lifecycle and therefore no window to guard, so the two
+/// cooling baseline pins always write.
+#[cfg(not(feature = "duckdb-archive"))]
+pub fn lazy_pin_writable() -> bool {
+  true
+}
+
+/// [`boundary::set_lazy_pin_writable`] with `duckdb-archive` disabled: no
+/// lifecycle owner exists to call this, but it stays callable so App code
+/// does not need a second `#[cfg]` at the call site.
+#[cfg(not(feature = "duckdb-archive"))]
+pub fn set_lazy_pin_writable(_writable: bool) {}
+
+/// Serializes every test in this crate's test binary that calls
+/// [`set_lazy_pin_writable`] against the process-wide flag it toggles
+/// (#2271's tests, and this module's own). Without this, two such tests
+/// running on different threads (the ordinary `cargo test` default) could
+/// interleave their set/assert sequences against the same `static` and
+/// fail spuriously. Not needed by anything that only reads
+/// [`lazy_pin_writable`]: the flag's default (`true`) is stable until
+/// something calls `set_lazy_pin_writable`, and nothing in this crate's
+/// production code path does that outside the App's lifecycle owner.
+#[cfg(all(test, feature = "duckdb-archive"))]
+pub(crate) mod test_support {
+  // `tokio::sync::Mutex`, not `std::sync::Mutex`: every caller holds this
+  // guard across `.await` points for the whole span of its own test, which
+  // `clippy::await_holding_lock` correctly refuses for a std lock.
+  static LAZY_PIN_WRITABLE_TEST_LOCK: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
+
+  pub(crate) async fn lock_lazy_pin_writable() -> tokio::sync::MutexGuard<'static, ()> {
+    LAZY_PIN_WRITABLE_TEST_LOCK.lock().await
+  }
+}
 
 /// Checkpoint the native database if it is the currently selected backend;
 /// a no-op on SQLite (there is nothing to checkpoint, and no live owner to
