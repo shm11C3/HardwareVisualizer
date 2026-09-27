@@ -112,6 +112,15 @@ current process is not already elevated. Core cannot be elevated independently
 because it is linked into the App process; a Core-only elevation model would
 require a separate helper or service process and IPC boundary.
 
+On Windows, process startup claims a same-user, session-local Open event before
+reading settings or opening a database. Another launch signals that event and
+exits. After Tauri setup, the resident App listens and routes the signal through
+`restore_main_window`, which also serves the tray Open action. This early
+check keeps a second process out of the database startup path and permits a
+normal-integrity launcher to reopen an elevated resident without another UAC
+prompt. The existing single-instance plugin remains for older binaries; see
+[ADR 0007](../adr/0007-elevated-startup-mode.md) for the compatibility limit.
+
 ## Layer Responsibilities
 
 ### Commands (`src-tauri/src/commands/`)
