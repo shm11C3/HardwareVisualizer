@@ -61,8 +61,9 @@ mod imp {
   use tauri::Manager;
 
   use crate::app::native_conversion::{
-    ClaimedStart, ConversionOutcome, ConversionRuntime, ConversionTarget,
-    SelectionHandoff, build_producer_resumers, run_conversion,
+    AttemptClaim, ClaimedStart, ConversionCancellation, ConversionError,
+    ConversionOutcome, ConversionRuntime, ConversionTarget, ProducerResumers,
+    SelectionHandoff, await_conversion_task, build_producer_resumers, run_conversion,
   };
   use crate::app::native_lifecycle::{
     ConversionProgress, DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
@@ -75,14 +76,6 @@ mod imp {
   use hardviz_core::infrastructure::database::native_database::{
     NativeDatabaseError, archive_unselected_native_for_rebuild, plan_conversion_space,
   };
-
-  struct ConversionAttemptGuard(tauri::AppHandle);
-
-  impl Drop for ConversionAttemptGuard {
-    fn drop(&mut self) {
-      self.0.state::<ConversionRuntime>().end_attempt();
-    }
-  }
 
   pub(super) async fn get_database_conversion_state(
     app: tauri::AppHandle,
@@ -120,11 +113,13 @@ mod imp {
       return Ok(());
     };
 
-    let resumers = build_producer_resumers(&app, bus, runtime_handle.clone());
+    let resumers = build_producer_resumers(&app, bus.clone(), runtime_handle.clone());
+    let paths = native_paths::authority_paths();
+    let expected_schema_version = native_schema::NATIVE_SCHEMA_VERSION;
     let target = ConversionTarget {
-      paths: native_paths::authority_paths(),
+      paths: paths.clone(),
       workspace: native_paths::database_directory(),
-      expected_schema_version: native_schema::NATIVE_SCHEMA_VERSION,
+      expected_schema_version,
     };
 
     // Run on the shared Tokio runtime rather than awaiting inline: the
@@ -136,42 +131,54 @@ mod imp {
     // up fresh here rather than trying to smuggle a borrowed `State` across
     // the spawn boundary.
     let app_for_task = app.clone();
-    runtime_handle.spawn(async move {
+    runtime_handle.clone().spawn(async move {
+      // Looked up fresh here too, not carried across the spawn boundary -
+      // see the comment above this task's construction.
+      let conversion_runtime = app_for_task.state::<ConversionRuntime>();
+      let claim = AttemptClaim(conversion_runtime.inner());
       let owner = app_for_task.state::<NativeLifecycleOwner>();
       let workers = app_for_task.state::<WorkersState>();
 
-      let result = run_conversion(
+      let conversion = spawn_conversion(
+        &app_for_task,
+        &runtime_handle,
         target,
+        resumers,
+        cancellation,
+      );
+      let result = await_conversion_task(
+        conversion,
         &owner,
         &workers,
-        resumers,
-        &cancellation,
+        &paths,
+        expected_schema_version,
         SelectionHandoff::ThroughDispatch,
+        || build_producer_resumers(&app_for_task, bus, runtime_handle.clone()),
       )
       .await;
 
       match &result {
-        Ok(outcome) => log_info!(
+        Some(Ok(outcome)) => log_info!(
           "explicit database conversion attempt finished",
           "commands::database_conversion::start_database_conversion",
           Some(format!("{outcome:?}"))
         ),
-        Err(error) => log_error!(
+        Some(Err(error)) => log_error!(
           "explicit database conversion attempt failed",
           "commands::database_conversion::start_database_conversion",
           Some(error.to_string())
         ),
+        // `await_conversion_task` already logged why there is no result.
+        None => {}
       }
 
       let restart_after_recovery = should_restart_after_recovery_retry(
         &previous_state,
-        result.as_ref().ok(),
+        result.as_ref().and_then(|result| result.as_ref().ok()),
         &owner.state(),
       );
 
-      // Looked up fresh here too, not carried across the spawn boundary -
-      // see the comment above this task's construction.
-      app_for_task.state::<ConversionRuntime>().end_attempt();
+      drop(claim);
 
       if restart_after_recovery {
         log_info!(
@@ -228,7 +235,8 @@ mod imp {
       // The command RPC returns immediately. Keep preflight, the lock-held
       // archive, and conversion in this owned task so dropping the invoke
       // future cannot strand a moved file before `run_conversion` starts.
-      let _attempt_guard = ConversionAttemptGuard(app_for_task.clone());
+      let conversion_runtime = app_for_task.state::<ConversionRuntime>();
+      let _claim = AttemptClaim(conversion_runtime.inner());
       let owner = app_for_task.state::<NativeLifecycleOwner>();
       let preflight = async {
         plan_conversion_space(&paths.source_database, &workspace, None, false)
@@ -300,38 +308,73 @@ mod imp {
         "commands::database_conversion::rebuild_native_database_from_sqlite",
         Some(backup_path.display().to_string())
       );
-      let resumers = build_producer_resumers(&app_for_task, bus, runtime_handle.clone());
+      let resumers =
+        build_producer_resumers(&app_for_task, bus.clone(), runtime_handle.clone());
       let target = ConversionTarget {
-        paths,
+        paths: paths.clone(),
         workspace,
         expected_schema_version: schema_version,
       };
       let workers = app_for_task.state::<WorkersState>();
-      let result = run_conversion(
+      let conversion = spawn_conversion(
+        &app_for_task,
+        &runtime_handle,
         target,
+        resumers,
+        cancellation,
+      );
+      let result = await_conversion_task(
+        conversion,
         &owner,
         &workers,
-        resumers,
-        &cancellation,
+        &paths,
+        schema_version,
         SelectionHandoff::ThroughDispatch,
+        || build_producer_resumers(&app_for_task, bus, runtime_handle.clone()),
       )
       .await;
 
       match &result {
-        Ok(outcome) => log_info!(
+        Some(Ok(outcome)) => log_info!(
           "explicit SQLite rebuild after native backup finished",
           "commands::database_conversion::rebuild_native_database_from_sqlite",
           Some(format!("{outcome:?}"))
         ),
-        Err(error) => log_error!(
+        Some(Err(error)) => log_error!(
           "explicit SQLite rebuild after native backup failed",
           "commands::database_conversion::rebuild_native_database_from_sqlite",
           Some(error.to_string())
         ),
+        // `await_conversion_task` already logged why there is no result.
+        None => {}
       }
     });
 
     Ok(())
+  }
+
+  /// Run `run_conversion` in its own task, so the task that claimed the
+  /// attempt observes a panic through the `JoinHandle` and can settle the
+  /// state it left behind; see `await_conversion_task`.
+  fn spawn_conversion(
+    app: &tauri::AppHandle,
+    runtime: &tokio::runtime::Handle,
+    target: ConversionTarget,
+    resumers: ProducerResumers,
+    cancellation: ConversionCancellation,
+  ) -> tokio::task::JoinHandle<Result<ConversionOutcome, ConversionError>> {
+    let app = app.clone();
+    runtime.spawn(async move {
+      run_conversion(
+        target,
+        &app.state::<NativeLifecycleOwner>(),
+        &app.state::<WorkersState>(),
+        resumers,
+        &cancellation,
+        SelectionHandoff::ThroughDispatch,
+      )
+      .await
+    })
   }
 
   pub(super) async fn cancel_database_conversion(

@@ -441,6 +441,19 @@ impl ConversionRuntime {
   }
 }
 
+/// Releases a claimed attempt ([`ConversionRuntime::end_attempt`]) when
+/// dropped, including while a panic unwinds the task that holds it, so no
+/// path out of an attempt strands the claim and turns every later start into
+/// a silent no-op (#2266). The task that claimed the attempt holds it for the
+/// whole attempt and drops it only after the outcome is recorded.
+pub struct AttemptClaim<'a>(pub &'a ConversionRuntime);
+
+impl Drop for AttemptClaim<'_> {
+  fn drop(&mut self) {
+    self.0.end_attempt();
+  }
+}
+
 /// Build the real [`ProducerResumers`] the driver uses to restart database
 /// producers it paused for reconciliation, mirroring the construction
 /// `lib::run`'s own startup performs for the same three producers. Reads
@@ -914,6 +927,114 @@ pub async fn run_conversion(
   result
 }
 
+/// Await the task running [`run_conversion`] and, if it panicked, settle the
+/// state it left behind. Returns the conversion's own result, or `None` when
+/// the task did not return one.
+///
+/// A panic (a poisoned lock, a resumer closure, an `unreachable!`) otherwise
+/// leaves the owner reporting `Converting(step)` for good, and a panic after
+/// the pause leaves the producers stopped (#2266). The step alone does not
+/// say which database is authoritative: the claim marks `Converting` before
+/// the entry inspection, which may be about to find a selected native
+/// database, and a panic in `Selecting` may follow the commit. So this
+/// settles from what the files show, the same way a failed selection does
+/// ([`settle_uncertain_selection`]). Only when they prove the selection never
+/// committed is `ConversionFailed` recorded and the producers resumed, with
+/// fresh `make_resumers`, because the panicked task consumed its own. A
+/// state other than `Converting` means the attempt already recorded its
+/// outcome before panicking, so nothing is overwritten.
+///
+/// Why not a `Drop` guard inside the task instead: settling can close the
+/// owner's database handle and refuse dispatch consumers, both async, and
+/// `Drop` cannot await; it would also run on every normal return and need a
+/// disarm flag so it does not overwrite the recorded outcome. Awaiting the
+/// `JoinHandle` observes only a panic. The claim itself is still released by
+/// a guard ([`AttemptClaim`]), which is synchronous and correct on every
+/// path, including a panic here.
+pub async fn await_conversion_task(
+  task: tokio::task::JoinHandle<Result<ConversionOutcome, ConversionError>>,
+  owner: &NativeLifecycleOwner,
+  workers: &WorkersState,
+  paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
+  expected_schema_version: u32,
+  handoff: SelectionHandoff,
+  make_resumers: impl FnOnce() -> ProducerResumers,
+) -> Option<Result<ConversionOutcome, ConversionError>> {
+  let error = match task.await {
+    Ok(result) => return Some(result),
+    Err(error) => error,
+  };
+  if !error.is_panic() {
+    // Only runtime shutdown cancels this task; the process is exiting and
+    // the next startup inspects the files again.
+    log_error!(
+      "native database conversion task was cancelled",
+      "app::native_conversion::await_conversion_task",
+      Some(error.to_string())
+    );
+    return None;
+  }
+  let payload = error.into_panic();
+  let message = payload
+    .downcast_ref::<&str>()
+    .map(|message| (*message).to_owned())
+    .or_else(|| payload.downcast_ref::<String>().cloned())
+    .unwrap_or_else(|| "unknown panic payload".to_owned());
+  let message = format!("the conversion stopped unexpectedly: {message}");
+  log_error!(
+    "native database conversion task panicked",
+    "app::native_conversion::await_conversion_task",
+    Some(message.clone())
+  );
+
+  let DatabaseLifecycleState::Converting(step) = owner.state() else {
+    return None;
+  };
+  // The inspection must not run beside this process's own open handle: a
+  // panic between `open_selected_database` and the dispatch hand-off leaves
+  // the owner's copy open.
+  if let Some(database) = owner.take_selected_database()
+    && let Err(error) = database.close().await
+  {
+    log_error!(
+      "closing the owner's native database after a conversion panic failed",
+      "app::native_conversion::await_conversion_task",
+      Some(error.to_string())
+    );
+  }
+  let settled = settle_uncertain_selection(
+    owner,
+    paths,
+    expected_schema_version,
+    handoff,
+    step,
+    &message,
+  )
+  .await;
+  match settled {
+    SettledSelection::NotCommitted => {
+      // The cooling rollup always runs unless paused, so its absence says
+      // the pause took them; never start a second set beside a live one.
+      if workers.cooling_rollup.lock().unwrap().is_none() {
+        resume_producers(workers, make_resumers());
+        log_info!(
+          "database producers resumed after a conversion panic",
+          "app::native_conversion::await_conversion_task",
+          None::<&str>
+        );
+      }
+    }
+    // The selection is durable but was not handed over. Recorded like a
+    // failed open, so a retry takes `run_conversion`'s entry path, which
+    // opens and hands it over and then resumes the producers.
+    SettledSelection::Committed => {
+      fail_open_after_selection(owner, handoff, &message).await;
+    }
+    SettledSelection::ActionRequired => {}
+  }
+  None
+}
+
 async fn reconcile_and_select(
   owner: &NativeLifecycleOwner,
   paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
@@ -1015,21 +1136,64 @@ async fn settle_failed_selection(
   handoff: SelectionHandoff,
   error: NativeDatabaseError,
 ) -> Result<Option<ConversionOutcome>, ConversionError> {
+  match settle_uncertain_selection(
+    owner,
+    paths,
+    expected_schema_version,
+    handoff,
+    ConversionProgress::Selecting,
+    &error,
+  )
+  .await
+  {
+    SettledSelection::NotCommitted => Err(ConversionError::Select(error)),
+    SettledSelection::Committed => Ok(None),
+    SettledSelection::ActionRequired => Ok(Some(ConversionOutcome::ActionRequired)),
+  }
+}
+
+/// What [`settle_uncertain_selection`] found the files to show.
+#[derive(Debug, PartialEq, Eq)]
+enum SettledSelection {
+  /// SQLite is still authoritative; `ConversionFailed` is already recorded.
+  NotCommitted,
+  /// The selection committed (and the marker is repaired); nothing is
+  /// recorded yet.
+  Committed,
+  /// Neither can be proven; `ActionRequired` is already recorded and
+  /// dispatch refuses consumers under [`SelectionHandoff::ThroughDispatch`].
+  ActionRequired,
+}
+
+/// The inspection behind [`settle_failed_selection`], for any caller that
+/// stopped at `step` without knowing whether the selection committed: a
+/// failed [`select_native_database`], or a conversion task that panicked
+/// (see [`await_conversion_task`]).
+async fn settle_uncertain_selection(
+  owner: &NativeLifecycleOwner,
+  paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
+  expected_schema_version: u32,
+  handoff: SelectionHandoff,
+  step: ConversionProgress,
+  error: &impl std::fmt::Display,
+) -> SettledSelection {
   use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
 
   let on_disk = inspect_startup_authority(paths, expected_schema_version);
   let native_file = std::fs::symlink_metadata(&paths.native_database);
   if failed_before_commit(&on_disk, &native_file) {
-    fail(owner, ConversionProgress::Selecting, &error);
-    return Err(ConversionError::Select(error));
+    fail(owner, step, error);
+    return SettledSelection::NotCommitted;
   }
   log_error!(
-    "selecting the native database failed and the selection may have committed",
-    "app::native_conversion::settle_failed_selection",
-    Some(format!("{error}; the files now read as {on_disk:?}"))
+    "a conversion step failed and the native selection may have committed",
+    "app::native_conversion::settle_uncertain_selection",
+    Some(format!(
+      "{step:?}: {error}; the files now read as {on_disk:?}"
+    ))
   );
   let issue = match on_disk {
-    DatabaseLifecycleState::NativeAuthoritative => return Ok(None),
+    DatabaseLifecycleState::NativeAuthoritative => return SettledSelection::Committed,
     DatabaseLifecycleState::ActionRequired(issue) => issue,
     _ => LifecycleIssue::Authority(AuthorityInconsistency::NativeMetadataUnreadable),
   };
@@ -1045,13 +1209,13 @@ async fn settle_failed_selection(
     {
       log_error!(
         "closing the dispatch boundary's native owner failed while refusing consumers",
-        "app::native_conversion::settle_failed_selection",
+        "app::native_conversion::settle_uncertain_selection",
         Some(close_error.to_string())
       );
     }
   }
   owner.set_state(DatabaseLifecycleState::ActionRequired(issue));
-  Ok(Some(ConversionOutcome::ActionRequired))
+  SettledSelection::ActionRequired
 }
 
 /// Whether the re-inspection after a failed selection positively shows that
@@ -2806,5 +2970,189 @@ mod tests {
       source_before
     );
     assert_eq!(std::fs::read(&paths.marker).unwrap(), marker_before);
+  }
+
+  /// A stand-in for `run_conversion` that pauses the producers, reports
+  /// `step`, and then panics the way a poisoned lock or `unreachable!` would.
+  async fn panicking_conversion(
+    owner: std::sync::Arc<NativeLifecycleOwner>,
+    workers: std::sync::Arc<WorkersState>,
+    step: ConversionProgress,
+  ) -> Result<ConversionOutcome, ConversionError> {
+    pause_and_drain_producers(&workers).await;
+    owner.set_state(DatabaseLifecycleState::Converting(step));
+    panic!("stub conversion panicked at {step:?}");
+  }
+
+  fn running_producers(runtime: tokio::runtime::Handle) -> std::sync::Arc<WorkersState> {
+    let workers = std::sync::Arc::new(WorkersState::default());
+    workers
+      .cooling_rollup
+      .lock()
+      .unwrap()
+      .replace(CoolingRollupController::setup(runtime).0);
+    workers
+  }
+
+  /// #2266: a panicking conversion task left `Converting(step)` and the
+  /// claim in place until restart, and the producers it paused stopped.
+  #[tokio::test]
+  async fn a_panicked_conversion_is_settled_released_and_resumes_producers_on_sqlite() {
+    let fixture = Fixture::new().await;
+    let handle = tokio::runtime::Handle::current();
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(EventBus::new());
+    let owner = std::sync::Arc::new(NativeLifecycleOwner::new());
+    let workers = running_producers(handle.clone());
+    assert!(
+      runtime
+        .begin_attempt_marking_converting(&owner)
+        .unwrap()
+        .is_some()
+    );
+
+    {
+      let _claim = AttemptClaim(&runtime);
+      let task = tokio::spawn(panicking_conversion(
+        owner.clone(),
+        workers.clone(),
+        ConversionProgress::Reconciling,
+      ));
+      let result = await_conversion_task(
+        task,
+        &owner,
+        &workers,
+        &fixture.paths(),
+        native_schema::NATIVE_SCHEMA_VERSION,
+        SelectionHandoff::OwnerOnly,
+        || empty_resumers(handle.clone()),
+      )
+      .await;
+      assert!(result.is_none());
+    }
+
+    match owner.state() {
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step,
+        message,
+      }) => {
+        assert_eq!(step, ConversionProgress::Reconciling);
+        assert!(message.contains("stub conversion panicked"), "{message}");
+      }
+      other => panic!("expected ConversionFailed after the panic, got {other:?}"),
+    }
+    assert!(
+      workers.cooling_rollup.lock().unwrap().is_some(),
+      "producers paused by the panicked attempt must resume while SQLite is authoritative"
+    );
+    assert!(
+      runtime
+        .begin_attempt_marking_converting(&owner)
+        .unwrap()
+        .is_some(),
+      "the panicked attempt must release its claim so a later start is accepted"
+    );
+  }
+
+  /// A panic after the selection committed must not resume the producers on
+  /// the stale SQLite source (#2238); it is recorded like a failed open, and
+  /// the retry's entry path completes the hand-over.
+  #[tokio::test]
+  async fn a_panic_after_the_selection_committed_keeps_producers_paused() {
+    let fixture = Fixture::new().await;
+    let handle = tokio::runtime::Handle::current();
+    let owner = std::sync::Arc::new(NativeLifecycleOwner::new());
+    let workers = running_producers(handle.clone());
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(handle.clone()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(outcome, ConversionOutcome::Selected { .. }));
+
+    let task = tokio::spawn(panicking_conversion(
+      owner.clone(),
+      workers.clone(),
+      ConversionProgress::Selecting,
+    ));
+    let result = await_conversion_task(
+      task,
+      &owner,
+      &workers,
+      &fixture.paths(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      SelectionHandoff::OwnerOnly,
+      || empty_resumers(handle.clone()),
+    )
+    .await;
+
+    assert!(result.is_none());
+    assert!(
+      matches!(
+        owner.state(),
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed { .. })
+      ),
+      "{:?}",
+      owner.state()
+    );
+    assert!(owner.selected_database().is_none());
+    assert!(
+      workers.cooling_rollup.lock().unwrap().is_none(),
+      "producers must not resume while SQLite is no longer authoritative"
+    );
+
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(handle),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(outcome, ConversionOutcome::AlreadySelected));
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
+    assert!(workers.cooling_rollup.lock().unwrap().is_some());
+  }
+
+  /// Normal returns keep the outcome the conversion recorded; only a panic
+  /// is settled here.
+  #[tokio::test]
+  async fn a_conversion_that_returns_is_not_settled_again() {
+    let fixture = Fixture::new().await;
+    let owner = NativeLifecycleOwner::new();
+    let workers = WorkersState::default();
+    let recorded =
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::Finalizing,
+        message: "the recorded failure".to_owned(),
+      });
+    owner.set_state(recorded.clone());
+
+    let task = tokio::spawn(async {
+      Err(ConversionError::Finalize(NativeDatabaseError::Worker {
+        message: "the recorded failure".to_owned(),
+      }))
+    });
+    let result = await_conversion_task(
+      task,
+      &owner,
+      &workers,
+      &fixture.paths(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      SelectionHandoff::OwnerOnly,
+      || panic!("a returned conversion must not resume producers again"),
+    )
+    .await;
+
+    assert!(matches!(result, Some(Err(ConversionError::Finalize(_)))));
+    assert_eq!(owner.state(), recorded);
+    assert!(workers.cooling_rollup.lock().unwrap().is_none());
   }
 }
