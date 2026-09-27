@@ -120,7 +120,11 @@ export const commands = {
 	 */
 	getExternalComponentSetupComponents: () => __TAURI_INVOKE<ExternalComponent[]>("get_external_component_setup_components"),
 	getExternalComponentSetupStatus: (component: ExternalComponent) => typedError<ExternalComponentSetupStatus, string>(__TAURI_INVOKE("get_external_component_setup_status", { component })),
-	// Run External Component Setup in an elevated child process and wait for it.
+	/**
+	 *  Run External Component Setup in an elevated child process and wait for it.
+	 *  A successful run also defers the component's External Component Guidance
+	 *  for the session (see `external_component_setup_service::run`).
+	 */
 	runExternalComponentSetup: (component: ExternalComponent) => typedError<ExternalComponentSetupResult, string>(__TAURI_INVOKE("run_external_component_setup", { component })),
 	// ## Get an aggregated CPU/RAM archive series
 	getDataArchiveSeries: (hardwareType: DataArchiveHardwareType, dataStats: ArchiveDataStats, start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<ArchiveSeriesPoint[], string>(__TAURI_INVOKE("get_data_archive_series", { hardwareType, dataStats, start, end, bucketWidthMs, bucketTimestamp })),
