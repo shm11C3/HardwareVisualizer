@@ -556,7 +556,7 @@
         "dataState": {
           "title": "データ状態",
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
-          "sampleMinutes": "{{baseline}} / {{recent}} 分",
+          "sampleMinutes": "ベースライン: {{baseline}} 分 / 直近: {{recent}} 分",
           "temperatureSource": {
             "label": "温度ソース",
             "value": "CPU 温度(1 系統)"

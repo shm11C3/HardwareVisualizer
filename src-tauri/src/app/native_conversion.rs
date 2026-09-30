@@ -1737,6 +1737,7 @@ mod conversion_runtime_tests {
       A::MarkerUnreadable,
       A::MarkerWithoutNativeDatabase,
       A::MarkerNamesAnotherDatabase,
+      A::NativeMetadataInvalid,
       A::MarkerAheadOfNativeState,
       A::SchemaVersionMismatch,
       A::StorageVersionMetadataMissing,
