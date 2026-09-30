@@ -113,6 +113,19 @@ describe("DatabaseConversionPromptDialog", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
+  // #2269: after "Continue Anyway" on the startup compatibility dialog the
+  // source cannot be converted this session, so the prompt must not offer it.
+  it("stays hidden when startup could not verify the SQLite source", () => {
+    mockState = {
+      kind: "actionRequired",
+      reason: "sqliteSourceUnverified",
+      diagnostic: "IncompatibleVersion",
+    };
+    render(<DatabaseConversionPromptDialog />);
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
   it("stays hidden while Insights recording is disabled", () => {
     mockState = { kind: "sqliteAuthoritative" };
     mockHardwareArchiveEnabled = false;

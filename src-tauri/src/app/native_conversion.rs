@@ -290,6 +290,7 @@ pub struct ConversionRuntime {
   bus: std::sync::Mutex<Option<hardviz_core::event_bus::EventBus>>,
   cancellation: std::sync::Mutex<Option<ConversionCancellation>>,
   in_progress: std::sync::atomic::AtomicBool,
+  unverified_sqlite_source: std::sync::Mutex<Option<String>>,
 }
 
 impl ConversionRuntime {
@@ -302,6 +303,30 @@ impl ConversionRuntime {
 
   pub fn bus(&self) -> Option<hardviz_core::event_bus::EventBus> {
     self.bus.lock().unwrap().clone()
+  }
+
+  /// Record, once at startup, that this build's SQLite compatibility
+  /// preflight (or its migrations) failed and the user chose to continue
+  /// anyway. `diagnostic` is the preflight's own error detail.
+  ///
+  /// No conversion may start for the rest of the session (#2269): the copy
+  /// would read a schema this build could not verify, and a successful one
+  /// would resume the producers startup deliberately left stopped. Held
+  /// here, beside the claim every conversion command takes, rather than as
+  /// a new `DatabaseLifecycleState`: SQLite is still the authoritative
+  /// engine, and reads keep answering exactly as they did before.
+  pub fn refuse_for_unverified_sqlite_source(&self, diagnostic: String) {
+    self
+      .unverified_sqlite_source
+      .lock()
+      .unwrap()
+      .replace(diagnostic);
+  }
+
+  /// The preflight diagnostic [`Self::refuse_for_unverified_sqlite_source`]
+  /// recorded, if startup could not verify the SQLite source this session.
+  pub fn unverified_sqlite_source(&self) -> Option<String> {
+    self.unverified_sqlite_source.lock().unwrap().clone()
   }
 
   /// Claim the right to run one conversion attempt now, returning a fresh
@@ -340,6 +365,12 @@ impl ConversionRuntime {
     &self,
   ) -> Result<Option<(ConversionCancellation, hardviz_core::event_bus::EventBus)>, String>
   {
+    if self.unverified_sqlite_source().is_some() {
+      return Err(
+        "conversion is unavailable this session: startup could not verify the SQLite          database with this version"
+          .to_string(),
+      );
+    }
     let bus = self
       .bus()
       .ok_or_else(|| "the database producer event bus is not ready yet".to_string())?;
@@ -1510,6 +1541,32 @@ mod conversion_runtime_tests {
 
     assert!(runtime.begin_attempt_marking_converting(&owner).is_err());
     assert_eq!(owner.state(), DatabaseLifecycleState::SqliteAuthoritative);
+  }
+
+  /// #2269: after the startup SQLite compatibility check failed and the
+  /// user chose Continue Anyway, every conversion command refuses - with an
+  /// error, not a silent no-op - and leaves the owner and the in-progress
+  /// flag untouched, from both states a start normally begins from.
+  #[test]
+  fn an_unverified_sqlite_source_refuses_every_start_and_marks_nothing() {
+    for state in [
+      DatabaseLifecycleState::SqliteAuthoritative,
+      DatabaseLifecycleState::ConversionRecoverable { resumable: true },
+    ] {
+      let runtime = ConversionRuntime::default();
+      runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+      runtime.refuse_for_unverified_sqlite_source("IncompatibleVersion".to_owned());
+      let owner = NativeLifecycleOwner::new();
+      owner.set_state(state.clone());
+
+      assert!(runtime.begin_attempt_marking_converting(&owner).is_err());
+      assert!(runtime.begin_attempt_with_bus().is_err());
+      assert_eq!(owner.state(), state);
+      assert!(
+        runtime.begin_attempt().is_some(),
+        "the refusal must not claim the in-progress flag"
+      );
+    }
   }
 
   /// Regression for a PR #2252 review finding: the Settings section and the

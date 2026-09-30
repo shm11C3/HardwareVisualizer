@@ -812,6 +812,7 @@
             "freshCreationFailed": "The native database could not be created. Your existing data is unaffected.",
             "conversionFailed": "The conversion failed. Your existing data is unaffected and you can try again.",
             "conversionCancelled": "The conversion was cancelled. Your existing data is unaffected and you can try again.",
+            "sqliteSourceUnverified": "HardwareVisualizer could not verify the existing data when it started, so it cannot be converted in this session. Your existing data is unaffected. If the data was created by a newer version, update to the latest version and restart to keep it. If you do not need the data, restart and reset it from the startup dialog; this deletes the existing data.",
             "details": "Technical details"
           },
           "notice": {
