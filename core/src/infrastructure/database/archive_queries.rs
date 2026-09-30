@@ -885,7 +885,7 @@ pub async fn select_process_stats(
   let order_by = if order_by_cpu_desc {
     " ORDER BY avg_cpu_usage DESC"
   } else {
-    ""
+    " ORDER BY pid, process_name"
   };
   let sql = format!(
     "SELECT
