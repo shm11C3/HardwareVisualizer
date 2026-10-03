@@ -36,6 +36,15 @@ jobs:
       WINGET_CREATE_VERSION: v1.12.8.0
       WINGET_CREATE_SHA256: 8bd738851b524885410112678e3771b341c5c716de60fbbecb88ab0a363ed85d
     steps:
+      - name: Checkout workflow scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          install-deps: "false"
+          setup-safe-chain: "false"
+
       - name: Resolve release metadata
         id: release
         env:
@@ -57,6 +66,19 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($tag)) {
             throw 'Could not resolve a release tag.'
           }
+
+          # Older MIT releases must retain the license declared at their tag.
+          $encodedTag = [System.Uri]::EscapeDataString($tag)
+          $packageContent = gh api "repos/$env:GITHUB_REPOSITORY/contents/package.json?ref=$encodedTag" --jq '.content'
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not read package.json at '$tag'."
+          }
+          $packageJson = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($packageContent -join ''))) | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($packageJson.license)) {
+            throw "package.json at '$tag' does not declare a license."
+          }
+          "license=$($packageJson.license)" >> $env:GITHUB_OUTPUT
+          "license-url=https://github.com/$env:GITHUB_REPOSITORY/blob/$encodedTag/LICENSE" >> $env:GITHUB_OUTPUT
 
           $version = $tag -replace '^v', ''
           $installerUrl = $env:INPUT_INSTALLER_URL
@@ -102,10 +124,12 @@ jobs:
             throw "wingetcreate.exe SHA256 mismatch. Expected $env:WINGET_CREATE_SHA256, got $actualHash."
           }
 
-      - name: Update WinGet manifest
+      - name: Generate, correct and submit WinGet manifest
         env:
           INSTALLER_URL: ${{ steps.release.outputs.installer-url }}
           VERSION: ${{ steps.release.outputs.version }}
+          PACKAGE_LICENSE: ${{ steps.release.outputs.license }}
+          LICENSE_URL: ${{ steps.release.outputs.license-url }}
           SHOULD_SUBMIT: ${{ inputs.submit || github.event_name == 'release' }}
           GH_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
           WINGET_CREATE_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
@@ -118,8 +142,19 @@ jobs:
             'update',
             $env:PACKAGE_IDENTIFIER,
             '-u', $env:INSTALLER_URL,
-            '-v', $env:VERSION
+            '-v', $env:VERSION,
+            '-o', 'manifests'
           )
+
+          # update inherits locale metadata, including the previous license.
+          .\wingetcreate.exe @args
+          if ($LASTEXITCODE -ne 0) {
+            throw 'WinGet manifest generation failed.'
+          }
+          $manifestDirectory = node .github/scripts/update-winget-license.mjs manifests $env:PACKAGE_LICENSE $env:LICENSE_URL
+          if ($LASTEXITCODE -ne 0) {
+            throw 'WinGet manifest license correction failed.'
+          }
 
           if ($shouldSubmit) {
             if ([string]::IsNullOrWhiteSpace($env:WINGET_CREATE_TOKEN)) {
@@ -129,7 +164,14 @@ jobs:
             if ($LASTEXITCODE -ne 0) {
               throw 'Failed to sync the winget-pkgs fork. Ensure WINGET_CREATE_GITHUB_TOKEN has the public_repo and workflow scopes, or sync the fork manually before retrying.'
             }
-            $args += @('-t', $env:WINGET_CREATE_TOKEN, '--submit')
+            .\wingetcreate.exe submit $manifestDirectory -t $env:WINGET_CREATE_TOKEN --no-open
+            if ($LASTEXITCODE -ne 0) {
+              throw 'WinGet manifest submission failed.'
+            }
           }
 
-          .\wingetcreate.exe @args
+      - name: Upload generated manifests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: winget-${{ steps.release.outputs.version }}
+          path: manifests/
