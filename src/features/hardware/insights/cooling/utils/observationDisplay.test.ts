@@ -75,6 +75,7 @@ const ambientAdjusted = (
 
 const established = {
   status: "established",
+  source: "SwitchBot Meter (a1b2)",
   deltaTemperatureAvg: 26,
   windowStartDate: "2025-12-01",
   windowEndDate: "2025-12-14",

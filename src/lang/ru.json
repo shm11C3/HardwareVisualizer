@@ -470,7 +470,15 @@
             "baseline": "Базовая линия",
             "recent": "Недавние"
           },
-          "notComparable": "Недостаточно данных для сравнения",
+          "notComparable": {
+            "tooFewSampleMinutes": "Недостаточно данных для сравнения",
+            "recentShortfall": "недавний период: ещё {{minutes}} мин",
+            "baselineShortfall": "базовый период {{minutes}} / {{required}} мин",
+            "differentAmbientSource": "Несравнимо — источник температуры окружающей среды отличается от базового ({{source}})",
+            "differentAmbientSourceUnknown": "Несравнимо — источник температуры окружающей среды отличается от базового",
+            "noAmbientPairing": "Нет минут, сопоставленных с окружающей средой",
+            "missingValue": "Сравнение недоступно"
+          },
           "absoluteTitle": "Температура ЦП",
           "ambientAdjustedTitle": "Превышение над температурой окружающей среды",
           "window": "Базовая линия {{baselineStart}}–{{baselineEnd}} по сравнению с недавним периодом {{recentStart}}–{{recentEnd}}"
