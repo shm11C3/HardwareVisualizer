@@ -32,6 +32,8 @@
 //! The recent window and its comparability are still derived on every
 //! read: those describe the present, not the fixed reference.
 
+use std::collections::BTreeSet;
+
 use chrono::{Duration, NaiveDate};
 
 /// Minimum idle-band sample minutes a completed local day must carry
@@ -54,12 +56,33 @@ pub const COOLING_BASELINE_QUALIFYING_IDLE_MINUTES: u32 = 30;
 /// UI renders Core's number rather than hardcoding its own.
 pub const COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS: u32 = 7;
 
-/// Length, in completed local days, of the trailing window summarized as
-/// "recent idle" for comparison against the baseline. Mirrors
+/// Number of *recorded* completed local days - days carrying a
+/// `cooling_daily_summary` row - that make up the recent window
+/// summarized as "recent idle" for comparison against the baseline (see
+/// [`recent_window_start`]). Mirrors
 /// [`COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS`] so a weekly aggregate is
-/// compared against a weekly baseline, and stays well inside the default
-/// 30-day `hardwareArchive.retentionDays`.
+/// compared against a weekly baseline.
+///
+/// Recorded days rather than calendar days (#2332): the baseline itself
+/// is defined over qualifying days, not consecutive ones, and a machine
+/// that is switched on a few days a week accumulates its evidence at the
+/// same pace in both windows. Counting the recent side in calendar days
+/// left exactly those machines "not comparable" in the low/mid/high
+/// bands most of the time, because seven calendar days held only two or
+/// three recorded ones.
 pub const COOLING_BASELINE_RECENT_WINDOW_DAYS: u32 = 7;
+
+/// How far back, in calendar days ending at the window end (inclusive),
+/// the recent window may reach while collecting its
+/// [`COOLING_BASELINE_RECENT_WINDOW_DAYS`] recorded days.
+///
+/// The bound is what keeps "recent" honest for a machine that has not
+/// run in a long while (DP-05): without it the window would gather up
+/// whatever days were recorded last, however old, and present a
+/// months-old reading as the present. 30 matches the default
+/// `hardwareArchive.retentionDays`, the span over which the user already
+/// expects the app to be looking back at one-minute data.
+pub const COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS: u32 = 30;
 
 /// Minimum idle sample minutes the recent window must carry before a
 /// comparison against the baseline means anything. Same bar as a single
@@ -160,9 +183,10 @@ impl EstablishedBaseline {
   }
 }
 
-/// Trailing-window idle summary: how much idle evidence the recent past
+/// Recent-window idle summary: how much idle evidence the recent past
 /// actually carries, and the temperature it recorded. This is the
-/// comparability guard's input.
+/// comparability guard's input. The window's days are the ones
+/// [`recent_window_start`] defines.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RecentIdleSummary {
   pub window_start_date: NaiveDate,
@@ -339,13 +363,68 @@ pub fn derive_baseline_state(days: &[DailyIdleSample]) -> BaselineState {
   }
 }
 
-/// Summarize the trailing [`COOLING_BASELINE_RECENT_WINDOW_DAYS`]
-/// completed local days ending at `window_end_date` (inclusive).
+/// The first day of the recent window ending at `window_end_date`
+/// (inclusive), given the dates that carry a daily rollup row.
 ///
-/// Anchored to the calendar rather than to the newest row in the table on
-/// purpose: an app that has not run for months must report an empty
-/// recent window, and therefore "not comparable", instead of presenting a
-/// months-old reading as if it were recent (DP-05).
+/// The window is the most recent [`COOLING_BASELINE_RECENT_WINDOW_DAYS`]
+/// *recorded* days, looked for no further back than
+/// [`COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS`] calendar days
+/// ending at `window_end_date`. With fewer recorded days than that in the
+/// span, the window starts at the earliest of them; with none, it falls
+/// back to the trailing [`COOLING_BASELINE_RECENT_WINDOW_DAYS`] calendar
+/// days, which is then an empty window and reports "not comparable"
+/// exactly as a calendar-anchored window always did.
+///
+/// This is the one place the recent window is defined. Every comparison
+/// Cooling Insight draws - the idle baseline card, the load-band
+/// comparison, the baseline delta and the ambient-adjusted and
+/// co-variate readings beside them - derives its recent window through
+/// this function from the hardware rollup's recorded days, so they
+/// cannot drift apart on what "recent" means. The ΔT and co-variate
+/// readings deliberately do *not* count their own rows: a day the machine
+/// ran without its ambient sensor pairing a minute is still a recorded
+/// day, and the recent window must be the same stretch of days in every
+/// panel of one response.
+///
+/// The calendar bound, not the recorded-day count, is what guards
+/// against staleness (DP-05): an app that has not run for more than the
+/// bound reports an empty recent window rather than presenting its last
+/// few months-old days as if they were the present. Within the bound, a
+/// recorded day is recent by definition - the user has been using the
+/// machine at that pace, and the window should follow the machine's own
+/// rhythm rather than demand that it be on every day.
+///
+/// `window_end_date` itself counts as a recorded day when it has a row.
+/// `recorded_dates` need not be sorted or unique.
+pub fn recent_window_start(
+  recorded_dates: impl IntoIterator<Item = NaiveDate>,
+  window_end_date: NaiveDate,
+) -> NaiveDate {
+  let span_start = window_end_date
+    - Duration::days(COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS as i64 - 1);
+  let recorded_in_span: BTreeSet<NaiveDate> = recorded_dates
+    .into_iter()
+    .filter(|date| *date >= span_start && *date <= window_end_date)
+    .collect();
+
+  // Skip every recorded day but the last `COOLING_BASELINE_RECENT_WINDOW_DAYS`;
+  // the first one left is the window's start. With fewer than that many
+  // nothing is skipped, and with none there is nothing to start from.
+  let older_than_window = recorded_in_span
+    .len()
+    .saturating_sub(COOLING_BASELINE_RECENT_WINDOW_DAYS as usize);
+  recorded_in_span
+    .iter()
+    .nth(older_than_window)
+    .copied()
+    .unwrap_or_else(|| {
+      window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1)
+    })
+}
+
+/// Summarize the recent window ending at `window_end_date` (inclusive) -
+/// the most recent [`COOLING_BASELINE_RECENT_WINDOW_DAYS`] recorded days
+/// among `days`, as [`recent_window_start`] defines them.
 ///
 /// Unlike the baseline window this counts *every* idle minute in range,
 /// not only minutes from qualifying days: the guard is on how much idle
@@ -357,7 +436,7 @@ pub fn summarize_recent_idle(
   window_end_date: NaiveDate,
 ) -> RecentIdleSummary {
   let window_start_date =
-    window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    recent_window_start(days.iter().map(|day| day.date), window_end_date);
   let in_window = days
     .iter()
     .filter(|day| day.date >= window_start_date && day.date <= window_end_date);
@@ -511,10 +590,10 @@ pub(crate) async fn load_cooling_baseline_from_pool(
   let days =
     database::cooling_daily_summary::select_daily_idle_samples_from_pool(pool).await?;
   // The rollup only ever summarizes completed local days, so the newest
-  // day that can carry a row is yesterday. Anchoring the recent window
-  // to the calendar (not to the newest row present) is what makes a long
-  // gap in usage report "not comparable" instead of presenting a stale
-  // reading as recent.
+  // day that can carry a row is yesterday. Ending the recent window
+  // there (not at the newest row present) is what lets `recent_window_start`'s
+  // calendar bound make a long gap in usage report "not comparable"
+  // instead of presenting a stale reading as recent.
   let recent = summarize_recent_idle(&days, today - Duration::days(1));
   let state = resolve_baseline_state_from_pool(pool, &days).await?;
 
@@ -531,7 +610,7 @@ pub async fn load_cooling_baseline()
   let days = dispatch::cooling_daily_summary::select_daily_idle_samples().await?;
   // The rollup only ever summarizes completed local days, so the newest day
   // that can carry a row is yesterday - see `load_cooling_baseline_from_pool`
-  // for why the recent window is anchored to the calendar.
+  // for why the recent window ends there rather than at the newest row.
   let recent = summarize_recent_idle(&days, today - Duration::days(1));
   let state = resolve_baseline_state(&days).await?;
 
@@ -1082,6 +1161,105 @@ mod tests {
     assert!(baseline.recent.is_comparable());
   }
 
+  // ── recent window start (#2332) ──
+
+  /// `end` minus each of `days_back`, as the recorded days of a machine
+  /// that was switched on only on those days.
+  fn recorded(end: NaiveDate, days_back: &[i64]) -> Vec<NaiveDate> {
+    days_back
+      .iter()
+      .map(|back| end - Duration::days(*back))
+      .collect()
+  }
+
+  #[test]
+  fn the_recent_window_starts_at_the_seventh_most_recent_recorded_day() {
+    // Recorded on 7 of the last 20 days: the window reaches back to the
+    // seventh one, however many calendar days that spans.
+    let end = date(2026, 8, 20);
+    let dates = recorded(end, &[0, 3, 5, 8, 12, 16, 19]);
+
+    assert_eq!(recent_window_start(dates, end), end - Duration::days(19));
+  }
+
+  #[test]
+  fn more_recorded_days_than_the_window_holds_leave_the_older_ones_out() {
+    let end = date(2026, 8, 20);
+    let dates = recorded(end, &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+    assert_eq!(
+      recent_window_start(dates, end),
+      end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1)
+    );
+  }
+
+  #[test]
+  fn fewer_recorded_days_than_the_window_holds_start_it_at_the_earliest_of_them() {
+    let end = date(2026, 8, 20);
+    let dates = recorded(end, &[2, 11, 25]);
+
+    assert_eq!(recent_window_start(dates, end), end - Duration::days(25));
+  }
+
+  #[test]
+  fn no_recorded_day_within_the_calendar_bound_falls_back_to_the_trailing_calendar_days()
+  {
+    // An app that has not run for more than the bound: older rows exist,
+    // but the window must not reach back to them (DP-05).
+    let end = date(2026, 8, 20);
+    let bound = COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS as i64;
+    let dates = recorded(end, &[bound, bound + 1, bound + 40]);
+
+    assert_eq!(
+      recent_window_start(dates, end),
+      end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1)
+    );
+  }
+
+  #[test]
+  fn a_recorded_day_beyond_the_calendar_bound_never_widens_the_window() {
+    // Two recorded days inside the bound and one just outside it: the
+    // window starts at the earlier of the two inside, not at the third.
+    let end = date(2026, 8, 20);
+    let bound = COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS as i64;
+    let dates = recorded(end, &[0, bound - 1, bound]);
+
+    assert_eq!(
+      recent_window_start(dates, end),
+      end - Duration::days(bound - 1)
+    );
+  }
+
+  #[test]
+  fn the_window_end_date_itself_counts_as_a_recorded_day() {
+    let end = date(2026, 8, 20);
+    let dates = recorded(end, &[0, 1, 2, 3, 4, 5, 6, 7]);
+
+    // Eight recorded days ending at `end`: the window is the last seven,
+    // so `end` fills one of the seven slots and the eighth day is out.
+    assert_eq!(recent_window_start(dates, end), end - Duration::days(6));
+  }
+
+  #[test]
+  fn days_after_the_window_end_are_not_recorded_days_of_the_window() {
+    // The rollup cannot produce a day after yesterday, but a clock change
+    // could; it must neither count toward the seven nor move the start.
+    let end = date(2026, 8, 20);
+    let dates = recorded(end, &[-1, 0, 10]);
+
+    assert_eq!(recent_window_start(dates, end), end - Duration::days(10));
+  }
+
+  #[test]
+  fn recorded_dates_may_repeat_without_consuming_window_slots() {
+    // Callers projecting row-per-source tables hand in one date per row.
+    let end = date(2026, 8, 20);
+    let mut dates = recorded(end, &[0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]);
+    dates.extend(recorded(end, &[9, 9, 9]));
+
+    assert_eq!(recent_window_start(dates, end), end - Duration::days(9));
+  }
+
   // ── recent idle window ──
 
   #[test]
@@ -1100,19 +1278,44 @@ mod tests {
   fn the_recent_window_ignores_days_outside_it() {
     let end = date(2026, 8, 20);
     let start = end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-    let days = vec![
-      // One day too old.
-      day(start - Duration::days(1), 90.0, 600),
-      day(start, 40.0, 60),
-      day(end, 40.0, 60),
-      // The rollup cannot produce this day yet, but a clock change could.
-      day(end + Duration::days(1), 90.0, 600),
-    ];
+    // Recorded every day, so the window is exactly the configured number
+    // of calendar days...
+    let mut days: Vec<_> = (0..COOLING_BASELINE_RECENT_WINDOW_DAYS as i64)
+      .map(|offset| day(start + Duration::days(offset), 40.0, 60))
+      .collect();
+    // ...and one more recorded day is one day too old.
+    days.insert(0, day(start - Duration::days(1), 90.0, 600));
+    // The rollup cannot produce this day yet, but a clock change could.
+    days.push(day(end + Duration::days(1), 90.0, 600));
 
     let summary = summarize_recent_idle(&days, end);
 
-    assert_eq!(summary.sample_minutes, 120);
+    assert_eq!(summary.window_start_date, start);
+    assert_eq!(
+      summary.sample_minutes,
+      60 * COOLING_BASELINE_RECENT_WINDOW_DAYS
+    );
     assert_eq!(summary.idle_temperature_avg, Some(40.0));
+  }
+
+  #[test]
+  fn a_machine_switched_on_a_few_days_a_week_still_fills_its_recent_window() {
+    // The #2332 case: recorded on 2 of the last 7 calendar days and 5
+    // more over the preceding three weeks, each with too few idle
+    // minutes to be comparable on its own. The window reaches back to
+    // the seventh recorded day and the minutes add up.
+    let end = date(2026, 8, 20);
+    let days: Vec<_> = recorded(end, &[0, 3, 8, 11, 15, 18, 21])
+      .into_iter()
+      .map(|date| day(date, 40.0, 10))
+      .collect();
+
+    let summary = summarize_recent_idle(&days, end);
+
+    assert_eq!(summary.window_start_date, end - Duration::days(21));
+    assert_eq!(summary.sample_minutes, 70);
+    assert_eq!(summary.idle_temperature_avg, Some(40.0));
+    assert!(summary.is_comparable());
   }
 
   #[test]
@@ -1200,7 +1403,9 @@ mod tests {
       COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
       42.0,
     );
-    let end = date(2026, 8, 20);
+    // More than the recent window's calendar bound after the baseline
+    // days, so none of them is a recorded day of the recent window.
+    let end = date(2026, 9, 20);
     days.push(day(end, 45.0, 120));
 
     let baseline = derive_cooling_baseline(&days, end);

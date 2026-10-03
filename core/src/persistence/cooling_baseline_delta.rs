@@ -1,7 +1,8 @@
-//! Cooling Insight baseline delta: how far the trailing 7-day idle
-//! temperature average has drifted from the established baseline, and
-//! whether that drift has been sustained long enough to call out (#2017,
-//! thresholds from #1666).
+//! Cooling Insight baseline delta: how far the recent window's idle
+//! temperature average (see
+//! [`crate::persistence::cooling_baseline::recent_window_start`]) has
+//! drifted from the established baseline, and whether that drift has
+//! been sustained long enough to call out (#2017, thresholds from #1666).
 //!
 //! The threshold defaults live here, behind this module's boundary, so
 //! the frontend never re-derives "how much warmer counts as a mild
@@ -14,8 +15,7 @@ use crate::persistence::cooling_band_comparison::{
   BandDeltaWindowSummary, band_delta_window_summary, dominant_delta_source,
 };
 use crate::persistence::cooling_baseline::{
-  BaselineState, COOLING_BASELINE_RECENT_WINDOW_DAYS, DailyIdleSample, RecentIdleSummary,
-  summarize_recent_idle,
+  BaselineState, DailyIdleSample, RecentIdleSummary, summarize_recent_idle,
 };
 use crate::persistence::cooling_delta_baseline::DeltaBaselineState;
 use crate::persistence::cooling_rollup::{CpuLoadBand, DailyCoolingSummary};
@@ -50,10 +50,10 @@ pub enum CoolingDeltaObservation {
   SustainedLargeRise,
 }
 
-/// One trailing-7-day-window's delta against the baseline, ending on
-/// `date`. Part of the series a sustained-rise verdict was computed
-/// from, returned so the UI can render "n days in a row" without
-/// recomputing it.
+/// One recent window's delta against the baseline, ending on `date`.
+/// Part of the series a sustained-rise verdict was computed from,
+/// returned so the UI can render "n days in a row" without recomputing
+/// it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DailyDelta {
   pub date: NaiveDate,
@@ -147,9 +147,16 @@ pub fn derive_baseline_delta(
   // Derived regardless of the absolute verdict below: the two readings
   // answer different questions, and one being unavailable says nothing
   // about the other. A machine can have an established ΔT baseline while
-  // the absolute one is still establishing, and vice versa.
-  let ambient_adjusted =
-    derive_ambient_adjusted(delta_days, delta_baseline_state, window_end_date);
+  // the absolute one is still establishing, and vice versa. It does read
+  // the *same* recent window, though - the one `summarize_recent_idle`
+  // just derived from the hardware rollup's recorded days - so the two
+  // readings of one card never describe different stretches of days.
+  let ambient_adjusted = derive_ambient_adjusted(
+    delta_days,
+    delta_baseline_state,
+    recent.window_start_date,
+    window_end_date,
+  );
 
   let Some(baseline_temperature) = established_temperature(baseline_state) else {
     return CoolingBaselineDelta {
@@ -199,8 +206,8 @@ pub fn derive_baseline_delta(
   }
 }
 
-/// The ΔT baseline against the idle ΔT of the trailing recent window
-/// (#2045).
+/// The ΔT baseline against the idle ΔT of the recent window
+/// `[recent_start, window_end_date]` (#2045).
 ///
 /// `delta_baseline_state` is resolved independently of the absolute
 /// baseline - see [`crate::persistence::cooling_delta_baseline`] for the
@@ -210,16 +217,19 @@ pub fn derive_baseline_delta(
 /// non-comparable, because the archive cannot grow ambient readings for
 /// past days retroactively.
 ///
-/// The recent window is read from the source that covered most of it, and
+/// The recent window, by contrast, is *not* this reading's own: it is
+/// handed in from the absolute summary, derived from the hardware
+/// rollup's recorded days, so a day the sensor paired nothing on is still
+/// one of the window's days and the two readings cover the same stretch.
+/// The window is read from the source that covered most of it, and
 /// compared only if that is the source the baseline was established from
 /// (#2062).
 fn derive_ambient_adjusted(
   days: &[ThermalDeltaDailySummary],
   delta_baseline_state: DeltaBaselineState,
+  recent_start: NaiveDate,
   window_end_date: NaiveDate,
 ) -> AmbientAdjustedBaselineDelta {
-  let recent_start =
-    window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
   let recent_source = dominant_delta_source(days, recent_start, window_end_date);
   let recent = recent_source.map_or_else(BandDeltaWindowSummary::default, |source| {
     band_delta_window_summary(
@@ -295,8 +305,8 @@ fn classify_observation(
 ///
 /// Required before a cursor day may extend either streak in
 /// [`trailing_daily_deltas`]: without it, a single real day's minutes can
-/// still appear (weighted) inside several different 7-day trailing
-/// windows a few calendar days apart, since those windows overlap. Only
+/// still appear (weighted) inside several different recent windows a few
+/// calendar days apart, since those windows overlap. Only
 /// gating on window comparability would let that overlap alone report
 /// several "sustained" days from one real observation - exactly the
 /// streak the day itself never spanned (DP-02).
@@ -307,7 +317,8 @@ fn has_idle_sample_on(days: &[DailyIdleSample], date: NaiveDate) -> bool {
 }
 
 /// Walk backward day by day from `window_end_date`, recomputing the
-/// trailing 7-day idle average at each day and comparing it against
+/// recent-window idle average ending at each day (see
+/// [`summarize_recent_idle`]) and comparing it against
 /// `baseline_temperature`. A day only extends either streak - and is
 /// only added to the series - when it carries its own rollup row (see
 /// [`has_idle_sample_on`]); the walk stops there otherwise, since an
@@ -538,6 +549,35 @@ mod tests {
     assert_eq!(result.delta, None);
     assert_eq!(result.sustained_days, 0);
     assert!(result.daily_deltas.is_empty());
+  }
+
+  #[test]
+  fn a_machine_switched_on_a_few_days_a_week_still_gets_an_observation() {
+    // The #2332 case: recorded on 2 of the last 7 calendar days and on 5
+    // more over the preceding three weeks, with ten idle minutes each.
+    // No seven-calendar-day stretch is comparable on its own; the seven
+    // recorded days together are, so a verdict is reached rather than
+    // "not comparable". Only `end` carries its own row, so the streak
+    // stops after one day and the rise is not yet sustained.
+    let end = date(2026, 8, 20);
+    let days: Vec<_> = [21, 18, 15, 11, 8, 3, 0]
+      .into_iter()
+      .map(|back| day(end - Duration::days(back), 40.0, 10))
+      .collect();
+
+    let result = derive_baseline_delta(
+      &days,
+      &[],
+      established(30.0),
+      establishing_delta_baseline(),
+      end,
+    );
+
+    assert_eq!(result.recent.window_start_date, end - Duration::days(21));
+    assert_eq!(result.recent.sample_minutes, 70);
+    assert_eq!(result.delta, Some(10.0));
+    assert_eq!(result.observation, CoolingDeltaObservation::WithinRange);
+    assert_eq!(result.sustained_days, 1);
   }
 
   // ── delta threshold boundaries (single recent day, no sustain yet) ──
@@ -907,6 +947,9 @@ mod tests {
     }
 
     /// The absolute baseline window used throughout: a single day, 8-01.
+    /// The tests end their recent window on 9-20, more than the recent
+    /// window's calendar bound later, so no baseline-era row is ever a
+    /// recorded day of the recent window.
     fn baseline_window() -> BaselineState {
       BaselineState::Established {
         idle_temperature_avg: 30.0,
@@ -932,7 +975,7 @@ mod tests {
       // The zero-ambient invariant: every pre-#2045 field keeps its
       // value, and the ambient reading says "still establishing, zero
       // qualifying days" rather than fabricating a number.
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let idle = days_ending_at(end, 5, 35.0);
 
       let result = derive_baseline_delta(
@@ -963,7 +1006,7 @@ mod tests {
       // The reading the whole feature exists for. Absolute idle climbed
       // 10 K between the windows while ΔT held at 12 K: the room warmed,
       // the cooling did not degrade.
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let summaries = [
@@ -994,7 +1037,7 @@ mod tests {
 
     #[test]
     fn a_rising_delta_reports_ambient_drift_of_its_own() {
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let summaries = [
@@ -1020,7 +1063,7 @@ mod tests {
 
     #[test]
     fn a_thin_recent_window_reports_not_comparable_with_no_delta() {
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let short = COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES - 1;
@@ -1057,7 +1100,7 @@ mod tests {
       // against to one across the room. The recent window is rich and is
       // reported, but subtracting the two would compare placements, not
       // periods (#2062).
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let summaries = [
@@ -1091,7 +1134,7 @@ mod tests {
     fn the_recent_window_reads_only_the_source_with_the_most_coverage() {
       // Two sensors overlap in the recent window: the reported ΔT is the
       // dominant sensor's own, never a blend of the two.
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let summaries = [summary(recent_start, 40.0, 120)];
@@ -1121,7 +1164,7 @@ mod tests {
     {
       // The recent side has plenty of paired minutes, but there is no
       // reference to measure them against yet.
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let summaries = [summary(recent_start, 40.0, 120)];
@@ -1159,7 +1202,7 @@ mod tests {
       // The two lifecycles are independent in both directions. A machine
       // that has been idle-poor but ambient-rich can reach an ambient
       // reading first.
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let summaries = [summary(recent_start, 40.0, 120)];
@@ -1203,7 +1246,7 @@ mod tests {
       // week instead.
       let absolute_window_start = date(2026, 1, 1);
       let ambient_start = date(2026, 8, 1);
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
 
@@ -1257,7 +1300,7 @@ mod tests {
       // fail: nothing about the absolute baseline's window may appear in
       // the ΔT reading's inputs.
       let ambient_start = date(2026, 8, 1);
-      let end = date(2026, 8, 20);
+      let end = date(2026, 9, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let mut summaries: Vec<_> = (0..7)
@@ -1385,9 +1428,13 @@ mod tests {
         .await
         .unwrap();
       insert_establishing_days(&pool, date(2027, 6, 1), 70.0).await;
-      insert_idle_day(&pool, date(2027, 6, 19), 42.0, 120).await;
+      // The comparable recent day sits more than the recent window's
+      // calendar bound after that stretch, so the hotter days are not
+      // recorded days of the recent window either - the only way a
+      // non-zero delta can appear here is through a drifted baseline.
+      insert_idle_day(&pool, date(2027, 7, 19), 42.0, 120).await;
 
-      let after_cleanup = load_cooling_baseline_delta_from_pool(&pool, date(2027, 6, 20))
+      let after_cleanup = load_cooling_baseline_delta_from_pool(&pool, date(2027, 7, 20))
         .await
         .unwrap();
       assert_eq!(
