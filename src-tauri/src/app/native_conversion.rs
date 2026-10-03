@@ -195,24 +195,15 @@ pub async fn pause_and_drain_producers(workers: &WorkersState) {
 }
 
 /// Restart every producer [`pause_and_drain_producers`] stopped, using the
-/// construction closures gathered in `resumers`.
+/// construction closures gathered in `resumers`. If process shutdown has
+/// started, leave the slots empty for [`WorkersState::terminate_all`] instead.
 pub fn resume_producers(workers: &WorkersState, resumers: ProducerResumers) {
-  if let Some(make) = resumers.hw_archive {
-    workers.hw_archive.lock().unwrap().replace(make());
-  }
   // `CoolingRollupController::setup` also returns a first-catch-up receiver
   // meant for startup's retention-cleanup ordering; a resumed rollup has no
   // such caller waiting on it, so `resumers.cooling_rollup`'s closure is
   // expected to discard that receiver itself (see `empty_resumers` in the
   // tests below for the pattern) and hand back just the controller.
-  workers
-    .cooling_rollup
-    .lock()
-    .unwrap()
-    .replace((resumers.cooling_rollup)());
-  if let Some(make) = resumers.storage_health {
-    workers.storage_health.lock().unwrap().replace(make());
-  }
+  start_missing_producers(workers, resumers);
 }
 
 /// Whether `state` is one `begin_attempt_marking_converting` starts a fresh
@@ -1114,21 +1105,36 @@ async fn settle_panicked_step(
 /// any subset paused - partway through the pause, or partway through
 /// [`resume_producers`] - and replacing a live controller would run two.
 fn start_missing_producers(workers: &WorkersState, resumers: ProducerResumers) {
+  // Check shutdown while holding each slot's mutex. Shutdown sets this flag
+  // before taking those same mutexes: an earlier start is then collected by
+  // shutdown, while a later one leaves the slot empty for it to drain.
   if let Some(make) = resumers.hw_archive {
     let mut slot = workers.hw_archive.lock().unwrap();
-    if slot.is_none() {
+    if !workers
+      .shutting_down
+      .load(std::sync::atomic::Ordering::SeqCst)
+      && slot.is_none()
+    {
       slot.replace(make());
     }
   }
   {
     let mut slot = workers.cooling_rollup.lock().unwrap();
-    if slot.is_none() {
+    if !workers
+      .shutting_down
+      .load(std::sync::atomic::Ordering::SeqCst)
+      && slot.is_none()
+    {
       slot.replace((resumers.cooling_rollup)());
     }
   }
   if let Some(make) = resumers.storage_health {
     let mut slot = workers.storage_health.lock().unwrap();
-    if slot.is_none() {
+    if !workers
+      .shutting_down
+      .load(std::sync::atomic::Ordering::SeqCst)
+      && slot.is_none()
+    {
       slot.replace(make());
     }
   }
@@ -2196,6 +2202,26 @@ mod tests {
       cooling_rollup: Box::new(move || CoolingRollupController::setup(runtime).0),
       storage_health: None,
     }
+  }
+
+  #[test]
+  fn producer_resumers_do_not_start_workers_during_shutdown() {
+    let workers = WorkersState::default();
+    workers
+      .shutting_down
+      .store(true, std::sync::atomic::Ordering::SeqCst);
+
+    let resumers = || ProducerResumers {
+      hw_archive: None,
+      cooling_rollup: Box::new(|| panic!("must not start during shutdown")),
+      storage_health: None,
+    };
+    resume_producers(&workers, resumers());
+    start_missing_producers(&workers, resumers());
+
+    assert!(workers.hw_archive.lock().unwrap().is_none());
+    assert!(workers.cooling_rollup.lock().unwrap().is_none());
+    assert!(workers.storage_health.lock().unwrap().is_none());
   }
 
   #[tokio::test]
