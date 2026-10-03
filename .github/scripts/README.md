@@ -44,6 +44,8 @@ directory is the owner.
 | `sign-codesigntool.ps1` | `publish.yml` (Tauri `signCommand`) |
 | `tauri-updater.sh` | `auto-update-tauri.yml` |
 | `update-tauri-config.ts` | `publish.yml` |
+| `update-winget-license.mjs` | `winget.yml` |
+| `test-update-winget-license.mjs` | `ci.yml` |
 | `test-cache-inventory.cjs` | `ci.yml` |
 | `test-cache-metrics.cjs` | `ci.yml` |
 | `test-check-tauri-deps-changed.mjs` | `ci.yml` |
