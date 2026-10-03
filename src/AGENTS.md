@@ -7,7 +7,13 @@ These instructions add to the repository root `AGENTS.md` for work under
 
 - Call the backend through generated commands from `@/rspc/bindings` and handle
   the generated Result shape. Never edit `src/rspc/bindings.ts` manually.
-- Use Jotai for shared frontend state and keep state close to its feature.
+- Use Jotai for shared frontend state. Declare new atoms in the owning
+  `store/` module and follow the layer boundaries in
+  [ADR 0027](../docs/adr/0027-frontend-layer-boundaries-and-state-ownership.md),
+  which `npm run lint:ci` enforces.
+- Never add a pending exception to
+  `.config/biome/frontend-boundaries.jsonc` to make new code pass; change the
+  design instead.
 - Application Preferences go through typed Rust settings commands and
   `settings.json`. Use Tauri Store only for resettable UI-local/transient state.
 - `showGpuUsageSource` is a known legacy exception that still uses Tauri Store.
