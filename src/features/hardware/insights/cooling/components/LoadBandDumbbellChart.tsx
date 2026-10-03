@@ -3,10 +3,14 @@ import { useTranslation } from "react-i18next";
 import type { TemperatureUnit } from "@/rspc/bindings";
 import {
   type LoadBandDumbbellRow,
+  type LoadBandWithheldReason,
   positionPercent,
 } from "../utils/loadBandDumbbell";
 import { formatSignedTemperatureDelta } from "../utils/temperatureUnit";
 import { computeSignedTemperatureDomain } from "../utils/thermalTimeline";
+
+const NOT_COMPARABLE_KEY =
+  "pages.insights.cooling.loadBandComparison.notComparable";
 
 /**
  * Zone (5)'s per-band baseline-vs-recent comparison: a lightweight
@@ -95,9 +99,9 @@ export const LoadBandDumbbellChart = ({
               />
             </div>
           ) : (
-            <span className="text-muted-foreground text-xs italic">
-              {t("pages.insights.cooling.loadBandComparison.notComparable")}
-            </span>
+            <WithheldReason
+              reason={row.comparable ? { kind: "missingValue" } : row.reason}
+            />
           )}
           <span className="text-right font-mono text-xs tabular-nums">
             {row.comparable
@@ -107,5 +111,67 @@ export const LoadBandDumbbellChart = ({
         </div>
       ))}
     </div>
+  );
+};
+
+/**
+ * The copy for a withheld band: Core's reason, plus - for a thin window -
+ * how many minutes each short side still needs, so the user can tell a
+ * band that will fill in from one that will not. The baseline window is
+ * fixed once pinned, so its shortfall is shown as "n / required" rather
+ * than as minutes to go.
+ */
+const WithheldReason = ({ reason }: { reason: LoadBandWithheldReason }) => {
+  const { t } = useTranslation();
+
+  if (reason.kind === "tooFewSampleMinutes") {
+    const { shortfall } = reason;
+    const details = [
+      shortfall.recent.remaining > 0
+        ? t(`${NOT_COMPARABLE_KEY}.recentShortfall`, {
+            minutes: shortfall.recent.remaining,
+          })
+        : null,
+      shortfall.baseline.remaining > 0
+        ? t(`${NOT_COMPARABLE_KEY}.baselineShortfall`, {
+            minutes: shortfall.baseline.sampleMinutes,
+            required: shortfall.required,
+          })
+        : null,
+    ].filter((detail): detail is string => detail != null);
+
+    return (
+      <span className="text-muted-foreground text-xs">
+        <span className="italic">
+          {t(`${NOT_COMPARABLE_KEY}.tooFewSampleMinutes`)}
+        </span>
+        {details.length > 0 && (
+          <span
+            className="ml-1 tabular-nums"
+            data-testid="cooling-load-band-shortfall"
+          >
+            ({details.join(" · ")})
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  if (reason.kind === "differentAmbientSource") {
+    return (
+      <span className="text-muted-foreground text-xs italic">
+        {reason.baselineSource != null
+          ? t(`${NOT_COMPARABLE_KEY}.differentAmbientSource`, {
+              source: reason.baselineSource,
+            })
+          : t(`${NOT_COMPARABLE_KEY}.differentAmbientSourceUnknown`)}
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-muted-foreground text-xs italic">
+      {t(`${NOT_COMPARABLE_KEY}.${reason.kind}`)}
+    </span>
   );
 };

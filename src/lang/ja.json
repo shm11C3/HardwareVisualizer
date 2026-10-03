@@ -480,7 +480,15 @@
             "baseline": "ベースライン",
             "recent": "直近"
           },
-          "notComparable": "サンプル不足のため比較保留",
+          "notComparable": {
+            "tooFewSampleMinutes": "サンプル不足のため比較保留",
+            "recentShortfall": "直近あと {{minutes}} 分",
+            "baselineShortfall": "ベースライン期間 {{minutes}} / {{required}} 分",
+            "differentAmbientSource": "周囲温度ソースがベースライン ({{source}}) と異なるため比較不可",
+            "differentAmbientSourceUnknown": "周囲温度ソースがベースラインと異なるため比較不可",
+            "noAmbientPairing": "周囲温度とのペア成立なし",
+            "missingValue": "比較保留"
+          },
           "absoluteTitle": "CPU 温度",
           "ambientAdjustedTitle": "周囲温度との差",
           "window": "ベースライン {{baselineStart}}–{{baselineEnd}} vs 直近 {{recentStart}}–{{recentEnd}}"
