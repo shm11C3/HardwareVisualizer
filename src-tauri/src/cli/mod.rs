@@ -7,6 +7,10 @@
 //! entry points. The mode reports through its exit code only; it never writes
 //! a result anywhere the caller could have redirected.
 //!
+//! External Component Refresh (ADR 0026): MSI upgrades invoke the refresh-only
+//! mode after a successful install. It replaces outdated files through Core
+//! without installing the runtime or adding missing files.
+//!
 //! External component uninstall notice (#2119): both Windows uninstallers run
 //! the executable in this mode, unelevated, before removing it. It tells the
 //! user which installed components the uninstall keeps, using the same Core
@@ -33,6 +37,7 @@ use hardviz_core::platform::factory::PlatformFactory;
 use hardviz_core::platform::traits::{ProcessExitWait, ProcessIdentity};
 
 pub const EXTERNAL_COMPONENT_SETUP_FLAG: &str = "--external-component-setup";
+pub const EXTERNAL_COMPONENT_REFRESH_FLAG: &str = "--external-component-refresh";
 pub const EXTERNAL_COMPONENT_NOTICE_FLAG: &str = "--external-component-notice";
 /// `--wait-for-parent <pid>:<creation-time>`; see [`ProcessIdentity`].
 pub const WAIT_FOR_PARENT_FLAG: &str = "--wait-for-parent";
@@ -63,6 +68,7 @@ fn component_from_cli_id(id: &str) -> Option<ExternalComponent> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliMode {
   ExternalComponentSetup { component: ExternalComponent },
+  ExternalComponentRefresh { component: ExternalComponent },
   ExternalComponentUninstallNotice,
 }
 
@@ -114,13 +120,21 @@ where
   let mut parsed = CliArgs::default();
 
   while let Some(arg) = args.next() {
-    if arg == EXTERNAL_COMPONENT_SETUP_FLAG {
-      let id = args
-        .next()
-        .ok_or(CliParseError::MissingValue(EXTERNAL_COMPONENT_SETUP_FLAG))?;
+    if arg == EXTERNAL_COMPONENT_SETUP_FLAG || arg == EXTERNAL_COMPONENT_REFRESH_FLAG {
+      let refresh_only = arg == EXTERNAL_COMPONENT_REFRESH_FLAG;
+      let flag = if refresh_only {
+        EXTERNAL_COMPONENT_REFRESH_FLAG
+      } else {
+        EXTERNAL_COMPONENT_SETUP_FLAG
+      };
+      let id = args.next().ok_or(CliParseError::MissingValue(flag))?;
       let component =
         component_from_cli_id(&id).ok_or(CliParseError::UnknownComponent(id))?;
-      parsed.mode = Some(CliMode::ExternalComponentSetup { component });
+      parsed.mode = Some(if refresh_only {
+        CliMode::ExternalComponentRefresh { component }
+      } else {
+        CliMode::ExternalComponentSetup { component }
+      });
     } else if arg == EXTERNAL_COMPONENT_NOTICE_FLAG {
       let notice = args
         .next()
@@ -254,19 +268,22 @@ fn with_wait_for_parent(mut args: Vec<String>, parent: &ProcessIdentity) -> Vec<
 /// Run a command-line mode to completion and return the process exit code.
 pub fn run_cli_mode(mode: CliMode) -> i32 {
   match mode {
-    CliMode::ExternalComponentSetup { component } => {
+    CliMode::ExternalComponentSetup { component }
+    | CliMode::ExternalComponentRefresh { component } => {
+      let refresh_only = matches!(mode, CliMode::ExternalComponentRefresh { .. });
       // A panic must still become a meaningful exit code: the elevated child
       // has no console, so the default exit status 101 would be the only
       // trace. The default hook still prints the message to stderr for a
       // caller that redirected it.
-      let outcome =
-        match std::panic::catch_unwind(|| run_external_component_setup(component)) {
-          Ok(result) => result.outcome,
-          Err(payload) => ExternalComponentSetupOutcome::failed(
-            SetupFailureStage::Panicked,
-            panic_message(payload.as_ref()),
-          ),
-        };
+      let outcome = match std::panic::catch_unwind(|| {
+        run_external_component_setup(component, refresh_only)
+      }) {
+        Ok(result) => result.outcome,
+        Err(payload) => ExternalComponentSetupOutcome::failed(
+          SetupFailureStage::Panicked,
+          panic_message(payload.as_ref()),
+        ),
+      };
       if let ExternalComponentSetupOutcome::Failed { stage, detail } = &outcome {
         eprintln!("external component setup failed at {stage:?}: {detail}");
       }
@@ -361,6 +378,7 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
 
 fn run_external_component_setup(
   component: ExternalComponent,
+  refresh_only: bool,
 ) -> ExternalComponentSetupResult {
   let Some(plan) = setup_plan(component) else {
     return ExternalComponentSetupResult::failed(
@@ -370,7 +388,13 @@ fn run_external_component_setup(
     );
   };
   match PlatformFactory::shared() {
-    Ok(platform) => platform.run_external_component_setup(plan),
+    Ok(platform) => {
+      if refresh_only {
+        platform.refresh_external_component_files(plan)
+      } else {
+        platform.run_external_component_setup(plan)
+      }
+    }
     Err(e) => ExternalComponentSetupResult::failed(
       component,
       SetupFailureStage::Other,
@@ -457,6 +481,38 @@ mod tests {
       parse_cli_mode(["exe", "--external-component-setup"]),
       Err(CliParseError::MissingValue(EXTERNAL_COMPONENT_SETUP_FLAG))
     );
+  }
+
+  #[test]
+  fn parses_refresh_as_a_separate_mode_and_validates_its_component() {
+    assert_eq!(
+      parse_cli_mode(["exe", "--external-component-refresh", "pawnio"]),
+      Ok(Some(CliMode::ExternalComponentRefresh {
+        component: ExternalComponent::Pawnio,
+      }))
+    );
+    assert_eq!(
+      parse_cli_mode(["exe", "--external-component-refresh", "winring0"]),
+      Err(CliParseError::UnknownComponent("winring0".to_string()))
+    );
+    assert_eq!(
+      parse_cli_mode(["exe", "--external-component-refresh"]),
+      Err(CliParseError::MissingValue(EXTERNAL_COMPONENT_REFRESH_FLAG))
+    );
+  }
+
+  #[test]
+  fn refresh_exits_without_starting_the_app_or_waiting_for_a_parent() {
+    let launch = decide_launch(
+      CliArgs {
+        mode: Some(CliMode::ExternalComponentRefresh {
+          component: ExternalComponent::Smartctl,
+        }),
+        wait_for_parent: Some(PARENT),
+      },
+      |_| panic!("a refresh must not wait for an app process"),
+    );
+    assert_eq!(launch, Launch::Exit(SetupFailureStage::Other.exit_code()));
   }
 
   #[test]

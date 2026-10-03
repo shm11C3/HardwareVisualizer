@@ -60,7 +60,7 @@ PawnIO can provide Windows CPU readings from CPU-specific sensor paths:
 
 On Windows, **Settings → Advanced → Optional component setup** shows whether
 the PawnIO runtime and the module files HardwareVisualizer uses are present and
-offers **Install**. When you choose it, HardwareVisualizer:
+offers installation or an update when needed. When you choose it, HardwareVisualizer:
 
 1. downloads the pinned PawnIO runtime installer and the pinned PawnIO.Modules
    release from their official GitHub releases;
@@ -68,8 +68,14 @@ offers **Install**. When you choose it, HardwareVisualizer:
    app, and discards it on a mismatch;
 3. asks Windows for administrator approval, then runs the runtime installer
    unattended if the runtime is not installed yet;
-4. copies only the module files that are missing into the PawnIO install
-   directory. Existing files are never overwritten.
+4. copies missing module files into the PawnIO install directory and replaces
+   files whose SHA-256 matches an older upstream release. Current and
+   unrecognized files, including newer versions, are kept.
+
+An MSI upgrade under Program Files also refreshes outdated module files after
+the product installation succeeds, including unattended updates. This refresh
+never installs the runtime or adds missing files. A failed refresh does not
+fail the upgrade; use Settings to retry. NSIS upgrades use the Settings action.
 
 Restart HardwareVisualizer afterwards. If Windows reports that a restart is
 required, restart Windows first.

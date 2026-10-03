@@ -6,12 +6,15 @@
   of Tauri's WixUI_InstallDir sequence. The checkbox property is defaulted to
   1 only in the UI sequence and only at full UI (UILevel 5), so `msiexec /qn`,
   `/qr`, `/passive` (the updater), and winget run no setup unless the caller
-  passes EXTERNAL_COMPONENT_PAWNIO=1.
+  passes EXTERNAL_COMPONENT_PAWNIO=1 on an install that is not an upgrade.
 
   The setup itself is the application's command-line mode, run as a deferred
   custom action from the already elevated install script. Return="ignore"
   keeps a failed setup from failing the product install. An interactive
   uninstall tells the user which external components stay installed (#2119).
+
+  Upgrades refresh existing outdated module files after the install succeeds
+  (ADR 0026, #2284), including unattended updates. This does not run setup.
 
   Re-verify the Publish orders whenever the Tauri bundler template or its
   WiX version changes: WixUI_InstallDir publishes InstallDirDlg Next at
@@ -74,7 +77,10 @@
       Sequence="execute"
       After="SetHV_NSIS_DEFAULT_INSTALLDIR_DIR">NOT Installed AND UILevel &lt; 4 AND NOT HV_MSI_INSTALLDIR AND (INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR OR INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR_DIR)</SetProperty>
 
-    <!-- The InstallUISequence also runs at reduced UI (`/qr`, UILevel 4),
+    <!-- A major upgrade changes ProductCode, so NOT Installed also matches
+         an upgrade. Exclude WIX_UPGRADE_DETECTED from both setup and its UI
+         path: only the commit action may refresh modules on an upgrade.
+         The InstallUISequence also runs at reduced UI (`/qr`, UILevel 4),
          where authored dialogs are suppressed, so the checkbox would never be
          shown; the default is therefore limited to full UI (UILevel 5), where
          the dialog is the consent. -->
@@ -83,13 +89,25 @@
       Id="EXTERNAL_COMPONENT_PAWNIO"
       Value="1"
       Sequence="ui"
-      After="CostFinalize">NOT Installed AND NOT EXTERNAL_COMPONENT_PAWNIO AND UILevel = 5</SetProperty>
+      After="CostFinalize">NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT EXTERNAL_COMPONENT_PAWNIO AND UILevel = 5</SetProperty>
 
     <CustomAction
       Id="RunExternalComponentSetupPawnio"
       FileKey="Path"
       ExeCommand="--external-component-setup pawnio"
       Execute="deferred"
+      Impersonate="no"
+      Return="ignore" />
+
+    <!-- A deferred refresh could leave updated modules behind if the product
+         install rolls back. Commit runs only after the install succeeds.
+         No other commit action may fail afterwards; the MSI table check
+         enforces that constraint. Refresh never adds a runtime or file. -->
+    <CustomAction
+      Id="RefreshExternalComponentFilesPawnio"
+      FileKey="Path"
+      ExeCommand="--external-component-refresh pawnio"
+      Execute="commit"
       Impersonate="no"
       Return="ignore" />
 
@@ -115,7 +133,8 @@
       Return="ignore" />
 
     <InstallExecuteSequence>
-      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
+      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
+      <Custom Action="RefreshExternalComponentFilesPawnio" After="RunExternalComponentSetupPawnio">WIX_UPGRADE_DETECTED AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
       <Custom Action="ShowExternalComponentUninstallNotice" Before="InstallInitialize">REMOVE = "ALL" AND NOT UPGRADINGPRODUCTCODE AND UILevel &gt; 2 AND NOT (UILevel = 3 AND REBOOTPROMPT = "S") AND $(var.ProtectedInstallDir)</Custom>
     </InstallExecuteSequence>
 
@@ -140,7 +159,7 @@
         <Control Id="PawnioUnavailableCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="18" Property="ExternalComponentPawnioUnavailable" CheckBoxValue="1" Disabled="yes" Hidden="yes" Text="Set up PawnIO (CPU temperature and power, motherboard sensors)">
           <Condition Action="show">NOT $(var.ProtectedInstallDir)</Condition>
         </Control>
-        <Control Id="PawnioDescription" Type="Text" X="38" Y="80" Width="312" Height="80" NoPrefix="yes" Text="HardwareVisualizer downloads the PawnIO driver and its sensor modules from their official releases, verifies them against pinned checksums, and installs only what is missing. PawnIO stays installed when you uninstall HardwareVisualizer. You can also set it up later from Settings, Advanced." />
+        <Control Id="PawnioDescription" Type="Text" X="38" Y="80" Width="312" Height="80" NoPrefix="yes" Text="HardwareVisualizer downloads the PawnIO driver and its sensor modules from their official releases, verifies pinned checksums, installs missing components and updates outdated modules. PawnIO stays installed when you uninstall HardwareVisualizer. You can also set it up later from Settings, Advanced." />
         <Control Id="PawnioLocationNote" Type="Text" X="38" Y="165" Width="312" Height="40" NoPrefix="yes" Hidden="yes" Text="The installer sets up PawnIO only when HardwareVisualizer is installed under Program Files. For this location, use Settings, Advanced after installation.">
           <Condition Action="show">NOT $(var.ProtectedInstallDir)</Condition>
         </Control>
@@ -158,8 +177,8 @@
       </Dialog>
 
       <!-- A later NewDialog event overrides the earlier ones on the same control. -->
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ExternalComponentsDlg" Order="5">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ExternalComponentsDlg" Order="3">NOT Installed</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ExternalComponentsDlg" Order="5">NOT WIX_UPGRADE_DETECTED AND (WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1")</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ExternalComponentsDlg" Order="3">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Publish>
     </UI>
   </Fragment>
 </Wix>
