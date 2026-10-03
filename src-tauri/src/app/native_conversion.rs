@@ -2224,6 +2224,60 @@ mod tests {
     assert!(workers.storage_health.lock().unwrap().is_none());
   }
 
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn shutdown_drains_a_producer_started_while_shutdown_begins() {
+    let runtime = tokio::runtime::Handle::current();
+    let workers = std::sync::Arc::new(WorkersState::default());
+    let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let starting_workers = std::sync::Arc::clone(&workers);
+    let starter = tokio::task::spawn_blocking(move || {
+      start_missing_producers(
+        &starting_workers,
+        ProducerResumers {
+          hw_archive: None,
+          cooling_rollup: Box::new(move || {
+            let _ = started_tx.send(());
+            release_rx
+              .recv()
+              .expect("test releases producer construction");
+            CoolingRollupController::setup(runtime).0
+          }),
+          storage_health: None,
+        },
+      );
+    });
+    started_rx.await.unwrap();
+
+    let shutdown_workers = std::sync::Arc::clone(&workers);
+    let shutdown = tokio::spawn(async move { shutdown_workers.terminate_all().await });
+    let shutdown_started =
+      tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while !workers
+          .shutting_down
+          .load(std::sync::atomic::Ordering::SeqCst)
+        {
+          tokio::task::yield_now().await;
+        }
+      })
+      .await
+      .is_ok();
+
+    release_tx.send(()).unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+      starter.await.unwrap();
+      shutdown.await.unwrap().unwrap();
+    })
+    .await
+    .expect("shutdown should drain the producer started before it took the slot");
+
+    assert!(
+      shutdown_started,
+      "shutdown must set its flag before draining slots"
+    );
+    assert!(workers.cooling_rollup.lock().unwrap().is_none());
+  }
+
   #[tokio::test]
   async fn a_fresh_conversion_selects_the_native_database() {
     let fixture = Fixture::new().await;

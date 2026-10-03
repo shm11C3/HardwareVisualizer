@@ -16,6 +16,10 @@ These instructions add to the repository root `AGENTS.md` for work under
   stays at the App boundary.
 - Process shutdown and window close are different lifecycle events when Close
   to Tray is enabled. Final cleanup belongs to process/App shutdown.
+- Code that starts or restores a worker slot must check `shutting_down` while
+  holding that same slot mutex. `terminate_all` sets the flag before draining
+  those mutexes; a check outside the lock can race and leave a worker outside
+  shutdown's wait.
 
 Read [`src-tauri/README.md`](README.md),
 [`docs/architecture/backend.md`](../docs/architecture/backend.md), and
