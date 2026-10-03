@@ -13,14 +13,14 @@ default-run = "hardware_visualizer"
 [build-dependencies]
 quote = "1.0.45"
 syn = { version = "3.0.2", features = ["full"] }
-tauri-build = { version = "2.6.3", features = [] }
+tauri-build = { version = "2.7.1", features = [] }
 
 
 [dependencies]
 hardviz-core = { path = "../core", default-features = false }
 serde_json = "1.0.150"
 serde = { version = "1.0.228", features = ["derive"] }
-tauri = { version = "2.11.6", features = ["macos-private-api", "tray-icon"] }
+tauri = { version = "2.12.1", features = ["macos-private-api", "tray-icon"] }
 sysinfo = "0.39.3"
 tauri-plugin-window-state = { version = "2.4.1" }
 tokio = { version = "1.52.3", features = [
@@ -83,10 +83,11 @@ required-features = ["bindings-export"]
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.4"
 dxgi = "0.1.7"
-webview2-com = "0.38.2"
+webview2-com = "0.39.1"
 # Keep this aligned with webview2-com; its COM interfaces implement this
-# windows-core version's Interface trait, not the newer version used elsewhere.
-windows-core = "0.61"
+# windows-core version's Interface trait. A mismatch fails to compile with
+# "no method named `cast`".
+windows-core = "0.62"
 winapi = { version = "0.3", features = ["dxgi", "setupapi", "devguid"] }
 windows = { version = "0.62.2", features = [
     "Data_Xml_Dom",
@@ -149,7 +150,7 @@ name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dev-dependencies]
-tauri = { version = "2.11.6", features = ["test"] }
+tauri = { version = "2.12.1", features = ["test"] }
 mockall = "0.15"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
