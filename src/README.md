@@ -32,6 +32,27 @@ Keep feature-specific code under `features/<feature>/` when the code is not
 meaningfully reused elsewhere. Put reusable primitives in `components/`,
 cross-feature hooks in `hooks/`, and pure helpers in `lib/`.
 
+## Layer Boundaries
+
+Imports point only downward:
+
+```text
+foundation (rspc, types, consts, lib) -> store -> hooks -> components/ui
+  -> components/{charts,shared} -> features/<feature> -> app
+```
+
+- A feature never imports another feature.
+- Cross-directory imports use `@/`.
+- Atoms are declared only in `store/` modules.
+- Components read atoms with `useAtomValue` and write through hooks.
+
+`npm run lint:ci` enforces these rules through
+`.config/biome/frontend-boundaries.jsonc`. See
+[ADR 0027](../docs/adr/0027-frontend-layer-boundaries-and-state-ownership.md)
+and the [Design Doc](../docs/design/frontend-architecture.md). Existing code
+that predates the rules is listed there as pending exceptions, which only
+shrink.
+
 ## Backend IPC
 
 - Use generated commands from `src/rspc/bindings.ts`.
@@ -56,8 +77,8 @@ Use the existing boundary when choosing where state lives:
   `src/lib/tauriStore.ts` and `src/hooks/useTauriStore.ts`. Examples include
   ephemeral selections, cached UI choices, or view state that can be reset
   without losing an explicit user configuration.
-- Cross-feature frontend state should use Jotai atoms under the owning feature
-  or `src/store/` when it is genuinely shared.
+- Declare Jotai atoms in a `store/` module: `src/features/<feature>/store/`
+  for feature state, and `src/store/` when the state is genuinely shared.
 
 Do not write user-facing preferences directly from the frontend with Tauri
 Store.

@@ -28,6 +28,8 @@ documentation.
 - [Relicense to GPL-3.0-or-later decision](adr/0020-relicense-to-gpl-3.0-or-later.md)
 - [Sensor hardware specs (clean-room)](specs/sensors/)
 - [Frontend architecture](../src/README.md)
+- [Frontend layer boundaries decision](adr/0027-frontend-layer-boundaries-and-state-ownership.md)
+- [Frontend architecture Design Doc](design/frontend-architecture.md)
 - [Core crate guide](../core/README.md)
 - [Tauri app crate guide](../src-tauri/README.md)
 - [Add a new language](development/add-language.md)

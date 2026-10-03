@@ -1,0 +1,883 @@
+{
+  "$schema": "../../node_modules/@biomejs/biome/configuration_schema.json",
+  // Frontend layer boundaries and state ownership (ADR 0027,
+  // docs/design/frontend-architecture.md).
+  //
+  // A later override that configures a rule REPLACES that rule's options from
+  // earlier overrides for the files it matches; options are not merged. Keep
+  // the boundary scopes disjoint, keep every override's constraint set
+  // complete, and keep the App override last so it reclassifies the files S4
+  // moves into src/app/.
+  //
+  // "pending Sn (#2325)" marks a target constraint that still has violations.
+  // The slice Sn of #2325 removes the violations and restores the constraint.
+  // Never add a new pending exception to make new code pass.
+  //
+  // Plugin paths in this file resolve from the repository root (the config
+  // that extends this file), not from this directory.
+  "overrides": [
+    // Module-scope `let` outside store modules.
+    {
+      "includes": [
+        "src/**",
+        "!src/**/store/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx",
+        // Process-wide handle to the Tauri Store plugin, not application state.
+        "!src/lib/tauriStore.ts",
+        "!src/features/settings/hooks/useSettingsAtom.ts", // pending S3 (#2325)
+        "!src/features/settings/hooks/useDatabaseConversion.ts" // pending S5 (#2325)
+      ],
+      "plugins": ["./.config/biome/no-module-scope-let.grit"]
+    },
+    // Foundation
+    {
+      "includes": [
+        "src/lib/**",
+        "src/types/**",
+        "src/consts/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/store/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "react",
+                      "react-dom",
+                      "jotai",
+                      "jotai/**"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    // Shared store
+    {
+      "includes": ["src/store/**", "!src/**/*.test.ts", "!src/**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "react",
+                      "react-dom",
+                      "jotai/react",
+                      "jotai/react/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "useAtom",
+                      "useAtomValue",
+                      "useSetAtom",
+                      "useStore"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Shared hooks
+    {
+      "includes": ["src/hooks/**", "!src/**/*.test.ts", "!src/**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                      // "atom", -- pending S5 (#2325)
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // UI primitives
+    {
+      "includes": [
+        "src/components/ui/**",
+        "src/components/icons/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/store/**",
+                      "@/components/charts/**",
+                      "@/components/shared/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai",
+                      "jotai/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "@/rspc/bindings": {
+                    "message": "UI primitives do not call IPC. See docs/design/frontend-architecture.md.",
+                    "importNames": ["commands", "events"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Shared components: charts
+    {
+      "includes": [
+        "src/components/charts/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/components/shared/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/hardware/**", // pending S2 (#2325): delete this exemption
+                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      // "useAtom", -- pending S5 (#2325)
+                      "useSetAtom",
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Shared components
+    {
+      "includes": [
+        "src/components/shared/**",
+        "src/components/*.tsx",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      // "../**", -- pending S1 (#2325)
+                      "jotai/**",
+                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      "useAtom",
+                      // "useSetAtom", -- pending S5 (#2325)
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature catch-all
+    {
+      "includes": [
+        "src/features/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      "useAtom",
+                      "useSetAtom",
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature hardware: UI
+    {
+      "includes": [
+        "src/features/hardware/**",
+        "!src/features/hardware/store/**",
+        "!src/features/hardware/hooks/**",
+        "!src/features/hardware/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      // "../**", -- pending S1 (#2325)
+                      "jotai/**",
+                      "!@/features/hardware/**",
+                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      // "useAtom", -- pending S5 (#2325)
+                      "useSetAtom",
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature hardware: hooks
+    {
+      "includes": [
+        "src/features/hardware/hooks/**",
+        "src/features/hardware/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      // "../**", -- pending S1 (#2325)
+                      "jotai/**",
+                      "!@/features/hardware/**",
+                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                      // "atom", -- pending S5 (#2325)
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature hardware: store
+    {
+      "includes": [
+        "src/features/hardware/store/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "react",
+                      "react-dom",
+                      "jotai/react",
+                      "jotai/react/**",
+                      "!@/features/hardware/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "useAtom",
+                      "useAtomValue",
+                      "useSetAtom",
+                      "useStore"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature settings: UI
+    {
+      "includes": [
+        "src/features/settings/**",
+        "!src/features/settings/store/**",
+        "!src/features/settings/hooks/**",
+        "!src/features/settings/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      // "../**", -- pending S1 (#2325)
+                      "jotai/**",
+                      "!@/features/settings/**",
+                      "!@/features/hardware/**", // pending S2 (#2325): delete this exemption
+                      "!@/features/menu/**" // pending S5 (#2325): delete this exemption
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      // "useAtom", -- pending S5 (#2325)
+                      // "useSetAtom", -- pending S5 (#2325)
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature settings: hooks
+    {
+      "includes": [
+        "src/features/settings/hooks/**",
+        "src/features/settings/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/settings/**",
+                      "!@/features/hardware/**" // pending S2 (#2325): delete this exemption
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                      // "atom", -- pending S5 (#2325)
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature menu: UI
+    {
+      "includes": [
+        "src/features/menu/**",
+        "!src/features/menu/store/**",
+        "!src/features/menu/hooks/**",
+        "!src/features/menu/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/app/**",
+                      "@/App",
+                      // "@/lazyScreens", -- pending S4 (#2325)
+                      "../**",
+                      "jotai/**",
+                      "!@/features/menu/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      "useAtom",
+                      "useSetAtom",
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature menu: hooks
+    {
+      "includes": [
+        "src/features/menu/hooks/**",
+        "src/features/menu/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/menu/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                      // "atom", -- pending S5 (#2325)
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature tray
+    {
+      "includes": [
+        "src/features/tray/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/tray/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      "useAtom",
+                      "useSetAtom",
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature updater: UI
+    {
+      "includes": [
+        "src/features/updater/**",
+        "!src/features/updater/store/**",
+        "!src/features/updater/hooks/**",
+        "!src/features/updater/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/updater/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      "useAtom",
+                      "useSetAtom",
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature updater: hooks
+    {
+      "includes": [
+        "src/features/updater/hooks/**",
+        "src/features/updater/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/updater/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "atom"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // App
+    {
+      "includes": [
+        "src/App.tsx",
+        "src/lazyScreens.tsx",
+        "src/components/shared/CloseToTrayFirstRunDialog.tsx",
+        "src/components/shared/DatabaseConversionPromptDialog.tsx",
+        "src/components/shared/ElevationUnavailableNotice.tsx",
+        "src/components/shared/ExternalComponentGuidanceDialog.tsx",
+        "src/components/shared/NavigationRestructureNotice.tsx",
+        "src/components/shared/NsisMigrationNoticeDialog.tsx",
+        "src/components/shared/ScreenTemplate.tsx",
+        "src/components/ui/FullScreenExit.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": ["jotai/**"]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "atom",
+                      // "useAtom", -- pending S5 (#2325)
+                      // "useSetAtom", -- pending S5 (#2325)
+                      "useStore",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

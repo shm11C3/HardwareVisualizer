@@ -1,5 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  // Frontend layer boundaries live in their own file; see its header.
+  "extends": ["./.config/biome/frontend-boundaries.jsonc"],
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "vcs": {
     "enabled": true,
@@ -13,6 +15,13 @@
       "complexity": {
         // TypeScript's noPropertyAccessFromIndexSignature requires bracket access for index signatures.
         "useLiteralKeys": "off"
+      },
+      "performance": {
+        "noBarrelFile": "error",
+        "noReExportAll": "error"
+      },
+      "suspicious": {
+        "noImportCycles": "error"
       },
       "nursery": {
         "useSortedClasses": {
