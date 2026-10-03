@@ -1,11 +1,28 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
+use hardviz_core::models::external_component_guidance::{
+  PAWNIO_CPU_PACKAGE_TEMPERATURE_KEY, PAWNIO_MOTHERBOARD_SENSORS_KEY,
+  SMARTCTL_STORAGE_HEALTH_KEY,
+};
 use hardviz_core::models::{
   ExternalComponent, ExternalComponentGuidanceCandidate, ExternalComponentUsage,
 };
 use serde::Deserialize;
 use specta::Type;
+
+/// Every guidance key a component can produce. Core forms the keys as
+/// `<component>:<usage>:v1`; the mapping stays here because only the App
+/// needs to address all of a component's keys at once.
+pub(crate) fn guidance_keys_for(component: ExternalComponent) -> &'static [&'static str] {
+  match component {
+    ExternalComponent::Pawnio => &[
+      PAWNIO_CPU_PACKAGE_TEMPERATURE_KEY,
+      PAWNIO_MOTHERBOARD_SENSORS_KEY,
+    ],
+    ExternalComponent::Smartctl => &[SMARTCTL_STORAGE_HEALTH_KEY],
+  }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -80,6 +97,16 @@ impl ExternalComponentGuidanceState {
     }
   }
 
+  /// Hide every guidance key of `component` until the process restarts.
+  /// Session-only on purpose: the acknowledged ("never show again") keys in
+  /// Application Preferences are untouched, so a component that goes missing
+  /// again in a later session is offered again.
+  pub fn defer_component_for_session(&self, component: ExternalComponent) {
+    for key in guidance_keys_for(component) {
+      self.defer_for_session(key);
+    }
+  }
+
   pub fn remove_key(&self, key: &str) {
     if let Ok(mut pending) = self.pending.lock() {
       pending.remove(key);
@@ -148,6 +175,24 @@ mod tests {
 
     let pending = state.pending_candidates(ExternalComponentGuidanceView::Dashboard, &[]);
     assert!(pending.is_empty());
+  }
+
+  #[test]
+  fn defer_component_for_session_hides_every_key_of_that_component_only() {
+    let state = ExternalComponentGuidanceState::default();
+    state.record_candidates(vec![
+      pawnio_candidate(),
+      hardviz_core::models::ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+        "PawnIOLib.dll not found".to_string(),
+      ),
+      smartctl_candidate(),
+    ]);
+
+    state.defer_component_for_session(ExternalComponent::Pawnio);
+
+    let pending = state.pending_candidates(ExternalComponentGuidanceView::Dashboard, &[]);
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].key, "smartctl:storage-health:v1");
   }
 
   #[test]
