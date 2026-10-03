@@ -115,7 +115,13 @@ const chartConfig = {
 
 type SeriesKey = keyof typeof chartConfig;
 
-const seriesColor = (key: SeriesKey) => `var(--color-${key})`;
+/**
+ * The config's own theme token, not ChartStyle's `--color-<key>`: that
+ * variable exists only inside the chart's `[data-chart]` element, and each
+ * lane's legend renders beside its chart, where it would resolve to
+ * nothing and leave the label without its sample (#2310).
+ */
+const seriesColor = (key: SeriesKey) => chartConfig[key].color;
 
 const LOAD_BAND_SERIES = [
   { key: "loadIdle", band: "idle" },
@@ -134,27 +140,24 @@ const LegendSwatch = ({
   variant?: "line" | "band" | "bar" | "dashed";
 }) => (
   <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
-    {variant === "band" ? (
-      <span
-        className="h-2.5 w-3.5 rounded-[2px] opacity-30"
-        style={{ backgroundColor: color }}
-      />
-    ) : variant === "bar" ? (
-      <span
-        className="h-2.5 w-2.5 rounded-[2px]"
-        style={{ backgroundColor: color }}
-      />
-    ) : variant === "dashed" ? (
-      <span
-        className="h-0 w-3.5 border-t-2 border-dashed"
-        style={{ borderColor: color }}
-      />
-    ) : (
-      <span
-        className="h-0.5 w-3.5 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-    )}
+    <span
+      data-testid="cooling-legend-swatch"
+      data-variant={variant}
+      className={
+        variant === "band"
+          ? "h-2.5 w-3.5 rounded-[2px] opacity-30"
+          : variant === "bar"
+            ? "h-2.5 w-2.5 rounded-[2px]"
+            : variant === "dashed"
+              ? "h-0 w-3.5 border-t-2 border-dashed"
+              : "h-0.5 w-3.5 rounded-full"
+      }
+      style={
+        variant === "dashed"
+          ? { borderColor: color }
+          : { backgroundColor: color }
+      }
+    />
     {label}
   </span>
 );

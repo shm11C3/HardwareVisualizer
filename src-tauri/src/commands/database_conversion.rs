@@ -80,7 +80,10 @@ mod imp {
   pub(super) async fn get_database_conversion_state(
     app: tauri::AppHandle,
   ) -> DatabaseConversionState {
-    app.state::<NativeLifecycleOwner>().state().into()
+    crate::models::database_conversion::conversion_state_for(
+      app.state::<NativeLifecycleOwner>().state(),
+      app.state::<ConversionRuntime>().unverified_sqlite_source(),
+    )
   }
 
   pub(super) async fn start_database_conversion(
@@ -104,7 +107,9 @@ mod imp {
       cancellation,
       bus,
       previous_state,
-    }) = conversion_runtime.begin_attempt_marking_converting(&owner_for_start_state)?
+    }) = conversion_runtime
+      .begin_attempt_marking_converting(&owner_for_start_state)
+      .await?
     else {
       // Nothing to do: either another attempt already claimed it (the
       // frontend already shows that attempt's progress), or `owner` was
@@ -223,9 +228,11 @@ mod imp {
         "the selected native database cannot be rebuilt from SQLite".to_owned(),
       );
     }
-    owner.set_state(DatabaseLifecycleState::Converting(
-      ConversionProgress::Preflight,
-    ));
+    owner
+      .set_state(DatabaseLifecycleState::Converting(
+        ConversionProgress::Preflight,
+      ))
+      .await;
 
     let paths = native_paths::authority_paths();
     let workspace = native_paths::database_directory();
@@ -250,11 +257,13 @@ mod imp {
       }
       .await;
       if let Err(message) = preflight {
-        owner.set_state(DatabaseLifecycleState::ActionRequired(
-          LifecycleIssue::NativeRecoveryRefused {
-            message: message.clone(),
-          },
-        ));
+        owner
+          .set_state(DatabaseLifecycleState::ActionRequired(
+            LifecycleIssue::NativeRecoveryRefused {
+              message: message.clone(),
+            },
+          ))
+          .await;
         log_error!(
           "native rebuild recovery stopped before moving the native database",
           "commands::database_conversion::rebuild_native_database_from_sqlite",
@@ -264,11 +273,13 @@ mod imp {
       }
       if cancellation.is_cancelled() {
         let message = "native database recovery was cancelled before backup".to_owned();
-        owner.set_state(DatabaseLifecycleState::ActionRequired(
-          LifecycleIssue::NativeRecoveryRefused {
-            message: message.clone(),
-          },
-        ));
+        owner
+          .set_state(DatabaseLifecycleState::ActionRequired(
+            LifecycleIssue::NativeRecoveryRefused {
+              message: message.clone(),
+            },
+          ))
+          .await;
         log_info!(
           "native rebuild recovery was cancelled before moving the native database",
           "commands::database_conversion::rebuild_native_database_from_sqlite",
@@ -293,7 +304,9 @@ mod imp {
               message: message.clone(),
             }
           };
-          owner.set_state(DatabaseLifecycleState::ActionRequired(issue));
+          owner
+            .set_state(DatabaseLifecycleState::ActionRequired(issue))
+            .await;
           log_error!(
             "native rebuild recovery could not archive the native database",
             "commands::database_conversion::rebuild_native_database_from_sqlite",

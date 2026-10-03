@@ -378,6 +378,76 @@ mod boundary {
     Ok(())
   }
 
+  /// Guards every dispatch-routed write that is not one of the producers
+  /// `native_conversion::pause_and_drain_producers` already stops: the
+  /// cooling absolute/ΔT baseline pins a read command reaches lazily, and
+  /// `commands::hardware::refresh_storage_devices`'s on-demand write
+  /// (#2271).
+  ///
+  /// This is a second, narrower gate than [`Active`]: `Active` says which
+  /// backend answers a call, but SQLite stays `Active::Sqlite` for the
+  /// entire `Converting` window - the durable selection is not recorded
+  /// until reconciliation commits it. A write that lands in SQLite after
+  /// the conversion's candidate snapshot was taken but before that commit
+  /// is never in the native database; a baseline pin gets written again
+  /// later (letting `established_at` shift), and a Storage Health refresh
+  /// is simply lost.
+  ///
+  /// A plain point-in-time flag is not enough: a caller that observed
+  /// `true` and started its write can still be descheduled mid-`await`,
+  /// after which a conversion could close the flag and proceed to take its
+  /// candidate snapshot while that write is still in flight. This is an
+  /// `RwLock<bool>` instead, so [`acquire_write_permit`]'s read guard and
+  /// [`set_writable`]'s write guard actually exclude each other: closing
+  /// the gate (`set_writable(false)`) does not return until every permit
+  /// already handed out has been dropped, so the App's conversion lifecycle
+  /// owner (`native_lifecycle::NativeLifecycleOwner`, the only writer, kept
+  /// in lock-step with its own state through `set_state`/`set_state_if`
+  /// using the same [`database_writable`][dw]-shaped verdict that already
+  /// governs `refresh_storage_devices`'s point-in-time
+  /// `ensure_database_writable` check) cannot proceed past marking
+  /// `Converting` until every write this gate knows about has finished.
+  ///
+  /// Defaults to writable so a process that never starts a conversion (or a
+  /// unit test that never touches this module) behaves exactly as before.
+  ///
+  /// [dw]: ../../../../src-tauri/src/app/native_lifecycle.rs
+  static WRITE_GATE: OnceLock<Arc<RwLock<bool>>> = OnceLock::new();
+
+  fn write_gate() -> Arc<RwLock<bool>> {
+    Arc::clone(WRITE_GATE.get_or_init(|| Arc::new(RwLock::new(true))))
+  }
+
+  /// Held for the duration of one guarded write. Dropping it is the only
+  /// way the permit is released; nothing on this type needs calling, so the
+  /// field itself is never read - only its `Drop` impl (releasing the read
+  /// guard) matters.
+  #[allow(dead_code)]
+  pub struct WritePermit(tokio::sync::OwnedRwLockReadGuard<bool>);
+
+  /// Take out a permit for one guarded write, or `None` if the gate is
+  /// currently closed. Held across the write itself (not just the check
+  /// that precedes it) so [`set_writable(false)`][set_writable] cannot
+  /// complete - and so the conversion driver cannot proceed past marking
+  /// `Converting` - until this permit is dropped.
+  pub async fn acquire_write_permit() -> Option<WritePermit> {
+    let guard = write_gate().read_owned().await;
+    if *guard {
+      Some(WritePermit(guard))
+    } else {
+      None
+    }
+  }
+
+  /// Set by the App's conversion lifecycle owner whenever its state
+  /// changes. Closing the gate (`writable: false`) waits for every
+  /// outstanding [`WritePermit`] to drop before returning, draining
+  /// in-flight writes the same way `native_conversion::pause_and_drain_producers`
+  /// drains its own producers.
+  pub async fn set_writable(writable: bool) {
+    *write_gate().write().await = writable;
+  }
+
   /// Close a native owner that was just taken out of the boundary.
   ///
   /// The caller has already replaced the owner with a non-serving transition
@@ -579,6 +649,75 @@ mod boundary {
         resolve_backend_with(Arc::clone(&active), None).await,
         Ok(Backend::Sqlite)
       ));
+    }
+
+    /// #2271: the cooling baseline pins (`persistence::cooling_baseline`,
+    /// `persistence::cooling_delta_baseline`) and
+    /// `services::hardware_service::refresh_storage_devices`'s write both
+    /// call [`super::acquire_write_permit`] before writing; the App's
+    /// conversion lifecycle owner drives the gate through
+    /// [`super::set_writable`]. Defaults to open so a process that never
+    /// starts a conversion behaves exactly as before, and a round trip
+    /// proves the gate actually holds whatever was last set rather than
+    /// resetting itself.
+    ///
+    /// Left open on every exit path because this gate is process-wide for
+    /// the whole test binary; `test_support::lock_write_gate` keeps this
+    /// test from interleaving with `persistence::cooling_baseline`'s own
+    /// use of the same gate.
+    #[tokio::test]
+    async fn write_permit_is_granted_by_default_and_refused_once_closed() {
+      let _guard =
+        crate::infrastructure::database::dispatch::test_support::lock_write_gate().await;
+
+      assert!(
+        super::acquire_write_permit().await.is_some(),
+        "a process that never starts a conversion must not refuse this write"
+      );
+
+      super::set_writable(false).await;
+      assert!(super::acquire_write_permit().await.is_none());
+
+      super::set_writable(true).await;
+      assert!(super::acquire_write_permit().await.is_some());
+    }
+
+    /// #2271: `set_writable(false)` must not return - and so the conversion
+    /// driver must not proceed past marking `Converting` - until every
+    /// [`super::WritePermit`] already handed out has been dropped. This is
+    /// the property a plain point-in-time flag cannot give: closing the
+    /// gate has to actually wait for an in-flight write, not just refuse
+    /// the next one.
+    #[tokio::test]
+    async fn closing_the_gate_waits_for_an_outstanding_permit_to_drop() {
+      let _guard =
+        crate::infrastructure::database::dispatch::test_support::lock_write_gate().await;
+
+      let permit = super::acquire_write_permit()
+        .await
+        .expect("the gate starts open");
+
+      let closed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+      let closed_writer = std::sync::Arc::clone(&closed);
+      let closing = tokio::spawn(async move {
+        super::set_writable(false).await;
+        closed_writer.store(true, Ordering::SeqCst);
+      });
+
+      // Give the closing task every chance to race ahead if it were (wrongly)
+      // able to close the gate without waiting for `permit`.
+      tokio::task::yield_now().await;
+      tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+      assert!(
+        !closed.load(Ordering::SeqCst),
+        "the gate must not close while a permit is still outstanding"
+      );
+
+      drop(permit);
+      closing.await.unwrap();
+      assert!(closed.load(Ordering::SeqCst));
+
+      super::set_writable(true).await;
     }
 
     #[tokio::test]
@@ -821,8 +960,49 @@ mod boundary {
 
 #[cfg(feature = "duckdb-archive")]
 pub use boundary::{
-  init, refuse_consumers, reobserve_authority, reobserve_expecting_selected, shutdown,
+  WritePermit, acquire_write_permit, init, refuse_consumers, reobserve_authority,
+  reobserve_expecting_selected, set_writable, shutdown,
 };
+
+/// [`boundary::WritePermit`] with `duckdb-archive` disabled: there is no
+/// conversion lifecycle and therefore no window to guard, so this carries
+/// nothing.
+#[cfg(not(feature = "duckdb-archive"))]
+pub struct WritePermit;
+
+/// [`boundary::acquire_write_permit`] with `duckdb-archive` disabled: always
+/// granted, since there is no gate to consult.
+#[cfg(not(feature = "duckdb-archive"))]
+pub async fn acquire_write_permit() -> Option<WritePermit> {
+  Some(WritePermit)
+}
+
+/// [`boundary::set_writable`] with `duckdb-archive` disabled: no lifecycle
+/// owner exists to call this, but it stays callable so App code does not
+/// need a second `#[cfg]` at the call site.
+#[cfg(not(feature = "duckdb-archive"))]
+pub async fn set_writable(_writable: bool) {}
+
+/// Serializes every test in this crate's test binary that calls
+/// [`set_writable`] against the process-wide gate it toggles (#2271's
+/// tests, and this module's own). Without this, two such tests running on
+/// different threads (the ordinary `cargo test` default) could interleave
+/// their set/assert sequences against the same `static` and fail
+/// spuriously. Not needed by anything that only calls
+/// [`acquire_write_permit`]: the gate's default (open) is stable until
+/// something calls `set_writable`, and nothing in this crate's production
+/// code path does that outside the App's lifecycle owner.
+#[cfg(all(test, feature = "duckdb-archive"))]
+pub(crate) mod test_support {
+  // `tokio::sync::Mutex`, not `std::sync::Mutex`: every caller holds this
+  // guard across `.await` points for the whole span of its own test, which
+  // `clippy::await_holding_lock` correctly refuses for a std lock.
+  static WRITE_GATE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+  pub(crate) async fn lock_write_gate() -> tokio::sync::MutexGuard<'static, ()> {
+    WRITE_GATE_TEST_LOCK.lock().await
+  }
+}
 
 /// Checkpoint the native database if it is the currently selected backend;
 /// a no-op on SQLite (there is nothing to checkpoint, and no live owner to

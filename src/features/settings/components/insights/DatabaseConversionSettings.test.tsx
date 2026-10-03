@@ -161,6 +161,28 @@ describe("DatabaseConversionSettings", () => {
     ).not.toBeInTheDocument();
   });
 
+  // #2269: startup could not verify the SQLite source and the user
+  // continued anyway; the backend refuses every start this session.
+  it("explains an unverified SQLite source without offering any start", () => {
+    mockState = {
+      kind: "actionRequired",
+      reason: "sqliteSourceUnverified",
+      diagnostic: "IncompatibleVersion",
+    };
+    render(<DatabaseConversionSettings />);
+
+    expect(
+      screen.getByText(
+        "pages.settings.insights.databaseConversion.actionRequired.sqliteSourceUnverified",
+      ),
+    ).toBeInTheDocument();
+    for (const key of ["convert", "retry", "recovery.review"]) {
+      expect(
+        screen.queryByText(`pages.settings.insights.databaseConversion.${key}`),
+      ).not.toBeInTheDocument();
+    }
+  });
+
   it("requires a separate confirmation before inspecting rebuild eligibility", () => {
     mockState = {
       kind: "actionRequired",

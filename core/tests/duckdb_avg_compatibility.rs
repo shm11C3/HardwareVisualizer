@@ -432,6 +432,23 @@ fn assert_records_match(
 
   if order_by_cpu_desc {
     assert_eq!(rank_bands(expected), rank_bands(actual), "{context}");
+  } else {
+    // #2270: with no CPU sort requested, both engines must return the same
+    // deterministic `(pid, process_name)` order - SQLite's sorter-based
+    // grouping happened to produce it, but DuckDB's hash aggregation does not
+    // unless the query asks for it explicitly.
+    let expected_order: Vec<_> = expected.iter().map(key).collect();
+    let actual_order: Vec<_> = actual.iter().map(key).collect();
+    let mut sorted_expected_order = expected_order.clone();
+    sorted_expected_order.sort();
+    assert_eq!(
+      expected_order, sorted_expected_order,
+      "{context}: SQLite must already be in (pid, process_name) order"
+    );
+    assert_eq!(
+      actual_order, expected_order,
+      "{context}: DuckDB must return the identical (pid, process_name) order"
+    );
   }
 }
 

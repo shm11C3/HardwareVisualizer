@@ -139,6 +139,13 @@ async fn run_daily_record_for_date(
   }
 }
 
+/// The dispatch write itself takes out a
+/// [`dispatch::acquire_write_permit`] (see [`store_storage_health_collection`])
+/// rather than this function checking writability up front: the blocking
+/// SMART collection above it can run for a while, and a check taken any
+/// earlier (here, or at the caller's own entry) would leave that whole
+/// collection as an unguarded window a conversion can start and reach
+/// `Converting` within (#2271).
 pub async fn refresh_storage_health_for_date(
   retention_days: u32,
   date: &str,
@@ -185,11 +192,29 @@ async fn collect_storage_health_for_date(
   Ok(StorageHealthCollection { devices, records })
 }
 
+/// Holds one [`dispatch::acquire_write_permit`] across both writes below
+/// (the record upsert and the retention delete), not just a check before
+/// them: `refresh_storage_devices` is the one on-demand write outside the
+/// background producers a conversion pauses/drains
+/// (`native_conversion::pause_and_drain_producers`), so a permit that were
+/// only checked - not held - would let the App's conversion lifecycle owner
+/// close the gate and take its candidate snapshot while this write is still
+/// in flight, exactly the race #2271 exists to close. The daily background
+/// pass (`run_daily_record_for_date`) reaches this too; it is one of the
+/// paused producers, so its own permit request never actually waits - the
+/// gate is only ever closed after that producer has already stopped.
 async fn store_storage_health_collection(
   retention_days: u32,
   active_device_ids: Vec<String>,
   collection: StorageHealthCollection,
 ) -> Result<(), String> {
+  let Some(_permit) = dispatch::acquire_write_permit().await else {
+    return Err(
+      "the database is unavailable for writing right now (a conversion is in progress)"
+        .to_string(),
+    );
+  };
+
   let active_device_ids =
     active_device_ids_with_collected_devices(active_device_ids, &collection.devices);
   let result = if active_device_ids.is_empty() {
@@ -572,6 +597,32 @@ mod tests {
       raw_value: Some(raw.to_string()),
       when_failed: None,
     }
+  }
+
+  /// #2271: `store_storage_health_collection` holds a
+  /// `dispatch::acquire_write_permit` across its writes rather than only
+  /// checking writability beforehand - see its own doc for why a
+  /// point-in-time check alone would not stop a conversion from closing
+  /// the gate and taking its candidate snapshot while this write is still
+  /// in flight. Refusing when no permit is granted needs no pool at all:
+  /// the function returns before it ever reaches a dispatch call.
+  #[cfg(feature = "duckdb-archive")]
+  #[tokio::test]
+  async fn store_storage_health_collection_refuses_the_write_while_converting() {
+    let _guard = dispatch::test_support::lock_write_gate().await;
+    dispatch::set_writable(false).await;
+
+    let collection = StorageHealthCollection {
+      devices: Vec::new(),
+      records: Vec::new(),
+    };
+    let error = store_storage_health_collection(1, Vec::new(), collection)
+      .await
+      .expect_err("the write must be refused while the gate reports Converting");
+
+    assert!(error.contains("unavailable for writing"), "{error}");
+
+    dispatch::set_writable(true).await;
   }
 
   #[test]

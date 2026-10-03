@@ -790,10 +790,25 @@ pub fn run() {
       // owner before anything else reads it — including the `is_db_ok`
       // branch below, so `ActionRequired` is recorded even when `db_error`
       // is also set and the branch that used to record it is skipped.
+      // `set_state` is `async` since #2271 (it keeps Core's dispatch write
+      // gate in step); this `.setup` closure is synchronous, so run it to
+      // completion on the same runtime handle the rest of this closure
+      // already uses to bridge into async Core calls.
       #[cfg(feature = "duckdb-archive")]
-      app
-        .state::<app::native_lifecycle::NativeLifecycleOwner>()
-        .set_state(native_lifecycle_state.clone());
+      runtime_handle.block_on(
+        app
+          .state::<app::native_lifecycle::NativeLifecycleOwner>()
+          .set_state(native_lifecycle_state.clone()),
+      );
+
+      // #2269: a SQLite source this build could not verify must never be
+      // converted, even after the user continues past the startup dialog.
+      #[cfg(feature = "duckdb-archive")]
+      if let Some(db_err) = &db_error {
+        app
+          .state::<app::native_conversion::ConversionRuntime>()
+          .refuse_for_unverified_sqlite_source(format!("{db_err:?}"));
+      }
 
       if is_db_ok {
         // Retire the SQLite source (rename in place; decided 2026-09-13,
@@ -994,6 +1009,7 @@ pub fn run() {
           std::thread::spawn(move || {
             use app::startup::{self, NativeAuthorityAction};
             match startup::prompt_native_authority_issue(&handle, &issue) {
+              NativeAuthorityAction::Retry => startup::restart(&handle),
               NativeAuthorityAction::ResetAndRestart => {
                 startup::reset_database_and_restart(&handle);
               }

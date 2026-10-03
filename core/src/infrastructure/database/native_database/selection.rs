@@ -49,6 +49,7 @@ use super::finalize::{
   FINALIZED_UNSELECTED, NATIVE_IDENTITY_TABLE, NATIVE_METADATA_TABLE, SELECTED,
   open_database, open_database_with_storage_version, require_no_wal,
 };
+use super::publish::publish_without_replacing;
 use super::reconcile::NativeReconciliationReport;
 use super::schema::{NativeIdentityMode, NativeSchemaDefinition};
 
@@ -176,9 +177,17 @@ pub enum MarkerFacts {
 pub enum NativeMetadataFacts {
   /// No native database file at all.
   Absent,
-  /// The file exists but its metadata could not be read as a finalized native
-  /// database.
+  /// The file exists but its metadata could not be read: the temporary spill
+  /// directory could not be created, DuckDB refused the open (another process
+  /// holds the file, an I/O error, or bytes it cannot open), or a metadata
+  /// query failed. Nothing certain about the file's contents is known, so a
+  /// later attempt may read it without anyone changing it.
   Unreadable,
+  /// The file opened and its metadata was read, but it does not describe a
+  /// finalized native database: the table or row is missing, a value has the
+  /// wrong type, the state is unknown, or a value is out of range. The file
+  /// itself shows this, so retrying reads the same.
+  Invalid,
   Present {
     state: NativeState,
     schema_version: u32,
@@ -220,7 +229,13 @@ pub enum AuthorityInconsistency {
   MarkerUnreadable,
   MarkerWithoutNativeDatabase,
   MarkerNamesAnotherDatabase,
+  /// The native database's metadata could not be read
+  /// ([`NativeMetadataFacts::Unreadable`]). The files show no disagreement,
+  /// only that they could not be read this time.
   NativeMetadataUnreadable,
+  /// The native database's metadata was read and is not that of a finalized
+  /// native database ([`NativeMetadataFacts::Invalid`]).
+  NativeMetadataInvalid,
   /// The marker claims a selection the database did not record.
   MarkerAheadOfNativeState,
   /// A selected database built for a schema version this build does not run -
@@ -234,6 +249,22 @@ pub enum AuthorityInconsistency {
   SelectedWithoutMarker,
   /// Native files exist but the SQLite source they were built from is gone.
   SourceDatabaseMissing,
+}
+
+impl AuthorityInconsistency {
+  /// Whether the same files may inspect differently on a later attempt, so a
+  /// retry is worth offering before anything that discards data.
+  ///
+  /// Only [`Self::NativeMetadataUnreadable`]: a lock, a missing temporary
+  /// directory or an I/O error clears without the files changing. Every other
+  /// reason is a disagreement the files positively show and a retry reads
+  /// again. A read that fails because the bytes are damaged is counted here
+  /// too, since the error cannot tell it from a lock; that costs one harmless
+  /// retry, while the opposite mistake would put deleting the database first
+  /// for a condition that clears on its own.
+  pub fn may_clear_on_retry(self) -> bool {
+    matches!(self, Self::NativeMetadataUnreadable)
+  }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -459,10 +490,12 @@ fn create_empty(
   sync_file(&database_path)?;
 
   // `rename` replaces an existing destination on Unix. The initial artifact
-  // check cannot by itself serialize two first launches, so publish through a
-  // hard link whose destination creation fails atomically when another
-  // process won the race.
-  fs::hard_link(&database_path, &paths.native_database).map_err(|error| {
+  // check cannot by itself serialize two first launches, so publish through
+  // `publish_without_replacing` (see [`super::publish`]), whose destination
+  // creation fails atomically when another process won the race - by a hard
+  // link where the volume supports one, or a fallback with the same
+  // no-replace guarantee where it does not (#2272).
+  publish_without_replacing(&database_path, &paths.native_database).map_err(|error| {
     NativeDatabaseError::selection(
       "publish the fresh native database",
       format!("{}: {error}", paths.native_database.display()),
@@ -916,62 +949,96 @@ fn observe_native_metadata(path: &Path) -> NativeMetadataFacts {
   let Ok(connection) = open_database(path, AccessMode::ReadOnly, spill.path()) else {
     return NativeMetadataFacts::Unreadable;
   };
-  let Ok(has_storage_version) =
-    has_storage_version_column(&connection, NATIVE_METADATA_TABLE)
-  else {
-    return NativeMetadataFacts::Unreadable;
-  };
-  if !has_storage_version {
-    let legacy_metadata: Result<(String, i64), _> = connection.query_row(
-      &format!(
-        "SELECT state, schema_version FROM {}",
-        quote_identifier(NATIVE_METADATA_TABLE)
-      ),
-      [],
-      |row| Ok((row.get(0)?, row.get(1)?)),
-    );
-    let Ok((state, schema_version)) = legacy_metadata else {
-      return NativeMetadataFacts::Unreadable;
+  match read_native_metadata(&connection) {
+    Ok(facts) => facts,
+    Err(error) => metadata_read_failure(&error),
+  }
+}
+
+/// Read the metadata from an open file. `Ok` carries what the file shows,
+/// including [`NativeMetadataFacts::Invalid`] for a table that is absent or a
+/// value this build does not recognize; `Err` is a query that failed.
+fn read_native_metadata(
+  connection: &Connection,
+) -> Result<NativeMetadataFacts, NativeDatabaseError> {
+  let metadata_table_present: i64 = connection
+    .query_row(
+      "SELECT count(*) FROM information_schema.tables WHERE table_name = ?",
+      [NATIVE_METADATA_TABLE],
+      |row| row.get(0),
+    )
+    .map_err(|error| {
+      NativeDatabaseError::duckdb("look for the native metadata table", error)
+    })?;
+  if metadata_table_present == 0 {
+    return Ok(NativeMetadataFacts::Invalid);
+  }
+  if !has_storage_version_column(connection, NATIVE_METADATA_TABLE)? {
+    let (state, schema_version): (String, i64) = connection
+      .query_row(
+        &format!(
+          "SELECT state, schema_version FROM {}",
+          quote_identifier(NATIVE_METADATA_TABLE)
+        ),
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+      )
+      .map_err(|error| {
+        NativeDatabaseError::duckdb("read the legacy native metadata", error)
+      })?;
+    let (Some(state), Ok(schema_version)) =
+      (parse_native_state(&state), u32::try_from(schema_version))
+    else {
+      return Ok(NativeMetadataFacts::Invalid);
     };
-    let state = match state.as_str() {
-      FINALIZED_UNSELECTED => NativeState::FinalizedUnselected,
-      SELECTED => NativeState::Selected,
-      _ => return NativeMetadataFacts::Unreadable,
-    };
-    let Ok(schema_version) = u32::try_from(schema_version) else {
-      return NativeMetadataFacts::Unreadable;
-    };
-    return NativeMetadataFacts::Legacy {
+    return Ok(NativeMetadataFacts::Legacy {
       state,
       schema_version,
-    };
+    });
   }
-  let Ok((state, schema_version, storage_version, source_schema_sha256, source_rows, _)) =
-    read_metadata_row(&connection)
-  else {
-    return NativeMetadataFacts::Unreadable;
+  let (state, schema_version, storage_version, source_schema_sha256, source_rows, _) =
+    read_metadata_row(connection)?;
+  let engine_storage_version = engine_storage_version(connection)?;
+  let (Some(state), Ok(schema_version), Ok(source_rows)) = (
+    parse_native_state(&state),
+    u32::try_from(schema_version),
+    u64::try_from(source_rows),
+  ) else {
+    return Ok(NativeMetadataFacts::Invalid);
   };
-  let Ok(engine_storage_version) = engine_storage_version(&connection) else {
-    return NativeMetadataFacts::Unreadable;
-  };
-  let state = match state.as_str() {
-    FINALIZED_UNSELECTED => NativeState::FinalizedUnselected,
-    SELECTED => NativeState::Selected,
-    _ => return NativeMetadataFacts::Unreadable,
-  };
-  let Ok(schema_version) = u32::try_from(schema_version) else {
-    return NativeMetadataFacts::Unreadable;
-  };
-  let Ok(source_rows) = u64::try_from(source_rows) else {
-    return NativeMetadataFacts::Unreadable;
-  };
-  NativeMetadataFacts::Present {
+  Ok(NativeMetadataFacts::Present {
     state,
     schema_version,
     storage_version,
     engine_storage_version,
     source_schema_sha256,
     source_rows,
+  })
+}
+
+fn parse_native_state(state: &str) -> Option<NativeState> {
+  match state {
+    FINALIZED_UNSELECTED => Some(NativeState::FinalizedUnselected),
+    SELECTED => Some(NativeState::Selected),
+    _ => None,
+  }
+}
+
+/// A metadata query that ran and found no row, or a value of the wrong type,
+/// is something the file shows. Any other failure - an I/O or resource error
+/// while reading, or a column this build expects but cannot bind - says
+/// nothing certain about the contents, so it stays retryable rather than
+/// putting Reset first.
+fn metadata_read_failure(error: &NativeDatabaseError) -> NativeMetadataFacts {
+  match error {
+    NativeDatabaseError::DuckDb {
+      source:
+        duckdb::Error::QueryReturnedNoRows
+        | duckdb::Error::FromSqlConversionFailure(..)
+        | duckdb::Error::InvalidColumnType(..),
+      ..
+    } => NativeMetadataFacts::Invalid,
+    _ => NativeMetadataFacts::Unreadable,
   }
 }
 
@@ -1022,7 +1089,10 @@ pub fn inspect_authority(facts: &AuthorityFacts) -> AuthorityState {
         ..
       } = &facts.native_metadata
       else {
-        return stop(AuthorityInconsistency::NativeMetadataUnreadable);
+        return stop(match facts.native_metadata {
+          NativeMetadataFacts::Invalid => AuthorityInconsistency::NativeMetadataInvalid,
+          _ => AuthorityInconsistency::NativeMetadataUnreadable,
+        });
       };
       if *state == NativeState::FinalizedUnselected {
         return stop(AuthorityInconsistency::MarkerAheadOfNativeState);
@@ -1061,12 +1131,15 @@ pub fn inspect_authority(facts: &AuthorityFacts) -> AuthorityState {
         return stop(AuthorityInconsistency::SourceDatabaseMissing);
       }
       match &facts.native_metadata {
+        // A native file can be selected even when its marker is absent; the
+        // marker is written after the database records selection. If the
+        // database cannot be read, treating it as partial conversion output
+        // sends retries into a conversion with an existing native file.
         NativeMetadataFacts::Unreadable => {
-          // A native file can be selected even when its marker is absent;
-          // the marker is written after the database records selection. If
-          // the database cannot be read, treating it as partial conversion
-          // output sends retries into a conversion with an existing native file.
           stop(AuthorityInconsistency::NativeMetadataUnreadable)
+        }
+        NativeMetadataFacts::Invalid => {
+          stop(AuthorityInconsistency::NativeMetadataInvalid)
         }
         NativeMetadataFacts::Present { schema_version, .. }
           if *schema_version != facts.expected_schema_version =>
@@ -1304,6 +1377,13 @@ mod tests {
     );
 
     let mut observed = facts();
+    observed.native_metadata = NativeMetadataFacts::Invalid;
+    assert_eq!(
+      inspect_authority(&observed),
+      inconsistent(AuthorityInconsistency::NativeMetadataInvalid)
+    );
+
+    let mut observed = facts();
     observed.native_metadata = NativeMetadataFacts::Present {
       state: NativeState::FinalizedUnselected,
       schema_version: 1,
@@ -1369,6 +1449,145 @@ mod tests {
     assert_eq!(
       inspect_authority(&observed),
       inconsistent(AuthorityInconsistency::SourceDatabaseMissing)
+    );
+  }
+
+  #[test]
+  fn invalid_native_metadata_without_a_marker_stops_as_invalid() {
+    let mut observed = facts();
+    observed.marker = MarkerFacts::Absent;
+    observed.native_metadata = NativeMetadataFacts::Invalid;
+    assert_eq!(
+      inspect_authority(&observed),
+      inconsistent(AuthorityInconsistency::NativeMetadataInvalid)
+    );
+  }
+
+  /// #2268: only a native database that could not be opened may read
+  /// differently on a later attempt. Every other reason is something the
+  /// files positively show.
+  #[test]
+  fn only_unreadable_native_metadata_may_clear_on_retry() {
+    use AuthorityInconsistency as A;
+    assert!(A::NativeMetadataUnreadable.may_clear_on_retry());
+    for reason in [
+      A::MarkerUnreadable,
+      A::MarkerWithoutNativeDatabase,
+      A::MarkerNamesAnotherDatabase,
+      A::NativeMetadataInvalid,
+      A::MarkerAheadOfNativeState,
+      A::SchemaVersionMismatch,
+      A::StorageVersionMetadataMissing,
+      A::StorageVersionMismatch,
+      A::MarkerDisagreesWithNativeDatabase,
+      A::SelectedWithoutMarker,
+      A::SourceDatabaseMissing,
+    ] {
+      assert!(!reason.may_clear_on_retry(), "{reason:?}");
+    }
+  }
+
+  /// #2268: a file DuckDB refuses to open says nothing about its contents,
+  /// while a file that opens without native metadata positively shows it.
+  #[test]
+  fn a_refused_open_is_unreadable_and_an_opened_file_without_metadata_is_invalid() {
+    let directory = tempfile::tempdir().unwrap();
+    let not_duckdb = directory.path().join("not-duckdb.duckdb");
+    std::fs::write(&not_duckdb, b"not a duckdb database").unwrap();
+    assert_eq!(
+      observe_native_metadata(&not_duckdb),
+      NativeMetadataFacts::Unreadable
+    );
+
+    let foreign = directory.path().join("foreign.duckdb");
+    let spill = directory.path().join("spill");
+    std::fs::create_dir(&spill).unwrap();
+    open_database(&foreign, AccessMode::ReadWrite, &spill)
+      .unwrap()
+      .execute_batch("CREATE TABLE unrelated (id BIGINT)")
+      .unwrap();
+    assert_eq!(
+      observe_native_metadata(&foreign),
+      NativeMetadataFacts::Invalid
+    );
+
+    let empty_metadata = directory.path().join("empty-metadata.duckdb");
+    open_database(&empty_metadata, AccessMode::ReadWrite, &spill)
+      .unwrap()
+      .execute_batch(&format!(
+        "CREATE TABLE {} (state VARCHAR, schema_version BIGINT)",
+        quote_identifier(NATIVE_METADATA_TABLE)
+      ))
+      .unwrap();
+    assert_eq!(
+      observe_native_metadata(&empty_metadata),
+      NativeMetadataFacts::Invalid
+    );
+  }
+
+  /// #2268: a metadata query that fails, rather than returning something the
+  /// file shows, is not proof of invalid metadata and stays retryable.
+  #[test]
+  fn a_failed_metadata_query_is_unreadable_and_a_missing_row_is_invalid() {
+    let connection = Connection::open_in_memory().unwrap();
+    let failed = connection
+      .query_row("SELECT * FROM missing_relation", [], |row| {
+        row.get::<_, i64>(0)
+      })
+      .unwrap_err();
+    assert!(
+      matches!(failed, duckdb::Error::DuckDBFailure(..)),
+      "{failed:?}"
+    );
+    assert_eq!(
+      metadata_read_failure(&NativeDatabaseError::duckdb("test", failed)),
+      NativeMetadataFacts::Unreadable
+    );
+    assert_eq!(
+      metadata_read_failure(&NativeDatabaseError::duckdb(
+        "test",
+        duckdb::Error::QueryReturnedNoRows
+      )),
+      NativeMetadataFacts::Invalid
+    );
+    assert_eq!(
+      metadata_read_failure(&NativeDatabaseError::Verification {
+        message: "no storage version".to_owned(),
+      }),
+      NativeMetadataFacts::Unreadable
+    );
+  }
+
+  /// #2268: the startup case the issue names. On Windows another open of
+  /// the file holds DuckDB's lock, so the metadata cannot be read; that is
+  /// `Unreadable`, and it reads normally once the other open is gone. Linux
+  /// and macOS locks are process-scoped, so this process cannot stand in for
+  /// another one there.
+  #[cfg(windows)]
+  #[tokio::test]
+  async fn a_locked_native_database_is_unreadable_until_the_lock_is_released() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    create_empty_native_database(paths.clone(), fresh_schema())
+      .await
+      .unwrap();
+    let spill = directory.path().join("holder-spill");
+    std::fs::create_dir(&spill).unwrap();
+    let holder =
+      open_database(&paths.native_database, AccessMode::ReadWrite, &spill).unwrap();
+
+    let observed = observe_authority(&paths, 7);
+    assert_eq!(observed.native_metadata, NativeMetadataFacts::Unreadable);
+    let AuthorityState::Inconsistent { reason, .. } = inspect_authority(&observed) else {
+      panic!("a locked file must not inspect as consistent");
+    };
+    assert_eq!(reason, AuthorityInconsistency::NativeMetadataUnreadable);
+    assert!(reason.may_clear_on_retry());
+
+    drop(holder);
+    assert_eq!(
+      inspect_authority(&observe_authority(&paths, 7)),
+      AuthorityState::NativeSelected
     );
   }
 

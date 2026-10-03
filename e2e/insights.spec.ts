@@ -61,6 +61,13 @@ test.describe("insights captures", () => {
     // Wait for the debounced archive query (250ms) + chart render.
     await page.waitForTimeout(1_000);
 
+    await expect(
+      page
+        .getByTestId("cooling-load-band-panel")
+        .getByText(/Baseline: \d+ min \/ recent: \d+ min/)
+        .first(),
+    ).toBeVisible();
+
     // No environmental sensor: the co-variate panel (#2068) has no Thermal
     // Delta to read the factors against and stays out of the layout.
     await expect(page.getByTestId("cooling-covariate-panel")).toHaveCount(0);
@@ -495,6 +502,49 @@ test.describe("insights captures", () => {
     await page.waitForTimeout(600);
 
     await saveCapture(page, "insights-cooling-timeline-90d");
+  });
+
+  test("insights cooling tab paints every timeline legend sample", async ({
+    page,
+  }) => {
+    // Each sample's color must resolve where the legend renders, beside the
+    // chart rather than inside it. An unresolved background computes to
+    // transparent, leaving a bare label the text assertions still pass
+    // (#2310).
+    const expectSamplesPainted = async () => {
+      const swatches = page
+        .getByTestId("cooling-timeline-lanes")
+        .getByTestId("cooling-legend-swatch");
+      await expect(swatches.first()).toBeVisible();
+      const paints = await swatches.evaluateAll((elements) =>
+        elements.map((element) => {
+          const style = getComputedStyle(element);
+          return element.getAttribute("data-variant") === "dashed"
+            ? style.borderTopColor
+            : style.backgroundColor;
+        }),
+      );
+      for (const paint of paints) {
+        expect(paint).not.toBe("rgba(0, 0, 0, 0)");
+      }
+    };
+
+    // Archive-backed: average/range on temperature and power, the fans,
+    // and ambient.
+    await gotoApp(page, { path: "/?coolingAmbient=present" });
+    await navigateTo(page, "insights");
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+    await expect(page.getByTestId("cooling-ambient-lane")).toBeVisible();
+    await expectSamplesPainted();
+
+    // Daily: adds the idle line and the four load-band bars.
+    await page.getByTestId("cooling-period-select").click();
+    await page.getByRole("option", { name: "90 Days" }).click();
+    const lane = page.getByTestId("cooling-thermal-timeline-lane");
+    await expect(lane.getByText("High")).toBeVisible();
+    await expectSamplesPainted();
   });
 
   test("insights cooling tab keeps the load-temperature explorer collapsed until opened", async ({
