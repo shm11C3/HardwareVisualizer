@@ -131,6 +131,7 @@ jobs:
           PACKAGE_LICENSE: ${{ steps.release.outputs.license }}
           LICENSE_URL: ${{ steps.release.outputs.license-url }}
           SHOULD_SUBMIT: ${{ inputs.submit || github.event_name == 'release' }}
+          WINGET_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
           WINGET_CREATE_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
         shell: pwsh
@@ -143,9 +144,11 @@ jobs:
             $env:PACKAGE_IDENTIFIER,
             '-u', $env:INSTALLER_URL,
             '-v', $env:VERSION,
+            '-t', $env:WINGET_READ_TOKEN,
             '-o', 'manifests'
           )
 
+          # update reads GitHub before generating files; GH_TOKEN is only used by gh.
           # update inherits locale metadata, including the previous license.
           .\wingetcreate.exe @args
           if ($LASTEXITCODE -ne 0) {
