@@ -194,7 +194,9 @@ async fn selected_open_and_dispatch_handoff_failures_refuse_sqlite_consumers() {
     .unwrap();
 
   let handoff_owner = NativeLifecycleOwner::new();
-  handoff_owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+  handoff_owner
+    .set_state(DatabaseLifecycleState::NativeAuthoritative)
+    .await;
   handoff_owner.set_selected_database(
     NativeDatabase::open(
       &paths.native_database,

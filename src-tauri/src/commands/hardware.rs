@@ -289,7 +289,12 @@ pub async fn refresh_storage_devices(
   // caller's own request, so a conversion's producer pause cannot see or
   // wait for it. Refused only while a conversion is actively reconciling or
   // the lifecycle is `ActionRequired` - a native-authoritative boot is fine,
-  // dispatch answers this write from the native database.
+  // dispatch answers this write from the native database. This is a fast,
+  // preliminary check only: the actual write is a blocking device
+  // enumeration and a SMART collection away, so what makes the write itself
+  // safe is `persistence::storage_health::store_storage_health_collection`
+  // holding a `dispatch::acquire_write_permit` across it (#2271) - see that
+  // function's doc.
   ensure_database_writable(&app)?;
 
   let (retention_days, identity_hash_key) = {

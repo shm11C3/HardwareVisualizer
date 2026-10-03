@@ -385,8 +385,20 @@ impl NativeLifecycleOwner {
     self.state.lock().unwrap().clone()
   }
 
-  pub fn set_state(&self, state: DatabaseLifecycleState) {
+  /// `async` since #2271: after the (synchronous, unchanged) state write,
+  /// this also keeps Core's dispatch write gate
+  /// (`dispatch::set_writable`) in lock-step - see the `set_state_if` doc
+  /// below for why this is the one place that must not miss a transition,
+  /// and `database_writable`'s own doc for why its verdict is the right one
+  /// to reuse here. Closing the gate (moving *into* `Converting`) awaits
+  /// every outstanding write permit being dropped, so a caller of this
+  /// method (the conversion driver) does not proceed until any in-flight
+  /// cooling baseline pin or Storage Health refresh has actually finished -
+  /// not merely been refused a *new* permit.
+  pub async fn set_state(&self, state: DatabaseLifecycleState) {
+    let writable = database_writable(&state);
     *self.state.lock().unwrap() = state;
+    hardviz_core::infrastructure::database::dispatch::set_writable(writable).await;
   }
 
   /// Check `predicate` against the current state and, only if it holds,
@@ -401,18 +413,41 @@ impl NativeLifecycleOwner {
   /// indivisible step - reading [`Self::state`] and calling
   /// [`Self::set_state`] separately would leave a window where a concurrent
   /// write could be silently overwritten.
-  pub fn set_state_if(
+  ///
+  /// Also the other place (besides [`Self::set_state`]) that must keep
+  /// Core's dispatch write gate in step (#2271): every transition this
+  /// owner can reach goes through one of these two methods, so gating
+  /// writes here too, before returning, means no caller anywhere in the
+  /// conversion driver has to remember to do it itself.
+  ///
+  /// The gate update happens *after* the `next`-or-nothing decision has
+  /// released the `state` lock, not inside it: awaiting the gate's own
+  /// possible drain while holding that `std::sync::Mutex` guard would block
+  /// every other synchronous reader of [`Self::state`] for as long as the
+  /// drain takes, and `clippy::await_holding_lock` correctly refuses it.
+  /// `writable` is still computed from `next` before the lock is taken, so
+  /// the gate update this call performs (if any) always matches the exact
+  /// transition it just made, not a value some other caller changed
+  /// `next`'s inputs to in between.
+  pub async fn set_state_if(
     &self,
     predicate: impl FnOnce(&DatabaseLifecycleState) -> bool,
     next: DatabaseLifecycleState,
   ) -> bool {
-    let mut guard = self.state.lock().unwrap();
-    if predicate(&guard) {
-      *guard = next;
-      true
-    } else {
-      false
+    let writable = database_writable(&next);
+    let applied = {
+      let mut guard = self.state.lock().unwrap();
+      if predicate(&guard) {
+        *guard = next;
+        true
+      } else {
+        false
+      }
+    };
+    if applied {
+      hardviz_core::infrastructure::database::dispatch::set_writable(writable).await;
     }
+    applied
   }
 
   // #2134 seam: the selected native database, once startup
@@ -614,10 +649,12 @@ mod tests {
     assert!(owner.selected_database().is_none());
   }
 
-  #[test]
-  fn native_lifecycle_owner_round_trips_state() {
+  #[tokio::test]
+  async fn native_lifecycle_owner_round_trips_state() {
     let owner = NativeLifecycleOwner::new();
-    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+    owner
+      .set_state(DatabaseLifecycleState::NativeAuthoritative)
+      .await;
     assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
   }
 
@@ -726,21 +763,25 @@ mod tests {
     );
   }
 
-  #[test]
-  fn set_state_if_writes_only_when_the_predicate_holds_for_the_current_state() {
+  #[tokio::test]
+  async fn set_state_if_writes_only_when_the_predicate_holds_for_the_current_state() {
     let owner = NativeLifecycleOwner::new();
 
-    let refused = owner.set_state_if(
-      |state| matches!(state, DatabaseLifecycleState::NativeAuthoritative),
-      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
-    );
+    let refused = owner
+      .set_state_if(
+        |state| matches!(state, DatabaseLifecycleState::NativeAuthoritative),
+        DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+      )
+      .await;
     assert!(!refused);
     assert_eq!(owner.state(), DatabaseLifecycleState::SqliteAuthoritative);
 
-    let applied = owner.set_state_if(
-      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
-      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
-    );
+    let applied = owner
+      .set_state_if(
+        |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+        DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+      )
+      .await;
     assert!(applied);
     assert_eq!(
       owner.state(),
@@ -748,19 +789,23 @@ mod tests {
     );
   }
 
-  #[test]
-  fn set_state_if_evaluates_the_predicate_against_the_state_at_call_time_not_a_cached_read()
+  #[tokio::test]
+  async fn set_state_if_evaluates_the_predicate_against_the_state_at_call_time_not_a_cached_read()
    {
     let owner = NativeLifecycleOwner::new();
     // A state change between an earlier `state()` read and this call must
     // still be what the predicate sees - this is the whole point of
     // `set_state_if` over a separate read-then-write.
-    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+    owner
+      .set_state(DatabaseLifecycleState::NativeAuthoritative)
+      .await;
 
-    let applied = owner.set_state_if(
-      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
-      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
-    );
+    let applied = owner
+      .set_state_if(
+        |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+        DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+      )
+      .await;
 
     assert!(!applied);
     assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);

@@ -153,6 +153,16 @@ pub async fn get_live_storage_health(
     .map_err(|e| format!("Failed to join live storage health read: {e}"))
 }
 
+/// #2271: `ensure_database_writable` at this command's own entry
+/// (`commands::hardware::refresh_storage_devices`) only refuses the common,
+/// already-known-bad case fast, before paying for the (blocking, I/O-bound)
+/// device enumeration below - it is not what makes the write itself safe. A
+/// conversion can start and reach `Converting` during that enumeration, or
+/// during the SMART collection `refresh_storage_health_for_date` runs
+/// before its own write; the actual correctness guarantee is
+/// `persistence::storage_health::store_storage_health_collection` holding a
+/// `dispatch::acquire_write_permit` across the write itself, the same
+/// mechanism the cooling baseline pins use.
 pub async fn refresh_storage_devices(
   retention_days: u32,
   identity_hash_key: [u8; hardviz_core::settings::STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],

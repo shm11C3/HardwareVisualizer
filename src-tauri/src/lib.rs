@@ -790,10 +790,16 @@ pub fn run() {
       // owner before anything else reads it — including the `is_db_ok`
       // branch below, so `ActionRequired` is recorded even when `db_error`
       // is also set and the branch that used to record it is skipped.
+      // `set_state` is `async` since #2271 (it keeps Core's dispatch write
+      // gate in step); this `.setup` closure is synchronous, so run it to
+      // completion on the same runtime handle the rest of this closure
+      // already uses to bridge into async Core calls.
       #[cfg(feature = "duckdb-archive")]
-      app
-        .state::<app::native_lifecycle::NativeLifecycleOwner>()
-        .set_state(native_lifecycle_state.clone());
+      runtime_handle.block_on(
+        app
+          .state::<app::native_lifecycle::NativeLifecycleOwner>()
+          .set_state(native_lifecycle_state.clone()),
+      );
 
       // #2269: a SQLite source this build could not verify must never be
       // converted, even after the user continues past the startup dialog.
