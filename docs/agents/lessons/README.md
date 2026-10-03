@@ -125,3 +125,4 @@ shared enforcement surface.
 - [Keep tray flyout geometry transient](keep-tray-flyout-geometry-transient.md)
 - [Claim Windows Open before database startup](claim-windows-open-before-database.md)
 - [Prove Biome boundary config with canaries](prove-biome-boundary-config-with-canaries.md)
+- [Coordinate worker restoration with shutdown](coordinate-worker-restoration-with-shutdown.md)
