@@ -112,12 +112,13 @@ dirs = "7.0.0"
 libc = "0.2"
 core-foundation = "0.10.1"
 objc2 = "0.6.4"
-# Pin to 0.6 so the single copy in the tree matches the one Tauri depends on.
-# Two semver-incompatible copies (0.6 + 0.7) each compile the same
+# Keep this on the same semver line as the window-vibrancy Tauri depends on so
+# the tree holds a single copy (`cargo tree -i window-vibrancy --target all`).
+# Two semver-incompatible copies each compile the same
 # `NSVisualEffectViewTagged` Objective-C class, and the release profile's LTO
 # (`lto = true`, `codegen-units = 1`) then fails the macOS link with
 # "symbol multiply defined" for `__CLASS_NSVisualEffectViewTagged` (see #1724/#1718).
-window-vibrancy = "0.6"
+window-vibrancy = "0.8"
 objc2-app-kit = { version = "0.3.2", features = [
     "NSAttributedString",
     "NSButton",
