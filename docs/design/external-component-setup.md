@@ -276,6 +276,11 @@ installed and its fallbacks unchanged.
   `InstallFinalize`, so the app launched from the finish dialog already sees
   the result. The installer does not request a reboot when PawnIO reports
   `3010`; Settings shows the resulting state.
+  Major upgrades skip the optional-components dialog and never run this setup
+  action, even with `EXTERNAL_COMPONENT_PAWNIO=1`. `NOT Installed` alone does
+  not exclude them: the new package has a different ProductCode. They use
+  only the commit-time refresh described below, so no module replacement can
+  happen through the deferred setup path before an upgrade succeeds.
 - **NSIS (not offered).** The NSIS installer does not offer the setup. Its
   default `currentUser` install puts the executable under the user's
   LocalAppData, which medium-integrity processes can modify, so elevating the

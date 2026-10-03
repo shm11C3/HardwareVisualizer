@@ -125,3 +125,4 @@ shared enforcement surface.
 - [Keep tray flyout geometry transient](keep-tray-flyout-geometry-transient.md)
 - [Claim Windows Open before database startup](claim-windows-open-before-database.md)
 - [Coordinate worker restoration with shutdown](coordinate-worker-restoration-with-shutdown.md)
+- [Exclude major upgrades from deferred setup](exclude-major-upgrades-from-deferred-setup.md)

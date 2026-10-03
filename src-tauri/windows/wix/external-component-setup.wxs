@@ -6,7 +6,7 @@
   of Tauri's WixUI_InstallDir sequence. The checkbox property is defaulted to
   1 only in the UI sequence and only at full UI (UILevel 5), so `msiexec /qn`,
   `/qr`, `/passive` (the updater), and winget run no setup unless the caller
-  passes EXTERNAL_COMPONENT_PAWNIO=1.
+  passes EXTERNAL_COMPONENT_PAWNIO=1 on an install that is not an upgrade.
 
   The setup itself is the application's command-line mode, run as a deferred
   custom action from the already elevated install script. Return="ignore"
@@ -77,7 +77,10 @@
       Sequence="execute"
       After="SetHV_NSIS_DEFAULT_INSTALLDIR_DIR">NOT Installed AND UILevel &lt; 4 AND NOT HV_MSI_INSTALLDIR AND (INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR OR INSTALLDIR ~= HV_NSIS_DEFAULT_INSTALLDIR_DIR)</SetProperty>
 
-    <!-- The InstallUISequence also runs at reduced UI (`/qr`, UILevel 4),
+    <!-- A major upgrade changes ProductCode, so NOT Installed also matches
+         an upgrade. Exclude WIX_UPGRADE_DETECTED from both setup and its UI
+         path: only the commit action may refresh modules on an upgrade.
+         The InstallUISequence also runs at reduced UI (`/qr`, UILevel 4),
          where authored dialogs are suppressed, so the checkbox would never be
          shown; the default is therefore limited to full UI (UILevel 5), where
          the dialog is the consent. -->
@@ -86,7 +89,7 @@
       Id="EXTERNAL_COMPONENT_PAWNIO"
       Value="1"
       Sequence="ui"
-      After="CostFinalize">NOT Installed AND NOT EXTERNAL_COMPONENT_PAWNIO AND UILevel = 5</SetProperty>
+      After="CostFinalize">NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT EXTERNAL_COMPONENT_PAWNIO AND UILevel = 5</SetProperty>
 
     <CustomAction
       Id="RunExternalComponentSetupPawnio"
@@ -130,7 +133,7 @@
       Return="ignore" />
 
     <InstallExecuteSequence>
-      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
+      <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
       <Custom Action="RefreshExternalComponentFilesPawnio" After="RunExternalComponentSetupPawnio">WIX_UPGRADE_DETECTED AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
       <Custom Action="ShowExternalComponentUninstallNotice" Before="InstallInitialize">REMOVE = "ALL" AND NOT UPGRADINGPRODUCTCODE AND UILevel &gt; 2 AND NOT (UILevel = 3 AND REBOOTPROMPT = "S") AND $(var.ProtectedInstallDir)</Custom>
     </InstallExecuteSequence>
@@ -174,8 +177,8 @@
       </Dialog>
 
       <!-- A later NewDialog event overrides the earlier ones on the same control. -->
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ExternalComponentsDlg" Order="5">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ExternalComponentsDlg" Order="3">NOT Installed</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ExternalComponentsDlg" Order="5">NOT WIX_UPGRADE_DETECTED AND (WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1")</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ExternalComponentsDlg" Order="3">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Publish>
     </UI>
   </Fragment>
 </Wix>

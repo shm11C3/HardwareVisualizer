@@ -37,13 +37,14 @@ $dialog = "ExternalComponentsDlg"
 $expectedActionType = 18 + 0x40 + 0x400 + 0x800
 # The LocalSystem action must only run the copy under Program Files. MSI
 # property names are case-sensitive, so string comparisons use -ceq.
-$expectedActionCondition = "$property = `"1`" AND NOT REMOVE AND ((INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder) AND NOT (INSTALLDIR >< `"..`"))"
+$locationCondition = "((INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder) AND NOT (INSTALLDIR >< `"..`"))"
+$expectedActionCondition = "$property = `"1`" AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE AND $locationCondition"
 # Type 51 (set a property from formatted text); only a fresh install without
 # an explicit value on the command line gets the default, and only at full UI
 # (UILevel 5): the UI sequence also runs at reduced UI (/qr, UILevel 4), where
 # the dialog that carries the consent is suppressed.
 $expectedDefaultType = 51
-$expectedDefaultCondition = "NOT Installed AND NOT $property AND UILevel = 5"
+$expectedDefaultCondition = "NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT $property AND UILevel = 5"
 
 $installer = New-Object -ComObject WindowsInstaller.Installer
 $database = $installer.OpenDatabase((Resolve-Path $MsiPath).Path, 0)
@@ -89,7 +90,6 @@ if ($sequence.ContainsKey($action)) {
 # Uninstall notice (#2119): immediate, so it runs as the user and before any
 # file is removed; never on silent uninstalls, upgrades, or outside Program Files.
 $noticeAction = "ShowExternalComponentUninstallNotice"
-$locationCondition = $expectedActionCondition.Substring("$property = `"1`" AND NOT REMOVE AND ".Length)
 
 $refreshAction = "RefreshExternalComponentFilesPawnio"
 # Commit adds 0x200 to the in-script (0x400) action type.
@@ -220,14 +220,14 @@ $sortedNext = @($nextEvents | Sort-Object { [int]$_[1] })
 $lastNext = $sortedNext | Select-Object -Last 1
 Assert ($null -ne $lastNext -and $lastNext[0] -ceq $dialog) "InstallDirDlg Next does not end on $dialog"
 $templateNext = $sortedNext | Where-Object { $_[0] -cne $dialog } | Select-Object -Last 1
-Assert (($null -ne $lastNext) -and ($null -ne $templateNext) -and ($lastNext[2] -ceq $templateNext[2])) "InstallDirDlg Next to $dialog has condition '$($lastNext[2])', expected the template's '$($templateNext[2])'"
+Assert (($null -ne $lastNext) -and ($null -ne $templateNext) -and ($lastNext[2] -ceq "NOT WIX_UPGRADE_DETECTED AND ($($templateNext[2]))")) "InstallDirDlg Next to $dialog must preserve the template's validation and exclude upgrades"
 # Matching the template is not enough on its own: a template that dropped
 # the validation would let a bare inserted row pass too.
-$validationCondition = "WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=`"1`""
+$validationCondition = "NOT WIX_UPGRADE_DETECTED AND (WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=`"1`")"
 Assert (($null -ne $lastNext) -and ($lastNext[2] -ceq $validationCondition)) "InstallDirDlg Next to $dialog has condition '$($lastNext[2])', expected '$validationCondition'"
 
-$backEvents = Get-Rows "SELECT ``Argument`` FROM ``ControlEvent`` WHERE ``Dialog_`` = 'VerifyReadyDlg' AND ``Control_`` = 'Back' AND ``Event`` = 'NewDialog' AND ``Argument`` = '$dialog'" 1
-Assert ($backEvents.Count -eq 1) "VerifyReadyDlg Back does not return to $dialog"
+$backEvents = Get-Rows "SELECT ``Argument``, ``Condition`` FROM ``ControlEvent`` WHERE ``Dialog_`` = 'VerifyReadyDlg' AND ``Control_`` = 'Back' AND ``Event`` = 'NewDialog' AND ``Argument`` = '$dialog'" 2
+Assert (($backEvents.Count -eq 1) -and ($backEvents[0][1] -ceq "NOT Installed AND NOT WIX_UPGRADE_DETECTED")) "VerifyReadyDlg Back must return to $dialog only for a fresh install"
 
 # The inserted dialog must lead back into the template chain on both sides.
 foreach ($link in @(
