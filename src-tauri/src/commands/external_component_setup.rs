@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use tauri::command;
 
 use crate::models::external_component_guidance::ExternalComponent;
 use crate::models::external_component_setup::{
   ExternalComponentSetupResult, ExternalComponentSetupStatus,
 };
+use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
 use crate::services::external_component_setup_service;
 
 /// Components that HardwareVisualizer can set up on the user's request, in
@@ -32,14 +35,18 @@ pub async fn get_external_component_setup_status(
 }
 
 /// Run External Component Setup in an elevated child process and wait for it.
+/// A successful run also defers the component's External Component Guidance
+/// for the session (see `external_component_setup_service::run`).
 #[command]
 #[specta::specta]
 pub async fn run_external_component_setup(
   component: ExternalComponent,
+  guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
 ) -> Result<ExternalComponentSetupResult, String> {
   let component: hardviz_core::models::ExternalComponent = component.into();
+  let guidance_state = Arc::clone(&guidance_state);
   tauri::async_runtime::spawn_blocking(move || {
-    external_component_setup_service::run(component)
+    external_component_setup_service::run(component, &guidance_state)
   })
   .await
   .map_err(|e| format!("external component setup task failed: {e}"))?

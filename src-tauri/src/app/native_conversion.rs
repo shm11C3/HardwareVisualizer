@@ -1811,8 +1811,8 @@ mod conversion_runtime_tests {
   /// user chose Continue Anyway, every conversion command refuses - with an
   /// error, not a silent no-op - and leaves the owner and the in-progress
   /// flag untouched, from both states a start normally begins from.
-  #[test]
-  fn an_unverified_sqlite_source_refuses_every_start_and_marks_nothing() {
+  #[tokio::test]
+  async fn an_unverified_sqlite_source_refuses_every_start_and_marks_nothing() {
     for state in [
       DatabaseLifecycleState::SqliteAuthoritative,
       DatabaseLifecycleState::ConversionRecoverable { resumable: true },
@@ -1821,9 +1821,14 @@ mod conversion_runtime_tests {
       runtime.set_bus(hardviz_core::event_bus::EventBus::new());
       runtime.refuse_for_unverified_sqlite_source("IncompatibleVersion".to_owned());
       let owner = NativeLifecycleOwner::new();
-      owner.set_state(state.clone());
+      owner.set_state(state.clone()).await;
 
-      assert!(runtime.begin_attempt_marking_converting(&owner).is_err());
+      assert!(
+        runtime
+          .begin_attempt_marking_converting(&owner)
+          .await
+          .is_err()
+      );
       assert!(runtime.begin_attempt_with_bus().is_err());
       assert_eq!(owner.state(), state);
       assert!(
@@ -3186,7 +3191,9 @@ mod tests {
     step: ConversionProgress,
   ) -> Result<ConversionOutcome, ConversionError> {
     pause_and_drain_producers(&workers).await;
-    owner.set_state(DatabaseLifecycleState::Converting(step));
+    owner
+      .set_state(DatabaseLifecycleState::Converting(step))
+      .await;
     panic!("stub conversion panicked at {step:?}");
   }
 
@@ -3213,6 +3220,7 @@ mod tests {
     assert!(
       runtime
         .begin_attempt_marking_converting(&owner)
+        .await
         .unwrap()
         .is_some()
     );
@@ -3254,6 +3262,7 @@ mod tests {
     assert!(
       runtime
         .begin_attempt_marking_converting(&owner)
+        .await
         .unwrap()
         .is_some(),
       "the panicked attempt must release its claim so a later start is accepted"
@@ -3339,7 +3348,7 @@ mod tests {
         step: ConversionProgress::Finalizing,
         message: "the recorded failure".to_owned(),
       });
-    owner.set_state(recorded.clone());
+    owner.set_state(recorded.clone()).await;
 
     let task = tokio::spawn(async {
       Err(ConversionError::Finalize(NativeDatabaseError::Worker {
@@ -3381,7 +3390,7 @@ mod tests {
       let recorded = recorded.clone();
       async move {
         pause_and_drain_producers(&workers).await;
-        owner.set_state(recorded);
+        owner.set_state(recorded).await;
         panicking_resumer()
       }
     });
