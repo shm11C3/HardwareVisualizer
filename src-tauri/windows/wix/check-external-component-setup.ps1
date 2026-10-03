@@ -14,6 +14,9 @@
 #   EXTERNAL_COMPONENT_PAWNIO with value 1;
 # - an interactive, non-upgrade uninstall runs the notice mode before removal
 #   and after costing, so its INSTALLDIR condition is evaluated on a value.
+# - upgrades run refresh-only as a non-impersonated, exit-code-ignoring commit
+#   action at every UI level, under Program Files (ADR 0026, #2284);
+# - no other commit action can fail and roll back an already refreshed module.
 #
 # The interactive behaviour still needs a manual run on Windows; this check
 # catches a fragment that silently stopped linking or a template change that
@@ -87,6 +90,28 @@ if ($sequence.ContainsKey($action)) {
 # file is removed; never on silent uninstalls, upgrades, or outside Program Files.
 $noticeAction = "ShowExternalComponentUninstallNotice"
 $locationCondition = $expectedActionCondition.Substring("$property = `"1`" AND NOT REMOVE AND ".Length)
+
+$refreshAction = "RefreshExternalComponentFilesPawnio"
+# Commit adds 0x200 to the in-script (0x400) action type.
+$expectedRefreshType = $expectedActionType + 0x200
+$refreshRow = Get-Rows "SELECT ``Type``, ``Source``, ``Target`` FROM ``CustomAction`` WHERE ``Action`` = '$refreshAction'" 3
+Assert (($refreshRow.Count -eq 1) -and ([int]$refreshRow[0][0] -eq $expectedRefreshType) -and ($refreshRow[0][1] -ceq "Path") -and ($refreshRow[0][2] -ceq "--external-component-refresh pawnio")) "CustomAction $refreshAction must be a non-impersonated, exit-code-ignoring commit run of the main binary with --external-component-refresh pawnio"
+Assert ($sequence.ContainsKey($refreshAction)) "$refreshAction is not scheduled in InstallExecuteSequence"
+if ($sequence.ContainsKey($refreshAction)) {
+  $row = $sequence[$refreshAction]
+  Assert ($row[1] -ceq "WIX_UPGRADE_DETECTED AND NOT REMOVE AND $locationCondition") "$refreshAction has condition '$($row[1])'; it must run only on upgrades under Program Files at every UI level"
+  Assert ([int]$row[2] -gt [int]$sequence[$action][2]) "$refreshAction must be scheduled after setup"
+  Assert ([int]$row[2] -lt [int]$sequence["InstallFinalize"][2]) "$refreshAction must be scheduled before InstallFinalize commits the script"
+}
+$upgradeProperty = Get-Rows "SELECT ``ActionProperty`` FROM ``Upgrade``" 1
+Assert (@($upgradeProperty | Where-Object { $_[0] -ceq "WIX_UPGRADE_DETECTED" }).Count -gt 0) "Upgrade table must populate WIX_UPGRADE_DETECTED for the refresh condition"
+foreach ($row in (Get-Rows "SELECT ``Action``, ``Type`` FROM ``CustomAction``" 2)) {
+  $actionType = [int]$row[1]
+  if (($actionType -band 0x600) -eq 0x600) {
+    Assert (($actionType -band 0x40) -ne 0) "Commit action $($row[0]) can fail and roll back after module refresh; commit actions must ignore their exit code (ADR 0026)"
+  }
+}
+
 $noticeRow = Get-Rows "SELECT ``Type``, ``Source``, ``Target`` FROM ``CustomAction`` WHERE ``Action`` = '$noticeAction'" 3
 Assert (($noticeRow.Count -eq 1) -and ([int]$noticeRow[0][0] -eq (18 + 0x40)) -and ($noticeRow[0][1] -ceq "Path") -and ($noticeRow[0][2] -ceq "--external-component-notice uninstall")) "CustomAction $noticeAction must be an immediate, exit-code-ignoring run of the main binary with --external-component-notice uninstall"
 Assert ($sequence.ContainsKey($noticeAction)) "$noticeAction is not scheduled in InstallExecuteSequence"
