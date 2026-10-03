@@ -49,6 +49,7 @@ use super::finalize::{
   FINALIZED_UNSELECTED, NATIVE_IDENTITY_TABLE, NATIVE_METADATA_TABLE, SELECTED,
   open_database, open_database_with_storage_version, require_no_wal,
 };
+use super::publish::publish_without_replacing;
 use super::reconcile::NativeReconciliationReport;
 use super::schema::{NativeIdentityMode, NativeSchemaDefinition};
 
@@ -489,10 +490,12 @@ fn create_empty(
   sync_file(&database_path)?;
 
   // `rename` replaces an existing destination on Unix. The initial artifact
-  // check cannot by itself serialize two first launches, so publish through a
-  // hard link whose destination creation fails atomically when another
-  // process won the race.
-  fs::hard_link(&database_path, &paths.native_database).map_err(|error| {
+  // check cannot by itself serialize two first launches, so publish through
+  // `publish_without_replacing` (see [`super::publish`]), whose destination
+  // creation fails atomically when another process won the race - by a hard
+  // link where the volume supports one, or a fallback with the same
+  // no-replace guarantee where it does not (#2272).
+  publish_without_replacing(&database_path, &paths.native_database).map_err(|error| {
     NativeDatabaseError::selection(
       "publish the fresh native database",
       format!("{}: {error}", paths.native_database.display()),

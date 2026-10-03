@@ -27,6 +27,7 @@ use super::compatibility::{
 };
 use super::epoch::EpochMilliseconds;
 use super::paging::{PagedReader, ReadColumn};
+use super::publish::publish_without_replacing;
 use super::schema::{NativeIdentityMode, NativeSchemaDefinition};
 
 pub(super) const NATIVE_METADATA_TABLE: &str = "__hv_native_metadata";
@@ -95,9 +96,10 @@ pub struct NativeFinalizationReport {
 ///
 /// Neither the candidate nor the SQLite source it came from is modified, and a
 /// destination that already exists is refused rather than replaced. Everything
-/// is written inside a work directory next to `destination` and published by a
-/// hard link only after the closed file has been reopened and verified, so a
-/// failure leaves no partial destination behind.
+/// is written inside a work directory next to `destination` and published
+/// without replacement (see [`super::publish`]) only after the closed file has
+/// been reopened and verified, so a failure leaves no partial destination
+/// behind.
 pub async fn finalize_candidate_database(
   source_candidate: &Path,
   destination: &Path,
@@ -278,7 +280,7 @@ fn finalize(
     })?
     .len();
   drop(file);
-  fs::hard_link(&database_path, destination).map_err(|error| {
+  publish_without_replacing(&database_path, destination).map_err(|error| {
     NativeDatabaseError::finalization(
       "publish the finalized database without replacement",
       format!("{}: {error}", destination.display()),

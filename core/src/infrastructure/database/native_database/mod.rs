@@ -27,6 +27,7 @@ pub mod gpu_archive;
 mod paging;
 mod preflight;
 pub mod process_stats;
+mod publish;
 mod reconcile;
 mod runtime;
 mod schema;
