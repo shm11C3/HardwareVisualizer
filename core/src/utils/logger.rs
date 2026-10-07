@@ -36,21 +36,21 @@ macro_rules! log_internal {
 #[macro_export]
 macro_rules! log_debug {
   ($action:expr, $function_name:expr, $custom_message:expr) => {
-    $crate::log_internal!(debug, $action, $function_name, $custom_message);
+    $crate::log_internal!(debug, $action, $function_name, $custom_message)
   };
 }
 
 #[macro_export]
 macro_rules! log_info {
   ($action:expr, $function_name:expr, $custom_message:expr) => {
-    $crate::log_internal!(info, $action, $function_name, $custom_message);
+    $crate::log_internal!(info, $action, $function_name, $custom_message)
   };
 }
 
 #[macro_export]
 macro_rules! log_warn {
   ($action:expr, $function_name:expr, $custom_message:expr) => {
-    $crate::log_internal!(warn, $action, $function_name, $custom_message);
+    $crate::log_internal!(warn, $action, $function_name, $custom_message)
   };
 }
 
