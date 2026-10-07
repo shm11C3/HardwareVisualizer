@@ -555,6 +555,7 @@
           "title": "Состояние данных",
           "establishing": "Формирование базовой линии ({{qualifyingDays}} / {{requiredDays}} дн.)",
           "sampleMinutes": "Базовый период: {{baseline}} мин / недавний период: {{recent}} мин",
+          "sampleMinutesWithBaselineWindow": "Базовый период: {{baseline}} мин ({{baselineStart}}–{{baselineEnd}}) / недавний период: {{recent}} мин",
           "temperatureSource": {
             "label": "Источник температуры",
             "value": "Температура CPU (1 ряд данных)"

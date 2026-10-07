@@ -3,6 +3,7 @@ import type { CoolingBandComparisonEntry } from "@/rspc/bindings";
 import {
   buildAmbientAdjustedDumbbellRows,
   buildLoadBandDumbbellRows,
+  extendedBaselineWindow,
   positionPercent,
 } from "./loadBandDumbbell";
 
@@ -11,6 +12,8 @@ const entry = (
 ): CoolingBandComparisonEntry => ({
   band: "idle",
   baseline: { temperatureAvg: 32, sampleMinutes: 12_600 },
+  baselineWindowStartDate: "2025-11-01",
+  baselineWindowEndDate: "2025-11-14",
   recent: { temperatureAvg: 33.5, sampleMinutes: 6_300 },
   comparability: "comparable",
   requiredSampleMinutes: 30,
@@ -18,6 +21,26 @@ const entry = (
   // reading (#2045) is rendered separately by #2046.
   ambientAdjusted: null,
   ...overrides,
+});
+
+/** The pinned baseline window `entry()` reads over by default. */
+const PINNED_WINDOW = { startDate: "2025-11-01", endDate: "2025-11-14" };
+
+describe("extendedBaselineWindow", () => {
+  it("is null for a band read over exactly the pinned window", () => {
+    expect(extendedBaselineWindow(entry(), PINNED_WINDOW)).toBeNull();
+  });
+
+  it("names a band's own range when Core extended it past the pinned end", () => {
+    // The #2333 case: too few high-band minutes in the pinned window, so
+    // its baseline side ran on until it held enough.
+    expect(
+      extendedBaselineWindow(
+        entry({ band: "high", baselineWindowEndDate: "2025-11-23" }),
+        PINNED_WINDOW,
+      ),
+    ).toEqual({ startDate: "2025-11-01", endDate: "2025-11-23" });
+  });
 });
 
 describe("buildLoadBandDumbbellRows", () => {
@@ -149,6 +172,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
       [
         entry({
           ambientAdjusted: {
+            baselineWindowStartDate: "2025-12-01",
+            baselineWindowEndDate: "2025-12-14",
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: 28, sampleMinutes: 5_400 },
             comparability: "comparable",
@@ -171,6 +196,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
       [
         entry({
           ambientAdjusted: {
+            baselineWindowStartDate: "2025-12-01",
+            baselineWindowEndDate: "2025-12-14",
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: 33, sampleMinutes: 5_400 },
             comparability: "comparable",
@@ -196,6 +223,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
       [
         entry({
           ambientAdjusted: {
+            baselineWindowStartDate: "2025-12-01",
+            baselineWindowEndDate: "2025-12-14",
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: null, sampleMinutes: 8 },
             comparability: "tooFewSampleMinutes",
@@ -229,6 +258,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
       [
         entry({
           ambientAdjusted: {
+            baselineWindowStartDate: "2025-12-01",
+            baselineWindowEndDate: "2025-12-14",
             baseline: { deltaAvg: 26.7, sampleMinutes: 6_705 },
             recent: { deltaAvg: 25.1, sampleMinutes: 4_300 },
             comparability: "differentAmbientSource",
@@ -260,6 +291,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
         entry({
           band: "idle",
           ambientAdjusted: {
+            baselineWindowStartDate: "2025-12-01",
+            baselineWindowEndDate: "2025-12-14",
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: 29, sampleMinutes: 5_400 },
             comparability: "comparable",
@@ -283,6 +316,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
       [
         entry({
           ambientAdjusted: {
+            baselineWindowStartDate: "2025-12-01",
+            baselineWindowEndDate: "2025-12-14",
             baseline: { deltaAvg: null, sampleMinutes: 0 },
             recent: { deltaAvg: 29, sampleMinutes: 5_400 },
             comparability: "comparable",

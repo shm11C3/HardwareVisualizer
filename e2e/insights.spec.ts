@@ -67,6 +67,13 @@ test.describe("insights captures", () => {
         .getByText(/Baseline: \d+ min \/ recent: \d+ min/)
         .first(),
     ).toBeVisible();
+    // A band whose baseline side extended past the pinned window (#2333)
+    // names its own range beside its counts.
+    await expect(
+      page
+        .getByTestId("cooling-load-band-panel")
+        .getByText("Baseline: 800 min (2025-11-01–2025-11-23) / recent: 0 min"),
+    ).toBeVisible();
 
     // No environmental sensor: the co-variate panel (#2068) has no Thermal
     // Delta to read the factors against and stays out of the layout.

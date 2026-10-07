@@ -565,6 +565,7 @@
           "title": "データ状態",
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
           "sampleMinutes": "ベースライン: {{baseline}} 分 / 直近: {{recent}} 分",
+          "sampleMinutesWithBaselineWindow": "ベースライン: {{baseline}} 分 ({{baselineStart}}–{{baselineEnd}}) / 直近: {{recent}} 分",
           "temperatureSource": {
             "label": "温度ソース",
             "value": "CPU 温度(1 系統)"

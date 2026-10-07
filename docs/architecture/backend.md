@@ -516,6 +516,29 @@ yet, so a window is read from whichever source covered the most of it
 (`cooling_band_comparison::dominant_delta_source`), and from that source only -
 never a blend.
 
+The idle band's baseline side is exactly the pinned window - that window *is*
+the idle baseline's value. The low, mid and high bands start from the same
+window but are not what qualified its days, so a machine that idled through
+its first week can hold a dozen high-band minutes in a window that never
+moves, and the band would stay "not comparable" for the lifetime of the
+install. Each of those three bands therefore keeps the pinned start and
+extends its baseline side forward from the pinned end, one completed day at a
+time, until its own minutes reach the band minimum (#2333); the first day on
+or after the pinned end at which they do ends that band's window. The
+extension is forward only (the days before the window are the ones that did
+not qualify), never past the most recent completed day, and capped at
+`cooling_band_comparison::COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS`
+(30 inclusive calendar days from the pinned start): a band that took months
+to accrue 30 minutes was not a baseline-era observation, and an uncapped
+window would eventually overlap the recent one. A band still thin at the cap
+reports `TooFewSampleMinutes` with its real counts over
+`[pinned start, cap]`. Every band entry carries the range its baseline side
+was read over, and the ambient-adjusted side applies the same rule to the ΔT
+baseline's own pinned window, over the ΔT baseline's source alone - another
+sensor's minutes may no more carry a band over the threshold than enter its
+average. The Explorer's baseline medians and the co-variate comparison keep
+reading the pinned windows unchanged.
+
 **The ΔT baseline establishes independently of the absolute one**, over its own
 window, from one ambient source, and is pinned into its own single-row
 `cooling_delta_baseline` table together with that source.
@@ -555,7 +578,15 @@ Each pinned window is exempt from the rollup's retention cleanup on the table it
 was derived from - the absolute baseline's on `cooling_daily_summary` and
 `cooling_hourly_summary`, the ΔT baseline's on
 `cooling_thermal_delta_daily_summary` - and they are generally different date
-ranges.
+ranges. The exemption is wider than the pinned window itself: it runs from the
+pinned start to the band-extension cap
+(`cooling_rollup::retention_exempt_window`), because which day an extended
+baseline side ends on depends on the rows it finds, so letting retention take
+rows inside the cap would move that end - the drift pinning exists to prevent.
+Protecting the whole cap keeps the exemption a fixed fact of the pinned row
+rather than one re-derived from the rows it decides the fate of. Both database
+engines receive the same widened range from `cleanup_old_data`; neither carries
+a date policy of its own.
 
 Backfill follows the lag-aware cursor precedent set by the power columns: the
 catch-up claims the ΔT table is behind only when the ambient archive holds a
