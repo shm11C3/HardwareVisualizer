@@ -179,6 +179,9 @@ jobs:
       - name: Test license notice generation
         run: node .github/scripts/test-generate-licenses.mjs
 
+      - name: Test WinGet license metadata correction
+        run: node .github/scripts/test-update-winget-license.mjs
+
       - name: Test cache metrics reporting
         run: |
           node .github/scripts/test-cache-metrics.cjs
@@ -345,7 +348,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2.87.18
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-nextest
 
@@ -448,7 +451,7 @@ jobs:
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
-        uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2.87.18
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-llvm-cov
 

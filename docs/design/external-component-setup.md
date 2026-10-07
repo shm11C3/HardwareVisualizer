@@ -276,6 +276,11 @@ installed and its fallbacks unchanged.
   `InstallFinalize`, so the app launched from the finish dialog already sees
   the result. The installer does not request a reboot when PawnIO reports
   `3010`; Settings shows the resulting state.
+  Major upgrades skip the optional-components dialog and never run this setup
+  action, even with `EXTERNAL_COMPONENT_PAWNIO=1`. `NOT Installed` alone does
+  not exclude them: the new package has a different ProductCode. They use
+  only the commit-time refresh described below, so no module replacement can
+  happen through the deferred setup path before an upgrade succeeds.
 - **NSIS (not offered).** The NSIS installer does not offer the setup. Its
   default `currentUser` install puts the executable under the user's
   LocalAppData, which medium-integrity processes can modify, so elevating the
@@ -332,8 +337,8 @@ installed and its fallbacks unchanged.
 ### Outdated module refresh (#2284)
 
 Decided in [ADR 0026](../adr/0026-refresh-outdated-external-component-files.md).
-The Core slice (steps 2 and 4 of the setup plan above) and the Settings slice
-(see Entry points) are implemented; the MSI slice is not yet.
+The Core slice (steps 2 and 4 of the setup plan above), the Settings slice
+(see Entry points), and the MSI slice are implemented.
 
 - **File states.** The catalog pins the SHA-256 of each module file in the
   pinned release and in every earlier upstream release that shipped it.
@@ -358,8 +363,9 @@ The Core slice (steps 2 and 4 of the setup plan above) and the Settings slice
   (`19`), so the exit codes and the Settings copy stay unchanged. Current,
   unrecognized, and missing files are not touched by the refresh.
 - **Update trigger.** The MSI fragment gains a non-impersonated commit
-  custom action (`Execute="commit"`) that runs a refresh-only command-line
-  mode when `WIX_UPGRADE_DETECTED` is set (the Tauri template uses
+  custom action (`Execute="commit"`) that runs the refresh-only command-line
+  mode (`--external-component-refresh pawnio`) when `WIX_UPGRADE_DETECTED`
+  is set (the Tauri template uses
   `MajorUpgrade`), `REMOVE` is not set, and the install directory is under
   Program Files, at every UI level. Windows Installer runs commit actions only
   after `InstallFinalize` succeeds, so an update that fails and rolls back

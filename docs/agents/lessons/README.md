@@ -126,3 +126,5 @@ shared enforcement surface.
 - [Claim Windows Open before database startup](claim-windows-open-before-database.md)
 - [Prove Biome boundary config with canaries](prove-biome-boundary-config-with-canaries.md)
 - [Coordinate worker restoration with shutdown](coordinate-worker-restoration-with-shutdown.md)
+- [Exclude major upgrades from deferred setup](exclude-major-upgrades-from-deferred-setup.md)
+- [Correct inherited WinGet license metadata](correct-inherited-winget-license-metadata.md)

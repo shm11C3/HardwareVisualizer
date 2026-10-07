@@ -13,14 +13,14 @@ default-run = "hardware_visualizer"
 [build-dependencies]
 quote = "1.0.45"
 syn = { version = "3.0.2", features = ["full"] }
-tauri-build = { version = "2.6.3", features = [] }
+tauri-build = { version = "2.7.1", features = [] }
 
 
 [dependencies]
 hardviz-core = { path = "../core", default-features = false }
 serde_json = "1.0.150"
 serde = { version = "1.0.228", features = ["derive"] }
-tauri = { version = "2.11.6", features = ["macos-private-api", "tray-icon"] }
+tauri = { version = "2.12.1", features = ["macos-private-api", "tray-icon"] }
 sysinfo = "0.39.3"
 tauri-plugin-window-state = { version = "2.4.1" }
 tokio = { version = "1.52.3", features = [
@@ -83,10 +83,11 @@ required-features = ["bindings-export"]
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.4"
 dxgi = "0.1.7"
-webview2-com = "0.38.2"
+webview2-com = "0.39.1"
 # Keep this aligned with webview2-com; its COM interfaces implement this
-# windows-core version's Interface trait, not the newer version used elsewhere.
-windows-core = "0.61"
+# windows-core version's Interface trait. A mismatch fails to compile with
+# "no method named `cast`".
+windows-core = "0.62"
 winapi = { version = "0.3", features = ["dxgi", "setupapi", "devguid"] }
 windows = { version = "0.62.2", features = [
     "Data_Xml_Dom",
@@ -111,12 +112,13 @@ dirs = "7.0.0"
 libc = "0.2"
 core-foundation = "0.10.1"
 objc2 = "0.6.4"
-# Pin to 0.6 so the single copy in the tree matches the one Tauri depends on.
-# Two semver-incompatible copies (0.6 + 0.7) each compile the same
+# Keep this on the same semver line as the window-vibrancy Tauri depends on so
+# the tree holds a single copy (`cargo tree -i window-vibrancy --target all`).
+# Two semver-incompatible copies each compile the same
 # `NSVisualEffectViewTagged` Objective-C class, and the release profile's LTO
 # (`lto = true`, `codegen-units = 1`) then fails the macOS link with
 # "symbol multiply defined" for `__CLASS_NSVisualEffectViewTagged` (see #1724/#1718).
-window-vibrancy = "0.6"
+window-vibrancy = "0.8"
 objc2-app-kit = { version = "0.3.2", features = [
     "NSAttributedString",
     "NSButton",
@@ -149,7 +151,7 @@ name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dev-dependencies]
-tauri = { version = "2.11.6", features = ["test"] }
+tauri = { version = "2.12.1", features = ["test"] }
 mockall = "0.15"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
