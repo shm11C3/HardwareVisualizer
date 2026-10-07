@@ -191,49 +191,19 @@ impl EstablishedDeltaBaseline {
 pub fn derive_delta_baseline_state(
   days: &[ThermalDeltaDailySummary],
 ) -> DeltaBaselineState {
-  let required_days = COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS;
-
-  let mut samples_by_source: BTreeMap<&str, Vec<DailyBaselineSample>> = BTreeMap::new();
-  for day in days {
-    let idle = day.band(CpuLoadBand::Idle);
-    samples_by_source
-      .entry(day.source.as_str())
-      .or_default()
-      .push(DailyBaselineSample {
-        date: day.date,
-        value: idle.avg,
-        sample_minutes: idle.sample_minutes,
-      });
-  }
-
   let mut furthest_qualifying_days = 0;
   let mut established: Option<DeltaBaselineState> = None;
   // `BTreeMap` iteration is by source label, so a tie on `end_date` is
   // broken the same way on every run.
-  for (source, samples) in &samples_by_source {
-    match derive_baseline_window(
-      samples,
-      COOLING_DELTA_BASELINE_QUALIFYING_MINUTES,
-      required_days,
-    ) {
-      BaselineWindow::Established {
-        value,
-        start_date,
-        end_date,
-        sample_minutes,
-      } => {
+  for (source, samples) in &samples_by_source(days) {
+    match source_baseline_window(samples) {
+      window @ BaselineWindow::Established { end_date, .. } => {
         let completes_earlier = established
           .as_ref()
           .and_then(DeltaBaselineState::window)
           .is_none_or(|(_, current_end)| end_date < current_end);
         if completes_earlier {
-          established = Some(DeltaBaselineState::Established {
-            source: source.to_string(),
-            delta_temperature_avg: value,
-            window_start_date: start_date,
-            window_end_date: end_date,
-            sample_minutes,
-          });
+          established = Some(state_from_window(source, window));
         }
       }
       BaselineWindow::Establishing { qualifying_days } => {
@@ -244,8 +214,73 @@ pub fn derive_delta_baseline_state(
 
   established.unwrap_or(DeltaBaselineState::Establishing {
     qualifying_days: furthest_qualifying_days,
-    required_days,
+    required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
   })
+}
+
+/// Each ambient source's idle-ΔT series, in the order `days` came in
+/// (date ascending), keyed by Sensor Source Label.
+///
+/// The grouping is the one place the module turns the row-per-source
+/// rollup into per-source series, so every per-source reading - the
+/// establishment rule, a single source's own baseline, the retention
+/// exemption - reads the same projection of a row.
+fn samples_by_source(
+  days: &[ThermalDeltaDailySummary],
+) -> BTreeMap<&str, Vec<DailyBaselineSample>> {
+  let mut samples_by_source: BTreeMap<&str, Vec<DailyBaselineSample>> = BTreeMap::new();
+  for day in days {
+    samples_by_source
+      .entry(day.source.as_str())
+      .or_default()
+      .push(idle_sample(day));
+  }
+  samples_by_source
+}
+
+/// One row projected into the shape the shared establishment rule reads:
+/// the day's idle ΔT and the paired minutes behind it.
+fn idle_sample(day: &ThermalDeltaDailySummary) -> DailyBaselineSample {
+  let idle = day.band(CpuLoadBand::Idle);
+  DailyBaselineSample {
+    date: day.date,
+    value: idle.avg,
+    sample_minutes: idle.sample_minutes,
+  }
+}
+
+/// The shared establishment rule applied to one source's series, at the
+/// ΔT baseline's own qualifying bar.
+fn source_baseline_window(samples: &[DailyBaselineSample]) -> BaselineWindow {
+  derive_baseline_window(
+    samples,
+    COOLING_DELTA_BASELINE_QUALIFYING_MINUTES,
+    COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+  )
+}
+
+/// `source`'s establishment outcome as the lifecycle this module reports.
+fn state_from_window(source: &str, window: BaselineWindow) -> DeltaBaselineState {
+  match window {
+    BaselineWindow::Established {
+      value,
+      start_date,
+      end_date,
+      sample_minutes,
+    } => DeltaBaselineState::Established {
+      source: source.to_string(),
+      delta_temperature_avg: value,
+      window_start_date: start_date,
+      window_end_date: end_date,
+      sample_minutes,
+    },
+    BaselineWindow::Establishing { qualifying_days } => {
+      DeltaBaselineState::Establishing {
+        qualifying_days,
+        required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+      }
+    }
+  }
 }
 
 /// Resolve the ΔT baseline lifecycle: the pinned row if one exists,
