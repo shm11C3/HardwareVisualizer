@@ -107,10 +107,13 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "useAtom",
                       "useAtomValue",
+                      "useAtomValueRaw",
+                      "useAtomValueRawSync",
                       "useSetAtom",
                       "useStore"
                     ]
@@ -152,6 +155,7 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                       // "atom", -- pending S5 (#2325)
@@ -247,6 +251,7 @@
                       "useSetAtom",
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -296,6 +301,7 @@
                       // "useSetAtom", -- pending S5 (#2325)
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -343,6 +349,7 @@
                       "useSetAtom",
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -395,6 +402,7 @@
                       "useSetAtom",
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -452,6 +460,7 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                       // "atom", -- pending S5 (#2325)
@@ -513,10 +522,13 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "useAtom",
                       "useAtomValue",
+                      "useAtomValueRaw",
+                      "useAtomValueRawSync",
                       "useSetAtom",
                       "useStore"
                     ]
@@ -570,6 +582,7 @@
                       // "useSetAtom", -- pending S5 (#2325)
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -626,6 +639,7 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                       // "atom", -- pending S5 (#2325)
@@ -686,10 +700,13 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "useAtom",
                       "useAtomValue",
+                      "useAtomValueRaw",
+                      "useAtomValueRawSync",
                       "useSetAtom",
                       "useStore"
                     ]
@@ -741,6 +758,7 @@
                       "useSetAtom",
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -796,6 +814,7 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                       // "atom", -- pending S5 (#2325)
@@ -856,10 +875,13 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "useAtom",
                       "useAtomValue",
+                      "useAtomValueRaw",
+                      "useAtomValueRawSync",
                       "useSetAtom",
                       "useStore"
                     ]
@@ -911,6 +933,7 @@
                       "useSetAtom",
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -966,6 +989,7 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "atom"
@@ -1026,10 +1050,13 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "useAtom",
                       "useAtomValue",
+                      "useAtomValueRaw",
+                      "useAtomValueRawSync",
                       "useSetAtom",
                       "useStore"
                     ]
@@ -1081,6 +1108,7 @@
                       "useSetAtom",
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]
@@ -1136,6 +1164,7 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "atom"
@@ -1196,10 +1225,13 @@
                     "importNames": [
                       "*",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider",
                       "useAtom",
                       "useAtomValue",
+                      "useAtomValueRaw",
+                      "useAtomValueRawSync",
                       "useSetAtom",
                       "useStore"
                     ]
@@ -1247,6 +1279,7 @@
                       // "useSetAtom", -- pending S5 (#2325)
                       "useStore",
                       "createStore",
+                      "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
                       "Provider"
                     ]

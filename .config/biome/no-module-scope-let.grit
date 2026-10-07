@@ -12,6 +12,6 @@ JsVariableDeclaration() as $declaration where {
     JsFunctionExpression(),
     JsClassDeclaration(),
     JsClassExpression()
-  } ,
+  },
   register_diagnostic(span=$declaration, message="Module-scope `let` is state outside the Jotai store. Declare it in a `store/` module (an atom, or store-keyed state) so it is scoped per Provider and resets between tests.")
 }
