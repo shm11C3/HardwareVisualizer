@@ -288,17 +288,14 @@ impl From<CoreBandDeltaWindowSummary> for CoolingBandDeltaWindowSummary {
 /// Why one band's two windows are, or are not, compared:
 /// `tooFewSampleMinutes` when one window carries fewer sample minutes
 /// than the band's `requiredSampleMinutes` (which side is short is read
-/// off the two window summaries beside it), `differentAmbientSource` when
-/// the recent window's ambient source is not the one the Thermal Delta
-/// Baseline was established from (#2062) - a reason that, unlike a thin
-/// window, does not resolve by waiting, which is why the frontend has to
-/// be told which one applies.
+/// off the two window summaries beside it), so the frontend can say how
+/// many minutes a short window still needs rather than only that it is
+/// short.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CoolingBandComparability {
   Comparable,
   TooFewSampleMinutes,
-  DifferentAmbientSource,
 }
 
 impl From<CoreBandComparability> for CoolingBandComparability {
@@ -306,7 +303,6 @@ impl From<CoreBandComparability> for CoolingBandComparability {
     match value {
       CoreBandComparability::Comparable => Self::Comparable,
       CoreBandComparability::TooFewSampleMinutes => Self::TooFewSampleMinutes,
-      CoreBandComparability::DifferentAmbientSource => Self::DifferentAmbientSource,
     }
   }
 }
@@ -454,13 +450,6 @@ pub enum CoolingDeltaBaselineState {
     required_days: u32,
   },
   Established {
-    // The ambient Sensor Source Label the baseline was established from
-    // (#2062), named on the wire so a comparison withheld because the
-    // recent window came from another sensor can say which sensor the
-    // reference belongs to. A plain comment, like the field comment on
-    // `CoolingBandComparison::Established`, for the same tauri-specta
-    // trailing-whitespace reason.
-    source: String,
     delta_temperature_avg: f32,
     window_start_date: String,
     window_end_date: String,
@@ -478,14 +467,17 @@ impl From<CoreDeltaBaselineState> for CoolingDeltaBaselineState {
         qualifying_days,
         required_days,
       },
+      // The source the baseline was established from (#2062) stays in
+      // Core: Cooling Insight has no source picker yet, and Core resolves
+      // the reference per recent source, so the wire shape is unchanged
+      // until a view needs to name it.
       CoreDeltaBaselineState::Established {
-        source,
+        source: _,
         delta_temperature_avg,
         window_start_date,
         window_end_date,
         sample_minutes,
       } => Self::Established {
-        source,
         delta_temperature_avg,
         window_start_date: format_date(window_start_date),
         window_end_date: format_date(window_end_date),
@@ -907,15 +899,15 @@ impl From<CoreFanCovariateComparison> for CoolingFanCovariateComparison {
 /// Why the two windows are, or are not, compared (#2068):
 /// `tooFewPairedMinutes` when one window carries fewer Thermal Delta
 /// paired minutes in the compared band than Core requires (including a
-/// recent window no source paired at all), `differentAmbientSource` when
-/// the recent window's dominant source is not the one the Thermal Delta
-/// Baseline was established from (#2062).
+/// recent window no source paired at all). Both windows are always the
+/// same ambient source once the comparison is established, because Core
+/// resolves the baseline per recent source (#2062), so there is no
+/// different-source reason.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CoolingCovariateComparability {
   Comparable,
   TooFewPairedMinutes,
-  DifferentAmbientSource,
 }
 
 impl From<CoreCovariateComparability> for CoolingCovariateComparability {
@@ -923,7 +915,6 @@ impl From<CoreCovariateComparability> for CoolingCovariateComparability {
     match value {
       CoreCovariateComparability::Comparable => Self::Comparable,
       CoreCovariateComparability::TooFewPairedMinutes => Self::TooFewPairedMinutes,
-      CoreCovariateComparability::DifferentAmbientSource => Self::DifferentAmbientSource,
     }
   }
 }
@@ -1315,7 +1306,6 @@ mod tests {
         assert_eq!(
           ambient_adjusted_baseline,
           CoolingDeltaBaselineState::Established {
-            source: "Living Room".to_string(),
             delta_temperature_avg: 11.5,
             window_start_date: "2026-06-01".to_string(),
             window_end_date: "2026-06-07".to_string(),
@@ -1625,7 +1615,7 @@ mod tests {
 
   #[test]
   fn every_band_comparability_reason_maps_one_to_one() {
-    let pairs: [(CoreBandComparability, CoolingBandComparability); 3] = [
+    let pairs: [(CoreBandComparability, CoolingBandComparability); 2] = [
       (
         CoreBandComparability::Comparable,
         CoolingBandComparability::Comparable,
@@ -1633,10 +1623,6 @@ mod tests {
       (
         CoreBandComparability::TooFewSampleMinutes,
         CoolingBandComparability::TooFewSampleMinutes,
-      ),
-      (
-        CoreBandComparability::DifferentAmbientSource,
-        CoolingBandComparability::DifferentAmbientSource,
       ),
     ];
     for (core, wire) in pairs {
@@ -1654,60 +1640,6 @@ mod tests {
       serde_json::to_value(CoolingBandComparability::TooFewSampleMinutes).unwrap(),
       "tooFewSampleMinutes"
     );
-    assert_eq!(
-      serde_json::to_value(CoolingBandComparability::DifferentAmbientSource).unwrap(),
-      "differentAmbientSource"
-    );
-  }
-
-  #[test]
-  fn a_band_from_another_sensor_names_its_reason_and_the_baselines_source() {
-    // The case that motivated the reason enum: the user rebound the app
-    // to a different meter after the ΔT baseline was pinned. The band
-    // says why it is withheld, and the baseline state names the sensor
-    // the reference belongs to, so the UI can tell the user which one.
-    let core = CoreBandComparison {
-      band: CpuLoadBand::Idle,
-      baseline: CoreBandWindowSummary {
-        temperature_avg: Some(30.0),
-        sample_minutes: 4000,
-      },
-      recent: CoreBandWindowSummary {
-        temperature_avg: Some(31.0),
-        sample_minutes: 4000,
-      },
-      comparability: CoreBandComparability::Comparable,
-      ambient_adjusted: Some(CoreAmbientAdjustedBandComparison {
-        baseline: CoreBandDeltaWindowSummary {
-          delta_avg: Some(26.7),
-          sample_minutes: 6705,
-        },
-        recent: CoreBandDeltaWindowSummary {
-          delta_avg: Some(25.1),
-          sample_minutes: 4300,
-        },
-        comparability: CoreBandComparability::DifferentAmbientSource,
-      }),
-    };
-
-    let json = serde_json::to_value(CoolingBandComparisonEntry::from(core)).unwrap();
-    assert_eq!(
-      json["ambientAdjusted"]["comparability"],
-      "differentAmbientSource"
-    );
-    assert_eq!(json["ambientAdjusted"]["requiredSampleMinutes"], 30);
-
-    let state = serde_json::to_value(CoolingDeltaBaselineState::from(
-      CoreDeltaBaselineState::Established {
-        source: "SwitchBot Meter (8a19)".to_string(),
-        delta_temperature_avg: 26.7,
-        window_start_date: date(2026, 9, 3),
-        window_end_date: date(2026, 9, 9),
-        sample_minutes: 6705,
-      },
-    ))
-    .unwrap();
-    assert_eq!(state["source"], "SwitchBot Meter (8a19)");
   }
 
   #[test]
@@ -1927,7 +1859,7 @@ mod tests {
 
   #[test]
   fn every_comparability_reason_maps_one_to_one() {
-    let pairs: [(CoreCovariateComparability, CoolingCovariateComparability); 3] = [
+    let pairs: [(CoreCovariateComparability, CoolingCovariateComparability); 2] = [
       (
         CoreCovariateComparability::Comparable,
         CoolingCovariateComparability::Comparable,
@@ -1935,10 +1867,6 @@ mod tests {
       (
         CoreCovariateComparability::TooFewPairedMinutes,
         CoolingCovariateComparability::TooFewPairedMinutes,
-      ),
-      (
-        CoreCovariateComparability::DifferentAmbientSource,
-        CoolingCovariateComparability::DifferentAmbientSource,
       ),
     ];
 
@@ -1960,11 +1888,6 @@ mod tests {
     assert_eq!(
       serde_json::to_value(CoolingCovariateComparability::TooFewPairedMinutes).unwrap(),
       "tooFewPairedMinutes"
-    );
-    assert_eq!(
-      serde_json::to_value(CoolingCovariateComparability::DifferentAmbientSource)
-        .unwrap(),
-      "differentAmbientSource"
     );
   }
 
@@ -2115,9 +2038,9 @@ mod tests {
   #[test]
   fn an_uncomparable_covariate_comparison_still_reports_both_windows() {
     let mut core = core_established_comparison();
-    core.recent_source = Some("Bedroom".to_string());
+    core.recent_paired_minutes = 12;
     core.comparable = false;
-    core.comparability = CoreCovariateComparability::DifferentAmbientSource;
+    core.comparability = CoreCovariateComparability::TooFewPairedMinutes;
     core.delta_at_baseline_median_power = None;
     core.package_power.judgement = CoreFactorJudgement::NotComparable;
 
@@ -2127,8 +2050,8 @@ mod tests {
     .unwrap();
 
     assert_eq!(json["comparable"], false);
-    assert_eq!(json["comparability"], "differentAmbientSource");
-    assert_eq!(json["recentSource"], "Bedroom");
+    assert_eq!(json["comparability"], "tooFewPairedMinutes");
+    assert_eq!(json["recentPairedMinutes"], 12);
     assert_eq!(json["packagePower"]["judgement"], "notComparable");
     assert_eq!(json["packagePower"]["recent"], 24.5);
     assert!(json["deltaAtBaselineMedianPower"].is_null());

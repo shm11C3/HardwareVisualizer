@@ -1054,6 +1054,82 @@ pub(crate) mod tests {
     );
   }
 
+  #[tokio::test]
+  async fn delete_old_data_keeps_a_second_sources_first_qualifying_days_for_its_derived_reference()
+   {
+    // #2331: only the first source to establish is pinned. A second
+    // source's reference is derived on read from its own first qualifying
+    // days, so the windows `cleanup_old_data` hands this delete must keep
+    // exactly those rows - while the non-qualifying rows before them, the
+    // qualifying rows after them, and every other old row still age out.
+    use crate::persistence::cooling_delta_baseline::retention_exempt_source_windows;
+
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_thermal_delta_daily_summary(&pool).await;
+    let today = chrono::Local::now().date_naive();
+    let ago = |days: i64| today - chrono::Duration::days(days);
+    let non_qualifying = |d: NaiveDate, source: &str| ThermalDeltaDailySummary {
+      idle: BandSummary::default(),
+      coverage_minutes: 1,
+      ..summary(d, source, 0.0)
+    };
+
+    // The pinned desk week, long past the cutoff.
+    let desk_window = (ago(520), ago(514));
+    let desk_week: Vec<_> = (514..=520)
+      .rev()
+      .map(|n| summary(ago(n), "Desk", 12.0))
+      .collect();
+    // The living-room sensor: two days with coverage but no idle ΔT, then
+    // its first seven qualifying days, then an eighth qualifying day that
+    // is not part of its reference, all past the cutoff.
+    let living_room_week: Vec<_> = (492..=498)
+      .rev()
+      .map(|n| summary(ago(n), "Living Room", 15.0))
+      .collect();
+    let deletable = vec![
+      non_qualifying(ago(500), "Living Room"),
+      non_qualifying(ago(499), "Living Room"),
+      summary(ago(480), "Living Room", 15.5),
+      non_qualifying(ago(470), "Hallway"),
+    ];
+    let recent = summary(ago(3), "Living Room", 16.0);
+    for row in desk_week
+      .iter()
+      .chain(&living_room_week)
+      .chain(&deletable)
+      .chain(std::iter::once(&recent))
+    {
+      upsert_with(&pool, row).await.unwrap();
+    }
+
+    let all_rows = select_all_thermal_delta_daily_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+    let mut windows = vec![desk_window];
+    windows.extend(retention_exempt_source_windows(&all_rows));
+    assert_eq!(
+      windows,
+      vec![desk_window, desk_window, (ago(498), ago(492))],
+      "the derived spans: the desk's own (coinciding with its pin) and the living room's first seven qualifying days"
+    );
+
+    delete_old_data_from_pool(&pool, 400, &windows)
+      .await
+      .unwrap();
+
+    let survivors = select_all_thermal_delta_daily_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+    let mut expected: Vec<_> = desk_week
+      .into_iter()
+      .chain(living_room_week)
+      .chain(std::iter::once(recent))
+      .collect();
+    expected.sort_by(|a, b| (a.date, &a.source).cmp(&(b.date, &b.source)));
+    assert_eq!(survivors, expected);
+  }
+
   // ── archives to daily summary, end to end ──
 
   #[tokio::test]

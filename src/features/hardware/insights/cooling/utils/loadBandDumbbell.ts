@@ -21,14 +21,11 @@ export type LoadBandShortfall = {
 
 /**
  * Why a band is withheld. Core decides whether a band is comparable; this
- * only carries its reason plus the numbers the copy needs. The two Core
- * reasons resolve differently, which is the whole point of naming them:
- * a thin window fills in as the machine keeps running, a changed ambient
- * sensor never does.
+ * only carries its reason plus the numbers the copy needs, so a thin
+ * window can say how far short it is rather than only that it is.
  */
 export type LoadBandWithheldReason =
   | { kind: "tooFewSampleMinutes"; shortfall: LoadBandShortfall }
-  | { kind: "differentAmbientSource"; baselineSource: string | null }
   /** The band never paired a minute with ambient in either window. */
   | { kind: "noAmbientPairing" }
   /** A value Core reported comparable is missing anyway; cannot draw. */
@@ -73,7 +70,6 @@ const withheldReason = (
     baseline: number;
     recent: number;
   },
-  baselineSource: string | null,
 ): LoadBandWithheldReason | null => {
   switch (comparability) {
     case "comparable":
@@ -87,8 +83,6 @@ const withheldReason = (
           minutes.recent,
         ),
       };
-    case "differentAmbientSource":
-      return { kind: "differentAmbientSource", baselineSource };
   }
 };
 
@@ -105,15 +99,11 @@ export const buildLoadBandDumbbellRows = (
   temperatureUnit: TemperatureUnit,
 ): LoadBandDumbbellRow[] =>
   bands.map((entry) => {
-    const reason = withheldReason(
-      entry.comparability,
-      {
-        required: entry.requiredSampleMinutes,
-        baseline: entry.baseline.sampleMinutes,
-        recent: entry.recent.sampleMinutes,
-      },
-      null,
-    );
+    const reason = withheldReason(entry.comparability, {
+      required: entry.requiredSampleMinutes,
+      baseline: entry.baseline.sampleMinutes,
+      recent: entry.recent.sampleMinutes,
+    });
     if (reason != null) {
       return { band: entry.band, comparable: false, reason };
     }
@@ -163,10 +153,6 @@ export const buildLoadBandDumbbellRows = (
  * data exists but this window is too thin", because only the former means
  * the panel should render exactly as it did before ambient existed.
  *
- * `baselineSource` is the sensor the Thermal Delta Baseline was
- * established from, named in the withheld copy when the recent window
- * came from a different one; `null` while that baseline is establishing.
- *
  * Every endpoint is converted with `convertTemperatureDelta` rather than
  * `toDisplayTemperature`: a ΔT is already a difference between two
  * temperatures, so the +32 offset would be applied to a span that never
@@ -175,7 +161,6 @@ export const buildLoadBandDumbbellRows = (
 export const buildAmbientAdjustedDumbbellRows = (
   bands: readonly CoolingBandComparisonEntry[],
   temperatureUnit: TemperatureUnit,
-  baselineSource: string | null = null,
 ): LoadBandDumbbellRow[] | null => {
   if (bands.every((entry) => entry.ambientAdjusted == null)) {
     return null;
@@ -190,15 +175,11 @@ export const buildAmbientAdjustedDumbbellRows = (
         reason: { kind: "noAmbientPairing" },
       };
     }
-    const reason = withheldReason(
-      adjusted.comparability,
-      {
-        required: adjusted.requiredSampleMinutes,
-        baseline: adjusted.baseline.sampleMinutes,
-        recent: adjusted.recent.sampleMinutes,
-      },
-      baselineSource,
-    );
+    const reason = withheldReason(adjusted.comparability, {
+      required: adjusted.requiredSampleMinutes,
+      baseline: adjusted.baseline.sampleMinutes,
+      recent: adjusted.recent.sampleMinutes,
+    });
     if (reason != null) {
       return { band: entry.band, comparable: false, reason };
     }

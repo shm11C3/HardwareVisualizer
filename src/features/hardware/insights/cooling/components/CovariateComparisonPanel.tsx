@@ -41,14 +41,11 @@ const NO_VALUE = "—";
 const NOT_COMPARABLE_KEYS: Record<
   CoolingCovariateComparability,
   | "pages.insights.cooling.covariateComparison.notComparable.tooFewPairedMinutes"
-  | "pages.insights.cooling.covariateComparison.notComparable.differentAmbientSource"
   | null
 > = {
   comparable: null,
   tooFewPairedMinutes:
     "pages.insights.cooling.covariateComparison.notComparable.tooFewPairedMinutes",
-  differentAmbientSource:
-    "pages.insights.cooling.covariateComparison.notComparable.differentAmbientSource",
 };
 
 /**

@@ -24,12 +24,13 @@ use std::collections::BTreeSet;
 
 use chrono::{Duration, NaiveDate};
 
-use crate::persistence::cooling_band_comparison::dominant_delta_source;
 use crate::persistence::cooling_baseline::COOLING_BASELINE_RECENT_WINDOW_DAYS;
 use crate::persistence::cooling_covariate_rollup::{
   CovariateDailySummary, FanCovariateDailySummary, PairedFitStatistics, median,
 };
-use crate::persistence::cooling_delta_baseline::DeltaBaselineState;
+use crate::persistence::cooling_delta_baseline::{
+  DeltaBaselineReference, DeltaBaselineState, resolve_delta_baseline_for_window,
+};
 use crate::persistence::cooling_rollup::CpuLoadBand;
 use crate::persistence::cooling_thermal_delta_rollup::ThermalDeltaDailySummary;
 
@@ -152,6 +153,13 @@ pub struct FanCovariateComparison {
 }
 
 /// Why the two windows are, or are not, compared.
+///
+/// There is deliberately no "different ambient source" reason (#2331): the
+/// baseline is resolved per recent source
+/// (`cooling_delta_baseline::resolve_delta_baseline_for_window`), so once
+/// this comparison is `Established` both windows are the same sensor by
+/// construction, and a recent window whose sensor has no reference yet is
+/// reported as `Establishing` rather than as a refusal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CovariateComparability {
   Comparable,
@@ -159,9 +167,6 @@ pub enum CovariateComparability {
   /// [`COOLING_COVARIATE_COMPARISON_MINIMUM_PAIRED_MINUTES`] in the
   /// compared band - including a recent window no source paired at all.
   TooFewPairedMinutes,
-  /// The recent window's dominant source is not the source the Thermal
-  /// Delta Baseline was established from (#2062).
-  DifferentAmbientSource,
 }
 
 /// The comparison once the Thermal Delta Baseline is established.
@@ -169,8 +174,9 @@ pub enum CovariateComparability {
 pub struct EstablishedCovariateComparison {
   /// The CPU-load band both windows are read under.
   pub band: CpuLoadBand,
-  /// The ambient source the Thermal Delta Baseline was established from;
-  /// the baseline side is read from its rows only.
+  /// The ambient source the Thermal Delta Baseline this comparison reads
+  /// was established from - the recent window's own source whenever it
+  /// has one; the baseline side is read from its rows only.
   pub baseline_source: String,
   pub baseline_window_start_date: NaiveDate,
   pub baseline_window_end_date: NaiveDate,
@@ -222,9 +228,13 @@ pub enum CoolingCovariateComparison {
 ///
 /// `window_end_date` is the most recent completed local day (yesterday),
 /// matching [`crate::persistence::cooling_band_comparison::derive_band_comparison`].
-/// `delta_days` is the row-per-source ΔT rollup, consulted only to pick
-/// the recent window's dominant source by coverage - the same rule the
-/// ambient-adjusted readings use, so all three views read one sensor.
+/// `delta_days` is the row-per-source ΔT rollup, consulted to pick the
+/// recent window's dominant source by coverage and to resolve that
+/// source's own baseline
+/// (`cooling_delta_baseline::resolve_delta_baseline_for_window`) - the same
+/// rule the ambient-adjusted readings use, so all three views read one
+/// sensor against one reference. `delta_baseline_state` is the pinned (or,
+/// before any pin, cross-source) lifecycle that resolution starts from.
 pub fn derive_covariate_comparison(
   covariate_days: &[CovariateDailySummary],
   fan_days: &[FanCovariateDailySummary],
@@ -233,6 +243,17 @@ pub fn derive_covariate_comparison(
   band: CpuLoadBand,
   window_end_date: NaiveDate,
 ) -> CoolingCovariateComparison {
+  let recent_start =
+    window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+  let DeltaBaselineReference {
+    recent_source,
+    baseline: delta_baseline_state,
+  } = resolve_delta_baseline_for_window(
+    delta_days,
+    delta_baseline_state,
+    recent_start,
+    window_end_date,
+  );
   let (baseline_source, baseline_start, baseline_end) = match delta_baseline_state {
     DeltaBaselineState::Establishing {
       qualifying_days,
@@ -250,10 +271,6 @@ pub fn derive_covariate_comparison(
       ..
     } => (source, window_start_date, window_end_date),
   };
-
-  let recent_start =
-    window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-  let recent_source = dominant_delta_source(delta_days, recent_start, window_end_date);
 
   let baseline = WindowSlice::of(
     covariate_days,
@@ -276,15 +293,14 @@ pub fn derive_covariate_comparison(
 
   let baseline_paired_minutes = baseline.paired_minutes();
   let recent_paired_minutes = recent.paired_minutes();
-  // Thinness first, then the source: a recent window no sensor paired at
-  // all is "not enough evidence", not "a different sensor".
+  // Thinness is the only gate: the resolver above made the baseline the
+  // recent source's own, and a recent window no sensor paired at all has
+  // zero paired minutes, so it lands here as "not enough evidence".
   let comparability = if baseline_paired_minutes
     < COOLING_COVARIATE_COMPARISON_MINIMUM_PAIRED_MINUTES
     || recent_paired_minutes < COOLING_COVARIATE_COMPARISON_MINIMUM_PAIRED_MINUTES
   {
     CovariateComparability::TooFewPairedMinutes
-  } else if recent_source != Some(baseline_source.as_str()) {
-    CovariateComparability::DifferentAmbientSource
   } else {
     CovariateComparability::Comparable
   };
@@ -716,6 +732,20 @@ mod tests {
     }
   }
 
+  /// A ΔT row that counts toward `source`'s own baseline: an idle band
+  /// with enough paired minutes to qualify the day.
+  fn qualifying(date: NaiveDate, source: &str) -> ThermalDeltaDailySummary {
+    ThermalDeltaDailySummary {
+      idle: BandSummary {
+        avg: Some(15.0),
+        max: Some(16.0),
+        min: Some(14.0),
+        sample_minutes: 60,
+      },
+      ..coverage(date, source, 1000)
+    }
+  }
+
   fn days(window: (NaiveDate, NaiveDate)) -> impl Iterator<Item = NaiveDate> {
     window.0.iter_days().take_while(move |d| *d <= window.1)
   }
@@ -838,7 +868,10 @@ mod tests {
 
   #[test]
   fn an_establishing_delta_baseline_reports_establishing() {
-    let (rows, coverage) = both_windows("Desk", Some(20.0), Some(20.0));
+    // Nothing pinned yet, and the recent window's own source has two
+    // qualifying days: the progress reported is that source's own.
+    let (rows, mut coverage) = both_windows("Desk", Some(20.0), Some(20.0));
+    coverage.extend(days(BASELINE).take(2).map(|d| qualifying(d, "Desk")));
 
     let result = derive_covariate_comparison(
       &rows,
@@ -859,35 +892,59 @@ mod tests {
   }
 
   #[test]
-  fn a_recent_window_from_a_different_ambient_source_is_not_comparable() {
+  fn a_recent_window_from_another_source_is_compared_against_that_sources_own_baseline() {
     // The baseline was pinned from the Desk sensor; a Living Room sensor
-    // covered the whole recent window. Both windows are reported, nothing
-    // is judged, and the matched-power difference is withheld.
-    let (mut rows, coverage) = both_windows("Living Room", Some(20.0), Some(20.0));
-    rows.extend(days(BASELINE).map(|d| row(d, "Desk", Some(20.0))));
+    // covered the whole recent window and has a qualifying week of its
+    // own over the same dates as the pinned window. The comparison is the
+    // Living Room's recent week against the Living Room's own first week
+    // - never the Desk rows that happen to share those dates.
+    let (mut rows, mut coverage) = both_windows("Living Room", Some(20.0), Some(24.0));
+    rows.extend(days(BASELINE).map(|d| row(d, "Desk", Some(90.0))));
+    coverage.extend(days(BASELINE).map(|d| qualifying(d, "Living Room")));
 
     let result = derive(&rows, &[], &coverage, established("Desk"));
 
-    assert!(!result.comparable);
+    assert_eq!(result.baseline_source, "Living Room");
     assert_eq!(
-      result.comparability,
-      CovariateComparability::DifferentAmbientSource
+      (
+        result.baseline_window_start_date,
+        result.baseline_window_end_date
+      ),
+      BASELINE
     );
-    assert_eq!(result.baseline_source, "Desk");
     assert_eq!(result.recent_source.as_deref(), Some("Living Room"));
+    assert!(result.comparable);
+    assert_eq!(result.comparability, CovariateComparability::Comparable);
     assert_eq!(result.package_power.baseline, Some(20.0));
-    assert_eq!(result.package_power.recent, Some(20.0));
-    assert_eq!(
-      result.package_power.judgement,
-      FactorJudgement::NotComparable
+    assert_eq!(result.package_power.recent, Some(24.0));
+    assert_eq!(result.package_power.change, Some(4.0));
+  }
+
+  #[test]
+  fn a_recent_window_from_a_source_still_establishing_reports_establishing() {
+    // The pinned Desk row is no reference for the Living Room sensor that
+    // covered the recent window, and that sensor has no qualifying day
+    // yet: the comparison reports its progress rather than judging the
+    // two sensors against each other.
+    let (mut rows, coverage) = both_windows("Living Room", Some(20.0), Some(20.0));
+    rows.extend(days(BASELINE).map(|d| row(d, "Desk", Some(20.0))));
+
+    let result = derive_covariate_comparison(
+      &rows,
+      &[],
+      &coverage,
+      established("Desk"),
+      CpuLoadBand::Idle,
+      RECENT_END,
     );
+
     assert_eq!(
-      result.ambient_temperature.judgement,
-      FactorJudgement::NotComparable
+      result,
+      CoolingCovariateComparison::Establishing {
+        qualifying_days: 0,
+        required_days: 7,
+      }
     );
-    assert!(result.baseline_fit.is_some());
-    assert!(result.recent_fit.is_some());
-    assert_eq!(result.delta_at_baseline_median_power, None);
   }
 
   #[test]
@@ -1223,24 +1280,26 @@ mod tests {
 
   #[test]
   fn the_recent_window_is_read_from_the_source_that_covered_most_of_it() {
-    // Desk covered the baseline; in the recent window both sensors have
-    // rows, and the Living Room one covered more minutes. It wins, and
-    // being a different source than the baseline's, nothing is judged.
+    // Desk is pinned; in the recent window both sensors have rows, and the
+    // Living Room one covered more minutes. It wins, and the comparison
+    // is read against the Living Room's own baseline week - the Desk rows
+    // in the recent window are not what is reported.
     let (mut rows, mut coverage) = both_windows("Desk", Some(20.0), Some(20.0));
+    rows.extend(days(BASELINE).map(|d| row(d, "Living Room", Some(30.0))));
     rows.extend(
       days((RECENT_START, RECENT_END)).map(|d| row(d, "Living Room", Some(50.0))),
     );
+    coverage.extend(days(BASELINE).map(|d| qualifying(d, "Living Room")));
     coverage
       .extend(days((RECENT_START, RECENT_END)).map(|d| coverage_row(d, "Living Room")));
 
     let result = derive(&rows, &[], &coverage, established("Desk"));
 
     assert_eq!(result.recent_source.as_deref(), Some("Living Room"));
+    assert_eq!(result.baseline_source, "Living Room");
+    assert_eq!(result.package_power.baseline, Some(30.0));
     assert_eq!(result.package_power.recent, Some(50.0));
-    assert_eq!(
-      result.comparability,
-      CovariateComparability::DifferentAmbientSource
-    );
+    assert_eq!(result.comparability, CovariateComparability::Comparable);
   }
 
   fn coverage_row(date: NaiveDate, source: &str) -> ThermalDeltaDailySummary {

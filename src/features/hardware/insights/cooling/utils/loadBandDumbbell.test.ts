@@ -222,36 +222,6 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
     ]);
   });
 
-  it("names the baseline's sensor when the recent window came from another one", () => {
-    // Rich on both sides, so no amount of waiting changes the verdict:
-    // the copy has to say which sensor the reference belongs to.
-    const rows = buildAmbientAdjustedDumbbellRows(
-      [
-        entry({
-          ambientAdjusted: {
-            baseline: { deltaAvg: 26.7, sampleMinutes: 6_705 },
-            recent: { deltaAvg: 25.1, sampleMinutes: 4_300 },
-            comparability: "differentAmbientSource",
-            requiredSampleMinutes: 30,
-          },
-        }),
-      ],
-      "C",
-      "SwitchBot Meter (8a19)",
-    );
-
-    expect(rows).toEqual([
-      {
-        band: "idle",
-        comparable: false,
-        reason: {
-          kind: "differentAmbientSource",
-          baselineSource: "SwitchBot Meter (8a19)",
-        },
-      },
-    ]);
-  });
-
   it("renders a band with no ambient pairing beside bands that have one", () => {
     // A band can be absent from the ambient reading while its neighbours
     // are not; dropping the row would silently renumber the chart.

@@ -484,8 +484,6 @@
             "tooFewSampleMinutes": "Not enough samples to compare",
             "recentShortfall": "recent needs {{minutes}} more min",
             "baselineShortfall": "baseline window {{minutes}} / {{required}} min",
-            "differentAmbientSource": "Not comparable — the recent ambient source differs from the baseline's ({{source}})",
-            "differentAmbientSourceUnknown": "Not comparable — the recent ambient source differs from the baseline's",
             "noAmbientPairing": "No minutes paired with ambient",
             "missingValue": "Not comparable"
           },
@@ -516,8 +514,7 @@
           "subtitle": "{{band}} load band · baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}} · {{baseline}} / {{recent}} paired minutes",
           "loadFailed": "Failed to load the co-variate comparison.",
           "notComparable": {
-            "tooFewPairedMinutes": "Not comparable — too few paired minutes in one of the windows ({{baseline}} / {{recent}} min).",
-            "differentAmbientSource": "Not comparable — the recent window's ambient source differs from the baseline's."
+            "tooFewPairedMinutes": "Not comparable — too few paired minutes in one of the windows ({{baseline}} / {{recent}} min)."
           },
           "lead": {
             "deltaAtMatchedPower": "At the same package power, the Thermal Delta reads {{delta}} against the baseline window.",

@@ -114,28 +114,4 @@ describe("LoadBandDumbbellChart", () => {
       screen.queryByTestId("cooling-load-band-shortfall"),
     ).not.toBeInTheDocument();
   });
-
-  it("names the baseline's sensor when the recent window came from another one", () => {
-    render(
-      <LoadBandDumbbellChart
-        rows={[
-          {
-            band: "idle",
-            comparable: false,
-            reason: {
-              kind: "differentAmbientSource",
-              baselineSource: "SwitchBot Meter (8a19)",
-            },
-          },
-        ]}
-        temperatureUnit="C"
-      />,
-    );
-
-    expect(
-      screen.getByText(
-        "pages.insights.cooling.loadBandComparison.notComparable.differentAmbientSource",
-      ),
-    ).toBeInTheDocument();
-  });
 });
