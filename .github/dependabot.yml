@@ -35,6 +35,8 @@ updates:
           - "@types/react*"
           - "typescript"
           - "@tauri-apps/*"
+          - "vitest"
+          - "@vitest/*"
       react:
         patterns:
           - "react"
@@ -42,6 +44,12 @@ updates:
       biome:
         patterns:
           - "@biomejs/biome"
+      # vitest and @vitest/* plugins must share the same version; group all
+      # update types (including major) so they land in a single PR.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
 
   - package-ecosystem: "cargo"
     directory: "/"
