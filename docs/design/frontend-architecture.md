@@ -25,8 +25,16 @@ listed below it.
 | Feature | `src/features/<f>` | All of the above and its own feature. Never another feature. |
 | App | `src/app` (planned), `src/App.tsx`, `src/lazyScreens.tsx`, `src/main*.tsx` | Anything |
 
-Within a feature, `hooks/` may not import components, and `store/` may not
-import hooks, components, or React.
+Within a feature, `store/` and `hooks/` import their own feature through a
+closed allow-list rather than an open exemption:
+
+- `store/` may import the feature's `store`, `types`, `consts`, `utils`, and
+  `funcs` modules.
+- `hooks/` may import the same modules plus the feature's `hooks`.
+- Feature root modules such as `hardware/gpuIdentity` are allowed by name.
+
+An allow-list is used because specifiers carry no file extension, so a deny
+pattern cannot tell a screen component from a logic module.
 
 Two rules close the obvious bypasses:
 
@@ -69,6 +77,7 @@ plugin `.config/biome/no-module-scope-let.grit`.
 | Alias-only cross-directory imports | `../**` in every scope's group |
 | Jotai API placement | `paths.jotai.importNames` per scope, plus `jotai/**` subpaths banned outside store modules |
 | UI primitives never call IPC | `paths["@/rspc/bindings"].importNames` = `commands`, `events` |
+| No bypass through namespace imports | `*` is listed wherever specific names are restricted |
 | No module-scope `let` outside store modules | GritQL plugin through an override |
 | No cycles, barrels, or `export *` | `noImportCycles`, `noBarrelFile`, `noReExportAll` |
 
@@ -78,9 +87,10 @@ Test files are outside the boundary scopes. They legitimately seed a
 `src/main*.tsx` and `src/e2e/**` are composition roots and test
 infrastructure, so they are also unscoped.
 
-A feature directory with no override of its own falls into a catch-all that
-bans every `@/features/**` import, including its own. A new feature therefore
-fails lint until it gets its own override.
+Every feature has three overrides: UI, `hooks/`, and `store/`. A feature
+directory with no overrides of its own falls into a catch-all that bans every
+`@/features/**` import, including its own. A new feature therefore fails lint
+until it gets its own overrides.
 
 ### Pending exceptions
 

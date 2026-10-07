@@ -58,7 +58,9 @@
                       "@/lazyScreens",
                       "../**",
                       "react",
+                      "react/**",
                       "react-dom",
+                      "react-dom/**",
                       "jotai",
                       "jotai/**"
                     ]
@@ -91,7 +93,9 @@
                       "@/lazyScreens",
                       "../**",
                       "react",
+                      "react/**",
                       "react-dom",
+                      "react-dom/**",
                       "jotai/react",
                       "jotai/react/**"
                     ]
@@ -101,6 +105,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "createStore",
                       "getDefaultStore",
                       "Provider",
@@ -145,6 +150,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "createStore",
                       "getDefaultStore",
                       "Provider"
@@ -193,7 +199,7 @@
                 "paths": {
                   "@/rspc/bindings": {
                     "message": "UI primitives do not call IPC. See docs/design/frontend-architecture.md.",
-                    "importNames": ["commands", "events"]
+                    "importNames": ["*", "commands", "events"]
                   }
                 }
               }
@@ -235,6 +241,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       // "useAtom", -- pending S5 (#2325)
                       "useSetAtom",
@@ -283,6 +290,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       "useAtom",
                       // "useSetAtom", -- pending S5 (#2325)
@@ -299,7 +307,7 @@
         }
       }
     },
-    // Feature catch-all
+    // Feature catch-all: a feature without its own overrides below fails here
     {
       "includes": [
         "src/features/**",
@@ -329,6 +337,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       "useAtom",
                       "useSetAtom",
@@ -345,7 +354,7 @@
         }
       }
     },
-    // Feature hardware: UI
+    // Feature hardware: ui
     {
       "includes": [
         "src/features/hardware/**",
@@ -380,6 +389,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       // "useAtom", -- pending S5 (#2325)
                       "useSetAtom",
@@ -421,7 +431,17 @@
                       "@/lazyScreens",
                       // "../**", -- pending S1 (#2325)
                       "jotai/**",
-                      "!@/features/hardware/**",
+                      "!@/features/hardware/store/**",
+                      "!@/features/hardware/**/types",
+                      "!@/features/hardware/**/types/**",
+                      "!@/features/hardware/**/consts",
+                      "!@/features/hardware/**/consts/**",
+                      "!@/features/hardware/**/utils",
+                      "!@/features/hardware/**/utils/**",
+                      "!@/features/hardware/**/funcs",
+                      "!@/features/hardware/**/funcs/**",
+                      "!@/features/hardware/**/hooks/**",
+                      "!@/features/hardware/gpuIdentity",
                       "!@/features/settings/**" // pending S3 (#2325): delete this exemption
                     ]
                   }
@@ -430,6 +450,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "createStore",
                       "getDefaultStore",
                       "Provider"
@@ -468,10 +489,21 @@
                       "@/lazyScreens",
                       "../**",
                       "react",
+                      "react/**",
                       "react-dom",
+                      "react-dom/**",
                       "jotai/react",
                       "jotai/react/**",
-                      "!@/features/hardware/**"
+                      "!@/features/hardware/store/**",
+                      "!@/features/hardware/**/types",
+                      "!@/features/hardware/**/types/**",
+                      "!@/features/hardware/**/consts",
+                      "!@/features/hardware/**/consts/**",
+                      "!@/features/hardware/**/utils",
+                      "!@/features/hardware/**/utils/**",
+                      "!@/features/hardware/**/funcs",
+                      "!@/features/hardware/**/funcs/**",
+                      "!@/features/hardware/gpuIdentity"
                     ]
                   }
                 ],
@@ -479,6 +511,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "createStore",
                       "getDefaultStore",
                       "Provider",
@@ -495,7 +528,7 @@
         }
       }
     },
-    // Feature settings: UI
+    // Feature settings: ui
     {
       "includes": [
         "src/features/settings/**",
@@ -531,6 +564,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       // "useAtom", -- pending S5 (#2325)
                       // "useSetAtom", -- pending S5 (#2325)
@@ -572,7 +606,16 @@
                       "@/lazyScreens",
                       "../**",
                       "jotai/**",
-                      "!@/features/settings/**",
+                      "!@/features/settings/store/**",
+                      "!@/features/settings/**/types",
+                      "!@/features/settings/**/types/**",
+                      "!@/features/settings/**/consts",
+                      "!@/features/settings/**/consts/**",
+                      "!@/features/settings/**/utils",
+                      "!@/features/settings/**/utils/**",
+                      "!@/features/settings/**/funcs",
+                      "!@/features/settings/**/funcs/**",
+                      "!@/features/settings/**/hooks/**",
                       "!@/features/hardware/**" // pending S2 (#2325): delete this exemption
                     ]
                   }
@@ -581,6 +624,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "createStore",
                       "getDefaultStore",
                       "Provider"
@@ -594,7 +638,70 @@
         }
       }
     },
-    // Feature menu: UI
+    // Feature settings: store
+    {
+      "includes": [
+        "src/features/settings/store/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**",
+                      "jotai/react",
+                      "jotai/react/**",
+                      "!@/features/settings/store/**",
+                      "!@/features/settings/**/types",
+                      "!@/features/settings/**/types/**",
+                      "!@/features/settings/**/consts",
+                      "!@/features/settings/**/consts/**",
+                      "!@/features/settings/**/utils",
+                      "!@/features/settings/**/utils/**",
+                      "!@/features/settings/**/funcs",
+                      "!@/features/settings/**/funcs/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "*",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "useAtom",
+                      "useAtomValue",
+                      "useSetAtom",
+                      "useStore"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature menu: ui
     {
       "includes": [
         "src/features/menu/**",
@@ -628,6 +735,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       "useAtom",
                       "useSetAtom",
@@ -669,7 +777,16 @@
                       "@/lazyScreens",
                       "../**",
                       "jotai/**",
-                      "!@/features/menu/**"
+                      "!@/features/menu/store/**",
+                      "!@/features/menu/**/types",
+                      "!@/features/menu/**/types/**",
+                      "!@/features/menu/**/consts",
+                      "!@/features/menu/**/consts/**",
+                      "!@/features/menu/**/utils",
+                      "!@/features/menu/**/utils/**",
+                      "!@/features/menu/**/funcs",
+                      "!@/features/menu/**/funcs/**",
+                      "!@/features/menu/**/hooks/**"
                     ]
                   }
                 ],
@@ -677,6 +794,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "createStore",
                       "getDefaultStore",
                       "Provider"
@@ -690,10 +808,76 @@
         }
       }
     },
-    // Feature tray
+    // Feature menu: store
+    {
+      "includes": [
+        "src/features/menu/store/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**",
+                      "jotai/react",
+                      "jotai/react/**",
+                      "!@/features/menu/store/**",
+                      "!@/features/menu/**/types",
+                      "!@/features/menu/**/types/**",
+                      "!@/features/menu/**/consts",
+                      "!@/features/menu/**/consts/**",
+                      "!@/features/menu/**/utils",
+                      "!@/features/menu/**/utils/**",
+                      "!@/features/menu/**/funcs",
+                      "!@/features/menu/**/funcs/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "*",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "useAtom",
+                      "useAtomValue",
+                      "useSetAtom",
+                      "useStore"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature tray: ui
     {
       "includes": [
         "src/features/tray/**",
+        "!src/features/tray/store/**",
+        "!src/features/tray/hooks/**",
+        "!src/features/tray/**/hooks/**",
         "!src/**/*.test.ts",
         "!src/**/*.test.tsx"
       ],
@@ -721,6 +905,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       "useAtom",
                       "useSetAtom",
@@ -737,7 +922,126 @@
         }
       }
     },
-    // Feature updater: UI
+    // Feature tray: hooks
+    {
+      "includes": [
+        "src/features/tray/hooks/**",
+        "src/features/tray/**/hooks/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "jotai/**",
+                      "!@/features/tray/store/**",
+                      "!@/features/tray/**/types",
+                      "!@/features/tray/**/types/**",
+                      "!@/features/tray/**/consts",
+                      "!@/features/tray/**/consts/**",
+                      "!@/features/tray/**/utils",
+                      "!@/features/tray/**/utils/**",
+                      "!@/features/tray/**/funcs",
+                      "!@/features/tray/**/funcs/**",
+                      "!@/features/tray/**/hooks/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "*",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "atom"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature tray: store
+    {
+      "includes": [
+        "src/features/tray/store/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**",
+                      "jotai/react",
+                      "jotai/react/**",
+                      "!@/features/tray/store/**",
+                      "!@/features/tray/**/types",
+                      "!@/features/tray/**/types/**",
+                      "!@/features/tray/**/consts",
+                      "!@/features/tray/**/consts/**",
+                      "!@/features/tray/**/utils",
+                      "!@/features/tray/**/utils/**",
+                      "!@/features/tray/**/funcs",
+                      "!@/features/tray/**/funcs/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "*",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "useAtom",
+                      "useAtomValue",
+                      "useSetAtom",
+                      "useStore"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature updater: ui
     {
       "includes": [
         "src/features/updater/**",
@@ -771,6 +1075,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       "useAtom",
                       "useSetAtom",
@@ -812,7 +1117,16 @@
                       "@/lazyScreens",
                       "../**",
                       "jotai/**",
-                      "!@/features/updater/**"
+                      "!@/features/updater/store/**",
+                      "!@/features/updater/**/types",
+                      "!@/features/updater/**/types/**",
+                      "!@/features/updater/**/consts",
+                      "!@/features/updater/**/consts/**",
+                      "!@/features/updater/**/utils",
+                      "!@/features/updater/**/utils/**",
+                      "!@/features/updater/**/funcs",
+                      "!@/features/updater/**/funcs/**",
+                      "!@/features/updater/**/hooks/**"
                     ]
                   }
                 ],
@@ -820,6 +1134,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "createStore",
                       "getDefaultStore",
                       "Provider",
@@ -833,7 +1148,70 @@
         }
       }
     },
-    // App
+    // Feature updater: store
+    {
+      "includes": [
+        "src/features/updater/store/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "@/App",
+                      "@/lazyScreens",
+                      "../**",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**",
+                      "jotai/react",
+                      "jotai/react/**",
+                      "!@/features/updater/store/**",
+                      "!@/features/updater/**/types",
+                      "!@/features/updater/**/types/**",
+                      "!@/features/updater/**/consts",
+                      "!@/features/updater/**/consts/**",
+                      "!@/features/updater/**/utils",
+                      "!@/features/updater/**/utils/**",
+                      "!@/features/updater/**/funcs",
+                      "!@/features/updater/**/funcs/**"
+                    ]
+                  }
+                ],
+                "paths": {
+                  "jotai": {
+                    "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
+                    "importNames": [
+                      "*",
+                      "createStore",
+                      "getDefaultStore",
+                      "Provider",
+                      "useAtom",
+                      "useAtomValue",
+                      "useSetAtom",
+                      "useStore"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // App: listed files are what S4 moves to src/app/; keep this override last
     {
       "includes": [
         "src/App.tsx",
@@ -863,6 +1241,7 @@
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
+                      "*",
                       "atom",
                       // "useAtom", -- pending S5 (#2325)
                       // "useSetAtom", -- pending S5 (#2325)
