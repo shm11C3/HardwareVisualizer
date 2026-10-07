@@ -220,12 +220,21 @@ test.describe("insights captures", () => {
     await expect(panel.getByText(/2025-11-01.+2025-11-14/)).toBeVisible();
     await expect(panel.getByText(/2025-12-01.+2025-12-14/)).toBeVisible();
     // The mid band has ambient data but too thin a window, and the high
-    // band never paired at all: both stay honestly not comparable.
+    // band never paired at all: both stay honestly not comparable, each
+    // for its own stated reason, and the thin one says how far short the
+    // recent window is (22 of Core's 30 paired minutes).
+    const ambientDumbbell = page.getByTestId(
+      "cooling-load-band-dumbbell-ambient",
+    );
     await expect(
-      page
-        .getByTestId("cooling-load-band-dumbbell-ambient")
-        .getByText("Not enough samples to compare"),
-    ).toHaveCount(2);
+      ambientDumbbell.getByText("Not enough samples to compare"),
+    ).toHaveCount(1);
+    await expect(
+      ambientDumbbell.getByTestId("cooling-load-band-shortfall"),
+    ).toHaveText("(recent needs 8 more min)");
+    await expect(
+      ambientDumbbell.getByText("No minutes paired with ambient"),
+    ).toHaveCount(1);
 
     await expect(
       page.getByTestId("cooling-data-state-ambient-source"),

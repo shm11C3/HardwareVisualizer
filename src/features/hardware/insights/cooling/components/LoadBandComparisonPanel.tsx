@@ -57,6 +57,11 @@ export const LoadBandComparisonPanel = ({
         ? buildAmbientAdjustedDumbbellRows(
             bandComparison.bands,
             temperatureUnit,
+            // Named in the withheld copy when the recent window came
+            // from a different sensor than the ΔT baseline's.
+            bandComparison.ambientAdjustedBaseline.status === "established"
+              ? bandComparison.ambientAdjustedBaseline.source
+              : null,
           )
         : null,
     [bandComparison, temperatureUnit],

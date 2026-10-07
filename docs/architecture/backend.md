@@ -503,9 +503,15 @@ same question, same recent window. It carries its own lifecycle rather than a
 null: a machine with no environmental sensor reports an establishing ΔT baseline
 at zero qualifying days, which is honest and fabricates nothing, while
 established-but-not-comparable means the reference exists and the recent window
-is still too thin - or was measured against a different sensor. Both responses
-also carry the ΔT baseline's own window dates, because they differ from the
-absolute window the same response reports. Cooling Insight has no source picker
+is still too thin - or was measured against a different sensor. The band
+comparison says which: every band carries a `comparability` reason
+(`cooling_band_comparison::BandComparability`) rather than a bare flag, plus
+Core's minimum sample minutes, because the two reasons resolve differently - a
+thin window fills in as the machine keeps running and the UI can say how many
+minutes are still missing, while a changed sensor never does - and a bare flag
+presented both as "not enough samples". Both responses also carry the ΔT
+baseline's own window dates and source, because they differ from the absolute
+window the same response reports. Cooling Insight has no source picker
 yet, so a window is read from whichever source covered the most of it
 (`cooling_band_comparison::dominant_delta_source`), and from that source only -
 never a blend.
