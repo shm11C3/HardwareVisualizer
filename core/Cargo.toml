@@ -45,7 +45,7 @@ sqlx = { version = "0.8.6", features = [
     "chrono",
     "migrate",
 ] }
-duckdb = { version = "=1.10505.0", default-features = false, features = [
+duckdb = { version = "=1.10506.0", default-features = false, features = [
     "bundled",
 ], optional = true }
 
