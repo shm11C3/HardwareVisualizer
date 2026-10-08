@@ -78,13 +78,13 @@ plugin `.config/biome/no-module-scope-let.grit`.
 | Jotai API placement | `paths.jotai.importNames` per scope, plus `jotai/**` subpaths banned outside store modules |
 | UI primitives never call IPC | `paths["@/rspc/bindings"].importNames` = `commands`, `events` |
 | No bypass through namespace imports | `*` is listed wherever specific names are restricted |
+| No module-scope `let` outside store modules | GritQL plugin through an override |
+| No cycles, barrels, or `export *` | `noImportCycles`, `noBarrelFile`, `noReExportAll` |
 
 The restricted Jotai names follow jotai's root exports. Jotai 3 added
 `useAtomValueRaw`, `useAtomValueRawSync`, and `INTERNAL_overrideCreateStore`,
 and a new export is allowed until it is listed. Re-check the lists against
 the package's exports whenever jotai is upgraded.
-| No module-scope `let` outside store modules | GritQL plugin through an override |
-| No cycles, barrels, or `export *` | `noImportCycles`, `noBarrelFile`, `noReExportAll` |
 
 Test files are outside the boundary scopes. They legitimately seed a
 `createStore` and import across layers to build fixtures.
