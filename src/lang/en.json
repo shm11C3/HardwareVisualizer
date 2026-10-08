@@ -480,7 +480,15 @@
             "baseline": "Baseline",
             "recent": "Recent"
           },
-          "notComparable": "Not enough samples to compare",
+          "notComparable": {
+            "tooFewSampleMinutes": "Not enough samples to compare",
+            "recentShortfall": "recent needs {{minutes}} more min",
+            "baselineShortfall": "baseline window {{minutes}} / {{required}} min",
+            "differentAmbientSource": "Not comparable — the recent ambient source differs from the baseline's ({{source}})",
+            "differentAmbientSourceUnknown": "Not comparable — the recent ambient source differs from the baseline's",
+            "noAmbientPairing": "No minutes paired with ambient",
+            "missingValue": "Not comparable"
+          },
           "absoluteTitle": "CPU temperature",
           "ambientAdjustedTitle": "Above ambient temperature",
           "window": "Baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}}"

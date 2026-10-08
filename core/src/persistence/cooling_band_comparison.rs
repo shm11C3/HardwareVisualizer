@@ -43,6 +43,48 @@ pub const COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES: u32 = 30;
 /// move the other.
 pub const COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES: u32 = 30;
 
+/// Whether one band's two windows can be compared, and if not, why.
+///
+/// A reason rather than a `bool` because the two reasons resolve
+/// differently and the UI has to say which one applies: too few sample
+/// minutes fills in on its own as the machine keeps running, and the panel
+/// can say how many minutes are still missing, while a different ambient
+/// sensor never does - no amount of waiting makes two placements one. A
+/// `bool` presented both as "not enough samples", which is wrong for the
+/// second and was observed misleading a user whose sensor had changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BandComparability {
+  Comparable,
+  /// One or both windows carry fewer sample minutes than the band's
+  /// minimum (DP-02: no delta computed from a handful of minutes as if
+  /// it were a measurement). Which side is short is read off the two
+  /// window summaries beside it.
+  TooFewSampleMinutes,
+  /// The recent window's ambient source is not the one the ΔT baseline
+  /// was established from (#2062). Takes precedence over
+  /// [`Self::TooFewSampleMinutes`]: a thin window will thicken, a changed
+  /// sensor will not, so the reason that does not resolve is the one to
+  /// report.
+  DifferentAmbientSource,
+}
+
+impl BandComparability {
+  /// The both-sides-or-nothing rule shared by the absolute and the
+  /// ambient-adjusted readings: a band comparable on one side but not the
+  /// other is still not comparable overall.
+  fn from_sides(baseline_sufficient: bool, recent_sufficient: bool) -> Self {
+    if baseline_sufficient && recent_sufficient {
+      Self::Comparable
+    } else {
+      Self::TooFewSampleMinutes
+    }
+  }
+
+  pub fn is_comparable(self) -> bool {
+    self == Self::Comparable
+  }
+}
+
 /// One band's sample-minute-weighted temperature over some date window.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct BandWindowSummary {
@@ -94,12 +136,12 @@ pub struct AmbientAdjustedBandComparison {
   pub recent: BandDeltaWindowSummary,
   /// Whether both windows carry enough paired minutes for the
   /// ambient-adjusted reading to mean anything, on the same
-  /// both-sides-or-nothing rule as [`BandComparison::comparable`] - and
+  /// both-sides-or-nothing rule as [`BandComparison::comparability`] - and
   /// whether they were measured against the *same* sensor (#2062). A
   /// recent window from a different source than the baseline's is
   /// reported but never compared: the two are different quantities, not
   /// a drift.
-  pub comparable: bool,
+  pub comparability: BandComparability,
 }
 
 /// One [`CpuLoadBand`]'s baseline-vs-recent comparison.
@@ -109,21 +151,22 @@ pub struct BandComparison {
   pub baseline: BandWindowSummary,
   pub recent: BandWindowSummary,
   /// Whether both windows carry enough evidence for `recent` minus
-  /// `baseline` to mean anything. `false` means present "not comparable"
-  /// rather than a number, even though both fields above still carry
-  /// whatever (insufficient) data was found.
-  pub comparable: bool,
+  /// `baseline` to mean anything. Anything but `Comparable` means present
+  /// the reason rather than a number, even though both fields above still
+  /// carry whatever (insufficient) data was found.
+  pub comparability: BandComparability,
   /// The ambient-adjusted reading of the same two windows (#2045), or
   /// `None` when neither window recorded a single ΔT minute for this
   /// band.
   ///
-  /// `None` and `Some(.. { comparable: false, .. })` say different things
-  /// on purpose. `None` means this machine has no ambient evidence here at
-  /// all - the normal state on an install with no environmental sensor,
-  /// and what keeps every ambient-unaware reading of this response exactly
-  /// what it was before #2045. `Some` with `comparable: false` means
-  /// ambient data exists but one window is too thin to compare, which is
-  /// worth telling the user about because it will resolve on its own.
+  /// `None` and `Some(..)` with a non-comparable reason say different
+  /// things on purpose. `None` means this machine has no ambient evidence
+  /// here at all - the normal state on an install with no environmental
+  /// sensor, and what keeps every ambient-unaware reading of this response
+  /// exactly what it was before #2045. `Some` that is not comparable means
+  /// ambient data exists but one window is too thin to compare, or was
+  /// measured against another sensor, which is worth telling the user
+  /// about because the former will resolve on its own.
   pub ambient_adjusted: Option<AmbientAdjustedBandComparison>,
 }
 
@@ -221,12 +264,13 @@ pub fn derive_band_comparison(
   .map(|band| {
     let baseline = band_window_summary(days, band, baseline_start, baseline_end);
     let recent = band_window_summary(days, band, recent_start, window_end_date);
-    let comparable = baseline.is_comparable() && recent.is_comparable();
+    let comparability =
+      BandComparability::from_sides(baseline.is_comparable(), recent.is_comparable());
     BandComparison {
       band,
       baseline,
       recent,
-      comparable,
+      comparability,
       ambient_adjusted: delta_reference.and_then(|(baseline_source, baseline_window)| {
         ambient_adjusted_band_comparison(
           delta_days,
@@ -381,10 +425,18 @@ fn ambient_adjusted_band_comparison(
     return None;
   }
 
+  // The source check comes first: a changed sensor is the reason that
+  // never resolves, so it must not be hidden behind a thin window that
+  // will. A recent window with no source at all is simply thin.
+  let comparability = match recent_source {
+    Some(source) if source != baseline_source => {
+      BandComparability::DifferentAmbientSource
+    }
+    _ => BandComparability::from_sides(baseline.is_comparable(), recent.is_comparable()),
+  };
+
   Some(AmbientAdjustedBandComparison {
-    comparable: baseline.is_comparable()
-      && recent.is_comparable()
-      && recent_source == Some(baseline_source),
+    comparability,
     baseline,
     recent,
   })
@@ -618,7 +670,7 @@ mod tests {
     let idle = bands.iter().find(|b| b.band == CpuLoadBand::Idle).unwrap();
     assert_eq!(idle.baseline.temperature_avg, Some(30.0));
     assert_eq!(idle.recent.temperature_avg, Some(50.0));
-    assert!(idle.comparable);
+    assert_eq!(idle.comparability, BandComparability::Comparable);
   }
 
   #[test]
@@ -652,7 +704,7 @@ mod tests {
     let adjusted = idle.ambient_adjusted.expect("ambient data exists");
     assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
     assert_eq!(adjusted.recent.delta_avg, Some(10.0));
-    assert!(adjusted.comparable);
+    assert_eq!(adjusted.comparability, BandComparability::Comparable);
   }
 
   #[test]
@@ -728,7 +780,10 @@ mod tests {
     let adjusted = idle
       .ambient_adjusted
       .expect("ambient evidence exists, it is merely thin");
-    assert!(!adjusted.comparable);
+    assert_eq!(
+      adjusted.comparability,
+      BandComparability::TooFewSampleMinutes
+    );
     // The (insufficient) evidence is still reported, matching how the
     // absolute comparison behaves.
     assert_eq!(adjusted.baseline.sample_minutes, short);
@@ -759,7 +814,10 @@ mod tests {
     ));
 
     let adjusted = idle.ambient_adjusted.expect("the recent side has ambient");
-    assert!(!adjusted.comparable);
+    assert_eq!(
+      adjusted.comparability,
+      BandComparability::TooFewSampleMinutes
+    );
     assert_eq!(adjusted.baseline.sample_minutes, 0);
     assert_eq!(adjusted.baseline.delta_avg, None);
     assert_eq!(adjusted.recent.delta_avg, Some(14.0));
@@ -795,9 +853,48 @@ mod tests {
     let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
     assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
     assert_eq!(adjusted.recent.delta_avg, Some(13.0));
-    assert!(
-      !adjusted.comparable,
+    assert_eq!(
+      adjusted.comparability,
+      BandComparability::DifferentAmbientSource,
       "two sensor placements must never be compared as if they were one"
+    );
+  }
+
+  #[test]
+  fn a_changed_sensor_is_reported_ahead_of_a_thin_window() {
+    // Both reasons hold at once: the recent window is from another sensor
+    // *and* thin. The sensor is the one to report - waiting fixes the
+    // thinness, nothing fixes the placement.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 30.0, 60),
+    ];
+    let delta_days = vec![
+      idle_delta_day(baseline_start, "Desk", 10.0, 600),
+      idle_delta_day(
+        recent_start,
+        "Living Room",
+        13.0,
+        COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES - 1,
+      ),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      &delta_days,
+      established_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Desk", baseline_start, baseline_start),
+      recent_end,
+    ));
+
+    let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
+    assert_eq!(
+      adjusted.comparability,
+      BandComparability::DifferentAmbientSource
     );
   }
 
@@ -830,7 +927,7 @@ mod tests {
     let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
     assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
     assert_eq!(adjusted.recent.delta_avg, Some(11.0));
-    assert!(adjusted.comparable);
+    assert_eq!(adjusted.comparability, BandComparability::Comparable);
   }
 
   #[test]
@@ -862,7 +959,7 @@ mod tests {
     let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
     assert_eq!(adjusted.recent.delta_avg, Some(12.0));
     assert_eq!(adjusted.recent.sample_minutes, 900);
-    assert!(adjusted.comparable);
+    assert_eq!(adjusted.comparability, BandComparability::Comparable);
   }
 
   #[test]
@@ -1028,7 +1125,7 @@ mod tests {
         assert!((idle.baseline.temperature_avg.unwrap() - 31.0).abs() < 0.001);
         assert_eq!(idle.recent.sample_minutes, 120);
         assert!((idle.recent.temperature_avg.unwrap() - 51.0).abs() < 0.001);
-        assert!(idle.comparable);
+        assert_eq!(idle.comparability, BandComparability::Comparable);
 
         let low = bands.iter().find(|b| b.band == CpuLoadBand::Low).unwrap();
         assert_eq!(low.baseline.sample_minutes, 120);
@@ -1036,18 +1133,23 @@ mod tests {
         assert!((low.baseline.temperature_avg.unwrap() - expected_low).abs() < 0.001);
         assert_eq!(low.recent.sample_minutes, 0);
         assert_eq!(low.recent.temperature_avg, None);
-        assert!(!low.comparable, "no recent low-band evidence at all");
+        assert_eq!(
+          low.comparability,
+          BandComparability::TooFewSampleMinutes,
+          "no recent low-band evidence at all"
+        );
 
         let mid = bands.iter().find(|b| b.band == CpuLoadBand::Mid).unwrap();
         assert_eq!(mid.baseline.sample_minutes, 0);
         assert_eq!(mid.recent.sample_minutes, 0);
-        assert!(!mid.comparable);
+        assert_eq!(mid.comparability, BandComparability::TooFewSampleMinutes);
 
         let high = bands.iter().find(|b| b.band == CpuLoadBand::High).unwrap();
         assert_eq!(high.baseline.sample_minutes, 0);
         assert_eq!(high.recent.sample_minutes, 60);
-        assert!(
-          !high.comparable,
+        assert_eq!(
+          high.comparability,
+          BandComparability::TooFewSampleMinutes,
           "recent evidence exists but the baseline side has none"
         );
       }
@@ -1096,7 +1198,7 @@ mod tests {
       panic!("expected an established comparison");
     };
     let idle = bands.iter().find(|b| b.band == CpuLoadBand::Idle).unwrap();
-    assert!(idle.comparable);
+    assert_eq!(idle.comparability, BandComparability::Comparable);
   }
 
   #[test]
@@ -1141,7 +1243,7 @@ mod tests {
       panic!("expected an established comparison");
     };
     let idle = bands.iter().find(|b| b.band == CpuLoadBand::Idle).unwrap();
-    assert!(!idle.comparable);
+    assert_eq!(idle.comparability, BandComparability::TooFewSampleMinutes);
   }
 
   #[test]

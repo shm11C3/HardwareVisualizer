@@ -12,7 +12,8 @@ const entry = (
   band: "idle",
   baseline: { temperatureAvg: 32, sampleMinutes: 12_600 },
   recent: { temperatureAvg: 33.5, sampleMinutes: 6_300 },
-  comparable: true,
+  comparability: "comparable",
+  requiredSampleMinutes: 30,
   // These rows read absolute temperature only; the ambient-adjusted
   // reading (#2045) is rendered separately by #2046.
   ambientAdjusted: null,
@@ -44,32 +45,76 @@ describe("buildLoadBandDumbbellRows", () => {
     expect(row.delta).toBeCloseTo(1.5 * 1.8);
   });
 
-  it("marks a band Core reported as not comparable", () => {
+  it("reports how many minutes a thin recent window still needs", () => {
+    // Core's verdict and Core's minimum: the row says the recent side is
+    // 18 minutes short and the baseline side is already sufficient.
     const [row] = buildLoadBandDumbbellRows(
       [
         entry({
-          comparable: false,
-          recent: { temperatureAvg: null, sampleMinutes: 40 },
+          comparability: "tooFewSampleMinutes",
+          recent: { temperatureAvg: 40, sampleMinutes: 12 },
         }),
       ],
       "C",
     );
 
-    expect(row).toEqual({ band: "idle", comparable: false });
+    expect(row).toEqual({
+      band: "idle",
+      comparable: false,
+      reason: {
+        kind: "tooFewSampleMinutes",
+        shortfall: {
+          required: 30,
+          baseline: { sampleMinutes: 12_600, remaining: 0 },
+          recent: { sampleMinutes: 12, remaining: 18 },
+        },
+      },
+    });
   });
 
-  it("falls back to not-comparable if a temperature is missing despite the flag", () => {
+  it("reports a baseline-side shortfall with the minutes it does have", () => {
+    // The user's own case: the pinned baseline window held 12 high-load
+    // minutes. That side never fills in, so the raw count matters.
     const [row] = buildLoadBandDumbbellRows(
       [
         entry({
-          comparable: true,
+          band: "high",
+          comparability: "tooFewSampleMinutes",
+          baseline: { temperatureAvg: 70, sampleMinutes: 12 },
+          recent: { temperatureAvg: 72, sampleMinutes: 80 },
+        }),
+      ],
+      "C",
+    );
+
+    expect(row).toMatchObject({
+      comparable: false,
+      reason: {
+        kind: "tooFewSampleMinutes",
+        shortfall: {
+          baseline: { sampleMinutes: 12, remaining: 18 },
+          recent: { sampleMinutes: 80, remaining: 0 },
+        },
+      },
+    });
+  });
+
+  it("falls back to not-comparable if a temperature is missing despite the verdict", () => {
+    const [row] = buildLoadBandDumbbellRows(
+      [
+        entry({
+          comparability: "comparable",
           baseline: { temperatureAvg: null, sampleMinutes: 0 },
         }),
       ],
       "C",
     );
 
-    expect(row).toEqual({ band: "idle", comparable: false });
+    expect(row).toEqual({
+      band: "idle",
+      comparable: false,
+      reason: { kind: "missingValue" },
+    });
   });
 
   it("preserves band order across multiple entries", () => {
@@ -77,7 +122,7 @@ describe("buildLoadBandDumbbellRows", () => {
       [
         entry({ band: "idle" }),
         entry({ band: "low" }),
-        entry({ band: "mid", comparable: false }),
+        entry({ band: "mid", comparability: "tooFewSampleMinutes" }),
       ],
       "C",
     );
@@ -106,7 +151,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
           ambientAdjusted: {
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: 28, sampleMinutes: 5_400 },
-            comparable: true,
+            comparability: "comparable",
+            requiredSampleMinutes: 30,
           },
         }),
       ],
@@ -127,7 +173,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
           ambientAdjusted: {
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: 33, sampleMinutes: 5_400 },
-            comparable: true,
+            comparability: "comparable",
+            requiredSampleMinutes: 30,
           },
         }),
       ],
@@ -144,21 +191,65 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
     expect(row.delta).toBeCloseTo(5 * 1.8);
   });
 
-  it("keeps a band whose window is too thin honestly not comparable", () => {
+  it("keeps a band whose window is too thin honestly not comparable, with its shortfall", () => {
     const rows = buildAmbientAdjustedDumbbellRows(
       [
         entry({
           ambientAdjusted: {
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: null, sampleMinutes: 8 },
-            comparable: false,
+            comparability: "tooFewSampleMinutes",
+            requiredSampleMinutes: 30,
           },
         }),
       ],
       "C",
     );
 
-    expect(rows).toEqual([{ band: "idle", comparable: false }]);
+    expect(rows).toEqual([
+      {
+        band: "idle",
+        comparable: false,
+        reason: {
+          kind: "tooFewSampleMinutes",
+          shortfall: {
+            required: 30,
+            baseline: { sampleMinutes: 11_000, remaining: 0 },
+            recent: { sampleMinutes: 8, remaining: 22 },
+          },
+        },
+      },
+    ]);
+  });
+
+  it("names the baseline's sensor when the recent window came from another one", () => {
+    // Rich on both sides, so no amount of waiting changes the verdict:
+    // the copy has to say which sensor the reference belongs to.
+    const rows = buildAmbientAdjustedDumbbellRows(
+      [
+        entry({
+          ambientAdjusted: {
+            baseline: { deltaAvg: 26.7, sampleMinutes: 6_705 },
+            recent: { deltaAvg: 25.1, sampleMinutes: 4_300 },
+            comparability: "differentAmbientSource",
+            requiredSampleMinutes: 30,
+          },
+        }),
+      ],
+      "C",
+      "SwitchBot Meter (8a19)",
+    );
+
+    expect(rows).toEqual([
+      {
+        band: "idle",
+        comparable: false,
+        reason: {
+          kind: "differentAmbientSource",
+          baselineSource: "SwitchBot Meter (8a19)",
+        },
+      },
+    ]);
   });
 
   it("renders a band with no ambient pairing beside bands that have one", () => {
@@ -171,7 +262,8 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
           ambientAdjusted: {
             baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
             recent: { deltaAvg: 29, sampleMinutes: 5_400 },
-            comparable: true,
+            comparability: "comparable",
+            requiredSampleMinutes: 30,
           },
         }),
         entry({ band: "high", ambientAdjusted: null }),
@@ -183,23 +275,27 @@ describe("buildAmbientAdjustedDumbbellRows", () => {
       ["idle", true],
       ["high", false],
     ]);
+    expect(rows?.[1]).toMatchObject({ reason: { kind: "noAmbientPairing" } });
   });
 
-  it("falls back to not-comparable if a delta is missing despite the flag", () => {
+  it("falls back to not-comparable if a delta is missing despite the verdict", () => {
     const rows = buildAmbientAdjustedDumbbellRows(
       [
         entry({
           ambientAdjusted: {
             baseline: { deltaAvg: null, sampleMinutes: 0 },
             recent: { deltaAvg: 29, sampleMinutes: 5_400 },
-            comparable: true,
+            comparability: "comparable",
+            requiredSampleMinutes: 30,
           },
         }),
       ],
       "C",
     );
 
-    expect(rows).toEqual([{ band: "idle", comparable: false }]);
+    expect(rows).toEqual([
+      { band: "idle", comparable: false, reason: { kind: "missingValue" } },
+    ]);
   });
 });
 

@@ -56,17 +56,85 @@ describe("LoadBandDumbbellChart", () => {
     expect(dotLeft(`${RECENT_TITLE}: 33.5°C`)).toBeCloseTo(350 / 6, 5);
   });
 
-  it("reports a band Core could not compare instead of drawing a track", () => {
+  it("reports a thin band with the minutes each short side still needs", () => {
     render(
       <LoadBandDumbbellChart
-        rows={[{ band: "high", comparable: false }]}
+        rows={[
+          {
+            band: "high",
+            comparable: false,
+            reason: {
+              kind: "tooFewSampleMinutes",
+              shortfall: {
+                required: 30,
+                baseline: { sampleMinutes: 12, remaining: 18 },
+                recent: { sampleMinutes: 20, remaining: 10 },
+              },
+            },
+          },
+        ]}
         temperatureUnit="C"
       />,
     );
 
     expect(
       screen.getByText(
-        "pages.insights.cooling.loadBandComparison.notComparable",
+        "pages.insights.cooling.loadBandComparison.notComparable.tooFewSampleMinutes",
+      ),
+    ).toBeInTheDocument();
+    // The recent side is reported as minutes to go; the baseline side,
+    // fixed once pinned, as what it has out of what it needs.
+    expect(screen.getByTestId("cooling-load-band-shortfall")).toHaveTextContent(
+      "(pages.insights.cooling.loadBandComparison.notComparable.recentShortfall · pages.insights.cooling.loadBandComparison.notComparable.baselineShortfall)",
+    );
+  });
+
+  it("omits the shortfall detail when only the verdict is known", () => {
+    render(
+      <LoadBandDumbbellChart
+        rows={[
+          {
+            band: "high",
+            comparable: false,
+            reason: {
+              kind: "tooFewSampleMinutes",
+              shortfall: {
+                required: 30,
+                baseline: { sampleMinutes: 800, remaining: 0 },
+                recent: { sampleMinutes: 40, remaining: 0 },
+              },
+            },
+          },
+        ]}
+        temperatureUnit="C"
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("cooling-load-band-shortfall"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("names the baseline's sensor when the recent window came from another one", () => {
+    render(
+      <LoadBandDumbbellChart
+        rows={[
+          {
+            band: "idle",
+            comparable: false,
+            reason: {
+              kind: "differentAmbientSource",
+              baselineSource: "SwitchBot Meter (8a19)",
+            },
+          },
+        ]}
+        temperatureUnit="C"
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "pages.insights.cooling.loadBandComparison.notComparable.differentAmbientSource",
       ),
     ).toBeInTheDocument();
   });
