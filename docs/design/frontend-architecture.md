@@ -1,7 +1,7 @@
 # Frontend Architecture Design
 
 Decision: [ADR 0027](../adr/0027-frontend-layer-boundaries-and-state-ownership.md)
-(proposed). Migration tracking: [#2325](https://github.com/shm11c3/HardwareVisualizer/issues/2325).
+(accepted). Migration tracking: [#2325](https://github.com/shm11c3/HardwareVisualizer/issues/2325).
 
 ## Problem
 
@@ -142,12 +142,22 @@ diagnostics line by line.
 
 ## Migration
 
-The slices, their order, and the baseline measurements live in #2325. They are
-a starting plan. Re-measure and re-slice when 1.12.0 work begins.
+The migration is complete. It landed as five stacked slices tracked in #2325:
 
-A slice is done when its pending exceptions are removed and `npm run lint:ci`,
-`npm run build`, and `npm test` pass. A slice that changes 1 Hz atoms also
-needs the fan-out regression test that `src/AGENTS.md` requires.
+| Slice | Change | PR |
+| --- | --- | --- |
+| S1 | `@/` alias instead of parent-relative imports | #2374 |
+| S2 | Shared chart vocabulary in foundation; generated settings types | #2375 |
+| S3 | Application Preference state in `src/store` and `src/hooks` | #2376 |
+| S4 | `src/app/` composition layer | #2377 |
+| S5 | Atoms only in store modules; `chart.ts` split by subject | #2380 |
+
+A future structural change to these boundaries follows the same pattern:
+- Record a pending exception only for code that already exists.
+- Remove the exception in the change that fixes that code.
+- Run `npm run lint:ci`, `npm run build`, and `npm test` before merging.
+- If the change alters live event fan-out, add the focused regression test
+  that `src/AGENTS.md` requires.
 
 ## Open Questions
 
