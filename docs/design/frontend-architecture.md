@@ -156,8 +156,8 @@ A future structural change to these boundaries follows the same pattern:
 - Record a pending exception only for code that already exists.
 - Remove the exception in the change that fixes that code.
 - Run `npm run lint:ci`, `npm run build`, and `npm test` before merging.
-- If the change touches 1 Hz atoms, add the fan-out regression test that
-  `src/AGENTS.md` requires.
+- If the change alters live event fan-out, add the focused regression test
+  that `src/AGENTS.md` requires.
 
 ## Open Questions
 

@@ -5,8 +5,21 @@ Status: accepted
 Tracking issue: [#2325](https://github.com/shm11c3/HardwareVisualizer/issues/2325).
 
 The migration landed in five slices: #2374, #2375, #2376, #2377, and #2380.
-Every constraint below is now enforced as a lint error with no pending
-exceptions. Implementation detail and the rule-to-lint mapping live in
+The Biome boundary configuration has no pending exceptions left.
+
+Biome checks the following rules:
+- import direction and the ban on cross-feature imports;
+- alias-only cross-directory imports;
+- where each Jotai API may be used;
+- module-scope `let` outside store modules.
+
+Review still has to check the parts lint cannot see:
+- where Application Preference state lives (decision 4);
+- shared mutable state held in a module-scope `const`, such as a `Map`;
+- the permanent exception for the Tauri Store handle cache in
+  `src/lib/tauriStore.ts`.
+
+Implementation detail and the rule-to-lint mapping live in
 [`docs/design/frontend-architecture.md`](../design/frontend-architecture.md).
 
 ## Context
