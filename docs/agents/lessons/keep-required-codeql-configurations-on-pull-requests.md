@@ -9,7 +9,7 @@ root_cause: develop had a Rust CodeQL analysis category that a condition exclude
 guardrail: .github/workflows/codeql.yml keeps every configured CodeQL category present on pull requests; for same-repository pull requests whose Rust inputs are identical to the analysed base commit it re-uploads that base analysis instead of omitting the category, and it explains why Rust must not be path-filtered
 canonical_refs: .github/workflows/codeql.yml
 verification: on a non-Rust pull request, confirm the base-analysis step reports reuse, the upload step re-uploads /language:rust, Analyze (rust) and the aggregate CodeQL check succeed, and the develop merge gate passes; on a Rust-changing pull request, confirm the full Rust analysis runs and uploads /language:rust; run actionlint and npm run check:agent-guidance
-evidence: "Issue #2080; PR #2079 check 101265371495 reproduced the missing Rust category; PR #2076 demonstrated a complete non-Rust analysis; PR #2070 run 33948618970 demonstrated successful Rust-changing analysis"
+evidence: "Issue #2080; PR #2079 check 101265371495 reproduced the missing Rust category; PR #2076 demonstrated a complete non-Rust analysis; PR #2070 run 33948618970 demonstrated successful Rust-changing analysis; PR #2379 run 38043611365 (workflow change, full Rust analysis, Analyze (rust) 538 s); PR #2375 run 38063678232 job 114246880909 (no Rust change, base analysis 1928961813 re-uploaded, Analyze (rust) 14 s, merged through the develop gate)"
 revalidate_when: the develop ruleset stops requiring CodeQL, or GitHub supports per-category merge policy for omitted pull-request categories
 ---
 
@@ -29,7 +29,8 @@ silently removing one required configuration from selected pull requests.
 Reuse is the supported way to avoid the repeated cost. For a same-repository
 pull request, `.github/workflows/codeql.yml` finds the newest `/language:rust`
 analysis on the base branch and compares the Rust inputs (`core`, `src-tauri`,
-Cargo manifests and lockfile, toolchain pin, `.cargo`, and the workflow itself)
+Cargo manifests and lockfile, toolchain pin, `.cargo`, the workflow itself, and
+the two local Rust actions it runs)
 between that analysed commit and the pull request's merge commit. When they are
 identical it re-uploads the stored analysis under the pull request's
 `/language:rust` category; otherwise, or when no base analysis exists, it runs
