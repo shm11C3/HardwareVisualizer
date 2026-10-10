@@ -503,12 +503,65 @@ same question, same recent window. It carries its own lifecycle rather than a
 null: a machine with no environmental sensor reports an establishing ΔT baseline
 at zero qualifying days, which is honest and fabricates nothing, while
 established-but-not-comparable means the reference exists and the recent window
-is still too thin - or was measured against a different sensor. Both responses
-also carry the ΔT baseline's own window dates, because they differ from the
-absolute window the same response reports. Cooling Insight has no source picker
-yet, so a window is read from whichever source covered the most of it
-(`cooling_band_comparison::dominant_delta_source`), and from that source only -
-never a blend.
+is still too thin. The band comparison says how thin: every band carries a
+`comparability` reason (`cooling_band_comparison::BandComparability`) rather
+than a bare flag, plus Core's minimum sample minutes, so the UI can say how
+many minutes each short window still needs instead of only that it is short.
+Both responses also carry the ΔT baseline's own window dates, because they
+differ from the absolute window the same response reports. Cooling Insight has
+no source picker yet, so a window is read from whichever source covered the
+most of it (`cooling_band_comparison::dominant_delta_source`), and from that
+source only - never a blend.
+
+That one recent window is defined in one place,
+`cooling_baseline::recent_window_start`, and every comparison derives it from
+there: the idle baseline card, the band comparison, the baseline delta and the
+ambient-adjusted and co-variate readings beside them. It is the most recent
+`COOLING_BASELINE_RECENT_WINDOW_DAYS` (7) *recorded* days - days carrying a
+`cooling_daily_summary` row - ending at the last completed local day
+(yesterday), looked for no further back than
+`COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS` (30, the default
+`hardwareArchive.retentionDays`) calendar days. Recorded rather than calendar
+days (#2332) because the baseline itself is built from qualifying days, not
+consecutive ones: a machine switched on a few days a week accrues evidence at
+the same pace on both sides, and counting the recent side in calendar days left
+exactly those machines "not comparable" in the low/mid/high bands most of the
+time. The calendar bound is what keeps "recent" honest (DP-05): with fewer than
+seven recorded days inside it the window starts at the earliest of them, and
+with none it is the trailing seven calendar days - empty, and reported as "not
+comparable" - so an app that has not run for more than a month never presents
+its last months-old days as the present. The ΔT and co-variate readings take
+the window from the hardware rollup's recorded days too, never from their own
+rows: a day the machine ran without its sensor pairing a minute is still a
+recorded day, and every panel of one response must describe the same stretch
+of days. Only the load-temperature explorer keeps a recent length of its own,
+because there the user chooses it.
+
+The idle band's baseline side is exactly the pinned window - that window *is*
+the idle baseline's value. The low, mid and high bands start from the same
+window but are not what qualified its days, so a machine that idled through
+its first week can hold a dozen high-band minutes in a window that never
+moves, and the band would stay "not comparable" for the lifetime of the
+install. Each of those three bands therefore keeps the pinned start and
+extends its baseline side forward from the pinned end, one completed day at a
+time, until its own minutes reach the band minimum (#2333); the first day on
+or after the pinned end at which they do ends that band's window. The
+extension is forward only (the days before the window are the ones that did
+not qualify), never into the recent window - it stops the day before the
+recent window starts, so the two sides of a comparison never share a day, and
+a pinned window that already reaches the recent window is not extended - and
+capped at
+`cooling_band_comparison::COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS`
+(30 inclusive calendar days from the pinned start): a band that took months
+to accrue 30 minutes was not a baseline-era observation, and an uncapped
+window would eventually overlap the recent one. A band still thin at the cap
+reports `TooFewSampleMinutes` with its real counts over
+`[pinned start, cap]`. Every band entry carries the range its baseline side
+was read over, and the ambient-adjusted side applies the same rule to the ΔT
+baseline's own pinned window, over the ΔT baseline's source alone - another
+sensor's minutes may no more carry a band over the threshold than enter its
+average. The Explorer's baseline medians and the co-variate comparison keep
+reading the pinned windows unchanged.
 
 **The ΔT baseline establishes independently of the absolute one**, over its own
 window, from one ambient source, and is pinned into its own single-row
@@ -523,14 +576,30 @@ report "not comparable" forever, no matter how much ambient data it went on to
 collect. Deriving a ΔT window from days that actually carry paired minutes lets
 it establish from the sensor's own first week instead.
 
-The establishment rule runs per source, over that source's rows alone, and the
-pinned baseline is only ever compared against ΔT rows of the same source. Four
+The establishment rule runs per source, over that source's rows alone, and a
+recent window is only ever compared against a reference of its own source. Four
 qualifying days against one sensor followed by four against another establish
-nothing, and a recent window from a different sensor than the baseline's is
-reported but never compared, because "recent minus baseline" would then be the
+nothing, because "recent minus baseline" across two sensors would be the
 difference between two placements rather than a drift in the cooling. Where
 more than one source could establish, the one whose window completes first is
 pinned - it is the reference that existed first.
+
+The pinned row is that first source's reference, not every source's (#2331).
+Every reader resolves the reference per recent window
+(`cooling_delta_baseline::resolve_delta_baseline_for_window`): a recent window
+read from the pinned source compares against the pinned row; one read from any
+other source compares against that source's own baseline, derived on read from
+its own first N qualifying days by the same rule, or reports that source's own
+establishing progress while it has too few. Refusing the other source outright,
+as the first version did, turned a sensor change into a permanent refusal: the
+pin is write-once, so nothing the new sensor collected could ever make the
+reading comparable again. A derived reference stays as stable as a pinned one
+because the retention cleanup exempts each source's first-N span (below). A
+per-source pinned table was the more direct shape and was rejected for now
+because there is no native schema migration path in the 1.11.x line -
+`NATIVE_SCHEMA_VERSION` 1 is fixed at finalize time and the runtime refuses a
+file recorded under any other version - so it cannot ship as a bugfix; revisit
+once a migration path exists.
 
 Both baselines run the *same* establishment rule (`derive_baseline_window`,
 shared so they cannot drift apart on what "established" means); they differ only
@@ -549,7 +618,24 @@ Each pinned window is exempt from the rollup's retention cleanup on the table it
 was derived from - the absolute baseline's on `cooling_daily_summary` and
 `cooling_hourly_summary`, the ΔT baseline's on
 `cooling_thermal_delta_daily_summary` - and they are generally different date
-ranges.
+ranges. The exemption is wider than the pinned window itself: it runs from the
+pinned start to the band-extension cap
+(`cooling_rollup::retention_exempt_window`), because which day an extended
+baseline side ends on depends on the rows it finds, so letting retention take
+rows inside the cap would move that end - the drift pinning exists to prevent.
+Protecting the whole cap keeps the exemption a fixed fact of the pinned row
+rather than one re-derived from the rows it decides the fate of. Both database
+engines receive the same widened range from `cleanup_old_data`; neither carries
+a date policy of its own.
+On the ΔT table the cleanup additionally exempts, for every source present,
+the span of that source's first N qualifying days
+(`cooling_delta_baseline::retention_exempt_source_windows`), established or
+not, widened to the same cap. That is what keeps a derived-on-read reference
+from drifting: the rows before a source's first qualifying day are
+non-qualifying by definition, so deleting them cannot change which days are
+"first", and the rows its bands extend over stay inside the cap. The
+co-variate tables receive the same list, because their baseline side is read
+over the same window.
 
 Backfill follows the lag-aware cursor precedent set by the power columns: the
 catch-up claims the ΔT table is behind only when the ambient archive holds a
@@ -602,9 +688,12 @@ The fit is per ambient source for the reason the ΔT rollup is: the samples it
 folds are the ΔT rollup's own paired read, so the ΔT it fits is the ΔT
 `cooling_thermal_delta_daily_summary` holds, measured against the same sensor.
 The query boundary (`cooling_covariate_comparison::load_cooling_covariate_comparison`)
-reads the baseline side from the Thermal Delta Baseline's pinned window and
-source, the recent side from whichever source covered most of the trailing
-window, and judges nothing unless they are the same source and both windows
+reads the recent side from whichever source covered most of the shared recent
+window (`cooling_baseline::recent_window_start`, derived from the hardware
+rollup's recorded days, which this loader reads for that purpose alone), the
+baseline side from that source's own Thermal Delta Baseline window (the pinned
+one for the pinned source, a derived one for any other - the same resolution
+the ambient-adjusted readings use), and judges nothing unless both windows
 clear `COOLING_COVARIATE_COMPARISON_MINIMUM_PAIRED_MINUTES` - the same gate the
 ambient-adjusted comparison applies, on the same windows. Each factor's recent
 median is reported against the baseline window's own interquartile range of
@@ -612,9 +701,10 @@ daily medians as within range or moved; a factor never archived reports
 absent, never zero. The catch-up cursor claims the co-variate tables are behind
 only when the ambient archive holds a completed day's pairable reading whose
 hardware minute also carries a CPU usage reading - the ΔT rule narrowed by the
-one predicate this rollup's row gate adds - and the pinned ΔT baseline's window
-is exempt from retention on both tables, because the comparison's baseline side
-is read from exactly those rows.
+one predicate this rollup's row gate adds - and the ΔT baseline windows exempt
+from retention on the ΔT table (the pinned one and each source's first-N span)
+are exempt on both tables too, because the comparison's baseline side is read
+from exactly those rows.
 
 ## Settings Ownership
 

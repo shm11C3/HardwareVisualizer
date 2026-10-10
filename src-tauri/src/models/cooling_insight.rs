@@ -11,9 +11,11 @@
 use chrono::NaiveDate;
 use hardviz_core::persistence::cooling_band_comparison::{
   AmbientAdjustedBandComparison as CoreAmbientAdjustedBandComparison,
-  BandComparison as CoreBandComparison,
+  BandComparability as CoreBandComparability, BandComparison as CoreBandComparison,
   BandDeltaWindowSummary as CoreBandDeltaWindowSummary,
   BandWindowSummary as CoreBandWindowSummary,
+  COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES,
+  COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES,
   CoolingBandComparison as CoreCoolingBandComparison,
 };
 use hardviz_core::persistence::cooling_baseline::{
@@ -283,42 +285,81 @@ impl From<CoreBandDeltaWindowSummary> for CoolingBandDeltaWindowSummary {
   }
 }
 
+/// Why one band's two windows are, or are not, compared:
+/// `tooFewSampleMinutes` when one window carries fewer sample minutes
+/// than the band's `requiredSampleMinutes` (which side is short is read
+/// off the two window summaries beside it), so the frontend can say how
+/// many minutes a short window still needs rather than only that it is
+/// short.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CoolingBandComparability {
+  Comparable,
+  TooFewSampleMinutes,
+}
+
+impl From<CoreBandComparability> for CoolingBandComparability {
+  fn from(value: CoreBandComparability) -> Self {
+    match value {
+      CoreBandComparability::Comparable => Self::Comparable,
+      CoreBandComparability::TooFewSampleMinutes => Self::TooFewSampleMinutes,
+    }
+  }
+}
+
 /// One band's ambient-adjusted baseline-vs-recent comparison (#2045): the
 /// same two windows as the absolute comparison, but over the thermal
 /// delta, so a rise the weather explains can be told apart from a rise
-/// the cooling explains. `comparable` follows the same
-/// both-sides-or-nothing rule as the absolute reading.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+/// the cooling explains. `comparability` follows the same
+/// both-sides-or-nothing rule as the absolute reading, against its own
+/// `requiredSampleMinutes` - Core's paired-minute minimum, carried so the
+/// frontend renders Core's number rather than hardcoding its own.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CoolingAmbientAdjustedBandComparison {
   pub baseline: CoolingBandDeltaWindowSummary,
+  /// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the Thermal Delta Baseline's own window for the idle band, and for the other bands that window extended forward over the same source's rows until it held `requiredSampleMinutes` paired minutes or reached Core's cap - so it can differ from the response-level ΔT baseline window and the frontend must not assume the two agree.
+  pub baseline_window_start_date: String,
+  pub baseline_window_end_date: String,
   pub recent: CoolingBandDeltaWindowSummary,
-  pub comparable: bool,
+  pub comparability: CoolingBandComparability,
+  pub required_sample_minutes: u32,
 }
 
 impl From<CoreAmbientAdjustedBandComparison> for CoolingAmbientAdjustedBandComparison {
   fn from(value: CoreAmbientAdjustedBandComparison) -> Self {
     Self {
       baseline: value.baseline.into(),
+      baseline_window_start_date: format_date(value.baseline_window_start_date),
+      baseline_window_end_date: format_date(value.baseline_window_end_date),
       recent: value.recent.into(),
-      comparable: value.comparable,
+      comparability: value.comparability.into(),
+      required_sample_minutes: COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES,
     }
   }
 }
 
 /// One CPU-load band's baseline-vs-recent comparison.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CoolingBandComparisonEntry {
   pub band: CoolingLoadBand,
   pub baseline: CoolingBandWindowSummary,
+  /// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the pinned baseline window for the idle band, and for the other bands that window extended forward from its start until it held `requiredSampleMinutes` of the band's minutes or reached Core's cap - so a band's own range can differ from the response-level `baselineWindow*Date`, and the frontend labels it when it does.
+  pub baseline_window_start_date: String,
+  pub baseline_window_end_date: String,
   pub recent: CoolingBandWindowSummary,
-  pub comparable: bool,
+  pub comparability: CoolingBandComparability,
+  /// Core's minimum sample minutes per window for this band, so the
+  /// frontend can say how many minutes a short window still needs
+  /// without hardcoding the threshold.
+  pub required_sample_minutes: u32,
   /// The ambient-adjusted reading of the same two windows (#2045). Null
   /// when neither window recorded a paired minute for this band, which is
   /// the normal state on a machine with no environmental sensor; a
-  /// present value with `comparable: false` instead means ambient data
-  /// exists but one window is still too thin to compare.
+  /// present value that is not `comparable` instead means ambient data
+  /// exists but one window is still too thin to compare, or was measured
+  /// against another sensor.
   pub ambient_adjusted: Option<CoolingAmbientAdjustedBandComparison>,
 }
 
@@ -327,8 +368,11 @@ impl From<CoreBandComparison> for CoolingBandComparisonEntry {
     Self {
       band: value.band.into(),
       baseline: value.baseline.into(),
+      baseline_window_start_date: format_date(value.baseline_window_start_date),
+      baseline_window_end_date: format_date(value.baseline_window_end_date),
       recent: value.recent.into(),
-      comparable: value.comparable,
+      comparability: value.comparability.into(),
+      required_sample_minutes: COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES,
       ambient_adjusted: value.ambient_adjusted.map(Into::into),
     }
   }
@@ -434,9 +478,9 @@ impl From<CoreDeltaBaselineState> for CoolingDeltaBaselineState {
         required_days,
       },
       // The source the baseline was established from (#2062) stays in
-      // Core for now: Cooling Insight has no source picker yet, and Core
-      // already refuses to compare the baseline against any other source,
-      // so the wire shape is unchanged until a view needs to name it.
+      // Core: Cooling Insight has no source picker yet, and Core resolves
+      // the reference per recent source, so the wire shape is unchanged
+      // until a view needs to name it.
       CoreDeltaBaselineState::Established {
         source: _,
         delta_temperature_avg,
@@ -865,15 +909,15 @@ impl From<CoreFanCovariateComparison> for CoolingFanCovariateComparison {
 /// Why the two windows are, or are not, compared (#2068):
 /// `tooFewPairedMinutes` when one window carries fewer Thermal Delta
 /// paired minutes in the compared band than Core requires (including a
-/// recent window no source paired at all), `differentAmbientSource` when
-/// the recent window's dominant source is not the one the Thermal Delta
-/// Baseline was established from (#2062).
+/// recent window no source paired at all). Both windows are always the
+/// same ambient source once the comparison is established, because Core
+/// resolves the baseline per recent source (#2062), so there is no
+/// different-source reason.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CoolingCovariateComparability {
   Comparable,
   TooFewPairedMinutes,
-  DifferentAmbientSource,
 }
 
 impl From<CoreCovariateComparability> for CoolingCovariateComparability {
@@ -881,7 +925,6 @@ impl From<CoreCovariateComparability> for CoolingCovariateComparability {
     match value {
       CoreCovariateComparability::Comparable => Self::Comparable,
       CoreCovariateComparability::TooFewPairedMinutes => Self::TooFewPairedMinutes,
-      CoreCovariateComparability::DifferentAmbientSource => Self::DifferentAmbientSource,
     }
   }
 }
@@ -1209,42 +1252,52 @@ mod tests {
             temperature_avg: Some(30.0),
             sample_minutes: 210,
           },
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 7),
           recent: CoreBandWindowSummary {
             temperature_avg: Some(35.0),
             sample_minutes: 210,
           },
-          comparable: true,
+          comparability: CoreBandComparability::Comparable,
           ambient_adjusted: Some(CoreAmbientAdjustedBandComparison {
             baseline: CoreBandDeltaWindowSummary {
               delta_avg: Some(8.0),
               sample_minutes: 210,
             },
+            baseline_window_start_date: date(2026, 6, 1),
+            baseline_window_end_date: date(2026, 6, 7),
             recent: CoreBandDeltaWindowSummary {
               delta_avg: Some(9.5),
               sample_minutes: 210,
             },
-            comparable: true,
+            comparability: CoreBandComparability::Comparable,
           }),
         },
         CoreBandComparison {
           band: CpuLoadBand::Low,
           baseline: CoreBandWindowSummary::default(),
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 30),
           recent: CoreBandWindowSummary::default(),
-          comparable: false,
+          comparability: CoreBandComparability::TooFewSampleMinutes,
           ambient_adjusted: None,
         },
         CoreBandComparison {
           band: CpuLoadBand::Mid,
           baseline: CoreBandWindowSummary::default(),
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 30),
           recent: CoreBandWindowSummary::default(),
-          comparable: false,
+          comparability: CoreBandComparability::TooFewSampleMinutes,
           ambient_adjusted: None,
         },
         CoreBandComparison {
           band: CpuLoadBand::High,
           baseline: CoreBandWindowSummary::default(),
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 30),
           recent: CoreBandWindowSummary::default(),
-          comparable: false,
+          comparability: CoreBandComparability::TooFewSampleMinutes,
           ambient_adjusted: None,
         },
       ]),
@@ -1285,7 +1338,8 @@ mod tests {
         assert_eq!(recent_window_end_date, "2026-08-20");
         assert_eq!(bands.len(), 4);
         assert_eq!(bands[0].band, CoolingLoadBand::Idle);
-        assert!(bands[0].comparable);
+        assert_eq!(bands[0].comparability, CoolingBandComparability::Comparable);
+        assert_eq!(bands[0].required_sample_minutes, 30);
       }
       other => panic!("expected an established comparison, got {other:?}"),
     }
@@ -1506,21 +1560,25 @@ mod tests {
         temperature_avg: Some(30.0),
         sample_minutes: 210,
       },
+      baseline_window_start_date: date(2026, 1, 1),
+      baseline_window_end_date: date(2026, 1, 7),
       recent: CoreBandWindowSummary {
         temperature_avg: Some(35.0),
         sample_minutes: 210,
       },
-      comparable: true,
+      comparability: CoreBandComparability::Comparable,
       ambient_adjusted: Some(CoreAmbientAdjustedBandComparison {
         baseline: CoreBandDeltaWindowSummary {
           delta_avg: Some(8.0),
           sample_minutes: 210,
         },
+        baseline_window_start_date: date(2026, 9, 3),
+        baseline_window_end_date: date(2026, 9, 9),
         recent: CoreBandDeltaWindowSummary {
           delta_avg: Some(8.25),
           sample_minutes: 200,
         },
-        comparable: true,
+        comparability: CoreBandComparability::Comparable,
       }),
     };
 
@@ -1531,7 +1589,8 @@ mod tests {
     assert_eq!(json["ambientAdjusted"]["recent"]["sampleMinutes"], 200);
     // The absolute reading is untouched beside it.
     assert_eq!(json["baseline"]["temperatureAvg"], 30.0);
-    assert_eq!(json["comparable"], true);
+    assert_eq!(json["comparability"], "comparable");
+    assert_eq!(json["requiredSampleMinutes"], 30);
   }
 
   #[test]
@@ -1542,11 +1601,13 @@ mod tests {
         temperature_avg: Some(30.0),
         sample_minutes: 210,
       },
+      baseline_window_start_date: date(2026, 1, 1),
+      baseline_window_end_date: date(2026, 1, 7),
       recent: CoreBandWindowSummary {
         temperature_avg: Some(35.0),
         sample_minutes: 210,
       },
-      comparable: true,
+      comparability: CoreBandComparability::Comparable,
       ambient_adjusted: None,
     };
 
@@ -1555,7 +1616,61 @@ mod tests {
     assert!(json["ambientAdjusted"].is_null());
     assert_eq!(json["baseline"]["temperatureAvg"], 30.0);
     assert_eq!(json["recent"]["temperatureAvg"], 35.0);
-    assert_eq!(json["comparable"], true);
+    assert_eq!(json["comparability"], "comparable");
+    assert_eq!(json["requiredSampleMinutes"], 30);
+  }
+
+  #[test]
+  fn a_band_carries_its_own_baseline_window_as_camel_case_iso_dates() {
+    // The #2333 case: the high band's baseline side extended past the
+    // pinned window on both readings. Each range crosses the wire beside
+    // the summary it was read over, formatted like every other date here,
+    // so the frontend can label a band whose range differs from the
+    // response-level one.
+    let core = CoreBandComparison {
+      band: CpuLoadBand::High,
+      baseline: CoreBandWindowSummary {
+        temperature_avg: Some(64.0),
+        sample_minutes: 62,
+      },
+      baseline_window_start_date: date(2026, 8, 22),
+      baseline_window_end_date: date(2026, 9, 21),
+      recent: CoreBandWindowSummary {
+        temperature_avg: Some(66.0),
+        sample_minutes: 80,
+      },
+      comparability: CoreBandComparability::Comparable,
+      ambient_adjusted: Some(CoreAmbientAdjustedBandComparison {
+        baseline: CoreBandDeltaWindowSummary {
+          delta_avg: Some(40.0),
+          sample_minutes: 52,
+        },
+        baseline_window_start_date: date(2026, 9, 3),
+        baseline_window_end_date: date(2026, 9, 16),
+        recent: CoreBandDeltaWindowSummary {
+          delta_avg: Some(42.0),
+          sample_minutes: 70,
+        },
+        comparability: CoreBandComparability::Comparable,
+      }),
+    };
+
+    let json = serde_json::to_value(CoolingBandComparisonEntry::from(core)).unwrap();
+
+    assert_eq!(json["baselineWindowStartDate"], "2026-08-22");
+    assert_eq!(json["baselineWindowEndDate"], "2026-09-21");
+    assert_eq!(
+      json["ambientAdjusted"]["baselineWindowStartDate"],
+      "2026-09-03"
+    );
+    assert_eq!(
+      json["ambientAdjusted"]["baselineWindowEndDate"],
+      "2026-09-16"
+    );
+    assert!(
+      json.get("baseline_window_start_date").is_none(),
+      "must not also serialize the snake_case field name"
+    );
   }
 
   // ── load-vs-temperature Explorer (#2023) ──
@@ -1575,6 +1690,35 @@ mod tests {
         sample_minutes: 60,
       }],
     }
+  }
+
+  #[test]
+  fn every_band_comparability_reason_maps_one_to_one() {
+    let pairs: [(CoreBandComparability, CoolingBandComparability); 2] = [
+      (
+        CoreBandComparability::Comparable,
+        CoolingBandComparability::Comparable,
+      ),
+      (
+        CoreBandComparability::TooFewSampleMinutes,
+        CoolingBandComparability::TooFewSampleMinutes,
+      ),
+    ];
+    for (core, wire) in pairs {
+      assert_eq!(CoolingBandComparability::from(core), wire);
+    }
+  }
+
+  #[test]
+  fn band_comparability_reasons_serialize_as_camel_case_tags() {
+    assert_eq!(
+      serde_json::to_value(CoolingBandComparability::Comparable).unwrap(),
+      "comparable"
+    );
+    assert_eq!(
+      serde_json::to_value(CoolingBandComparability::TooFewSampleMinutes).unwrap(),
+      "tooFewSampleMinutes"
+    );
   }
 
   #[test]
@@ -1794,7 +1938,7 @@ mod tests {
 
   #[test]
   fn every_comparability_reason_maps_one_to_one() {
-    let pairs: [(CoreCovariateComparability, CoolingCovariateComparability); 3] = [
+    let pairs: [(CoreCovariateComparability, CoolingCovariateComparability); 2] = [
       (
         CoreCovariateComparability::Comparable,
         CoolingCovariateComparability::Comparable,
@@ -1802,10 +1946,6 @@ mod tests {
       (
         CoreCovariateComparability::TooFewPairedMinutes,
         CoolingCovariateComparability::TooFewPairedMinutes,
-      ),
-      (
-        CoreCovariateComparability::DifferentAmbientSource,
-        CoolingCovariateComparability::DifferentAmbientSource,
       ),
     ];
 
@@ -1827,11 +1967,6 @@ mod tests {
     assert_eq!(
       serde_json::to_value(CoolingCovariateComparability::TooFewPairedMinutes).unwrap(),
       "tooFewPairedMinutes"
-    );
-    assert_eq!(
-      serde_json::to_value(CoolingCovariateComparability::DifferentAmbientSource)
-        .unwrap(),
-      "differentAmbientSource"
     );
   }
 
@@ -1982,9 +2117,9 @@ mod tests {
   #[test]
   fn an_uncomparable_covariate_comparison_still_reports_both_windows() {
     let mut core = core_established_comparison();
-    core.recent_source = Some("Bedroom".to_string());
+    core.recent_paired_minutes = 12;
     core.comparable = false;
-    core.comparability = CoreCovariateComparability::DifferentAmbientSource;
+    core.comparability = CoreCovariateComparability::TooFewPairedMinutes;
     core.delta_at_baseline_median_power = None;
     core.package_power.judgement = CoreFactorJudgement::NotComparable;
 
@@ -1994,8 +2129,8 @@ mod tests {
     .unwrap();
 
     assert_eq!(json["comparable"], false);
-    assert_eq!(json["comparability"], "differentAmbientSource");
-    assert_eq!(json["recentSource"], "Bedroom");
+    assert_eq!(json["comparability"], "tooFewPairedMinutes");
+    assert_eq!(json["recentPairedMinutes"], 12);
     assert_eq!(json["packagePower"]["judgement"], "notComparable");
     assert_eq!(json["packagePower"]["recent"], 24.5);
     assert!(json["deltaAtBaselineMedianPower"].is_null());

@@ -15,5 +15,11 @@ Follow `src/AGENTS.md` and `docs/design-principles.md`.
 - Keep high-frequency updates from rerendering unrelated subtrees; add a focused
   regression test when changing fan-out.
 - Add user-visible text to the language files and use existing i18n patterns.
+- Keep imports downward-only per
+  [ADR 0027](../../docs/adr/0027-frontend-layer-boundaries-and-state-ownership.md):
+  no cross-feature imports, no `../`, and atoms only in `store/` modules.
+  Pending exceptions in `.config/biome/frontend-boundaries.jsonc` only
+  shrink. Prove any edit to that file with canaries, because a mistyped scope
+  silently disables the rule.
 - Verify visual and interaction changes in rendered desktop and compact views.
   Inspect E2E screenshots/artifacts before weakening selectors.

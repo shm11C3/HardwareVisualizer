@@ -1,4 +1,5 @@
 import type {
+  CoolingBandComparability,
   CoolingBandComparisonEntry,
   CoolingLoadBand,
   TemperatureUnit,
@@ -6,9 +7,34 @@ import type {
 import { convertTemperatureDelta } from "./temperatureUnit";
 import { toDisplayTemperature } from "./thermalTimeline";
 
+/**
+ * How far short of Core's minimum each window is, in minutes. `0` on a
+ * side means that side already has enough; the raw counts stay beside the
+ * remainder so the panel can also say "12 / 30 min" for a window that
+ * will not fill in on its own (the idle baseline window is fixed once
+ * pinned, and the other bands' stop extending at Core's cap).
+ */
+export type LoadBandShortfall = {
+  required: number;
+  baseline: { sampleMinutes: number; remaining: number };
+  recent: { sampleMinutes: number; remaining: number };
+};
+
+/**
+ * Why a band is withheld. Core decides whether a band is comparable; this
+ * only carries its reason plus the numbers the copy needs, so a thin
+ * window can say how far short it is rather than only that it is.
+ */
+export type LoadBandWithheldReason =
+  | { kind: "tooFewSampleMinutes"; shortfall: LoadBandShortfall }
+  /** The band never paired a minute with ambient in either window. */
+  | { kind: "noAmbientPairing" }
+  /** A value Core reported comparable is missing anyway; cannot draw. */
+  | { kind: "missingValue" };
+
 /** One load band's baseline-vs-recent comparison, in display units. */
 export type LoadBandDumbbellRow =
-  | { band: CoolingLoadBand; comparable: false }
+  | { band: CoolingLoadBand; comparable: false; reason: LoadBandWithheldReason }
   | {
       band: CoolingLoadBand;
       comparable: true;
@@ -17,24 +43,107 @@ export type LoadBandDumbbellRow =
       delta: number;
     };
 
+/** A calendar range of completed local days, inclusive, as ISO dates. */
+export type BaselineWindow = { startDate: string; endDate: string };
+
 /**
- * Convert Core's per-band comparison into display-ready rows. `comparable`
- * is Core's own fact (see `CoolingBandComparisonEntry.comparable`); a band
- * is also folded into the non-comparable row shape if either temperature is
- * unexpectedly missing despite that flag, since a dumbbell needs both ends
- * to draw a line.
+ * The band's own baseline window when Core extended it past the pinned
+ * one (#2333), or `null` when the two agree and the header's range already
+ * says it. The idle band's is always the pinned window; a low, mid or
+ * high band that held too few minutes inside it reads a longer range, and
+ * the data-state row has to name that range or the header's dates would
+ * be claiming a window that band was not read over.
+ */
+export const extendedBaselineWindow = (
+  entry: Pick<
+    CoolingBandComparisonEntry,
+    "baselineWindowStartDate" | "baselineWindowEndDate"
+  >,
+  pinned: BaselineWindow,
+): BaselineWindow | null => {
+  const own = {
+    startDate: entry.baselineWindowStartDate,
+    endDate: entry.baselineWindowEndDate,
+  };
+  return own.startDate === pinned.startDate && own.endDate === pinned.endDate
+    ? null
+    : own;
+};
+
+const shortfall = (
+  required: number,
+  baselineMinutes: number,
+  recentMinutes: number,
+): LoadBandShortfall => ({
+  required,
+  baseline: {
+    sampleMinutes: baselineMinutes,
+    remaining: Math.max(0, required - baselineMinutes),
+  },
+  recent: {
+    sampleMinutes: recentMinutes,
+    remaining: Math.max(0, required - recentMinutes),
+  },
+});
+
+/**
+ * Map Core's non-comparable verdict onto a reason. Returns `null` for
+ * `comparable`, so callers can still fall through to the missing-value
+ * guard below.
+ */
+const withheldReason = (
+  comparability: CoolingBandComparability,
+  minutes: {
+    required: number;
+    baseline: number;
+    recent: number;
+  },
+): LoadBandWithheldReason | null => {
+  switch (comparability) {
+    case "comparable":
+      return null;
+    case "tooFewSampleMinutes":
+      return {
+        kind: "tooFewSampleMinutes",
+        shortfall: shortfall(
+          minutes.required,
+          minutes.baseline,
+          minutes.recent,
+        ),
+      };
+  }
+};
+
+/**
+ * Convert Core's per-band comparison into display-ready rows.
+ * `comparability` is Core's own fact (see
+ * `CoolingBandComparisonEntry.comparability`); a band is also folded into
+ * the non-comparable row shape if either temperature is unexpectedly
+ * missing despite that verdict, since a dumbbell needs both ends to draw a
+ * line.
  */
 export const buildLoadBandDumbbellRows = (
   bands: readonly CoolingBandComparisonEntry[],
   temperatureUnit: TemperatureUnit,
 ): LoadBandDumbbellRow[] =>
   bands.map((entry) => {
+    const reason = withheldReason(entry.comparability, {
+      required: entry.requiredSampleMinutes,
+      baseline: entry.baseline.sampleMinutes,
+      recent: entry.recent.sampleMinutes,
+    });
+    if (reason != null) {
+      return { band: entry.band, comparable: false, reason };
+    }
     if (
-      !entry.comparable ||
       entry.baseline.temperatureAvg == null ||
       entry.recent.temperatureAvg == null
     ) {
-      return { band: entry.band, comparable: false };
+      return {
+        band: entry.band,
+        comparable: false,
+        reason: { kind: "missingValue" },
+      };
     }
 
     const baseline = toDisplayTemperature(
@@ -46,7 +155,11 @@ export const buildLoadBandDumbbellRows = (
       temperatureUnit,
     );
     if (baseline == null || recent == null) {
-      return { band: entry.band, comparable: false };
+      return {
+        band: entry.band,
+        comparable: false,
+        reason: { kind: "missingValue" },
+      };
     }
 
     const delta = convertTemperatureDelta(
@@ -83,13 +196,30 @@ export const buildAmbientAdjustedDumbbellRows = (
 
   return bands.map((entry) => {
     const adjusted = entry.ambientAdjusted;
+    if (adjusted == null) {
+      return {
+        band: entry.band,
+        comparable: false,
+        reason: { kind: "noAmbientPairing" },
+      };
+    }
+    const reason = withheldReason(adjusted.comparability, {
+      required: adjusted.requiredSampleMinutes,
+      baseline: adjusted.baseline.sampleMinutes,
+      recent: adjusted.recent.sampleMinutes,
+    });
+    if (reason != null) {
+      return { band: entry.band, comparable: false, reason };
+    }
     if (
-      adjusted == null ||
-      !adjusted.comparable ||
       adjusted.baseline.deltaAvg == null ||
       adjusted.recent.deltaAvg == null
     ) {
-      return { band: entry.band, comparable: false };
+      return {
+        band: entry.band,
+        comparable: false,
+        reason: { kind: "missingValue" },
+      };
     }
 
     const baseline = convertTemperatureDelta(

@@ -488,13 +488,19 @@ export type ConversionStep = "preflight" | "buildingCandidate" | "finalizing" | 
  *  One band's ambient-adjusted baseline-vs-recent comparison (#2045): the
  *  same two windows as the absolute comparison, but over the thermal
  *  delta, so a rise the weather explains can be told apart from a rise
- *  the cooling explains. `comparable` follows the same
- *  both-sides-or-nothing rule as the absolute reading.
+ *  the cooling explains. `comparability` follows the same
+ *  both-sides-or-nothing rule as the absolute reading, against its own
+ *  `requiredSampleMinutes` - Core's paired-minute minimum, carried so the
+ *  frontend renders Core's number rather than hardcoding its own.
  */
 export type CoolingAmbientAdjustedBandComparison = {
 	baseline: CoolingBandDeltaWindowSummary,
+	// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the Thermal Delta Baseline's own window for the idle band, and for the other bands that window extended forward over the same source's rows until it held `requiredSampleMinutes` paired minutes or reached Core's cap - so it can differ from the response-level ΔT baseline window and the frontend must not assume the two agree.
+	baselineWindowStartDate: string,
+	baselineWindowEndDate: string,
 	recent: CoolingBandDeltaWindowSummary,
-	comparable: boolean,
+	comparability: CoolingBandComparability,
+	requiredSampleMinutes: number,
 };
 
 /**
@@ -516,6 +522,16 @@ export type CoolingAmbientAdjustedBaselineDelta = {
 };
 
 /**
+ *  Why one band's two windows are, or are not, compared:
+ *  `tooFewSampleMinutes` when one window carries fewer sample minutes
+ *  than the band's `requiredSampleMinutes` (which side is short is read
+ *  off the two window summaries beside it), so the frontend can say how
+ *  many minutes a short window still needs rather than only that it is
+ *  short.
+ */
+export type CoolingBandComparability = "comparable" | "tooFewSampleMinutes";
+
+/**
  *  Cooling Insight's load-band comparison, gated by the same baseline
  *  lifecycle as [`CoolingBaselineState`]: no comparison exists yet while
  *  the baseline is still establishing.
@@ -526,14 +542,24 @@ export type CoolingBandComparison = { status: "establishing"; qualifyingDays: nu
 export type CoolingBandComparisonEntry = {
 	band: CoolingLoadBand,
 	baseline: CoolingBandWindowSummary,
+	// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the pinned baseline window for the idle band, and for the other bands that window extended forward from its start until it held `requiredSampleMinutes` of the band's minutes or reached Core's cap - so a band's own range can differ from the response-level `baselineWindow*Date`, and the frontend labels it when it does.
+	baselineWindowStartDate: string,
+	baselineWindowEndDate: string,
 	recent: CoolingBandWindowSummary,
-	comparable: boolean,
+	comparability: CoolingBandComparability,
+	/**
+	 *  Core's minimum sample minutes per window for this band, so the
+	 *  frontend can say how many minutes a short window still needs
+	 *  without hardcoding the threshold.
+	 */
+	requiredSampleMinutes: number,
 	/**
 	 *  The ambient-adjusted reading of the same two windows (#2045). Null
 	 *  when neither window recorded a paired minute for this band, which is
 	 *  the normal state on a machine with no environmental sensor; a
-	 *  present value with `comparable: false` instead means ambient data
-	 *  exists but one window is still too thin to compare.
+	 *  present value that is not `comparable` instead means ambient data
+	 *  exists but one window is still too thin to compare, or was measured
+	 *  against another sensor.
 	 */
 	ambientAdjusted: CoolingAmbientAdjustedBandComparison | null,
 };
@@ -622,11 +648,12 @@ export type CoolingBaselineState = { status: "establishing"; qualifyingDays: num
  *  Why the two windows are, or are not, compared (#2068):
  *  `tooFewPairedMinutes` when one window carries fewer Thermal Delta
  *  paired minutes in the compared band than Core requires (including a
- *  recent window no source paired at all), `differentAmbientSource` when
- *  the recent window's dominant source is not the one the Thermal Delta
- *  Baseline was established from (#2062).
+ *  recent window no source paired at all). Both windows are always the
+ *  same ambient source once the comparison is established, because Core
+ *  resolves the baseline per recent source (#2062), so there is no
+ *  different-source reason.
  */
-export type CoolingCovariateComparability = "comparable" | "tooFewPairedMinutes" | "differentAmbientSource";
+export type CoolingCovariateComparability = "comparable" | "tooFewPairedMinutes";
 
 /**
  *  Cooling Insight's co-variate comparison for one CPU-load band

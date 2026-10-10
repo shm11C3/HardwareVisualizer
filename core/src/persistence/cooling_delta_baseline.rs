@@ -34,13 +34,39 @@
 //! measured against a sensor across the room are two different quantities.
 //! Several sensors in one room were observed more than 2 K apart, wider
 //! than the rise Cooling Insight calls sustained. The pinned row names its
-//! source so every later comparison can refuse any other one.
+//! source so a recent window is only ever measured against a reference of
+//! the same source.
 //!
-//! Like the absolute baseline it is **established by derivation, then
-//! pinned** into a single-row table, for the same reason: the
-//! `cooling_thermal_delta_daily_summary` rows it was derived from are
-//! eventually cleaned up, and re-deriving forever would let "the first N
-//! qualifying days" silently advance as they aged out.
+//! **Every source gets its own reference**
+//! ([`resolve_delta_baseline_for_window`], #2331). The pinned row is the
+//! reference of the source that established first, and a recent window
+//! read from that source compares against it. A recent window read from
+//! any *other* source compares against that source's own baseline,
+//! derived on read from its own first qualifying days by the same rule -
+//! or reports that source's own establishing progress while it has too
+//! few. The earlier design refused every other source outright, and on a
+//! machine whose user rebinds the app to a different meter that is a
+//! permanent refusal: the pin is write-once, so no amount of data the new
+//! sensor collects could ever make the reading comparable again.
+//!
+//! Like the absolute baseline the first reference is **established by
+//! derivation, then pinned** into a single-row table, for the same
+//! reason: the `cooling_thermal_delta_daily_summary` rows it was derived
+//! from are eventually cleaned up, and re-deriving forever would let "the
+//! first N qualifying days" silently advance as they aged out. A
+//! derived-on-read reference is kept just as stable by exempting every
+//! source's first qualifying days from that cleanup instead
+//! ([`retention_exempt_source_windows`]) - the rows before them are
+//! non-qualifying by definition, so deleting those cannot change which
+//! days are first, and the rows after them are never consulted.
+//!
+//! Why not pin one row per source? Because there is no native (DuckDB)
+//! schema migration path in the 1.11.x line: `NATIVE_SCHEMA_VERSION` is
+//! fixed at finalize time and the runtime refuses to open a file recorded
+//! under any other version, so a second table or a widened one cannot
+//! ship as a bugfix. Derive-on-read plus the retention exemption gives the
+//! same answer without touching the schema; a per-source pinned table is
+//! the shape to revisit once a migration path exists.
 //!
 //! It gets its *own* table rather than columns on `cooling_baseline`.
 //! Pinning there is write-once (`INSERT OR IGNORE` against a
@@ -55,9 +81,10 @@ use std::collections::BTreeMap;
 
 use chrono::NaiveDate;
 
+use crate::persistence::cooling_band_comparison::dominant_delta_source;
 use crate::persistence::cooling_baseline::{
   BaselineWindow, COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS, DailyBaselineSample,
-  derive_baseline_window,
+  derive_baseline_window, first_qualifying_days,
 };
 use crate::persistence::cooling_rollup::CpuLoadBand;
 use crate::persistence::cooling_thermal_delta_rollup::ThermalDeltaDailySummary;
@@ -93,8 +120,10 @@ pub enum DeltaBaselineState {
   },
   Established {
     /// The ambient Sensor Source Label every one of the window's paired
-    /// minutes was measured against. A recent window from any other
-    /// source is not comparable to this baseline.
+    /// minutes was measured against. A recent window is only ever
+    /// compared against a baseline of its own source - see
+    /// [`resolve_delta_baseline_for_window`] for how a window from
+    /// another source gets one.
     source: String,
     /// The baseline ΔT in degrees, sample-minute weighted across the
     /// window.
@@ -191,49 +220,19 @@ impl EstablishedDeltaBaseline {
 pub fn derive_delta_baseline_state(
   days: &[ThermalDeltaDailySummary],
 ) -> DeltaBaselineState {
-  let required_days = COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS;
-
-  let mut samples_by_source: BTreeMap<&str, Vec<DailyBaselineSample>> = BTreeMap::new();
-  for day in days {
-    let idle = day.band(CpuLoadBand::Idle);
-    samples_by_source
-      .entry(day.source.as_str())
-      .or_default()
-      .push(DailyBaselineSample {
-        date: day.date,
-        value: idle.avg,
-        sample_minutes: idle.sample_minutes,
-      });
-  }
-
   let mut furthest_qualifying_days = 0;
   let mut established: Option<DeltaBaselineState> = None;
   // `BTreeMap` iteration is by source label, so a tie on `end_date` is
   // broken the same way on every run.
-  for (source, samples) in &samples_by_source {
-    match derive_baseline_window(
-      samples,
-      COOLING_DELTA_BASELINE_QUALIFYING_MINUTES,
-      required_days,
-    ) {
-      BaselineWindow::Established {
-        value,
-        start_date,
-        end_date,
-        sample_minutes,
-      } => {
+  for (source, samples) in &samples_by_source(days) {
+    match source_baseline_window(samples) {
+      window @ BaselineWindow::Established { end_date, .. } => {
         let completes_earlier = established
           .as_ref()
           .and_then(DeltaBaselineState::window)
           .is_none_or(|(_, current_end)| end_date < current_end);
         if completes_earlier {
-          established = Some(DeltaBaselineState::Established {
-            source: source.to_string(),
-            delta_temperature_avg: value,
-            window_start_date: start_date,
-            window_end_date: end_date,
-            sample_minutes,
-          });
+          established = Some(state_from_window(source, window));
         }
       }
       BaselineWindow::Establishing { qualifying_days } => {
@@ -244,8 +243,194 @@ pub fn derive_delta_baseline_state(
 
   established.unwrap_or(DeltaBaselineState::Establishing {
     qualifying_days: furthest_qualifying_days,
-    required_days,
+    required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
   })
+}
+
+/// Each ambient source's idle-ΔT series, in the order `days` came in
+/// (date ascending), keyed by Sensor Source Label.
+///
+/// The grouping is the one place the module turns the row-per-source
+/// rollup into per-source series, so every per-source reading - the
+/// establishment rule, a single source's own baseline, the retention
+/// exemption - reads the same projection of a row.
+fn samples_by_source(
+  days: &[ThermalDeltaDailySummary],
+) -> BTreeMap<&str, Vec<DailyBaselineSample>> {
+  let mut samples_by_source: BTreeMap<&str, Vec<DailyBaselineSample>> = BTreeMap::new();
+  for day in days {
+    samples_by_source
+      .entry(day.source.as_str())
+      .or_default()
+      .push(idle_sample(day));
+  }
+  samples_by_source
+}
+
+/// One row projected into the shape the shared establishment rule reads:
+/// the day's idle ΔT and the paired minutes behind it.
+fn idle_sample(day: &ThermalDeltaDailySummary) -> DailyBaselineSample {
+  let idle = day.band(CpuLoadBand::Idle);
+  DailyBaselineSample {
+    date: day.date,
+    value: idle.avg,
+    sample_minutes: idle.sample_minutes,
+  }
+}
+
+/// The shared establishment rule applied to one source's series, at the
+/// ΔT baseline's own qualifying bar.
+fn source_baseline_window(samples: &[DailyBaselineSample]) -> BaselineWindow {
+  derive_baseline_window(
+    samples,
+    COOLING_DELTA_BASELINE_QUALIFYING_MINUTES,
+    COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+  )
+}
+
+/// `source`'s establishment outcome as the lifecycle this module reports.
+fn state_from_window(source: &str, window: BaselineWindow) -> DeltaBaselineState {
+  match window {
+    BaselineWindow::Established {
+      value,
+      start_date,
+      end_date,
+      sample_minutes,
+    } => DeltaBaselineState::Established {
+      source: source.to_string(),
+      delta_temperature_avg: value,
+      window_start_date: start_date,
+      window_end_date: end_date,
+      sample_minutes,
+    },
+    BaselineWindow::Establishing { qualifying_days } => {
+      DeltaBaselineState::Establishing {
+        qualifying_days,
+        required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+      }
+    }
+  }
+}
+
+/// `source`'s own ΔT baseline, derived from its rows alone by the same
+/// rule [`derive_delta_baseline_state`] runs across every source: its
+/// first [`COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS`] qualifying days,
+/// or how many it has so far.
+///
+/// Nothing is pinned here. This is the reference for a source other than
+/// the pinned one, and it stays stable without a pin because
+/// [`retention_exempt_source_windows`] keeps the days it is derived from
+/// out of the retention cleanup - see the module docs for why that is
+/// equivalent, and why a per-source pin is not available to it.
+pub fn derive_source_delta_baseline_state(
+  days: &[ThermalDeltaDailySummary],
+  source: &str,
+) -> DeltaBaselineState {
+  let samples: Vec<DailyBaselineSample> = days
+    .iter()
+    .filter(|day| day.source == source)
+    .map(idle_sample)
+    .collect();
+  state_from_window(source, source_baseline_window(&samples))
+}
+
+/// The reference a recent window is measured against: the window's
+/// dominant ambient source and the ΔT baseline of that same source.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeltaBaselineReference<'a> {
+  /// The source that covered most of the recent window
+  /// (`cooling_band_comparison::dominant_delta_source`), or `None` when
+  /// no source paired a minute in it.
+  pub recent_source: Option<&'a str>,
+  /// The baseline the recent window is compared against. Whenever
+  /// `recent_source` is `Some`, this is that source's own baseline -
+  /// established or still establishing - never another source's.
+  pub baseline: DeltaBaselineState,
+}
+
+/// Resolve which ΔT baseline the recent window `[recent_start,
+/// recent_end]` is measured against.
+///
+/// `pinned` is the lifecycle [`resolve_delta_baseline_state`] answered
+/// with: the pinned row's, or - before any source has established - the
+/// derivation across every source. The rule, in order:
+///
+/// - The recent window's dominant source is the pinned one: the pinned
+///   row is the reference, exactly as before.
+/// - The recent window has a dominant source and it is any other one, or
+///   nothing is pinned yet: the reference is that source's own baseline
+///   ([`derive_source_delta_baseline_state`]), established from its own
+///   first qualifying days or reporting its own count while establishing.
+///   "Recent minus baseline" is then always one placement against itself,
+///   which is the invariant #2062 exists for - the earlier gate that
+///   refused the other source enforced the same invariant, but by making
+///   the reading unavailable forever once the user changed sensors
+///   (#2331).
+/// - The recent window has no ambient source at all: there is nothing to
+///   pick a source by, so the reference is `pinned` - the same answer the
+///   reading gave before, with nothing on the recent side to compare.
+///
+/// Every consumer that compares a recent ΔT window against a baseline (the
+/// load-band comparison, the baseline delta, the co-variate comparison)
+/// goes through here so they cannot disagree on what the reference is.
+pub fn resolve_delta_baseline_for_window<'a>(
+  days: &'a [ThermalDeltaDailySummary],
+  pinned: DeltaBaselineState,
+  recent_start: NaiveDate,
+  recent_end: NaiveDate,
+) -> DeltaBaselineReference<'a> {
+  let recent_source = dominant_delta_source(days, recent_start, recent_end);
+  let baseline = match recent_source {
+    Some(source) if pinned.source() != Some(source) => {
+      derive_source_delta_baseline_state(days, source)
+    }
+    _ => pinned,
+  };
+  DeltaBaselineReference {
+    recent_source,
+    baseline,
+  }
+}
+
+/// The calendar span of every source's first
+/// [`COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS`] qualifying days - the
+/// rows a derived-on-read reference ([`derive_source_delta_baseline_state`])
+/// is computed from - as the date ranges the retention cleanup of
+/// `cooling_thermal_delta_daily_summary` must exempt.
+///
+/// This is what makes derive-on-read as stable as pinning (#2331). "First
+/// N qualifying days" can only move if a row before the Nth is created or
+/// deleted; the rows before the first qualifying day are non-qualifying by
+/// definition, so deleting them cannot promote anything into the window,
+/// and the rows after the Nth are never consulted. Keeping the span itself
+/// therefore fixes the answer for as long as the table exists, the same
+/// way the pinned row fixes it for the first source.
+///
+/// A source that has not established yet is exempted too, over the days
+/// it has so far: otherwise its count could fall as they aged out, and the
+/// window it eventually establishes would depend on when the cleanup ran
+/// relative to its seventh day. A source with no qualifying day
+/// contributes nothing. Non-qualifying rows *inside* a span survive with
+/// it (the exemption is a date range, shared with the delete's other
+/// windows), which keeps nothing a reader depends on but costs at most the
+/// gaps between one source's qualifying days.
+///
+/// `days` must be ordered by date ascending, as
+/// `select_all_thermal_delta_daily_summaries` returns them.
+pub fn retention_exempt_source_windows(
+  days: &[ThermalDeltaDailySummary],
+) -> Vec<(NaiveDate, NaiveDate)> {
+  samples_by_source(days)
+    .values()
+    .filter_map(|samples| {
+      let window = first_qualifying_days(
+        samples,
+        COOLING_DELTA_BASELINE_QUALIFYING_MINUTES,
+        COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+      );
+      Some((window.first()?.date, window.last()?.date))
+    })
+    .collect()
 }
 
 /// Resolve the ΔT baseline lifecycle: the pinned row if one exists,
@@ -679,6 +864,194 @@ mod tests {
 
     assert_eq!(window_start_date, start);
     assert_eq!(delta_temperature_avg, 12.0);
+  }
+
+  // ── the reference a recent window is measured against ──
+
+  /// The pinned row as the resolver receives it: `Desk`, established over
+  /// the first week of August at a ΔT the rows themselves no longer say,
+  /// so a test can tell "used the pin" from "re-derived the same source".
+  fn pinned_desk() -> DeltaBaselineState {
+    DeltaBaselineState::Established {
+      source: "Desk".to_string(),
+      delta_temperature_avg: 10.0,
+      window_start_date: date(2026, 8, 1),
+      window_end_date: date(2026, 8, 7),
+      sample_minutes: 210,
+    }
+  }
+
+  /// The recent window the resolver is asked about: the week ending 9-20.
+  const RECENT: (NaiveDate, NaiveDate) = (
+    NaiveDate::from_ymd_opt(2026, 9, 14).unwrap(),
+    NaiveDate::from_ymd_opt(2026, 9, 20).unwrap(),
+  );
+
+  #[test]
+  fn the_pinned_row_is_the_reference_for_a_recent_window_of_its_own_source() {
+    // The rows would derive 12.0 for the desk sensor; the pin says 10.0.
+    // The pin wins, as it always has: that is what makes it undriftable.
+    let mut days = qualifying_days("Desk", date(2026, 8, 1), REQUIRED, 12.0);
+    days.extend(qualifying_days("Desk", RECENT.0, REQUIRED, 13.0));
+
+    let reference =
+      resolve_delta_baseline_for_window(&days, pinned_desk(), RECENT.0, RECENT.1);
+
+    assert_eq!(reference.recent_source, Some("Desk"));
+    assert_eq!(reference.baseline, pinned_desk());
+  }
+
+  #[test]
+  fn a_recent_window_from_another_source_is_measured_against_that_sources_own_baseline() {
+    // The defect this resolver fixes (#2331), in the maintainer's shape: the
+    // pin was established against one meter, then the app was rebound to
+    // another, which has since collected weeks of data. The new meter's
+    // first qualifying week is its reference - not "not comparable"
+    // forever because the pin can never be rewritten.
+    let mut days = qualifying_days("Desk", date(2026, 8, 1), REQUIRED, 12.0);
+    let living_room_start = date(2026, 9, 1);
+    days.extend(qualifying_days(
+      "Living Room",
+      living_room_start,
+      REQUIRED,
+      15.0,
+    ));
+    days.extend(qualifying_days("Living Room", RECENT.0, REQUIRED, 16.0));
+
+    let reference =
+      resolve_delta_baseline_for_window(&days, pinned_desk(), RECENT.0, RECENT.1);
+
+    assert_eq!(reference.recent_source, Some("Living Room"));
+    assert_eq!(
+      reference.baseline,
+      DeltaBaselineState::Established {
+        source: "Living Room".to_string(),
+        delta_temperature_avg: 15.0,
+        window_start_date: living_room_start,
+        window_end_date: living_room_start + chrono::Duration::days(REQUIRED - 1),
+        sample_minutes: COOLING_DELTA_BASELINE_QUALIFYING_MINUTES
+          * COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+      }
+    );
+  }
+
+  #[test]
+  fn a_recent_window_from_a_source_still_establishing_reports_that_sources_own_count() {
+    // Three qualifying days against the new meter, all inside the recent
+    // window. The progress reported is the new meter's three - not the
+    // pinned sensor's established state, and not the furthest-along
+    // source's count across the table.
+    let mut days = qualifying_days("Desk", date(2026, 8, 1), REQUIRED, 12.0);
+    days.extend(qualifying_days("Living Room", RECENT.0, 3, 15.0));
+
+    let reference =
+      resolve_delta_baseline_for_window(&days, pinned_desk(), RECENT.0, RECENT.1);
+
+    assert_eq!(reference.recent_source, Some("Living Room"));
+    assert_eq!(
+      reference.baseline,
+      DeltaBaselineState::Establishing {
+        qualifying_days: 3,
+        required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+      }
+    );
+  }
+
+  #[test]
+  fn a_recent_window_with_no_ambient_source_falls_back_to_the_pinned_row() {
+    // The sensor was offline all week: there is no source to pick a
+    // reference by, so the reading says what it said before - the pinned
+    // baseline, with nothing on the recent side.
+    let days = qualifying_days("Desk", date(2026, 8, 1), REQUIRED, 12.0);
+
+    let reference =
+      resolve_delta_baseline_for_window(&days, pinned_desk(), RECENT.0, RECENT.1);
+
+    assert_eq!(reference.recent_source, None);
+    assert_eq!(reference.baseline, pinned_desk());
+  }
+
+  #[test]
+  fn before_any_pin_a_recent_window_is_measured_against_its_own_sources_baseline() {
+    // Nothing pinned yet (the resolver was handed the cross-source
+    // derivation, still establishing); the recent window's source has
+    // its own week. Its own baseline is the reference, and the lifecycle
+    // handed in is not what is reported.
+    let mut days = qualifying_days("Living Room", date(2026, 9, 1), REQUIRED, 15.0);
+    days.extend(qualifying_days("Living Room", RECENT.0, REQUIRED, 16.0));
+    let establishing = DeltaBaselineState::Establishing {
+      qualifying_days: 0,
+      required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+    };
+
+    let reference =
+      resolve_delta_baseline_for_window(&days, establishing, RECENT.0, RECENT.1);
+
+    assert_eq!(reference.baseline.source(), Some("Living Room"));
+    assert_eq!(
+      reference.baseline.window(),
+      Some((date(2026, 9, 1), date(2026, 9, 7)))
+    );
+  }
+
+  // ── what retention must keep for a derived-on-read reference ──
+
+  #[test]
+  fn retention_exempts_each_sources_first_qualifying_days_whether_established_or_not() {
+    // Desk: a consecutive first week, then more days that must not widen
+    // the span. Living Room: non-qualifying days first (deletable), then
+    // seven qualifying days on alternate dates (a 13-day span), then
+    // later days that are not part of the reference. Bedroom: three
+    // qualifying days so far, exempt over exactly those. Hallway: never a
+    // qualifying day, so nothing to keep.
+    let mut days = qualifying_days("Desk", date(2026, 8, 1), REQUIRED, 12.0);
+    days.extend(qualifying_days("Desk", date(2026, 8, 20), 3, 13.0));
+    for offset in 0..3 {
+      days.push(day(
+        date(2026, 9, 1) + chrono::Duration::days(offset),
+        "Living Room",
+        None,
+      ));
+    }
+    for offset in 0..REQUIRED {
+      days.push(day(
+        date(2026, 9, 4) + chrono::Duration::days(offset * 2),
+        "Living Room",
+        Some((15.0, COOLING_DELTA_BASELINE_QUALIFYING_MINUTES)),
+      ));
+    }
+    days.extend(qualifying_days("Living Room", date(2026, 10, 1), 2, 15.0));
+    days.extend(qualifying_days("Bedroom", date(2026, 9, 10), 3, 14.0));
+    days.push(day(date(2026, 9, 12), "Hallway", None));
+    days.sort_by_key(|row| row.date);
+
+    let windows = retention_exempt_source_windows(&days);
+
+    assert_eq!(
+      windows,
+      vec![
+        // Sources come out in label order.
+        (date(2026, 9, 10), date(2026, 9, 12)),
+        (date(2026, 8, 1), date(2026, 8, 7)),
+        (date(2026, 9, 4), date(2026, 9, 16)),
+      ]
+    );
+  }
+
+  #[test]
+  fn a_table_with_no_qualifying_day_exempts_nothing() {
+    let days: Vec<_> = (0..5)
+      .map(|offset| {
+        day(
+          date(2026, 8, 1) + chrono::Duration::days(offset),
+          "Desk",
+          None,
+        )
+      })
+      .collect();
+
+    assert_eq!(retention_exempt_source_windows(&days), Vec::new());
+    assert_eq!(retention_exempt_source_windows(&[]), Vec::new());
   }
 
   /// #2271: same conversion-window guard as

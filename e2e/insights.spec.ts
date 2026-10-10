@@ -67,6 +67,13 @@ test.describe("insights captures", () => {
         .getByText(/Baseline: \d+ min \/ recent: \d+ min/)
         .first(),
     ).toBeVisible();
+    // A band whose baseline side extended past the pinned window (#2333)
+    // names its own range beside its counts.
+    await expect(
+      page
+        .getByTestId("cooling-load-band-panel")
+        .getByText("Baseline: 800 min (2025-11-01–2025-11-23) / recent: 0 min"),
+    ).toBeVisible();
 
     // No environmental sensor: the co-variate panel (#2068) has no Thermal
     // Delta to read the factors against and stays out of the layout.
@@ -219,13 +226,27 @@ test.describe("insights captures", () => {
     ).toBeVisible();
     await expect(panel.getByText(/2025-11-01.+2025-11-14/)).toBeVisible();
     await expect(panel.getByText(/2025-12-01.+2025-12-14/)).toBeVisible();
-    // The mid band has ambient data but too thin a window, and the high
-    // band never paired at all: both stay honestly not comparable.
+    // The mid band's ΔT baseline side ran past that window (#2333), so it
+    // names its own range rather than borrowing the header's.
     await expect(
-      page
-        .getByTestId("cooling-load-band-dumbbell-ambient")
-        .getByText("Not enough samples to compare"),
-    ).toHaveCount(2);
+      panel.getByTestId("cooling-load-band-ambient-extended-window"),
+    ).toHaveText("Mid: baseline read over 2025-12-01–2025-12-19");
+    // The mid band has ambient data but too thin a window, and the high
+    // band never paired at all: both stay honestly not comparable, each
+    // for its own stated reason, and the thin one says how far short the
+    // recent window is (22 of Core's 30 paired minutes).
+    const ambientDumbbell = page.getByTestId(
+      "cooling-load-band-dumbbell-ambient",
+    );
+    await expect(
+      ambientDumbbell.getByText("Not enough samples to compare"),
+    ).toHaveCount(1);
+    await expect(
+      ambientDumbbell.getByTestId("cooling-load-band-shortfall"),
+    ).toHaveText("(recent needs 8 more min)");
+    await expect(
+      ambientDumbbell.getByText("No minutes paired with ambient"),
+    ).toHaveCount(1);
 
     await expect(
       page.getByTestId("cooling-data-state-ambient-source"),
