@@ -279,11 +279,7 @@ pub(crate) fn derive_baseline_window(
   qualifying_minutes: u32,
   required_days: u32,
 ) -> BaselineWindow {
-  let window: Vec<&DailyBaselineSample> = days
-    .iter()
-    .filter(|day| day.sample_minutes >= qualifying_minutes && day.value.is_some())
-    .take(required_days as usize)
-    .collect();
+  let window = first_qualifying_days(days, qualifying_minutes, required_days);
   let qualifying_days = window.len() as u32;
 
   match (
@@ -303,6 +299,26 @@ pub(crate) fn derive_baseline_window(
     }
     _ => BaselineWindow::Establishing { qualifying_days },
   }
+}
+
+/// The days a baseline is - or, while still establishing, will be -
+/// derived from: the first `required_days` days in `days` carrying at
+/// least `qualifying_minutes` of evidence, in date order, fewer while not
+/// enough exist yet.
+///
+/// Split out of [`derive_baseline_window`] so the rule for *which* days
+/// count is stated once; the window's value and lifecycle are read off
+/// this selection.
+pub(crate) fn first_qualifying_days(
+  days: &[DailyBaselineSample],
+  qualifying_minutes: u32,
+  required_days: u32,
+) -> Vec<&DailyBaselineSample> {
+  days
+    .iter()
+    .filter(|day| day.sample_minutes >= qualifying_minutes && day.value.is_some())
+    .take(required_days as usize)
+    .collect()
 }
 
 /// Sample-minute-weighted average across `days`, with the total minutes

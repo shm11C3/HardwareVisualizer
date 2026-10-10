@@ -23,7 +23,9 @@ use std::ops::Bound;
 use chrono::{Duration, NaiveDate};
 
 use crate::persistence::cooling_baseline::{BaselineState, recent_window_start};
-use crate::persistence::cooling_delta_baseline::DeltaBaselineState;
+use crate::persistence::cooling_delta_baseline::{
+  DeltaBaselineReference, DeltaBaselineState, resolve_delta_baseline_for_window,
+};
 #[cfg(test)]
 use crate::persistence::cooling_rollup::PowerSummary;
 use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, DailyCoolingSummary};
@@ -108,13 +110,13 @@ pub fn baseline_extension_cap_end(
 
 /// Whether one band's two windows can be compared, and if not, why.
 ///
-/// A reason rather than a `bool` because the two reasons resolve
-/// differently and the UI has to say which one applies: too few sample
-/// minutes fills in on its own as the machine keeps running, and the panel
-/// can say how many minutes are still missing, while a different ambient
-/// sensor never does - no amount of waiting makes two placements one. A
-/// `bool` presented both as "not enough samples", which is wrong for the
-/// second and was observed misleading a user whose sensor had changed.
+/// A reason rather than a `bool` so the UI can say how far short a window
+/// is, not merely that it is: too few sample minutes fills in on its own
+/// as the machine keeps running, and the panel reports how many minutes
+/// are still missing against Core's minimum. A changed ambient sensor is
+/// deliberately not a reason here: the ΔT baseline is resolved per recent
+/// source (`cooling_delta_baseline::resolve_delta_baseline_for_window`),
+/// so the two sides of a comparison are always one sensor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BandComparability {
   Comparable,
@@ -123,12 +125,6 @@ pub enum BandComparability {
   /// it were a measurement). Which side is short is read off the two
   /// window summaries beside it.
   TooFewSampleMinutes,
-  /// The recent window's ambient source is not the one the ΔT baseline
-  /// was established from (#2062). Takes precedence over
-  /// [`Self::TooFewSampleMinutes`]: a thin window will thicken, a changed
-  /// sensor will not, so the reason that does not resolve is the one to
-  /// report.
-  DifferentAmbientSource,
 }
 
 impl BandComparability {
@@ -207,11 +203,12 @@ pub struct AmbientAdjustedBandComparison {
   pub recent: BandDeltaWindowSummary,
   /// Whether both windows carry enough paired minutes for the
   /// ambient-adjusted reading to mean anything, on the same
-  /// both-sides-or-nothing rule as [`BandComparison::comparability`] - and
-  /// whether they were measured against the *same* sensor (#2062). A
-  /// recent window from a different source than the baseline's is
-  /// reported but never compared: the two are different quantities, not
-  /// a drift.
+  /// both-sides-or-nothing rule as [`BandComparison::comparability`]. Both
+  /// sides are always the *same* sensor (#2062): the baseline is resolved
+  /// per recent source
+  /// (`cooling_delta_baseline::resolve_delta_baseline_for_window`), so a
+  /// sensor change is never read as a drift - it is measured against that
+  /// sensor's own reference, or waits for one.
   pub comparability: BandComparability,
 }
 
@@ -273,7 +270,11 @@ pub enum CoolingBandComparison {
     /// query, on a path that has just read the whole daily table.
     bands: Box<[BandComparison; 4]>,
     /// The ΔT baseline's lifecycle (#2045), which advances independently
-    /// of the absolute one this variant's window dates describe.
+    /// of the absolute one this variant's window dates describe. It is
+    /// the reference *for the recent window's own ambient source*
+    /// (`cooling_delta_baseline::resolve_delta_baseline_for_window`): the
+    /// pinned row when the recent window was read from the pinned source,
+    /// that source's own baseline otherwise.
     ///
     /// One fact for all four bands rather than a copy on each: the
     /// window is a property of the baseline, not of a band. While this
@@ -301,7 +302,9 @@ pub enum CoolingBandComparison {
 /// `delta_baseline_state` is a second, independent lifecycle: the ΔT
 /// baseline establishes over its own window, which is generally later
 /// than the absolute one on any machine that added an ambient sensor
-/// after it had been running for a while.
+/// after it had been running for a while. It is the pinned (or, before
+/// any pin, cross-source) lifecycle; the reference actually compared
+/// against is resolved from it per recent source inside.
 pub fn derive_band_comparison(
   days: &[DailyCoolingSummary],
   delta_days: &[ThermalDeltaDailySummary],
@@ -333,9 +336,22 @@ pub fn derive_band_comparison(
   // that only fills in during the recent window would otherwise be
   // compared partly with itself.
   let extension_ceiling = recent_start - Duration::days(1);
-  // Note the *ΔT* baseline's own source and window, not the absolute
-  // window above: the two are different date ranges whenever ambient
-  // collection started later than the machine did.
+  // The ΔT reference is the recent window's own source's baseline - the
+  // pinned row when that is the pinned source, otherwise that source's
+  // own first qualifying days (`resolve_delta_baseline_for_window`,
+  // #2331).
+  // Note it is the *ΔT* baseline's own source and window, not the
+  // absolute window above: the two are different date ranges whenever
+  // ambient collection started later than the machine did.
+  let DeltaBaselineReference {
+    recent_source: recent_delta_source,
+    baseline: delta_baseline_state,
+  } = resolve_delta_baseline_for_window(
+    delta_days,
+    delta_baseline_state,
+    recent_start,
+    window_end_date,
+  );
   let delta_reference = match &delta_baseline_state {
     DeltaBaselineState::Established {
       source,
@@ -345,8 +361,6 @@ pub fn derive_band_comparison(
     } => Some((source.as_str(), (*window_start_date, *window_end_date))),
     DeltaBaselineState::Establishing { .. } => None,
   };
-  let recent_delta_source =
-    dominant_delta_source(delta_days, recent_start, window_end_date);
 
   let bands = [
     CpuLoadBand::Idle,
@@ -612,12 +626,15 @@ pub(crate) fn dominant_delta_source(
 /// neither window recorded a ΔT minute for this band.
 ///
 /// The baseline side is read from the ΔT baseline's own source, over its
-/// pinned window for idle and that window extended forward for the other
-/// bands (#2333, see [`band_delta_baseline_window`]); the recent side from
-/// whichever source dominates the recent window. They are comparable only
-/// when both are thick enough *and* are the same source - a sensor change
-/// turns "recent minus baseline" into a difference between two placements,
-/// which is not a drift in the cooling (#2062).
+/// window for idle and that window extended forward for the other bands
+/// (#2333, see [`band_delta_baseline_window`]); the recent side from
+/// whichever source dominates the recent window. The caller has already
+/// resolved the baseline *for* that recent source
+/// (`cooling_delta_baseline::resolve_delta_baseline_for_window`), so the
+/// two are the same sensor whenever the recent side has one, and the only
+/// gate left is thickness. There is deliberately no source check here: a
+/// sensor change is answered by a different reference, not by refusing the
+/// comparison (#2062).
 ///
 /// The `None` case is the whole reason ambient stays optional: a machine
 /// with no environmental sensor produces it for every band, and the
@@ -646,18 +663,11 @@ fn ambient_adjusted_band_comparison(
     return None;
   }
 
-  // The source check comes first: a changed sensor is the reason that
-  // never resolves, so it must not be hidden behind a thin window that
-  // will. A recent window with no source at all is simply thin.
-  let comparability = match recent_source {
-    Some(source) if source != baseline_source => {
-      BandComparability::DifferentAmbientSource
-    }
-    _ => BandComparability::from_sides(baseline.is_comparable(), recent.is_comparable()),
-  };
-
   Some(AmbientAdjustedBandComparison {
-    comparability,
+    comparability: BandComparability::from_sides(
+      baseline.is_comparable(),
+      recent.is_comparable(),
+    ),
     baseline,
     baseline_window_start_date: baseline_start,
     baseline_window_end_date: baseline_end,
@@ -1056,47 +1066,71 @@ mod tests {
   }
 
   #[test]
-  fn a_recent_window_from_a_different_source_than_the_baseline_is_not_comparable() {
+  fn a_recent_window_from_another_source_is_compared_against_that_sources_own_baseline() {
     // The user switched sensors after the baseline was pinned against the
-    // desk one. The recent window is rich, and it is reported - but
-    // "recent minus baseline" would be the difference between two
-    // placements, not a drift in the cooling (#2062).
+    // desk one, and the new one has since qualified a week of its own
+    // (#2331). The recent window is measured against *that* week - one
+    // placement against itself (#2062) - and the response names the
+    // reference it actually used, not the pinned desk row.
     let baseline_start = date(2026, 8, 1);
     let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let living_room_start = date(2026, 8, 5);
+    let living_room_end = date(2026, 8, 11);
     let days = vec![
       idle_day(baseline_start, 30.0, 60),
       idle_day(recent_start, 30.0, 60),
     ];
-    let delta_days = vec![
-      idle_delta_day(baseline_start, "Desk", 10.0, 600),
-      idle_delta_day(recent_start, "Living Room", 13.0, 600),
-    ];
+    let mut delta_days = vec![idle_delta_day(baseline_start, "Desk", 10.0, 600)];
+    delta_days.extend(
+      living_room_start
+        .iter_days()
+        .take_while(|d| *d <= living_room_end)
+        .map(|d| idle_delta_day(d, "Living Room", 13.0, 60)),
+    );
+    delta_days.push(idle_delta_day(recent_start, "Living Room", 16.0, 600));
 
-    let idle = idle_comparison(derive_band_comparison(
+    let result = derive_band_comparison(
       &days,
       &delta_days,
       established_baseline(baseline_start, baseline_start),
       established_delta_baseline("Desk", baseline_start, baseline_start),
       recent_end,
-    ));
-
-    let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
-    assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
-    assert_eq!(adjusted.recent.delta_avg, Some(13.0));
-    assert_eq!(
-      adjusted.comparability,
-      BandComparability::DifferentAmbientSource,
-      "two sensor placements must never be compared as if they were one"
     );
+
+    let CoolingBandComparison::Established {
+      ambient_adjusted_baseline,
+      ..
+    } = &result
+    else {
+      panic!("expected an established comparison");
+    };
+    assert_eq!(
+      *ambient_adjusted_baseline,
+      DeltaBaselineState::Established {
+        source: "Living Room".to_string(),
+        delta_temperature_avg: 13.0,
+        window_start_date: living_room_start,
+        window_end_date: living_room_end,
+        sample_minutes: 420,
+      },
+      "the reference reported must be the recent source's own"
+    );
+    let idle = idle_comparison(result);
+    let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
+    assert_eq!(adjusted.baseline.delta_avg, Some(13.0));
+    assert_eq!(adjusted.baseline.sample_minutes, 420);
+    assert_eq!(adjusted.recent.delta_avg, Some(16.0));
+    assert_eq!(adjusted.comparability, BandComparability::Comparable);
   }
 
   #[test]
-  fn a_changed_sensor_is_reported_ahead_of_a_thin_window() {
-    // Both reasons hold at once: the recent window is from another sensor
-    // *and* thin. The sensor is the one to report - waiting fixes the
-    // thinness, nothing fixes the placement.
+  fn a_recent_window_from_a_source_still_establishing_offers_no_ambient_adjusted_reading()
+  {
+    // Three days against the new sensor so far. There is no reference of
+    // its own yet and the pinned desk row is not one for it, so every band
+    // withholds the reading and the lifecycle says how far along *it* is.
     let baseline_start = date(2026, 8, 1);
     let recent_end = date(2026, 9, 20);
     let recent_start =
@@ -1105,29 +1139,46 @@ mod tests {
       idle_day(baseline_start, 30.0, 60),
       idle_day(recent_start, 30.0, 60),
     ];
-    let delta_days = vec![
-      idle_delta_day(baseline_start, "Desk", 10.0, 600),
+    let mut delta_days = vec![idle_delta_day(baseline_start, "Desk", 10.0, 600)];
+    delta_days.extend((0..3).map(|offset| {
       idle_delta_day(
-        recent_start,
+        recent_start + Duration::days(offset),
         "Living Room",
-        13.0,
-        COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES - 1,
-      ),
-    ];
+        16.0,
+        600,
+      )
+    }));
 
-    let idle = idle_comparison(derive_band_comparison(
+    let result = derive_band_comparison(
       &days,
       &delta_days,
       established_baseline(baseline_start, baseline_start),
       established_delta_baseline("Desk", baseline_start, baseline_start),
       recent_end,
-    ));
-
-    let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
-    assert_eq!(
-      adjusted.comparability,
-      BandComparability::DifferentAmbientSource
     );
+
+    let CoolingBandComparison::Established {
+      bands,
+      ambient_adjusted_baseline,
+      ..
+    } = result
+    else {
+      panic!("expected an established comparison");
+    };
+    assert_eq!(
+      ambient_adjusted_baseline,
+      DeltaBaselineState::Establishing {
+        qualifying_days: 3,
+        required_days: 7,
+      }
+    );
+    for comparison in bands.iter() {
+      assert_eq!(
+        comparison.ambient_adjusted, None,
+        "band {:?} has no reference to compare against yet",
+        comparison.band
+      );
+    }
   }
 
   #[test]

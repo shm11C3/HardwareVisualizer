@@ -1007,20 +1007,31 @@ pub(crate) fn retention_exempt_window(
 /// comparison, and the Explorer's baseline medians) while the baseline
 /// still names that period as the reference.
 ///
-/// There are two such windows since #2045 - the absolute idle baseline's
-/// over `cooling_daily_summary` and `cooling_hourly_summary`, and the ΔT
-/// baseline's over `cooling_thermal_delta_daily_summary` - and they are
-/// generally *different* date ranges, because ambient collection tends to
-/// begin long after the machine did.
+/// There are two such pinned windows since #2045 - the absolute idle
+/// baseline's over `cooling_daily_summary` and `cooling_hourly_summary`,
+/// and the ΔT baseline's over `cooling_thermal_delta_daily_summary` - and
+/// they are generally *different* date ranges, because ambient collection
+/// tends to begin long after the machine did.
 ///
-/// Each exemption is wider than the pinned window itself: it runs from the
-/// pinned start to [`baseline_extension_cap_end`], the furthest day a
+/// Each exemption is wider than the window itself: it runs from the
+/// window's start to [`baseline_extension_cap_end`], the furthest day a
 /// non-idle band's baseline side may extend to (#2333, see
 /// [`retention_exempt_window`]). Each costs at most
 /// [`COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS`](crate::persistence::cooling_band_comparison::COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS)
 /// days of rows per table, kept for as long as the baseline they back.
+///
+/// The ΔT table carries one more exemption per ambient source (#2331): the
+/// span of that source's first qualifying days
+/// ([`crate::persistence::cooling_delta_baseline::retention_exempt_source_windows`]),
+/// widened to the same cap. Only the first source to establish is pinned;
+/// every other source's reference is derived on read from exactly those
+/// days and extended forward from them like a pinned one, so they must
+/// outlive retention the same way the pinned window does - and the
+/// co-variate tables, whose baseline side is read over the same window,
+/// get the same list.
 pub async fn cleanup_old_data() {
   use crate::infrastructure::database::dispatch;
+  use crate::persistence::cooling_delta_baseline::retention_exempt_source_windows;
 
   // Deleting without knowing a protected window could erase a baseline's
   // evidence irrecoverably, so either read failing skips this cleanup
@@ -1040,7 +1051,7 @@ pub async fn cleanup_old_data() {
         return;
       }
     };
-  let preserved_delta_windows: Vec<_> =
+  let mut preserved_delta_windows: Vec<_> =
     match dispatch::cooling_delta_baseline::select_established_delta_baseline().await {
       Ok(baseline) => baseline
         .map(|b| retention_exempt_window((b.window_start_date, b.window_end_date)))
@@ -1055,6 +1066,32 @@ pub async fn cleanup_old_data() {
         return;
       }
     };
+  // Every source's first qualifying days, pinned or not: the rows a
+  // derived-on-read ΔT reference is computed from. The pinned source's own
+  // span normally coincides with its pinned window and is skipped as a
+  // duplicate; where a re-rolled day has moved it, both ranges are kept.
+  match dispatch::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries()
+    .await
+  {
+    Ok(days) => {
+      for window in retention_exempt_source_windows(&days)
+        .into_iter()
+        .map(retention_exempt_window)
+      {
+        if !preserved_delta_windows.contains(&window) {
+          preserved_delta_windows.push(window);
+        }
+      }
+    }
+    Err(e) => {
+      log_error!(
+        "Failed to read the ΔT daily summaries; skipping cooling rollup cleanup",
+        "persistence::cooling_rollup::cleanup_old_data",
+        Some(e.to_string())
+      );
+      return;
+    }
+  }
 
   if let Err(e) = dispatch::cooling_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,

@@ -555,7 +555,6 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
  */
 const AMBIENT_BASELINE = {
   status: "established",
-  source: "SwitchBot Meter Plus (Desk)",
   deltaTemperatureAvg: 28,
   windowStartDate: "2025-12-01",
   windowEndDate: "2025-12-14",

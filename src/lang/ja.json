@@ -484,8 +484,6 @@
             "tooFewSampleMinutes": "サンプル不足のため比較保留",
             "recentShortfall": "直近あと {{minutes}} 分",
             "baselineShortfall": "ベースライン期間 {{minutes}} / {{required}} 分",
-            "differentAmbientSource": "周囲温度ソースがベースライン ({{source}}) と異なるため比較不可",
-            "differentAmbientSourceUnknown": "周囲温度ソースがベースラインと異なるため比較不可",
             "noAmbientPairing": "周囲温度とのペア成立なし",
             "missingValue": "比較保留"
           },
@@ -517,8 +515,7 @@
           "subtitle": "{{band}}帯域 · ベースライン {{baselineStart}}–{{baselineEnd}} vs 直近 {{recentStart}}–{{recentEnd}} · ペア成立 {{baseline}} / {{recent}} 分",
           "loadFailed": "共変量比較の取得に失敗しました。",
           "notComparable": {
-            "tooFewPairedMinutes": "比較不能 — いずれかの期間でペア成立した分が不足しています({{baseline}} / {{recent}} 分)",
-            "differentAmbientSource": "比較不能 — 直近期間の周囲温度ソースがベースラインと異なります"
+            "tooFewPairedMinutes": "比較不能 — いずれかの期間でペア成立した分が不足しています({{baseline}} / {{recent}} 分)"
           },
           "lead": {
             "deltaAtMatchedPower": "同じパッケージ電力で見ると、周囲温度との差はベースライン期間に対して {{delta}} です。",

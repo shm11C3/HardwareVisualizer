@@ -157,18 +157,6 @@ const WithheldReason = ({ reason }: { reason: LoadBandWithheldReason }) => {
     );
   }
 
-  if (reason.kind === "differentAmbientSource") {
-    return (
-      <span className="text-muted-foreground text-xs italic">
-        {reason.baselineSource != null
-          ? t(`${NOT_COMPARABLE_KEY}.differentAmbientSource`, {
-              source: reason.baselineSource,
-            })
-          : t(`${NOT_COMPARABLE_KEY}.differentAmbientSourceUnknown`)}
-      </span>
-    );
-  }
-
   return (
     <span className="text-muted-foreground text-xs italic">
       {t(`${NOT_COMPARABLE_KEY}.${reason.kind}`)}

@@ -161,7 +161,7 @@ describe("CovariateComparisonPanel", () => {
     resolveWith(
       established({
         comparable: false,
-        comparability: "differentAmbientSource",
+        comparability: "tooFewPairedMinutes",
         deltaAtBaselineMedianPower: null,
       }),
     );
@@ -171,7 +171,7 @@ describe("CovariateComparisonPanel", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId("cooling-covariate-not-comparable"),
-      ).toHaveTextContent(`${KEY}.notComparable.differentAmbientSource`);
+      ).toHaveTextContent(`${KEY}.notComparable.tooFewPairedMinutes`);
     });
     expect(screen.queryByTestId("cooling-covariate-lead")).toBeNull();
     expect(screen.queryByTestId("cooling-covariate-chart")).toBeNull();

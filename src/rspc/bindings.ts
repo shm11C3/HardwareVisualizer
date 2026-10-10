@@ -525,13 +525,11 @@ export type CoolingAmbientAdjustedBaselineDelta = {
  *  Why one band's two windows are, or are not, compared:
  *  `tooFewSampleMinutes` when one window carries fewer sample minutes
  *  than the band's `requiredSampleMinutes` (which side is short is read
- *  off the two window summaries beside it), `differentAmbientSource` when
- *  the recent window's ambient source is not the one the Thermal Delta
- *  Baseline was established from (#2062) - a reason that, unlike a thin
- *  window, does not resolve by waiting, which is why the frontend has to
- *  be told which one applies.
+ *  off the two window summaries beside it), so the frontend can say how
+ *  many minutes a short window still needs rather than only that it is
+ *  short.
  */
-export type CoolingBandComparability = "comparable" | "tooFewSampleMinutes" | "differentAmbientSource";
+export type CoolingBandComparability = "comparable" | "tooFewSampleMinutes";
 
 /**
  *  Cooling Insight's load-band comparison, gated by the same baseline
@@ -650,11 +648,12 @@ export type CoolingBaselineState = { status: "establishing"; qualifyingDays: num
  *  Why the two windows are, or are not, compared (#2068):
  *  `tooFewPairedMinutes` when one window carries fewer Thermal Delta
  *  paired minutes in the compared band than Core requires (including a
- *  recent window no source paired at all), `differentAmbientSource` when
- *  the recent window's dominant source is not the one the Thermal Delta
- *  Baseline was established from (#2062).
+ *  recent window no source paired at all). Both windows are always the
+ *  same ambient source once the comparison is established, because Core
+ *  resolves the baseline per recent source (#2062), so there is no
+ *  different-source reason.
  */
-export type CoolingCovariateComparability = "comparable" | "tooFewPairedMinutes" | "differentAmbientSource";
+export type CoolingCovariateComparability = "comparable" | "tooFewPairedMinutes";
 
 /**
  *  Cooling Insight's co-variate comparison for one CPU-load band
@@ -706,7 +705,7 @@ export type CoolingDailyTrendPoint = {
  *  whose environmental sensor arrived late is a different - often much
  *  later - range than the absolute baseline's.
  */
-export type CoolingDeltaBaselineState = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; source: string; deltaTemperatureAvg: number; windowStartDate: string; windowEndDate: string; sampleMinutes: number };
+export type CoolingDeltaBaselineState = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; deltaTemperatureAvg: number; windowStartDate: string; windowEndDate: string; sampleMinutes: number };
 
 /**
  *  Cooling Insight's read of the current idle-temperature drift. The
