@@ -11,7 +11,8 @@ import { toDisplayTemperature } from "./thermalTimeline";
  * How far short of Core's minimum each window is, in minutes. `0` on a
  * side means that side already has enough; the raw counts stay beside the
  * remainder so the panel can also say "12 / 30 min" for a window that
- * will not fill in on its own (the baseline window is fixed once pinned).
+ * will not fill in on its own (the idle baseline window is fixed once
+ * pinned, and the other bands' stop extending at Core's cap).
  */
 export type LoadBandShortfall = {
   required: number;
@@ -44,6 +45,33 @@ export type LoadBandDumbbellRow =
       recent: number;
       delta: number;
     };
+
+/** A calendar range of completed local days, inclusive, as ISO dates. */
+export type BaselineWindow = { startDate: string; endDate: string };
+
+/**
+ * The band's own baseline window when Core extended it past the pinned
+ * one (#2333), or `null` when the two agree and the header's range already
+ * says it. The idle band's is always the pinned window; a low, mid or
+ * high band that held too few minutes inside it reads a longer range, and
+ * the data-state row has to name that range or the header's dates would
+ * be claiming a window that band was not read over.
+ */
+export const extendedBaselineWindow = (
+  entry: Pick<
+    CoolingBandComparisonEntry,
+    "baselineWindowStartDate" | "baselineWindowEndDate"
+  >,
+  pinned: BaselineWindow,
+): BaselineWindow | null => {
+  const own = {
+    startDate: entry.baselineWindowStartDate,
+    endDate: entry.baselineWindowEndDate,
+  };
+  return own.startDate === pinned.startDate && own.endDate === pinned.endDate
+    ? null
+    : own;
+};
 
 const shortfall = (
   required: number,

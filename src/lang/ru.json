@@ -481,7 +481,8 @@
           },
           "absoluteTitle": "Температура ЦП",
           "ambientAdjustedTitle": "Превышение над температурой окружающей среды",
-          "window": "Базовая линия {{baselineStart}}–{{baselineEnd}} по сравнению с недавним периодом {{recentStart}}–{{recentEnd}}"
+          "window": "Базовая линия {{baselineStart}}–{{baselineEnd}} по сравнению с недавним периодом {{recentStart}}–{{recentEnd}}",
+          "extendedBaselineWindow": "{{band}}: базовый период {{baselineStart}}–{{baselineEnd}}"
         },
         "explorer": {
           "title": "Обозреватель «нагрузка × температура»",
@@ -555,6 +556,7 @@
           "title": "Состояние данных",
           "establishing": "Формирование базовой линии ({{qualifyingDays}} / {{requiredDays}} дн.)",
           "sampleMinutes": "Базовый период: {{baseline}} мин / недавний период: {{recent}} мин",
+          "sampleMinutesWithBaselineWindow": "Базовый период: {{baseline}} мин ({{baselineStart}}–{{baselineEnd}}) / недавний период: {{recent}} мин",
           "temperatureSource": {
             "label": "Источник температуры",
             "value": "Температура CPU (1 ряд данных)"

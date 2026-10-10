@@ -530,10 +530,12 @@ pub async fn delete_old_data(
 /// `preserved_windows`.
 ///
 /// `preserved_windows` is the pinned absolute idle baseline's calendar
-/// window. Once it ages past the retention cutoff, deleting its rows would
+/// window, widened by the caller to the furthest day a load band's
+/// baseline side may extend to (`cooling_rollup::retention_exempt_window`,
+/// #2333). Once it ages past the retention cutoff, deleting its rows would
 /// leave every baseline-side comparison permanently empty while the
 /// pinned baseline still claims that period as the reference, so it is
-/// exempt - at most a week of rows, kept for as long as the baseline it
+/// exempt - at most a month of rows, kept for as long as the baseline it
 /// backs. The ΔT baseline's window protects the row-per-source
 /// `cooling_thermal_delta_daily_summary` table the same way (#2062), not
 /// this one: nothing ΔT-related reads these rows any more.

@@ -318,10 +318,13 @@ impl From<CoreBandComparability> for CoolingBandComparability {
 /// both-sides-or-nothing rule as the absolute reading, against its own
 /// `requiredSampleMinutes` - Core's paired-minute minimum, carried so the
 /// frontend renders Core's number rather than hardcoding its own.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CoolingAmbientAdjustedBandComparison {
   pub baseline: CoolingBandDeltaWindowSummary,
+  /// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the Thermal Delta Baseline's own window for the idle band, and for the other bands that window extended forward over the same source's rows until it held `requiredSampleMinutes` paired minutes or reached Core's cap - so it can differ from the response-level ΔT baseline window and the frontend must not assume the two agree.
+  pub baseline_window_start_date: String,
+  pub baseline_window_end_date: String,
   pub recent: CoolingBandDeltaWindowSummary,
   pub comparability: CoolingBandComparability,
   pub required_sample_minutes: u32,
@@ -331,6 +334,8 @@ impl From<CoreAmbientAdjustedBandComparison> for CoolingAmbientAdjustedBandCompa
   fn from(value: CoreAmbientAdjustedBandComparison) -> Self {
     Self {
       baseline: value.baseline.into(),
+      baseline_window_start_date: format_date(value.baseline_window_start_date),
+      baseline_window_end_date: format_date(value.baseline_window_end_date),
       recent: value.recent.into(),
       comparability: value.comparability.into(),
       required_sample_minutes: COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES,
@@ -339,11 +344,14 @@ impl From<CoreAmbientAdjustedBandComparison> for CoolingAmbientAdjustedBandCompa
 }
 
 /// One CPU-load band's baseline-vs-recent comparison.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CoolingBandComparisonEntry {
   pub band: CoolingLoadBand,
   pub baseline: CoolingBandWindowSummary,
+  /// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the pinned baseline window for the idle band, and for the other bands that window extended forward from its start until it held `requiredSampleMinutes` of the band's minutes or reached Core's cap - so a band's own range can differ from the response-level `baselineWindow*Date`, and the frontend labels it when it does.
+  pub baseline_window_start_date: String,
+  pub baseline_window_end_date: String,
   pub recent: CoolingBandWindowSummary,
   pub comparability: CoolingBandComparability,
   /// Core's minimum sample minutes per window for this band, so the
@@ -364,6 +372,8 @@ impl From<CoreBandComparison> for CoolingBandComparisonEntry {
     Self {
       band: value.band.into(),
       baseline: value.baseline.into(),
+      baseline_window_start_date: format_date(value.baseline_window_start_date),
+      baseline_window_end_date: format_date(value.baseline_window_end_date),
       recent: value.recent.into(),
       comparability: value.comparability.into(),
       required_sample_minutes: COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES,
@@ -1251,6 +1261,8 @@ mod tests {
             temperature_avg: Some(30.0),
             sample_minutes: 210,
           },
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 7),
           recent: CoreBandWindowSummary {
             temperature_avg: Some(35.0),
             sample_minutes: 210,
@@ -1261,6 +1273,8 @@ mod tests {
               delta_avg: Some(8.0),
               sample_minutes: 210,
             },
+            baseline_window_start_date: date(2026, 6, 1),
+            baseline_window_end_date: date(2026, 6, 7),
             recent: CoreBandDeltaWindowSummary {
               delta_avg: Some(9.5),
               sample_minutes: 210,
@@ -1271,6 +1285,8 @@ mod tests {
         CoreBandComparison {
           band: CpuLoadBand::Low,
           baseline: CoreBandWindowSummary::default(),
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 30),
           recent: CoreBandWindowSummary::default(),
           comparability: CoreBandComparability::TooFewSampleMinutes,
           ambient_adjusted: None,
@@ -1278,6 +1294,8 @@ mod tests {
         CoreBandComparison {
           band: CpuLoadBand::Mid,
           baseline: CoreBandWindowSummary::default(),
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 30),
           recent: CoreBandWindowSummary::default(),
           comparability: CoreBandComparability::TooFewSampleMinutes,
           ambient_adjusted: None,
@@ -1285,6 +1303,8 @@ mod tests {
         CoreBandComparison {
           band: CpuLoadBand::High,
           baseline: CoreBandWindowSummary::default(),
+          baseline_window_start_date: date(2026, 1, 1),
+          baseline_window_end_date: date(2026, 1, 30),
           recent: CoreBandWindowSummary::default(),
           comparability: CoreBandComparability::TooFewSampleMinutes,
           ambient_adjusted: None,
@@ -1550,6 +1570,8 @@ mod tests {
         temperature_avg: Some(30.0),
         sample_minutes: 210,
       },
+      baseline_window_start_date: date(2026, 1, 1),
+      baseline_window_end_date: date(2026, 1, 7),
       recent: CoreBandWindowSummary {
         temperature_avg: Some(35.0),
         sample_minutes: 210,
@@ -1560,6 +1582,8 @@ mod tests {
           delta_avg: Some(8.0),
           sample_minutes: 210,
         },
+        baseline_window_start_date: date(2026, 9, 3),
+        baseline_window_end_date: date(2026, 9, 9),
         recent: CoreBandDeltaWindowSummary {
           delta_avg: Some(8.25),
           sample_minutes: 200,
@@ -1587,6 +1611,8 @@ mod tests {
         temperature_avg: Some(30.0),
         sample_minutes: 210,
       },
+      baseline_window_start_date: date(2026, 1, 1),
+      baseline_window_end_date: date(2026, 1, 7),
       recent: CoreBandWindowSummary {
         temperature_avg: Some(35.0),
         sample_minutes: 210,
@@ -1602,6 +1628,59 @@ mod tests {
     assert_eq!(json["recent"]["temperatureAvg"], 35.0);
     assert_eq!(json["comparability"], "comparable");
     assert_eq!(json["requiredSampleMinutes"], 30);
+  }
+
+  #[test]
+  fn a_band_carries_its_own_baseline_window_as_camel_case_iso_dates() {
+    // The #2333 case: the high band's baseline side extended past the
+    // pinned window on both readings. Each range crosses the wire beside
+    // the summary it was read over, formatted like every other date here,
+    // so the frontend can label a band whose range differs from the
+    // response-level one.
+    let core = CoreBandComparison {
+      band: CpuLoadBand::High,
+      baseline: CoreBandWindowSummary {
+        temperature_avg: Some(64.0),
+        sample_minutes: 62,
+      },
+      baseline_window_start_date: date(2026, 8, 22),
+      baseline_window_end_date: date(2026, 9, 21),
+      recent: CoreBandWindowSummary {
+        temperature_avg: Some(66.0),
+        sample_minutes: 80,
+      },
+      comparability: CoreBandComparability::Comparable,
+      ambient_adjusted: Some(CoreAmbientAdjustedBandComparison {
+        baseline: CoreBandDeltaWindowSummary {
+          delta_avg: Some(40.0),
+          sample_minutes: 52,
+        },
+        baseline_window_start_date: date(2026, 9, 3),
+        baseline_window_end_date: date(2026, 9, 16),
+        recent: CoreBandDeltaWindowSummary {
+          delta_avg: Some(42.0),
+          sample_minutes: 70,
+        },
+        comparability: CoreBandComparability::Comparable,
+      }),
+    };
+
+    let json = serde_json::to_value(CoolingBandComparisonEntry::from(core)).unwrap();
+
+    assert_eq!(json["baselineWindowStartDate"], "2026-08-22");
+    assert_eq!(json["baselineWindowEndDate"], "2026-09-21");
+    assert_eq!(
+      json["ambientAdjusted"]["baselineWindowStartDate"],
+      "2026-09-03"
+    );
+    assert_eq!(
+      json["ambientAdjusted"]["baselineWindowEndDate"],
+      "2026-09-16"
+    );
+    assert!(
+      json.get("baseline_window_start_date").is_none(),
+      "must not also serialize the snake_case field name"
+    );
   }
 
   // ── load-vs-temperature Explorer (#2023) ──
@@ -1672,6 +1751,8 @@ mod tests {
         temperature_avg: Some(30.0),
         sample_minutes: 4000,
       },
+      baseline_window_start_date: date(2026, 1, 1),
+      baseline_window_end_date: date(2026, 1, 7),
       recent: CoreBandWindowSummary {
         temperature_avg: Some(31.0),
         sample_minutes: 4000,
@@ -1682,6 +1763,8 @@ mod tests {
           delta_avg: Some(26.7),
           sample_minutes: 6705,
         },
+        baseline_window_start_date: date(2026, 9, 3),
+        baseline_window_end_date: date(2026, 9, 9),
         recent: CoreBandDeltaWindowSummary {
           delta_avg: Some(25.1),
           sample_minutes: 4300,

@@ -40,6 +40,7 @@ use tokio::sync::{oneshot, watch};
 use tokio::task::JoinHandle;
 use tokio::time::{MissedTickBehavior, interval};
 
+use crate::persistence::cooling_band_comparison::baseline_extension_cap_end;
 use crate::{log_error, log_info};
 
 /// Retention for `cooling_daily_summary` rows. Deliberately independent of
@@ -967,6 +968,25 @@ pub(crate) async fn persist_day_rollup_from_pool(
   tx.commit().await
 }
 
+/// The calendar range a pinned baseline window `(start, end)` protects
+/// from retention: `[start, baseline_extension_cap_end(start, end)]`.
+///
+/// Wider than the pinned window on purpose (#2333). A non-idle band's
+/// baseline side may extend forward from the pinned start up to the cap,
+/// and which day it actually ends on depends on the rows it finds there -
+/// so if retention took rows inside the cap, the band's window would land
+/// on a different day after cleanup than before, and the baseline side
+/// would drift exactly the way pinning exists to prevent. Protecting the
+/// whole cap rather than each band's current end keeps the exemption a
+/// fixed fact of the pinned window, computable from the pinned row alone,
+/// instead of a moving one that would have to be re-derived from the very
+/// rows it decides the fate of.
+pub(crate) fn retention_exempt_window(
+  (start, end): (NaiveDate, NaiveDate),
+) -> (NaiveDate, NaiveDate) {
+  (start, baseline_extension_cap_end(start, end))
+}
+
 /// Delete `cooling_daily_summary` and `cooling_hourly_summary` rows older
 /// than [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`]. Called from
 /// `crate::persistence::archive::cleanup_old_data` at the same
@@ -991,8 +1011,14 @@ pub(crate) async fn persist_day_rollup_from_pool(
 /// over `cooling_daily_summary` and `cooling_hourly_summary`, and the ΔT
 /// baseline's over `cooling_thermal_delta_daily_summary` - and they are
 /// generally *different* date ranges, because ambient collection tends to
-/// begin long after the machine did. Each exemption costs at most a week
-/// of rows.
+/// begin long after the machine did.
+///
+/// Each exemption is wider than the pinned window itself: it runs from the
+/// pinned start to [`baseline_extension_cap_end`], the furthest day a
+/// non-idle band's baseline side may extend to (#2333, see
+/// [`retention_exempt_window`]). Each costs at most
+/// [`COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS`](crate::persistence::cooling_band_comparison::COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS)
+/// days of rows per table, kept for as long as the baseline they back.
 pub async fn cleanup_old_data() {
   use crate::infrastructure::database::dispatch;
 
@@ -1002,7 +1028,7 @@ pub async fn cleanup_old_data() {
   let preserved_windows: Vec<_> =
     match dispatch::cooling_baseline::select_established_baseline().await {
       Ok(baseline) => baseline
-        .map(|b| (b.window_start_date, b.window_end_date))
+        .map(|b| retention_exempt_window((b.window_start_date, b.window_end_date)))
         .into_iter()
         .collect(),
       Err(e) => {
@@ -1017,7 +1043,7 @@ pub async fn cleanup_old_data() {
   let preserved_delta_windows: Vec<_> =
     match dispatch::cooling_delta_baseline::select_established_delta_baseline().await {
       Ok(baseline) => baseline
-        .map(|b| (b.window_start_date, b.window_end_date))
+        .map(|b| retention_exempt_window((b.window_start_date, b.window_end_date)))
         .into_iter()
         .collect(),
       Err(e) => {
@@ -1917,6 +1943,126 @@ mod tests {
       }),
       Some(date(2026, 8, 9))
     );
+  }
+
+  // ── retention exemption (#2333) ──
+
+  mod retention_exemption {
+    use super::*;
+    use crate::infrastructure::database::{
+      cooling_daily_summary, cooling_thermal_delta_daily_summary,
+    };
+    use crate::persistence::cooling_band_comparison::COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS;
+    use sqlx::SqlitePool;
+
+    /// A pinned window well in the past, so a zero-day retention would
+    /// take every row it does not protect.
+    const PINNED: (NaiveDate, NaiveDate) = (
+      NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+      NaiveDate::from_ymd_opt(2026, 1, 7).unwrap(),
+    );
+
+    fn cap_end() -> NaiveDate {
+      PINNED.0
+        + Duration::days(COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS as i64 - 1)
+    }
+
+    async fn insert_daily(pool: &SqlitePool, date: NaiveDate) {
+      sqlx::query(
+        "INSERT INTO cooling_daily_summary (date, coverage_minutes) VALUES ($1, 1440)",
+      )
+      .bind(date.format("%Y-%m-%d").to_string())
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    async fn daily_dates(pool: &SqlitePool) -> Vec<NaiveDate> {
+      cooling_daily_summary::select_all_daily_cooling_summaries_from_pool(pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|day| day.date)
+        .collect()
+    }
+
+    async fn insert_delta(pool: &SqlitePool, date: NaiveDate) {
+      sqlx::query(
+        "INSERT INTO cooling_thermal_delta_daily_summary (date, source, coverage_minutes)
+         VALUES ($1, 'Desk', 60)",
+      )
+      .bind(date.format("%Y-%m-%d").to_string())
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    async fn delta_dates(pool: &SqlitePool) -> Vec<NaiveDate> {
+      cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries_from_pool(
+        pool,
+      )
+      .await
+      .unwrap()
+      .into_iter()
+      .map(|day| day.date)
+      .collect()
+    }
+
+    #[test]
+    fn the_exempt_window_runs_from_the_pinned_start_to_the_extension_cap() {
+      assert_eq!(retention_exempt_window(PINNED), (PINNED.0, cap_end()));
+      assert_eq!(cap_end(), date(2026, 1, 30));
+      // A pinned window already wider than the cap keeps its own end.
+      let wide = (PINNED.0, date(2026, 2, 15));
+      assert_eq!(retention_exempt_window(wide), wide);
+    }
+
+    #[tokio::test]
+    async fn daily_rows_up_to_the_cap_survive_and_the_day_after_it_is_deleted() {
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_tables(&pool, &[COOLING_DAILY_SUMMARY_DDL]).await;
+      let past_cap = cap_end() + Duration::days(1);
+      for date in [PINNED.0, PINNED.1, cap_end(), past_cap] {
+        insert_daily(&pool, date).await;
+      }
+
+      cooling_daily_summary::delete_old_data_from_pool(
+        &pool,
+        0,
+        &[retention_exempt_window(PINNED)],
+      )
+      .await
+      .unwrap();
+
+      assert_eq!(
+        daily_dates(&pool).await,
+        vec![PINNED.0, PINNED.1, cap_end()],
+        "the day after the cap is the first one retention may take"
+      );
+    }
+
+    #[tokio::test]
+    async fn delta_rows_up_to_the_cap_survive_and_the_day_after_it_is_deleted() {
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_tables(&pool, &[COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL]).await;
+      let past_cap = cap_end() + Duration::days(1);
+      for date in [PINNED.0, PINNED.1, cap_end(), past_cap] {
+        insert_delta(&pool, date).await;
+      }
+
+      cooling_thermal_delta_daily_summary::delete_old_data_from_pool(
+        &pool,
+        0,
+        &[retention_exempt_window(PINNED)],
+      )
+      .await
+      .unwrap();
+
+      assert_eq!(
+        delta_dates(&pool).await,
+        vec![PINNED.0, PINNED.1, cap_end()]
+      );
+    }
   }
 
   // ── persist_day_rollup_from_pool ──

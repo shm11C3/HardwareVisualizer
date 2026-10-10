@@ -7,6 +7,7 @@ import { resolveBaselineLifecycle } from "../utils/baselineLifecycle";
 import {
   buildAmbientAdjustedDumbbellRows,
   buildLoadBandDumbbellRows,
+  extendedBaselineWindow,
   type LoadBandDumbbellRow,
 } from "../utils/loadBandDumbbell";
 import { groupSensorNotices, type SensorNotice } from "../utils/sensorNotice";
@@ -181,6 +182,23 @@ const ComparisonVariants = ({
 }) => {
   const { t } = useTranslation();
   const ambientBaseline = bandComparison.ambientAdjustedBaseline;
+  // A band whose ΔT baseline side was read over a longer range than the
+  // header's window (#2333) names that range, for the same reason the
+  // data-state rows name the absolute one: the header's dates must never be
+  // presented as the range a band was actually read over.
+  const extendedAmbientWindows =
+    ambientBaseline.status === "established"
+      ? bandComparison.bands.flatMap((entry) => {
+          const extended =
+            entry.ambientAdjusted == null
+              ? null
+              : extendedBaselineWindow(entry.ambientAdjusted, {
+                  startDate: ambientBaseline.windowStartDate,
+                  endDate: ambientBaseline.windowEndDate,
+                });
+          return extended == null ? [] : [{ band: entry.band, ...extended }];
+        })
+      : [];
 
   return (
     <div className="space-y-4">
@@ -219,6 +237,22 @@ const ComparisonVariants = ({
                 requiredDays: ambientBaseline.requiredDays,
               })}
         </p>
+        {extendedAmbientWindows.map(({ band, startDate, endDate }) => (
+          <p
+            key={band}
+            className="text-muted-foreground text-xs"
+            data-testid="cooling-load-band-ambient-extended-window"
+          >
+            {t(
+              "pages.insights.cooling.loadBandComparison.extendedBaselineWindow",
+              {
+                band: t(`pages.insights.cooling.loadBands.${band}`),
+                baselineStart: startDate,
+                baselineEnd: endDate,
+              },
+            )}
+          </p>
+        ))}
         <LoadBandDumbbellChart
           rows={ambientRows}
           temperatureUnit={temperatureUnit}
@@ -259,25 +293,45 @@ const DataStateDetails = ({
   );
   const ambientMinutes = ambientPairedMinutes(bandComparison);
   const sensorNoticeGroups = groupSensorNotices(powerNotice, fanNotice);
+  // The window the chart header labels. A band read over a longer range
+  // (#2333) names its own beside its counts, so the header's dates are
+  // never presented as the range that band was actually read over.
+  const pinnedWindow = {
+    startDate: bandComparison.baselineWindowStartDate,
+    endDate: bandComparison.baselineWindowEndDate,
+  };
 
   return (
     <dl className="space-y-1.5 text-xs">
-      {bandComparison.bands.map((entry) => (
-        <div
-          key={entry.band}
-          className="flex items-center justify-between gap-2"
-        >
-          <dt className="text-muted-foreground">
-            {t(`pages.insights.cooling.loadBands.${entry.band}`)}
-          </dt>
-          <dd className="font-mono tabular-nums">
-            {t("pages.insights.cooling.dataState.sampleMinutes", {
-              baseline: entry.baseline.sampleMinutes,
-              recent: entry.recent.sampleMinutes,
-            })}
-          </dd>
-        </div>
-      ))}
+      {bandComparison.bands.map((entry) => {
+        const extended = extendedBaselineWindow(entry, pinnedWindow);
+        return (
+          <div
+            key={entry.band}
+            className="flex items-center justify-between gap-2"
+          >
+            <dt className="text-muted-foreground">
+              {t(`pages.insights.cooling.loadBands.${entry.band}`)}
+            </dt>
+            <dd className="font-mono tabular-nums">
+              {extended == null
+                ? t("pages.insights.cooling.dataState.sampleMinutes", {
+                    baseline: entry.baseline.sampleMinutes,
+                    recent: entry.recent.sampleMinutes,
+                  })
+                : t(
+                    "pages.insights.cooling.dataState.sampleMinutesWithBaselineWindow",
+                    {
+                      baseline: entry.baseline.sampleMinutes,
+                      baselineStart: extended.startDate,
+                      baselineEnd: extended.endDate,
+                      recent: entry.recent.sampleMinutes,
+                    },
+                  )}
+            </dd>
+          </div>
+        );
+      })}
       <div className="flex items-center justify-between gap-2 border-t pt-1.5">
         <dt className="text-muted-foreground">
           {t("pages.insights.cooling.dataState.temperatureSource.label")}

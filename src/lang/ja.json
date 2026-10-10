@@ -491,7 +491,8 @@
           },
           "absoluteTitle": "CPU 温度",
           "ambientAdjustedTitle": "周囲温度との差",
-          "window": "ベースライン {{baselineStart}}–{{baselineEnd}} vs 直近 {{recentStart}}–{{recentEnd}}"
+          "window": "ベースライン {{baselineStart}}–{{baselineEnd}} vs 直近 {{recentStart}}–{{recentEnd}}",
+          "extendedBaselineWindow": "{{band}}: ベースラインは {{baselineStart}}–{{baselineEnd}} で集計"
         },
         "explorer": {
           "title": "負荷 × 温度 Explorer",
@@ -565,6 +566,7 @@
           "title": "データ状態",
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
           "sampleMinutes": "ベースライン: {{baseline}} 分 / 直近: {{recent}} 分",
+          "sampleMinutesWithBaselineWindow": "ベースライン: {{baseline}} 分 ({{baselineStart}}–{{baselineEnd}}) / 直近: {{recent}} 分",
           "temperatureSource": {
             "label": "温度ソース",
             "value": "CPU 温度(1 系統)"
