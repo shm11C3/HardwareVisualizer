@@ -16,12 +16,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { minOpacity } from "@/consts/style";
+import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { ProcessInfo } from "@/rspc/bindings";
-import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
-import { useProcessInfo } from "../../hooks/useProcessInfo";
 
 export const ProcessesTable = ({
   headingStyle = "card",

@@ -1,9 +1,12 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arraySwap } from "@dnd-kit/sortable";
 import { useEffect } from "react";
+import {
+  type DashboardItemType,
+  dashBoardItems,
+} from "@/features/hardware/dashboard/types/dashboardItem";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
-import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
-import { type DashboardItemType, dashBoardItems } from "../types/dashboardItem";
 
 const DEFAULT_DASHBOARD_ITEMS = [...dashBoardItems];
 

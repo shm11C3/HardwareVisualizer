@@ -9,7 +9,7 @@ import {
 import {
   type ArchivePeriod,
   normalizeArchivePeriod,
-} from "../utils/archivePeriod";
+} from "@/features/hardware/insights/utils/archivePeriod";
 
 export const SelectPeriod = ({
   options,

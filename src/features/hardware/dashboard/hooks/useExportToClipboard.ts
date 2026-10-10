@@ -2,9 +2,9 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { atom, useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
-import { useProcessInfo } from "../../hooks/useProcessInfo";
-import { processorsUsageHistoryAtom } from "../../store/chart";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
+import { processorsUsageHistoryAtom } from "@/features/hardware/store/chart";
 
 const disabledProcessorsUsageHistoryAtom = atom<number[][]>([]);
 

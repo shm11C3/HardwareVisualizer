@@ -1,25 +1,19 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type {
-  CoolingBaselineState,
-  CoolingDailyTrendPoint,
-  CoolingFanTrendSeries,
-} from "@/rspc/bindings";
-import type { CoolingArchiveTimeline } from "../hooks/useCoolingArchiveTimeline";
+import type { CoolingArchiveTimeline } from "@/features/hardware/insights/cooling/hooks/useCoolingArchiveTimeline";
 import {
   buildAmbientLaneRows,
   computeAmbientDomain,
-} from "../utils/ambientTimeline";
-import type { CoolingPeriodRoute } from "../utils/coolingPeriodRoute";
+} from "@/features/hardware/insights/cooling/utils/ambientTimeline";
+import type { CoolingPeriodRoute } from "@/features/hardware/insights/cooling/utils/coolingPeriodRoute";
 import {
   buildFanLaneRows,
   computeFanDomain,
   resolveFanSeries,
   toArchiveFanSeries,
   toDailyFanSeries,
-} from "../utils/fanTimeline";
+} from "@/features/hardware/insights/cooling/utils/fanTimeline";
 import {
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
@@ -30,7 +24,13 @@ import {
   hasRecordedLoad,
   resolveBaselineBand,
   type ThermalTimelineRow,
-} from "../utils/thermalTimeline";
+} from "@/features/hardware/insights/cooling/utils/thermalTimeline";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type {
+  CoolingBaselineState,
+  CoolingDailyTrendPoint,
+  CoolingFanTrendSeries,
+} from "@/rspc/bindings";
 import { type LoadLaneMode, TimelineLanes } from "./TimelineLanes";
 
 // Day keys are UTC-midnight anchored (`${isoDate}T00:00:00Z`); the labels

@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
-import type { ArchiveSeriesPoint } from "@/rspc/bindings";
-import type { ProcessStat } from "../../types/processStats";
 import {
   getArchivedRecord,
   getProcessStatsInPeriod,
-} from "../funcs/getArchivedRecord";
-import type { SnapshotPeriod, UsageRange } from "../types/snapshotType";
+} from "@/features/hardware/insights/snapshot/funcs/getArchivedRecord";
+import type {
+  SnapshotPeriod,
+  UsageRange,
+} from "@/features/hardware/insights/snapshot/types/snapshotType";
+import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
+import type { ArchiveSeriesPoint } from "@/rspc/bindings";
 
 export const useSnapshot = () => {
   const { hardwareInfo } = useHardwareInfoAtom();

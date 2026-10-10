@@ -1,7 +1,6 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { useCallback, useEffect, useRef } from "react";
-import { useTauriStore } from "@/hooks/useTauriStore";
 import {
   DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
   DEFAULT_PERFORMANCE_PANEL_COLUMNS,
@@ -16,7 +15,8 @@ import {
   type PerformancePowerMode,
   type PerformanceView,
   performanceCustomLayoutsEqual,
-} from "../types/performanceLayout";
+} from "@/features/hardware/performance/types/performanceLayout";
+import { useTauriStore } from "@/hooks/useTauriStore";
 
 const reportCustomLayoutPersistenceError = (error: unknown) => {
   console.error("Failed to persist custom Performance layout:", error);

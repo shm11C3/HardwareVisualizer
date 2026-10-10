@@ -1,5 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { groupSensorNotices, type SensorNotice } from "../utils/sensorNotice";
+import {
+  groupSensorNotices,
+  type SensorNotice,
+} from "@/features/hardware/insights/cooling/utils/sensorNotice";
 
 /** Zone (3): explain omitted power/fan lanes using the cause we can prove. */
 export const SensorStatusNote = ({

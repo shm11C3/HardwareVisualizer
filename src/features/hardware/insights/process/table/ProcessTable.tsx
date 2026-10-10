@@ -4,10 +4,10 @@ import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
+import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useStickyObserver } from "@/hooks/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
-import type { ProcessStat } from "../../types/processStats";
 
 export const ProcessTable = ({
   processStats,

@@ -285,7 +285,7 @@
                       "@/app/**",
                       "@/App",
                       "@/lazyScreens",
-                      // "../**", -- pending S1 (#2325)
+                      "../**",
                       "jotai/**",
                       "!@/features/settings/**" // pending S3 (#2325): delete this exemption
                     ]
@@ -385,7 +385,7 @@
                       "@/app/**",
                       "@/App",
                       "@/lazyScreens",
-                      // "../**", -- pending S1 (#2325)
+                      "../**",
                       "jotai/**",
                       "!@/features/hardware/**",
                       "!@/features/settings/**" // pending S3 (#2325): delete this exemption
@@ -437,7 +437,7 @@
                       "@/app/**",
                       "@/App",
                       "@/lazyScreens",
-                      // "../**", -- pending S1 (#2325)
+                      "../**",
                       "jotai/**",
                       "!@/features/hardware/store/**",
                       "!@/features/hardware/**/types",
@@ -564,7 +564,7 @@
                       "@/app/**",
                       "@/App",
                       "@/lazyScreens",
-                      // "../**", -- pending S1 (#2325)
+                      "../**",
                       "jotai/**",
                       "!@/features/settings/**",
                       "!@/features/hardware/**", // pending S2 (#2325): delete this exemption

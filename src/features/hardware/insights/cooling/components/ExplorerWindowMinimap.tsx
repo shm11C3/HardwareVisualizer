@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import {
   type ExplorerMinimapSegment,
   explorerWindowColors,
-} from "../utils/loadTemperatureExplorer";
+} from "@/features/hardware/insights/cooling/utils/loadTemperatureExplorer";
 
 /**
  * A read-only strip showing where the two compared periods sit on a shared

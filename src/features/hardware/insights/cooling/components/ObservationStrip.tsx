@@ -6,20 +6,20 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
+import {
+  daysInclusive,
+  type ObservationDisplay,
+  resolveAmbientAdjustedDisplay,
+  resolveObservationDisplay,
+} from "@/features/hardware/insights/cooling/utils/observationDisplay";
+import { formatSignedTemperatureDelta } from "@/features/hardware/insights/cooling/utils/temperatureUnit";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type {
   CoolingBaselineDelta,
   CoolingBaselineState,
   TemperatureUnit,
 } from "@/rspc/bindings";
-import { resolveBaselineLifecycle } from "../utils/baselineLifecycle";
-import {
-  daysInclusive,
-  type ObservationDisplay,
-  resolveAmbientAdjustedDisplay,
-  resolveObservationDisplay,
-} from "../utils/observationDisplay";
-import { formatSignedTemperatureDelta } from "../utils/temperatureUnit";
 
 const TONE_DOT_CLASSES: Record<ObservationDisplay["tone"], string> = {
   muted: "bg-muted-foreground",

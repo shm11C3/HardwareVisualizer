@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { TemperatureUnit } from "@/rspc/bindings";
 import {
   type LoadBandDumbbellRow,
   type LoadBandWithheldReason,
   positionPercent,
-} from "../utils/loadBandDumbbell";
-import { formatSignedTemperatureDelta } from "../utils/temperatureUnit";
-import { computeSignedTemperatureDomain } from "../utils/thermalTimeline";
+} from "@/features/hardware/insights/cooling/utils/loadBandDumbbell";
+import { formatSignedTemperatureDelta } from "@/features/hardware/insights/cooling/utils/temperatureUnit";
+import { computeSignedTemperatureDomain } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
+import type { TemperatureUnit } from "@/rspc/bindings";
 
 const NOT_COMPARABLE_KEY =
   "pages.insights.cooling.loadBandComparison.notComparable";

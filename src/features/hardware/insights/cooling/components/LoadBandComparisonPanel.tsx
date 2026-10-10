@@ -1,16 +1,19 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { CoolingBandComparison, TemperatureUnit } from "@/rspc/bindings";
-import { resolveBaselineLifecycle } from "../utils/baselineLifecycle";
+import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
 import {
   buildAmbientAdjustedDumbbellRows,
   buildLoadBandDumbbellRows,
   extendedBaselineWindow,
   type LoadBandDumbbellRow,
-} from "../utils/loadBandDumbbell";
-import { groupSensorNotices, type SensorNotice } from "../utils/sensorNotice";
+} from "@/features/hardware/insights/cooling/utils/loadBandDumbbell";
+import {
+  groupSensorNotices,
+  type SensorNotice,
+} from "@/features/hardware/insights/cooling/utils/sensorNotice";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { CoolingBandComparison, TemperatureUnit } from "@/rspc/bindings";
 import { LoadBandDumbbellChart } from "./LoadBandDumbbellChart";
 
 type EstablishedComparison = Extract<

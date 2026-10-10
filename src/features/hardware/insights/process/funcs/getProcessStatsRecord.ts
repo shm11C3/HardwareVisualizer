@@ -1,10 +1,10 @@
-import { commands } from "@/rspc/bindings";
-import { isError } from "@/types/result";
-import type { ProcessStat } from "../../types/processStats";
+import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 import {
   type ArchivePeriod,
   coercePeriodMinutes,
-} from "../../utils/archivePeriod";
+} from "@/features/hardware/insights/utils/archivePeriod";
+import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 
 /**
  *

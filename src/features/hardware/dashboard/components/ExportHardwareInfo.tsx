@@ -1,6 +1,6 @@
 import { ClipboardTextIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
-import { useExportToClipboard } from "../hooks/useExportToClipboard";
+import { useExportToClipboard } from "@/features/hardware/dashboard/hooks/useExportToClipboard";
 
 export const ExportHardwareInfo = ({
   includeRuntimeStats = true,

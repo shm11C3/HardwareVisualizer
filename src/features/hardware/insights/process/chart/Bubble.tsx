@@ -10,7 +10,7 @@ import {
   ZAxis,
 } from "recharts";
 import { bubbleChartColor } from "@/features/hardware/consts/chart";
-import type { ProcessStat } from "../../types/processStats";
+import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 import { CustomTooltip } from "./components/CustomTooltip";
 import { useScatterChartZoom } from "./hooks/useScatterChartZoom";
 

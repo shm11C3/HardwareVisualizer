@@ -3,9 +3,9 @@ import {
   type archivePeriods,
   chartConfig,
 } from "@/features/hardware/consts/chart";
+import { getProcessStats } from "@/features/hardware/insights/process/funcs/getProcessStatsRecord";
+import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import type { ProcessStat } from "../../types/processStats";
-import { getProcessStats } from "../funcs/getProcessStatsRecord";
 import { useProcessStatsAtom } from "./useProcessStatsAtom";
 
 export const useProcessStats = ({

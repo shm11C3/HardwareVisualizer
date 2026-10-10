@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import type { DashboardItemType } from "../types/dashboardItem";
+import type { DashboardItemType } from "@/features/hardware/dashboard/types/dashboardItem";
 
 export const SortableItem = ({
   id,

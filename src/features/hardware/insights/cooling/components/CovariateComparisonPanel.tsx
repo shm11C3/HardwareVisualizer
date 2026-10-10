@@ -1,14 +1,8 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type {
-  CoolingCovariateComparability,
-  CoolingLoadBand,
-  TemperatureUnit,
-} from "@/rspc/bindings";
-import { useCoolingCovariateComparison } from "../hooks/useCoolingCovariateComparison";
-import { resolveBaselineLifecycle } from "../utils/baselineLifecycle";
+import { useCoolingCovariateComparison } from "@/features/hardware/insights/cooling/hooks/useCoolingCovariateComparison";
+import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
 import {
   buildCovariateLead,
   buildCovariateRows,
@@ -17,7 +11,13 @@ import {
   type CovariateTag,
   type EstablishedCovariateComparison,
   temperatureUnitSuffix,
-} from "../utils/covariateComparison";
+} from "@/features/hardware/insights/cooling/utils/covariateComparison";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type {
+  CoolingCovariateComparability,
+  CoolingLoadBand,
+  TemperatureUnit,
+} from "@/rspc/bindings";
 import { CovariateFitChart } from "./CovariateFitChart";
 
 /**

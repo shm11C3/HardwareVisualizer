@@ -25,9 +25,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { minOpacity } from "@/consts/style";
+import {
+  buildStorageHealthSummary,
+  formatStorageHealthMetricValue,
+  type StorageHealthDeviceViewModel,
+  type StorageHealthMetric,
+  type StorageHealthSummaryViewModel,
+} from "@/features/hardware/dashboard/utils/storageHealthSummary";
 import { findInventoryGpu, toLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
@@ -61,14 +69,6 @@ import type {
 } from "@/rspc/bindings";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
-import { useProcessInfo } from "../../hooks/useProcessInfo";
-import {
-  buildStorageHealthSummary,
-  formatStorageHealthMetricValue,
-  type StorageHealthDeviceViewModel,
-  type StorageHealthMetric,
-  type StorageHealthSummaryViewModel,
-} from "../utils/storageHealthSummary";
 import { MiniLineChart } from "./MiniLineChart";
 import { StorageHealthStatusIcon } from "./StorageHealthStatusIcon";
 

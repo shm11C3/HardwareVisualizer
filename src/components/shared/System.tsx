@@ -1,8 +1,6 @@
 import { useSetAtom } from "jotai";
 import type { Dispatch, SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
-import { commands } from "@/rspc/bindings";
-import { settingAtoms } from "@/store/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +10,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../ui/alert-dialog";
+} from "@/components/ui/alert-dialog";
+import { commands } from "@/rspc/bindings";
+import { settingAtoms } from "@/store/ui";
 
 export const NeedRestart = ({
   alertOpen,

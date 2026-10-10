@@ -7,9 +7,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
+import { SnapshotIcon } from "@/features/hardware/insights/icons/snapshot";
+import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { ChartDataType } from "../../types/hardwareDataType";
-import { SnapshotIcon } from "../icons/snapshot";
 import { ProcessHistoryTable } from "./components/ProcessHistoryTable";
 import { SnapshotChart } from "./components/SnapshotChart";
 import { SnapshotControls } from "./components/SnapshotControls";

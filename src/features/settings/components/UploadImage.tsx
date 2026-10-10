@@ -4,7 +4,7 @@ import {
   UploadSimpleIcon,
 } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../../components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -13,9 +13,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form";
-import { Input } from "../../../components/ui/input";
-import { useUploadImage } from "../hooks/useUploadImageForm";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useUploadImage } from "@/features/settings/hooks/useUploadImageForm";
 
 export const UploadImage = () => {
   const { form, picture, onSubmit, isSubmitting, fileName, displayUrl } =
