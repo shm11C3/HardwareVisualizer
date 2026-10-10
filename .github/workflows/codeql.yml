@@ -40,7 +40,12 @@ jobs:
     #   - https://gh.io/supported-runners-and-hardware-resources
     #   - https://gh.io/using-larger-runners (GitHub.com only)
     # Consider using larger runners or machines with greater resources for possible analysis time improvements.
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    # Measured experiment: query evaluation dominates the Rust job and the arm64
+    # standard runner is free for public repositories. Compare the "Running
+    # queries" and "Finalizing" phase durations with the x64 numbers (252 s and
+    # 45 s). The first run is cold for rust-cache and sccache, which are
+    # architecture-specific.
+    runs-on: ${{ matrix.language == 'rust' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
       security-events: write
