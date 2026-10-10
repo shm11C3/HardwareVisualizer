@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  type archivePeriods,
-  chartConfig,
-} from "@/features/hardware/consts/chart";
+import { chartConfig } from "@/consts/chart";
+import type { archivePeriods } from "@/features/hardware/consts/chart";
 import { getProcessStats } from "@/features/hardware/insights/process/funcs/getProcessStatsRecord";
 import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 import { useTauriDialog } from "@/hooks/useTauriDialog";

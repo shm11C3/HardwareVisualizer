@@ -1,5 +1,5 @@
-import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
-import type { Settings } from "@/features/settings/types/settingsType";
+import type { TemperatureUnit } from "@/rspc/bindings";
+import type { HardwareDataType } from "@/types/chart";
 
 /**
  * The gauge sweeps a full turn at 100. Temperatures are plotted on the same
@@ -16,7 +16,7 @@ export const gaugeFraction = ({
   chartValue: number;
   dataType: HardwareDataType;
   usagePercentage?: number | undefined;
-  temperatureUnit: Settings["temperatureUnit"];
+  temperatureUnit: TemperatureUnit;
 }): number => {
   const scaled = (() => {
     if (dataType === "memoryUsageValue") {

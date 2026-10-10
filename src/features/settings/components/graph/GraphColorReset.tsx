@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { defaultColorRGB } from "@/features/hardware/consts/chart";
-import { chartHardwareTypes } from "@/features/hardware/types/hardwareDataType";
+import { defaultColorRGB } from "@/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { RGB2HEX } from "@/lib/color";
+import { chartHardwareTypes } from "@/types/chart";
 
 export const GraphColorReset = () => {
   const { updateLineGraphColorAtom } = useSettingsAtom();

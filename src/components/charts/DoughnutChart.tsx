@@ -12,11 +12,11 @@ import {
 } from "@/components/charts/gaugeGeometry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
-import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { Settings } from "@/features/settings/types/settingsType";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
+import type { TemperatureUnit } from "@/rspc/bindings";
+import type { HardwareDataType } from "@/types/chart";
 
 type DoughnutChartProps =
   | {
@@ -67,7 +67,7 @@ const dataTypeColors: Record<HardwareDataType, string> = {
 
 const dataType2Units = (
   dataType: Exclude<HardwareDataType, "memoryUsageValue">,
-  temperatureUnit: Settings["temperatureUnit"],
+  temperatureUnit: TemperatureUnit,
 ) => {
   const units = {
     usage: "%",

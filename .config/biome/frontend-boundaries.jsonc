@@ -236,7 +236,6 @@
                       "@/lazyScreens",
                       "../**",
                       "jotai/**",
-                      "!@/features/hardware/**", // pending S2 (#2325): delete this exemption
                       "!@/features/settings/**" // pending S3 (#2325): delete this exemption
                     ]
                   }
@@ -567,7 +566,7 @@
                       "../**",
                       "jotai/**",
                       "!@/features/settings/**",
-                      "!@/features/hardware/**", // pending S2 (#2325): delete this exemption
+                      "!@/features/hardware/**", // pending S3 (#2325): delete this exemption
                       "!@/features/menu/**" // pending S5 (#2325): delete this exemption
                     ]
                   }
@@ -628,8 +627,7 @@
                       "!@/features/settings/**/utils/**",
                       "!@/features/settings/**/funcs",
                       "!@/features/settings/**/funcs/**",
-                      "!@/features/settings/**/hooks/**",
-                      "!@/features/hardware/**" // pending S2 (#2325): delete this exemption
+                      "!@/features/settings/**/hooks/**"
                     ]
                   }
                 ],

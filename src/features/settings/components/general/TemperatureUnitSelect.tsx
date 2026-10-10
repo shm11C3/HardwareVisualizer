@@ -10,14 +10,14 @@ import {
 } from "@/components/ui/select";
 import { gpuTempAtom } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { Settings } from "@/features/settings/types/settingsType";
+import type { TemperatureUnit } from "@/rspc/bindings";
 
 export const TemperatureUnitSelect = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
   const setData = useSetAtom(gpuTempAtom);
 
-  const changeTemperatureUnit = async (value: Settings["temperatureUnit"]) => {
+  const changeTemperatureUnit = async (value: TemperatureUnit) => {
     await updateSettingAtom("temperatureUnit", value);
     setData([]);
   };

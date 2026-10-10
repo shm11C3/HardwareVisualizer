@@ -4,9 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { sizeOptions } from "@/features/hardware/consts/chart";
+import { sizeOptions } from "@/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { Settings } from "@/features/settings/types/settingsType";
 import { cn } from "@/lib/utils";
 import { GraphMarginInput } from "./GraphMarginInput";
 
@@ -18,9 +17,7 @@ export const GraphSizeSlider = () => {
   // The fixed size steps are meaningless while graphs follow the window size
   const disabled = settings.graphFitToWindow;
 
-  const sizeIndex = sizeOptions.indexOf(
-    settings.graphSize as Settings["graphSize"],
-  );
+  const sizeIndex = sizeOptions.indexOf(settings.graphSize);
 
   const changeGraphSize = async (value: number[]) => {
     await updateSettingAtom("graphSize", sizeOptions[value[0]]);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { chartConfig } from "@/features/hardware/consts/chart";
+import { chartConfig } from "@/consts/chart";
 import type { CoolingArchivePeriod } from "@/features/hardware/insights/cooling/utils/coolingPeriodRoute";
 import type { ArchiveTimelineSeries } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
 import { useTauriDialog } from "@/hooks/useTauriDialog";

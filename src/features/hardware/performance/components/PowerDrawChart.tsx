@@ -10,7 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { chartConfig } from "@/features/hardware/consts/chart";
+import { chartConfig } from "@/consts/chart";
 import {
   type PowerDrawHistory,
   powerDrawHistoryAtom,

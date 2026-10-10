@@ -18,12 +18,10 @@ import {
   GpuInsightChart,
   InsightChart,
 } from "@/features/hardware/insights/components/InsightChart";
-import type {
-  DataStats,
-  GpuDataType,
-} from "@/features/hardware/types/hardwareDataType";
+import type { DataStats } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
+import type { GpuDataType } from "@/types/chart";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { CoolingInsightView } from "./cooling/CoolingInsightView";
 import { SnapshotIcon } from "./icons/snapshot";
