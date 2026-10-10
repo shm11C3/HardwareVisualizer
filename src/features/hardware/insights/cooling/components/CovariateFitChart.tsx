@@ -8,13 +8,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { TemperatureUnit } from "@/rspc/bindings";
 import {
   type FitLineChart,
   fitLineColors,
   temperatureUnitSuffix,
-} from "../utils/covariateComparison";
-import { computeSignedTemperatureDomain } from "../utils/thermalTimeline";
+} from "@/features/hardware/insights/cooling/utils/covariateComparison";
+import { computeSignedTemperatureDomain } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
+import type { TemperatureUnit } from "@/rspc/bindings";
 
 /**
  * ΔT against package power for the compared band: each window's

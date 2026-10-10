@@ -14,10 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { CoolingLoadTemperatureExplorer } from "@/rspc/bindings";
-import { useCoolingLoadTemperatureExplorer } from "../hooks/useCoolingLoadTemperatureExplorer";
-import { resolveBaselineLifecycle } from "../utils/baselineLifecycle";
+import { useCoolingLoadTemperatureExplorer } from "@/features/hardware/insights/cooling/hooks/useCoolingLoadTemperatureExplorer";
+import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
 import {
   buildExplorerBandDeltaRows,
   buildExplorerMedianTrend,
@@ -27,8 +25,10 @@ import {
   type ExplorerRecentDays,
   explorerRecentDayPresets,
   isExplorerRecentDays,
-} from "../utils/loadTemperatureExplorer";
-import { formatSignedTemperatureDelta } from "../utils/temperatureUnit";
+} from "@/features/hardware/insights/cooling/utils/loadTemperatureExplorer";
+import { formatSignedTemperatureDelta } from "@/features/hardware/insights/cooling/utils/temperatureUnit";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { CoolingLoadTemperatureExplorer } from "@/rspc/bindings";
 import { ExplorerWindowMinimap } from "./ExplorerWindowMinimap";
 import { LoadTemperatureScatterChart } from "./LoadTemperatureScatterChart";
 

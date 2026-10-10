@@ -11,7 +11,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import type { SnapshotPeriod, UsageRange } from "../types/snapshotType";
+import type {
+  SnapshotPeriod,
+  UsageRange,
+} from "@/features/hardware/insights/snapshot/types/snapshotType";
 
 export const SelectPeriod = ({
   period,

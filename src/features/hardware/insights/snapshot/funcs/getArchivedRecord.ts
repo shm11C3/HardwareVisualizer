@@ -1,6 +1,6 @@
+import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 import { type ArchiveSeriesPoint, commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
-import type { ProcessStat } from "../../types/processStats";
 
 export const getArchivedRecord = async (
   hardwareType: "cpu" | "ram",

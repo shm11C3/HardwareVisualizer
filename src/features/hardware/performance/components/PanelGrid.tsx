@@ -27,16 +27,16 @@ import { useAtomValue } from "jotai";
 import { GripVerticalIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
-import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
-import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { cn } from "@/lib/utils";
 import type {
   PerformanceCustomLayout,
   PerformancePanelColumns,
   PerformancePanelId,
   PerformancePowerMode,
-} from "../types/performanceLayout";
+} from "@/features/hardware/performance/types/performanceLayout";
+import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
+import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import { MotherboardSensorsPanel } from "./MotherboardSensorsPanel";
 import { PerCorePanel } from "./PerCorePanel";
 import { PowerDisplayModeSwitcher } from "./PowerDisplayModeSwitcher";

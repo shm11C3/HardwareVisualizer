@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { archivePeriods } from "@/features/hardware/consts/chart";
+import { SelectPeriod } from "@/features/hardware/insights/components/SelectPeriod";
 import { useTauriStore } from "@/hooks/useTauriStore";
-import { archivePeriods } from "../../consts/chart";
-import { SelectPeriod } from "../components/SelectPeriod";
 import { ProcessBubbleChart } from "./chart/Bubble";
 import { useProcessStats } from "./hooks/useProcessStats";
 import { ProcessTable } from "./table/ProcessTable";

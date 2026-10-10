@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/features/hardware/consts/chart";
+import { useGpuNames } from "@/features/hardware/hooks/useGpuNames";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   GpuInsightChart,
@@ -23,7 +24,6 @@ import type {
 } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
-import { useGpuNames } from "../hooks/useGpuNames";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { CoolingInsightView } from "./cooling/CoolingInsightView";
 import { SnapshotIcon } from "./icons/snapshot";

@@ -16,19 +16,19 @@ import {
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart";
-import type { TemperatureUnit } from "@/rspc/bindings";
-import type { AmbientLaneRow } from "../utils/ambientTimeline";
+import type { AmbientLaneRow } from "@/features/hardware/insights/cooling/utils/ambientTimeline";
 import {
   type FanLaneRow,
   type FanSeries,
   fanColor,
   fanDataKey,
-} from "../utils/fanTimeline";
+} from "@/features/hardware/insights/cooling/utils/fanTimeline";
 import {
   type BaselineBand,
   hasRecordedLoad,
   type ThermalTimelineRow,
-} from "../utils/thermalTimeline";
+} from "@/features/hardware/insights/cooling/utils/thermalTimeline";
+import type { TemperatureUnit } from "@/rspc/bindings";
 
 /**
  * What the lower lane shows, which differs by period because the two data

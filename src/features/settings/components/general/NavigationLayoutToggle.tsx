@@ -7,7 +7,7 @@ import { navigationLayoutFocusRequestedAtom } from "@/features/menu/hooks/useMen
 import {
   navigationMutationPendingAtom,
   useSettingsAtom,
-} from "../../hooks/useSettingsAtom";
+} from "@/features/settings/hooks/useSettingsAtom";
 
 export const NavigationLayoutToggle = () => {
   const { t } = useTranslation();

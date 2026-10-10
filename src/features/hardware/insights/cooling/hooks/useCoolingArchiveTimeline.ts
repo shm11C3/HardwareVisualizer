@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
+import type { CoolingArchivePeriod } from "@/features/hardware/insights/cooling/utils/coolingPeriodRoute";
+import type { ArchiveTimelineSeries } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   type AmbientArchiveSeries,
@@ -8,8 +10,6 @@ import {
   type FanArchiveSeries,
 } from "@/rspc/bindings";
 import { isError } from "@/types/result";
-import type { CoolingArchivePeriod } from "../utils/coolingPeriodRoute";
-import type { ArchiveTimelineSeries } from "../utils/thermalTimeline";
 
 /**
  * Bucket width per period, in multiples of the archive write interval. Same

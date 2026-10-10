@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { useTauriStore } from "@/hooks/useTauriStore";
-import { useTitleIconVisualSelector } from "@/hooks/useTitleIconVisualSelector";
 import {
   type DashboardSelectItemType,
   dashBoardItems,
-} from "../types/dashboardItem";
+} from "@/features/hardware/dashboard/types/dashboardItem";
+import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTitleIconVisualSelector } from "@/hooks/useTitleIconVisualSelector";
 
 const DEFAULT_VISIBLE_ITEMS: DashboardSelectItemType[] = [
   ...dashBoardItems,

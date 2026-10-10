@@ -2,13 +2,13 @@ import { ChartLineUpIcon, LightningIcon } from "@phosphor-icons/react";
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { cn } from "@/lib/utils";
 import {
   type PerformancePowerMode,
   performancePowerModes,
-} from "../types/performanceLayout";
+} from "@/features/hardware/performance/types/performanceLayout";
+import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 
 const modeIcons = {
   current: <LightningIcon />,

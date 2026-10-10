@@ -4,16 +4,16 @@ import { useTranslation } from "react-i18next";
 import { LineChartComponent } from "@/components/charts/LineChart";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { InfoTable } from "@/components/shared/InfoTable";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { transpose } from "@/lib/array";
-import { cn } from "@/lib/utils";
-import { chartConfig } from "../../consts/chart";
-import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
-import { useProcessInfo } from "../../hooks/useProcessInfo";
+import { chartConfig } from "@/features/hardware/consts/chart";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import {
   cpuUsageHistoryAtom,
   processorsUsageHistoryAtom,
-} from "../../store/chart";
+} from "@/features/hardware/store/chart";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { transpose } from "@/lib/array";
+import { cn } from "@/lib/utils";
 
 /** Right-align a partially filled per-core history against the chart window. */
 const padHistory = (data: number[]): (number | null)[] =>

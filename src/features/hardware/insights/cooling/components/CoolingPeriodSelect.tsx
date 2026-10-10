@@ -10,7 +10,7 @@ import {
   type CoolingInsightPeriod,
   coolingInsightPeriods,
   isCoolingInsightPeriod,
-} from "../types";
+} from "@/features/hardware/insights/cooling/types";
 
 /**
  * The Cooling tab's single top-of-view period selector (#2018). Replaces the

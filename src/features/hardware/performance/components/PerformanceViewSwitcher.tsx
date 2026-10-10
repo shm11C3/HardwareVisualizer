@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type PerformanceView,
   performanceViews,
-} from "../types/performanceLayout";
+} from "@/features/hardware/performance/types/performanceLayout";
 
 const viewIcons = {
   panels: <SquaresFourIcon />,

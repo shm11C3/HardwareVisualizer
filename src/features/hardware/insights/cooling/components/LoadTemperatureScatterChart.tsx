@@ -10,15 +10,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { TemperatureUnit } from "@/rspc/bindings";
 import {
   cpuLoadAxisDomain,
   cpuLoadBandDividers,
   type ExplorerMedianPoint,
   type ExplorerScatterPoint,
   explorerWindowColors,
-} from "../utils/loadTemperatureExplorer";
-import { computeAdaptiveTemperatureDomain } from "../utils/thermalTimeline";
+} from "@/features/hardware/insights/cooling/utils/loadTemperatureExplorer";
+import { computeAdaptiveTemperatureDomain } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
+import type { TemperatureUnit } from "@/rspc/bindings";
 
 /**
  * The Explorer's scatter: one dot per recorded hour, two windows overlaid,

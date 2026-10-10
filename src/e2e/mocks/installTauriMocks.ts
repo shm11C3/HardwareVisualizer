@@ -1,10 +1,5 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import type {
-  ArchiveBucketTimestamp,
-  DatabaseConversionState,
-  HardwareMonitorUpdate,
-} from "@/rspc/bindings";
-import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
+import { buildArchiveSeries, buildProcessStats } from "@/e2e/fixtures/archive";
 import {
   buildAmbientArchiveSeriesFixture,
   buildCoolingDailyTrendFixture,
@@ -25,7 +20,7 @@ import {
   coolingCovariateComparisonNoAmbientFixture,
   coolingLoadTemperatureExplorerEstablishingFixture,
   coolingLoadTemperatureExplorerFixture,
-} from "../fixtures/cooling";
+} from "@/e2e/fixtures/cooling";
 import {
   buildHardwareUpdateSeries,
   buildStorageHealthFixture,
@@ -34,9 +29,14 @@ import {
   processListFixture,
   storageHealthFixture,
   sysInfoFixture,
-} from "../fixtures/hardware";
-import { settingsFixture } from "../fixtures/settings";
-import { storeFixture } from "../fixtures/store";
+} from "@/e2e/fixtures/hardware";
+import { settingsFixture } from "@/e2e/fixtures/settings";
+import { storeFixture } from "@/e2e/fixtures/store";
+import type {
+  ArchiveBucketTimestamp,
+  DatabaseConversionState,
+  HardwareMonitorUpdate,
+} from "@/rspc/bindings";
 
 declare global {
   interface Window {

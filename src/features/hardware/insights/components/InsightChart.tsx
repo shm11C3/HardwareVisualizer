@@ -3,14 +3,14 @@ import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { archivePeriods } from "@/features/hardware/consts/chart";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { useInsightChart } from "@/features/hardware/insights/hooks/useInsightChart";
 import type {
   DataStats,
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
-import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
-import { useInsightChart } from "../hooks/useInsightChart";
 
 export const InsightChart = ({
   hardwareType,

@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
+import { buildCoverageCells } from "@/features/hardware/insights/cooling/utils/coverageStrip";
 import type { CoolingDailyTrendPoint } from "@/rspc/bindings";
-import { buildCoverageCells } from "../utils/coverageStrip";
 
 /**
  * Zone (4): a self-drawn day-by-day coverage strip (one cell per day,

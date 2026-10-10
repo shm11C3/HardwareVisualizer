@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type PerformancePanelColumns,
   performancePanelColumnOptions,
-} from "../types/performanceLayout";
+} from "@/features/hardware/performance/types/performanceLayout";
 
 const columnIcons = {
   1: <RowsIcon />,

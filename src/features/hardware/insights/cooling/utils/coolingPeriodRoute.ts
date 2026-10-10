@@ -1,5 +1,5 @@
+import type { CoolingInsightPeriod } from "@/features/hardware/insights/cooling/types";
 import type { ArchivePeriod } from "@/features/hardware/insights/utils/archivePeriod";
-import type { CoolingInsightPeriod } from "../types";
 
 /**
  * Where a selected Cooling Insight period gets its data from:

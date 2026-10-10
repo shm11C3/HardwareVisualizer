@@ -1,5 +1,5 @@
 import { atom, useAtom } from "jotai";
-import type { ProcessStat } from "../../types/processStats";
+import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 
 const processStatsAtom = atom<ProcessStat[] | null>(null);
 
