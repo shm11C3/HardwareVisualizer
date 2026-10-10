@@ -481,7 +481,8 @@
           },
           "absoluteTitle": "Температура ЦП",
           "ambientAdjustedTitle": "Превышение над температурой окружающей среды",
-          "window": "Базовая линия {{baselineStart}}–{{baselineEnd}} по сравнению с недавним периодом {{recentStart}}–{{recentEnd}}"
+          "window": "Базовая линия {{baselineStart}}–{{baselineEnd}} по сравнению с недавним периодом {{recentStart}}–{{recentEnd}}",
+          "extendedBaselineWindow": "{{band}}: базовый период {{baselineStart}}–{{baselineEnd}}"
         },
         "explorer": {
           "title": "Обозреватель «нагрузка × температура»",

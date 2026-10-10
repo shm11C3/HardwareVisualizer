@@ -526,7 +526,10 @@ extends its baseline side forward from the pinned end, one completed day at a
 time, until its own minutes reach the band minimum (#2333); the first day on
 or after the pinned end at which they do ends that band's window. The
 extension is forward only (the days before the window are the ones that did
-not qualify), never past the most recent completed day, and capped at
+not qualify), never into the recent window - it stops the day before the
+recent window starts, so the two sides of a comparison never share a day, and
+a pinned window that already reaches the recent window is not extended - and
+capped at
 `cooling_band_comparison::COOLING_BAND_BASELINE_EXTENSION_MAX_CALENDAR_DAYS`
 (30 inclusive calendar days from the pinned start): a band that took months
 to accrue 30 minutes was not a baseline-era observation, and an uncapped

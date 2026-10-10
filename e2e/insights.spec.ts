@@ -226,6 +226,11 @@ test.describe("insights captures", () => {
     ).toBeVisible();
     await expect(panel.getByText(/2025-11-01.+2025-11-14/)).toBeVisible();
     await expect(panel.getByText(/2025-12-01.+2025-12-14/)).toBeVisible();
+    // The mid band's ΔT baseline side ran past that window (#2333), so it
+    // names its own range rather than borrowing the header's.
+    await expect(
+      panel.getByTestId("cooling-load-band-ambient-extended-window"),
+    ).toHaveText("Mid: baseline read over 2025-12-01–2025-12-19");
     // The mid band has ambient data but too thin a window, and the high
     // band never paired at all: both stay honestly not comparable, each
     // for its own stated reason, and the thin one says how far short the

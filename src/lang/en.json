@@ -491,7 +491,8 @@
           },
           "absoluteTitle": "CPU temperature",
           "ambientAdjustedTitle": "Above ambient temperature",
-          "window": "Baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}}"
+          "window": "Baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}}",
+          "extendedBaselineWindow": "{{band}}: baseline read over {{baselineStart}}–{{baselineEnd}}"
         },
         "explorer": {
           "title": "Load × Temperature Explorer",

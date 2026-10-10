@@ -78,8 +78,10 @@ pub const COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES: u32 = 30;
 /// bursty band that fills in within a few weeks of the install) and short
 /// enough that a band still thin at the cap is reported as what it is:
 /// [`BandComparability::TooFewSampleMinutes`], with its real counts, over
-/// `[baseline_start, cap]`. Never extended past the most recent completed
-/// day either; a day with no rollup row contributes nothing.
+/// `[baseline_start, cap]`. Never extended into the recent window either:
+/// the walk stops the day before it starts, so the baseline and recent
+/// sides of one comparison never read the same day. A day with no rollup
+/// row contributes nothing.
 ///
 /// The retention cleanup exempts the same `[baseline_start, cap]` range
 /// (see [`baseline_extension_cap_end`]), because an extended baseline side
@@ -323,6 +325,11 @@ pub fn derive_band_comparison(
 
   let recent_start =
     window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+  // An extended baseline side stops the day before the recent window
+  // starts, so the two sides of one comparison never share a day: a band
+  // that only fills in during the recent window would otherwise be
+  // compared partly with itself.
+  let extension_ceiling = recent_start - Duration::days(1);
   // Note the *ΔT* baseline's own source and window, not the absolute
   // window above: the two are different date ranges whenever ambient
   // collection started later than the machine did.
@@ -347,8 +354,12 @@ pub fn derive_band_comparison(
   .map(|band| {
     // The pinned window for idle; for the other bands, the pinned window
     // extended forward until it holds enough of their minutes (#2333).
-    let (band_baseline_start, band_baseline_end) =
-      band_baseline_window(days, band, (baseline_start, baseline_end), window_end_date);
+    let (band_baseline_start, band_baseline_end) = band_baseline_window(
+      days,
+      band,
+      (baseline_start, baseline_end),
+      extension_ceiling,
+    );
     let baseline =
       band_window_summary(days, band, band_baseline_start, band_baseline_end);
     let recent = band_window_summary(days, band, recent_start, window_end_date);
@@ -367,7 +378,7 @@ pub fn derive_band_comparison(
           band,
           (baseline_source, baseline_window),
           (recent_delta_source, (recent_start, window_end_date)),
-          window_end_date,
+          extension_ceiling,
         )
       }),
     }
@@ -402,8 +413,10 @@ fn band_summary_for(day: &DailyCoolingSummary, band: CpuLoadBand) -> &BandSummar
 /// days after `pinned_end` are taken in date order and the first one at
 /// which the running total reaches the minimum ends the window. A band
 /// that never gets there ends at the limit: [`baseline_extension_cap_end`]
-/// of the pinned window, or `window_end_date` when yesterday comes
-/// sooner - the window can only ever be made of completed days.
+/// of the pinned window, or `extension_ceiling` - the day before the
+/// recent window starts - when that comes sooner, so an extended
+/// baseline never reads a day the recent side also summarizes. A pinned
+/// window that already reaches the ceiling is not extended at all.
 ///
 /// Rows are bucketed by date rather than trusted to arrive sorted, so the
 /// answer does not depend on the order a query happened to return them
@@ -413,10 +426,10 @@ fn extended_baseline_end(
   day_minutes: impl IntoIterator<Item = (NaiveDate, u32)>,
   minimum_sample_minutes: u32,
   (pinned_start, pinned_end): (NaiveDate, NaiveDate),
-  window_end_date: NaiveDate,
+  extension_ceiling: NaiveDate,
 ) -> NaiveDate {
   let limit = baseline_extension_cap_end(pinned_start, pinned_end)
-    .min(window_end_date)
+    .min(extension_ceiling)
     .max(pinned_end);
   let minimum = minimum_sample_minutes as u64;
 
@@ -454,7 +467,7 @@ fn band_baseline_window(
   days: &[DailyCoolingSummary],
   band: CpuLoadBand,
   pinned: (NaiveDate, NaiveDate),
-  window_end_date: NaiveDate,
+  extension_ceiling: NaiveDate,
 ) -> (NaiveDate, NaiveDate) {
   if band == CpuLoadBand::Idle {
     return pinned;
@@ -466,7 +479,7 @@ fn band_baseline_window(
     }),
     COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES,
     pinned,
-    window_end_date,
+    extension_ceiling,
   );
   (pinned.0, end)
 }
@@ -481,7 +494,7 @@ fn band_delta_baseline_window(
   source: &str,
   band: CpuLoadBand,
   pinned: (NaiveDate, NaiveDate),
-  window_end_date: NaiveDate,
+  extension_ceiling: NaiveDate,
 ) -> (NaiveDate, NaiveDate) {
   if band == CpuLoadBand::Idle {
     return pinned;
@@ -496,7 +509,7 @@ fn band_delta_baseline_window(
       }),
     COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES,
     pinned,
-    window_end_date,
+    extension_ceiling,
   );
   (pinned.0, end)
 }
@@ -611,14 +624,14 @@ fn ambient_adjusted_band_comparison(
   band: CpuLoadBand,
   (baseline_source, pinned_baseline_window): (&str, (NaiveDate, NaiveDate)),
   (recent_source, recent_window): (Option<&str>, (NaiveDate, NaiveDate)),
-  window_end_date: NaiveDate,
+  extension_ceiling: NaiveDate,
 ) -> Option<AmbientAdjustedBandComparison> {
   let (baseline_start, baseline_end) = band_delta_baseline_window(
     days,
     baseline_source,
     band,
     pinned_baseline_window,
-    window_end_date,
+    extension_ceiling,
   );
   let baseline =
     band_delta_window_summary(days, baseline_source, band, baseline_start, baseline_end);
@@ -1684,15 +1697,16 @@ mod tests {
   }
 
   #[test]
-  fn the_extension_never_crosses_the_most_recent_completed_day() {
-    // Yesterday comes before the cap: the window may run up to it and no
-    // further, whatever a (here impossible) later row would have held.
+  fn the_extension_stops_the_day_before_the_recent_window() {
+    // The band only fills in *inside* the recent window (Aug 14-20). The
+    // baseline side may run up to Aug 13 and no further: reading Aug 16 on
+    // both sides would compare a stretch of days with itself.
     let pinned = (date(2026, 8, 1), date(2026, 8, 7));
-    let yesterday = date(2026, 8, 10);
+    let yesterday = date(2026, 8, 20);
     let days = vec![
       idle_day(pinned.0, 30.0, 60),
       high_day(date(2026, 8, 3), 60.0, 12),
-      high_day(date(2026, 8, 12), 64.0, 40),
+      high_day(date(2026, 8, 16), 64.0, 40),
     ];
 
     let high = band_comparison(
@@ -1711,10 +1725,45 @@ mod tests {
         high.baseline_window_start_date,
         high.baseline_window_end_date
       ),
-      (pinned.0, yesterday)
+      (pinned.0, date(2026, 8, 13))
     );
     assert_eq!(high.baseline.sample_minutes, 12);
+    assert_eq!(high.recent.sample_minutes, 40);
     assert_eq!(high.comparability, BandComparability::TooFewSampleMinutes);
+  }
+
+  #[test]
+  fn a_pinned_window_that_already_reaches_the_recent_window_is_not_extended() {
+    // A fresh install: the recent window (Aug 4-10) starts inside the
+    // pinned one. There is no day left to extend into, so the band keeps
+    // the pinned window exactly as before #2333.
+    let pinned = (date(2026, 8, 1), date(2026, 8, 7));
+    let yesterday = date(2026, 8, 10);
+    let days = vec![
+      idle_day(pinned.0, 30.0, 60),
+      high_day(date(2026, 8, 3), 60.0, 12),
+      high_day(date(2026, 8, 9), 64.0, 40),
+    ];
+
+    let high = band_comparison(
+      derive_band_comparison(
+        &days,
+        &[],
+        established_baseline(pinned.0, pinned.1),
+        establishing_delta_baseline(),
+        yesterday,
+      ),
+      CpuLoadBand::High,
+    );
+
+    assert_eq!(
+      (
+        high.baseline_window_start_date,
+        high.baseline_window_end_date
+      ),
+      pinned
+    );
+    assert_eq!(high.baseline.sample_minutes, 12);
   }
 
   #[test]

@@ -182,6 +182,23 @@ const ComparisonVariants = ({
 }) => {
   const { t } = useTranslation();
   const ambientBaseline = bandComparison.ambientAdjustedBaseline;
+  // A band whose ΔT baseline side was read over a longer range than the
+  // header's window (#2333) names that range, for the same reason the
+  // data-state rows name the absolute one: the header's dates must never be
+  // presented as the range a band was actually read over.
+  const extendedAmbientWindows =
+    ambientBaseline.status === "established"
+      ? bandComparison.bands.flatMap((entry) => {
+          const extended =
+            entry.ambientAdjusted == null
+              ? null
+              : extendedBaselineWindow(entry.ambientAdjusted, {
+                  startDate: ambientBaseline.windowStartDate,
+                  endDate: ambientBaseline.windowEndDate,
+                });
+          return extended == null ? [] : [{ band: entry.band, ...extended }];
+        })
+      : [];
 
   return (
     <div className="space-y-4">
@@ -220,6 +237,22 @@ const ComparisonVariants = ({
                 requiredDays: ambientBaseline.requiredDays,
               })}
         </p>
+        {extendedAmbientWindows.map(({ band, startDate, endDate }) => (
+          <p
+            key={band}
+            className="text-muted-foreground text-xs"
+            data-testid="cooling-load-band-ambient-extended-window"
+          >
+            {t(
+              "pages.insights.cooling.loadBandComparison.extendedBaselineWindow",
+              {
+                band: t(`pages.insights.cooling.loadBands.${band}`),
+                baselineStart: startDate,
+                baselineEnd: endDate,
+              },
+            )}
+          </p>
+        ))}
         <LoadBandDumbbellChart
           rows={ambientRows}
           temperatureUnit={temperatureUnit}
