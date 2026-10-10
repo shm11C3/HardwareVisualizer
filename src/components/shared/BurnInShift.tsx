@@ -1,6 +1,6 @@
 import { type CSSProperties, type ReactNode, useRef } from "react";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useBurnInShift } from "@/hooks/useBurnInShift";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 
 export const BurnInShift = ({

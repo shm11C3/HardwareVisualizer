@@ -7,7 +7,7 @@ import {
   motherboardTempsAtom,
 } from "@/features/hardware/store/chart";
 import type { FanSpeedStatus } from "@/features/hardware/types/hardwareDataType";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 
 /**
  * Live Super I/O readings on the Performance Tab. The static motherboard

@@ -22,10 +22,10 @@ import { NsisMigrationNoticeDialog } from "@/components/shared/NsisMigrationNoti
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useSelectedStorageDevicePersistence } from "@/features/hardware/hooks/useSelectedStorageDevicePersistence";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
-import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useColorTheme } from "./hooks/useColorTheme";
 import { useDocumentVisibilityClass } from "./hooks/useDocumentVisibilityClass";

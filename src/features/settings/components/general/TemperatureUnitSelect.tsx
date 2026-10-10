@@ -1,4 +1,3 @@
-import { useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import {
@@ -8,18 +7,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { gpuTempAtom } from "@/features/hardware/store/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import type { TemperatureUnit } from "@/rspc/bindings";
 
 export const TemperatureUnitSelect = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
-  const setData = useSetAtom(gpuTempAtom);
 
   const changeTemperatureUnit = async (value: TemperatureUnit) => {
     await updateSettingAtom("temperatureUnit", value);
-    setData([]);
   };
 
   return (

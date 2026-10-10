@@ -1,85 +1,21 @@
-import { atom, useAtom } from "jotai";
+import { useAtom, useStore } from "jotai";
 import { useCallback } from "react";
-import { defaultColorRGB } from "@/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   type ClientSettings,
   commands,
   type LineGraphColorStringSettings,
 } from "@/rspc/bindings";
+import {
+  getPowerDisplayTargetMutationState,
+  navigationMutationPendingAtom,
+  settingsAtom,
+} from "@/store/settings";
 import type { ChartDataType } from "@/types/chart";
 import type { Result } from "@/types/result";
 import { isError } from "@/types/result";
 
-const settingsAtom = atom<ClientSettings>({
-  version: "0.0.0",
-  language: "en",
-  theme: "system",
-  navigationLayout: "grouped",
-  uiAnnouncementVersion: 0,
-  currentUiAnnouncementVersion: 0,
-  displayTargets: [],
-  powerDisplayTargets: ["cpu", "gpu", "package"],
-  graphSize: "xl",
-  graphFitToWindow: false,
-  graphMarginPx: 32,
-  lineGraphType: "default",
-  lineGraphBorder: true,
-  lineGraphFill: true,
-  lineGraphColor: {
-    cpu: `rgb(${defaultColorRGB.cpu})`,
-    memory: `rgb(${defaultColorRGB.memory})`,
-    gpu: `rgb(${defaultColorRGB.gpu})`,
-  },
-  lineGraphMix: true,
-  lineGraphShowLegend: true,
-  lineGraphShowScale: false,
-  lineGraphShowTooltip: true,
-  backgroundImgOpacity: 50,
-  selectedBackgroundImg: null,
-  transparentUi: false,
-  windowOpacity: 86,
-  glassBlur: 10,
-  temperatureUnit: "C",
-  hardwareArchive: {
-    enabled: true,
-    scheduledDataDeletion: true,
-    retentionDays: 30,
-  },
-  storageHealth: {
-    enabled: true,
-    retentionDays: 1095,
-  },
-  environmentalSensors: {
-    switchbotMeterEnabled: false,
-  },
-  burnInShift: false,
-  burnInShiftPreset: "aggressive",
-  burnInShiftMode: "jump",
-  burnInShiftIdleOnly: false,
-  burnInShiftOptions: null,
-  textSelectable: false,
-  closeToTray: false,
-  closeToTrayChoiceMade: false,
-  nsisMigrationNoticeDismissed: false,
-  externalComponentGuidance: {
-    acknowledgedKeys: [],
-  },
-  elevatedStartupMode: false,
-  trayWidget: {
-    enabled: false,
-    metricOrder: ["cpu", "gpu", "gpu-temp"],
-    visibleMetrics: ["cpu", "gpu", "gpu-temp"],
-    updateIntervalSecs: 1,
-  },
-});
-
-export const navigationMutationPendingAtom = atom(false);
-let navigationMutationInFlight = false;
 type PowerDisplayTargets = ClientSettings["powerDisplayTargets"];
-let desiredPowerDisplayTargets: PowerDisplayTargets | null = null;
-let persistedPowerDisplayTargets: PowerDisplayTargets | null = null;
-let powerDisplayTargetMutation: Promise<boolean> | null = null;
 
 const samePowerDisplayTargets = (
   left: PowerDisplayTargets,
@@ -90,6 +26,7 @@ const samePowerDisplayTargets = (
 
 export const useSettingsAtom = () => {
   const { error } = useTauriDialog();
+  const store = useStore();
   const mapSettingUpdater: {
     [K in keyof Omit<
       ClientSettings,
@@ -139,9 +76,6 @@ export const useSettingsAtom = () => {
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);
-  const [, setNavigationMutationPending] = useAtom(
-    navigationMutationPendingAtom,
-  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
   const loadSettings = useCallback(async () => {
@@ -227,65 +161,61 @@ export const useSettingsAtom = () => {
   const togglePowerDisplayTarget = async (
     target: ClientSettings["powerDisplayTargets"][number],
   ) => {
-    if (desiredPowerDisplayTargets === null) {
-      desiredPowerDisplayTargets = [...settings.powerDisplayTargets];
-      persistedPowerDisplayTargets = [...settings.powerDisplayTargets];
+    const mutation = getPowerDisplayTargetMutationState(store);
+    if (mutation.desired === null) {
+      mutation.desired = [...settings.powerDisplayTargets];
+      mutation.persisted = [...settings.powerDisplayTargets];
     }
 
-    desiredPowerDisplayTargets = desiredPowerDisplayTargets.includes(target)
-      ? desiredPowerDisplayTargets.filter((value) => value !== target)
-      : [...desiredPowerDisplayTargets, target];
+    mutation.desired = mutation.desired.includes(target)
+      ? mutation.desired.filter((value) => value !== target)
+      : [...mutation.desired, target];
     setSettings((prev) => ({
       ...prev,
-      powerDisplayTargets:
-        desiredPowerDisplayTargets ?? prev.powerDisplayTargets,
+      powerDisplayTargets: mutation.desired ?? prev.powerDisplayTargets,
     }));
 
-    if (powerDisplayTargetMutation === null) {
-      powerDisplayTargetMutation = (async () => {
+    if (mutation.inFlight === null) {
+      mutation.inFlight = (async () => {
         while (
-          desiredPowerDisplayTargets !== null &&
-          persistedPowerDisplayTargets !== null &&
-          !samePowerDisplayTargets(
-            desiredPowerDisplayTargets,
-            persistedPowerDisplayTargets,
-          )
+          mutation.desired !== null &&
+          mutation.persisted !== null &&
+          !samePowerDisplayTargets(mutation.desired, mutation.persisted)
         ) {
-          const nextTargets = [...desiredPowerDisplayTargets];
+          const nextTargets = [...mutation.desired];
           const result = await commands.setPowerDisplayTargets(nextTargets);
           if (isError(result)) {
             await error(result.error);
             console.error(result.error);
-            const rollbackTargets = persistedPowerDisplayTargets;
+            const rollbackTargets = mutation.persisted;
             setSettings((prev) => ({
               ...prev,
               powerDisplayTargets: rollbackTargets,
             }));
-            desiredPowerDisplayTargets = null;
-            persistedPowerDisplayTargets = null;
-            powerDisplayTargetMutation = null;
+            mutation.desired = null;
+            mutation.persisted = null;
+            mutation.inFlight = null;
             return false;
           }
-          persistedPowerDisplayTargets = nextTargets;
+          mutation.persisted = nextTargets;
         }
 
-        desiredPowerDisplayTargets = null;
-        persistedPowerDisplayTargets = null;
-        powerDisplayTargetMutation = null;
+        mutation.desired = null;
+        mutation.persisted = null;
+        mutation.inFlight = null;
         return true;
       })();
     }
 
-    return powerDisplayTargetMutation;
+    return mutation.inFlight;
   };
 
   const setNavigationLayoutAtom = async (
     value: ClientSettings["navigationLayout"],
   ) => {
-    if (navigationMutationInFlight) return false;
+    if (store.get(navigationMutationPendingAtom)) return false;
 
-    navigationMutationInFlight = true;
-    setNavigationMutationPending(true);
+    store.set(navigationMutationPendingAtom, true);
     const previousLayout = settings.navigationLayout;
     const previousAnnouncementVersion = settings.uiAnnouncementVersion;
     const announcementVersion =
@@ -326,16 +256,14 @@ export const useSettingsAtom = () => {
       }));
       throw err;
     } finally {
-      navigationMutationInFlight = false;
-      setNavigationMutationPending(false);
+      store.set(navigationMutationPendingAtom, false);
     }
   };
 
   const acknowledgeNavigationRestructureAnnouncementAtom = async () => {
-    if (navigationMutationInFlight) return false;
+    if (store.get(navigationMutationPendingAtom)) return false;
 
-    navigationMutationInFlight = true;
-    setNavigationMutationPending(true);
+    store.set(navigationMutationPendingAtom, true);
     const previousValue = settings.uiAnnouncementVersion;
     setSettings((prev) => ({
       ...prev,
@@ -368,8 +296,7 @@ export const useSettingsAtom = () => {
       }));
       throw err;
     } finally {
-      navigationMutationInFlight = false;
-      setNavigationMutationPending(false);
+      store.set(navigationMutationPendingAtom, false);
     }
   };
 

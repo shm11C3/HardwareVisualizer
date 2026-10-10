@@ -3,7 +3,7 @@ import { BurnInShift } from "@/components/shared/BurnInShift";
 import { PreviewChart } from "@/features/settings/components/Preview";
 import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
 import { UploadImage } from "@/features/settings/components/UploadImage";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { BackgroundOpacitySlider } from "./BackgroundOpacitySlider";
 import { GraphColorSettings } from "./GraphColorSettings";
 import { GraphSizeSlider } from "./GraphSizeSlider";

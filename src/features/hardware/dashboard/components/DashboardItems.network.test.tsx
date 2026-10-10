@@ -16,7 +16,7 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
   }),
 }));
 
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
       selectedBackgroundImg: null,

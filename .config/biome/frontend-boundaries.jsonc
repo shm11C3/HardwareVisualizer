@@ -25,7 +25,6 @@
         "!src/**/*.test.tsx",
         // Process-wide handle to the Tauri Store plugin, not application state.
         "!src/lib/tauriStore.ts",
-        "!src/features/settings/hooks/useSettingsAtom.ts", // pending S3 (#2325)
         "!src/features/settings/hooks/useDatabaseConversion.ts" // pending S5 (#2325)
       ],
       "plugins": ["./.config/biome/no-module-scope-let.grit"]
@@ -144,8 +143,7 @@
                       "@/App",
                       "@/lazyScreens",
                       "../**",
-                      "jotai/**",
-                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                      "jotai/**"
                     ]
                   }
                 ],
@@ -235,8 +233,7 @@
                       "@/App",
                       "@/lazyScreens",
                       "../**",
-                      "jotai/**",
-                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                      "jotai/**"
                     ]
                   }
                 ],
@@ -285,8 +282,7 @@
                       "@/App",
                       "@/lazyScreens",
                       "../**",
-                      "jotai/**",
-                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                      "jotai/**"
                     ]
                   }
                 ],
@@ -386,8 +382,7 @@
                       "@/lazyScreens",
                       "../**",
                       "jotai/**",
-                      "!@/features/hardware/**",
-                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                      "!@/features/hardware/**"
                     ]
                   }
                 ],
@@ -448,8 +443,7 @@
                       "!@/features/hardware/**/funcs",
                       "!@/features/hardware/**/funcs/**",
                       "!@/features/hardware/**/hooks/**",
-                      "!@/features/hardware/gpuIdentity",
-                      "!@/features/settings/**" // pending S3 (#2325): delete this exemption
+                      "!@/features/hardware/gpuIdentity"
                     ]
                   }
                 ],
@@ -566,7 +560,6 @@
                       "../**",
                       "jotai/**",
                       "!@/features/settings/**",
-                      "!@/features/hardware/**", // pending S3 (#2325): delete this exemption
                       "!@/features/menu/**" // pending S5 (#2325): delete this exemption
                     ]
                   }

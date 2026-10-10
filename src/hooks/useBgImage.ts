@@ -1,6 +1,6 @@
 import { atom, useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
 import { type BackgroundImage, commands } from "@/rspc/bindings";
 import { isError, isOk } from "@/types/result";

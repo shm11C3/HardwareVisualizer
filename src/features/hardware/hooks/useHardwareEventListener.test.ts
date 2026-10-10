@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
-import { Provider, useAtom } from "jotai";
+import { createStore, Provider, useAtom } from "jotai";
+import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chartConfig } from "@/consts/chart";
 import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
@@ -48,6 +49,14 @@ vi.mock("@/rspc/bindings", () => ({
       }),
     },
   },
+}));
+
+let mockTemperatureUnit: "C" | "F" = "C";
+
+vi.mock("@/hooks/useSettingsAtom", () => ({
+  useSettingsAtom: () => ({
+    settings: { temperatureUnit: mockTemperatureUnit },
+  }),
 }));
 
 // ── Helpers ──
@@ -106,6 +115,7 @@ describe("useHardwareEventListener", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedCallback = null;
+    mockTemperatureUnit = "C";
     setDocumentHidden(false);
   });
 
@@ -304,6 +314,43 @@ describe("useHardwareEventListener", () => {
     act(() => emit(makePayload({ gpus: [makeGpu({ gpuTemperature: null })] })));
 
     expect(result.current).toEqual([]);
+  });
+
+  describe("temperature unit change", () => {
+    const renderWithGpuTemperature = () =>
+      renderHook(
+        () => {
+          useHardwareEventListener();
+          const [temperatures] = useAtom(gpuTempMapAtom);
+          return temperatures;
+        },
+        { wrapper: Provider },
+      );
+
+    it("clears the GPU temperature map when the temperature unit changes", () => {
+      const { result, rerender } = renderWithGpuTemperature();
+      act(() => emit(makePayload({ gpus: [makeGpu({ gpuTemperature: 65 })] })));
+      expect(Object.values(result.current)).toHaveLength(1);
+
+      mockTemperatureUnit = "F";
+      rerender();
+
+      expect(result.current).toEqual({});
+    });
+
+    it("does not clear the GPU temperature map for the first observed unit", () => {
+      const store = createStore();
+      store.set(gpuTempMapAtom, {
+        [asLiveGpuId("nvapi:0")]: { name: "TestGPU", value: 65 },
+      });
+      mockTemperatureUnit = "F";
+
+      renderHook(() => useHardwareEventListener(), {
+        wrapper: ({ children }) => createElement(Provider, { store }, children),
+      });
+
+      expect(Object.values(store.get(gpuTempMapAtom))).toHaveLength(1);
+    });
   });
 
   // ── CPU temperature ──

@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   useProcessElevated: vi.fn((): boolean | null => false),
 }));
 
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: { elevatedStartupMode: false },
     updateSettingAtom: mocks.updateSettingAtom,

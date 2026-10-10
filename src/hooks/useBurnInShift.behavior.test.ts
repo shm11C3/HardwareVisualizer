@@ -11,7 +11,7 @@ import {
 } from "vitest";
 
 // Mock settings atom with a configurable mock function
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => {
+vi.mock("@/hooks/useSettingsAtom", () => {
   return {
     useSettingsAtom: vi.fn(() => ({
       settings: {
@@ -29,9 +29,9 @@ vi.mock("@/lib/math", () => ({
   randInt: vi.fn((min: number) => min),
 }));
 
-import { useSettingsAtom as useSettingsAtomMocked } from "@/features/settings/hooks/useSettingsAtom";
 // Import after mocks
 import { useBurnInShift } from "@/hooks/useBurnInShift";
+import { useSettingsAtom as useSettingsAtomMocked } from "@/hooks/useSettingsAtom";
 
 describe("useBurnInShift (Behavior)", () => {
   beforeEach(() => {

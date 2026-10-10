@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
-// src/features/settings/hooks/useSettingsAtom.test.ts
+// src/hooks/useSettingsAtom.test.ts
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 /**
@@ -59,7 +59,7 @@ vi.mock("@/rspc/bindings", () => ({
 /**
  * Import hook to test
  */
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 /**

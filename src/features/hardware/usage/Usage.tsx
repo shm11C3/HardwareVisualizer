@@ -8,7 +8,7 @@ import {
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 
 const labels = Array(chartConfig.historyLengthSec).fill("");

@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 // Mock useSettingsAtom (references global variables that can be changed per test)
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: settingsMock,
     updateSettingAtom: updateSettingAtomMock,

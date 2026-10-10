@@ -72,7 +72,7 @@ Use the existing boundary when choosing where state lives:
 - User-facing application preferences belong in `settings.json`. Add typed Rust
   setter commands in `src-tauri/src/commands/settings.rs`, persist through the
   Rust settings service, regenerate bindings, and update
-  `features/settings/hooks/useSettingsAtom.ts`.
+  `src/store/settings.ts` and `src/hooks/useSettingsAtom.ts`.
 - UI-local or transient state can use Tauri Store through
   `src/lib/tauriStore.ts` and `src/hooks/useTauriStore.ts`. Examples include
   ephemeral selections, cached UI choices, or view state that can be reset

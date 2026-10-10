@@ -22,11 +22,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
 } from "@/hooks/useElevationAvailability";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";

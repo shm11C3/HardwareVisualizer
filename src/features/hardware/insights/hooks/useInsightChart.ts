@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chartConfig } from "@/consts/chart";
 import type { archivePeriods } from "@/features/hardware/consts/chart";
 import type { DataStats } from "@/features/hardware/types/hardwareDataType";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   type ArchiveSeriesPoint,

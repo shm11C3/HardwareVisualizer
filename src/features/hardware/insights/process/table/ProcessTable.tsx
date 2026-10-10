@@ -5,7 +5,7 @@ import { tv } from "tailwind-variants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useStickyObserver } from "@/hooks/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
 

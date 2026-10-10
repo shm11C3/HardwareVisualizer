@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { useBurnInShift } from "@/hooks/useBurnInShift";
 
 // Simple mock setup
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
       burnInShift: true,

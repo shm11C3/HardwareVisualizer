@@ -13,7 +13,7 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
 import { GpuAdapterSelector } from "./GpuAdapterSelector";

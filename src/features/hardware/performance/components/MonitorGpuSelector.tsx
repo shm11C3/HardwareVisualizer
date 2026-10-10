@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { GpuAdapterSelector } from "./GpuAdapterSelector";
 
 /**

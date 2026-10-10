@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
 
 export const LineChartTypeSelector = () => {

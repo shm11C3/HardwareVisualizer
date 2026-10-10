@@ -31,8 +31,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
-  navigationMutationPendingAtom: {},
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: mockSettings,
     acknowledgeNavigationRestructureAnnouncementAtom: mockAcknowledge,

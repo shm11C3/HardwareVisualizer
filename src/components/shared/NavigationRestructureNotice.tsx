@@ -8,12 +8,10 @@ import {
   navigationLayoutFocusRequestedAtom,
   sideMenuOpenAtom,
 } from "@/features/menu/hooks/useMenu";
-import {
-  navigationMutationPendingAtom,
-  useSettingsAtom,
-} from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { cn } from "@/lib/utils";
+import { navigationMutationPendingAtom } from "@/store/settings";
 import type { SelectedDisplayType } from "@/types/ui";
 
 export const NavigationRestructureNotice = ({

@@ -24,7 +24,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({ settings: mocks.settings }),
 }));
 

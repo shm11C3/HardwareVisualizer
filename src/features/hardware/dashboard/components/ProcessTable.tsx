@@ -19,7 +19,7 @@ import {
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { minOpacity } from "@/consts/style";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { ProcessInfo } from "@/rspc/bindings";
 
