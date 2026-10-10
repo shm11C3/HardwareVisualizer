@@ -33,12 +33,6 @@ vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
   }),
 }));
 
-vi.mock("@/consts", () => ({
-  chartConfig: {
-    archiveUpdateIntervalMilSec: 60000,
-  },
-}));
-
 const ok = <T>(data: T) => ({ status: "ok" as const, data });
 const err = (error: string) => ({ status: "error" as const, error });
 
