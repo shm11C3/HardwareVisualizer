@@ -16,6 +16,9 @@
         // TypeScript's noPropertyAccessFromIndexSignature requires bracket access for index signatures.
         "useLiteralKeys": "off"
       },
+      "correctness": {
+        "noUndeclaredDependencies": "error"
+      },
       "performance": {
         "noBarrelFile": "error",
         "noReExportAll": "error"
