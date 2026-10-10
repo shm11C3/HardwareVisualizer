@@ -7,9 +7,7 @@
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20MacOS-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total?link=https%3A%2F%2Fgithub.com%2Fshm11C3%2FHardwareVisualizer%2Freleases%2Flatest)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/shm11C3/HardwareVisualizer/badge)](https://scorecard.dev/viewer/?uri=github.com/shm11C3/HardwareVisualizer)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
 
 ![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 

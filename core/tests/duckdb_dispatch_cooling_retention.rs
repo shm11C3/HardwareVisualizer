@@ -97,19 +97,22 @@ async fn cleanup_keeps_every_sources_first_qualifying_days_on_both_backends() {
     .rev()
     .map(|n| qualifying(ago(n), "Desk", 12.0))
     .collect();
-  // The living-room sensor the user switched to: two days with coverage
-  // but no idle ΔT, then its first seven qualifying days, then an eighth
-  // qualifying day that is not part of its reference - all past the cutoff
-  // - and one recent day inside retention.
+  // The living-room sensor the user switched to: two earlier days with
+  // coverage but no idle ΔT, then its first seven qualifying days, then a
+  // later qualifying day past the band-extension cap (#2333) that is not
+  // part of its reference - all past the cutoff - and one recent day
+  // inside retention. Each kept span runs from its first qualifying day to
+  // 30 calendar days later (Desk ago(520)..ago(491), Living Room
+  // ago(498)..ago(469)), so every deletable row sits outside both.
   let living_room_week: Vec<_> = (492..=498)
     .rev()
     .map(|n| qualifying(ago(n), "Living Room", 15.0))
     .collect();
   let deletable = vec![
-    non_qualifying(ago(500), "Living Room"),
-    non_qualifying(ago(499), "Living Room"),
-    qualifying(ago(480), "Living Room", 15.5),
-    non_qualifying(ago(470), "Hallway"),
+    non_qualifying(ago(530), "Living Room"),
+    non_qualifying(ago(529), "Living Room"),
+    qualifying(ago(460), "Living Room", 15.5),
+    non_qualifying(ago(455), "Hallway"),
   ];
   let recent = qualifying(ago(3), "Living Room", 16.0);
   let mut expected: Vec<_> = desk_week
@@ -143,8 +146,8 @@ async fn cleanup_keeps_every_sources_first_qualifying_days_on_both_backends() {
     surviving_rows().await,
     expected,
     "SQLite: the pinned week, the second source's first seven qualifying days and the \
-     recent row survive; its earlier non-qualifying days, its eighth qualifying day and \
-     the hallway row age out"
+     recent row survive; its earlier non-qualifying days, its qualifying day past the \
+     extension cap and the hallway row age out"
   );
 
   // --- Build, reconcile and select a native database from the cleaned

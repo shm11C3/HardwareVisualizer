@@ -489,7 +489,8 @@
           },
           "absoluteTitle": "CPU temperature",
           "ambientAdjustedTitle": "Above ambient temperature",
-          "window": "Baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}}"
+          "window": "Baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}}",
+          "extendedBaselineWindow": "{{band}}: baseline read over {{baselineStart}}–{{baselineEnd}}"
         },
         "explorer": {
           "title": "Load × Temperature Explorer",
@@ -562,6 +563,7 @@
           "title": "Data State",
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
           "sampleMinutes": "Baseline: {{baseline}} min / recent: {{recent}} min",
+          "sampleMinutesWithBaselineWindow": "Baseline: {{baseline}} min ({{baselineStart}}–{{baselineEnd}}) / recent: {{recent}} min",
           "temperatureSource": {
             "label": "Temperature source",
             "value": "CPU temperature (1 series)"

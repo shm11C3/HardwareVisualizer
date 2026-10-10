@@ -498,6 +498,8 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
     {
       band: "idle",
       baseline: { temperatureAvg: 32, sampleMinutes: 12_600 },
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-14",
       recent: { temperatureAvg: 33.5, sampleMinutes: 6_300 },
       comparability: "comparable",
       requiredSampleMinutes: 30,
@@ -506,6 +508,8 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
     {
       band: "low",
       baseline: { temperatureAvg: 40, sampleMinutes: 4_200 },
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-14",
       recent: { temperatureAvg: 41, sampleMinutes: 2_100 },
       comparability: "comparable",
       requiredSampleMinutes: 30,
@@ -514,6 +518,8 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
     {
       band: "mid",
       baseline: { temperatureAvg: 50, sampleMinutes: 2_500 },
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-14",
       recent: { temperatureAvg: null, sampleMinutes: 40 },
       comparability: "tooFewSampleMinutes",
       requiredSampleMinutes: 30,
@@ -522,6 +528,12 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
     {
       band: "high",
       baseline: { temperatureAvg: 62, sampleMinutes: 800 },
+      // Too few high-band minutes inside the pinned window: this band's
+      // baseline side extended forward past it (#2333), so its own range
+      // differs from the response-level one above and the data-state row
+      // labels it.
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-23",
       recent: { temperatureAvg: null, sampleMinutes: 0 },
       comparability: "tooFewSampleMinutes",
       requiredSampleMinutes: 30,
@@ -579,11 +591,15 @@ export const coolingBandComparisonAmbientFixture: CoolingBandComparison = {
     {
       band: "idle",
       baseline: { temperatureAvg: 32, sampleMinutes: 12_600 },
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-14",
       recent: { temperatureAvg: 33.5, sampleMinutes: 6_300 },
       comparability: "comparable",
       requiredSampleMinutes: 30,
       ambientAdjusted: {
         baseline: { deltaAvg: 28, sampleMinutes: 9_800 },
+        baselineWindowStartDate: AMBIENT_BASELINE.windowStartDate,
+        baselineWindowEndDate: AMBIENT_BASELINE.windowEndDate,
         recent: { deltaAvg: 28.3, sampleMinutes: 5_400 },
         comparability: "comparable",
         requiredSampleMinutes: 30,
@@ -592,11 +608,15 @@ export const coolingBandComparisonAmbientFixture: CoolingBandComparison = {
     {
       band: "low",
       baseline: { temperatureAvg: 40, sampleMinutes: 4_200 },
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-14",
       recent: { temperatureAvg: 41, sampleMinutes: 2_100 },
       comparability: "comparable",
       requiredSampleMinutes: 30,
       ambientAdjusted: {
         baseline: { deltaAvg: 36, sampleMinutes: 3_100 },
+        baselineWindowStartDate: AMBIENT_BASELINE.windowStartDate,
+        baselineWindowEndDate: AMBIENT_BASELINE.windowEndDate,
         recent: { deltaAvg: 36.4, sampleMinutes: 1_800 },
         comparability: "comparable",
         requiredSampleMinutes: 30,
@@ -605,13 +625,19 @@ export const coolingBandComparisonAmbientFixture: CoolingBandComparison = {
     {
       band: "mid",
       baseline: { temperatureAvg: 50, sampleMinutes: 2_500 },
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-14",
       recent: { temperatureAvg: null, sampleMinutes: 40 },
       comparability: "tooFewSampleMinutes",
       requiredSampleMinutes: 30,
       // Ambient data exists for this band, but one window is too thin:
       // a non-comparable `comparability` on a present value, not a null.
+      // Its ΔT baseline side extended past the ΔT baseline's pinned
+      // window before it held enough paired minutes (#2333).
       ambientAdjusted: {
         baseline: { deltaAvg: 46, sampleMinutes: 1_900 },
+        baselineWindowStartDate: AMBIENT_BASELINE.windowStartDate,
+        baselineWindowEndDate: "2025-12-19",
         recent: { deltaAvg: null, sampleMinutes: 22 },
         comparability: "tooFewSampleMinutes",
         requiredSampleMinutes: 30,
@@ -620,6 +646,9 @@ export const coolingBandComparisonAmbientFixture: CoolingBandComparison = {
     {
       band: "high",
       baseline: { temperatureAvg: 62, sampleMinutes: 800 },
+      // Extended past the pinned window, as in `coolingBandComparisonFixture`.
+      baselineWindowStartDate: "2025-11-01",
+      baselineWindowEndDate: "2025-11-23",
       recent: { temperatureAvg: null, sampleMinutes: 0 },
       comparability: "tooFewSampleMinutes",
       requiredSampleMinutes: 30,

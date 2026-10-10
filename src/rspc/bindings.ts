@@ -495,6 +495,9 @@ export type ConversionStep = "preflight" | "buildingCandidate" | "finalizing" | 
  */
 export type CoolingAmbientAdjustedBandComparison = {
 	baseline: CoolingBandDeltaWindowSummary,
+	// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the Thermal Delta Baseline's own window for the idle band, and for the other bands that window extended forward over the same source's rows until it held `requiredSampleMinutes` paired minutes or reached Core's cap - so it can differ from the response-level ΔT baseline window and the frontend must not assume the two agree.
+	baselineWindowStartDate: string,
+	baselineWindowEndDate: string,
 	recent: CoolingBandDeltaWindowSummary,
 	comparability: CoolingBandComparability,
 	requiredSampleMinutes: number,
@@ -539,6 +542,9 @@ export type CoolingBandComparison = { status: "establishing"; qualifyingDays: nu
 export type CoolingBandComparisonEntry = {
 	band: CoolingLoadBand,
 	baseline: CoolingBandWindowSummary,
+	// The `%Y-%m-%d` range `baseline` was read over, inclusive (#2333): the pinned baseline window for the idle band, and for the other bands that window extended forward from its start until it held `requiredSampleMinutes` of the band's minutes or reached Core's cap - so a band's own range can differ from the response-level `baselineWindow*Date`, and the frontend labels it when it does.
+	baselineWindowStartDate: string,
+	baselineWindowEndDate: string,
 	recent: CoolingBandWindowSummary,
 	comparability: CoolingBandComparability,
 	/**
