@@ -513,6 +513,30 @@ no source picker yet, so a window is read from whichever source covered the
 most of it (`cooling_band_comparison::dominant_delta_source`), and from that
 source only - never a blend.
 
+That one recent window is defined in one place,
+`cooling_baseline::recent_window_start`, and every comparison derives it from
+there: the idle baseline card, the band comparison, the baseline delta and the
+ambient-adjusted and co-variate readings beside them. It is the most recent
+`COOLING_BASELINE_RECENT_WINDOW_DAYS` (7) *recorded* days - days carrying a
+`cooling_daily_summary` row - ending at the last completed local day
+(yesterday), looked for no further back than
+`COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS` (30, the default
+`hardwareArchive.retentionDays`) calendar days. Recorded rather than calendar
+days (#2332) because the baseline itself is built from qualifying days, not
+consecutive ones: a machine switched on a few days a week accrues evidence at
+the same pace on both sides, and counting the recent side in calendar days left
+exactly those machines "not comparable" in the low/mid/high bands most of the
+time. The calendar bound is what keeps "recent" honest (DP-05): with fewer than
+seven recorded days inside it the window starts at the earliest of them, and
+with none it is the trailing seven calendar days - empty, and reported as "not
+comparable" - so an app that has not run for more than a month never presents
+its last months-old days as the present. The ΔT and co-variate readings take
+the window from the hardware rollup's recorded days too, never from their own
+rows: a day the machine ran without its sensor pairing a minute is still a
+recorded day, and every panel of one response must describe the same stretch
+of days. Only the load-temperature explorer keeps a recent length of its own,
+because there the user chooses it.
+
 **The ΔT baseline establishes independently of the absolute one**, over its own
 window, from one ambient source, and is pinned into its own single-row
 `cooling_delta_baseline` table together with that source.
@@ -628,12 +652,14 @@ The fit is per ambient source for the reason the ΔT rollup is: the samples it
 folds are the ΔT rollup's own paired read, so the ΔT it fits is the ΔT
 `cooling_thermal_delta_daily_summary` holds, measured against the same sensor.
 The query boundary (`cooling_covariate_comparison::load_cooling_covariate_comparison`)
-reads the recent side from whichever source covered most of the trailing
-window, the baseline side from that source's own Thermal Delta Baseline window
-(the pinned one for the pinned source, a derived one for any other - the same
-resolution the ambient-adjusted readings use), and judges nothing unless both
-windows clear `COOLING_COVARIATE_COMPARISON_MINIMUM_PAIRED_MINUTES` - the same
-gate the ambient-adjusted comparison applies, on the same windows. Each factor's recent
+reads the recent side from whichever source covered most of the shared recent
+window (`cooling_baseline::recent_window_start`, derived from the hardware
+rollup's recorded days, which this loader reads for that purpose alone), the
+baseline side from that source's own Thermal Delta Baseline window (the pinned
+one for the pinned source, a derived one for any other - the same resolution
+the ambient-adjusted readings use), and judges nothing unless both windows
+clear `COOLING_COVARIATE_COMPARISON_MINIMUM_PAIRED_MINUTES` - the same gate the
+ambient-adjusted comparison applies, on the same windows. Each factor's recent
 median is reported against the baseline window's own interquartile range of
 daily medians as within range or moved; a factor never archived reports
 absent, never zero. The catch-up cursor claims the co-variate tables are behind

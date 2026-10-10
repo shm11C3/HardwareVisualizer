@@ -1,0 +1,17 @@
+// Module-scope `let` is state the Jotai store cannot see, scope per Provider,
+// or reset between tests. Shared state belongs in a `store/` module.
+// See docs/design/frontend-architecture.md.
+//
+// Matched by node type and source text: the snippet form `let $x = $y` does not
+// match in Biome 2.5 even though `const $x = $y` does.
+JsVariableDeclaration() as $declaration where {
+  $declaration <: r"^let\s[\s\S]*",
+  not $declaration <: within or {
+    JsFunctionBody(),
+    JsArrowFunctionExpression(),
+    JsFunctionExpression(),
+    JsClassDeclaration(),
+    JsClassExpression()
+  },
+  register_diagnostic(span=$declaration, message="Module-scope `let` is state outside the Jotai store. Declare it in a `store/` module (an atom, or store-keyed state) so it is scoped per Provider and resets between tests.")
+}

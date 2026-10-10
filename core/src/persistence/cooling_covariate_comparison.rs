@@ -13,18 +13,19 @@
 //! The windows and the gate are the ambient-adjusted comparison's own
 //! ([`crate::persistence::cooling_band_comparison`]): the baseline side
 //! is the Thermal Delta Baseline's pinned window, read from the source it
-//! was established from; the recent side is the trailing
-//! [`COOLING_BASELINE_RECENT_WINDOW_DAYS`], read from whichever source
-//! covered most of it; and the two are compared only when they are the
-//! same source and both carry enough paired minutes. A recent window
-//! from a different sensor is reported but never judged - the difference
-//! between two placements is not a factor that moved.
+//! was established from; the recent side is the recent window
+//! [`recent_window_start`] defines from the hardware rollup's recorded
+//! days, read from whichever source covered most of it; and the two are
+//! compared only when they are the same source and both carry enough
+//! paired minutes. A recent window from a different sensor is reported
+//! but never judged - the difference between two placements is not a
+//! factor that moved.
 
 use std::collections::BTreeSet;
 
 use chrono::{Duration, NaiveDate};
 
-use crate::persistence::cooling_baseline::COOLING_BASELINE_RECENT_WINDOW_DAYS;
+use crate::persistence::cooling_baseline::recent_window_start;
 use crate::persistence::cooling_covariate_rollup::{
   CovariateDailySummary, FanCovariateDailySummary, PairedFitStatistics, median,
 };
@@ -228,6 +229,14 @@ pub enum CoolingCovariateComparison {
 ///
 /// `window_end_date` is the most recent completed local day (yesterday),
 /// matching [`crate::persistence::cooling_band_comparison::derive_band_comparison`].
+/// `recorded_dates` are the hardware rollup's recorded days (every
+/// `cooling_daily_summary` date), from which [`recent_window_start`]
+/// derives the recent window - the same input the band comparison and
+/// the baseline delta hand it, so this view's recent window is theirs. It
+/// is deliberately not derived from the co-variate or ΔT rows this module
+/// reads: a day the machine ran without its sensor pairing a minute is
+/// still a recorded day, and the three views must describe one stretch
+/// of days.
 /// `delta_days` is the row-per-source ΔT rollup, consulted to pick the
 /// recent window's dominant source by coverage and to resolve that
 /// source's own baseline
@@ -239,12 +248,12 @@ pub fn derive_covariate_comparison(
   covariate_days: &[CovariateDailySummary],
   fan_days: &[FanCovariateDailySummary],
   delta_days: &[ThermalDeltaDailySummary],
+  recorded_dates: &[NaiveDate],
   delta_baseline_state: DeltaBaselineState,
   band: CpuLoadBand,
   window_end_date: NaiveDate,
 ) -> CoolingCovariateComparison {
-  let recent_start =
-    window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+  let recent_start = recent_window_start(recorded_dates.iter().copied(), window_end_date);
   let DeltaBaselineReference {
     recent_source,
     baseline: delta_baseline_state,
@@ -579,12 +588,22 @@ pub(crate) async fn load_cooling_covariate_comparison_from_pool(
       pool,
     )
     .await?;
+  // The hardware rollup's recorded days, for the recent window only - see
+  // `derive_covariate_comparison` on why this view's window is not derived
+  // from the rows it otherwise reads.
+  let recorded_dates: Vec<NaiveDate> =
+    database::cooling_daily_summary::select_daily_idle_samples_from_pool(pool)
+      .await?
+      .iter()
+      .map(|day| day.date)
+      .collect();
   let yesterday = today - Duration::days(1);
 
   Ok(derive_covariate_comparison(
     &covariate_days,
     &fan_days,
     &delta_days,
+    &recorded_dates,
     delta_baseline_state,
     band,
     yesterday,
@@ -614,12 +633,22 @@ pub async fn load_cooling_covariate_comparison(
   let fan_days =
     dispatch::cooling_covariate_daily_summary::select_all_fan_covariate_daily_summaries()
       .await?;
+  // The hardware rollup's recorded days, for the recent window only (see
+  // `derive_covariate_comparison`). The idle-sample projection is the
+  // narrowest read of `cooling_daily_summary` that carries every date.
+  let recorded_dates: Vec<NaiveDate> =
+    dispatch::cooling_daily_summary::select_daily_idle_samples()
+      .await?
+      .iter()
+      .map(|day| day.date)
+      .collect();
   let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
 
   Ok(derive_covariate_comparison(
     &covariate_days,
     &fan_days,
     &delta_days,
+    &recorded_dates,
     delta_baseline_state,
     band,
     yesterday,
@@ -779,6 +808,13 @@ mod tests {
     }
   }
 
+  /// The hardware rollup's recorded days of a machine that ran on every
+  /// day of the recent window, so the window is exactly
+  /// `RECENT_START..=RECENT_END`.
+  fn recorded_every_recent_day() -> Vec<NaiveDate> {
+    days((RECENT_START, RECENT_END)).collect()
+  }
+
   fn derive(
     rows: &[CovariateDailySummary],
     fans: &[FanCovariateDailySummary],
@@ -789,6 +825,7 @@ mod tests {
       rows,
       fans,
       coverage,
+      &recorded_every_recent_day(),
       baseline,
       CpuLoadBand::Idle,
       RECENT_END,
@@ -877,6 +914,7 @@ mod tests {
       &rows,
       &[],
       &coverage,
+      &recorded_every_recent_day(),
       establishing(),
       CpuLoadBand::Idle,
       RECENT_END,
@@ -933,6 +971,7 @@ mod tests {
       &rows,
       &[],
       &coverage,
+      &recorded_every_recent_day(),
       established("Desk"),
       CpuLoadBand::Idle,
       RECENT_END,
@@ -1306,14 +1345,57 @@ mod tests {
     coverage(date, source, 1400)
   }
 
+  #[test]
+  fn the_recent_window_is_the_hardware_rollups_recorded_days_not_this_views_rows() {
+    // The #2332 case, and the shared-window rule in one: the machine ran
+    // on 2 of the last 7 calendar days and on 5 more over the preceding
+    // three weeks. The recent window reaches back to the seventh recorded
+    // day and this view judges over those days - and it is the hardware
+    // rollup's days that define the window, even though two of them have
+    // no co-variate row at all. The window ends more than the calendar
+    // bound after `BASELINE`, so no baseline day can be one of its
+    // recorded days.
+    let end = NaiveDate::from_ymd_opt(2026, 9, 20).unwrap();
+    let recorded: Vec<NaiveDate> = [21, 18, 15, 11, 8, 3, 0]
+      .into_iter()
+      .map(|back| end - Duration::days(back))
+      .collect();
+    let paired: Vec<NaiveDate> = recorded
+      .iter()
+      .copied()
+      .filter(|d| *d != end - Duration::days(18) && *d != end)
+      .collect();
+    let rows: Vec<_> = days(BASELINE)
+      .map(|d| row(d, "Desk", Some(20.0)))
+      .chain(paired.iter().map(|d| row(*d, "Desk", Some(24.0))))
+      .collect();
+    let coverage: Vec<_> = paired.iter().map(|d| coverage_row(*d, "Desk")).collect();
+
+    let result = established_result(derive_covariate_comparison(
+      &rows,
+      &[],
+      &coverage,
+      &recorded,
+      established("Desk"),
+      CpuLoadBand::Idle,
+      end,
+    ));
+
+    assert_eq!(result.recent_window_start_date, end - Duration::days(21));
+    assert_eq!(result.recent_window_end_date, end);
+    assert_eq!(result.recent_paired_minutes, 500);
+    assert_eq!(result.comparability, CovariateComparability::Comparable);
+    assert_eq!(result.package_power.change, Some(4.0));
+  }
+
   // ── the loader ──
 
   #[tokio::test]
   async fn the_loader_reads_the_baseline_window_from_the_pinned_delta_baseline() {
     use crate::infrastructure::database::test_schema::{
-      COOLING_COVARIATE_DAILY_SUMMARY_DDL, COOLING_DELTA_BASELINE_DDL,
-      COOLING_FAN_COVARIATE_DAILY_SUMMARY_DDL, COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL,
-      create_tables,
+      COOLING_COVARIATE_DAILY_SUMMARY_DDL, COOLING_DAILY_SUMMARY_DDL,
+      COOLING_DELTA_BASELINE_DDL, COOLING_FAN_COVARIATE_DAILY_SUMMARY_DDL,
+      COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL, create_tables,
     };
     use crate::infrastructure::database::{
       cooling_covariate_daily_summary, cooling_delta_baseline,
@@ -1325,6 +1407,7 @@ mod tests {
     create_tables(
       &pool,
       &[
+        COOLING_DAILY_SUMMARY_DDL,
         COOLING_DELTA_BASELINE_DDL,
         COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL,
         COOLING_COVARIATE_DAILY_SUMMARY_DDL,
@@ -1332,6 +1415,17 @@ mod tests {
       ],
     )
     .await;
+    // The hardware rollup recorded every day of the recent window, which
+    // is what the loader reads the window from.
+    for date in days((RECENT_START, RECENT_END)) {
+      sqlx::query(
+        "INSERT INTO cooling_daily_summary (date, coverage_minutes) VALUES ($1, 1440)",
+      )
+      .bind(date.format("%Y-%m-%d").to_string())
+      .execute(&pool)
+      .await
+      .unwrap();
+    }
     cooling_delta_baseline::insert_established_delta_baseline_from_pool(
       &pool,
       &EstablishedDeltaBaseline {
@@ -1396,15 +1490,16 @@ mod tests {
   #[tokio::test]
   async fn the_loader_reports_establishing_while_no_delta_baseline_exists() {
     use crate::infrastructure::database::test_schema::{
-      COOLING_COVARIATE_DAILY_SUMMARY_DDL, COOLING_DELTA_BASELINE_DDL,
-      COOLING_FAN_COVARIATE_DAILY_SUMMARY_DDL, COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL,
-      create_tables,
+      COOLING_COVARIATE_DAILY_SUMMARY_DDL, COOLING_DAILY_SUMMARY_DDL,
+      COOLING_DELTA_BASELINE_DDL, COOLING_FAN_COVARIATE_DAILY_SUMMARY_DDL,
+      COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL, create_tables,
     };
 
     let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
     create_tables(
       &pool,
       &[
+        COOLING_DAILY_SUMMARY_DDL,
         COOLING_DELTA_BASELINE_DDL,
         COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL,
         COOLING_COVARIATE_DAILY_SUMMARY_DDL,

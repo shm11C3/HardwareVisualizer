@@ -15,9 +15,7 @@ use std::collections::BTreeMap;
 
 use chrono::{Duration, NaiveDate};
 
-use crate::persistence::cooling_baseline::{
-  BaselineState, COOLING_BASELINE_RECENT_WINDOW_DAYS,
-};
+use crate::persistence::cooling_baseline::{BaselineState, recent_window_start};
 use crate::persistence::cooling_delta_baseline::{
   DeltaBaselineReference, DeltaBaselineState, resolve_delta_baseline_for_window,
 };
@@ -208,6 +206,11 @@ pub enum CoolingBandComparison {
 ///
 /// `window_end_date` is the most recent completed local day (yesterday),
 /// matching [`crate::persistence::cooling_baseline::derive_cooling_baseline`].
+/// The recent window ending there is the one
+/// [`recent_window_start`] defines from `days`' dates - the hardware
+/// rollup's recorded days - and the ambient-adjusted readings below use
+/// that same window rather than one of their own, so every band and both
+/// readings of one response describe the same stretch of days.
 ///
 /// `delta_days` carries the row-per-source Thermal Delta rollup the
 /// ambient-adjusted readings are built from (#2045, #2062), and
@@ -242,7 +245,7 @@ pub fn derive_band_comparison(
   };
 
   let recent_start =
-    window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    recent_window_start(days.iter().map(|day| day.date), window_end_date);
   // The ΔT reference is the recent window's own source's baseline - the
   // pinned row when that is the pinned source, otherwise that source's
   // own first qualifying days (`resolve_delta_baseline_for_window`,
@@ -546,7 +549,16 @@ mod tests {
     COOLING_BASELINE_DDL, COOLING_DAILY_SUMMARY_DDL, COOLING_DELTA_BASELINE_DDL,
     COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL, create_tables,
   };
-  use crate::persistence::cooling_baseline::COOLING_BASELINE_QUALIFYING_IDLE_MINUTES;
+  use crate::persistence::cooling_baseline::{
+    COOLING_BASELINE_QUALIFYING_IDLE_MINUTES, COOLING_BASELINE_RECENT_WINDOW_DAYS,
+  };
+
+  // Fixtures place the baseline days in early August and end the recent
+  // window on 2026-09-20: more than the recent window's calendar bound
+  // (`COOLING_BASELINE_RECENT_WINDOW_MAX_CALENDAR_DAYS`) later, so a
+  // baseline day is never also a recorded day of the recent window, and
+  // `recent_start` below is the start the window has when its only
+  // recorded day is `recent_start` itself.
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
@@ -650,7 +662,7 @@ mod tests {
     // every band reports `None` and every other field is exactly what it
     // was before #2045.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
@@ -689,7 +701,7 @@ mod tests {
     // 20 K between the windows, but the ΔT held flat: the room got
     // warmer, the cooling did not degrade.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
@@ -724,7 +736,7 @@ mod tests {
     // the day must weigh exactly the part it observed.
     let baseline_start = date(2026, 8, 1);
     let baseline_end = date(2026, 8, 7);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
@@ -761,7 +773,7 @@ mod tests {
     // enough of it yet. That is worth saying, because it resolves on its
     // own as coverage accrues.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let short = COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES - 1;
@@ -806,7 +818,7 @@ mod tests {
     // has ΔT and the baseline window never will. Not comparable, but not
     // absent either - the user can see why.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
@@ -841,7 +853,7 @@ mod tests {
     // placement against itself (#2062) - and the response names the
     // reference it actually used, not the pinned desk row.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let living_room_start = date(2026, 8, 5);
@@ -900,7 +912,7 @@ mod tests {
     // its own yet and the pinned desk row is not one for it, so every band
     // withholds the reading and the lifecycle says how far along *it* is.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
@@ -954,7 +966,7 @@ mod tests {
     // Both sensors archived the baseline window. The baseline side must
     // be the pinned source's rows alone, never a blend of the two.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
@@ -986,7 +998,7 @@ mod tests {
     // Two sensors overlap in the recent window; the one that observed
     // more of it is the one reported, and only it.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
@@ -1034,7 +1046,7 @@ mod tests {
     // A ΔT recorded in the high band must not surface on the idle band's
     // ambient-adjusted reading.
     let baseline_start = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let high_only = |date: NaiveDate| DailyCoolingSummary {
@@ -1106,7 +1118,7 @@ mod tests {
   fn each_band_is_weighted_by_its_own_sample_minutes_in_each_window() {
     let baseline_start = date(2026, 8, 1);
     let baseline_end = date(2026, 8, 7);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
 
@@ -1212,7 +1224,7 @@ mod tests {
   fn a_band_at_exactly_the_minimum_sample_minutes_on_both_sides_is_comparable() {
     let baseline_start = date(2026, 8, 1);
     let baseline_end = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
 
@@ -1256,7 +1268,7 @@ mod tests {
   fn a_band_one_minute_short_on_either_side_is_not_comparable() {
     let baseline_start = date(2026, 8, 1);
     let baseline_end = date(2026, 8, 1);
-    let recent_end = date(2026, 8, 20);
+    let recent_end = date(2026, 9, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let short = COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES - 1;
@@ -1295,6 +1307,66 @@ mod tests {
     };
     let idle = bands.iter().find(|b| b.band == CpuLoadBand::Idle).unwrap();
     assert_eq!(idle.comparability, BandComparability::TooFewSampleMinutes);
+  }
+
+  #[test]
+  fn a_machine_switched_on_a_few_days_a_week_gets_a_comparable_band() {
+    // The #2332 case: recorded on 2 of the last 7 calendar days and on 5
+    // more over the preceding three weeks, with ten low-band minutes on
+    // each. No seven-calendar-day stretch holds the band's minimum, but
+    // the seven recorded days together do, and the recent window reaches
+    // back to the seventh of them.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 9, 20);
+    let recorded_days_back = [0, 3, 8, 11, 15, 18, 21];
+    let low_only = |date: NaiveDate| DailyCoolingSummary {
+      date,
+      coverage_minutes: 120,
+      idle: empty_band(),
+      low: band(45.0, 10),
+      mid: empty_band(),
+      high: empty_band(),
+      power: PowerSummary::default(),
+    };
+    let mut days = vec![DailyCoolingSummary {
+      date: baseline_start,
+      coverage_minutes: 1440,
+      idle: band(30.0, 60),
+      low: band(40.0, 60),
+      mid: empty_band(),
+      high: empty_band(),
+      power: PowerSummary::default(),
+    }];
+    days.extend(
+      recorded_days_back
+        .iter()
+        .rev()
+        .map(|back| low_only(recent_end - Duration::days(*back))),
+    );
+
+    let result = derive_band_comparison(
+      &days,
+      &[],
+      established_baseline(baseline_start, baseline_start),
+      establishing_delta_baseline(),
+      recent_end,
+    );
+
+    let CoolingBandComparison::Established {
+      recent_window_start_date,
+      recent_window_end_date,
+      bands,
+      ..
+    } = result
+    else {
+      panic!("expected an established comparison");
+    };
+    assert_eq!(recent_window_start_date, recent_end - Duration::days(21));
+    assert_eq!(recent_window_end_date, recent_end);
+    let low = bands.iter().find(|b| b.band == CpuLoadBand::Low).unwrap();
+    assert_eq!(low.recent.sample_minutes, 70);
+    assert_eq!(low.recent.temperature_avg, Some(45.0));
+    assert_eq!(low.comparability, BandComparability::Comparable);
   }
 
   #[test]
