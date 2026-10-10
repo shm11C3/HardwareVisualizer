@@ -1,12 +1,12 @@
 # Frontend Layer Boundaries and State Ownership
 
-Status: proposed
+Status: accepted
 
 Tracking issue: [#2325](https://github.com/shm11c3/HardwareVisualizer/issues/2325).
 
-The lint guardrails for constraints the code already satisfies are in place.
-The structural migration is deferred to 1.12.0 development. Implementation
-detail and the rule-to-lint mapping live in
+The migration landed in five slices: #2374, #2375, #2376, #2377, and #2380.
+Every constraint below is now enforced as a lint error with no pending
+exceptions. Implementation detail and the rule-to-lint mapping live in
 [`docs/design/frontend-architecture.md`](../design/frontend-architecture.md).
 
 ## Context
@@ -71,8 +71,9 @@ Two placements cause most of the cross-layer imports:
 
 - New code cannot add an import that crosses an enforced boundary, a barrel
   file, an import cycle, or module-scope `let` outside store modules.
-- Constraints with pending exceptions remain unenforced until their slice
-  lands. Until then, review has to catch new violations of those constraints.
+- During the migration, constraints with pending exceptions stayed
+  unenforced until their slice landed. None remain; a new exception is a
+  design discussion, not a configuration edit.
 - Biome replaces, rather than merges, a rule's options when a later override
   matches the same file. The boundary configuration therefore needs disjoint
   scopes and a complete constraint set in each override.
