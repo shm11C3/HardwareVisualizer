@@ -5,31 +5,32 @@ import {
   Dashboard,
   Insights,
   Performance,
+  prefetchScreen,
   Settings,
   SystemSpecifications,
 } from "./lazyScreens";
-import "./index.css";
+import "@/index.css";
 import type { CSSProperties, ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
-import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
-import { DatabaseConversionPromptDialog } from "@/components/shared/DatabaseConversionPromptDialog";
-import { ElevationUnavailableNotice } from "@/components/shared/ElevationUnavailableNotice";
-import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
-import { NavigationRestructureNotice } from "@/components/shared/NavigationRestructureNotice";
-import { NsisMigrationNoticeDialog } from "@/components/shared/NsisMigrationNoticeDialog";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useSelectedStorageDevicePersistence } from "@/features/hardware/hooks/useSelectedStorageDevicePersistence";
+import { SideMenu } from "@/features/menu/SideMenu";
+import { useBackgroundImage } from "@/hooks/useBgImage";
+import { useColorTheme } from "@/hooks/useColorTheme";
+import { useDocumentVisibilityClass } from "@/hooks/useDocumentVisibilityClass";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
-import { ScreenTemplate } from "./components/shared/ScreenTemplate";
-import { SideMenu } from "./features/menu/SideMenu";
-import { useBackgroundImage } from "./hooks/useBgImage";
-import { useColorTheme } from "./hooks/useColorTheme";
-import { useDocumentVisibilityClass } from "./hooks/useDocumentVisibilityClass";
-import type { SelectedDisplayType } from "./types/ui";
+import type { SelectedDisplayType } from "@/types/ui";
+import { CloseToTrayFirstRunDialog } from "./CloseToTrayFirstRunDialog";
+import { DatabaseConversionPromptDialog } from "./DatabaseConversionPromptDialog";
+import { ElevationUnavailableNotice } from "./ElevationUnavailableNotice";
+import { ExternalComponentGuidanceDialog } from "./ExternalComponentGuidanceDialog";
+import { NavigationRestructureNotice } from "./NavigationRestructureNotice";
+import { NsisMigrationNoticeDialog } from "./NsisMigrationNoticeDialog";
+import { ScreenTemplate } from "./ScreenTemplate";
 import "@/lib/i18n";
 import {
   ChartLineIcon,
@@ -42,18 +43,18 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
+import { FullScreenButton } from "@/components/ui/FullScreenButton";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { displayTargetAtom } from "@/features/menu/hooks/useMenu";
+import { TrayWidgetFlyout } from "@/features/tray/TrayWidgetFlyout";
+import { AppUpdate } from "@/features/updater/AppUpdate";
+import { useFullScreenMode } from "@/hooks/useFullScreenMode";
+import { useKeydown } from "@/hooks/useInputListener";
+import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTitleIconVisualSelector } from "@/hooks/useTitleIconVisualSelector";
 import { clearTauriStore } from "@/lib/tauriStore";
 import { cn } from "@/lib/utils";
-import { FullScreenButton } from "./components/ui/FullScreenButton";
-import { FullscreenExitButton } from "./components/ui/FullScreenExit";
-import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
-import { displayTargetAtom } from "./features/menu/hooks/useMenu";
-import { TrayWidgetFlyout } from "./features/tray/TrayWidgetFlyout";
-import { AppUpdate } from "./features/updater/AppUpdate";
-import { useFullScreenMode } from "./hooks/useFullScreenMode";
-import { useKeydown } from "./hooks/useInputListener";
-import { useTauriStore } from "./hooks/useTauriStore";
-import { useTitleIconVisualSelector } from "./hooks/useTitleIconVisualSelector";
+import { FullscreenExitButton } from "./FullScreenExit";
 
 const onRootError = (error: unknown, info: ErrorInfo) => {
   console.error(
@@ -354,6 +355,7 @@ const AppContent = () => {
             isFullScreen={isFullScreen || false}
             navigationLayout={settings.navigationLayout}
             settingsLoaded={settingsLoaded}
+            onPrefetchScreen={prefetchScreen}
           />
           <Suspense>
             {displayTarget ? (

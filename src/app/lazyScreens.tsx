@@ -1,45 +1,45 @@
 import React from "react";
-import type { SelectedDisplayType } from "./types/ui";
+import type { SelectedDisplayType } from "@/types/ui";
 
 // Lazy components (code-split per screen)
 export const Dashboard = React.lazy(() =>
-  import("./features/hardware/dashboard/Dashboard").then((m) => ({
+  import("@/features/hardware/dashboard/Dashboard").then((m) => ({
     default: m.Dashboard,
   })),
 );
 
 export const ChartTemplate = React.lazy(() =>
-  import("./features/hardware/usage/Usage").then((m) => ({
+  import("@/features/hardware/usage/Usage").then((m) => ({
     default: m.ChartTemplate,
   })),
 );
 
 export const Performance = React.lazy(() =>
-  import("./features/hardware/performance/Performance").then((m) => ({
+  import("@/features/hardware/performance/Performance").then((m) => ({
     default: m.Performance,
   })),
 );
 
 export const SystemSpecifications = React.lazy(() =>
-  import("./features/hardware/specifications/SystemSpecifications").then(
+  import("@/features/hardware/specifications/SystemSpecifications").then(
     (m) => ({ default: m.SystemSpecifications }),
   ),
 );
 
 export const CpuUsages = React.lazy(() =>
-  import("./features/hardware/usage/cpu/CpuUsage").then((m) => ({
+  import("@/features/hardware/usage/cpu/CpuUsage").then((m) => ({
     default: m.CpuUsages,
   })),
 );
 
 export const Insights = React.lazy(() =>
-  import("./features/hardware/insights/Insights").then((m) => ({
+  import("@/features/hardware/insights/Insights").then((m) => ({
     default: m.Insights,
   })),
 );
 
 export const Settings = React.lazy(() =>
-  import("./features/settings/Settings").then((m) => ({
+  import("@/features/settings/Settings").then((m) => ({
     default: m.Settings,
   })),
 );
@@ -48,25 +48,25 @@ export const Settings = React.lazy(() =>
 export const prefetchScreen = async (type: SelectedDisplayType) => {
   switch (type) {
     case "dashboard":
-      await import("./features/hardware/dashboard/Dashboard");
+      await import("@/features/hardware/dashboard/Dashboard");
       break;
     case "performance":
-      await import("./features/hardware/performance/Performance");
+      await import("@/features/hardware/performance/Performance");
       break;
     case "systemSpecifications":
-      await import("./features/hardware/specifications/SystemSpecifications");
+      await import("@/features/hardware/specifications/SystemSpecifications");
       break;
     case "usage":
-      await import("./features/hardware/usage/Usage");
+      await import("@/features/hardware/usage/Usage");
       break;
     case "cpuDetail":
-      await import("./features/hardware/usage/cpu/CpuUsage");
+      await import("@/features/hardware/usage/cpu/CpuUsage");
       break;
     case "insights":
-      await import("./features/hardware/insights/Insights");
+      await import("@/features/hardware/insights/Insights");
       break;
     case "settings":
-      await import("./features/settings/Settings");
+      await import("@/features/settings/Settings");
       break;
     default:
       break;

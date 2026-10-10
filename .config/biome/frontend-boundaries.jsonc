@@ -6,8 +6,8 @@
   // A later override that configures a rule REPLACES that rule's options from
   // earlier overrides for the files it matches; options are not merged. Keep
   // the boundary scopes disjoint, keep every override's constraint set
-  // complete, and keep the App override last so it reclassifies the files S4
-  // moves into src/app/.
+  // complete, and keep the App override last so the app layer (src/app/**) is
+  // reclassified after the generic scopes it overlaps.
   //
   // "pending Sn (#2325)" marks a target constraint that still has violations.
   // The slice Sn of #2325 removes the violations and restores the constraint.
@@ -53,8 +53,6 @@
                       "@/components/**",
                       "@/store/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "react",
                       "react/**",
@@ -88,8 +86,6 @@
                       "@/hooks/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "react",
                       "react/**",
@@ -140,8 +136,6 @@
                       "@/features/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**"
                     ]
@@ -190,8 +184,6 @@
                       "@/components/charts/**",
                       "@/components/shared/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai",
                       "jotai/**"
@@ -230,8 +222,6 @@
                       "@/features/**",
                       "@/components/shared/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**"
                     ]
@@ -276,14 +266,7 @@
                 "patterns": [
                   {
                     "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
-                    "group": [
-                      "@/features/**",
-                      "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
-                      "../**",
-                      "jotai/**"
-                    ]
+                    "group": ["@/features/**", "@/app/**", "../**", "jotai/**"]
                   }
                 ],
                 "paths": {
@@ -324,14 +307,7 @@
                 "patterns": [
                   {
                     "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
-                    "group": [
-                      "@/features/**",
-                      "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
-                      "../**",
-                      "jotai/**"
-                    ]
+                    "group": ["@/features/**", "@/app/**", "../**", "jotai/**"]
                   }
                 ],
                 "paths": {
@@ -378,8 +354,6 @@
                     "group": [
                       "@/features/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/hardware/**"
@@ -429,8 +403,6 @@
                       "@/features/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/hardware/store/**",
@@ -487,8 +459,6 @@
                       "@/hooks/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "react",
                       "react/**",
@@ -555,8 +525,6 @@
                     "group": [
                       "@/features/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/settings/**",
@@ -607,8 +575,6 @@
                       "@/features/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/settings/store/**",
@@ -664,8 +630,6 @@
                       "@/hooks/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "react",
                       "react/**",
@@ -731,8 +695,6 @@
                     "group": [
                       "@/features/**",
                       "@/app/**",
-                      "@/App",
-                      // "@/lazyScreens", -- pending S4 (#2325)
                       "../**",
                       "jotai/**",
                       "!@/features/menu/**"
@@ -782,8 +744,6 @@
                       "@/features/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/menu/store/**",
@@ -839,8 +799,6 @@
                       "@/hooks/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "react",
                       "react/**",
@@ -906,8 +864,6 @@
                     "group": [
                       "@/features/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/tray/**"
@@ -957,8 +913,6 @@
                       "@/features/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/tray/store/**",
@@ -1014,8 +968,6 @@
                       "@/hooks/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "react",
                       "react/**",
@@ -1081,8 +1033,6 @@
                     "group": [
                       "@/features/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/updater/**"
@@ -1132,8 +1082,6 @@
                       "@/features/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "jotai/**",
                       "!@/features/updater/store/**",
@@ -1189,8 +1137,6 @@
                       "@/hooks/**",
                       "@/components/**",
                       "@/app/**",
-                      "@/App",
-                      "@/lazyScreens",
                       "../**",
                       "react",
                       "react/**",
@@ -1234,20 +1180,9 @@
         }
       }
     },
-    // App: listed files are what S4 moves to src/app/; keep this override last
+    // App: the app layer (src/app/**), the composition root; keep this override last
     {
-      "includes": [
-        "src/App.tsx",
-        "src/lazyScreens.tsx",
-        "src/components/shared/CloseToTrayFirstRunDialog.tsx",
-        "src/components/shared/DatabaseConversionPromptDialog.tsx",
-        "src/components/shared/ElevationUnavailableNotice.tsx",
-        "src/components/shared/ExternalComponentGuidanceDialog.tsx",
-        "src/components/shared/NavigationRestructureNotice.tsx",
-        "src/components/shared/NsisMigrationNoticeDialog.tsx",
-        "src/components/shared/ScreenTemplate.tsx",
-        "src/components/ui/FullScreenExit.tsx"
-      ],
+      "includes": ["src/app/**", "!src/**/*.test.ts", "!src/**/*.test.tsx"],
       "linter": {
         "rules": {
           "style": {

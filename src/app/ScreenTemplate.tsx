@@ -1,6 +1,6 @@
 import type { JSX } from "react";
+import { BurnInShift } from "@/components/shared/BurnInShift";
 import { cn } from "@/lib/utils";
-import { BurnInShift } from "./BurnInShift";
 
 interface ScreenTemplateProps {
   title?: string | undefined;

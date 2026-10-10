@@ -8,6 +8,12 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  externalComponentGuidanceActionKey,
+  externalComponentGuidanceCopyKey,
+  externalComponentGuidanceDocsUrl,
+  externalComponentGuidanceViewForDisplayTarget,
+} from "@/components/shared/externalComponentGuidance";
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogDescription,
@@ -37,12 +43,6 @@ import type {
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import type { SelectedDisplayType } from "@/types/ui";
-import {
-  externalComponentGuidanceActionKey,
-  externalComponentGuidanceCopyKey,
-  externalComponentGuidanceDocsUrl,
-  externalComponentGuidanceViewForDisplayTarget,
-} from "./externalComponentGuidance";
 
 type ExternalComponentGuidanceDialogProps = {
   displayTarget: SelectedDisplayType | null;
