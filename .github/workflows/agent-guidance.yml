@@ -96,9 +96,14 @@ jobs:
 
       - name: Check whitespace
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.before }}
         run: |
-          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+          # On pull_request, GITHUB_SHA is the merge commit onto the current
+          # base tip. pull_request.base.sha can lag behind that tip, which
+          # would pull unrelated base-branch changes into the diff.
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            BASE_SHA="$(git rev-parse "$GITHUB_SHA^1")"
+          elif [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
             BASE_SHA="$(git rev-list --max-parents=0 HEAD | tail -1)"
           fi
           git diff --check "$BASE_SHA" "$GITHUB_SHA"
