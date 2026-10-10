@@ -1,10 +1,13 @@
 import { atom, useAtom } from "jotai";
 import { useCallback } from "react";
-import { defaultColorRGB } from "@/features/hardware/consts/chart";
-import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
-import type { Settings } from "@/features/settings/types/settingsType";
+import { defaultColorRGB } from "@/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type ClientSettings, commands } from "@/rspc/bindings";
+import {
+  type ClientSettings,
+  commands,
+  type LineGraphColorStringSettings,
+} from "@/rspc/bindings";
+import type { ChartDataType } from "@/types/chart";
 import type { Result } from "@/types/result";
 import { isError } from "@/types/result";
 
@@ -377,7 +380,7 @@ export const useSettingsAtom = () => {
    * @param value Color code in hexadecimal format
    */
   const updateLineGraphColorAtom = async (
-    key: keyof Settings["lineGraphColor"],
+    key: keyof LineGraphColorStringSettings,
     value: string,
   ) => {
     const result = await commands.setLineGraphColor(key, value);

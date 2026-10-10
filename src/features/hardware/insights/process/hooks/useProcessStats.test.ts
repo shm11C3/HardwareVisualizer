@@ -18,7 +18,7 @@ vi.mock("@/hooks/useTauriDialog", () => ({
 }));
 
 // Use a predictable archive interval (60s)
-vi.mock("@/features/hardware/consts/chart", () => ({
+vi.mock("@/consts/chart", () => ({
   chartConfig: { archiveUpdateIntervalMilSec: 60000 },
 }));
 

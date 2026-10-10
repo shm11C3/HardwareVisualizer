@@ -1,6 +1,6 @@
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
-import { chartConfig } from "@/features/hardware/consts/chart";
+import { chartConfig } from "@/consts/chart";
 import {
   asLiveGpuId,
   type LiveGpuId,

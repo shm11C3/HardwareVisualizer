@@ -11,17 +11,17 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import type { sizeOptions } from "@/consts/chart";
 import { darkClasses } from "@/consts/style";
-import type { sizeOptions } from "@/features/hardware/consts/chart";
-import {
-  type ChartDataType,
-  type GpuDataType,
-  isChartDataType,
-} from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { currentThemeAtom } from "@/hooks/useColorTheme";
 import { cn } from "@/lib/utils";
 import type { LineGraphType, Theme } from "@/rspc/bindings";
+import {
+  type ChartDataType,
+  type GpuDataType,
+  isChartDataType,
+} from "@/types/chart";
 import { CustomLegend, type LegendItem } from "./CustomLegend";
 
 type ChartProps = {

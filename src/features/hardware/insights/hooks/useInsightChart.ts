@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  type archivePeriods,
-  chartConfig,
-} from "@/features/hardware/consts/chart";
-import type {
-  DataStats,
-  GpuDataType,
-} from "@/features/hardware/types/hardwareDataType";
+import { chartConfig } from "@/consts/chart";
+import type { archivePeriods } from "@/features/hardware/consts/chart";
+import type { DataStats } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
@@ -15,6 +10,7 @@ import {
   type DataArchiveHardwareType,
   type HardwareType,
 } from "@/rspc/bindings";
+import type { GpuDataType } from "@/types/chart";
 import { isError } from "@/types/result";
 
 type UseInsightChartGpuProps = {

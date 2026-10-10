@@ -1,7 +1,7 @@
 import { Label } from "@/components/ui/label";
-import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { RGB2HEX } from "@/lib/color";
+import type { ChartDataType } from "@/types/chart";
 
 export const GraphColorPicker = ({
   label,

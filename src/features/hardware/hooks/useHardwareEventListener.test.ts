@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { chartConfig } from "@/features/hardware/consts/chart";
+import { chartConfig } from "@/consts/chart";
 import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {

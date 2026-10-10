@@ -2,7 +2,7 @@ import { useAtom } from "jotai";
 import type { CSSProperties } from "react";
 import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
 import { BurnInShift } from "@/components/shared/BurnInShift";
-import { chartConfig } from "@/features/hardware/consts/chart";
+import { chartConfig } from "@/consts/chart";
 import {
   cpuUsageHistoryAtom,
   graphicUsageHistoryAtom,
