@@ -99,8 +99,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          analysis="$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/heads/${BASE_REF}&tool_name=CodeQL&per_page=100" \
-            --jq '[.[] | select(.category == "/language:rust")] | sort_by(.created_at) | reverse | .[0] // empty')"
+          # A failed listing (the endpoint documents 404 as a possible response)
+          # is treated like an empty one: reuse is an optimisation, and a problem
+          # in it must fall back to the full analysis, never fail the gate.
+          if ! analysis="$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/heads/${BASE_REF}&tool_name=CodeQL&per_page=100" \
+            --jq '[.[] | select(.category == "/language:rust")] | sort_by(.created_at) | reverse | .[0] // empty')"; then
+            analysis=""
+          fi
 
           if [ -z "$analysis" ]; then
             echo "reuse=false" >> "$GITHUB_OUTPUT"
@@ -118,11 +123,14 @@ jobs:
 
           # perf-monitor is deliberately absent: it is excluded from the analysis
           # by paths-ignore in the init step, so changing it cannot change the
-          # result. The workflow file is listed because it defines the analysis.
+          # result. The workflow file and the two local actions the full path runs
+          # are listed because they define how the analysis is produced; a pull
+          # request that changes them must exercise that path, not skip it.
           if ! git fetch --depth=1 origin "$sha"; then
             decision="full analysis (the analysed commit could not be fetched)"
             reuse=false
-          elif git diff --quiet "$sha" HEAD -- core src-tauri Cargo.toml Cargo.lock rust-toolchain.toml .cargo .github/workflows/codeql.yml; then
+          elif git diff --quiet "$sha" HEAD -- core src-tauri Cargo.toml Cargo.lock rust-toolchain.toml .cargo \
+              .github/workflows/codeql.yml .github/actions/setup-rust .github/actions/cache-sccache; then
             decision="reuse the base analysis (Rust inputs are identical)"
             reuse=true
           else
