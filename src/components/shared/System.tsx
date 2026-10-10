@@ -1,4 +1,3 @@
-import { useSetAtom } from "jotai";
 import type { Dispatch, SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -11,8 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useMarkRestartRequired } from "@/hooks/useRestartRequired";
 import { commands } from "@/rspc/bindings";
-import { settingAtoms } from "@/store/ui";
 
 export const NeedRestart = ({
   alertOpen,
@@ -26,7 +25,7 @@ export const NeedRestart = ({
   dismissible?: boolean;
 }) => {
   const { t } = useTranslation();
-  const setIsRequiredRestart = useSetAtom(settingAtoms.isRequiredRestart);
+  const { markRestartRequired } = useMarkRestartRequired();
 
   return (
     <AlertDialog open={alertOpen}>
@@ -45,7 +44,7 @@ export const NeedRestart = ({
             <AlertDialogCancel
               onClick={() => {
                 setAlertOpen(false);
-                setIsRequiredRestart(true);
+                markRestartRequired();
               }}
             >
               {t("pages.settings.insights.needRestart.cancel")}

@@ -9,8 +9,8 @@
   // complete, and keep the App override last so the app layer (src/app/**) is
   // reclassified after the generic scopes it overlaps.
   //
-  // "pending Sn (#2325)" marks a target constraint that still has violations.
-  // The slice Sn of #2325 removes the violations and restores the constraint.
+  // A target constraint that still has violations is recorded as a commented
+  // entry tagged with the #2325 migration slice that removes it. None remain.
   // Never add a new pending exception to make new code pass.
   //
   // Plugin paths in this file resolve from the repository root (the config
@@ -24,8 +24,7 @@
         "!src/**/*.test.ts",
         "!src/**/*.test.tsx",
         // Process-wide handle to the Tauri Store plugin, not application state.
-        "!src/lib/tauriStore.ts",
-        "!src/features/settings/hooks/useDatabaseConversion.ts" // pending S5 (#2325)
+        "!src/lib/tauriStore.ts"
       ],
       "plugins": ["./.config/biome/no-module-scope-let.grit"]
     },
@@ -149,8 +148,8 @@
                       "createStore",
                       "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
-                      "Provider"
-                      // "atom", -- pending S5 (#2325)
+                      "Provider",
+                      "atom"
                     ]
                   }
                 }
@@ -233,7 +232,7 @@
                     "importNames": [
                       "*",
                       "atom",
-                      // "useAtom", -- pending S5 (#2325)
+                      "useAtom",
                       "useSetAtom",
                       "useStore",
                       "createStore",
@@ -276,7 +275,7 @@
                       "*",
                       "atom",
                       "useAtom",
-                      // "useSetAtom", -- pending S5 (#2325)
+                      "useSetAtom",
                       "useStore",
                       "createStore",
                       "INTERNAL_overrideCreateStore",
@@ -366,7 +365,7 @@
                     "importNames": [
                       "*",
                       "atom",
-                      // "useAtom", -- pending S5 (#2325)
+                      "useAtom",
                       "useSetAtom",
                       "useStore",
                       "createStore",
@@ -427,8 +426,8 @@
                       "createStore",
                       "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
-                      "Provider"
-                      // "atom", -- pending S5 (#2325)
+                      "Provider",
+                      "atom"
                     ]
                   }
                 }
@@ -527,8 +526,7 @@
                       "@/app/**",
                       "../**",
                       "jotai/**",
-                      "!@/features/settings/**",
-                      "!@/features/menu/**" // pending S5 (#2325): delete this exemption
+                      "!@/features/settings/**"
                     ]
                   }
                 ],
@@ -538,8 +536,8 @@
                     "importNames": [
                       "*",
                       "atom",
-                      // "useAtom", -- pending S5 (#2325)
-                      // "useSetAtom", -- pending S5 (#2325)
+                      "useAtom",
+                      "useSetAtom",
                       "useStore",
                       "createStore",
                       "INTERNAL_overrideCreateStore",
@@ -598,8 +596,8 @@
                       "createStore",
                       "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
-                      "Provider"
-                      // "atom", -- pending S5 (#2325)
+                      "Provider",
+                      "atom"
                     ]
                   }
                 }
@@ -767,8 +765,8 @@
                       "createStore",
                       "INTERNAL_overrideCreateStore",
                       "getDefaultStore",
-                      "Provider"
-                      // "atom", -- pending S5 (#2325)
+                      "Provider",
+                      "atom"
                     ]
                   }
                 }
@@ -1201,8 +1199,8 @@
                     "importNames": [
                       "*",
                       "atom",
-                      // "useAtom", -- pending S5 (#2325)
-                      // "useSetAtom", -- pending S5 (#2325)
+                      "useAtom",
+                      "useSetAtom",
                       "useStore",
                       "createStore",
                       "INTERNAL_overrideCreateStore",

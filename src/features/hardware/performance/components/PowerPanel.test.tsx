@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { powerDrawAtom } from "@/features/hardware/store/chart";
+import { powerDrawAtom } from "@/features/hardware/store/power";
 import { PowerPanel } from "./PowerPanel";
 
 let powerDisplayTargets = ["cpu", "gpu", "package"];

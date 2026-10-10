@@ -6,10 +6,8 @@ import {
   toLiveGpuId,
 } from "@/features/hardware/gpuIdentity";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
-import {
-  gpuNamesAtom,
-  selectedGpuIdAtom,
-} from "@/features/hardware/store/chart";
+import { gpuNamesAtom } from "@/features/hardware/store/gpu";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import { useTauriStore } from "@/hooks/useTauriStore";
 
 const STORE_KEY = "selectedGpuId";

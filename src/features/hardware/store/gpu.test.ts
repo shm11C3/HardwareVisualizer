@@ -10,8 +10,8 @@ import {
   gpuUsageSourceAtom,
   gpuUsageSourcesAtom,
   graphicUsageHistoryAtom,
-  selectedGpuIdAtom,
-} from "./chart";
+} from "@/features/hardware/store/gpu";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 
 /**
  * These atoms feed the classic Usage screen, the classic dashboard, and the

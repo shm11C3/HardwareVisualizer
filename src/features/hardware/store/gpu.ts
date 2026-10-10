@@ -3,16 +3,8 @@ import {
   getEffectiveGpuId,
   type LiveGpuId,
 } from "@/features/hardware/gpuIdentity";
-import type {
-  MotherboardFanSpeedValues,
-  MotherboardTemperatureValues,
-  NameValues,
-} from "@/features/hardware/types/hardwareDataType";
-import type { SensorSupport } from "@/rspc/bindings";
-
-export const cpuUsageHistoryAtom = atom<(number | null)[]>([]);
-export const processorsUsageHistoryAtom = atom<number[][]>([]);
-export const memoryUsageHistoryAtom = atom<(number | null)[]>([]);
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
+import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 
 // ── Multi-GPU state ──
 
@@ -33,12 +25,6 @@ export const gpuUsageHistoriesAtom = atom<Record<LiveGpuId, (number | null)[]>>(
  */
 export const gpuNamesAtom = atom<Record<LiveGpuId, string>>({});
 
-/** Currently selected GPU ID for dashboard/usage view */
-export const selectedGpuIdAtom = atom<LiveGpuId | null>(null);
-
-/** Currently selected storage device id for the Storage Health Display */
-export const selectedStorageDeviceIdAtom = atom<string | null>(null);
-
 /** Per-GPU usage source keyed by gpuId */
 export const gpuUsageSourcesAtom = atom<Record<LiveGpuId, string | null>>({});
 
@@ -56,52 +42,6 @@ export const gpuTempMapAtom = atom<
 export const gpuFanSpeedMapAtom = atom<
   Record<LiveGpuId, { name: string; value: number }>
 >({});
-
-export const cpuTempAtom = atom<NameValues>([]);
-export const cpuFanSpeedAtom = atom<NameValues>([]);
-
-/** All named temperature sensors (thermal zones), Windows only for now */
-export const sensorTempsAtom = atom<NameValues>([]);
-
-/** Live motherboard temperature sensors from the Super I/O provider */
-export const motherboardTempsAtom = atom<MotherboardTemperatureValues>([]);
-
-/** Live motherboard fan speeds from the Super I/O provider */
-export const motherboardFanSpeedsAtom = atom<MotherboardFanSpeedValues>([]);
-
-/** Hardware support for motherboard fan-speed collection. */
-export const motherboardFanSupportAtom = atom<SensorSupport>("unknown");
-
-export type PowerDraw = {
-  cpuWatts: number | null;
-  gpuWatts: number | null;
-  aneWatts: number | null;
-  packageWatts: number | null;
-};
-
-export type PowerDrawHistory = {
-  [K in keyof PowerDraw]: (number | null)[];
-};
-
-export const powerDrawAtom = atom<PowerDraw>({
-  cpuWatts: null,
-  gpuWatts: null,
-  aneWatts: null,
-  packageWatts: null,
-});
-
-export const powerDrawHistoryAtom = atom<PowerDrawHistory>({
-  cpuWatts: [],
-  gpuWatts: [],
-  aneWatts: [],
-  packageWatts: [],
-});
-
-/** Whether this runtime has produced at least one power reading. */
-export const powerDrawAvailableAtom = atom(false);
-
-/** Hardware support for CPU package-power collection. */
-export const cpuPowerSupportAtom = atom<SensorSupport>("unknown");
 
 /** All GPUs temperature as NameValues */
 export const gpuTempAtom = atom<NameValues>((get) =>

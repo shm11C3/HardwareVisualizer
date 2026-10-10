@@ -1,15 +1,14 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { atom, useAtom } from "jotai";
+import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { darkClasses } from "@/consts/style";
 import type { Theme } from "@/rspc/bindings";
+import { currentThemeAtom } from "@/store/theme";
 
 const defaultTheme = ["dark", "light"];
 
-export const currentThemeAtom = atom<Exclude<Theme, "system"> | null>(null);
-
 export const useColorTheme = (theme: Theme) => {
-  const [, setCurrentTheme] = useAtom(currentThemeAtom);
+  const setCurrentTheme = useSetAtom(currentThemeAtom);
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">("light");
 
   const listenTheme = useCallback(async () => {

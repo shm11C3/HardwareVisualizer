@@ -1,11 +1,13 @@
-import { atom, useAtomValue, useStore } from "jotai";
+import { useAtomValue, useStore } from "jotai";
 import { useEffect, useRef } from "react";
+import {
+  disabledProcessesAtom,
+  processesAtom,
+} from "@/features/hardware/store/processes";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { commands, type ProcessInfo } from "@/rspc/bindings";
+import { commands } from "@/rspc/bindings";
 
 const PROCESS_POLL_INTERVAL_MS = 3000;
-const processesAtom = atom<ProcessInfo[]>([]);
-const disabledProcessesAtom = atom<ProcessInfo[]>([]);
 
 type ErrorReporter = (pollingError: unknown) => void;
 type Store = ReturnType<typeof useStore>;

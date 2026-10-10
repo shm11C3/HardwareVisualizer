@@ -1,5 +1,3 @@
 import { atom } from "jotai";
 
-export const settingAtoms = {
-  isRequiredRestart: atom<boolean>(false),
-};
+export const isRestartRequiredAtom = atom<boolean>(false);

@@ -1,16 +1,14 @@
 import { XIcon } from "@phosphor-icons/react";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import {
-  DEFAULT_DISPLAY_TARGET,
-  displayTargetAtom,
-  navigationLayoutFocusRequestedAtom,
-  sideMenuOpenAtom,
-} from "@/features/menu/hooks/useMenu";
+import { DEFAULT_DISPLAY_TARGET } from "@/features/menu/hooks/useMenu";
+import { useDisplayTargetSetter } from "@/hooks/useDisplayTargetSetter";
+import { useRequestNavigationLayoutFocus } from "@/hooks/useNavigationLayoutFocusRequest";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { cn } from "@/lib/utils";
+import { sideMenuOpenAtom } from "@/store/navigation";
 import { navigationMutationPendingAtom } from "@/store/settings";
 import type { SelectedDisplayType } from "@/types/ui";
 
@@ -22,10 +20,8 @@ export const NavigationRestructureNotice = ({
   const { t } = useTranslation();
   const { settings, acknowledgeNavigationRestructureAnnouncementAtom } =
     useSettingsAtom();
-  const setDisplayTargetAtom = useSetAtom(displayTargetAtom);
-  const requestNavigationLayoutFocus = useSetAtom(
-    navigationLayoutFocusRequestedAtom,
-  );
+  const { setDisplayTargetAtom } = useDisplayTargetSetter();
+  const { requestFocus } = useRequestNavigationLayoutFocus();
   const [, setStoredDisplayTarget] = useTauriStore<SelectedDisplayType>(
     "display",
     DEFAULT_DISPLAY_TARGET,
@@ -44,7 +40,7 @@ export const NavigationRestructureNotice = ({
   const openNavigationSettings = () => {
     setDisplayTargetAtom("settings");
     void setStoredDisplayTarget("settings");
-    requestNavigationLayoutFocus(true);
+    requestFocus();
   };
 
   return (

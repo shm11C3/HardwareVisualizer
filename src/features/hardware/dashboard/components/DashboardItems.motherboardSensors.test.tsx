@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/sensors";
 import type {
   MotherboardFanSpeedValues,
   MotherboardTemperatureValues,

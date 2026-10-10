@@ -1,12 +1,13 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { atom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
-import { processorsUsageHistoryAtom } from "@/features/hardware/store/chart";
-
-const disabledProcessorsUsageHistoryAtom = atom<number[][]>([]);
+import {
+  disabledProcessorsUsageHistoryAtom,
+  processorsUsageHistoryAtom,
+} from "@/features/hardware/store/liveUsage";
 
 export const useExportToClipboard = ({
   includeRuntimeStats = true,

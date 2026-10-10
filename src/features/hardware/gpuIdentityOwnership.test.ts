@@ -8,12 +8,14 @@ import { describe, expect, it } from "vitest";
  *
  * This test enumerates the files allowed to touch the atom. A new surface
  * that needs the selection imports `useGpuAdapters` (or the derived atoms in
- * `store/chart.ts`) instead of joining the atom itself. Extending the
+ * `store/gpu.ts`) instead of joining the atom itself. Extending the
  * allowlist is a deliberate act reviewed with `verify-identity-contracts`.
  */
 const ALLOWED_CONSUMERS = new Set([
-  // Defines the atom and the derived resolution every read-only surface uses.
-  "/src/features/hardware/store/chart.ts",
+  // Defines the atom.
+  "/src/features/hardware/store/selection.ts",
+  // The derived resolution every read-only surface uses.
+  "/src/features/hardware/store/gpu.ts",
   // The one resolution owner components consume.
   "/src/features/hardware/hooks/useGpuAdapters.ts",
   // Restores, persists, and migrates the stored intent.

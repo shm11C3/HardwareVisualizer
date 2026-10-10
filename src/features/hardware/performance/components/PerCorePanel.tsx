@@ -2,7 +2,7 @@ import { useAtomValue } from "jotai";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
-import { processorsUsageHistoryAtom } from "@/features/hardware/store/chart";
+import { processorsUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { toCssColor } from "./InstrumentStrip";
 

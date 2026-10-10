@@ -6,7 +6,7 @@ import {
   type PerformancePowerMode,
   performancePowerModes,
 } from "@/features/hardware/performance/types/performanceLayout";
-import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
+import { powerDrawAvailableAtom } from "@/features/hardware/store/power";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 

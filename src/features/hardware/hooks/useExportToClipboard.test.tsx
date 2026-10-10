@@ -5,7 +5,7 @@ import { useHydrateAtoms } from "jotai/utils";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useExportToClipboard } from "@/features/hardware/dashboard/hooks/useExportToClipboard";
-import { processorsUsageHistoryAtom } from "@/features/hardware/store/chart";
+import { processorsUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
 import type {
   DiskKind,
   GraphicInfo,

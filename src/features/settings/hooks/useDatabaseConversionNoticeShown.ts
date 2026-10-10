@@ -1,12 +1,10 @@
-import { atom, useAtom } from "jotai";
+import { useAtom } from "jotai";
 import { useEffect, useRef } from "react";
+import { noticeShownAtom } from "@/features/settings/store/databaseConversion";
 import { getStoreInstance } from "@/lib/tauriStore";
 
 export const DATABASE_CONVERSION_NOTICE_SHOWN_STORE_KEY =
   "databaseConversionCompleteNoticeShown";
-
-/** `null` means not loaded from the Tauri Store yet. */
-const noticeShownAtom = atom<boolean | null>(null);
 
 /**
  * Whether the #2136 conversion-complete notice has already been shown,

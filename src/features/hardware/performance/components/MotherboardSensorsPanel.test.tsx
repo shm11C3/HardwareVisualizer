@@ -1,10 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  cpuUsageHistoryAtom,
-  motherboardTempsAtom,
-} from "@/features/hardware/store/chart";
+import { cpuUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
+import { motherboardTempsAtom } from "@/features/hardware/store/sensors";
 import { MotherboardSensorsPanel } from "./MotherboardSensorsPanel";
 
 vi.mock("react-i18next", () => ({

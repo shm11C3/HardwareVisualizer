@@ -3,10 +3,10 @@ import { type CSSProperties, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import {
-  cpuTempAtom,
   cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/liveUsage";
+import { cpuTempAtom } from "@/features/hardware/store/sensors";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import { formatTemperature, toCssColor } from "./InstrumentStrip";

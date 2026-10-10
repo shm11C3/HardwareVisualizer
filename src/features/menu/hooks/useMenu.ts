@@ -1,12 +1,10 @@
-import { atom, useAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { NavigationLayout } from "@/rspc/bindings";
+import { displayTargetAtom, sideMenuOpenAtom } from "@/store/navigation";
 import type { SelectedDisplayType } from "@/types/ui";
 
-export const displayTargetAtom = atom<SelectedDisplayType | null>(null);
-export const sideMenuOpenAtom = atom<boolean | null>(null);
-export const navigationLayoutFocusRequestedAtom = atom(false);
 export const DEFAULT_DISPLAY_TARGET = "dashboard" satisfies SelectedDisplayType;
 
 const classicDisplayTargets: SelectedDisplayType[] = [
@@ -61,8 +59,9 @@ export const useMenu = (
   navigationLayout: NavigationLayout,
   settingsLoaded: boolean,
 ) => {
-  const [displayTargetValue, setDisplayTargetAtom] = useAtom(displayTargetAtom);
-  const [, setSideMenuOpenAtom] = useAtom(sideMenuOpenAtom);
+  const displayTargetValue = useAtomValue(displayTargetAtom);
+  const setDisplayTargetAtom = useSetAtom(displayTargetAtom);
+  const setSideMenuOpenAtom = useSetAtom(sideMenuOpenAtom);
   const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
   const [displayTarget, setDisplayTarget, isDisplayPending, displayLoadFailed] =
     useTauriStore<SelectedDisplayType>("display", DEFAULT_DISPLAY_TARGET);

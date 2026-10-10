@@ -1,13 +1,13 @@
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import type { CSSProperties } from "react";
 import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
 import { BurnInShift } from "@/components/shared/BurnInShift";
 import { chartConfig } from "@/consts/chart";
+import { graphicUsageHistoryAtom } from "@/features/hardware/store/gpu";
 import {
   cpuUsageHistoryAtom,
-  graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/liveUsage";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ type UsageGraphPanelProps = {
 };
 
 const CpuUsageChart = ({ fitToContainer }: UsageChartProps) => {
-  const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
+  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
   const { settings } = useSettingsAtom();
 
   return (
@@ -42,7 +42,7 @@ const CpuUsageChart = ({ fitToContainer }: UsageChartProps) => {
 };
 
 const MemoryUsageChart = ({ fitToContainer }: UsageChartProps) => {
-  const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
+  const memoryUsageHistory = useAtomValue(memoryUsageHistoryAtom);
   const { settings } = useSettingsAtom();
 
   return (
@@ -58,7 +58,7 @@ const MemoryUsageChart = ({ fitToContainer }: UsageChartProps) => {
 };
 
 const GpuUsageChart = ({ fitToContainer }: UsageChartProps) => {
-  const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
+  const graphicUsageHistory = useAtomValue(graphicUsageHistoryAtom);
   const { settings } = useSettingsAtom();
 
   return (
@@ -75,9 +75,9 @@ const GpuUsageChart = ({ fitToContainer }: UsageChartProps) => {
 
 const MixUsageChart = ({ fitToContainer }: UsageChartProps) => {
   const { settings } = useSettingsAtom();
-  const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
-  const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
-  const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
+  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
+  const memoryUsageHistory = useAtomValue(memoryUsageHistoryAtom);
+  const graphicUsageHistory = useAtomValue(graphicUsageHistoryAtom);
 
   return (
     <LineChart

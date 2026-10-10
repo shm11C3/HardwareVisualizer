@@ -1,4 +1,4 @@
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import { memo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { LineChartComponent } from "@/components/charts/LineChart";
@@ -10,7 +10,7 @@ import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import {
   cpuUsageHistoryAtom,
   processorsUsageHistoryAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/liveUsage";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { transpose } from "@/lib/array";
 import { cn } from "@/lib/utils";
@@ -31,8 +31,8 @@ export const CpuUsages = () => {
 };
 
 const CpuUsageChart = memo(() => {
-  const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
-  const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
+  const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
+  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
   const { init, hardwareInfo } = useHardwareInfoAtom();
   const processes = useProcessInfo();
   const { t } = useTranslation();

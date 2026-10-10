@@ -1,9 +1,9 @@
-import { useAtom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { navigationLayoutFocusRequestedAtom } from "@/features/menu/hooks/useMenu";
+import { useNavigationLayoutFocusRequest } from "@/hooks/useNavigationLayoutFocusRequest";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { navigationMutationPendingAtom } from "@/store/settings";
 
@@ -11,17 +11,16 @@ export const NavigationLayoutToggle = () => {
   const { t } = useTranslation();
   const { settings, setNavigationLayoutAtom } = useSettingsAtom();
   const navigationMutationPending = useAtomValue(navigationMutationPendingAtom);
-  const [focusRequested, setFocusRequested] = useAtom(
-    navigationLayoutFocusRequestedAtom,
-  );
+  const { focusRequested, clearFocusRequest } =
+    useNavigationLayoutFocusRequest();
   const switchRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!focusRequested) return;
 
     switchRef.current?.focus();
-    setFocusRequested(false);
-  }, [focusRequested, setFocusRequested]);
+    clearFocusRequest();
+  }, [focusRequested, clearFocusRequest]);
 
   return (
     <div className="flex w-full items-center justify-between gap-4 py-6 xl:w-1/2">
