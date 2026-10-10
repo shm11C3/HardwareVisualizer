@@ -71,6 +71,109 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Reuse the base branch's Rust analysis when a pull request changes no Rust
+      # input. The develop ruleset has a code_scanning rule that requires a
+      # `/language:rust` analysis on every pull request's merge commit, and a path
+      # filter would omit the category and break that comparison (see
+      # docs/agents/lessons/keep-required-codeql-configurations-on-pull-requests.md).
+      # Rust has no overlay/incremental analysis, so every pull request otherwise
+      # pays a full 8-10 minute analysis (16-20 minutes after a Cargo.lock bump),
+      # although 28 of the last 40 merged pull requests changed no Rust input.
+      #
+      # The newest Rust analysis on the base branch is a complete result for the
+      # commit it analysed. When the pull request's merge commit has identical
+      # Rust inputs to that commit, the same result is also correct for the merge
+      # commit, so re-upload it under the pull request instead of recomputing it.
+      # The diff is against the analysed commit, not the merge base, because the
+      # base branch may have moved past its newest analysed commit with Rust
+      # changes; the stored result describes only the analysed commit.
+      # Fork pull requests keep the full analysis: their token cannot upload to
+      # this repository, and their inputs are not ours to vouch for.
+      - name: Find a reusable base Rust analysis
+        id: base-analysis
+        if: matrix.language == 'rust' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+
+          analysis="$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/heads/${BASE_REF}&tool_name=CodeQL&per_page=100" \
+            --jq '[.[] | select(.category == "/language:rust")] | sort_by(.created_at) | reverse | .[0] // empty')"
+
+          if [ -z "$analysis" ]; then
+            echo "reuse=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Running a full Rust analysis because ${BASE_REF} has no Rust analysis to reuse."
+            {
+              echo "### Base Rust analysis"
+              echo "- Base ref: \`${BASE_REF}\`"
+              echo "- Decision: full analysis (the base has no \`/language:rust\` analysis)"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          id="$(jq -r '.id' <<< "$analysis")"
+          sha="$(jq -r '.commit_sha' <<< "$analysis")"
+
+          # perf-monitor is deliberately absent: it is excluded from the analysis
+          # by paths-ignore in the init step, so changing it cannot change the
+          # result. The workflow file is listed because it defines the analysis.
+          if ! git fetch --depth=1 origin "$sha"; then
+            decision="full analysis (the analysed commit could not be fetched)"
+            reuse=false
+          elif git diff --quiet "$sha" HEAD -- core src-tauri Cargo.toml Cargo.lock rust-toolchain.toml .cargo .github/workflows/codeql.yml; then
+            decision="reuse the base analysis (Rust inputs are identical)"
+            reuse=true
+          else
+            decision="full analysis (Rust inputs differ from the analysed commit)"
+            reuse=false
+          fi
+
+          {
+            echo "reuse=${reuse}"
+            echo "analysis-id=${id}"
+            echo "analysis-commit=${sha}"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::Base Rust analysis ${id} at ${sha}: ${decision}."
+          {
+            echo "### Base Rust analysis"
+            echo "- Base ref: \`${BASE_REF}\`"
+            echo "- Analysis id: \`${id}\`"
+            echo "- Analysis commit: \`${sha}\`"
+            echo "- Decision: ${decision}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download the base Rust analysis
+        if: steps.base-analysis.outputs.reuse == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANALYSIS_ID: ${{ steps.base-analysis.outputs.analysis-id }}
+        run: |
+          set -euo pipefail
+          sarif="$RUNNER_TEMP/base-rust.sarif"
+          gh api -H "Accept: application/sarif+json" \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses/${ANALYSIS_ID}" > "$sarif.raw"
+          # The API decorates the stored SARIF with alert links and version
+          # control provenance. Strip them so the upload carries only what the
+          # CodeQL CLI itself would have produced.
+          jq 'del(.runs[].versionControlProvenance,
+                  .runs[].results[]?.properties["github/alertNumber"],
+                  .runs[].results[]?.properties["github/alertUrl"])' \
+            "$sarif.raw" > "$sarif"
+          jq -e '.runs | length > 0' "$sarif" > /dev/null
+
+      - name: Upload the base Rust analysis for this pull request
+        if: steps.base-analysis.outputs.reuse == 'true'
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          sarif_file: ${{ runner.temp }}/base-rust.sarif
+          category: "/language:rust"
+          # Unlike the full analysis, keep the wait: this path is new, and a
+          # rejected upload must fail the job rather than leave the category absent.
+          wait-for-processing: "true"
+
       # Rust only supports build-mode: none with CodeQL (manual/autobuild are not
       # available for Rust: see the `manual_build_support`/`autobuild_support`
       # variables in github/docs, which list "C/C++, C#, Go, Java, Kotlin, and
@@ -85,23 +188,25 @@ jobs:
       # `dependency-caching` input explicitly excludes Rust (it only covers Java,
       # Go and C#: see the `codeql_dependency_caching_languages` variable in
       # github/docs), so reuse this repo's own Rust cache actions instead, the
-      # same way ci.yml's lint-core/test-core/lint-tauri jobs do. duckdb-archive
-      # is a default Cargo feature and CodeQL builds with default features, so
-      # this also triggers the DuckDB C++ build cache-sccache was written for;
+      # same way ci.yml's lint-core/test-core/lint-tauri jobs do. The Rust
+      # extractor enables all Cargo features of the workspace crates by default
+      # (its `cargo_features` option: "By default all features are enabled"), and
+      # duckdb-archive is among them, so this also triggers the DuckDB C++ build
+      # cache-sccache was written for;
       # the same sccache/RUSTC_WRAPPER mechanism caches both that and ordinary
       # rustc invocations for every other dependency and proc-macro crate. Uses its own
       # cache-key ("codeql-rust") because this job's cargo invocations (driven by
       # rust-analyzer, not `cargo check`/`build`/`clippy`) are a different job
       # kind from every ci.yml key and would otherwise evict a sibling entry.
       - name: Setup Rust
-        if: matrix.language == 'rust'
+        if: matrix.language == 'rust' && steps.base-analysis.outputs.reuse != 'true'
         uses: ./.github/actions/setup-rust
         with:
           components: ""
           cache-key: codeql-rust
 
       - name: Cache sccache (R2)
-        if: matrix.language == 'rust' && env.R2_CACHE_ALLOWED == 'true'
+        if: matrix.language == 'rust' && steps.base-analysis.outputs.reuse != 'true' && env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -117,10 +222,18 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
+        if: steps.base-analysis.outputs.reuse != 'true'
         uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          # perf-monitor is a standalone 4-file workspace outside the root
+          # workspace. Without this, the Rust extractor also loads its dependency
+          # closure (clap, sysinfo, toml, serde_json) and extracts it as library
+          # code, which adds analysis time and no results for this repository.
+          config: |
+            paths-ignore:
+              - perf-monitor/**
           # If you wish to specify custom queries, you can do so here or in a config file.
           # By default, queries listed here will override any specified in a config file.
           # Prefix the list here with "+" to use these queries and those in the config file.
@@ -134,7 +247,7 @@ jobs:
       # to build your code.
       # ℹ️ Command-line programs to run using the OS shell.
       # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-      - if: matrix.build-mode == 'manual'
+      - if: matrix.build-mode == 'manual' && steps.base-analysis.outputs.reuse != 'true'
         shell: bash
         run: |
           echo 'If you are using a "manual" build mode for one or more of the' \
@@ -145,6 +258,14 @@ jobs:
           exit 1
 
       - name: Perform CodeQL Analysis
+        if: steps.base-analysis.outputs.reuse != 'true'
         uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with:
           category: "/language:${{matrix.language}}"
+          # The database upload only feeds multi-repository variant analysis,
+          # which this repository does not use. Skipping it also skips the
+          # "Cleaning up databases" step (about 25 s).
+          upload-database: false
+          # Skip the processing wait (about 25 s). A processing failure still
+          # surfaces as a missing analysis in the CodeQL check.
+          wait-for-processing: false
