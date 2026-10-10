@@ -22,7 +22,9 @@ Clippy, normal tests, coverage, the release build, and bindings export have
 different Cargo modes, features, or instrumentation. Combining their cache
 keys does not provide a reusable build, so keep these jobs separate. CodeQL
 starts independently; retain all three language categories and its distinct
-Rust cache. A dedicated runner pool requires a separate provider decision.
+Rust cache. Same-repository pull requests whose Rust inputs are unchanged
+re-upload the base Rust analysis instead of re-running it. A dedicated runner
+pool requires a separate provider decision.
 
 The existing step-level background and wait controls remain in the main CI
 workflow where they provide measured overlap. The repository's pinned
