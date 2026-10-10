@@ -23,7 +23,7 @@ listed below it.
 | UI primitives | `src/components/ui`, `src/components/icons` | Foundation. Never IPC `commands` or `events`. No Jotai. |
 | Shared components | `src/components/charts`, `src/components/shared` | All of the above. Charts never import shared components. |
 | Feature | `src/features/<f>` | All of the above and its own feature. Never another feature. |
-| App | `src/app` (planned), `src/App.tsx`, `src/lazyScreens.tsx`, `src/main*.tsx` | Anything |
+| App | `src/app`, `src/main*.tsx` | Anything |
 
 Within a feature, `store/` and `hooks/` import their own feature through a
 closed allow-list rather than an open exemption:
@@ -112,8 +112,8 @@ These rules keep the pending list honest:
   resolves.
 - New code that needs a new exception is a design discussion, not a config
   edit.
-- Files that the app-layer slice will move are listed in the last override
-  and get app-layer rules now, so their current directory's rules stay strict.
+- The app override covers `src/app/**` and must stay last, so the app layer
+  keeps its own rules wherever other scopes overlap it.
 
 ### Biome behaviors this relies on
 

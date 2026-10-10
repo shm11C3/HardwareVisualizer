@@ -11,7 +11,6 @@ import {
 import { type JSX, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
-import { prefetchScreen } from "@/lazyScreens";
 import { cn } from "@/lib/utils";
 import type { NavigationLayout } from "@/rspc/bindings";
 import type { SelectedDisplayType } from "@/types/ui";
@@ -83,10 +82,12 @@ const MenuItem = memo(
     type,
     selected,
     handleMenuClick,
+    onPrefetchScreen,
   }: {
     type: SelectedDisplayType;
     selected: boolean;
     handleMenuClick: (type: SelectedDisplayType) => void;
+    onPrefetchScreen: (type: SelectedDisplayType) => void;
   }) => {
     const menuTitles = useMenuTitles();
 
@@ -114,8 +115,8 @@ const MenuItem = memo(
             type === "settings" ? "" : "p-2",
           )}
           onClick={() => handleMenuClick(type)}
-          onMouseEnter={() => prefetchScreen(type)}
-          onFocus={() => prefetchScreen(type)}
+          onMouseEnter={() => onPrefetchScreen(type)}
+          onFocus={() => onPrefetchScreen(type)}
           // These entries switch destinations; there is no tablist or tab
           // panel behind them, so they must not claim the tab model.
           aria-current={selected ? "page" : undefined}
@@ -150,10 +151,12 @@ const ClosedSideMenu = ({
   type,
   selected,
   handleMenuClick,
+  onPrefetchScreen,
 }: {
   type: SelectedDisplayType;
   selected: boolean;
   handleMenuClick: (type: SelectedDisplayType) => void;
+  onPrefetchScreen: (type: SelectedDisplayType) => void;
 }) => {
   const { t } = useTranslation();
   const menuTitles = useMenuTitles();
@@ -181,8 +184,8 @@ const ClosedSideMenu = ({
           type === "settings" ? "" : "p-2",
         )}
         onClick={() => handleMenuClick(type)}
-        onMouseEnter={() => prefetchScreen(type)}
-        onFocus={() => prefetchScreen(type)}
+        onMouseEnter={() => onPrefetchScreen(type)}
+        onFocus={() => onPrefetchScreen(type)}
         aria-label={t("navigation.openDestination", {
           name: menuTitles[type],
         })}
@@ -199,10 +202,12 @@ export const SideMenu = memo(
     isFullScreen,
     navigationLayout,
     settingsLoaded,
+    onPrefetchScreen,
   }: {
     isFullScreen: boolean;
     navigationLayout: NavigationLayout;
     settingsLoaded: boolean;
+    onPrefetchScreen: (type: SelectedDisplayType) => void;
   }) => {
     const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu(
       navigationLayout,
@@ -254,6 +259,7 @@ export const SideMenu = memo(
                       key={type}
                       type={type}
                       handleMenuClick={handleMenuClick}
+                      onPrefetchScreen={onPrefetchScreen}
                       selected={displayTarget === type}
                     />
                   ))}
@@ -262,6 +268,7 @@ export const SideMenu = memo(
                   <MenuItem
                     type="settings"
                     handleMenuClick={handleMenuClick}
+                    onPrefetchScreen={onPrefetchScreen}
                     selected={displayTarget === "settings"}
                   />
                 </ul>
@@ -281,6 +288,7 @@ export const SideMenu = memo(
                         type={type}
                         selected={displayTarget === type}
                         handleMenuClick={handleMenuClick}
+                        onPrefetchScreen={onPrefetchScreen}
                       />
                     ))}
                   </ul>
@@ -289,6 +297,7 @@ export const SideMenu = memo(
                       type="settings"
                       selected={displayTarget === "settings"}
                       handleMenuClick={handleMenuClick}
+                      onPrefetchScreen={onPrefetchScreen}
                     />
                   </ul>
                 </div>

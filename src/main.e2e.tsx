@@ -5,7 +5,7 @@ import { installTauriMocks } from "./e2e/mocks/installTauriMocks";
 const bootstrap = async () => {
   installTauriMocks();
 
-  const { App } = await import("./App");
+  const { App } = await import("@/app/App");
 
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
