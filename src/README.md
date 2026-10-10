@@ -55,9 +55,8 @@ foundation (rspc, types, consts, lib) -> store -> hooks -> components/ui
 `npm run lint:ci` enforces these rules through
 `.config/biome/frontend-boundaries.jsonc`. See
 [ADR 0027](../docs/adr/0027-frontend-layer-boundaries-and-state-ownership.md)
-and the [Design Doc](../docs/design/frontend-architecture.md). Existing code
-that predates the rules is listed there as pending exceptions, which only
-shrink.
+and the [Design Doc](../docs/design/frontend-architecture.md). No pending
+exceptions remain; a new one is a design discussion, not a config edit.
 
 ## Backend IPC
 
@@ -85,6 +84,11 @@ Use the existing boundary when choosing where state lives:
   without losing an explicit user configuration.
 - Declare Jotai atoms in a `store/` module: `src/features/<feature>/store/`
   for feature state, and `src/store/` when the state is genuinely shared.
+  Group a feature's atoms by subject (for example `liveUsage`, `gpu`,
+  `selection`) so a subject can change without touching the others.
+- Per-store mutable state (counters, coalescing flags) also lives in a `store/`
+  module, as a `WeakMap` keyed by the Jotai store. Components read atoms with
+  `useAtomValue`; every write is a named function returned by a hook.
 
 Do not write user-facing preferences directly from the frontend with Tauri
 Store.

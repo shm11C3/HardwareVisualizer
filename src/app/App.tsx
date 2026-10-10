@@ -41,11 +41,10 @@ import {
 } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "@tauri-apps/plugin-os";
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { FullScreenButton } from "@/components/ui/FullScreenButton";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
-import { displayTargetAtom } from "@/features/menu/hooks/useMenu";
 import { TrayWidgetFlyout } from "@/features/tray/TrayWidgetFlyout";
 import { AppUpdate } from "@/features/updater/AppUpdate";
 import { useFullScreenMode } from "@/hooks/useFullScreenMode";
@@ -54,6 +53,7 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import { useTitleIconVisualSelector } from "@/hooks/useTitleIconVisualSelector";
 import { clearTauriStore } from "@/lib/tauriStore";
 import { cn } from "@/lib/utils";
+import { displayTargetAtom } from "@/store/navigation";
 import { FullscreenExitButton } from "./FullScreenExit";
 
 const onRootError = (error: unknown, info: ErrorInfo) => {
@@ -188,7 +188,7 @@ const AppContent = () => {
     };
   }, [loadSettings, initBackgroundImage]);
 
-  const [displayTarget] = useAtom(displayTargetAtom);
+  const displayTarget = useAtomValue(displayTargetAtom);
 
   const { visibleTypes } = useTitleIconVisualSelector();
 

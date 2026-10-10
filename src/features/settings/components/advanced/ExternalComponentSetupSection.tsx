@@ -204,43 +204,77 @@ export const ExternalComponentSetupSection = () => {
 
 type Translate = ReturnType<typeof useTranslation>["t"];
 
-const FAILURE_STAGE_KEYS = {
-  stateUnknown:
-    "pages.settings.advanced.externalComponentSetup.failureStage.stateUnknown",
-  stagingDirectory:
-    "pages.settings.advanced.externalComponentSetup.failureStage.stagingDirectory",
-  downloadRuntime:
-    "pages.settings.advanced.externalComponentSetup.failureStage.downloadRuntime",
-  verifyRuntime:
-    "pages.settings.advanced.externalComponentSetup.failureStage.verifyRuntime",
-  startInstaller:
-    "pages.settings.advanced.externalComponentSetup.failureStage.startInstaller",
-  installerExit:
-    "pages.settings.advanced.externalComponentSetup.failureStage.installerExit",
-  downloadModules:
-    "pages.settings.advanced.externalComponentSetup.failureStage.downloadModules",
-  verifyModules:
-    "pages.settings.advanced.externalComponentSetup.failureStage.verifyModules",
-  archiveContents:
-    "pages.settings.advanced.externalComponentSetup.failureStage.archiveContents",
-  placeModules:
-    "pages.settings.advanced.externalComponentSetup.failureStage.placeModules",
-  incomplete:
-    "pages.settings.advanced.externalComponentSetup.failureStage.incomplete",
-  unsupportedPlatform:
-    "pages.settings.advanced.externalComponentSetup.failureStage.unsupportedPlatform",
-  panicked:
-    "pages.settings.advanced.externalComponentSetup.failureStage.panicked",
-  installerTimedOut:
-    "pages.settings.advanced.externalComponentSetup.failureStage.installerTimedOut",
-  installerStillRunning:
-    "pages.settings.advanced.externalComponentSetup.failureStage.installerStillRunning",
-  setupTimedOut:
-    "pages.settings.advanced.externalComponentSetup.failureStage.setupTimedOut",
-  setupStillRunning:
-    "pages.settings.advanced.externalComponentSetup.failureStage.setupStillRunning",
-  other: "pages.settings.advanced.externalComponentSetup.failureStage.other",
-} as const satisfies Record<ExternalComponentSetupFailureStage, string>;
+const FAILURE_STAGE_LABELS = {
+  stateUnknown: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.stateUnknown",
+    ),
+  stagingDirectory: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.stagingDirectory",
+    ),
+  downloadRuntime: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.downloadRuntime",
+    ),
+  verifyRuntime: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.verifyRuntime",
+    ),
+  startInstaller: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.startInstaller",
+    ),
+  installerExit: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.installerExit",
+    ),
+  downloadModules: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.downloadModules",
+    ),
+  verifyModules: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.verifyModules",
+    ),
+  archiveContents: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.archiveContents",
+    ),
+  placeModules: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.placeModules",
+    ),
+  incomplete: (t: Translate) =>
+    t("pages.settings.advanced.externalComponentSetup.failureStage.incomplete"),
+  unsupportedPlatform: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.unsupportedPlatform",
+    ),
+  panicked: (t: Translate) =>
+    t("pages.settings.advanced.externalComponentSetup.failureStage.panicked"),
+  installerTimedOut: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.installerTimedOut",
+    ),
+  installerStillRunning: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.installerStillRunning",
+    ),
+  setupTimedOut: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.setupTimedOut",
+    ),
+  setupStillRunning: (t: Translate) =>
+    t(
+      "pages.settings.advanced.externalComponentSetup.failureStage.setupStillRunning",
+    ),
+  other: (t: Translate) =>
+    t("pages.settings.advanced.externalComponentSetup.failureStage.other"),
+} as const satisfies Record<
+  ExternalComponentSetupFailureStage,
+  (t: Translate) => string
+>;
 
 /**
  * The elevated setup process reports only an exit code, so the stage is the
@@ -251,7 +285,7 @@ const failureMessage = (
   t: Translate,
   result: ExternalComponentSetupResult,
 ): string => {
-  const stage = t(FAILURE_STAGE_KEYS[result.failureStage ?? "other"]);
+  const stage = FAILURE_STAGE_LABELS[result.failureStage ?? "other"](t);
   return result.detail
     ? t("pages.settings.advanced.externalComponentSetup.result.failed", {
         detail: `${stage} (${result.detail})`,

@@ -12,8 +12,8 @@ import {
   gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
-  selectedGpuIdAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/gpu";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 
 /**
  * The one place the GPU surfaces agree on which adapter they are describing.

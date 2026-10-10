@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { powerDrawHistoryAtom } from "@/features/hardware/store/chart";
+import { powerDrawHistoryAtom } from "@/features/hardware/store/power";
 import { PowerDrawChart } from "./PowerDrawChart";
 
 vi.mock("react-i18next", () => ({

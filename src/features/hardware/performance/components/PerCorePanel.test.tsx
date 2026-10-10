@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { processorsUsageHistoryAtom } from "@/features/hardware/store/chart";
+import { processorsUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
 import { PerCorePanel } from "./PerCorePanel";
 
 vi.mock("react-i18next", () => ({

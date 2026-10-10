@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { selectedStorageDeviceIdAtom } from "@/features/hardware/store/chart";
+import { selectedStorageDeviceIdAtom } from "@/features/hardware/store/selection";
 import { useSelectedStorageDevicePersistence } from "./useSelectedStorageDevicePersistence";
 
 const mocks = vi.hoisted(() => ({

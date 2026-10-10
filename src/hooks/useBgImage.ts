@@ -1,13 +1,14 @@
-import { atom, useAtom } from "jotai";
+import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
-import { type BackgroundImage, commands } from "@/rspc/bindings";
+import { commands } from "@/rspc/bindings";
+import {
+  backgroundImageAtom,
+  uploadedBackgroundImagesAtom,
+} from "@/store/backgroundImage";
 import { isError, isOk } from "@/types/result";
 import { useTauriDialog } from "./useTauriDialog";
-
-const backgroundImageAtom = atom<string | null>(null);
-const uploadedBackgroundImagesAtom = atom<Array<BackgroundImage>>([]);
 
 export const useBackgroundImage = () => {
   const { error } = useTauriDialog();

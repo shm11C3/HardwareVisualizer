@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { powerDrawAtom } from "@/features/hardware/store/chart";
+import { powerDrawAtom } from "@/features/hardware/store/power";
 import { PowerDrawRail } from "./PowerDrawRail";
 
 vi.mock("react-i18next", () => ({

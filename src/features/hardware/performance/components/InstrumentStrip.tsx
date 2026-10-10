@@ -6,13 +6,15 @@ import { DoughnutChart } from "@/components/charts/DoughnutChart";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
-  cpuTempAtom,
-  cpuUsageHistoryAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
+} from "@/features/hardware/store/gpu";
+import {
+  cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/liveUsage";
+import { cpuTempAtom } from "@/features/hardware/store/sensors";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";

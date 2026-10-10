@@ -6,9 +6,6 @@ import { chartConfig } from "@/consts/chart";
 import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {
-  cpuPowerSupportAtom,
-  cpuTempAtom,
-  cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedAtom,
@@ -20,17 +17,26 @@ import {
   gpuUsageSourceAtom,
   gpuUsageSourcesAtom,
   graphicUsageHistoryAtom,
+} from "@/features/hardware/store/gpu";
+import {
+  cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
-  motherboardFanSpeedsAtom,
-  motherboardFanSupportAtom,
-  motherboardTempsAtom,
+  processorsUsageHistoryAtom,
+} from "@/features/hardware/store/liveUsage";
+import {
+  cpuPowerSupportAtom,
   powerDrawAtom,
   powerDrawAvailableAtom,
   powerDrawHistoryAtom,
-  processorsUsageHistoryAtom,
-  selectedGpuIdAtom,
+} from "@/features/hardware/store/power";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
+import {
+  cpuTempAtom,
+  motherboardFanSpeedsAtom,
+  motherboardFanSupportAtom,
+  motherboardTempsAtom,
   sensorTempsAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/sensors";
 import type { GpuMonitorData, HardwareMonitorUpdate } from "@/rspc/bindings";
 
 // ── Mock ──

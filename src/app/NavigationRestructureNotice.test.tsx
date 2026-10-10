@@ -16,13 +16,18 @@ let mockSettings = {
 vi.mock("jotai", async (importOriginal) => ({
   ...(await importOriginal<typeof import("jotai")>()),
   useAtomValue: () => mockMenuOpen,
-  useSetAtom: () => (value: unknown) => {
-    if (value === true) {
-      mockRequestNavigationLayoutFocus(value);
-      return;
-    }
-    mockSetDisplayTargetAtom(value);
-  },
+}));
+
+vi.mock("@/hooks/useDisplayTargetSetter", () => ({
+  useDisplayTargetSetter: () => ({
+    setDisplayTargetAtom: mockSetDisplayTargetAtom,
+  }),
+}));
+
+vi.mock("@/hooks/useNavigationLayoutFocusRequest", () => ({
+  useRequestNavigationLayoutFocus: () => ({
+    requestFocus: mockRequestNavigationLayoutFocus,
+  }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -96,7 +101,7 @@ describe("NavigationRestructureNotice", () => {
 
     expect(mockSetDisplayTargetAtom).toHaveBeenCalledWith("settings");
     expect(mockSetStoredDisplayTarget).toHaveBeenCalledWith("settings");
-    expect(mockRequestNavigationLayoutFocus).toHaveBeenCalledWith(true);
+    expect(mockRequestNavigationLayoutFocus).toHaveBeenCalledOnce();
   });
 
   it("moves clear of the expanded sidebar", () => {

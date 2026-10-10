@@ -6,8 +6,8 @@ import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
 import {
   gpuNamesAtom,
   gpuUsageHistoriesAtom,
-  selectedGpuIdAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/gpu";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import { GPUInfo } from "./DashboardItems";
 
 const mocks = vi.hoisted(() => ({

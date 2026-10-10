@@ -1,11 +1,11 @@
 import { createStore } from "jotai";
 import { describe, expect, it } from "vitest";
-import { settingAtoms } from "@/store/ui";
+import { isRestartRequiredAtom } from "@/store/ui";
 
 describe("UI Store", () => {
-  describe("settingAtoms", () => {
-    it("should have isRequiredRestart atom with default value false", () => {
-      expect(createStore().get(settingAtoms.isRequiredRestart)).toBe(false);
+  describe("isRestartRequiredAtom", () => {
+    it("should default to false", () => {
+      expect(createStore().get(isRestartRequiredAtom)).toBe(false);
     });
   });
 });

@@ -1,13 +1,7 @@
-import { atom, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback } from "react";
+import { showTitleIconAtom } from "@/store/titleIcon";
 import type { SelectedDisplayType } from "@/types/ui";
-
-const showTitleIconAtom = atom<SelectedDisplayType[]>([
-  "dashboard",
-  "cpuDetail",
-  "insights",
-  "settings",
-]);
 
 export const useTitleIconVisualSelector = () => {
   const setShowTitleIcon = useSetAtom(showTitleIconAtom);

@@ -1,4 +1,3 @@
-import { useAtom } from "jotai";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useRestartRequired } from "@/hooks/useRestartRequired";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
-import { settingAtoms } from "@/store/ui";
 
 const storageHealthRetentionPresets = [
   { labelKey: "halfYear", value: 183 },
@@ -30,9 +29,8 @@ export const DataRetentionSettings = () => {
     setStorageHealthRetentionDays,
   } = useSettingsAtom();
   const { t } = useTranslation();
-  const [hasSettingChanged, setHasSettingChanged] = useAtom(
-    settingAtoms.isRequiredRestart,
-  );
+  const { isRestartRequired: hasSettingChanged, markRestartRequired } =
+    useRestartRequired();
 
   const holdingPeriodId = useId();
   const scheduledDataDeletionId = useId();
@@ -48,12 +46,12 @@ export const DataRetentionSettings = () => {
 
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRetentionDays(value);
-    setHasSettingChanged(true);
+    markRestartRequired();
   };
 
   const handleScheduledDataDeletion = async (value: boolean) => {
     await setScheduledDataDeletion(value);
-    setHasSettingChanged(true);
+    markRestartRequired();
   };
 
   const changeStorageHealthRetentionDays = async (value: number) => {
@@ -66,7 +64,7 @@ export const DataRetentionSettings = () => {
       return false;
     }
 
-    setHasSettingChanged(true);
+    markRestartRequired();
     return true;
   };
 

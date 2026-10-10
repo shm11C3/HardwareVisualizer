@@ -1,17 +1,11 @@
-import { atom, useAtom } from "jotai";
+import { useAtom } from "jotai";
+import {
+  hardInfoAtom,
+  networkInfoAtom,
+} from "@/features/hardware/store/hardwareInfo";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { commands, type NetworkInfo, type SysInfo } from "@/rspc/bindings";
+import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
-
-const hardInfoAtom = atom<SysInfo>({
-  cpu: null,
-  memory: null,
-  gpus: null,
-  storage: [],
-  motherboard: null,
-});
-
-const networkInfoAtom = atom<NetworkInfo[]>([]);
 
 export const useHardwareInfoAtom = () => {
   const [hardwareInfo, setHardInfo] = useAtom(hardInfoAtom);

@@ -1,8 +1,6 @@
 import { useAtomValue } from "jotai";
-import {
-  cpuPowerSupportAtom,
-  motherboardFanSupportAtom,
-} from "@/features/hardware/store/chart";
+import { cpuPowerSupportAtom } from "@/features/hardware/store/power";
+import { motherboardFanSupportAtom } from "@/features/hardware/store/sensors";
 import type {
   CoolingBandComparison,
   CoolingBaselineDelta,

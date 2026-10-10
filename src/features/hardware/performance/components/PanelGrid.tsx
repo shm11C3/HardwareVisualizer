@@ -33,7 +33,7 @@ import type {
   PerformancePanelId,
   PerformancePowerMode,
 } from "@/features/hardware/performance/types/performanceLayout";
-import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
+import { powerDrawAvailableAtom } from "@/features/hardware/store/power";
 import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";

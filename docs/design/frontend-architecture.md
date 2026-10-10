@@ -101,15 +101,18 @@ until it gets its own overrides.
 
 ### Pending exceptions
 
-A target constraint that the current code still violates is commented out in
-the boundary file as `pending Sn (#2325)`. Negated patterns
-(`!@/features/settings/**`) exempt one dependency, and commented-out entries
-disable one API or pattern.
+A target constraint that the code still violates is recorded in the boundary
+file as a pending exception tagged with the #2325 slice that removes it.
+Negated patterns (`!@/features/settings/**`) exempt one dependency, and
+commented-out entries disable one API or pattern.
+
+No pending exceptions remain as of the state-ownership slice (S5): every
+constraint in the boundary file is enforced.
 
 These rules keep the pending list honest:
 
 - The list shrinks only. Each migration slice deletes the exceptions it
-  resolves.
+  resolves, and it is empty now.
 - New code that needs a new exception is a design discussion, not a config
   edit.
 - The app override covers `src/app/**` and must stay last, so the app layer

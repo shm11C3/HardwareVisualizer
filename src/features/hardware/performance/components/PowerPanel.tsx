@@ -1,6 +1,6 @@
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
-import { powerDrawAtom } from "@/features/hardware/store/chart";
+import { powerDrawAtom } from "@/features/hardware/store/power";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 
 export const PowerPanel = () => {

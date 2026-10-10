@@ -3,10 +3,8 @@ import { Provider, useAtom } from "jotai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
-import {
-  gpuNamesAtom,
-  selectedGpuIdAtom,
-} from "@/features/hardware/store/chart";
+import { gpuNamesAtom } from "@/features/hardware/store/gpu";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import { useSelectedGpuPersistence } from "./useSelectedGpuPersistence";
 
 const mocks = vi.hoisted(() => ({

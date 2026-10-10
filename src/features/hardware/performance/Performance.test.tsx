@@ -4,16 +4,20 @@ import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
-  cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
+} from "@/features/hardware/store/gpu";
+import {
+  cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
+} from "@/features/hardware/store/liveUsage";
+import {
   powerDrawAtom,
   powerDrawAvailableAtom,
-  selectedGpuIdAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/power";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import { Performance } from "./Performance";
 
 /** Seeds mint live ids the way the event listener does at the boundary. */

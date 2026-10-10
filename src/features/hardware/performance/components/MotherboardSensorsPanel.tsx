@@ -1,11 +1,11 @@
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cpuUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
 import {
-  cpuUsageHistoryAtom,
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/sensors";
 import type { FanSpeedStatus } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 

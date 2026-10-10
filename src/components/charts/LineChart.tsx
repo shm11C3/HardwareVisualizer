@@ -1,5 +1,5 @@
 import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -13,10 +13,10 @@ import {
 } from "@/components/ui/chart";
 import type { sizeOptions } from "@/consts/chart";
 import { darkClasses } from "@/consts/style";
-import { currentThemeAtom } from "@/hooks/useColorTheme";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { LineGraphType, Theme } from "@/rspc/bindings";
+import { currentThemeAtom } from "@/store/theme";
 import {
   type ChartDataType,
   type GpuDataType,
@@ -104,7 +104,7 @@ export const SingleLineChart = ({
   className?: string;
 }) => {
   const { settings } = useSettingsAtom();
-  const [currentTheme] = useAtom(currentThemeAtom);
+  const currentTheme = useAtomValue(currentThemeAtom);
 
   const data = labels.map((label, index) => ({
     name: label,
@@ -206,7 +206,7 @@ const MixLineChart = ({
   fitToContainer = false,
 }: MultiChartProps & { chartConfig: ChartConfig }) => {
   const { settings } = useSettingsAtom();
-  const [currentTheme] = useAtom(currentThemeAtom);
+  const currentTheme = useAtomValue(currentThemeAtom);
 
   const displayOrder = ["cpu", "memory", "gpu"];
 

@@ -1,5 +1,5 @@
 import { platform } from "@tauri-apps/plugin-os";
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -36,21 +36,25 @@ import { findInventoryGpu, toLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
+import { useSelectedStorageDevice } from "@/features/hardware/hooks/useSelectedStorageDevice";
 import {
-  cpuTempAtom,
-  cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuNamesAtom,
   gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
+} from "@/features/hardware/store/gpu";
+import {
+  cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  processorsUsageHistoryAtom,
+} from "@/features/hardware/store/liveUsage";
+import {
+  cpuTempAtom,
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
-  processorsUsageHistoryAtom,
-  selectedStorageDeviceIdAtom,
   sensorTempsAtom,
-} from "@/features/hardware/store/chart";
+} from "@/features/hardware/store/sensors";
 import type {
   FanSpeedStatus,
   NameValues,
@@ -75,12 +79,12 @@ import { StorageHealthStatusIcon } from "./StorageHealthStatusIcon";
 export const CPUInfo = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
-  const [cpuTemp] = useAtom(cpuTempAtom);
-  const [sensorTemps] = useAtom(sensorTempsAtom);
+  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
+  const cpuTemp = useAtomValue(cpuTempAtom);
+  const sensorTemps = useAtomValue(sensorTempsAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
   const processes = useProcessInfo();
-  const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
+  const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
 
   const cpuTemperature = cpuTemp[0]?.value;
   const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
@@ -137,15 +141,15 @@ export const CPUInfo = () => {
 
 export const GPUInfo = () => {
   const { t } = useTranslation();
-  const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
-  const [gpuTemp] = useAtom(gpuTempAtom);
-  const [gpuUsageSource] = useAtom(gpuUsageSourceAtom);
+  const graphicUsageHistory = useAtomValue(graphicUsageHistoryAtom);
+  const gpuTemp = useAtomValue(gpuTempAtom);
+  const gpuUsageSource = useAtomValue(gpuUsageSourceAtom);
   const { effectiveGpuId, selectedGpuId, selectGpu } = useGpuAdapters();
   const { hardwareInfo } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
-  const [gpuDedicatedMemoryKbMap] = useAtom(gpuDedicatedMemoryKbMapAtom);
-  const [gpuNames] = useAtom(gpuNamesAtom);
+  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
+  const gpuNames = useAtomValue(gpuNamesAtom);
   const os = useMemo(() => platform(), []);
 
   const gpus = hardwareInfo.gpus ?? [];
@@ -328,7 +332,7 @@ export const GPUInfo = () => {
 
 export const MemoryInfo = () => {
   const { t } = useTranslation();
-  const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
+  const memoryUsageHistory = useAtomValue(memoryUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = platform();
 
@@ -464,9 +468,8 @@ export const StorageDataInfo = () => {
   const liveStorageHealthErrorShownRef = useRef(false);
   const storageHealthRecordsVersionRef = useRef(0);
   const storageHealthEnabled = settings.storageHealth.enabled ?? true;
-  const [selectedStorageDeviceId, setSelectedStorageDeviceId] = useAtom(
-    selectedStorageDeviceIdAtom,
-  );
+  const { selectedStorageDeviceId, selectStorageDevice } =
+    useSelectedStorageDevice();
   const [storageHealthRecords, setStorageHealthRecords] = useState<
     StorageHealthRecord[]
   >([]);
@@ -626,7 +629,7 @@ export const StorageDataInfo = () => {
       <StorageHealthOverview
         summary={storageHealthSummary}
         onRefresh={storageHealthEnabled ? refreshStorageDevices : undefined}
-        onSelectDevice={setSelectedStorageDeviceId}
+        onSelectDevice={selectStorageDevice}
         refreshError={storageHealthRefreshError}
         refreshing={storageHealthRefreshing}
       />
@@ -959,8 +962,8 @@ export const MotherboardDataInfo = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
-  const [motherboardTemps] = useAtom(motherboardTempsAtom);
-  const [motherboardFanSpeeds] = useAtom(motherboardFanSpeedsAtom);
+  const motherboardTemps = useAtomValue(motherboardTempsAtom);
+  const motherboardFanSpeeds = useAtomValue(motherboardFanSpeedsAtom);
   const mb = hardwareInfo.motherboard;
   const hasLiveSensors =
     motherboardTemps.length > 0 || motherboardFanSpeeds.length > 0;
