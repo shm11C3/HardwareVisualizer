@@ -44,7 +44,7 @@ vi.mock("@/components/shared/System", () => ({
     alertOpen ? <div>Restart Required</div> : null,
 }));
 
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
       hardwareArchive: { enabled: mocks.hardwareArchiveEnabled },

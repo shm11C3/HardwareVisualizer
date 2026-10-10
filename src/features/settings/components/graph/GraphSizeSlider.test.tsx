@@ -31,7 +31,7 @@ vi.mock("@/components/ui/slider", () => ({
   ),
 }));
 
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: mockSettings,
     updateSettingAtom: mockUpdateSettingAtom,

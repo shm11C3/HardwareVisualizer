@@ -11,7 +11,7 @@ import {
   cpuUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { transpose } from "@/lib/array";
 import { cn } from "@/lib/utils";
 

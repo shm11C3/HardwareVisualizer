@@ -2,8 +2,8 @@ import { XIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { tv } from "tailwind-variants";
 import { Button } from "@/components/ui/button";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage, useBackgroundImageList } from "@/hooks/useBgImage";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 
 export const BackgroundImageList = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();

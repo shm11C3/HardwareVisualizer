@@ -2,11 +2,11 @@ import { XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import {
   useElevationAvailability,
   useProcessElevated,
 } from "@/hooks/useElevationAvailability";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 
 /**
  * Tells the user once per launch that Run as administrator on startup was not

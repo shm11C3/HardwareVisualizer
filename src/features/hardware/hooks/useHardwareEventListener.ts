@@ -27,7 +27,12 @@ import {
   selectedGpuIdAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/chart";
-import { events, type HardwareMonitorUpdate } from "@/rspc/bindings";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import {
+  events,
+  type HardwareMonitorUpdate,
+  type TemperatureUnit,
+} from "@/rspc/bindings";
 
 const padHistory = (arr: (number | null)[]): (number | null)[] => {
   const padded = Array(Math.max(chartConfig.historyLengthSec - arr.length, 0))
@@ -56,6 +61,8 @@ const GPU_RETIREMENT_MISSED_SAMPLES = 3;
 export const useHardwareEventListener = () => {
   const gpuMissedSamples = useRef(new Map<LiveGpuId, number>());
   const lastVisibleUpdateAt = useRef<number | null>(null);
+  const { settings } = useSettingsAtom();
+  const lastTemperatureUnit = useRef<TemperatureUnit | null>(null);
   const setCpuHistory = useSetAtom(cpuUsageHistoryAtom);
   const setMemoryHistory = useSetAtom(memoryUsageHistoryAtom);
   const setGpuHistories = useSetAtom(gpuUsageHistoriesAtom);
@@ -334,6 +341,19 @@ export const useHardwareEventListener = () => {
       setPowerDrawHistory,
     ],
   );
+
+  // GPU temperatures already on screen are in the previous unit. Clear them
+  // when the unit changes so they are not shown until the next 1 Hz sample
+  // replaces them. The first observed unit is the baseline, not a change.
+  const { temperatureUnit } = settings;
+  useEffect(() => {
+    const previousUnit = lastTemperatureUnit.current;
+    lastTemperatureUnit.current = temperatureUnit;
+    if (previousUnit !== null && previousUnit !== temperatureUnit) {
+      setGpuTempMap({});
+    }
+  }, [temperatureUnit, setGpuTempMap]);
+
   useEffect(() => {
     const unlisten = events.hardwareMonitorUpdate.listen(handleHardwareUpdate);
 

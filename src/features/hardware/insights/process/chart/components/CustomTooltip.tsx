@@ -1,7 +1,7 @@
 import { CpuIcon, MemoryIcon, TimerIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import { bubbleChartColor } from "@/features/hardware/consts/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { formatBytes } from "@/lib/formatter";
 
 type CustomTooltipProps = {

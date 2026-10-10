@@ -103,12 +103,9 @@ export const powerDrawAvailableAtom = atom(false);
 /** Hardware support for CPU package-power collection. */
 export const cpuPowerSupportAtom = atom<SensorSupport>("unknown");
 
-/** All GPUs temperature as NameValues (read-write: write clears the map) */
-export const gpuTempAtom = atom<NameValues, [NameValues], void>(
-  (get) => Object.values(get(gpuTempMapAtom)),
-  (_get, set, _update) => {
-    set(gpuTempMapAtom, {});
-  },
+/** All GPUs temperature as NameValues */
+export const gpuTempAtom = atom<NameValues>((get) =>
+  Object.values(get(gpuTempMapAtom)),
 );
 
 /** All GPUs fan speed as NameValues */

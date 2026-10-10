@@ -6,7 +6,7 @@ import type { archivePeriods } from "@/features/hardware/consts/chart";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useInsightChart } from "@/features/hardware/insights/hooks/useInsightChart";
 import type { DataStats } from "@/features/hardware/types/hardwareDataType";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import type { GpuDataType } from "@/types/chart";
 

@@ -9,7 +9,7 @@ import {
   TrayWidgetSettings,
   type TrayWidgetStore,
 } from "@/features/settings/components/general/TrayWidgetSettings";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 const mocks = vi.hoisted(() => ({
@@ -56,7 +56,7 @@ vi.mock("@/rspc/bindings", () => ({
   },
 }));
 
-vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: vi.fn(),
 }));
 

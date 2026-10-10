@@ -1,6 +1,6 @@
 import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
 import { chartConfig } from "@/consts/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 
 export const PreviewChart = () => {
   const { settings } = useSettingsAtom();

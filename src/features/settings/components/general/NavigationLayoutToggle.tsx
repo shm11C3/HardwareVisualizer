@@ -4,10 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { navigationLayoutFocusRequestedAtom } from "@/features/menu/hooks/useMenu";
-import {
-  navigationMutationPendingAtom,
-  useSettingsAtom,
-} from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { navigationMutationPendingAtom } from "@/store/settings";
 
 export const NavigationLayoutToggle = () => {
   const { t } = useTranslation();

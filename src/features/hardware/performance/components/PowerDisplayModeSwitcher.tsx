@@ -7,7 +7,7 @@ import {
   performancePowerModes,
 } from "@/features/hardware/performance/types/performanceLayout";
 import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 
 const modeIcons = {

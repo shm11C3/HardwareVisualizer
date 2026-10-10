@@ -1,7 +1,7 @@
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { powerDrawAtom } from "@/features/hardware/store/chart";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 
 export const PowerPanel = () => {
   const { t } = useTranslation();

@@ -15,7 +15,7 @@ import {
 } from "@/features/settings/components/insights/DatabaseConversionStateBody";
 import { useDatabaseConversion } from "@/features/settings/hooks/useDatabaseConversion";
 import { useDatabaseConversionNoticeShown } from "@/features/settings/hooks/useDatabaseConversionNoticeShown";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 
 const DISMISSED_STORE_KEY = "databaseConversionPromptDismissed";

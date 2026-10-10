@@ -51,8 +51,10 @@ Two rules close the obvious bypasses:
 | Hooks | no | yes | yes |
 | Components and the app layer | no | no | `useAtomValue` only |
 
-- `src/store` holds cross-feature state, including Application Preferences once
-  #2325 moves them. `src/features/<f>/store` holds state owned by one feature.
+- `src/store` holds cross-feature state, including Application Preferences,
+  which live in `src/store/settings.ts` with their hook in
+  `src/hooks/useSettingsAtom.ts`. `src/features/<f>/store` holds state owned by
+  one feature.
 - `getDefaultStore` and `createStore` stay out of production code. State reaches
   React through the Provider-scoped store, which is what lets tests isolate
   each case with their own store.
@@ -146,8 +148,6 @@ needs the fan-out regression test that `src/AGENTS.md` requires.
 
 ## Open Questions
 
-- What the shared preference store and hook are called (`preferences` /
-  `usePreferences` or similar). This is decided in the preference slice.
 - Whether presentation components may call IPC `commands` directly, or only
   hooks may. Today only UI primitives are restricted. #2311 changes how
   failed reads are reported and may settle this.
