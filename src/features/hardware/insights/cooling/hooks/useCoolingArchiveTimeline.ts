@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { chartConfig } from "@/consts/chart";
 import type { CoolingArchivePeriod } from "@/features/hardware/insights/cooling/utils/coolingPeriodRoute";
 import type { ArchiveTimelineSeries } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   type AmbientArchiveSeries,
   type ArchiveSeriesPoint,
@@ -73,6 +72,8 @@ export type CoolingArchiveTimeline = {
   stepMs: number;
   hasLoaded: boolean;
   hasError: boolean;
+  /** Re-runs the read after a failure; the next tick keeps retrying too. */
+  retry: () => void;
 };
 
 export const useCoolingArchiveTimeline = (
@@ -86,12 +87,7 @@ export const useCoolingArchiveTimeline = (
   const [ambientHasError, setAmbientHasError] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const { error } = useTauriDialog();
   const requestIdRef = useRef(0);
-  // The dialog fires once per failure streak, not once per refresh tick:
-  // the interval below reruns every archive-write interval, and a machine
-  // with a persistent failure must not stack a dialog per minute.
-  const hasReportedErrorRef = useRef(false);
 
   const stepMs =
     minutes == null
@@ -169,9 +165,8 @@ export const useCoolingArchiveTimeline = (
         }
         return { fanSeries: result.data, fanHasError: false };
       } catch (e) {
-        // Logged rather than raised to a dialog: a modal about a secondary
-        // lane that has simply not mounted would be louder than the fact
-        // it reports.
+        // Log only: the secondary lane simply does not mount, and showing
+        // a failure for it would be louder than the fact it reports.
         console.error(e);
         return { fanSeries: [], fanHasError: true };
       }
@@ -245,6 +240,36 @@ export const useCoolingArchiveTimeline = (
     };
   }, [minutes, stepMs]);
 
+  const load = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    try {
+      const next = await fetchSeries();
+      if (requestIdRef.current === requestId) {
+        setSeries(next.series);
+        setFanSeries(next.fanSeries);
+        setFanHasError(next.fanHasError);
+        setAmbientSeries(next.ambientSeries);
+        setAmbientHasError(next.ambientHasError);
+        setHasLoaded(true);
+        setHasError(false);
+      }
+    } catch (e) {
+      console.error(e);
+      // A stale request must not flip the state.
+      if (requestIdRef.current === requestId) {
+        setSeries(EMPTY_SERIES);
+        setFanSeries([]);
+        setFanHasError(false);
+        setAmbientSeries(null);
+        setAmbientHasError(false);
+        setHasLoaded(true);
+        setHasError(true);
+      }
+    }
+  }, [fetchSeries]);
+
   useEffect(() => {
     if (minutes == null) {
       requestIdRef.current += 1;
@@ -255,7 +280,6 @@ export const useCoolingArchiveTimeline = (
       setAmbientHasError(false);
       setHasLoaded(false);
       setHasError(false);
-      hasReportedErrorRef.current = false;
       return;
     }
 
@@ -265,47 +289,10 @@ export const useCoolingArchiveTimeline = (
     setHasError(false);
     setFanHasError(false);
     setAmbientHasError(false);
-    hasReportedErrorRef.current = false;
 
-    const run = () => {
-      const requestId = requestIdRef.current + 1;
-      requestIdRef.current = requestId;
-
-      void fetchSeries()
-        .then((next) => {
-          if (requestIdRef.current === requestId) {
-            setSeries(next.series);
-            setFanSeries(next.fanSeries);
-            setFanHasError(next.fanHasError);
-            setAmbientSeries(next.ambientSeries);
-            setAmbientHasError(next.ambientHasError);
-            setHasLoaded(true);
-            setHasError(false);
-            hasReportedErrorRef.current = false;
-          }
-        })
-        .catch((e) => {
-          console.error(e);
-          // A stale request must neither flip the state nor open a dialog.
-          if (requestIdRef.current === requestId) {
-            setSeries(EMPTY_SERIES);
-            setFanSeries([]);
-            setFanHasError(false);
-            setAmbientSeries(null);
-            setAmbientHasError(false);
-            setHasLoaded(true);
-            setHasError(true);
-            if (!hasReportedErrorRef.current) {
-              hasReportedErrorRef.current = true;
-              void error(String(e));
-            }
-          }
-        });
-    };
-
-    run();
+    void load();
     const intervalId = window.setInterval(
-      run,
+      () => void load(),
       chartConfig.archiveUpdateIntervalMilSec,
     );
 
@@ -314,7 +301,17 @@ export const useCoolingArchiveTimeline = (
       // Unmounting invalidates the in-flight request (see the guard above).
       requestIdRef.current += 1;
     };
-  }, [fetchSeries, minutes, error]);
+  }, [load, minutes]);
+
+  const retry = useCallback(() => {
+    // Back to the loading state, like a period change; the interval keeps
+    // running and the request-id guard drops whichever read is superseded.
+    setHasLoaded(false);
+    setHasError(false);
+    setFanHasError(false);
+    setAmbientHasError(false);
+    void load();
+  }, [load]);
 
   return {
     series,
@@ -325,5 +322,6 @@ export const useCoolingArchiveTimeline = (
     stepMs,
     hasLoaded,
     hasError,
+    retry,
   };
 };

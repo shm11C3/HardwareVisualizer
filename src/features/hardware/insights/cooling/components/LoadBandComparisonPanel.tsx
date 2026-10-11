@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
 import {
@@ -30,12 +31,14 @@ type EstablishedComparison = Extract<
 export const LoadBandComparisonPanel = ({
   bandComparison,
   hasError = false,
+  onRetry,
   powerNotice = null,
   fanNotice = null,
   ambientSources = [],
 }: {
   bandComparison: CoolingBandComparison | null;
   hasError?: boolean;
+  onRetry?: () => void;
   powerNotice?: SensorNotice | null;
   fanNotice?: SensorNotice | null;
   /** Sensor Source Labels carried by the routed ambient archive. */
@@ -76,9 +79,11 @@ export const LoadBandComparisonPanel = ({
           {t("pages.insights.cooling.loadBandComparison.title")}
         </h3>
         {hasError && (
-          <p className="text-muted-foreground text-sm">
-            {t("pages.insights.cooling.loadBandComparison.loadFailed")}
-          </p>
+          <LoadFailure
+            className="items-start text-left"
+            message={t("pages.insights.cooling.loadBandComparison.loadFailed")}
+            onRetry={onRetry}
+          />
         )}
         {!hasError && lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
         {lifecycle.kind === "establishing" && (
@@ -109,9 +114,11 @@ export const LoadBandComparisonPanel = ({
           {t("pages.insights.cooling.dataState.title")}
         </h3>
         {hasError && (
-          <p className="text-muted-foreground text-sm">
-            {t("pages.insights.cooling.loadBandComparison.loadFailed")}
-          </p>
+          <LoadFailure
+            className="items-start text-left"
+            message={t("pages.insights.cooling.loadBandComparison.loadFailed")}
+            onRetry={onRetry}
+          />
         )}
         {!hasError && lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
         {lifecycle.kind === "establishing" && (

@@ -52,12 +52,6 @@ vi.mock("@/hooks/useSettingsAtom", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: vi.fn(),
-  }),
-}));
-
 const renderMotherboard = () => {
   const HydrateAtoms = ({ children }: { children: ReactNode }) => {
     const temperatures: MotherboardTemperatureValues = [

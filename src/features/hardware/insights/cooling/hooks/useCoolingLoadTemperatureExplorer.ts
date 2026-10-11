@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type CoolingLoadTemperatureExplorer, commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
@@ -16,10 +15,9 @@ export const useCoolingLoadTemperatureExplorer = (
 ) => {
   const [data, setData] = useState<CoolingLoadTemperatureExplorer | null>(null);
   const [hasError, setHasError] = useState(false);
-  const { error } = useTauriDialog();
   const requestIdRef = useRef(0);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     // A rerun starts a fresh request: neither a failure nor the windows
@@ -35,37 +33,42 @@ export const useCoolingLoadTemperatureExplorer = (
       return;
     }
 
-    void (async () => {
-      try {
-        const result =
-          await commands.getCoolingLoadTemperatureExplorer(recentDays);
-        if (isError(result)) {
-          throw new Error(
-            `Failed to fetch cooling load-temperature explorer: ${result.error}`,
-          );
-        }
-        if (requestIdRef.current === requestId) {
-          setData(result.data);
-        }
-      } catch (e) {
-        console.error(e);
-        // A stale request must neither flip the state nor open a dialog.
-        if (requestIdRef.current === requestId) {
-          setData(null);
-          // A failure is not "still loading": consumers render a
-          // load-failure line instead of keeping the skeleton forever.
-          setHasError(true);
-          void error(String(e));
-        }
+    try {
+      const result =
+        await commands.getCoolingLoadTemperatureExplorer(recentDays);
+      if (isError(result)) {
+        throw new Error(
+          `Failed to fetch cooling load-temperature explorer: ${result.error}`,
+        );
       }
-    })();
+      if (requestIdRef.current === requestId) {
+        setData(result.data);
+      }
+    } catch (e) {
+      console.error(e);
+      // A stale request must not flip the state.
+      if (requestIdRef.current === requestId) {
+        setData(null);
+        // A failure is not "still loading": consumers render a
+        // load-failure line instead of keeping the skeleton forever.
+        setHasError(true);
+      }
+    }
+  }, [recentDays]);
+
+  useEffect(() => {
+    void load();
 
     return () => {
-      // Unmounting invalidates the in-flight request so a late rejection
-      // can neither flip state nor open a dialog after the view is gone.
+      // Unmounting (or re-running) invalidates the in-flight request so a
+      // late rejection cannot flip state after the view is gone.
       requestIdRef.current += 1;
     };
-  }, [recentDays, error]);
+  }, [load]);
 
-  return { data, hasError };
+  const retry = useCallback(() => {
+    void load();
+  }, [load]);
+
+  return { data, hasError, retry };
 };

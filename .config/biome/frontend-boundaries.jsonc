@@ -360,6 +360,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/useTauriDialog": {
+                    "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -419,6 +423,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/useTauriDialog": {
+                    "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -479,6 +487,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/useTauriDialog": {
+                    "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [

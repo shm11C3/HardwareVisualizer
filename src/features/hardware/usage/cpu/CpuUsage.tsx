@@ -34,7 +34,7 @@ const CpuUsageChart = memo(() => {
   const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
   const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
   const { init, hardwareInfo } = useHardwareInfoAtom();
-  const processes = useProcessInfo();
+  const { processes } = useProcessInfo();
   const { t } = useTranslation();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional dependency omission

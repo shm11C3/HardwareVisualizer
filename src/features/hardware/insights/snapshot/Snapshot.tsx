@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import {
   Card,
   CardContent,
@@ -32,6 +33,8 @@ export const Snapshot = () => {
     memoryMaxOption,
     setMemoryMaxOption,
     selectedMemoryMaxMB,
+    hasError,
+    retry,
   } = useSnapshot();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
@@ -90,12 +93,16 @@ export const Snapshot = () => {
             selectedDataType={selectedDataType}
             chartConfig={chartConfig}
             settings={settings}
+            hasError={hasError}
+            onRetry={retry}
           />
         </CardContent>
       </Card>
 
       {/* Process Results Card */}
-      {filteredProcessData.length === 0 ? (
+      {hasError ? (
+        <LoadFailure className="py-8" message={t("shared.loadFailed")} />
+      ) : filteredProcessData.length === 0 ? (
         <div className="space-y-2 py-8 text-center">
           <p className="text-muted-foreground">
             {t("shared.snapshot.noDataMessage")}

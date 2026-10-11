@@ -141,7 +141,7 @@ const getWrittenContent = () =>
 describe("useExportToClipboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseProcessInfo.mockReturnValue([]);
+    mockUseProcessInfo.mockReturnValue({ processes: [], hasError: false });
     mockUseHardwareInfoAtom.mockReturnValue({
       hardwareInfo: defaultSysInfo,
       networkInfo: [],
@@ -202,9 +202,10 @@ describe("useExportToClipboard", () => {
       hardwareInfo: { ...defaultSysInfo, cpu: fullCpuInfo },
       networkInfo: [],
     });
-    mockUseProcessInfo.mockReturnValue([
-      { pid: 1, name: "process1", cpuUsage: 10, memoryUsage: 200 },
-    ]);
+    mockUseProcessInfo.mockReturnValue({
+      processes: [{ pid: 1, name: "process1", cpuUsage: 10, memoryUsage: 200 }],
+      hasError: false,
+    });
     const { result } = renderHook(
       () => useExportToClipboard({ includeRuntimeStats: false }),
       {
@@ -427,10 +428,13 @@ describe("useExportToClipboard", () => {
   // ── Process count ─────────────────────────────────────────────────────────
 
   it("reflects process count from useProcessInfo", async () => {
-    mockUseProcessInfo.mockReturnValue([
-      { pid: 1, name: "proc1" },
-      { pid: 2, name: "proc2" },
-    ]);
+    mockUseProcessInfo.mockReturnValue({
+      processes: [
+        { pid: 1, name: "proc1" },
+        { pid: 2, name: "proc2" },
+      ],
+      hasError: false,
+    });
     mockUseHardwareInfoAtom.mockReturnValue({
       hardwareInfo: { ...defaultSysInfo, cpu: fullCpuInfo },
       networkInfo: [],

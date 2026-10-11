@@ -19,6 +19,10 @@ These instructions add to the repository root `AGENTS.md` for work under
 - `showGpuUsageSource` is a known legacy exception that still uses Tauri Store.
   Do not copy it as a persistence pattern or migrate it opportunistically; see
   `docs/agents/lessons/legacy-gpu-source-display-preference.md`.
+- A failed read is a panel state, not an OS dialog: read hooks expose
+  `hasError` and `retry`, panels render `LoadFailure`, and an empty result is
+  never rendered as a failure or vice versa. See the Failure Reporting
+  section of `docs/design/frontend-architecture.md`.
 - Backend `error_event` is handled by `useErrorModalListener` in
   `src/hooks/useTauriEventListener.ts`; preserve the existing error boundary
   unless the product flow needs a more specific user action.

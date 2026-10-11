@@ -25,6 +25,9 @@
     "memorySizeSharedUsage": "Использование памяти",
     "memorySizeDedicatedUsage": "Использование выделенной видеопамяти",
     "loadDetailedInfo": "Загрузить подробную информацию",
+    "retry": "Повторить",
+    "loadFailed": "Не удалось загрузить данные.",
+    "processListLoadFailed": "Не удалось загрузить список процессов. Повторяем попытку автоматически.",
     "memoryType": "Тип памяти",
     "totalMemory": "Всего памяти",
     "memoryCount": "Количество модулей памяти",
@@ -256,6 +259,7 @@
       "copyHardwareReport": "Копировать отчёт об оборудовании",
       "systemSpecifications": {
         "networkUnavailable": "Сведения о сети недоступны в этой системе.",
+        "inventoryLoadFailed": "Не удалось загрузить сведения об оборудовании.",
         "platform": "Платформа",
         "operatingSystem": "Операционная система",
         "architecture": "Архитектура",

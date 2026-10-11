@@ -69,6 +69,8 @@ declare global {
        * proved flaky against under parallel test execution.
        */
       completeDatabaseConversion: () => Promise<void>;
+      /** Start or stop `?archiveReadFailure=1` at runtime (see its docs). */
+      setArchiveReadFailure: (failing: boolean) => void;
     };
   }
 }
@@ -155,6 +157,12 @@ type FixtureOverrides = {
    * the app-root dialog) doesn't also see the dialog auto-open over the
    * same `sqliteAuthoritative` scenario. */
   databaseConversionPromptDismissed: boolean;
+  /** `?archiveReadFailure=1` makes every Insights read command listed in
+   * `ARCHIVE_READ_COMMANDS` reject, so a capture or test can render each
+   * panel's failure state ("Failure Reporting" in the frontend architecture
+   * doc). It is mutable at runtime: `window.__E2E__.setArchiveReadFailure`
+   * clears it so the retry path can be exercised against the same page. */
+  archiveReadFailure: boolean;
 };
 type CoolingAmbientOverride = "present" | "only" | null;
 /** See `FixtureOverrides.databaseConversionScenario`. `"converting"` and
@@ -190,6 +198,24 @@ const applySensorSupportOverrides = (
     ? "unsupported"
     : payload.motherboardFanSupport,
 });
+
+/** Reads that `?archiveReadFailure=1` rejects. Operation commands and the
+ * live hardware stream stay healthy: the point is a failed panel read on an
+ * otherwise working app. */
+const ARCHIVE_READ_COMMANDS: ReadonlySet<string> = new Set([
+  "get_data_archive_series",
+  "get_gpu_archive_series",
+  "get_fan_archive_series",
+  "get_ambient_archive_series",
+  "get_process_stats",
+  "get_process_stats_in_period",
+  "get_cooling_trend",
+  "get_cooling_fan_trend",
+  "get_cooling_band_comparison",
+  "get_cooling_covariate_comparison",
+  "get_cooling_load_temperature_explorer",
+  "get_cooling_baseline_delta",
+]);
 
 const STORE_RID = 1;
 const MAX_STORAGE_DEVICE_STUB_COUNT = 32;
@@ -252,6 +278,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       new URLSearchParams(window.location.search).get(
         "databaseConversionPromptDismissed",
       ) === "1",
+    archiveReadFailure:
+      new URLSearchParams(window.location.search).get("archiveReadFailure") ===
+      "1",
   };
 };
 
@@ -832,6 +861,10 @@ export const installTauriMocks = () => {
   mockIPC((cmd: string, args?: unknown) => {
     invokeCounts.set(cmd, (invokeCounts.get(cmd) ?? 0) + 1);
 
+    if (fixtureOverrides.archiveReadFailure && ARCHIVE_READ_COMMANDS.has(cmd)) {
+      throw new Error(`[e2e-mock] Simulated read failure: ${cmd}`);
+    }
+
     if (Object.hasOwn(handlers, cmd)) {
       return handlers[cmd](args);
     }
@@ -888,6 +921,9 @@ export const installTauriMocks = () => {
     stopHardwareUpdateStream: async () => stopHardwareUpdateStream(),
     completeDatabaseConversion: async () => {
       databaseConversion.current = { kind: "nativeAuthoritative" };
+    },
+    setArchiveReadFailure: (failing) => {
+      fixtureOverrides.archiveReadFailure = failing;
     },
   };
 };

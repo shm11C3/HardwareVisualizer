@@ -9,6 +9,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
+import { LoadFailure } from "@/components/LoadFailure";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,7 @@ export const ProcessesTable = ({
 } = {}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const processes = useProcessInfo();
+  const { processes, hasError } = useProcessInfo();
 
   const [sortConfig, setSortConfig] = useState<{
     key: keyof ProcessInfo;
@@ -144,15 +145,22 @@ export const ProcessesTable = ({
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <InfoTable
+        {hasError ? (
+          <LoadFailure
             className="h-64"
-            processes={sortedProcesses}
-            sortConfig={sortConfig}
-            requestSort={requestSort}
-            isTruncate
+            message={t("shared.processListLoadFailed")}
           />
-        </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <InfoTable
+              className="h-64"
+              processes={sortedProcesses}
+              sortConfig={sortConfig}
+              requestSort={requestSort}
+              isTruncate
+            />
+          </div>
+        )}
 
         <DialogContent className="m-8 rounded-md border bg-card-non-transparent p-4 text-foreground shadow-md 2xl:max-w-[800px]">
           <DialogHeader>
@@ -161,12 +169,19 @@ export const ProcessesTable = ({
               <VisuallyHidden>Expand the process as a list</VisuallyHidden>
             </DialogDescription>
           </DialogHeader>
-          <InfoTable
-            className="max-h-[400px] xl:max-h-[600px] 2xl:max-h-[800px]"
-            processes={sortedProcesses}
-            sortConfig={sortConfig}
-            requestSort={requestSort}
-          />
+          {hasError ? (
+            <LoadFailure
+              className="h-64"
+              message={t("shared.processListLoadFailed")}
+            />
+          ) : (
+            <InfoTable
+              className="max-h-[400px] xl:max-h-[600px] 2xl:max-h-[800px]"
+              processes={sortedProcesses}
+              sortConfig={sortConfig}
+              requestSort={requestSort}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -5,7 +5,7 @@ import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 const hoisted = vi.hoisted(() => ({
-  errorMock: vi.fn(),
+  dialogMessageMock: vi.fn(),
   getDataArchiveSeriesMock: vi.fn().mockResolvedValue({
     status: "ok",
     data: [],
@@ -16,8 +16,12 @@ const hoisted = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({ error: hoisted.errorMock }),
+// A failed read is a panel state, never a native dialog. If a dialog hook is
+// ever wired back into this hook, it ends up calling these.
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  message: hoisted.dialogMessageMock,
+  ask: hoisted.dialogMessageMock,
+  confirm: hoisted.dialogMessageMock,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -256,6 +260,27 @@ describe("useInsightChart", () => {
     expect(result.current.chartData).toEqual(Array(11).fill(null));
   });
 
+  it("keeps an empty answer distinct from a failed read", async () => {
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(ok([]));
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(commands.getDataArchiveSeries).toHaveBeenCalled();
+    expect(result.current.hasData).toBe(false);
+    expect(result.current.hasError).toBe(false);
+  });
+
   it("should calculate labels correctly for long periods", async () => {
     vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
       ok([
@@ -339,7 +364,7 @@ describe("useInsightChart", () => {
     );
   });
 
-  it("should clear chart data when the archive command returns an error", async () => {
+  it("reports a failed archive read as hasError without opening a dialog", async () => {
     vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
       ok([
         { value: 15, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
@@ -377,14 +402,107 @@ describe("useInsightChart", () => {
     });
 
     expect(result.current.hasData).toBe(false);
+    expect(result.current.chartData).toEqual([]);
+    expect(result.current.hasError).toBe(true);
+    // The technical detail goes to the console, not to the user.
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         message: "Failed to fetch archived hardware series: decode failed",
       }),
     );
-    expect(hoisted.errorMock).toHaveBeenCalledWith(
-      "Error: Failed to fetch archived hardware series: decode failed",
+    expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("refetches on retry and clears hasError once the read succeeds", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValueOnce(
+      err("decode failed"),
     );
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        { value: 15, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
+    );
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(result.current.hasError).toBe(true);
+    expect(commands.getDataArchiveSeries).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.retry();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(commands.getDataArchiveSeries).toHaveBeenCalledTimes(2);
+    expect(result.current.hasError).toBe(false);
+    expect(result.current.chartData).toEqual([15]);
+    expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("does not let a superseded request's failure set hasError", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+    let rejectFirst: (reason: Error) => void = () => {};
+    vi.mocked(commands.getDataArchiveSeries).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectFirst = reject;
+        }),
+    );
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        { value: 15, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
+    );
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    // The user presses retry while the first read is still in flight.
+    act(() => {
+      result.current.retry();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(result.current.chartData).toEqual([15]);
+
+    await act(async () => {
+      rejectFirst(new Error("late failure"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(result.current.hasError).toBe(false);
+    expect(result.current.chartData).toEqual([15]);
     consoleErrorSpy.mockRestore();
   });
 });
@@ -611,7 +729,7 @@ describe("useInsightChart – auto-refresh interval", () => {
     clearTimeoutSpy.mockRestore();
   });
 
-  it("handles getData rejection in interval and clears stale chart data", async () => {
+  it("reports an interval refresh failure as hasError and recovers on the next tick", async () => {
     const getDataArchiveSeriesMock = vi.mocked(commands.getDataArchiveSeries);
     getDataArchiveSeriesMock.mockResolvedValue(
       ok([
@@ -649,8 +767,18 @@ describe("useInsightChart – auto-refresh interval", () => {
     });
 
     expect(consoleErrorSpy).toHaveBeenCalled();
-    expect(hoisted.errorMock).toHaveBeenCalledWith("Error: DB error");
+    expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
     expect(result.current.hasData).toBe(false);
+    expect(result.current.hasError).toBe(true);
+
+    // Automatic refreshes keep retrying on their own; no user action needed.
+    await act(async () => {
+      vi.advanceTimersByTime(60000);
+      await Promise.resolve();
+    });
+
+    expect(result.current.hasError).toBe(false);
+    expect(result.current.hasData).toBe(true);
     consoleErrorSpy.mockRestore();
   });
 });

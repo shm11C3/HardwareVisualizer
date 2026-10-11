@@ -1,4 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -10,7 +16,6 @@ import { CovariateComparisonPanel } from "./CovariateComparisonPanel";
 
 const mocks = vi.hoisted(() => ({
   getCoolingCovariateComparison: vi.fn(),
-  dialogError: vi.fn(),
   settings: { temperatureUnit: "C" as TemperatureUnit },
 }));
 
@@ -26,10 +31,6 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({ settings: mocks.settings }),
-}));
-
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({ error: mocks.dialogError }),
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -250,5 +251,24 @@ describe("CovariateComparisonPanel", () => {
       expect(screen.getByText(`${KEY}.loadFailed`)).toBeInTheDocument();
     });
     expect(screen.queryByTestId("cooling-covariate-panel-loading")).toBeNull();
+    // The Rust error string is for the console, never for the panel.
+    expect(screen.queryByText(/boom/)).toBeNull();
+  });
+
+  it("refetches on retry and replaces the failure with the comparison", async () => {
+    mocks.getCoolingCovariateComparison.mockResolvedValueOnce({
+      status: "error",
+      error: "boom",
+    });
+    resolveWith(established());
+
+    render(<CovariateComparisonPanel />);
+
+    const retry = await screen.findByRole("button", { name: "shared.retry" });
+    fireEvent.click(retry);
+
+    expect(await screen.findByTestId("cooling-covariate-lead")).toBeVisible();
+    expect(screen.queryByText(`${KEY}.loadFailed`)).toBeNull();
+    expect(mocks.getCoolingCovariateComparison).toHaveBeenCalledTimes(2);
   });
 });

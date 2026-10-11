@@ -31,7 +31,6 @@ const mocks = vi.hoisted(() => {
       getStorageHealthLatestRecords: vi.fn(),
       refreshStorageDevices: vi.fn(),
     },
-    dialogError: vi.fn(),
     settings: {
       storageHealth: {
         enabled: true,
@@ -78,12 +77,6 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
 vi.mock("@/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: mocks.settings,
-  }),
-}));
-
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: mocks.dialogError,
   }),
 }));
 

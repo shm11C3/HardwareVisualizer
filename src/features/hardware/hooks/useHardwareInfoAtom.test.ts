@@ -5,11 +5,14 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 /**
  * Mock setup
  */
-const errorMock = vi.fn();
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: errorMock,
-  }),
+// A failed inventory read is state the specification sheet renders, and a
+// failed user-triggered detail read is reported by its caller. Neither is a
+// native dialog.
+const dialogMessageMock = vi.fn();
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  message: dialogMessageMock,
+  ask: dialogMessageMock,
+  confirm: dialogMessageMock,
 }));
 
 // Mock getHardwareInfo, getNetworkInfo, getMemoryInfoDetail in commands
@@ -62,7 +65,7 @@ describe("useHardwareInfoAtom", () => {
     expect(result.current.hardwareInfo).toEqual(hardwareData);
   });
 
-  it("init: error() is called on error and hardwareInfo remains at initial value", async () => {
+  it("init: a failed read sets inventoryLoadFailed, opens no dialog, and a later success clears it", async () => {
     const errorMsg = "Failed to fetch hardware info";
     (commands.getHardwareInfo as Mock).mockResolvedValue({
       status: "error",
@@ -81,8 +84,8 @@ describe("useHardwareInfoAtom", () => {
       await result.current.init();
     });
 
-    // Verify that error() was called
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.inventoryLoadFailed).toBe(true);
+    expect(dialogMessageMock).not.toHaveBeenCalled();
     // Initial state (cpu, memory, gpus are null, storage is empty array) remains
     expect(result.current.hardwareInfo).toEqual({
       cpu: null,
@@ -92,6 +95,22 @@ describe("useHardwareInfoAtom", () => {
       motherboard: null,
     });
     expect(consoleErrorSpy).toHaveBeenCalled();
+
+    // The sheet's retry is `init` itself.
+    (commands.getHardwareInfo as Mock).mockResolvedValue({
+      status: "ok",
+      data: {
+        cpu: null,
+        memory: null,
+        gpus: null,
+        storage: [],
+        motherboard: null,
+      },
+    });
+    await act(async () => {
+      await result.current.init();
+    });
+    expect(result.current.inventoryLoadFailed).toBe(false);
     consoleErrorSpy.mockRestore();
   });
 
@@ -110,7 +129,7 @@ describe("useHardwareInfoAtom", () => {
     expect(result.current.networkInfo).toEqual(networkData);
   });
 
-  it("initNetwork: error() is called on error and networkInfo remains at initial value", async () => {
+  it("initNetwork: a failed read sets networkLoadFailed, opens no dialog, and keeps networkInfo", async () => {
     const errorMsg = "Failed to fetch network info";
     (commands.getNetworkInfo as Mock).mockResolvedValue({
       status: "error",
@@ -129,7 +148,8 @@ describe("useHardwareInfoAtom", () => {
       await result.current.initNetwork();
     });
 
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.networkLoadFailed).toBe(true);
+    expect(dialogMessageMock).not.toHaveBeenCalled();
     expect(result.current.networkInfo).toEqual([]);
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
@@ -146,14 +166,16 @@ describe("useHardwareInfoAtom", () => {
       wrapper: Provider,
     });
 
+    let loaded: boolean | undefined;
     await act(async () => {
-      await result.current.fetchMemoryInfoDetail();
+      loaded = await result.current.fetchMemoryInfoDetail();
     });
 
+    expect(loaded).toBe(true);
     expect(result.current.hardwareInfo.memory).toEqual(memoryData);
   });
 
-  it("fetchMemoryInfoDetail: error() is called on error and memory is restored", async () => {
+  it("fetchMemoryInfoDetail: reports failure through its return value, restores memory, opens no dialog", async () => {
     const seededMemory = {
       size: "16GB",
       memoryType: "DDR4",
@@ -188,11 +210,13 @@ describe("useHardwareInfoAtom", () => {
     });
     expect(result.current.hardwareInfo.memory).toEqual(seededMemory);
 
+    let loaded: boolean | undefined;
     await act(async () => {
-      await result.current.fetchMemoryInfoDetail();
+      loaded = await result.current.fetchMemoryInfoDetail();
     });
 
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(loaded).toBe(false);
+    expect(dialogMessageMock).not.toHaveBeenCalled();
     expect(result.current.hardwareInfo.memory).toEqual(seededMemory);
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();

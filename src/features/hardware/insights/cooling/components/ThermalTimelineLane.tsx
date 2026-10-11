@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CoolingArchiveTimeline } from "@/features/hardware/insights/cooling/hooks/useCoolingArchiveTimeline";
 import {
@@ -77,6 +78,8 @@ export const ThermalTimelineLane = ({
   dailyTrend,
   fanTrend,
   archive,
+  dailyTrendHasError = false,
+  onRetryDailyTrend,
 }: {
   route: CoolingPeriodRoute;
   baseline: CoolingBaselineState | null;
@@ -94,6 +97,13 @@ export const ThermalTimelineLane = ({
    * and a second fetch to answer that would double the archive round trips.
    */
   archive: CoolingArchiveTimeline;
+  /**
+   * The daily rollup read failed. Distinct from `dailyTrend == null`, which
+   * only means "not established yet": a failed query must not keep the
+   * skeleton forever.
+   */
+  dailyTrendHasError?: boolean;
+  onRetryDailyTrend?: () => void;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -225,9 +235,17 @@ export const ThermalTimelineLane = ({
         {t("pages.insights.cooling.timeline.title")}
       </h3>
       {route.kind === "archive" && archiveHasError ? (
-        <p className="text-muted-foreground text-sm">
-          {t("pages.insights.cooling.timeline.loadFailed")}
-        </p>
+        <LoadFailure
+          className="h-50"
+          message={t("pages.insights.cooling.timeline.loadFailed")}
+          onRetry={archive.retry}
+        />
+      ) : route.kind === "dailyTrend" && dailyTrendHasError ? (
+        <LoadFailure
+          className="h-50"
+          message={t("pages.insights.cooling.timeline.loadFailed")}
+          onRetry={onRetryDailyTrend}
+        />
       ) : (route.kind === "dailyTrend" && dailyTrend == null) ||
         (route.kind === "archive" && !archiveLoaded) ? (
         <Skeleton

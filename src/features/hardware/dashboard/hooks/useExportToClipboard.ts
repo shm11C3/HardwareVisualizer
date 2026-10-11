@@ -15,7 +15,7 @@ export const useExportToClipboard = ({
   includeRuntimeStats?: boolean;
 } = {}) => {
   const { hardwareInfo, networkInfo } = useHardwareInfoAtom();
-  const processes = useProcessInfo({ enabled: includeRuntimeStats });
+  const { processes } = useProcessInfo({ enabled: includeRuntimeStats });
   const processorsUsageHistory = useAtomValue(
     includeRuntimeStats
       ? processorsUsageHistoryAtom

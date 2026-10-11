@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type CoolingFanTrend, commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
@@ -23,10 +22,9 @@ import { isError } from "@/types/result";
 export const useCoolingFanTrend = (days: 90 | 365 | null) => {
   const [data, setData] = useState<CoolingFanTrend | null>(null);
   const [hasError, setHasError] = useState(false);
-  const { error } = useTauriDialog();
   const requestIdRef = useRef(0);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (days == null) {
       requestIdRef.current += 1;
       setData(null);
@@ -39,33 +37,37 @@ export const useCoolingFanTrend = (days: 90 | 365 | null) => {
     setData(null);
     setHasError(false);
 
-    void (async () => {
-      try {
-        const result = await commands.getCoolingFanTrend(days);
-        if (isError(result)) {
-          throw new Error(`Failed to fetch cooling fan trend: ${result.error}`);
-        }
-        if (requestIdRef.current === requestId) {
-          setData(result.data);
-        }
-      } catch (e) {
-        console.error(e);
-        // A stale request must neither flip the state nor open a dialog:
-        // the user has already moved on to a newer period.
-        if (requestIdRef.current === requestId) {
-          setHasError(true);
-          void error(String(e));
-        }
+    try {
+      const result = await commands.getCoolingFanTrend(days);
+      if (isError(result)) {
+        throw new Error(`Failed to fetch cooling fan trend: ${result.error}`);
       }
-    })();
+      if (requestIdRef.current === requestId) {
+        setData(result.data);
+      }
+    } catch (e) {
+      console.error(e);
+      // A stale request must not flip the state:
+      // the user has already moved on to a newer period.
+      if (requestIdRef.current === requestId) {
+        setHasError(true);
+      }
+    }
+  }, [days]);
+
+  useEffect(() => {
+    void load();
 
     return () => {
       // Unmounting (or re-running) invalidates the in-flight request so a
-      // late rejection can neither flip state nor open a dialog after the
-      // view is gone.
+      // late rejection cannot flip state after the view is gone.
       requestIdRef.current += 1;
     };
-  }, [days, error]);
+  }, [load]);
 
-  return { data, hasError };
+  const retry = useCallback(() => {
+    void load();
+  }, [load]);
+
+  return { data, hasError, retry };
 };

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import {
   Accordion,
   AccordionContent,
@@ -50,9 +51,11 @@ export const LoadTemperatureExplorerPanel = () => {
   const [recentDays, setRecentDays] = useState<ExplorerRecentDays>(
     defaultExplorerRecentDays,
   );
-  const { data: explorer, hasError } = useCoolingLoadTemperatureExplorer(
-    expanded ? recentDays : null,
-  );
+  const {
+    data: explorer,
+    hasError,
+    retry,
+  } = useCoolingLoadTemperatureExplorer(expanded ? recentDays : null);
 
   return (
     <section
@@ -104,7 +107,11 @@ export const LoadTemperatureExplorerPanel = () => {
               </Select>
             </div>
 
-            <ExplorerBody explorer={explorer} hasError={hasError} />
+            <ExplorerBody
+              explorer={explorer}
+              hasError={hasError}
+              onRetry={retry}
+            />
           </AccordionContent>
         </AccordionItem>
       </Accordion>
@@ -120,18 +127,22 @@ export const LoadTemperatureExplorerPanel = () => {
 const ExplorerBody = ({
   explorer,
   hasError,
+  onRetry,
 }: {
   explorer: CoolingLoadTemperatureExplorer | null;
   hasError: boolean;
+  onRetry: () => void;
 }) => {
   const { t } = useTranslation();
   const lifecycle = resolveBaselineLifecycle(explorer);
 
   if (hasError) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {t("pages.insights.cooling.explorer.loadFailed")}
-      </p>
+      <LoadFailure
+        className="items-start text-left"
+        message={t("pages.insights.cooling.explorer.loadFailed")}
+        onRetry={onRetry}
+      />
     );
   }
 

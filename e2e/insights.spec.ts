@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import {
   BOOTSTRAP_TIMEOUT,
   gotoApp,
@@ -656,5 +656,115 @@ test.describe("insights captures", () => {
     await page.waitForTimeout(600);
 
     await saveCapture(page, "insights-process");
+  });
+});
+
+/**
+ * Failure Reporting (#2311): a failed panel read renders where the data would
+ * appear, with a retry, and never interrupts with a native dialog. The
+ * `?archiveReadFailure=1` override rejects the Insights read commands while
+ * the rest of the app keeps working.
+ */
+const READ_FAILURE_PATH = "/?archiveReadFailure=1";
+const COMPACT_VIEWPORT = { width: 520, height: 800 };
+const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
+const DIALOG_COMMANDS = [
+  "plugin:dialog|message",
+  "plugin:dialog|ask",
+  "plugin:dialog|confirm",
+] as const;
+
+const dialogInvokeCount = (page: Page) =>
+  page.evaluate(
+    (commands) =>
+      commands.reduce(
+        (total, command) =>
+          total + (window.__E2E__?.getInvokeCount(command) ?? 0),
+        0,
+      ),
+    DIALOG_COMMANDS,
+  );
+
+test.describe("insights read failure captures", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(FIXED_TIME);
+  });
+
+  test("insights main charts render a failure state with retry and no dialog", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: READ_FAILURE_PATH });
+    await navigateTo(page, "insights");
+
+    await expect(page.getByRole("tab", { name: "CPU / Memory" })).toBeVisible({
+      timeout: BOOTSTRAP_TIMEOUT,
+    });
+    const failures = page.getByTestId("load-failure");
+    await expect(failures.first()).toBeVisible();
+    await expect(failures.first()).toContainText("Could not load the data.");
+    // The Rust error text is for the console, never for the panel.
+    await expect(failures.first()).not.toContainText("e2e-mock");
+    await expect(
+      failures.first().getByRole("button", { name: "Try again" }),
+    ).toBeVisible();
+    await page.waitForTimeout(600);
+    expect(await dialogInvokeCount(page)).toBe(0);
+
+    await saveCapture(page, "insights-main-read-failure");
+    await page.setViewportSize(COMPACT_VIEWPORT);
+    await expect(failures.first()).toBeVisible();
+    await saveCapture(page, "insights-main-read-failure-compact-window");
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+
+    // Retry after the read recovers: the pressed chart replaces its failure.
+    const failedBefore = await failures.count();
+    await page.evaluate(() => window.__E2E__?.setArchiveReadFailure(false));
+    await failures.first().getByRole("button", { name: "Try again" }).click();
+    await expect(failures).toHaveCount(failedBefore - 1);
+    expect(await dialogInvokeCount(page)).toBe(0);
+  });
+
+  test("insights cooling tab renders per-panel failure states with retry and no dialog", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: READ_FAILURE_PATH });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    const timeline = page.getByTestId("cooling-thermal-timeline-lane");
+    const bandPanel = page.getByTestId("cooling-load-band-panel");
+    const observation = page.getByTestId("cooling-observation-strip");
+    await expect(timeline.getByTestId("load-failure")).toBeVisible();
+    await expect(timeline).toContainText(
+      "Failed to load the thermal timeline.",
+    );
+    await expect(bandPanel.getByTestId("load-failure").first()).toBeVisible();
+    await expect(observation.getByTestId("load-failure")).toBeVisible();
+    // A failed read is not a domain state: nothing claims the baseline is
+    // still establishing or that the period has no data.
+    await expect(page.getByText(/Establishing baseline/)).toHaveCount(0);
+    await expect(
+      timeline.getByText("No data found for the selected period"),
+    ).toHaveCount(0);
+    await page.waitForTimeout(600);
+    expect(await dialogInvokeCount(page)).toBe(0);
+
+    await saveCapture(page, "insights-cooling-read-failure");
+    await page.setViewportSize(COMPACT_VIEWPORT);
+    await expect(timeline.getByTestId("load-failure")).toBeVisible();
+    await saveCapture(page, "insights-cooling-read-failure-compact-window");
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+
+    // Retry after the read recovers: only the retried panels recover.
+    await page.evaluate(() => window.__E2E__?.setArchiveReadFailure(false));
+    await timeline.getByRole("button", { name: "Try again" }).click();
+    await expect(timeline.getByTestId("load-failure")).toHaveCount(0);
+    await expect(page.getByTestId("cooling-temperature-lane")).toBeVisible();
+    await bandPanel.getByRole("button", { name: "Try again" }).first().click();
+    await expect(bandPanel.getByTestId("load-failure")).toHaveCount(0);
+    expect(await dialogInvokeCount(page)).toBe(0);
   });
 });

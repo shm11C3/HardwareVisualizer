@@ -80,6 +80,7 @@ plugin `.config/biome/no-module-scope-let.grit`.
 | Jotai API placement | `paths.jotai.importNames` per scope, plus `jotai/**` subpaths banned outside store modules |
 | UI primitives never call IPC | `paths["@/rspc/bindings"].importNames` = `commands`, `events` |
 | No bypass through namespace imports | `*` is listed wherever specific names are restricted |
+| No OS error dialogs from the hardware feature | `paths["@/hooks/useTauriDialog"]` banned in the `features/hardware` overrides |
 | No module-scope `let` outside store modules | GritQL plugin through an override |
 | No cycles, barrels, or `export *` | `noImportCycles`, `noBarrelFile`, `noReExportAll` |
 
@@ -140,6 +141,52 @@ change, place one file per affected scope with one import that each
 constraint must reject and one that it must allow, then confirm the
 diagnostics line by line.
 
+## Failure Reporting
+
+A failed read or action is reported on two axes. Blast radius decides the
+surface; who started the work decides when it may interrupt.
+
+| Tier | Surface | When | Examples |
+| --- | --- | --- | --- |
+| App cannot continue | Blocking dialog (`useTauriDialog`, backend `error_event`) | Immediately | Database cannot open, conversion failed |
+| One panel's read | Failure state where the data would appear, with retry | Never interrupts; automatic refreshes keep retrying | Insight charts, Cooling panels, Storage Health, process table |
+| Secondary lane | Nothing in the UI; log only | Never | Fan and ambient lanes next to a primary series |
+| User action failed | Near the control that was used | Immediately, once | Settings toggles, restart, tray actions |
+
+Rules that follow from the axes:
+
+- A read hook exposes `hasError` (and `hasLoaded` when the panel needs to
+  tell "not yet" from "empty"), and a `retry` function. It never opens a
+  dialog. The panel renders the shared failure component
+  (`src/components/LoadFailure.tsx`) in place of the data.
+- A failed read is a distinct state from an empty result (DP-02). Empty data
+  renders the panel's empty state; a failure renders the failure state.
+- Failure copy is translated and does not embed Rust error strings. The
+  technical detail goes to `console.error` and to the App's log at `warn`
+  with the query arguments, which is what makes a report reproducible.
+- Once a failure is a state, interval refreshes cannot stack notices, so no
+  per-streak dedup is needed for the UI. Logging may dedup per streak.
+- The failure state is only for a failed query. Domain states the Cooling
+  Insight already models (establishing baseline, recording coverage, sensor
+  unsupported) stay their own states and are never rendered as failures.
+
+Enforcement: `features/hardware` may not import `useTauriDialog`
+(`noRestrictedImports` in its three overrides). The user-action tier is
+review-checked; it has no in-app notice primitive yet, and choosing one is a
+separate decision.
+
+### Call-site classification
+
+| Call site | Tier | Status |
+| --- | --- | --- |
+| Insight main chart hook, Cooling hooks, process stats, snapshot | One panel's read | Done in #2311 |
+| GPU archive names, hardware inventory, process list polling | One panel's read, or log only when the screen renders without them | Done in #2311 |
+| Dashboard Storage Health reads | One panel's read | Done in #2311 |
+| Settings toggles and actions (`useSettingsAtom`, tray, autostart, elevation) | User action failed | Pending: needs a near-control notice; tracked in #2388 |
+| License page reads | One panel's read | Pending: tracked in #2388 |
+| Startup dialogs in `src/app` | Already inside a dialog flow | Review-checked |
+| Backend `error_event` (`useErrorModalListener`) | App cannot continue | Unchanged |
+
 ## Migration
 
 The migration is complete. It landed as five stacked slices tracked in #2325:
@@ -162,5 +209,8 @@ A future structural change to these boundaries follows the same pattern:
 ## Open Questions
 
 - Whether presentation components may call IPC `commands` directly, or only
-  hooks may. Today only UI primitives are restricted. #2311 changes how
-  failed reads are reported and may settle this.
+  hooks may. Today only UI primitives are restricted. Read hooks now own the
+  failure state, which pulls reads into hooks; the remaining question is
+  operation commands called from components.
+- Which in-app notice surface the user-action tier uses. The repository has
+  no toast primitive; adding one is a dependency decision.

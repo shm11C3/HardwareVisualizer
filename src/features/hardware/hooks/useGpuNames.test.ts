@@ -2,12 +2,15 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  errorMock: vi.fn(),
+  dialogMessageMock: vi.fn(),
   getGpuArchiveNamesMock: vi.fn(),
 }));
 
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({ error: hoisted.errorMock }),
+// The GPU selectors fall back to ids, so a failed name read is log-only.
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  message: hoisted.dialogMessageMock,
+  ask: hoisted.dialogMessageMock,
+  confirm: hoisted.dialogMessageMock,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -62,7 +65,10 @@ describe("useGpuNames", () => {
     expect(result.current).toEqual([]);
   });
 
-  it("returns empty array and shows an error when the command returns an error result", async () => {
+  it("returns an empty array and logs, without a dialog, when the command returns an error result", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     hoisted.getGpuArchiveNamesMock.mockResolvedValue({
       status: "error",
       error: "database unavailable",
@@ -71,23 +77,30 @@ describe("useGpuNames", () => {
     const { result } = renderHook(() => useGpuNames());
 
     await waitFor(() => {
-      expect(hoisted.errorMock).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Failed to fetch archived GPU names: database unavailable",
       );
     });
     expect(result.current).toEqual([]);
+    expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
-  it("returns empty array and shows an error when the command rejects", async () => {
+  it("returns an empty array and logs, without a dialog, when the command rejects", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     hoisted.getGpuArchiveNamesMock.mockRejectedValue(new Error("transport"));
 
     const { result } = renderHook(() => useGpuNames());
 
     await waitFor(() => {
-      expect(hoisted.errorMock).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Failed to fetch archived GPU names: Error: transport",
       );
     });
     expect(result.current).toEqual([]);
+    expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 });

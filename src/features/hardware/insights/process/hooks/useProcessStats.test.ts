@@ -5,7 +5,7 @@ import type { ProcessStat } from "@/features/hardware/insights/types/processStat
 
 // Hoisted mocks to comply with Vitest hoisting behavior
 const hoisted = vi.hoisted(() => ({
-  errorMock: vi.fn(),
+  dialogMessageMock: vi.fn(),
   getProcessStatsMock: vi.fn(),
   atomState: null as ProcessStat[] | null,
   setProcessStatsAtomMock: vi.fn((v: ProcessStat[]) => {
@@ -13,8 +13,11 @@ const hoisted = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({ error: hoisted.errorMock }),
+// A failed read is a panel state, never a native dialog.
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  message: hoisted.dialogMessageMock,
+  ask: hoisted.dialogMessageMock,
+  confirm: hoisted.dialogMessageMock,
 }));
 
 // Use a predictable archive interval (60s)
@@ -136,7 +139,7 @@ describe("useProcessStats", () => {
     vi.useRealTimers();
   });
 
-  it("handles errors by showing dialog and stopping loading", async () => {
+  it("reports a failed read as hasError without a dialog and stops loading", async () => {
     const now = new Date("2023-01-01T00:00:00Z");
     vi.setSystemTime(now);
 
@@ -152,9 +155,34 @@ describe("useProcessStats", () => {
       await Promise.resolve();
     });
 
-    expect(hoisted.errorMock).toHaveBeenCalledWith("Error: boom");
+    expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
+    expect(result.current.hasError).toBe(true);
     expect(result.current.loading).toBe(false);
     expect(result.current.processStats).toBeNull();
+  });
+
+  it("refetches on retry and clears hasError once the read succeeds", async () => {
+    vi.setSystemTime(new Date("2023-01-01T00:00:00Z"));
+    (hoisted.getProcessStatsMock as Mock)
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValue([]);
+
+    const { result } = renderHook(() =>
+      useProcessStats({ period: 10 as const, offset: 0 }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.hasError).toBe(true);
+
+    await act(async () => {
+      result.current.retry();
+      await Promise.resolve();
+    });
+
+    expect(hoisted.getProcessStatsMock).toHaveBeenCalledTimes(2);
+    expect(result.current.hasError).toBe(false);
+    expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
   });
 
   it("cleans up interval on unmount", async () => {

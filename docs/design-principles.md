@@ -33,7 +33,8 @@ availability and validity distinctions defined by the target domain; for
 example, sensor availability, fan activity/validity, and storage freshness are
 different models rather than one universal status enum. Never turn a missing
 reading into zero, healthy, disconnected, or a whole-device failure without
-evidence.
+evidence. In the frontend, a failed read is likewise its own state: never
+render a fetch failure as an empty chart or panel.
 
 For vendor- and OS-dependent metrics, return the values that are available and
 carry source or unavailability information when it helps the user understand

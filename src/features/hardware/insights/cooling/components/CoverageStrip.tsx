@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildCoverageCells } from "@/features/hardware/insights/cooling/utils/coverageStrip";
 import type { CoolingDailyTrendPoint } from "@/rspc/bindings";
@@ -20,10 +21,12 @@ export const CoverageStrip = ({
   points,
   days,
   hasError = false,
+  onRetry,
 }: {
   points: CoolingDailyTrendPoint[] | null;
   days: 90 | 365;
   hasError?: boolean;
+  onRetry?: () => void;
 }) => {
   const { t } = useTranslation();
   const cells = useMemo(
@@ -42,9 +45,11 @@ export const CoverageStrip = ({
         {t("pages.insights.cooling.coverage.title")}
       </h3>
       {hasError ? (
-        <p className="text-muted-foreground text-sm">
-          {t("pages.insights.cooling.coverage.loadFailed")}
-        </p>
+        <LoadFailure
+          className="items-start text-left"
+          message={t("pages.insights.cooling.coverage.loadFailed")}
+          onRetry={onRetry}
+        />
       ) : points == null ? (
         <Skeleton
           aria-busy="true"

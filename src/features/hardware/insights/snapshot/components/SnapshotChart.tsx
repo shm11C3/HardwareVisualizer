@@ -1,8 +1,7 @@
-import { WarningIcon } from "@phosphor-icons/react";
 import { DatabaseIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
-import { Button } from "@/components/ui/button";
+import { LoadFailure } from "@/components/LoadFailure";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ClientSettings } from "@/rspc/bindings";
@@ -14,7 +13,8 @@ interface SnapshotChartProps {
   chartConfig: ChartConfig;
   settings: ClientSettings;
   loading?: boolean;
-  error?: Error | null;
+  /** The read failed. Distinct from an empty result. */
+  hasError?: boolean;
   onRetry?: () => void;
 }
 
@@ -25,7 +25,7 @@ export const SnapshotChart = ({
   chartConfig,
   settings,
   loading = false,
-  error = null,
+  hasError = false,
   onRetry,
 }: SnapshotChartProps) => {
   const { t } = useTranslation();
@@ -41,20 +41,13 @@ export const SnapshotChart = ({
     );
   }
 
-  if (error) {
+  if (hasError) {
     return (
-      <div className="flex h-[400px] items-center justify-center">
-        <div className="space-y-2 text-center">
-          <WarningIcon className="mx-auto h-12 w-12 text-destructive" />
-          <p className="font-medium text-destructive">Failed to load data</p>
-          <p className="text-muted-foreground text-sm">{error.message}</p>
-          {onRetry && (
-            <Button onClick={onRetry} variant="outline" size="sm">
-              Try Again
-            </Button>
-          )}
-        </div>
-      </div>
+      <LoadFailure
+        className="h-[400px]"
+        message={t("shared.loadFailed")}
+        onRetry={onRetry}
+      />
     );
   }
 
