@@ -1,4 +1,5 @@
 import { platform } from "@tauri-apps/plugin-os";
+import type { TFunction } from "i18next";
 import { DownloadIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -33,6 +34,9 @@ type ComponentEntry = {
  */
 export const ExternalComponentSetupSection = () => {
   const { t } = useTranslation();
+  const { t: translateFailureStage } = useTranslation("translation", {
+    keyPrefix: "pages.settings.advanced.externalComponentSetup.failureStage",
+  });
   const { error } = useTauriDialog();
   const [entries, setEntries] = useState<ComponentEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -136,7 +140,7 @@ export const ExternalComponentSetupSection = () => {
       if (result.data.outcome === "installed") {
         setRestartDialogOpen(true);
       } else if (result.data.outcome === "failed") {
-        await error(failureMessage(t, result.data));
+        await error(failureMessage(t, translateFailureStage, result.data));
       }
     } catch (err) {
       console.error("Failed to run external component setup:", err);
@@ -202,79 +206,26 @@ export const ExternalComponentSetupSection = () => {
   );
 };
 
-type Translate = ReturnType<typeof useTranslation>["t"];
+/**
+ * `TFunction` is the type the component's own `t` has. `ReturnType<typeof
+ * useTranslation>["t"]` is the un-inferred generic instead, and every call
+ * through it re-instantiates the whole resource type (TS2589 as keys grow).
+ */
+type Translate = TFunction;
 
-const FAILURE_STAGE_LABELS = {
-  stateUnknown: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.stateUnknown",
-    ),
-  stagingDirectory: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.stagingDirectory",
-    ),
-  downloadRuntime: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.downloadRuntime",
-    ),
-  verifyRuntime: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.verifyRuntime",
-    ),
-  startInstaller: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.startInstaller",
-    ),
-  installerExit: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.installerExit",
-    ),
-  downloadModules: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.downloadModules",
-    ),
-  verifyModules: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.verifyModules",
-    ),
-  archiveContents: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.archiveContents",
-    ),
-  placeModules: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.placeModules",
-    ),
-  incomplete: (t: Translate) =>
-    t("pages.settings.advanced.externalComponentSetup.failureStage.incomplete"),
-  unsupportedPlatform: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.unsupportedPlatform",
-    ),
-  panicked: (t: Translate) =>
-    t("pages.settings.advanced.externalComponentSetup.failureStage.panicked"),
-  installerTimedOut: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.installerTimedOut",
-    ),
-  installerStillRunning: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.installerStillRunning",
-    ),
-  setupTimedOut: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.setupTimedOut",
-    ),
-  setupStillRunning: (t: Translate) =>
-    t(
-      "pages.settings.advanced.externalComponentSetup.failureStage.setupStillRunning",
-    ),
-  other: (t: Translate) =>
-    t("pages.settings.advanced.externalComponentSetup.failureStage.other"),
-} as const satisfies Record<
-  ExternalComponentSetupFailureStage,
-  (t: Translate) => string
->;
+/**
+ * Translates a failure stage through a `t` scoped to
+ * `...externalComponentSetup.failureStage`, whose leaf keys are exactly the
+ * `ExternalComponentSetupFailureStage` values.
+ *
+ * A table of 18 closures over the unscoped `t` sat at TypeScript's type
+ * instantiation limit: each closure re-instantiated the full-resource
+ * `TFunction`, so adding translation keys anywhere could tip the file into
+ * TS2589. The scoped `t` only knows the 18 leaves.
+ */
+type TranslateFailureStage = (
+  stage: ExternalComponentSetupFailureStage,
+) => string;
 
 /**
  * The elevated setup process reports only an exit code, so the stage is the
@@ -283,9 +234,10 @@ const FAILURE_STAGE_LABELS = {
  */
 const failureMessage = (
   t: Translate,
+  translateFailureStage: TranslateFailureStage,
   result: ExternalComponentSetupResult,
 ): string => {
-  const stage = FAILURE_STAGE_LABELS[result.failureStage ?? "other"](t);
+  const stage = translateFailureStage(result.failureStage ?? "other");
   return result.detail
     ? t("pages.settings.advanced.externalComponentSetup.result.failed", {
         detail: `${stage} (${result.detail})`,
@@ -346,6 +298,9 @@ const ComponentCard = ({
   onSetup,
 }: ComponentCardProps) => {
   const { t } = useTranslation();
+  const { t: translateFailureStage } = useTranslation("translation", {
+    keyPrefix: "pages.settings.advanced.externalComponentSetup.failureStage",
+  });
   const { component, status } = entry;
   const copy = componentCopyKeys(component);
   const componentName = copy ? t(copy.name) : component;
@@ -414,7 +369,7 @@ const ComponentCard = ({
           "pages.settings.advanced.externalComponentSetup.result.cancelled",
         );
       case "failed":
-        return failureMessage(t, setupResult);
+        return failureMessage(t, translateFailureStage, setupResult);
     }
   };
 
