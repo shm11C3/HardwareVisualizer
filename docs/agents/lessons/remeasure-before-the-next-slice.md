@@ -10,7 +10,7 @@ guardrail: .agents/rules/design.md requires re-measuring the remaining slices' c
 canonical_refs: .agents/rules/design.md, docs/design-principles.md
 verification: "jsdom benchmark, A = b23baca7d (slice 1) vs B = b23b36ef6 (slice 4), five real-screen scenarios, 200 warm-up + 5x400 samples, three interleaved runs: listener-only 27.3 -> 16.7 us/sample, Dashboard 232 -> 242 (within noise), Performance panels 452 -> 473 (within noise), CPU detail 160 -> 132 (the transpose removal, which needs no buffer)"
 evidence: "issue #1638 (Outcome section); PR #2395 (merged slice 1); PRs #2396, #2397, #2399 (closed with the benchmark in a comment); src/features/hardware/renderFanout.test.tsx"
-revalidate_when: #1581 moves chart painting off React, which changes what share of a tick the listener is; or the render fan-out harness starts measuring time instead of counts
+revalidate_when: "the always-on chart renderer changes again (the lightweight charts from #1970 and #1975 are what the benchmark ran against), which changes what share of a tick the listener is; or the render fan-out harness starts measuring time instead of counts"
 ---
 
 # Re-measure before the next slice
@@ -43,4 +43,6 @@ slice makes) was available before slice 2 and was not run.
 picture, the remaining slices' claim is re-measured before they are built.
 This follows DP-04 (work follows visible value) and DP-09 (match evidence to
 the claim). The buffer code stays available in the closed PRs as a reference
-implementation if #1581 needs a ring buffer.
+implementation if a later chart renderer needs a ring buffer. The issue's own
+"prerequisite for #1581" framing was already stale: #1581 had been completed
+on 2026-09-26.
