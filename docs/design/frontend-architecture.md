@@ -89,14 +89,24 @@ atoms ([#1638](https://github.com/shm11c3/HardwareVisualizer/issues/1638)).
    ring buffers (`src/features/hardware/live/`) by one write per sample,
    `publishLiveSampleAtom`, which mutates the buffers in place and bumps a
    version atom. Derived atoms are the only readers: scalars
-   (`cpuUsageCurrentAtom`), per-channel series (`cpuUsageSeriesAtom`,
-   `processorUsageSeriesAtom(index)`, `gpuUsageSeriesAtom(id)`) and, until the
-   screens move over, compatibility atoms with the old names and shapes
-   (`cpuUsageHistoryAtom`, `gpuTempMapAtom`, `powerDrawAtom`, ...). The buffers
-   are created by an atom, so there is one set per Jotai store and none at
-   module level: remounting the window's `Provider` starts from empty buffers,
-   and every test store is isolated, which a module-level object would break
-   for both. Components use `useLiveScalar` / `useLiveSeries`.
+   (`cpuUsageCurrentAtom`, `gpuUsageCurrentAtom(id)`, `powerCurrentAtom(key)`),
+   per-channel series (`cpuUsageSeriesAtom`, `processorUsageSeriesAtom(index)`,
+   `gpuUsageSeriesAtom(id)`, `powerDrawSeriesAtom(key)`), the newest per-core
+   row (`latestProcessorUsagesAtom`) and the effective adapter's own channel
+   (`effectiveGpuUsageSeriesAtom`, `effectiveGpuUsageCurrentAtom`, in
+   `store/gpu.ts`, so a component never resolves an adapter id). The Dashboard,
+   Performance, Usage and CPU-detail screens read through `useLiveScalar` /
+   `useLiveSeries` (or the effective-adapter atoms) and no screen reads a
+   history atom. The compatibility atoms with the old names and shapes
+   (`cpuUsageHistoryAtom`, `processorsUsageHistoryAtom`, `gpuUsageHistoriesAtom`,
+   `graphicUsageHistoryAtom`, `powerDrawHistoryAtom`, ...) have no screen reader
+   left and are slated for removal
+   ([#1638](https://github.com/shm11c3/HardwareVisualizer/issues/1638), slice 4).
+   The buffers are created by an atom, so there is one set per Jotai store and
+   none at module level: remounting the window's `Provider` starts from empty
+   buffers, and every test store is isolated, which a module-level object would
+   break for both. A series that has no sample yet is one shared window of
+   `null`s, so waiting for the first reading does not wake its subscribers.
 
 Three rules keep a tick from fanning out:
 

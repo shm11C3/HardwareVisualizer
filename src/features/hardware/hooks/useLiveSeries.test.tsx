@@ -48,6 +48,16 @@ describe("useLiveSeries", () => {
     expect(hook.result.current).toEqual(paddedHistory(6));
   });
 
+  it("reads one power domain's window", () => {
+    const { hook, publish } = mount({ kind: "power", key: "gpuWatts" });
+    expect(hook.result.current).toEqual(paddedHistory());
+
+    publish({ gpuPowerWatts: 20 });
+    publish({ gpuPowerWatts: 25 });
+
+    expect(hook.result.current).toEqual(paddedHistory(20, 25));
+  });
+
   it("reads one adapter's window by id", () => {
     const { hook, publish } = mount({
       kind: "gpu",

@@ -1,5 +1,4 @@
 import { LightningIcon } from "@phosphor-icons/react";
-import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -11,7 +10,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { chartConfig } from "@/consts/chart";
-import { powerDrawHistoryAtom } from "@/features/hardware/store/power";
+import { useLiveSeries } from "@/features/hardware/hooks/useLiveSeries";
 import type { PowerDrawHistory } from "@/features/hardware/types/powerDraw";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -44,7 +43,14 @@ export const PowerDrawChart = ({
   variant?: "monitor" | "panel";
 } = {}) => {
   const { t } = useTranslation();
-  const history = useAtomValue(powerDrawHistoryAtom);
+  const cpuWatts = useLiveSeries({ kind: "power", key: "cpuWatts" });
+  const gpuWatts = useLiveSeries({ kind: "power", key: "gpuWatts" });
+  const aneWatts = useLiveSeries({ kind: "power", key: "aneWatts" });
+  const packageWatts = useLiveSeries({ kind: "power", key: "packageWatts" });
+  const history = useMemo<PowerDrawHistory>(
+    () => ({ cpuWatts, gpuWatts, aneWatts, packageWatts }),
+    [cpuWatts, gpuWatts, aneWatts, packageWatts],
+  );
   const { settings } = useSettingsAtom();
   const targets = settings.powerDisplayTargets;
   const colorRgb = useMemo(

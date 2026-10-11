@@ -6,21 +6,13 @@ import { Sparkline } from "@/components/charts/Sparkline";
 import { InfoTable } from "@/components/InfoTable";
 import { chartConfig } from "@/consts/chart";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { useLiveSeries } from "@/features/hardware/hooks/useLiveSeries";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
-import {
-  cpuUsageHistoryAtom,
-  processorsUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
+import { processorCountAtom } from "@/features/hardware/store/liveUsage";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
-import { transpose } from "@/lib/array";
 import { cn } from "@/lib/utils";
 
-/** Right-align a partially filled per-core history against the chart window. */
-const padHistory = (data: number[]): (number | null)[] =>
-  Array<number | null>(Math.max(chartConfig.historyLengthSec - data.length, 0))
-    .fill(null)
-    .concat(data)
-    .slice(-chartConfig.historyLengthSec);
+const cpuChartLabels = Array(chartConfig.historyLengthSec).fill("");
 
 export const CpuUsages = () => {
   return (
@@ -30,9 +22,25 @@ export const CpuUsages = () => {
   );
 };
 
+/** The overall CPU window. Its own component so the 1 Hz series stops here. */
+const CpuHistoryChart = () => {
+  const cpuUsageHistory = useLiveSeries({ kind: "cpu" });
+
+  return (
+    <LineChartComponent
+      labels={cpuChartLabels}
+      chartData={cpuUsageHistory}
+      dataType="cpu"
+      size="lg"
+      lineGraphMix={false}
+    />
+  );
+};
+
 const CpuUsageChart = memo(() => {
-  const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
-  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
+  // How many charts to draw, not what is in them: each core's chart reads its
+  // own series, so a sample does not rebuild this list.
+  const processorCount = useAtomValue(processorCountAtom);
   const { init, hardwareInfo } = useHardwareInfoAtom();
   const { processes } = useProcessInfo();
   const { t } = useTranslation();
@@ -45,13 +53,7 @@ const CpuUsageChart = memo(() => {
   return (
     <div className="flex flex-col gap-2 xl:flex-row">
       <div className="w-full xl:w-2/6">
-        <LineChartComponent
-          labels={Array(chartConfig.historyLengthSec).fill("")}
-          chartData={cpuUsageHistory}
-          dataType="cpu"
-          size="lg"
-          lineGraphMix={false}
-        />
+        <CpuHistoryChart />
         {hardwareInfo.cpu && (
           <InfoTable
             className="mt-4"
@@ -59,7 +61,7 @@ const CpuUsageChart = memo(() => {
               [t("shared.name")]: hardwareInfo.cpu.name,
               [t("shared.vendor")]: hardwareInfo.cpu.vendor,
               [t("shared.coreCount")]: hardwareInfo.cpu.coreCount,
-              [t("shared.threadCount")]: processorsUsageHistory[0]?.length || 0,
+              [t("shared.threadCount")]: processorCount,
               [t("shared.defaultClockSpeed")]:
                 `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
               [t("shared.processCount")]: processes.length,
@@ -69,26 +71,24 @@ const CpuUsageChart = memo(() => {
       </div>
 
       <div className="mt-5 ml-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:w-4/6 xl:grid-cols-4">
-        {transpose(processorsUsageHistory)
-          .map((processorData, index) => {
-            return { data: processorData, id: index };
-          })
-          .map((processorData) => (
+        {Array.from({ length: processorCount }, (_, number) => number).map(
+          (processorNumber) => (
             <ProcessorChart
-              key={processorData.id}
-              data={processorData.data}
-              processorNumber={processorData.id}
+              key={processorNumber}
+              processorNumber={processorNumber}
             />
-          ))}
+          ),
+        )}
       </div>
     </div>
   );
 });
 
 const ProcessorChart = memo(
-  ({ data, processorNumber }: { data: number[]; processorNumber: number }) => {
+  ({ processorNumber }: { processorNumber: number }) => {
     const { settings } = useSettingsAtom();
     const { t } = useTranslation();
+    const values = useLiveSeries({ kind: "processor", index: processorNumber });
 
     return (
       <div
@@ -99,7 +99,7 @@ const ProcessorChart = memo(
         )}
       >
         <Sparkline
-          values={padHistory(data)}
+          values={values}
           colorRgb={settings.lineGraphColor.cpu}
           lineGraphType={settings.lineGraphType}
           fill={settings.lineGraphFill}

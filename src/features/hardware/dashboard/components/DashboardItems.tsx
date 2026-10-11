@@ -36,20 +36,18 @@ import {
 import { findInventoryGpu, toLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { useLiveScalar } from "@/features/hardware/hooks/useLiveScalar";
+import { useLiveSeries } from "@/features/hardware/hooks/useLiveSeries";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import { useSelectedStorageDevice } from "@/features/hardware/hooks/useSelectedStorageDevice";
 import {
+  effectiveGpuUsageCurrentAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuNamesAtom,
   gpuTempAtom,
   gpuUsageSourceAtom,
-  graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
-import {
-  cpuUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-  processorCountAtom,
-} from "@/features/hardware/store/liveUsage";
+import { processorCountAtom } from "@/features/hardware/store/liveUsage";
 import {
   cpuTempAtom,
   hasMotherboardSensorsAtom,
@@ -98,16 +96,16 @@ export const CPUInfo = () => {
 };
 
 const CpuLiveReadings = () => {
-  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
+  const cpuUsage = useLiveScalar("cpu");
   const cpuTemp = useAtomValue(cpuTempAtom);
   const cpuTemperature = cpuTemp[0]?.value;
+  // Only drawn when the platform reports no CPU temperature, but a hook cannot
+  // be conditional.
+  const cpuUsageHistory = useLiveSeries({ kind: "cpu" });
 
   return (
     <div className="flex h-[100px] justify-around xl:h-[200px]">
-      <DoughnutChart
-        chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
-        dataType={"usage"}
-      />
+      <DoughnutChart chartValue={cpuUsage} dataType={"usage"} />
       {/** Temperature is only available on supported platforms (Windows thermal zones) */}
       {cpuTemperature != null ? (
         <DoughnutChart chartValue={cpuTemperature} dataType={"temp"} />
@@ -329,7 +327,7 @@ const GpuLiveReadings = ({
   targetGpuName: string | null;
   inventoryGpuCount: number;
 }) => {
-  const graphicUsageHistory = useAtomValue(graphicUsageHistoryAtom);
+  const gpuUsage = useAtomValue(effectiveGpuUsageCurrentAtom);
   const gpuTemp = useAtomValue(gpuTempAtom);
   const gpuUsageSource = useAtomValue(gpuUsageSourceAtom);
   const { isBreak } = useWindowSize();
@@ -351,10 +349,7 @@ const GpuLiveReadings = ({
             : "h-[100px] xl:h-[200px]",
         )}
       >
-        <DoughnutChart
-          chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
+        <DoughnutChart chartValue={gpuUsage} dataType={"usage"} />
         {targetTemperature && (
           <DoughnutChart
             chartValue={targetTemperature}
@@ -459,7 +454,8 @@ export const MemoryInfo = () => {
 };
 
 const MemoryLiveReadings = () => {
-  const memoryUsageHistory = useAtomValue(memoryUsageHistoryAtom);
+  const memoryUsage = useLiveScalar("memory");
+  const memoryUsageHistory = useLiveSeries({ kind: "memory" });
   const { hardwareInfo } = useHardwareInfoAtom();
 
   const {
@@ -474,40 +470,34 @@ const MemoryLiveReadings = () => {
         memoryCurrentUsage: null;
         memoryCurrentUsageUnit: null;
       } = useMemo(() => {
-    const current = memoryUsageHistory[memoryUsageHistory.length - 1];
     const [total, unit] = hardwareInfo.memory?.size.split(" ") || [null, null];
 
-    if (total === null || unit === null || current == null) {
+    if (total === null || unit === null || memoryUsage == null) {
       return {
         memoryCurrentUsage: null,
         memoryCurrentUsageUnit: null,
       };
     }
 
-    const currentUsage = (current / 100) * Number.parseFloat(total);
+    const currentUsage = (memoryUsage / 100) * Number.parseFloat(total);
     const currentUsageUnit = unit === "GB" ? "GB" : "MB";
     return {
       memoryCurrentUsage: Number(currentUsage.toFixed(0)),
       memoryCurrentUsageUnit: currentUsageUnit,
     };
-  }, [memoryUsageHistory, hardwareInfo.memory]);
+  }, [memoryUsage, hardwareInfo.memory]);
 
   return (
     <div className="flex h-[100px] justify-around xl:h-[200px]">
       {memoryCurrentUsage ? (
         <DoughnutChart
           chartValue={memoryCurrentUsage}
-          usagePercentage={
-            memoryUsageHistory[memoryUsageHistory.length - 1] ?? 0
-          }
+          usagePercentage={memoryUsage ?? 0}
           dataType={"memoryUsageValue"}
           unit={memoryCurrentUsageUnit}
         />
       ) : (
-        <DoughnutChart
-          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
+        <DoughnutChart chartValue={memoryUsage} dataType={"usage"} />
       )}
       {/**  TODO If temperature can be retrieved here, display temperature instead of `MiniLineChart`  */}
       <MiniLineChart hardwareType="memory" usage={memoryUsageHistory} />

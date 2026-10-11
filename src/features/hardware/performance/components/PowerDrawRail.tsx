@@ -1,7 +1,6 @@
 import { LightningIcon } from "@phosphor-icons/react";
-import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
-import { powerDrawAtom } from "@/features/hardware/store/power";
+import { useLiveScalar } from "@/features/hardware/hooks/useLiveScalar";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { PowerDisplayTarget } from "@/rspc/bindings";
@@ -29,7 +28,12 @@ const railIcon = <LightningIcon size={18} className="text-amber-400" />;
 
 export const PowerDrawRail = () => {
   const { t } = useTranslation();
-  const power = useAtomValue(powerDrawAtom);
+  const readings = {
+    cpuWatts: useLiveScalar({ kind: "power", key: "cpuWatts" }),
+    gpuWatts: useLiveScalar({ kind: "power", key: "gpuWatts" }),
+    aneWatts: useLiveScalar({ kind: "power", key: "aneWatts" }),
+    packageWatts: useLiveScalar({ kind: "power", key: "packageWatts" }),
+  };
   const { settings } = useSettingsAtom();
   const targets = railOrder.filter((target) =>
     settings.powerDisplayTargets.includes(target),
@@ -49,7 +53,7 @@ export const PowerDrawRail = () => {
       </div>
       <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-5 gap-y-1">
         {targets.map((target) => {
-          const watts = power[powerKey[target]];
+          const watts = readings[powerKey[target]];
           return (
             <div
               key={target}

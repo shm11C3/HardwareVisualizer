@@ -1,9 +1,12 @@
 import { type Atom, atom } from "jotai";
+import { selectAtom } from "jotai/utils";
 import { chartConfig } from "@/consts/chart";
 import type { LiveGpuId } from "@/features/hardware/gpuIdentity";
 import { createLiveBuffers } from "@/features/hardware/live/liveBuffers";
 import { pushSample } from "@/features/hardware/live/pushSample";
 import type { RingBuffer } from "@/features/hardware/live/ringBuffer";
+import type { PowerDraw } from "@/features/hardware/types/powerDraw";
+import { shallowEqualArray } from "@/lib/shallowEqual";
 import type { HardwareMonitorUpdate } from "@/rspc/bindings";
 
 // ── The Live Metrics Buffer (#1638) ──
@@ -84,16 +87,78 @@ export const memoryUsageCurrentAtom = atom<number | null>(
   (get) => get(liveMetricsAtom).buffers.memory.latest() ?? null,
 );
 
+// jotai 3 has no `atomFamily`. These caches hold one atom per key, and the key
+// set is bounded by the hardware (cores, adapters, power domains), so they do
+// not grow with time. They hold atoms (configuration), not state: the values
+// live in the store.
+const gpuCurrentAtoms = new Map<LiveGpuId, Atom<number | null>>();
+const powerCurrentAtoms = new Map<keyof PowerDraw, Atom<number | null>>();
+
+/** One adapter's current usage. `null` until it reports, and for a `null` sample. */
+export const gpuUsageCurrentAtom = (id: LiveGpuId) => {
+  let currentAtom = gpuCurrentAtoms.get(id);
+  if (currentAtom == null) {
+    currentAtom = atom(
+      (get) =>
+        get(liveMetricsAtom).buffers.gpus.get(id)?.usage.latest() ?? null,
+    );
+    gpuCurrentAtoms.set(id, currentAtom);
+  }
+  return currentAtom;
+};
+
+/** One power domain's latest reading, in watts. `null` where nothing is reported. */
+export const powerCurrentAtom = (key: keyof PowerDraw) => {
+  let currentAtom = powerCurrentAtoms.get(key);
+  if (currentAtom == null) {
+    currentAtom = atom(
+      (get) => get(liveMetricsAtom).buffers.power.current[key],
+    );
+    powerCurrentAtoms.set(key, currentAtom);
+  }
+  return currentAtom;
+};
+
+/**
+ * The newest sample's per-core usage, one entry per logical processor, or
+ * `null` before any sample has arrived. An empty array means a sample arrived
+ * without per-core data. Handed back unchanged when no core moved.
+ */
+export const latestProcessorUsagesAtom = selectAtom(
+  liveMetricsAtom,
+  ({ buffers }): number[] | null => {
+    const width = buffers.processorCounts.latest();
+    return width == null
+      ? null
+      : Array.from(
+          { length: width },
+          (_, index) => buffers.processors[index]?.latest() as number,
+        );
+  },
+  (previous, next) =>
+    previous === next ||
+    (previous != null && next != null && shallowEqualArray(previous, next)),
+);
+
 // ── Series ──
 //
 // Padded here, and only here, to the window length: oldest first, `null`
 // where no sample has arrived yet. A fresh array per sample, because the
 // window slid.
 
+/**
+ * What a series reads as before it has a single sample: the window, all gaps.
+ * One shared array, so "still nothing" is not a new value every sample and its
+ * readers are not woken for it. Nobody may mutate it.
+ */
+export const NO_LIVE_SAMPLES: (number | null)[] = Array<null>(
+  chartConfig.historyLengthSec,
+).fill(null);
+
 const padded = (series: RingBuffer<number | null> | undefined) =>
-  series != null
-    ? series.toPaddedArray(null)
-    : Array<null>(chartConfig.historyLengthSec).fill(null);
+  series == null || series.size === 0
+    ? NO_LIVE_SAMPLES
+    : series.toPaddedArray(null);
 
 export const cpuUsageSeriesAtom = atom<(number | null)[]>((get) =>
   padded(get(liveMetricsAtom).buffers.cpu),
@@ -103,12 +168,9 @@ export const memoryUsageSeriesAtom = atom<(number | null)[]>((get) =>
   padded(get(liveMetricsAtom).buffers.memory),
 );
 
-// jotai 3 has no `atomFamily`. These caches hold one atom per key, and the key
-// set is bounded by the hardware (cores, adapters), so they do not grow with
-// time. They hold atoms (configuration), not state: the values live in the
-// store.
 const processorSeriesAtoms = new Map<number, Atom<(number | null)[]>>();
 const gpuSeriesAtoms = new Map<LiveGpuId, Atom<(number | null)[]>>();
+const powerSeriesAtoms = new Map<keyof PowerDraw, Atom<(number | null)[]>>();
 
 /** One logical processor's usage series. Empty-padded before it reports. */
 export const processorUsageSeriesAtom = (index: number) => {
@@ -134,11 +196,24 @@ export const gpuUsageSeriesAtom = (id: LiveGpuId) => {
   return seriesAtom;
 };
 
+/** One power domain's series, in watts. All `null` until a reading arrives. */
+export const powerDrawSeriesAtom = (key: keyof PowerDraw) => {
+  let seriesAtom = powerSeriesAtoms.get(key);
+  if (seriesAtom == null) {
+    seriesAtom = atom((get) =>
+      padded(get(liveMetricsAtom).buffers.power.history[key]),
+    );
+    powerSeriesAtoms.set(key, seriesAtom);
+  }
+  return seriesAtom;
+};
+
 export type LiveSeriesChannel =
   | { kind: "cpu" }
   | { kind: "memory" }
   | { kind: "processor"; index: number }
-  | { kind: "gpu"; id: LiveGpuId };
+  | { kind: "gpu"; id: LiveGpuId }
+  | { kind: "power"; key: keyof PowerDraw };
 
 /** The series atom for a channel. Atoms for the same channel are the same atom. */
 export const liveSeriesAtom = (
@@ -153,13 +228,28 @@ export const liveSeriesAtom = (
       return processorUsageSeriesAtom(channel.index);
     case "gpu":
       return gpuUsageSeriesAtom(channel.id);
+    case "power":
+      return powerDrawSeriesAtom(channel.key);
   }
 };
 
-export type LiveScalarChannel = "cpu" | "memory";
+export type LiveScalarChannel =
+  | "cpu"
+  | "memory"
+  | { kind: "gpu"; id: LiveGpuId }
+  | { kind: "power"; key: keyof PowerDraw };
 
 /** The current-value atom for a channel. */
 export const liveScalarAtom = (
   channel: LiveScalarChannel,
-): Atom<number | null> =>
-  channel === "cpu" ? cpuUsageCurrentAtom : memoryUsageCurrentAtom;
+): Atom<number | null> => {
+  if (channel === "cpu") {
+    return cpuUsageCurrentAtom;
+  }
+  if (channel === "memory") {
+    return memoryUsageCurrentAtom;
+  }
+  return channel.kind === "gpu"
+    ? gpuUsageCurrentAtom(channel.id)
+    : powerCurrentAtom(channel.key);
+};
