@@ -26,11 +26,11 @@ import type { NameValue } from "@/rspc/bindings";
 
 // ── Multi-GPU state ──
 //
-// The per-GPU maps below are compatibility views of the Live Metrics Buffer
-// (`store/liveMetrics.ts`): same names, same record shapes, rebuilt from the
-// buffers on every sample. They are deleted once their last reader has moved
-// to the live hooks (#1638, slice 4). `gpuNamesAtom` is not one of them; a
-// name is an identity, written by the listener.
+// Per-GPU readings live in the Live Metrics Buffer (`store/liveMetrics.ts`).
+// This module derives from it what the GPU surfaces need that is not one
+// channel's series or scalar: which adapter is effective, and the readings of
+// all adapters at once (the per-GPU maps below). `gpuNamesAtom` is the one
+// piece of state here; a name is an identity, written by the listener.
 
 /** The adapters that reported in the latest sample, in payload order. */
 const currentGpus = (buffers: LiveBuffers) =>
@@ -56,16 +56,24 @@ const currentReadings = <T>(
   );
 
 /**
- * Per-GPU usage histories keyed by gpuId. Changes with every sample, so it is
- * not stabilised. An adapter has a key once it has reported usage.
+ * Per-GPU "newest usage sample carried a reading", keyed by gpuId. An adapter
+ * has a key once it has reported usage, in the order it started to, which is
+ * the order the identity helpers fall back in.
+ *
+ * Identity needs these two facts, not the series behind them, and the series
+ * changes with every sample. Handed back unchanged until an adapter starts
+ * reporting, stops, or goes silent, so the identity derivations below do not
+ * re-run once a second.
  */
-export const gpuUsageHistoriesAtom = atom<Record<LiveGpuId, (number | null)[]>>(
-  (get) =>
+const gpuHasLatestUsageAtom = selectAtom(
+  liveMetricsAtom,
+  ({ buffers }): Record<LiveGpuId, boolean> =>
     liveGpuRecord(
-      [...get(liveMetricsAtom).buffers.gpus]
+      [...buffers.gpus]
         .filter(([, entry]) => entry.usage.size > 0)
-        .map(([id, entry]) => [id, entry.usage.toPaddedArray(null)] as const),
+        .map(([id, entry]) => [id, entry.usage.latest() != null] as const),
     ),
+  (previous, next) => shallowEqualRecord(previous, next),
 );
 
 /**
@@ -82,16 +90,6 @@ export const gpuNamesAtom = atom<Record<LiveGpuId, string>>({});
 
 // Rebuilt per sample but handed back unchanged when nothing moved, so a
 // subscriber hears only about a changed reading.
-
-/** Per-GPU usage source keyed by gpuId */
-export const gpuUsageSourcesAtom = selectAtom(
-  liveMetricsAtom,
-  ({ buffers }): Record<LiveGpuId, string | null> =>
-    liveGpuRecord(
-      currentGpus(buffers).map(([id, entry]) => [id, entry.source]),
-    ),
-  (previous, next) => shallowEqualRecord(previous, next),
-);
 
 /** Per-GPU dedicated memory (KB) keyed by gpuId */
 export const gpuDedicatedMemoryKbMapAtom = selectAtom(
@@ -122,16 +120,11 @@ export const gpuTempAtom = atom<NameValues>((get) =>
   Object.values(get(gpuTempMapAtom)),
 );
 
-/** All GPUs fan speed as NameValues */
-export const gpuFanSpeedAtom = atom<NameValues>((get) =>
-  Object.values(get(gpuFanSpeedMapAtom)),
-);
-
 // ── Derived atoms: the effective adapter and its values ──
 
-/** The four live maps together, as the identity helpers expect them. */
+/** The four live views together, as the identity helpers expect them. */
 const gpuLiveMapsAtom = atom<GpuLiveMaps>((get) => ({
-  usageHistories: get(gpuUsageHistoriesAtom),
+  hasLatestUsage: get(gpuHasLatestUsageAtom),
   temperatures: get(gpuTempMapAtom),
   fanSpeeds: get(gpuFanSpeedMapAtom),
   dedicatedMemoryKb: get(gpuDedicatedMemoryKbMapAtom),
@@ -213,26 +206,11 @@ export const effectiveGpuUsageCurrentAtom = atom<number | null>((get) => {
   return effective != null ? get(gpuUsageCurrentAtom(effective)) : null;
 });
 
-/**
- * What `graphicUsageHistoryAtom` returns when the effective adapter has no
- * history. One shared array, so "still nothing" is not a new value every
- * sample.
- */
-const NO_HISTORY: (number | null)[] = [];
-
-/** Resolves to the effective GPU's usage history */
-export const graphicUsageHistoryAtom = atom<(number | null)[]>((get) => {
-  const effective = get(effectiveGpuIdAtom);
-  return effective != null
-    ? (get(gpuUsageHistoriesAtom)[effective] ?? NO_HISTORY)
-    : NO_HISTORY;
-});
-
 /** Resolves to the effective GPU's usage source */
 export const gpuUsageSourceAtom = atom<string | null>((get) => {
   const effective = get(effectiveGpuIdAtom);
   return effective != null
-    ? (get(gpuUsageSourcesAtom)[effective] ?? null)
+    ? (get(liveMetricsAtom).buffers.gpus.get(effective)?.source ?? null)
     : null;
 });
 

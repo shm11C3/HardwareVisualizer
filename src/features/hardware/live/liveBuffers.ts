@@ -43,7 +43,7 @@ export type LiveBuffers = {
    * reading. `processorCounts` says how wide each sample was.
    */
   processors: RingBuffer<number | null>[];
-  /** Width of each retained sample, so a time-major view can be rebuilt. */
+  /** Width of each retained sample: the processor count each one reported. */
   processorCounts: RingBuffer<number>;
   /**
    * Adapters seen and not yet retired. Insertion order matters to readers
@@ -90,23 +90,3 @@ export const createLiveBuffers = (): LiveBuffers => ({
     },
   },
 });
-
-/**
- * The retained samples as rows of per-core usage, oldest first: the
- * time-by-core matrix the per-core series were split out of. A row is as wide
- * as the sample it came from.
- */
-export const toProcessorRows = (buffers: LiveBuffers): number[][] => {
-  const widths = buffers.processorCounts.toArray();
-  const cores = buffers.processors.map((core) => core.toArray());
-  // Every series is right-aligned on the newest sample, and a core that a
-  // sample carried has received an entry for every sample since, so the row
-  // `j` samples back reads each core `j` entries from its end.
-  return widths.map((width, row) => {
-    const fromEnd = widths.length - row;
-    return Array.from(
-      { length: width },
-      (_, index) => cores[index]?.at(-fromEnd) as number,
-    );
-  });
-};

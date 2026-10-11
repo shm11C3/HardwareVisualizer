@@ -18,7 +18,6 @@ import {
   gpuNamesAtom,
   gpuTemperatureValueAtom,
   gpuUsageSourceAtom,
-  graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
 import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
@@ -69,7 +68,7 @@ describe("derived GPU atoms", () => {
     // history would graph the discrete card under the integrated one's name.
     const store = withSelection("pci:0:2:0");
 
-    expect(store.get(graphicUsageHistoryAtom)).toEqual([]);
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toEqual(paddedHistory());
     expect(store.get(gpuUsageSourceAtom)).toBeNull();
     expect(store.get(gpuDedicatedMemoryKbAtom)).toBeNull();
   });
@@ -77,7 +76,7 @@ describe("derived GPU atoms", () => {
   it("resolves a selection that does report", () => {
     const store = withSelection("nvapi:1");
 
-    expect(store.get(graphicUsageHistoryAtom)).toEqual(paddedHistory(70));
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toEqual(paddedHistory(70));
     expect(store.get(gpuUsageSourceAtom)).toBe("NVAPI");
     expect(store.get(gpuDedicatedMemoryKbAtom)).toBe(4096);
   });
@@ -85,14 +84,14 @@ describe("derived GPU atoms", () => {
   it("falls back to the first reporting adapter when the selection is gone", () => {
     const store = withSelection("removed-gpu");
 
-    expect(store.get(graphicUsageHistoryAtom)).toEqual(paddedHistory(70));
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toEqual(paddedHistory(70));
     expect(store.get(gpuUsageSourceAtom)).toBe("NVAPI");
   });
 
   it("has nothing to report before the first sample", () => {
     const store = createStore();
 
-    expect(store.get(graphicUsageHistoryAtom)).toEqual([]);
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toEqual(paddedHistory());
     expect(store.get(gpuUsageSourceAtom)).toBeNull();
     expect(store.get(gpuDedicatedMemoryKbAtom)).toBeNull();
   });
@@ -292,6 +291,30 @@ describe("GPU identity atoms stay stable between samples", () => {
     ]);
   });
 
+  it("falls back past an adapter whose newest usage sample was a gap, and back again", () => {
+    const store = createStore();
+    const sample = (usageA: number | null) =>
+      store.set(
+        publishLiveSampleAtom,
+        liveSample({
+          gpus: [
+            liveGpu("gpu-a", { gpuUsage: usageA }),
+            liveGpu("gpu-b", { gpuUsage: 70 }),
+          ],
+        }),
+        0,
+      );
+
+    sample(40);
+    expect(store.get(effectiveGpuIdAtom)).toBe("gpu-a");
+
+    sample(null);
+    expect(store.get(effectiveGpuIdAtom)).toBe("gpu-b");
+
+    sample(41);
+    expect(store.get(effectiveGpuIdAtom)).toBe("gpu-a");
+  });
+
   it("reports no readings only for a detected adapter that has none", () => {
     const store = seeded();
     expect(store.get(gpuHasNoReadingsAtom)).toBe(false);
@@ -334,10 +357,10 @@ describe("GPU identity atoms stay stable between samples", () => {
     expect(store.get(gpuFanSpeedValueAtom)).toBeNull();
   });
 
-  it("returns one shared empty history, not a new array per sample", () => {
+  it("returns one shared window of gaps for an adapter without usage, not a new array per sample", () => {
     const store = seeded();
     store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
-    const empty = store.get(graphicUsageHistoryAtom);
+    const empty = store.get(effectiveGpuUsageSeriesAtom);
 
     store.set(
       publishLiveSampleAtom,
@@ -347,7 +370,7 @@ describe("GPU identity atoms stay stable between samples", () => {
       0,
     );
 
-    expect(empty).toEqual([]);
-    expect(store.get(graphicUsageHistoryAtom)).toBe(empty);
+    expect(empty).toEqual(paddedHistory());
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toBe(empty);
   });
 });

@@ -31,7 +31,7 @@ export const liveGpu = (
 });
 
 /**
- * What a history atom reads as after `values` were the only samples: the
+ * What a series atom reads as after `values` were the only samples: the
  * window padded with `null` on the left up to its length.
  */
 export const paddedHistory = (

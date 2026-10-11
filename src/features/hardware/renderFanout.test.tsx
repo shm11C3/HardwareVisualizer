@@ -46,15 +46,11 @@ import {
   effectiveGpuUsageSeriesAtom,
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedAtom,
   gpuFanSpeedMapAtom,
   gpuNamesAtom,
   gpuTempAtom,
   gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
   gpuUsageSourceAtom,
-  gpuUsageSourcesAtom,
-  graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
 import {
   cpuUsageCurrentAtom,
@@ -68,15 +64,8 @@ import {
   processorUsageSeriesAtom,
 } from "@/features/hardware/store/liveMetrics";
 import {
-  cpuUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
-import {
   cpuPowerSupportAtom,
-  powerDrawAtom,
   powerDrawAvailableAtom,
-  powerDrawHistoryAtom,
 } from "@/features/hardware/store/power";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import {
@@ -93,8 +82,8 @@ import type { HardwareMonitorUpdate } from "@/rspc/bindings";
 // ── Bounds ──
 //
 // Per-screen upper bounds on what one steady-state update (updates 2-10 of the
-// series) may cost. They are the values measured after slice 3 of #1638
-// (the screens reading through the live hooks), with no margin because the counts are
+// series) may cost. They are the values measured with every screen
+// reading through the live hooks (#1638), with no margin because the counts are
 // deterministic. They may only go down: when a change lowers a count, lower
 // the number here in the same change; if a change raises one, the screen has
 // started re-rendering something it did not before.
@@ -532,18 +521,11 @@ const specs: ScreenSpec[] = [
 
 /** Atoms the event listener rewrites each tick, by the name used in reports. */
 const liveAtoms: ReadonlyArray<readonly [string, Atom<unknown>]> = [
-  ["cpuUsageHistory", cpuUsageHistoryAtom],
-  ["memoryUsageHistory", memoryUsageHistoryAtom],
-  ["processorsUsageHistory", processorsUsageHistoryAtom],
-  ["gpuUsageHistories", gpuUsageHistoriesAtom],
   ["gpuNames", gpuNamesAtom],
-  ["gpuUsageSources", gpuUsageSourcesAtom],
   ["gpuDedicatedMemoryKbMap", gpuDedicatedMemoryKbMapAtom],
   ["gpuTempMap", gpuTempMapAtom],
   ["gpuFanSpeedMap", gpuFanSpeedMapAtom],
   ["gpuTemp (derived)", gpuTempAtom],
-  ["gpuFanSpeed (derived)", gpuFanSpeedAtom],
-  ["graphicUsageHistory (derived)", graphicUsageHistoryAtom],
   ["gpuUsageSource (derived)", gpuUsageSourceAtom],
   ["gpuDedicatedMemoryKb (derived)", gpuDedicatedMemoryKbAtom],
   ["selectedGpuId", selectedGpuIdAtom],
@@ -553,10 +535,8 @@ const liveAtoms: ReadonlyArray<readonly [string, Atom<unknown>]> = [
   ["motherboardFanSpeeds", motherboardFanSpeedsAtom],
   ["motherboardFanSupport", motherboardFanSupportAtom],
   ["cpuPowerSupport", cpuPowerSupportAtom],
-  ["powerDraw", powerDrawAtom],
-  ["powerDrawHistory", powerDrawHistoryAtom],
   ["powerDrawAvailable", powerDrawAvailableAtom],
-  // The live channels the screens read through the hooks (#1638 slice 3).
+  // The live channels the screens read through the hooks (#1638).
   ["cpuUsageSeries", cpuUsageSeriesAtom],
   ["memoryUsageSeries", memoryUsageSeriesAtom],
   ["cpuUsageCurrent", cpuUsageCurrentAtom],

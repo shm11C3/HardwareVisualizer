@@ -31,14 +31,14 @@ const id = asLiveGpuId;
  */
 const live = (
   maps: {
-    usageHistories?: Record<string, (number | null)[]>;
+    hasLatestUsage?: Record<string, boolean>;
     temperatures?: Record<string, { name: string; value: number }>;
     fanSpeeds?: Record<string, { name: string; value: number }>;
     dedicatedMemoryKb?: Record<string, number | null>;
   } = {},
 ): GpuLiveMaps =>
   ({
-    usageHistories: {},
+    hasLatestUsage: {},
     temperatures: {},
     fanSpeeds: {},
     dedicatedMemoryKb: {},
@@ -52,7 +52,7 @@ describe("listGpuAdapters", () => {
     // declare the inventory half silent.
     const adapters = listGpuAdapters(
       names(["nvapi:12345", "NVIDIA GeForce RTX 4080"]),
-      live({ usageHistories: { "nvapi:12345": [30] } }),
+      live({ hasLatestUsage: { "nvapi:12345": true } }),
     );
 
     expect(adapters).toEqual([
@@ -69,7 +69,7 @@ describe("listGpuAdapters", () => {
     const adapters = listGpuAdapters(
       names(["pci:1:0:0", "Radeon RX 7900 XT"]),
       live({
-        usageHistories: { "nvapi:1": [30] },
+        hasLatestUsage: { "nvapi:1": true },
         fanSpeeds: { "pci:1:0:0": { name: "Radeon RX 7900 XT", value: 55 } },
       }),
     );
@@ -96,7 +96,7 @@ describe("listGpuAdapters", () => {
   it("falls back to the id only when no source names the adapter", () => {
     const adapters = listGpuAdapters(
       {},
-      live({ usageHistories: { "pdh:Unknown": [30] } }),
+      live({ hasLatestUsage: { "pdh:Unknown": true } }),
     );
 
     expect(adapters[0].label).toBe("pdh:Unknown");
@@ -108,7 +108,7 @@ describe("listGpuAdapters", () => {
         ["gpu-1", "NVIDIA GeForce RTX 4080"],
         ["gpu-2", "Intel(R) UHD Graphics 770"],
       ),
-      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
+      live({ hasLatestUsage: { "gpu-1": true, "gpu-2": true } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -120,7 +120,7 @@ describe("listGpuAdapters", () => {
   it("falls back to full names rather than showing two identical labels", () => {
     const adapters = listGpuAdapters(
       names(["gpu-1", "NVIDIA RTX A2000"], ["gpu-2", "AMD RTX A2000"]),
-      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
+      live({ hasLatestUsage: { "gpu-1": true, "gpu-2": true } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -137,7 +137,7 @@ describe("listGpuAdapters", () => {
         ["gpu-1", "NVIDIA GeForce RTX 4090"],
         ["gpu-2", "NVIDIA GeForce RTX 4090"],
       ),
-      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
+      live({ hasLatestUsage: { "gpu-1": true, "gpu-2": true } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -154,7 +154,7 @@ describe("listGpuAdapters", () => {
         ["gpu-1", "NVIDIA GeForce RTX 4080"],
         ["gpu-2", "Intel UHD Graphics 770"],
       ),
-      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
+      live({ hasLatestUsage: { "gpu-1": true, "gpu-2": true } }),
     );
 
     expect(adapters.every((adapter) => adapter.isNameAmbiguous)).toBe(false);
@@ -166,7 +166,7 @@ describe("listGpuAdapters", () => {
         ["gpu-1", "NVIDIA GeForce RTX 4080"],
         ["gpu-2", "NVIDIA GeForce RTX 4060"],
       ),
-      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
+      live({ hasLatestUsage: { "gpu-1": true, "gpu-2": true } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual(["4080", "4060"]);
@@ -177,7 +177,7 @@ describe("listGpuAdapters", () => {
   it("never consumes a whole name when one adapter's name prefixes another's", () => {
     const adapters = listGpuAdapters(
       names(["gpu-1", "Radeon Graphics"], ["gpu-2", "Radeon Graphics Pro"]),
-      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
+      live({ hasLatestUsage: { "gpu-1": true, "gpu-2": true } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -189,7 +189,7 @@ describe("listGpuAdapters", () => {
   it("keeps a name that is nothing but a vendor word", () => {
     const adapters = listGpuAdapters(
       names(["gpu-1", "Apple"]),
-      live({ usageHistories: { "gpu-1": [20] } }),
+      live({ hasLatestUsage: { "gpu-1": true } }),
     );
 
     expect(adapters[0].label).toBe("Apple");
@@ -201,7 +201,7 @@ describe("getEffectiveGpuId", () => {
     expect(
       getEffectiveGpuId(
         id("gpu-2"),
-        live({ usageHistories: { "gpu-1": [20] } }),
+        live({ hasLatestUsage: { "gpu-1": true } }),
         [id("gpu-1"), id("gpu-2")],
       ),
     ).toBe("gpu-2");
@@ -211,7 +211,7 @@ describe("getEffectiveGpuId", () => {
     expect(
       getEffectiveGpuId(
         id("removed"),
-        live({ usageHistories: { "gpu-1": [20] } }),
+        live({ hasLatestUsage: { "gpu-1": true } }),
         [id("gpu-1")],
       ),
     ).toBe("gpu-1");
@@ -222,9 +222,9 @@ describe("getEffectiveGpuId", () => {
       getEffectiveGpuId(
         id("removed"),
         live({
-          usageHistories: {
-            "gpu-1": [40, null],
-            "gpu-2": [70],
+          hasLatestUsage: {
+            "gpu-1": false,
+            "gpu-2": true,
           },
         }),
         [id("gpu-1"), id("gpu-2")],
@@ -255,7 +255,7 @@ describe("hasNoLiveGpuReadings", () => {
     expect(
       hasNoLiveGpuReadings(
         id("gpu-2"),
-        live({ usageHistories: { "gpu-1": [20] } }),
+        live({ hasLatestUsage: { "gpu-1": true } }),
       ),
     ).toBe(true);
   });
@@ -264,7 +264,7 @@ describe("hasNoLiveGpuReadings", () => {
     expect(
       hasNoLiveGpuReadings(
         id("gpu-2"),
-        live({ usageHistories: { "gpu-1": [20], "gpu-2": [40, null] } }),
+        live({ hasLatestUsage: { "gpu-1": true, "gpu-2": false } }),
       ),
     ).toBe(true);
   });
@@ -274,7 +274,7 @@ describe("hasNoLiveGpuReadings", () => {
       hasNoLiveGpuReadings(
         id("gpu-2"),
         live({
-          usageHistories: { "gpu-1": [20] },
+          hasLatestUsage: { "gpu-1": true },
           temperatures: { "gpu-2": { name: "GPU 2", value: 51 } },
         }),
       ),
@@ -286,7 +286,7 @@ describe("hasNoLiveGpuReadings", () => {
       hasNoLiveGpuReadings(
         id("gpu-2"),
         live({
-          usageHistories: { "gpu-1": [20] },
+          hasLatestUsage: { "gpu-1": true },
           fanSpeeds: { "gpu-2": { name: "GPU 2", value: 40 } },
         }),
       ),
@@ -298,7 +298,7 @@ describe("hasNoLiveGpuReadings", () => {
       hasNoLiveGpuReadings(
         id("gpu-2"),
         live({
-          usageHistories: { "gpu-1": [20] },
+          hasLatestUsage: { "gpu-1": true },
           dedicatedMemoryKb: { "gpu-2": 1_048_576 },
         }),
       ),

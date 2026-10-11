@@ -96,12 +96,19 @@ atoms ([#1638](https://github.com/shm11c3/HardwareVisualizer/issues/1638)).
    (`effectiveGpuUsageSeriesAtom`, `effectiveGpuUsageCurrentAtom`, in
    `store/gpu.ts`, so a component never resolves an adapter id). The Dashboard,
    Performance, Usage and CPU-detail screens read through `useLiveScalar` /
-   `useLiveSeries` (or the effective-adapter atoms) and no screen reads a
-   history atom. The compatibility atoms with the old names and shapes
-   (`cpuUsageHistoryAtom`, `processorsUsageHistoryAtom`, `gpuUsageHistoriesAtom`,
-   `graphicUsageHistoryAtom`, `powerDrawHistoryAtom`, ...) have no screen reader
-   left and are slated for removal
-   ([#1638](https://github.com/shm11c3/HardwareVisualizer/issues/1638), slice 4).
+   `useLiveSeries` (or the effective-adapter atoms); there is no history atom
+   and no second copy of a series. The adapters' readings that every GPU
+   surface lists at once (temperature, fan speed, dedicated memory) are
+   `selectAtom`-stabilised records in `store/gpu.ts`.
+
+   Which adapter is effective is derived from a latest-usage view, not from
+   the usage series: identity (`getEffectiveGpuId`, `listGpuAdapters`,
+   `hasNoLiveGpuReadings`) only asks which adapters have reported usage and
+   whether the newest sample carried a reading, so `store/gpu.ts` hands it a
+   `Record<LiveGpuId, boolean>` that is unchanged until an adapter starts
+   reporting, stops, or goes silent. Padding a window per adapter per sample to
+   answer that would wake every identity derivation once a second.
+
    The buffers are created by an atom, so there is one set per Jotai store and
    none at module level: remounting the window's `Provider` starts from empty
    buffers, and every test store is isolated, which a module-level object would
@@ -112,7 +119,7 @@ Three rules keep a tick from fanning out:
 
 1. **A derived atom hands back the previous reference for an unchanged value.**
    Everything rebuilt from the buffers on every sample that is not itself a
-   history (the per-GPU reading maps, `powerDrawAtom`) goes through `selectAtom`
+   series (the per-GPU reading maps, the latest-usage view identity reads) goes through `selectAtom`
    with `shallowEqualRecord` / `shallowEqualArray` (`src/lib/shallowEqual.ts`),
    and the listener's remaining writes (sensors) use functional updates that
    return the previous value when the new one is shallow-equal. Jotai skips

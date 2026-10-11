@@ -11,8 +11,7 @@ import {
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedMapAtom,
   gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
-  gpuUsageSourcesAtom,
+  gpuUsageSourceAtom,
 } from "@/features/hardware/store/gpu";
 import {
   clearGpuTemperaturesAtom,
@@ -25,20 +24,13 @@ import {
   liveScalarAtom,
   liveSeriesAtom,
   memoryUsageCurrentAtom,
+  memoryUsageSeriesAtom,
   powerCurrentAtom,
   powerDrawSeriesAtom,
   processorUsageSeriesAtom,
   publishLiveSampleAtom,
 } from "@/features/hardware/store/liveMetrics";
-import {
-  cpuUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
-import {
-  powerDrawAtom,
-  powerDrawHistoryAtom,
-} from "@/features/hardware/store/power";
+import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 
 const gpuA = asLiveGpuId("gpu-a");
 
@@ -249,47 +241,28 @@ describe("latest per-core usage", () => {
   });
 });
 
-describe("compatibility atoms", () => {
-  it("read empty before the first sample, like the atoms they replace", () => {
+describe("series window", () => {
+  it("slide to the newest samples once the window is full", () => {
     const store = createStore();
-
-    expect(store.get(cpuUsageHistoryAtom)).toEqual([]);
-    expect(store.get(memoryUsageHistoryAtom)).toEqual([]);
-    expect(store.get(processorsUsageHistoryAtom)).toEqual([]);
-    expect(store.get(gpuUsageHistoriesAtom)).toEqual({});
-    expect(store.get(powerDrawHistoryAtom)).toEqual({
-      cpuWatts: [],
-      gpuWatts: [],
-      aneWatts: [],
-      packageWatts: [],
-    });
-  });
-
-  it("pad the histories once a sample has arrived and trim them to the window", () => {
-    const store = createStore();
-    publish(store, { cpuUsage: 10, memoryUsage: 60 });
-    expect(store.get(cpuUsageHistoryAtom)).toEqual(paddedHistory(10));
 
     for (let i = 0; i < chartConfig.historyLengthSec + 5; i += 1) {
       publish(store, { cpuUsage: i, memoryUsage: i });
     }
 
-    const history = store.get(memoryUsageHistoryAtom);
+    const history = store.get(memoryUsageSeriesAtom);
     expect(history).toHaveLength(chartConfig.historyLengthSec);
     expect(history.at(-1)).toBe(chartConfig.historyLengthSec + 4);
+    expect(history[0]).toBe(5);
   });
+});
 
-  it("keep the same empty array between samples that add nothing", () => {
-    const store = createStore();
-    const history = store.get(powerDrawHistoryAtom);
-
-    publish(store);
-
-    expect(store.get(powerDrawHistoryAtom)).toBe(history);
-  });
+describe("per-adapter readings", () => {
+  const selectedAdapter = (store: ReturnType<typeof createStore>) =>
+    store.set(selectedGpuIdAtom, gpuA);
 
   it("do not wake a subscriber for readings that did not change", () => {
     const store = createStore();
+    selectedAdapter(store);
     const gpus = [
       liveGpu("gpu-a", {
         gpuName: "GPU A",
@@ -302,26 +275,26 @@ describe("compatibility atoms", () => {
     ];
     publish(store, { gpus, cpuPowerWatts: 10 });
     const subscribers = [
-      gpuUsageSourcesAtom,
+      gpuUsageSourceAtom,
       gpuDedicatedMemoryKbMapAtom,
       gpuTempMapAtom,
       gpuFanSpeedMapAtom,
-      powerDrawAtom,
+      powerCurrentAtom("cpuWatts"),
     ].map((atom) => {
       const listener = vi.fn();
       store.sub(atom, listener);
       return listener;
     });
-    const onHistories = vi.fn();
-    store.sub(gpuUsageHistoriesAtom, onHistories);
+    const onSeries = vi.fn();
+    store.sub(gpuUsageSeriesAtom(gpuA), onSeries);
 
     publish(store, { gpus, cpuPowerWatts: 10 });
 
     for (const listener of subscribers) {
       expect(listener).not.toHaveBeenCalled();
     }
-    // A history moves with every sample.
-    expect(onHistories).toHaveBeenCalledTimes(1);
+    // A series moves with every sample.
+    expect(onSeries).toHaveBeenCalledTimes(1);
   });
 
   it("wake a subscriber when its reading changes", () => {
@@ -333,7 +306,7 @@ describe("compatibility atoms", () => {
     const onTemperature = vi.fn();
     const onPower = vi.fn();
     store.sub(gpuTempMapAtom, onTemperature);
-    store.sub(powerDrawAtom, onPower);
+    store.sub(powerCurrentAtom("cpuWatts"), onPower);
 
     publish(store, {
       gpus: [liveGpu("gpu-a", { gpuTemperature: 61 })],
@@ -349,6 +322,7 @@ describe("compatibility atoms", () => {
 
   it("list only the readings the latest sample carried, so absence clears a value", () => {
     const store = createStore();
+    selectedAdapter(store);
     publish(store, {
       gpus: [
         liveGpu("gpu-a", {
@@ -360,7 +334,7 @@ describe("compatibility atoms", () => {
         }),
       ],
     });
-    expect(store.get(gpuUsageSourcesAtom)).toEqual({ [gpuA]: "NVAPI" });
+    expect(store.get(gpuUsageSourceAtom)).toBe("NVAPI");
     expect(store.get(gpuDedicatedMemoryKbMapAtom)).toEqual({ [gpuA]: 2048 });
 
     publish(store, { gpus: [liveGpu("gpu-a", { gpuSource: "NVAPI" })] });
@@ -368,11 +342,11 @@ describe("compatibility atoms", () => {
     expect(store.get(gpuTempMapAtom)).toEqual({});
     expect(store.get(gpuFanSpeedMapAtom)).toEqual({});
     expect(store.get(gpuDedicatedMemoryKbMapAtom)).toEqual({});
-    expect(store.get(gpuUsageSourcesAtom)).toEqual({ [gpuA]: "NVAPI" });
+    expect(store.get(gpuUsageSourceAtom)).toBe("NVAPI");
 
     publish(store, { gpus: [] });
 
-    expect(store.get(gpuUsageSourcesAtom)).toEqual({});
+    expect(store.get(gpuUsageSourceAtom)).toBeNull();
   });
 });
 
@@ -389,7 +363,7 @@ describe("clearGpuTemperaturesAtom", () => {
 
     expect(store.get(gpuTempMapAtom)).toEqual({});
     expect(onTemperature).toHaveBeenCalledTimes(1);
-    expect(store.get(gpuUsageHistoriesAtom)[gpuA]).toEqual(paddedHistory(50));
+    expect(store.get(gpuUsageSeriesAtom(gpuA))).toEqual(paddedHistory(50));
   });
 });
 

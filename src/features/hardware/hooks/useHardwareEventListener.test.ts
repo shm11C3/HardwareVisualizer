@@ -1,34 +1,42 @@
 import { act, renderHook } from "@testing-library/react";
-import { type Atom, createStore, Provider, useAtom } from "jotai";
+import {
+  type Atom,
+  createStore,
+  Provider,
+  useAtom,
+  useAtomValue,
+  useSetAtom,
+} from "jotai";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chartConfig } from "@/consts/chart";
 import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {
+  effectiveGpuUsageSeriesAtom,
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedAtom,
   gpuFanSpeedMapAtom,
+  gpuFanSpeedValueAtom,
   gpuNamesAtom,
   gpuTempAtom,
   gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
   gpuUsageSourceAtom,
-  gpuUsageSourcesAtom,
-  graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
-import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import {
-  cpuUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
+  cpuUsageSeriesAtom,
+  gpuUsageSeriesAtom,
+  latestProcessorUsagesAtom,
+  memoryUsageSeriesAtom,
+  NO_LIVE_SAMPLES,
+  powerCurrentAtom,
+  powerDrawSeriesAtom,
+  processorUsageSeriesAtom,
+  publishLiveSampleAtom,
+} from "@/features/hardware/store/liveMetrics";
 import {
   cpuPowerSupportAtom,
-  powerDrawAtom,
   powerDrawAvailableAtom,
-  powerDrawHistoryAtom,
 } from "@/features/hardware/store/power";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import {
@@ -116,6 +124,21 @@ const setDocumentHidden = (hidden: boolean) => {
   });
 };
 
+/** The four power domains, read the way the Performance screens read them. */
+const usePowerCurrent = () => ({
+  cpuWatts: useAtomValue(powerCurrentAtom("cpuWatts")),
+  gpuWatts: useAtomValue(powerCurrentAtom("gpuWatts")),
+  aneWatts: useAtomValue(powerCurrentAtom("aneWatts")),
+  packageWatts: useAtomValue(powerCurrentAtom("packageWatts")),
+});
+
+const usePowerSeries = () => ({
+  cpuWatts: useAtomValue(powerDrawSeriesAtom("cpuWatts")),
+  gpuWatts: useAtomValue(powerDrawSeriesAtom("gpuWatts")),
+  aneWatts: useAtomValue(powerDrawSeriesAtom("aneWatts")),
+  packageWatts: useAtomValue(powerDrawSeriesAtom("packageWatts")),
+});
+
 // ── Tests ──
 
 describe("useHardwareEventListener", () => {
@@ -153,11 +176,11 @@ describe("useHardwareEventListener", () => {
 
   // ── CPU history ──
 
-  it("appends cpuUsage to cpuUsageHistoryAtom", () => {
+  it("appends cpuUsage to cpuUsageSeriesAtom", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(cpuUsageHistoryAtom);
+        const [history] = useAtom(cpuUsageSeriesAtom);
         return history;
       },
       { wrapper: Provider },
@@ -174,7 +197,7 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(cpuUsageHistoryAtom);
+        const [history] = useAtom(cpuUsageSeriesAtom);
         return history;
       },
       { wrapper: Provider },
@@ -183,16 +206,16 @@ describe("useHardwareEventListener", () => {
     setDocumentHidden(true);
     act(() => emit(makePayload({ cpuUsage: 42 })));
 
-    expect(result.current).toEqual([]);
+    expect(result.current).toBe(NO_LIVE_SAMPLES);
   });
 
   // ── Memory history ──
 
-  it("appends memoryUsage to memoryUsageHistoryAtom", () => {
+  it("appends memoryUsage to memoryUsageSeriesAtom", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(memoryUsageHistoryAtom);
+        const [history] = useAtom(memoryUsageSeriesAtom);
         return history;
       },
       { wrapper: Provider },
@@ -211,7 +234,7 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(cpuUsageHistoryAtom);
+        const [history] = useAtom(cpuUsageSeriesAtom);
         return history;
       },
       { wrapper: Provider },
@@ -232,7 +255,7 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(cpuUsageHistoryAtom);
+        const [history] = useAtom(cpuUsageSeriesAtom);
         return history;
       },
       { wrapper: Provider },
@@ -254,11 +277,11 @@ describe("useHardwareEventListener", () => {
 
   // ── GPU usage ──
 
-  it("appends gpuUsage to graphicUsageHistoryAtom when not null", () => {
+  it("appends gpuUsage to the effective GPU's usage series when not null", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(graphicUsageHistoryAtom);
+        const [history] = useAtom(effectiveGpuUsageSeriesAtom);
         return history;
       },
       { wrapper: Provider },
@@ -270,11 +293,11 @@ describe("useHardwareEventListener", () => {
     expect(history[history.length - 1]).toBe(85);
   });
 
-  it("does not update graphicUsageHistoryAtom when gpuUsage is null", () => {
+  it("does not update the effective GPU's usage series when gpuUsage is null", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(graphicUsageHistoryAtom);
+        const [history] = useAtom(effectiveGpuUsageSeriesAtom);
         return history;
       },
       { wrapper: Provider },
@@ -282,7 +305,7 @@ describe("useHardwareEventListener", () => {
 
     act(() => emit(makePayload({ gpus: [makeGpu({ gpuUsage: null })] })));
 
-    expect(result.current).toEqual([]);
+    expect(result.current).toBe(NO_LIVE_SAMPLES);
   });
 
   // ── GPU temperature ──
@@ -450,8 +473,7 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [power] = useAtom(powerDrawAtom);
-        return power;
+        return usePowerCurrent();
       },
       { wrapper: Provider },
     );
@@ -506,7 +528,7 @@ describe("useHardwareEventListener", () => {
       () => {
         useHardwareEventListener();
         const [available] = useAtom(powerDrawAvailableAtom);
-        const [power] = useAtom(powerDrawAtom);
+        const power = usePowerCurrent();
         return { available, power };
       },
       { wrapper: Provider },
@@ -530,8 +552,7 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(powerDrawHistoryAtom);
-        return history;
+        return usePowerSeries();
       },
       { wrapper: Provider },
     );
@@ -563,8 +584,7 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(powerDrawHistoryAtom);
-        return history;
+        return usePowerSeries();
       },
       { wrapper: Provider },
     );
@@ -637,20 +657,17 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(powerDrawHistoryAtom);
-        return history;
+        return usePowerSeries();
       },
       { wrapper: Provider },
     );
 
     act(() => emit(makePayload()));
 
-    expect(result.current).toEqual({
-      cpuWatts: [],
-      gpuWatts: [],
-      aneWatts: [],
-      packageWatts: [],
-    });
+    expect(result.current.cpuWatts).toBe(NO_LIVE_SAMPLES);
+    expect(result.current.gpuWatts).toBe(NO_LIVE_SAMPLES);
+    expect(result.current.aneWatts).toBe(NO_LIVE_SAMPLES);
+    expect(result.current.packageWatts).toBe(NO_LIVE_SAMPLES);
   });
 
   it("sets motherboardTempsAtom from motherboardTemperatures", () => {
@@ -787,29 +804,41 @@ describe("useHardwareEventListener", () => {
 
   // ── Processor usage ──
 
-  it("appends processorsUsage to processorsUsageHistoryAtom", () => {
+  it("appends processorsUsage to the per-core series", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(processorsUsageHistoryAtom);
-        return history;
+        return {
+          cores: [
+            useAtomValue(processorUsageSeriesAtom(0)),
+            useAtomValue(processorUsageSeriesAtom(1)),
+            useAtomValue(processorUsageSeriesAtom(2)),
+          ],
+          latest: useAtomValue(latestProcessorUsagesAtom),
+        };
       },
       { wrapper: Provider },
     );
 
     act(() => emit(makePayload({ processorsUsage: [10, 20, 30] })));
 
-    const history = result.current;
-    expect(history).toHaveLength(1);
-    expect(history[0]).toEqual([10, 20, 30]);
+    expect(result.current.latest).toEqual([10, 20, 30]);
+    expect(result.current.cores.map((series) => series.at(-1))).toEqual([
+      10, 20, 30,
+    ]);
+    for (const series of result.current.cores) {
+      expect(series).toHaveLength(chartConfig.historyLengthSec);
+    }
   });
 
-  it("trims processorsUsageHistoryAtom exceeding historyLengthSec", () => {
+  it("trims the per-core series exceeding historyLengthSec", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [history] = useAtom(processorsUsageHistoryAtom);
-        return history;
+        return [
+          useAtomValue(processorUsageSeriesAtom(0)),
+          useAtomValue(processorUsageSeriesAtom(1)),
+        ];
       },
       { wrapper: Provider },
     );
@@ -820,9 +849,10 @@ describe("useHardwareEventListener", () => {
       }
     });
 
-    const history = result.current;
-    expect(history).toHaveLength(chartConfig.historyLengthSec);
-    expect(history[0]).toEqual([3, 4]);
+    const [core0, core1] = result.current;
+    expect(core0).toHaveLength(chartConfig.historyLengthSec);
+    expect(core0[0]).toBe(3);
+    expect(core1[0]).toBe(4);
   });
 
   // ── GPU dedicated memory ──
@@ -871,11 +901,11 @@ describe("useHardwareEventListener", () => {
 
   // ── GPU fan speed (cooler) ──
 
-  it("updates gpuFanSpeedAtom when gpuCoolerLevel and gpuName are present", () => {
+  it("updates gpuFanSpeedValueAtom when gpuCoolerLevel is present", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [fan] = useAtom(gpuFanSpeedAtom);
+        const [fan] = useAtom(gpuFanSpeedValueAtom);
         return fan;
       },
       { wrapper: Provider },
@@ -889,14 +919,14 @@ describe("useHardwareEventListener", () => {
       ),
     );
 
-    expect(result.current).toEqual([{ name: "RTX 4090", value: 55 }]);
+    expect(result.current).toBe(55);
   });
 
-  it("does not update gpuFanSpeedAtom when gpuCoolerLevel is null", () => {
+  it("does not update gpuFanSpeedValueAtom when gpuCoolerLevel is null", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [fan] = useAtom(gpuFanSpeedAtom);
+        const [fan] = useAtom(gpuFanSpeedValueAtom);
         return fan;
       },
       { wrapper: Provider },
@@ -904,7 +934,7 @@ describe("useHardwareEventListener", () => {
 
     act(() => emit(makePayload({ gpus: [makeGpu({ gpuCoolerLevel: null })] })));
 
-    expect(result.current).toEqual([]);
+    expect(result.current).toBeNull();
   });
 
   // ── Reference stability (subscription granularity, #1638) ──
@@ -932,7 +962,6 @@ describe("useHardwareEventListener", () => {
 
     const unchangedAtoms: ReadonlyArray<readonly [string, Atom<unknown>]> = [
       ["gpuNames", gpuNamesAtom],
-      ["gpuUsageSources", gpuUsageSourcesAtom],
       ["gpuDedicatedMemoryKbMap", gpuDedicatedMemoryKbMapAtom],
       ["gpuTempMap", gpuTempMapAtom],
       ["gpuFanSpeedMap", gpuFanSpeedMapAtom],
@@ -940,7 +969,6 @@ describe("useHardwareEventListener", () => {
       ["sensorTemps", sensorTempsAtom],
       ["motherboardTemps", motherboardTempsAtom],
       ["motherboardFanSpeeds", motherboardFanSpeedsAtom],
-      ["powerDraw", powerDrawAtom],
     ];
 
     const mountWithStore = () => {
@@ -1004,16 +1032,17 @@ describe("useHardwareEventListener", () => {
       expect(store.get(sensorTempsAtom)).toEqual([{ name: "TZ01", value: 41 }]);
     });
 
-    it("still writes the history atoms on every sample", () => {
+    it("still moves the series on every sample", () => {
       const store = mountWithStore();
       act(() => emit(richPayload()));
-      const cpu = store.get(cpuUsageHistoryAtom);
-      const gpuHistories = store.get(gpuUsageHistoriesAtom);
+      const gpu = gpuUsageSeriesAtom(asLiveGpuId("nvapi:0"));
+      const cpuSeries = store.get(cpuUsageSeriesAtom);
+      const gpuSeries = store.get(gpu);
 
       act(() => emit(richPayload()));
 
-      expect(store.get(cpuUsageHistoryAtom)).not.toBe(cpu);
-      expect(store.get(gpuUsageHistoriesAtom)).not.toBe(gpuHistories);
+      expect(store.get(cpuUsageSeriesAtom)).not.toBe(cpuSeries);
+      expect(store.get(gpu)).not.toBe(gpuSeries);
     });
   });
 
@@ -1023,8 +1052,8 @@ describe("useHardwareEventListener", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
-        const [cpu] = useAtom(cpuUsageHistoryAtom);
-        const [mem] = useAtom(memoryUsageHistoryAtom);
+        const [cpu] = useAtom(cpuUsageSeriesAtom);
+        const [mem] = useAtom(memoryUsageSeriesAtom);
         return { cpu, mem };
       },
       { wrapper: Provider },
@@ -1045,12 +1074,14 @@ describe("useHardwareEventListener", () => {
   // ── Multi-GPU ──
 
   describe("multi-GPU support", () => {
-    it("tracks separate usage histories per GPU", () => {
+    it("tracks separate usage series per GPU", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
-          const [histories] = useAtom(gpuUsageHistoriesAtom);
-          return histories;
+          return {
+            gpu0: useAtomValue(gpuUsageSeriesAtom(asLiveGpuId("nvapi:0"))),
+            gpu1: useAtomValue(gpuUsageSeriesAtom(asLiveGpuId("nvapi:1"))),
+          };
         },
         { wrapper: Provider },
       );
@@ -1066,10 +1097,10 @@ describe("useHardwareEventListener", () => {
         ),
       );
 
-      const histories = result.current;
-      const [gpu0, gpu1] = [asLiveGpuId("nvapi:0"), asLiveGpuId("nvapi:1")];
-      expect(histories[gpu0][histories[gpu0].length - 1]).toBe(50);
-      expect(histories[gpu1][histories[gpu1].length - 1]).toBe(80);
+      const { gpu0, gpu1 } = result.current;
+      expect(gpu0).toHaveLength(chartConfig.historyLengthSec);
+      expect(gpu0.at(-1)).toBe(50);
+      expect(gpu1.at(-1)).toBe(80);
     });
 
     it("auto-selects first GPU ID when selectedGpuIdAtom is null", () => {
@@ -1114,11 +1145,11 @@ describe("useHardwareEventListener", () => {
       expect(result.current).toBe("nvapi:0");
     });
 
-    it("graphicUsageHistoryAtom resolves to selected GPU history", () => {
+    it("effectiveGpuUsageSeriesAtom resolves to the selected GPU's series", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
-          const [history] = useAtom(graphicUsageHistoryAtom);
+          const [history] = useAtom(effectiveGpuUsageSeriesAtom);
           return history;
         },
         { wrapper: Provider },
@@ -1244,41 +1275,6 @@ describe("useHardwareEventListener", () => {
       });
     });
 
-    it("derives gpuFanSpeedAtom as NameValues from all GPUs", () => {
-      const { result } = renderHook(
-        () => {
-          useHardwareEventListener();
-          const [fan] = useAtom(gpuFanSpeedAtom);
-          return fan;
-        },
-        { wrapper: Provider },
-      );
-
-      act(() =>
-        emit(
-          makePayload({
-            gpus: [
-              makeGpu({
-                gpuId: "nvapi:0",
-                gpuName: "GPU A",
-                gpuCoolerLevel: 40,
-              }),
-              makeGpu({
-                gpuId: "nvapi:1",
-                gpuName: "GPU B",
-                gpuCoolerLevel: 65,
-              }),
-            ],
-          }),
-        ),
-      );
-
-      expect(result.current).toEqual([
-        { name: "GPU A", value: 40 },
-        { name: "GPU B", value: 65 },
-      ]);
-    });
-
     it("tracks the reported name for every GPU, whatever it reports", () => {
       const { result } = renderHook(
         () => {
@@ -1356,12 +1352,14 @@ describe("useHardwareEventListener", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
-          const [histories] = useAtom(gpuUsageHistoriesAtom);
+          const history = useAtomValue(
+            gpuUsageSeriesAtom(asLiveGpuId("nvapi:0")),
+          );
           const [names] = useAtom(gpuNamesAtom);
           const [temperatures] = useAtom(gpuTempMapAtom);
           const [fanSpeeds] = useAtom(gpuFanSpeedMapAtom);
           const [memory] = useAtom(gpuDedicatedMemoryKbMapAtom);
-          return { histories, names, temperatures, fanSpeeds, memory };
+          return { history, names, temperatures, fanSpeeds, memory };
         },
         { wrapper: Provider },
       );
@@ -1390,9 +1388,7 @@ describe("useHardwareEventListener", () => {
       });
 
       expect(result.current.names[asLiveGpuId("nvapi:0")]).toBe("GPU A");
-      expect(
-        result.current.histories[asLiveGpuId("nvapi:0")].at(-1),
-      ).toBeNull();
+      expect(result.current.history.slice(-2)).toEqual([40, null]);
       expect(result.current.temperatures).not.toHaveProperty("nvapi:0");
       expect(result.current.fanSpeeds).not.toHaveProperty("nvapi:0");
       expect(result.current.memory).not.toHaveProperty("nvapi:0");
@@ -1402,11 +1398,13 @@ describe("useHardwareEventListener", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
-          const [histories] = useAtom(gpuUsageHistoriesAtom);
+          const retiredHistory = useAtomValue(
+            gpuUsageSeriesAtom(asLiveGpuId("nvapi:0")),
+          );
           const [names] = useAtom(gpuNamesAtom);
           const [selectedGpuId] = useAtom(selectedGpuIdAtom);
-          const [effectiveHistory] = useAtom(graphicUsageHistoryAtom);
-          return { histories, names, selectedGpuId, effectiveHistory };
+          const [effectiveHistory] = useAtom(effectiveGpuUsageSeriesAtom);
+          return { retiredHistory, names, selectedGpuId, effectiveHistory };
         },
         { wrapper: Provider },
       );
@@ -1436,7 +1434,7 @@ describe("useHardwareEventListener", () => {
       });
 
       expect(result.current.names).not.toHaveProperty("nvapi:0");
-      expect(result.current.histories).not.toHaveProperty("nvapi:0");
+      expect(result.current.retiredHistory).toBe(NO_LIVE_SAMPLES);
       expect(result.current.selectedGpuId).toBe("nvapi:0");
       expect(result.current.effectiveHistory.at(-1)).toBe(72);
     });
@@ -1466,12 +1464,14 @@ describe("useHardwareEventListener", () => {
       expect(result.current[asLiveGpuId("nvapi:0")]).toBe("GPU A");
     });
 
-    it("tracks usage sources for all GPUs", () => {
+    it("resolves the usage source of whichever GPU is selected", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
-          const [sources] = useAtom(gpuUsageSourcesAtom);
-          return sources;
+          return {
+            source: useAtomValue(gpuUsageSourceAtom),
+            select: useSetAtom(selectedGpuIdAtom),
+          };
         },
         { wrapper: Provider },
       );
@@ -1486,11 +1486,11 @@ describe("useHardwareEventListener", () => {
           }),
         ),
       );
+      expect(result.current.source).toBe("NVAPI");
 
-      expect(result.current).toEqual({
-        "nvapi:0": "NVAPI",
-        "nvapi:1": "D3DKMT",
-      });
+      act(() => result.current.select(asLiveGpuId("nvapi:1")));
+
+      expect(result.current.source).toBe("D3DKMT");
     });
 
     it("tracks dedicated memory for all GPUs", () => {

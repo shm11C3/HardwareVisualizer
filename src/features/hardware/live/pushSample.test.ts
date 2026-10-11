@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chartConfig } from "@/consts/chart";
 import { buildHardwareUpdateSeries } from "@/e2e/fixtures/hardware";
 import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
-import {
-  createLiveBuffers,
-  toProcessorRows,
-} from "@/features/hardware/live/liveBuffers";
+import { createLiveBuffers } from "@/features/hardware/live/liveBuffers";
 import {
   liveGpu,
   liveSample,
@@ -28,9 +25,14 @@ describe("pushSample with the fixture series", () => {
     const newest = series.slice(-windowLength);
     expect(buffers.cpu.toArray()).toEqual(newest.map((s) => s.cpuUsage));
     expect(buffers.memory.toArray()).toEqual(newest.map((s) => s.memoryUsage));
-    expect(toProcessorRows(buffers)).toEqual(
-      newest.map((s) => s.processorsUsage),
+    expect(buffers.processorCounts.toArray()).toEqual(
+      newest.map((s) => s.processorsUsage.length),
     );
+    newest[0].processorsUsage.forEach((_, core) => {
+      expect(buffers.processors[core].toArray()).toEqual(
+        newest.map((s) => s.processorsUsage[core]),
+      );
+    });
     for (const gpu of [0, 1]) {
       const id = asLiveGpuId(series[0].gpus[gpu].gpuId);
       expect(buffers.gpus.get(id)?.usage.toArray()).toEqual(
@@ -85,7 +87,13 @@ describe("pushSample processors", () => {
     pushSample(buffers, liveSample({ processorsUsage: [7] }), 0);
 
     expect(buffers.processors).toHaveLength(4);
-    expect(toProcessorRows(buffers)).toEqual([[1, 2], [3, 4, 5, 6], [7]]);
+    expect(buffers.processors.map((series) => series.toArray())).toEqual([
+      [1, 3, 7],
+      [2, 4, null],
+      [5, null],
+      [6, null],
+    ]);
+    expect(buffers.processorCounts.toArray()).toEqual([2, 4, 1]);
   });
 
   it("records a gap in every series a narrower sample omits, keeping them aligned", () => {
@@ -101,23 +109,28 @@ describe("pushSample processors", () => {
       [2, null, null, 6],
       [3, null, null, 7],
     ]);
-    expect(toProcessorRows(buffers)).toEqual([[1, 2, 3], [4], [], [5, 6, 7]]);
+    expect(buffers.processorCounts.toArray()).toEqual([3, 1, 0, 3]);
   });
 
-  it("rebuilds rows of the width each sample had once the window slides", () => {
+  it("keeps the widths and every series on the same window as it slides", () => {
     const buffers = createLiveBuffers();
     pushSample(buffers, liveSample({ processorsUsage: [1, 2, 3] }), 0);
     for (let i = 0; i < windowLength - 1; i += 1) {
       pushSample(buffers, liveSample({ processorsUsage: [10] }), 0);
     }
-    expect(toProcessorRows(buffers)[0]).toEqual([1, 2, 3]);
+    expect(buffers.processorCounts.oldest()).toBe(3);
+    expect(buffers.processors[1].oldest()).toBe(2);
 
     pushSample(buffers, liveSample({ processorsUsage: [10] }), 0);
 
-    expect(toProcessorRows(buffers)).toHaveLength(windowLength);
-    expect(toProcessorRows(buffers).every((row) => row.length === 1)).toBe(
-      true,
-    );
+    expect(buffers.processorCounts.size).toBe(windowLength);
+    expect(
+      buffers.processorCounts.toArray().every((width) => width === 1),
+    ).toBe(true);
+    expect(buffers.processors[1].size).toBe(windowLength);
+    expect(
+      buffers.processors[1].toArray().every((value) => value === null),
+    ).toBe(true);
   });
 });
 

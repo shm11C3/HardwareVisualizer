@@ -59,9 +59,20 @@ export type GpuAdapter = {
  * usage, or VRAM with no temperature — so anything that asks "did this adapter
  * report" has to ask all four. Asking a subset is what turns a partially
  * reporting adapter into a silent one.
+ *
+ * Usage is not carried as a series. Identity asks two things of it: which
+ * adapters have started reporting usage, and whether the newest sample carried
+ * a reading. A series would change with every sample and wake every derivation
+ * built on it, while these two facts change only when an adapter starts
+ * reporting, stops, or goes silent.
  */
 export type GpuLiveMaps = {
-  usageHistories: Record<LiveGpuId, (number | null)[]>;
+  /**
+   * An adapter has a key once it has reported usage, in the order it started
+   * to. The value says whether its newest sample carried a reading (`false`
+   * for a gap).
+   */
+  hasLatestUsage: Record<LiveGpuId, boolean>;
   temperatures: Record<LiveGpuId, { name: string; value: number }>;
   fanSpeeds: Record<LiveGpuId, { name: string; value: number }>;
   dedicatedMemoryKb: Record<LiveGpuId, number | null>;
@@ -74,14 +85,14 @@ const liveEntries = <T>(map: Record<LiveGpuId, T>) =>
   Object.entries(map) as [LiveGpuId, T][];
 
 const liveMapsInOrder = (live: GpuLiveMaps) => [
-  live.usageHistories,
+  live.hasLatestUsage,
   live.temperatures,
   live.fanSpeeds,
   live.dedicatedMemoryKb,
 ];
 
 const hasCurrentGpuReading = (gpuId: LiveGpuId, live: GpuLiveMaps) =>
-  live.usageHistories[gpuId]?.at(-1) != null ||
+  live.hasLatestUsage[gpuId] === true ||
   live.temperatures[gpuId] != null ||
   live.fanSpeeds[gpuId] != null ||
   live.dedicatedMemoryKb[gpuId] != null;
