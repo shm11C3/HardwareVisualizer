@@ -36,11 +36,13 @@ export type LiveBuffers = {
   cpu: RingBuffer<number | null>;
   memory: RingBuffer<number | null>;
   /**
-   * One series per logical processor, indexed by processor. A core's series
-   * holds only the samples that carried that core; `processorCounts` says
-   * which those are.
+   * One series per logical processor, indexed by processor. Every sample
+   * pushes into every series that exists at that point: a value for the cores
+   * it carries and `null` for the cores it omits, so the series stay aligned
+   * in time and a narrower sample shows as a gap, never as a shifted or stale
+   * reading. `processorCounts` says how wide each sample was.
    */
-  processors: RingBuffer<number>[];
+  processors: RingBuffer<number | null>[];
   /** Width of each retained sample, so a time-major view can be rebuilt. */
   processorCounts: RingBuffer<number>;
   /**
@@ -97,18 +99,14 @@ export const createLiveBuffers = (): LiveBuffers => ({
 export const toProcessorRows = (buffers: LiveBuffers): number[][] => {
   const widths = buffers.processorCounts.toArray();
   const cores = buffers.processors.map((core) => core.toArray());
-  // The samples that carried core `i` are the last `count` values of its
-  // series, because a sample that has core `i` also has every core below it.
-  const cursors = cores.map(
-    (core, index) =>
-      core.length - widths.filter((width) => width > index).length,
-  );
-
-  return widths.map((width) =>
-    Array.from({ length: width }, (_, index) => {
-      const cursor = cursors[index] as number;
-      cursors[index] = cursor + 1;
-      return cores[index]?.[cursor] as number;
-    }),
-  );
+  // Every series is right-aligned on the newest sample, and a core that a
+  // sample carried has received an entry for every sample since, so the row
+  // `j` samples back reads each core `j` entries from its end.
+  return widths.map((width, row) => {
+    const fromEnd = widths.length - row;
+    return Array.from(
+      { length: width },
+      (_, index) => cores[index]?.at(-fromEnd) as number,
+    );
+  });
 };

@@ -88,6 +88,22 @@ describe("pushSample processors", () => {
     expect(toProcessorRows(buffers)).toEqual([[1, 2], [3, 4, 5, 6], [7]]);
   });
 
+  it("records a gap in every series a narrower sample omits, keeping them aligned", () => {
+    const buffers = createLiveBuffers();
+
+    pushSample(buffers, liveSample({ processorsUsage: [1, 2, 3] }), 0);
+    pushSample(buffers, liveSample({ processorsUsage: [4] }), 0);
+    pushSample(buffers, liveSample({ processorsUsage: [] }), 0);
+    pushSample(buffers, liveSample({ processorsUsage: [5, 6, 7] }), 0);
+
+    expect(buffers.processors.map((series) => series.toArray())).toEqual([
+      [1, 4, null, 5],
+      [2, null, null, 6],
+      [3, null, null, 7],
+    ]);
+    expect(toProcessorRows(buffers)).toEqual([[1, 2, 3], [4], [], [5, 6, 7]]);
+  });
+
   it("rebuilds rows of the width each sample had once the window slides", () => {
     const buffers = createLiveBuffers();
     pushSample(buffers, liveSample({ processorsUsage: [1, 2, 3] }), 0);

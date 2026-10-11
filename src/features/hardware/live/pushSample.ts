@@ -42,13 +42,14 @@ export const pushSample = (
 };
 
 const pushProcessors = (buffers: LiveBuffers, usage: readonly number[]) => {
-  // Grow, never shrink: a sample with fewer cores leaves the extra series
-  // alone, and `processorCounts` records that this sample was narrower.
+  // Grow, never shrink. A sample with fewer cores pushes a gap into the
+  // series it omits, so every series keeps the sample cadence and a per-core
+  // chart never shows an old reading at the newest position.
   while (buffers.processors.length < usage.length) {
-    buffers.processors.push(new RingBuffer<number>());
+    buffers.processors.push(new RingBuffer<number | null>());
   }
-  usage.forEach((value, index) => {
-    buffers.processors[index]?.push(value);
+  buffers.processors.forEach((series, index) => {
+    series.push(usage[index] ?? null);
   });
   buffers.processorCounts.push(usage.length);
 };
