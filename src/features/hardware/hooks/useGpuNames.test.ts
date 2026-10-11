@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
@@ -6,7 +6,7 @@ const hoisted = vi.hoisted(() => ({
   getGpuArchiveNamesMock: vi.fn(),
 }));
 
-// The GPU selectors fall back to ids, so a failed name read is log-only.
+// A failed name read is a state the Insights tab list renders, never a dialog.
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   message: hoisted.dialogMessageMock,
   ask: hoisted.dialogMessageMock,
@@ -35,7 +35,7 @@ describe("useGpuNames", () => {
     const { result } = renderHook(() => useGpuNames());
 
     await waitFor(() => {
-      expect(result.current).toEqual([
+      expect(result.current.gpuNames).toEqual([
         "NVIDIA GeForce RTX 4090",
         "AMD Radeon RX 7900 XTX",
       ]);
@@ -53,7 +53,7 @@ describe("useGpuNames", () => {
     const { result } = renderHook(() => useGpuNames());
 
     await waitFor(() => {
-      expect(result.current).toEqual([]);
+      expect(result.current.gpuNames).toEqual([]);
     });
   });
 
@@ -62,10 +62,10 @@ describe("useGpuNames", () => {
 
     const { result } = renderHook(() => useGpuNames());
 
-    expect(result.current).toEqual([]);
+    expect(result.current.gpuNames).toEqual([]);
   });
 
-  it("returns an empty array and logs, without a dialog, when the command returns an error result", async () => {
+  it("sets hasError, keeps gpuNames empty and opens no dialog when the command returns an error result", async () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -76,17 +76,18 @@ describe("useGpuNames", () => {
 
     const { result } = renderHook(() => useGpuNames());
 
-    await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Failed to fetch archived GPU names: database unavailable",
-      );
-    });
-    expect(result.current).toEqual([]);
+    await waitFor(() => expect(result.current.hasError).toBe(true));
+    expect(result.current.gpuNames).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Failed to fetch archived GPU names: database unavailable",
+      }),
+    );
     expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
 
-  it("returns an empty array and logs, without a dialog, when the command rejects", async () => {
+  it("sets hasError when the command rejects", async () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -94,13 +95,32 @@ describe("useGpuNames", () => {
 
     const { result } = renderHook(() => useGpuNames());
 
-    await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Failed to fetch archived GPU names: Error: transport",
-      );
-    });
-    expect(result.current).toEqual([]);
+    await waitFor(() => expect(result.current.hasError).toBe(true));
+    expect(result.current.gpuNames).toEqual([]);
     expect(hoisted.dialogMessageMock).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("refetches on retry and clears hasError once the names load", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    hoisted.getGpuArchiveNamesMock
+      .mockResolvedValueOnce({ status: "error", error: "locked" })
+      .mockResolvedValue({ status: "ok", data: ["NVIDIA GeForce RTX 4090"] });
+
+    const { result } = renderHook(() => useGpuNames());
+    await waitFor(() => expect(result.current.hasError).toBe(true));
+
+    act(() => {
+      result.current.retry();
+    });
+
+    await waitFor(() =>
+      expect(result.current.gpuNames).toEqual(["NVIDIA GeForce RTX 4090"]),
+    );
+    expect(result.current.hasError).toBe(false);
+    expect(hoisted.getGpuArchiveNamesMock).toHaveBeenCalledTimes(2);
     consoleErrorSpy.mockRestore();
   });
 });

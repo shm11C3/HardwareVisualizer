@@ -204,6 +204,7 @@ const applySensorSupportOverrides = (
  * otherwise working app. */
 const ARCHIVE_READ_COMMANDS: ReadonlySet<string> = new Set([
   "get_data_archive_series",
+  "get_gpu_archive_names",
   "get_gpu_archive_series",
   "get_fan_archive_series",
   "get_ambient_archive_series",

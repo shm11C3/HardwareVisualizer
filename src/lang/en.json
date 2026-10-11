@@ -270,6 +270,7 @@
       "systemSpecifications": {
         "networkUnavailable": "Network information is unavailable on this system.",
         "inventoryLoadFailed": "Could not load the hardware information.",
+        "networkLoadFailed": "Could not load the network information.",
         "platform": "Platform",
         "operatingSystem": "Operating system",
         "architecture": "Architecture",

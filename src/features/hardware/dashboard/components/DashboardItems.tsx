@@ -82,7 +82,7 @@ export const CPUInfo = () => {
   const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
   const cpuTemp = useAtomValue(cpuTempAtom);
   const sensorTemps = useAtomValue(sensorTempsAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   const { processes } = useProcessInfo();
   const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
 
@@ -116,6 +116,14 @@ export const CPUInfo = () => {
             [t("shared.processCount")]: processes.length,
           }}
         />
+      ) : inventoryLoadFailed ? (
+        <LoadFailure
+          className="h-[188px]"
+          message={t(
+            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
+          )}
+          onRetry={() => void init()}
+        />
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
@@ -145,7 +153,7 @@ export const GPUInfo = () => {
   const gpuTemp = useAtomValue(gpuTempAtom);
   const gpuUsageSource = useAtomValue(gpuUsageSourceAtom);
   const { effectiveGpuId, selectedGpuId, selectGpu } = useGpuAdapters();
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
   const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
@@ -323,6 +331,14 @@ export const GPUInfo = () => {
             })()}
           </div>
         ))
+      ) : inventoryLoadFailed ? (
+        <LoadFailure
+          className="h-[188px]"
+          message={t(
+            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
+          )}
+          onRetry={() => void init()}
+        />
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
@@ -333,7 +349,7 @@ export const GPUInfo = () => {
 export const MemoryInfo = () => {
   const { t } = useTranslation();
   const memoryUsageHistory = useAtomValue(memoryUsageHistoryAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   const os = platform();
 
   const {
@@ -423,6 +439,14 @@ export const MemoryInfo = () => {
             )}
           </div>
         </div>
+      ) : inventoryLoadFailed ? (
+        <LoadFailure
+          className="h-[188px]"
+          message={t(
+            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
+          )}
+          onRetry={() => void init()}
+        />
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
@@ -638,6 +662,10 @@ export const StorageDataInfo = () => {
 
     storageHealthRecordsVersionRef.current += 1;
     setStorageHealthRecords(result.data);
+    // Fresh records supersede an earlier failed read; keeping its failure
+    // line beside them would contradict the data on screen.
+    setStorageHealthRecordsFailed(false);
+    setStorageHealthRefreshError(null);
     setStorageHealthRefreshing(false);
   };
 
@@ -1145,12 +1173,13 @@ export const NetworkInfo = ({
     );
   }
 
-  // A failed read is not "this machine has no network adapter".
-  if (showUnavailableState && networkLoadFailed && networkInfo.length === 0) {
+  // A failed read is not "this machine has no network adapter", and it must
+  // show wherever the panel is mounted, not only where the empty copy is.
+  if (networkLoadFailed && networkInfo.length === 0) {
     return (
       <LoadFailure
         className="h-auto px-4 pb-4"
-        message={t("pages.dashboard.systemSpecifications.inventoryLoadFailed")}
+        message={t("pages.dashboard.systemSpecifications.networkLoadFailed")}
         onRetry={() => void initNetwork()}
       />
     );

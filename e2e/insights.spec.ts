@@ -716,11 +716,20 @@ test.describe("insights read failure captures", () => {
     await saveCapture(page, "insights-main-read-failure-compact-window");
     await page.setViewportSize(DESKTOP_VIEWPORT);
 
-    // Retry after the read recovers: the pressed chart replaces its failure.
+    // The GPU names read failed too: no GPU tabs, and the failure sits with
+    // the tab list instead of the tabs silently disappearing.
+    await expect(page.getByRole("tab", { name: /HV Fixture GPU/ })).toHaveCount(
+      0,
+    );
+
+    // Retry after the read recovers: the pressed failure is replaced.
     const failedBefore = await failures.count();
     await page.evaluate(() => window.__E2E__?.setArchiveReadFailure(false));
     await failures.first().getByRole("button", { name: "Try again" }).click();
     await expect(failures).toHaveCount(failedBefore - 1);
+    await expect(
+      page.getByRole("tab", { name: /HV Fixture GPU 8GB/ }),
+    ).toBeVisible();
     expect(await dialogInvokeCount(page)).toBe(0);
   });
 

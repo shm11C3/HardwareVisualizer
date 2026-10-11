@@ -1,34 +1,52 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 /**
- * Archived GPU names feed the GPU selectors, which fall back to GPU ids when
- * a name is missing, so the screen still renders without them. A failed read
- * is therefore logged only (see "Failure Reporting" in the frontend
- * architecture doc), never surfaced as a dialog.
+ * Archived GPU names feed the Insights GPU tabs. A failed read leaves those
+ * tabs out, so it is a one-panel read failure: the caller renders `hasError`
+ * with `retry` where the tabs would appear (see "Failure Reporting" in the
+ * frontend architecture doc), and an empty `gpuNames` never means "no GPU".
  */
 export const useGpuNames = () => {
   const [gpuNames, setGpuNames] = useState<string[]>([]);
+  const [hasError, setHasError] = useState(false);
+  const requestIdRef = useRef(0);
 
-  useEffect(() => {
-    const fetchGpuNames = async () => {
-      try {
-        const result = await commands.getGpuArchiveNames();
-        if (isError(result)) {
-          console.error(`Failed to fetch archived GPU names: ${result.error}`);
-          setGpuNames([]);
-          return;
-        }
-        setGpuNames(result.data);
-      } catch (err) {
-        console.error(`Failed to fetch archived GPU names: ${String(err)}`);
-        setGpuNames([]);
+  const load = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    try {
+      const result = await commands.getGpuArchiveNames();
+      if (isError(result)) {
+        throw new Error(`Failed to fetch archived GPU names: ${result.error}`);
       }
-    };
-
-    void fetchGpuNames();
+      if (requestIdRef.current === requestId) {
+        setGpuNames(result.data);
+        setHasError(false);
+      }
+    } catch (err) {
+      console.error(err);
+      // A stale request must not flip the state.
+      if (requestIdRef.current === requestId) {
+        setGpuNames([]);
+        setHasError(true);
+      }
+    }
   }, []);
 
-  return gpuNames;
+  useEffect(() => {
+    void load();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [load]);
+
+  const retry = useCallback(() => {
+    void load();
+  }, [load]);
+
+  return { gpuNames, hasError, retry };
 };

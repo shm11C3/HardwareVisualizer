@@ -213,6 +213,31 @@ describe("StorageDataInfo storage device re-detection", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("a successful manual refresh clears an earlier records failure", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.commands.getStorageHealthLatestRecords.mockResolvedValue({
+      status: "error",
+      error: "db locked",
+    });
+    render(<StorageDataInfo />);
+
+    expect(
+      await screen.findByText("Failed to fetch storage health data."),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Re-detect storage devices" }),
+    );
+
+    // Fresh records are on screen, so the failure line must be gone at once
+    // instead of lingering until the next 60 s poll.
+    await waitFor(() => expect(screen.getByText("45°C")).toBeInTheDocument());
+    expect(
+      screen.queryByText("Failed to fetch storage health data."),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders a failed live read as its own failure while keeping the recorded summary", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.commands.getLiveStorageHealth.mockResolvedValue({

@@ -270,6 +270,7 @@
       "systemSpecifications": {
         "networkUnavailable": "このシステムではネットワーク情報を利用できません。",
         "inventoryLoadFailed": "ハードウェア情報を読み込めませんでした。",
+        "networkLoadFailed": "ネットワーク情報を読み込めませんでした。",
         "platform": "プラットフォーム",
         "operatingSystem": "オペレーティングシステム",
         "architecture": "アーキテクチャ",

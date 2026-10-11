@@ -260,6 +260,7 @@
       "systemSpecifications": {
         "networkUnavailable": "Сведения о сети недоступны в этой системе.",
         "inventoryLoadFailed": "Не удалось загрузить сведения об оборудовании.",
+        "networkLoadFailed": "Не удалось загрузить сведения о сети.",
         "platform": "Платформа",
         "operatingSystem": "Операционная система",
         "architecture": "Архитектура",
