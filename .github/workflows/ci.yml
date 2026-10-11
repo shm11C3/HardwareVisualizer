@@ -1032,9 +1032,10 @@ jobs:
         uses: ./.github/actions/setup-rust
         with:
           components: ""
-          # Unlike the driver-only cache, retain compiled app dependencies.
-          # Keep this key separate from release/check/coverage Cargo modes.
-          cache-key: tauri-native-e2e
+          # Keep the existing driver/registry cache. App compilation uses the
+          # compiler cache below rather than adding another target-cache entry.
+          cache-key: tauri-driver
+          cache-targets: "false"
 
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked --version 2.0.6
