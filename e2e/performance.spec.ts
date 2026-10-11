@@ -163,34 +163,46 @@ test.describe("Grouped navigation destinations", () => {
       page.getByTestId("performance-power-mode-switcher"),
     ).toBeVisible();
     await expect(page.getByTestId("performance-power-graph")).toBeVisible();
+    // Measured through `expect.poll`: right after a viewport change the
+    // Recharts ResponsiveContainer still has its previous width for a frame,
+    // so a single read can see the chart overflowing a layout that settles a
+    // moment later. Each entry is the overflow in px, so a failure names the
+    // axis.
     const assertNoMonitorOverflow = async () => {
-      const overflow = await page.evaluate(() => {
-        const screen = document.querySelector<HTMLElement>(
-          '[data-testid="performance-screen"]',
-        );
-        return {
-          documentScrollWidth: document.documentElement.scrollWidth,
-          documentClientWidth: document.documentElement.clientWidth,
-          documentScrollHeight: document.documentElement.scrollHeight,
-          documentClientHeight: document.documentElement.clientHeight,
-          screenScrollWidth: screen?.scrollWidth ?? 0,
-          screenClientWidth: screen?.clientWidth ?? 0,
-          screenScrollHeight: screen?.scrollHeight ?? 0,
-          screenClientHeight: screen?.clientHeight ?? 0,
-        };
-      });
-      expect(overflow.documentScrollWidth).toBeLessThanOrEqual(
-        overflow.documentClientWidth,
-      );
-      expect(overflow.documentScrollHeight).toBeLessThanOrEqual(
-        overflow.documentClientHeight,
-      );
-      expect(overflow.screenScrollWidth).toBeLessThanOrEqual(
-        overflow.screenClientWidth,
-      );
-      expect(overflow.screenScrollHeight).toBeLessThanOrEqual(
-        overflow.screenClientHeight,
-      );
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const screen = document.querySelector<HTMLElement>(
+                '[data-testid="performance-screen"]',
+              );
+              const root = document.documentElement;
+              const overflowPx = (scroll: number, client: number) =>
+                Math.max(0, scroll - client);
+              return {
+                documentWidth: overflowPx(root.scrollWidth, root.clientWidth),
+                documentHeight: overflowPx(
+                  root.scrollHeight,
+                  root.clientHeight,
+                ),
+                screenWidth: overflowPx(
+                  screen?.scrollWidth ?? 0,
+                  screen?.clientWidth ?? 0,
+                ),
+                screenHeight: overflowPx(
+                  screen?.scrollHeight ?? 0,
+                  screen?.clientHeight ?? 0,
+                ),
+              };
+            }),
+          { message: "Monitor view overflows its container (px per axis)" },
+        )
+        .toEqual({
+          documentWidth: 0,
+          documentHeight: 0,
+          screenWidth: 0,
+          screenHeight: 0,
+        });
     };
 
     await assertNoMonitorOverflow();
