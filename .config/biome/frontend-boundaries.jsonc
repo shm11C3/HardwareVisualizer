@@ -1205,6 +1205,7 @@
                     "group": ["jotai/**"]
                   }
                 ],
+                // Provider is allowed here only: the composition root is the one place a store may be created, and only via <Provider>.
                 "paths": {
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
@@ -1216,8 +1217,7 @@
                       "useStore",
                       "createStore",
                       "INTERNAL_overrideCreateStore",
-                      "getDefaultStore",
-                      "Provider"
+                      "getDefaultStore"
                     ]
                   }
                 }

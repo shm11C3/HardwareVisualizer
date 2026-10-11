@@ -50,11 +50,12 @@ import { useTitleIconVisualSelector } from "@/hooks/appearance/useTitleIconVisua
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { useFullScreenMode } from "@/hooks/window/useFullScreenMode";
 import { useKeydown } from "@/hooks/window/useInputListener";
-import { clearTauriStore } from "@/lib/tauriStore";
 import { cn } from "@/lib/utils";
 import { displayTargetAtom } from "@/store/navigation";
+import { AppStateProvider, useAppStateReset } from "./AppStateProvider";
 import { FullScreenButton } from "./FullScreenButton";
 import { FullscreenExitButton } from "./FullScreenExit";
+import { resetAppState } from "./resetAppState";
 
 const onRootError = (error: unknown, info: ErrorInfo) => {
   console.error(
@@ -86,14 +87,18 @@ export const App = () => {
         FallbackComponent={RootErrorFallback}
         onError={onRootError}
       >
-        <TrayWidgetFlyout />
+        <AppStateProvider>
+          <TrayWidgetFlyout />
+        </AppStateProvider>
       </ErrorBoundary>
     );
   }
 
   return (
     <ErrorBoundary FallbackComponent={RootErrorFallback} onError={onRootError}>
-      <AppContent />
+      <AppStateProvider>
+        <AppContent />
+      </AppStateProvider>
     </ErrorBoundary>
   );
 };
@@ -203,15 +208,11 @@ const AppContent = () => {
     Math.max(34, settings.windowOpacity * 0.64),
   );
 
-  const handleReset = useCallback(async () => {
-    try {
-      await clearTauriStore();
-      await loadSettings();
-      await initBackgroundImage();
-    } catch (error) {
-      console.error("Failed to reset app state:", error);
-    }
-  }, [initBackgroundImage, loadSettings]);
+  const restartAppState = useAppStateReset();
+  const handleReset = useCallback(
+    () => resetAppState(restartAppState),
+    [restartAppState],
+  );
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
