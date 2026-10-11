@@ -34,6 +34,18 @@ sequential projection and structural invariants locally rather than silently
 removing the existing overlap. The temporary measurement workflow uses
 ordinary GitHub Actions syntax and shell process waiting.
 
+## Native E2E compilation
+
+Keep the real Tauri first-run and IPC smoke on frontend changes. Apply the
+existing trusted R2 compiler cache to Rust and bundled DuckDB C++ compilation.
+Retain the existing driver/registry cache: the measured improvement did not
+restore any app target artifacts, so another target-cache entry is unnecessary.
+
+A frontend change still rebuilds the application to embed its current assets.
+Reusing a whole binary would exercise stale UI. Limit bindings regeneration to
+its Rust producers and generated file instead of every frontend consumer; keep
+push, automation, and unclassified-input checks.
+
 ## Measurement
 
 Hosted comparisons must hold the commit, runner image, dependency lockfiles,
@@ -57,3 +69,17 @@ does not justify splitting the Core or Tauri test suites, changing cache
 ownership, or reducing required checks without a separate decision and review.
 
 Reference: [GitHub concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+
+For Native E2E, 30% is a target, not a hard gate that justifies extra complexity.
+Record compiler-cache state, compilation, launch and smoke durations separately.
+First-time cache filling can be slower; compare it separately from reuse.
+
+[The 2026-10-11 measurements](../development/benchmarks/native-e2e-ci-2026-10-11.json)
+used identical app sources and lockfiles on the same Ubuntu image. The baseline
+native job took 646s, including 514s of compilation. The first compiler-cache
+fill took 754s with 30.3% C++ hits. Reuse took 320s, including 141s of compilation
+and 99% C++ hits: 50.5% less job time. App startup/smoke remained about 42s.
+No app target cache was restored in either experiment. Keep the proven compiler
+cache and existing driver cache, rather than expanding cache storage or changing
+how the native app loads its frontend. Dependency/profile changes can require
+another cold fill; these measurements do not promise a universal percentage.

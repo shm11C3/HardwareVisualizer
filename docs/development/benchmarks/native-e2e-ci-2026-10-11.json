@@ -1,0 +1,277 @@
+{
+  "scope": "real Tauri native-first-run-smoke on Linux CI",
+  "target_percent": 30,
+  "target_is_hard_gate": false,
+  "conditions": {
+    "runner_image": "ubuntu-22.04",
+    "runner_image_version": "20261004.315.1",
+    "rust_toolchain": "1.99.0",
+    "app_sources_and_lockfiles_unchanged": true,
+    "job_duration_includes_setup_and_post_steps": true,
+    "queue_duration_excluded": true
+  },
+  "samples": [
+    {
+      "variant": "baseline",
+      "run_id": 38100815964,
+      "job_id": 114356249095,
+      "head_sha": "2976e05914bf79623a5bac4ecd32c8aee1c0ebc9",
+      "url": "https://github.com/shm11C3/HardwareVisualizer/actions/runs/38100815964/job/114356249095",
+      "started_at": "2026-10-11T01:08:47Z",
+      "completed_at": "2026-10-11T01:19:33Z",
+      "job_duration_seconds": 646.0,
+      "compilation_seconds": 514,
+      "result": "success",
+      "compiler_cache": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 1.0
+        },
+        {
+          "name": "Checkout repository",
+          "seconds": 1.0
+        },
+        {
+          "name": "Start CI telemetry",
+          "seconds": 1.0
+        },
+        {
+          "name": "Setup Node.js",
+          "seconds": 18.0
+        },
+        {
+          "name": "Typecheck native E2E runner",
+          "seconds": 0.0
+        },
+        {
+          "name": "Setup Linux dependencies",
+          "seconds": 37.0
+        },
+        {
+          "name": "Setup Rust",
+          "seconds": 17.0
+        },
+        {
+          "name": "Install tauri-driver",
+          "seconds": 1.0
+        },
+        {
+          "name": "Run native E2E smoke",
+          "seconds": 565.0
+        },
+        {
+          "name": "Upload native capture artifacts",
+          "seconds": 2.0
+        },
+        {
+          "name": "Post Setup Rust",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Setup Node.js",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Start CI telemetry",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Checkout repository",
+          "seconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "variant": "initial-compiler-cache-fill",
+      "run_id": 38102647008,
+      "job_id": 114361711073,
+      "head_sha": "c353108c639f3bf8923b93dd69676c88f8b7554f",
+      "url": "https://github.com/shm11C3/HardwareVisualizer/actions/runs/38102647008/job/114361711073",
+      "started_at": "2026-10-11T01:41:47Z",
+      "completed_at": "2026-10-11T01:54:21Z",
+      "job_duration_seconds": 754.0,
+      "compilation_seconds": 592,
+      "result": "success",
+      "compiler_cache": {
+        "rust_hits": 529,
+        "rust_misses": 13,
+        "rust_hit_rate_pct": 97.6,
+        "cpp_hits": 90,
+        "cpp_misses": 207,
+        "cpp_hit_rate_pct": 30.3,
+        "cache_errors": 0
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 0.0
+        },
+        {
+          "name": "Checkout repository",
+          "seconds": 2.0
+        },
+        {
+          "name": "Start CI telemetry",
+          "seconds": 0.0
+        },
+        {
+          "name": "Setup Node.js",
+          "seconds": 17.0
+        },
+        {
+          "name": "Typecheck native E2E runner",
+          "seconds": 0.0
+        },
+        {
+          "name": "Setup Linux dependencies",
+          "seconds": 46.0
+        },
+        {
+          "name": "Setup Rust",
+          "seconds": 15.0
+        },
+        {
+          "name": "Install tauri-driver",
+          "seconds": 18.0
+        },
+        {
+          "name": "Cache sccache (R2)",
+          "seconds": 3.0
+        },
+        {
+          "name": "Run native E2E smoke",
+          "seconds": 646.0
+        },
+        {
+          "name": "Upload native capture artifacts",
+          "seconds": 1.0
+        },
+        {
+          "name": "Post Cache sccache (R2)",
+          "seconds": 1.0
+        },
+        {
+          "name": "Post Setup Rust",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Setup Node.js",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Start CI telemetry",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Checkout repository",
+          "seconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0.0
+        }
+      ],
+      "target_cache_restored": false
+    },
+    {
+      "variant": "compiler-cache-reuse",
+      "run_id": 38102647008,
+      "job_id": 114363931180,
+      "head_sha": "c353108c639f3bf8923b93dd69676c88f8b7554f",
+      "url": "https://github.com/shm11C3/HardwareVisualizer/actions/runs/38102647008/job/114363931180",
+      "started_at": "2026-10-11T01:55:24Z",
+      "completed_at": "2026-10-11T02:00:44Z",
+      "job_duration_seconds": 320.0,
+      "compilation_seconds": 141,
+      "result": "success",
+      "compiler_cache": {
+        "rust_hits": 542,
+        "rust_misses": 0,
+        "rust_hit_rate_pct": 100,
+        "cpp_hits": 294,
+        "cpp_misses": 3,
+        "cpp_hit_rate_pct": 98.99,
+        "cache_errors": 0
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 1.0
+        },
+        {
+          "name": "Checkout repository",
+          "seconds": 1.0
+        },
+        {
+          "name": "Start CI telemetry",
+          "seconds": 0.0
+        },
+        {
+          "name": "Setup Node.js",
+          "seconds": 19.0
+        },
+        {
+          "name": "Typecheck native E2E runner",
+          "seconds": 1.0
+        },
+        {
+          "name": "Setup Linux dependencies",
+          "seconds": 53.0
+        },
+        {
+          "name": "Setup Rust",
+          "seconds": 17.0
+        },
+        {
+          "name": "Install tauri-driver",
+          "seconds": 19.0
+        },
+        {
+          "name": "Cache sccache (R2)",
+          "seconds": 1.0
+        },
+        {
+          "name": "Run native E2E smoke",
+          "seconds": 200.0
+        },
+        {
+          "name": "Upload native capture artifacts",
+          "seconds": 2.0
+        },
+        {
+          "name": "Post Cache sccache (R2)",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Setup Rust",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Setup Node.js",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Start CI telemetry",
+          "seconds": 0.0
+        },
+        {
+          "name": "Post Checkout repository",
+          "seconds": 1.0
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0.0
+        }
+      ],
+      "target_cache_restored": false
+    }
+  ],
+  "job_reduction_percent": 50.46,
+  "compilation_reduction_percent": 72.57,
+  "final_choice": "Reuse the existing trusted Rust/C++ compiler cache and driver/registry cache; omit the unused extra target-cache entry."
+}

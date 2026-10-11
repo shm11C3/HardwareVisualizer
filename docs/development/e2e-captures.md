@@ -247,3 +247,14 @@ The `test-e2e-native` CI job runs only on `ubuntu-22.04`. It uploads
 `if: always()`, so evidence survives failures. Native captures are not
 published through `.github/scripts/comment-e2e-captures.sh`; that PR comment
 remains dedicated to the Playwright web/mock review captures.
+
+Native CI uses the existing trusted R2 sccache action for Rust and bundled
+DuckDB C++ compilation and retains the driver/registry cache. Fork and
+Dependabot runs keep the existing credential guard. A frontend-only change
+still rebuilds the app to embed the latest frontend; compiler-cache reuse
+reduces that work without reusing stale UI. A first-time cache fill can be
+slower than a build without compiler caching.
+
+Bindings regeneration checks its Rust producers, build inputs, the generated
+`src/rspc/bindings.ts`, CI automation, unclassified files and develop pushes.
+Ordinary frontend consumers do not trigger that separate Rust job.
