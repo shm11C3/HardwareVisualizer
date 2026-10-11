@@ -6,8 +6,8 @@ scope: multi-slice performance or architecture work in src/** and src-tauri/**
 trigger: a plan has several slices and the first slice's measurement changes what the remaining slices are for
 failure_signature: three reviewed PRs (#2396, #2397, #2399) built a Live Metrics Buffer whose per-tick saving (about 11 µs) turned out to be invisible under React reconciliation; they were closed unmerged
 root_cause: "the baseline showed render cost follows subscription shape, not atom-write count, and slice 1 took almost the whole win; the remaining slices were built on the issue's original premise instead of on a new measurement of what they would now save"
-guardrail: .agents/rules/design.md requires re-measuring the remaining slices' claim before building them when a slice's result changes the premise
-canonical_refs: .agents/rules/design.md, docs/design-principles.md (DP-04, DP-09)
+guardrail: .agents/rules/design.md requires re-measuring the remaining slices' claim before building them when a slice's result changes the premise (DP-04 work follows visible value, DP-09 match evidence to the claim)
+canonical_refs: .agents/rules/design.md, docs/design-principles.md
 verification: "jsdom benchmark, A = b23baca7d (slice 1) vs B = b23b36ef6 (slice 4), five real-screen scenarios, 200 warm-up + 5x400 samples, three interleaved runs: listener-only 27.3 -> 16.7 us/sample, Dashboard 232 -> 242 (within noise), Performance panels 452 -> 473 (within noise), CPU detail 160 -> 132 (the transpose removal, which needs no buffer)"
 evidence: "issue #1638 (Outcome section); PR #2395 (merged slice 1); PRs #2396, #2397, #2399 (closed with the benchmark in a comment); src/features/hardware/renderFanout.test.tsx"
 revalidate_when: #1581 moves chart painting off React, which changes what share of a tick the listener is; or the render fan-out harness starts measuring time instead of counts
