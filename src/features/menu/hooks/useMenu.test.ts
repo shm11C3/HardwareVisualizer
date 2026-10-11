@@ -1,13 +1,13 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import type { NavigationLayout } from "@/rspc/bindings";
 
 const mockSetMenuOpen = vi.fn();
 const mockSetDisplayTarget = vi.fn();
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: vi
     .fn()
     .mockImplementation((key: string, defaultValue: unknown) => {

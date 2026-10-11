@@ -1,7 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 
 const mockSetVisibleItems = vi.fn();
 const mockSetVisibleItemsVersion = vi.fn();
@@ -14,11 +14,11 @@ const migratedStore = (key: string, defaultValue: unknown) => {
   return [defaultValue, mockSetVisibleItems, false, false];
 };
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: vi.fn(),
 }));
 
-vi.mock("@/hooks/useTitleIconVisualSelector", () => ({
+vi.mock("@/hooks/appearance/useTitleIconVisualSelector", () => ({
   useTitleIconVisualSelector: () => ({
     toggleTitleIconVisibility: mockToggleTitleIconVisibility,
   }),

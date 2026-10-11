@@ -8,8 +8,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
-import { SnapshotIcon } from "@/features/hardware/insights/icons/snapshot";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { SnapshotIcon } from "@/features/hardware/insights/icons/SnapshotIcon";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type { ChartDataType } from "@/types/chart";
 import { ProcessHistoryTable } from "./components/ProcessHistoryTable";
 import { SnapshotChart } from "./components/SnapshotChart";

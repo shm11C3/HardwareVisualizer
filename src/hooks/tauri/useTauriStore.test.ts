@@ -46,7 +46,7 @@ describe("useTauriStore", () => {
     }));
 
     // Reload the module containing useTauriStore
-    const module = await import("@/hooks/useTauriStore");
+    const module = await import("@/hooks/tauri/useTauriStore");
     useTauriStore = <T>(key: string, defaultValue: T) => {
       return module.useTauriStore<T>(key, defaultValue);
     };
@@ -183,7 +183,7 @@ describe("useTauriStore", () => {
       load: vi.fn(() => Promise.reject(new Error("store load failed"))),
     }));
     vi.resetModules();
-    const module = await import("@/hooks/useTauriStore");
+    const module = await import("@/hooks/tauri/useTauriStore");
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});

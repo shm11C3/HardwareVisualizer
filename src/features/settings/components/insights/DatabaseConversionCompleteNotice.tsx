@@ -1,7 +1,7 @@
 import { CheckCircleIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 
 const ONE_YEAR_RETENTION_DAYS = 365;
 

@@ -6,7 +6,7 @@ import { PowerPanel } from "./PowerPanel";
 
 let powerDisplayTargets = ["cpu", "gpu", "package"];
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({ settings: { powerDisplayTargets } }),
 }));
 

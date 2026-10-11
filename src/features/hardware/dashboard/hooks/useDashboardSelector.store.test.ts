@@ -53,7 +53,7 @@ describe("useDashboardSelector", () => {
     }));
 
     // Mock useTitleIconVisualSelector
-    vi.doMock("@/hooks/useTitleIconVisualSelector", () => ({
+    vi.doMock("@/hooks/appearance/useTitleIconVisualSelector", () => ({
       useTitleIconVisualSelector: () => ({
         toggleTitleIconVisibility: mockToggleTitleIconVisibility,
       }),

@@ -9,8 +9,8 @@ import {
   type StorageBarChartData,
 } from "@/components/charts/Bar";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
+import { InfoTable } from "@/components/InfoTable";
 import { LoadFailure } from "@/components/LoadFailure";
-import { InfoTable } from "@/components/shared/InfoTable";
 import {
   Accordion,
   AccordionContent,
@@ -60,9 +60,9 @@ import type {
   FanSpeedStatus,
   NameValues,
 } from "@/features/hardware/types/hardwareDataType";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useTauriStore } from "@/hooks/useTauriStore";
-import { useWindowSize } from "@/hooks/useWindowSize";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
+import { useWindowSize } from "@/hooks/window/useWindowSize";
 import { formatBytes } from "@/lib/formatter";
 import { cn } from "@/lib/utils";
 import { startVisiblePolling } from "@/lib/visiblePolling";

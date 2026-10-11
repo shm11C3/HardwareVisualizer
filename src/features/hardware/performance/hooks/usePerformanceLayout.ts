@@ -16,7 +16,7 @@ import {
   type PerformanceView,
   performanceCustomLayoutsEqual,
 } from "@/features/hardware/performance/types/performanceLayout";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 
 const reportCustomLayoutPersistenceError = (error: unknown) => {
   console.error("Failed to persist custom Performance layout:", error);

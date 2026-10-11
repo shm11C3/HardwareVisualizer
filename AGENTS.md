@@ -136,7 +136,7 @@ short constraints and links.
   regenerate with `npm run tauri:dev`.
 - User-facing Application Preferences belong in `settings.json` and are written
   through typed Rust IPC and the owning settings service.
-- Tauri Store (`src/lib/tauriStore.ts` and `src/hooks/useTauriStore.ts`) is only
+- Tauri Store (`src/lib/tauriStore.ts` and `src/hooks/tauri/useTauriStore.ts`) is only
   for UI-local or transient state that can be reset without losing an explicit
   user configuration.
 - Core-owned and App-owned settings share one top-level object. Writers must

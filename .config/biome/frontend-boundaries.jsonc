@@ -181,7 +181,7 @@
                       "@/hooks/**",
                       "@/store/**",
                       "@/components/charts/**",
-                      "@/components/shared/**",
+                      "@/components/*",
                       "@/app/**",
                       "../**",
                       "jotai",
@@ -219,7 +219,7 @@
                     "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
                     "group": [
                       "@/features/**",
-                      "@/components/shared/**",
+                      "@/components/*",
                       "@/app/**",
                       "../**",
                       "jotai/**"
@@ -251,7 +251,7 @@
     // Shared components
     {
       "includes": [
-        "src/components/shared/**",
+        "src/components/*.ts",
         "src/components/*.tsx",
         "!src/**/*.test.ts",
         "!src/**/*.test.tsx"
@@ -360,7 +360,7 @@
                   }
                 ],
                 "paths": {
-                  "@/hooks/useTauriDialog": {
+                  "@/hooks/tauri/useTauriDialog": {
                     "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
@@ -423,7 +423,7 @@
                   }
                 ],
                 "paths": {
-                  "@/hooks/useTauriDialog": {
+                  "@/hooks/tauri/useTauriDialog": {
                     "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
@@ -487,7 +487,7 @@
                   }
                 ],
                 "paths": {
-                  "@/hooks/useTauriDialog": {
+                  "@/hooks/tauri/useTauriDialog": {
                     "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },

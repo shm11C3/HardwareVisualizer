@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWindowSize } from "@/hooks/useWindowSize";
+import { useWindowSize } from "@/hooks/window/useWindowSize";
 
 describe("useWindowSize", () => {
   const originalInnerWidth = globalThis.innerWidth;

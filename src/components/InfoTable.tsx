@@ -1,5 +1,5 @@
 import { minOpacity } from "@/consts/style";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 
 export const InfoTable = ({

@@ -1,8 +1,12 @@
 import { Fullscreen, Shrink } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 export interface FullScreenButtonProps {
   isFullScreen: boolean;

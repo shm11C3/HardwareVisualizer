@@ -6,7 +6,7 @@ import {
   dashBoardItems,
 } from "@/features/hardware/dashboard/types/dashboardItem";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 
 const DEFAULT_DASHBOARD_ITEMS = [...dashBoardItems];
 

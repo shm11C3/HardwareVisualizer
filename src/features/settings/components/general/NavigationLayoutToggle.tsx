@@ -3,8 +3,8 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useNavigationLayoutFocusRequest } from "@/hooks/useNavigationLayoutFocusRequest";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useNavigationLayoutFocusRequest } from "@/hooks/navigation/useNavigationLayoutFocusRequest";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { navigationMutationPendingAtom } from "@/store/settings";
 
 export const NavigationLayoutToggle = () => {

@@ -2,7 +2,7 @@ import { LightningIcon } from "@phosphor-icons/react";
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { powerDrawAtom } from "@/features/hardware/store/power";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { PowerDisplayTarget } from "@/rspc/bindings";
 

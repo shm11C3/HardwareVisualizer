@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type { BurnInShiftMode, BurnInShiftPreset } from "@/rspc/bindings";
 import { BurnInShiftIdleCheckbox } from "./BurnInShiftIdleCheckbox";
 import { BurnInShiftModeRadio } from "./BurnInShiftModeRadio";

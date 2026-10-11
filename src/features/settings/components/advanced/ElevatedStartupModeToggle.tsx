@@ -7,8 +7,8 @@ import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
   useProcessElevated,
-} from "@/hooks/useElevationAvailability";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+} from "@/hooks/settings/useElevationAvailability";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 
 export const ElevatedStartupModeToggle = () => {
   const { t } = useTranslation();

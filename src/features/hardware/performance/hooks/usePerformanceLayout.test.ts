@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import type {
   PerformanceCustomLayout,
   PerformancePowerMode,
@@ -29,7 +29,7 @@ let customLayout: PerformanceCustomLayout = {
   visible: ["usageGraphs", "processTable", "power"],
 };
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: vi.fn(),
 }));
 

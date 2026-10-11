@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardItemSelector } from "@/features/hardware/dashboard/components/DashboardItemSelector";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import {
   CPUInfo,

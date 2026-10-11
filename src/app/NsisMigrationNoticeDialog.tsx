@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";

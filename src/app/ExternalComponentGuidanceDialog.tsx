@@ -8,12 +8,6 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  externalComponentGuidanceActionKey,
-  externalComponentGuidanceCopyKey,
-  externalComponentGuidanceDocsUrl,
-  externalComponentGuidanceViewForDisplayTarget,
-} from "@/components/shared/externalComponentGuidance";
-import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogDescription,
@@ -31,9 +25,15 @@ import {
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
-} from "@/hooks/useElevationAvailability";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+} from "@/hooks/settings/useElevationAvailability";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
+import {
+  externalComponentGuidanceActionKey,
+  externalComponentGuidanceCopyKey,
+  externalComponentGuidanceDocsUrl,
+  externalComponentGuidanceViewForDisplayTarget,
+} from "@/lib/externalComponentGuidance";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";
 import type {

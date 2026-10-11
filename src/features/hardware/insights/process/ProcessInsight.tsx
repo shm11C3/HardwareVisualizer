@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
 import { archivePeriods } from "@/features/hardware/consts/chart";
 import { SelectPeriod } from "@/features/hardware/insights/components/SelectPeriod";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { ProcessBubbleChart } from "./chart/Bubble";
 import { useProcessStats } from "./hooks/useProcessStats";
 import { ProcessTable } from "./table/ProcessTable";

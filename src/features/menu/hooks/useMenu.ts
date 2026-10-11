@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import type { NavigationLayout } from "@/rspc/bindings";
 import { displayTargetAtom, sideMenuOpenAtom } from "@/store/navigation";
 import type { SelectedDisplayType } from "@/types/ui";

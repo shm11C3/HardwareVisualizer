@@ -8,7 +8,7 @@ import {
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { BurnInShift } from "@/components/shared/BurnInShift";
+import { BurnInShift } from "@/components/BurnInShift";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { CompactStrip } from "./components/CompactStrip";

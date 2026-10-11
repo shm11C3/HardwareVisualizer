@@ -52,7 +52,7 @@ vi.mock("@/features/settings/hooks/useDatabaseConversion", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
       hardwareArchive: {
@@ -64,7 +64,7 @@ vi.mock("@/hooks/useSettingsAtom", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: (key: string) => {
     if (key === "databaseConversionPromptDismissed") {
       return [mockDismissed, mockSetDismissed, mockDismissedPending];

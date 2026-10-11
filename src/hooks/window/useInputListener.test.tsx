@@ -8,7 +8,7 @@ import {
   type Mock,
   vi,
 } from "vitest";
-import { useKeydown } from "@/hooks/useInputListener";
+import { useKeydown } from "@/hooks/window/useInputListener";
 import { commands } from "@/rspc/bindings";
 
 // --- Mock definitions ---
@@ -23,13 +23,13 @@ const setDecoratedMock = vi.fn((newVal: boolean) => {
 });
 
 // Mock useTauriDialog
-vi.mock("@/hooks/useTauriDialog", () => ({
+vi.mock("@/hooks/tauri/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: errorMock,
   }),
 }));
 // Mock useTauriStore
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: (_key: string, defaultValue: boolean) => {
     storeValue = defaultValue;
     return [storeValue, setDecoratedMock];

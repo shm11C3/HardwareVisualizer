@@ -1,5 +1,5 @@
 import { Label } from "@/components/ui/label";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { RGB2HEX } from "@/lib/color";
 import type { ChartDataType } from "@/types/chart";
 

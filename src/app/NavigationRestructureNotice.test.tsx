@@ -18,13 +18,13 @@ vi.mock("jotai", async (importOriginal) => ({
   useAtomValue: () => mockMenuOpen,
 }));
 
-vi.mock("@/hooks/useDisplayTargetSetter", () => ({
+vi.mock("@/hooks/navigation/useDisplayTargetSetter", () => ({
   useDisplayTargetSetter: () => ({
     setDisplayTargetAtom: mockSetDisplayTargetAtom,
   }),
 }));
 
-vi.mock("@/hooks/useNavigationLayoutFocusRequest", () => ({
+vi.mock("@/hooks/navigation/useNavigationLayoutFocusRequest", () => ({
   useRequestNavigationLayoutFocus: () => ({
     requestFocus: mockRequestNavigationLayoutFocus,
   }),
@@ -36,14 +36,14 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: mockSettings,
     acknowledgeNavigationRestructureAnnouncementAtom: mockAcknowledge,
   }),
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: () => ["performance", mockSetStoredDisplayTarget, false],
 }));
 

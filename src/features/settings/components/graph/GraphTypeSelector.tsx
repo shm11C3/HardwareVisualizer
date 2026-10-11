@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type { ChartDataType } from "@/types/chart";
 
 export const GraphTypeSelector = () => {

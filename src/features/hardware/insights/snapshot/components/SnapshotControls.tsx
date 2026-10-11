@@ -9,7 +9,7 @@ import type {
   SnapshotPeriod,
   UsageRange,
 } from "@/features/hardware/insights/snapshot/types/snapshotType";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { SelectMemoryMaxOption } from "./SnapshotForm";
 
 interface SnapshotControlsProps {

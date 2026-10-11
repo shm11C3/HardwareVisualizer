@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import type { PerformancePowerMode } from "@/features/hardware/performance/types/performanceLayout";
 import { powerDrawAvailableAtom } from "@/features/hardware/store/power";
 import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { PowerDrawChart } from "./PowerDrawChart";
 import { PowerDrawRail } from "./PowerDrawRail";
 

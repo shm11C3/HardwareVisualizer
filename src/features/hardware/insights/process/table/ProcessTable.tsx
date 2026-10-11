@@ -5,8 +5,8 @@ import { tv } from "tailwind-variants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useStickyObserver } from "@/hooks/useStickyObserver";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useStickyObserver } from "@/hooks/window/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
 
 export const ProcessTable = ({

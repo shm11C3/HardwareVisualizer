@@ -1,10 +1,10 @@
 import { renderHook } from "@testing-library/react";
 import type { RefObject } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { useBurnInShift } from "@/hooks/useBurnInShift";
+import { useBurnInShift } from "@/hooks/appearance/useBurnInShift";
 
 // Simple mock setup
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
       burnInShift: true,

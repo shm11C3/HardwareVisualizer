@@ -3,7 +3,7 @@ import { memo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { LineChartComponent } from "@/components/charts/LineChart";
 import { Sparkline } from "@/components/charts/Sparkline";
-import { InfoTable } from "@/components/shared/InfoTable";
+import { InfoTable } from "@/components/InfoTable";
 import { chartConfig } from "@/consts/chart";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
@@ -11,7 +11,7 @@ import {
   cpuUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/liveUsage";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { transpose } from "@/lib/array";
 import { cn } from "@/lib/utils";
 

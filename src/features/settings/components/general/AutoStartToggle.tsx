@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 
 export const AutoStartToggle = () => {
   const { t } = useTranslation();

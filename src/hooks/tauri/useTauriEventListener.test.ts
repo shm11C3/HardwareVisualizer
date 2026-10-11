@@ -1,7 +1,7 @@
 import { message } from "@tauri-apps/plugin-dialog";
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useErrorModalListener } from "@/hooks/useTauriEventListener";
+import { useErrorModalListener } from "@/hooks/tauri/useTauriEventListener";
 
 // --- Mock setup ---
 // Variable to hold the event listener callback within tests

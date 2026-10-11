@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
-// src/hooks/useSettingsAtom.test.ts
+// src/hooks/settings/useSettingsAtom.test.ts
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 /**
@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
  */
 const errorMock = vi.fn();
 
-vi.mock("@/hooks/useTauriDialog", () => ({
+vi.mock("@/hooks/tauri/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: errorMock,
   }),
@@ -59,7 +59,7 @@ vi.mock("@/rspc/bindings", () => ({
 /**
  * Import hook to test
  */
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 /**

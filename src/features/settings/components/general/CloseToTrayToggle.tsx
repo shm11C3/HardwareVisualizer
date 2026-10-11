@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 

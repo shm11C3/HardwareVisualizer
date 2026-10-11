@@ -23,19 +23,22 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: mocks.platform,
 }));
 
-vi.mock("@/hooks/useTauriDialog", () => ({
+vi.mock("@/hooks/tauri/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: mocks.error,
   }),
 }));
 
-vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("@/hooks/useElevationAvailability")
-  >()),
-  useElevationAvailability: mocks.useElevationAvailability,
-  useProcessElevated: mocks.useProcessElevated,
-}));
+vi.mock(
+  "@/hooks/settings/useElevationAvailability",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/hooks/settings/useElevationAvailability")
+    >()),
+    useElevationAvailability: mocks.useElevationAvailability,
+    useProcessElevated: mocks.useProcessElevated,
+  }),
+);
 
 vi.mock("@/rspc/bindings", () => ({
   commands: {

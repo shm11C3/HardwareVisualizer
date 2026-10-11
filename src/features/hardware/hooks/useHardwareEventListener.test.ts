@@ -59,7 +59,7 @@ vi.mock("@/rspc/bindings", () => ({
 
 let mockTemperatureUnit: "C" | "F" = "C";
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: { temperatureUnit: mockTemperatureUnit },
   }),

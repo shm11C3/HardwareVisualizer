@@ -26,7 +26,7 @@ import {
   resolveBaselineBand,
   type ThermalTimelineRow,
 } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type {
   CoolingBaselineState,
   CoolingDailyTrendPoint,

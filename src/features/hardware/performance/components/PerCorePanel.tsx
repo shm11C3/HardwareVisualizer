@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { processorsUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { toCssColor } from "./InstrumentStrip";
 
 /**

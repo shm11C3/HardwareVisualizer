@@ -17,11 +17,11 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({ settings: mocks.settings }),
 }));
 
-vi.mock("@/hooks/useWindowSize", () => ({
+vi.mock("@/hooks/window/useWindowSize", () => ({
   useWindowSize: () => ({ isBreak: () => true }),
 }));
 

@@ -1,7 +1,7 @@
 import { useAtom } from "jotai";
 import { useEffect, useRef } from "react";
 import { selectedStorageDeviceIdAtom } from "@/features/hardware/store/selection";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 
 const STORE_KEY = "selectedStorageDeviceId";
 

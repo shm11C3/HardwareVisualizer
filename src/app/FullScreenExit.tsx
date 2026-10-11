@@ -1,6 +1,6 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { cn } from "@/lib/utils";
 import { commands } from "@/rspc/bindings";
 

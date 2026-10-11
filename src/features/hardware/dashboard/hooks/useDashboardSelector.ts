@@ -3,8 +3,8 @@ import {
   type DashboardSelectItemType,
   dashBoardItems,
 } from "@/features/hardware/dashboard/types/dashboardItem";
-import { useTauriStore } from "@/hooks/useTauriStore";
-import { useTitleIconVisualSelector } from "@/hooks/useTitleIconVisualSelector";
+import { useTitleIconVisualSelector } from "@/hooks/appearance/useTitleIconVisualSelector";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 
 const DEFAULT_VISIBLE_ITEMS: DashboardSelectItemType[] = [
   ...dashBoardItems,

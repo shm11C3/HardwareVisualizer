@@ -12,8 +12,8 @@ import {
 } from "@/components/charts/gaugeGeometry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useWindowSize } from "@/hooks/useWindowSize";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useWindowSize } from "@/hooks/window/useWindowSize";
 import { cn } from "@/lib/utils";
 import type { TemperatureUnit } from "@/rspc/bindings";
 import type { HardwareDataType } from "@/types/chart";

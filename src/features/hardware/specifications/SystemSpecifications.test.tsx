@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   arch: () => "x86_64",
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
       lineGraphColor: {

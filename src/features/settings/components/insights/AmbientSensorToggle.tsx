@@ -2,10 +2,10 @@ import { platform } from "@tauri-apps/plugin-os";
 import { ThermometerIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NeedRestart } from "@/components/shared/System";
+import { NeedRestart } from "@/components/NeedRestart";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { AmbientSensorPicker } from "./AmbientSensorPicker";
 
 /**

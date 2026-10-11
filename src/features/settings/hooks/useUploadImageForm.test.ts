@@ -16,7 +16,7 @@ vi.mock("react-i18next", () => ({
 
 // Mock useTauriDialog
 const errorMock = vi.fn();
-vi.mock("@/hooks/useTauriDialog", () => ({
+vi.mock("@/hooks/tauri/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: errorMock,
   }),
@@ -24,7 +24,7 @@ vi.mock("@/hooks/useTauriDialog", () => ({
 
 // Mock useBackgroundImage
 const saveBackgroundImageMock = vi.fn();
-vi.mock("@/hooks/useBgImage", () => ({
+vi.mock("@/hooks/appearance/useBgImage", () => ({
   useBackgroundImage: () => ({
     saveBackgroundImage: saveBackgroundImageMock,
   }),

@@ -1,5 +1,5 @@
 import type { CoolingInsightPeriod } from "@/features/hardware/insights/cooling/types";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 
 /**
  * UI-local key for the Cooling tab's single period selector. Deliberately

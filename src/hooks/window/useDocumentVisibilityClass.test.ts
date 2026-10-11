@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useDocumentVisibilityClass } from "@/hooks/useDocumentVisibilityClass";
+import { useDocumentVisibilityClass } from "@/hooks/window/useDocumentVisibilityClass";
 
 const setDocumentHidden = (hidden: boolean) => {
   Object.defineProperty(document, "hidden", {

@@ -1,5 +1,5 @@
 ---
-scope: "src/features/settings/**,src/lib/tauriStore.ts,src/hooks/useTauriStore.ts,core/src/settings/**,src-tauri/src/commands/settings.rs,src-tauri/src/models/settings.rs,src-tauri/src/services/settings_service.rs"
+scope: "src/features/settings/**,src/lib/tauriStore.ts,src/hooks/tauri/useTauriStore.ts,core/src/settings/**,src-tauri/src/commands/settings.rs,src-tauri/src/models/settings.rs,src-tauri/src/services/settings_service.rs"
 ---
 
 # Settings Instructions

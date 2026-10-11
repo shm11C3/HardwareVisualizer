@@ -10,8 +10,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useRestartRequired } from "@/hooks/useRestartRequired";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useRestartRequired } from "@/hooks/settings/useRestartRequired";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 const storageHealthRetentionPresets = [

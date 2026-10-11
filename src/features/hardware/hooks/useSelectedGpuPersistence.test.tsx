@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   init: vi.fn(),
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: () => [
     mocks.storeValue,
     mocks.setStored,

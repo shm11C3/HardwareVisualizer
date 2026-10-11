@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import {
   useElevationAvailability,
   useProcessElevated,
-} from "@/hooks/useElevationAvailability";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+} from "@/hooks/settings/useElevationAvailability";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 
 /**
  * Tells the user once per launch that Run as administrator on startup was not

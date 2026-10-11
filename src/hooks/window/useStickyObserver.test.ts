@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useStickyObserver } from "@/hooks/useStickyObserver";
+import { useStickyObserver } from "@/hooks/window/useStickyObserver";
 
 // Mock for IntersectionObserver that captures the callback so tests can invoke it
 const mockObserve = vi.fn();

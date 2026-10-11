@@ -21,9 +21,14 @@ listed below it.
 | Store | `src/store`, `src/features/<f>/store` | Foundation, plus the feature's own non-UI modules. No React or Jotai React bindings. |
 | Shared hooks | `src/hooks` | Foundation, store |
 | UI primitives | `src/components/ui`, `src/components/icons` | Foundation. Never IPC `commands` or `events`. No Jotai. |
-| Shared components | `src/components/charts`, `src/components/shared` | All of the above. Charts never import shared components. |
+| Shared components | `src/components/charts`, `src/components/*.tsx` | All of the above. Charts never import shared components. |
 | Feature | `src/features/<f>` | All of the above and its own feature. Never another feature. |
 | App | `src/app`, `src/main*.tsx` | Anything |
+
+The root directories (`types`, `consts`, `lib`, `store`, `hooks`, `components`)
+are the shared layer, organized by kind. Grouping by concern happens in
+sub-folders inside them (for example `src/hooks/window`), never as new
+top-level directories, so the path scopes above stay fixed.
 
 Within a feature, `store/` and `hooks/` import their own feature through a
 closed allow-list rather than an open exemption:
@@ -53,7 +58,7 @@ Two rules close the obvious bypasses:
 
 - `src/store` holds cross-feature state, including Application Preferences,
   which live in `src/store/settings.ts` with their hook in
-  `src/hooks/useSettingsAtom.ts`. `src/features/<f>/store` holds state owned by
+  `src/hooks/settings/useSettingsAtom.ts`. `src/features/<f>/store` holds state owned by
   one feature.
 - `getDefaultStore` and `createStore` stay out of production code. State reaches
   React through the Provider-scoped store, which is what lets tests isolate
@@ -80,9 +85,10 @@ plugin `.config/biome/no-module-scope-let.grit`.
 | Jotai API placement | `paths.jotai.importNames` per scope, plus `jotai/**` subpaths banned outside store modules |
 | UI primitives never call IPC | `paths["@/rspc/bindings"].importNames` = `commands`, `events` |
 | No bypass through namespace imports | `*` is listed wherever specific names are restricted |
-| No OS error dialogs from the hardware feature | `paths["@/hooks/useTauriDialog"]` banned in the `features/hardware` overrides |
+| No OS error dialogs from the hardware feature | `paths["@/hooks/tauri/useTauriDialog"]` banned in the `features/hardware` overrides |
 | No module-scope `let` outside store modules | GritQL plugin through an override |
 | No cycles, barrels, or `export *` | `noImportCycles`, `noBarrelFile`, `noReExportAll` |
+| File name matches its export: components PascalCase `.tsx`, other modules camelCase `.ts`, `src/components/ui` kebab-case, tests either of the two | `useFilenamingConvention` overrides in root `biome.jsonc` |
 
 The restricted Jotai names follow jotai's root exports. Jotai 3 added
 `useAtomValueRaw`, `useAtomValueRawSync`, and `INTERNAL_overrideCreateStore`,

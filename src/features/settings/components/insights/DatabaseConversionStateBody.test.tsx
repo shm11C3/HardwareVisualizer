@@ -29,7 +29,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: { hardwareArchive: { retentionDays: 30 } },
     setHardwareArchiveRetentionDays: vi.fn(async () => true),
