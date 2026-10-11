@@ -47,7 +47,7 @@ type DataTypeKey =
   | "motherboard";
 
 export const Dashboard = () => {
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed } = useHardwareInfoAtom();
   const { dashboardItemMap, handleDragOver } = useSortableDashboard({
     storeKey: "dashboardItem",
   });
@@ -86,7 +86,10 @@ export const Dashboard = () => {
         />
       ),
       component:
-        hardwareInfo.gpus != null && hardwareInfo.gpus.length > 0 ? (
+        (hardwareInfo.gpus != null && hardwareInfo.gpus.length > 0) ||
+        // A failed inventory read leaves `gpus` null; hiding the card would
+        // read as "no GPU", so the card renders its failure state instead.
+        (hardwareInfo.gpus == null && inventoryLoadFailed) ? (
           <GPUInfo />
         ) : null,
     },

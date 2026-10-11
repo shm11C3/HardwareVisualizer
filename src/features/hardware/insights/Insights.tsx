@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, ZapIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { LoadFailure } from "@/components/LoadFailure";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/features/hardware/consts/chart";
 import { useGpuNames } from "@/features/hardware/hooks/useGpuNames";
@@ -546,7 +547,11 @@ const Icon = ({ type }: { type: InsightType }) => {
 
 export const Insights = () => {
   const { t } = useTranslation();
-  const gpuNames = useGpuNames();
+  const {
+    gpuNames,
+    hasError: gpuNamesHasError,
+    retry: retryGpuNames,
+  } = useGpuNames();
   const { init } = useHardwareInfoAtom();
   const [displayTarget, setDisplayTarget, isPending] = useTauriStore<string>(
     "insightDisplayTarget",
@@ -622,6 +627,15 @@ export const Insights = () => {
               );
             })}
           </TabsList>
+        )}
+        {gpuNamesHasError && (
+          // Without names there are no GPU tabs to select, so the failure
+          // sits with the tab list instead of inside a tab.
+          <LoadFailure
+            className="mt-2 ml-1 h-auto flex-row justify-start gap-3 text-left"
+            message={t("shared.loadFailed")}
+            onRetry={retryGpuNames}
+          />
         )}
         {insightsChild.map(({ name: key, element }) => (
           <TabsContent key={key} value={key}>

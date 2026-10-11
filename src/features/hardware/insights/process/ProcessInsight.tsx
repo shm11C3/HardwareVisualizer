@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import { archivePeriods } from "@/features/hardware/consts/chart";
 import { SelectPeriod } from "@/features/hardware/insights/components/SelectPeriod";
 import { useTauriStore } from "@/hooks/useTauriStore";
@@ -50,7 +51,8 @@ const ProcessArea = ({
 }: {
   period: (typeof archivePeriods)[number];
 }) => {
-  const { processStats, loading } = useProcessStats({
+  const { t } = useTranslation();
+  const { processStats, loading, hasError, retry } = useProcessStats({
     period,
     offset: 0,
   });
@@ -66,6 +68,16 @@ const ProcessArea = ({
         stat.total_execution_sec < 60 * 60 * 24 * 30, // Ignore processes running for more than 1 month
     );
   }, [processStats]);
+
+  if (hasError) {
+    return (
+      <LoadFailure
+        className="mt-4 py-16"
+        message={t("shared.loadFailed")}
+        onRetry={retry}
+      />
+    );
+  }
 
   return (
     <div className="mt-4">

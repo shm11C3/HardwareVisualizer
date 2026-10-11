@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   getArchivedRecord,
@@ -9,12 +9,10 @@ import type {
   UsageRange,
 } from "@/features/hardware/insights/snapshot/types/snapshotType";
 import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
 import type { ArchiveSeriesPoint } from "@/rspc/bindings";
 
 export const useSnapshot = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
-  const { error } = useTauriDialog();
 
   // Calculate total memory in MB
   const totalMemoryMB = useMemo(() => {
@@ -47,6 +45,7 @@ export const useSnapshot = () => {
   );
   const [archivedData, setArchivedData] = useState<ArchiveSeriesPoint[]>([]);
   const [processData, setProcessData] = useState<ProcessStat[]>([]);
+  const [hasError, setHasError] = useState(false);
   const [memoryMaxOption, setMemoryMaxOption] = useState<
     "128MB" | "256MB" | "512MB" | "1GB" | "2GB" | "8GB" | "device"
   >("device");
@@ -95,35 +94,55 @@ export const useSnapshot = () => {
     return Math.ceil(Math.max(diff / BUCKET_COUNT, 60000));
   }, [period]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const startDate = new Date(period.start);
-      const endDate = new Date(period.end);
+  const requestIdRef = useRef(0);
 
-      try {
-        // Get hardware data
-        const hardwareType = selectedDataType === "memory" ? "ram" : "cpu";
-        const archivedResult = await getArchivedRecord(
-          hardwareType,
-          startDate,
-          endDate,
-          step,
-        );
-        setArchivedData(archivedResult);
+  const load = useCallback(async () => {
+    // A superseded read (new period/data type, retry, unmount) must not flip
+    // the state of the read that replaced it.
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
-        // Get process data
-        const processResult = await getProcessStatsInPeriod(startDate, endDate);
-        setProcessData(processResult);
-      } catch (err) {
-        console.error(err);
+    const startDate = new Date(period.start);
+    const endDate = new Date(period.end);
+
+    try {
+      // Get hardware data
+      const hardwareType = selectedDataType === "memory" ? "ram" : "cpu";
+      const archivedResult = await getArchivedRecord(
+        hardwareType,
+        startDate,
+        endDate,
+        step,
+      );
+      // Get process data
+      const processResult = await getProcessStatsInPeriod(startDate, endDate);
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+      setArchivedData(archivedResult);
+      setProcessData(processResult);
+      setHasError(false);
+    } catch (err) {
+      console.error(err);
+      if (requestIdRef.current === requestId) {
         setArchivedData([]);
         setProcessData([]);
-        void error(String(err));
+        setHasError(true);
       }
-    };
+    }
+  }, [period, selectedDataType, step]);
 
-    void fetchData();
-  }, [period, selectedDataType, step, error]);
+  useEffect(() => {
+    void load();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [load]);
+
+  const retry = useCallback(() => {
+    void load();
+  }, [load]);
 
   const dateFormatter = useMemo(() => {
     const periodMinutes =
@@ -215,5 +234,7 @@ export const useSnapshot = () => {
     memoryMaxOption,
     setMemoryMaxOption,
     selectedMemoryMaxMB,
+    hasError,
+    retry,
   };
 };

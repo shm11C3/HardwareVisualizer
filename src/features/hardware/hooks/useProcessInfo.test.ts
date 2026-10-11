@@ -3,11 +3,12 @@ import { Provider } from "jotai";
 import { createElement, type PropsWithChildren, StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const errorMock = vi.fn();
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: errorMock,
-  }),
+// Polling failure is state the process table renders; it never opens a dialog.
+const dialogMessageMock = vi.fn();
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  message: dialogMessageMock,
+  ask: dialogMessageMock,
+  confirm: dialogMessageMock,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -76,7 +77,7 @@ describe("useProcessInfo", () => {
     });
 
     await waitFor(() => {
-      expect(result.current).toEqual(processData);
+      expect(result.current.processes).toEqual(processData);
     });
   });
 
@@ -87,7 +88,7 @@ describe("useProcessInfo", () => {
       wrapper: Provider,
     });
 
-    expect(result.current).toEqual([]);
+    expect(result.current.processes).toEqual([]);
   });
 
   it("does not fetch or subscribe to shared process state when disabled", async () => {
@@ -97,7 +98,7 @@ describe("useProcessInfo", () => {
 
     await flushMicrotasks();
 
-    expect(result.current).toEqual([]);
+    expect(result.current.processes).toEqual([]);
     expect(getProcessListMock).not.toHaveBeenCalled();
   });
 
@@ -255,23 +256,24 @@ describe("useProcessInfo", () => {
     staleRequest.resolve(staleData);
     await flushMicrotasks();
     expect(getProcessListMock).toHaveBeenCalledTimes(2);
-    expect(result.current).toEqual([]);
+    expect(result.current.processes).toEqual([]);
 
     resumedRequest.resolve(currentData);
     await waitFor(() => {
-      expect(result.current).toEqual(currentData);
+      expect(result.current.processes).toEqual(currentData);
     });
     expect(getProcessListMock).toHaveBeenCalledTimes(2);
   });
 
-  it("preserves the last successful result and reports one shared error", async () => {
+  it("reports a polling failure as shared hasError state, with no dialog, until the next poll succeeds", async () => {
     const processData = [
       { pid: 1, name: "process1", cpuUsage: "10", memoryUsage: "200" },
     ];
     const pollingError = "Failed to fetch processes";
     getProcessListMock
       .mockResolvedValueOnce(processData)
-      .mockRejectedValueOnce(pollingError);
+      .mockRejectedValueOnce(pollingError)
+      .mockResolvedValue(processData);
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -285,23 +287,49 @@ describe("useProcessInfo", () => {
     );
 
     await waitFor(() => {
-      expect(result.current).toEqual(processData);
+      expect(result.current.processes).toEqual(processData);
     });
 
     act(() => setDocumentVisibility(true));
     act(() => setDocumentVisibility(false));
 
     await waitFor(() => {
-      expect(errorMock).toHaveBeenCalledWith(pollingError);
+      expect(result.current.hasError).toBe(true);
     });
 
-    expect(result.current).toEqual(processData);
-    expect(errorMock).toHaveBeenCalledTimes(1);
+    // The last good rows are kept in state; the table decides to hide them.
+    expect(result.current.processes).toEqual(processData);
+    expect(dialogMessageMock).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       "Failed to fetch processes:",
       pollingError,
     );
+
+    // Polling keeps retrying on its own; the next success clears the state.
+    act(() => setDocumentVisibility(true));
+    act(() => setDocumentVisibility(false));
+    await waitFor(() => {
+      expect(result.current.hasError).toBe(false);
+    });
+  });
+
+  it("never reports hasError for a disabled consumer", async () => {
+    getProcessListMock.mockRejectedValue("boom");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderHook(
+      () => ({
+        live: useProcessInfo(),
+        disabled: useProcessInfo({ enabled: false }),
+      }),
+      { wrapper: Provider },
+    );
+
+    await waitFor(() => {
+      expect(result.current.live.hasError).toBe(true);
+    });
+    expect(result.current.disabled.hasError).toBe(false);
   });
 
   it("stops polling after the final consumer unmounts", async () => {

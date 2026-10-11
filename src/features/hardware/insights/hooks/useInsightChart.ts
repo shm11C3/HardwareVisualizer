@@ -3,7 +3,6 @@ import { chartConfig } from "@/consts/chart";
 import type { archivePeriods } from "@/features/hardware/consts/chart";
 import type { DataStats } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   type ArchiveSeriesPoint,
   commands,
@@ -34,12 +33,12 @@ export const useInsightChart = (
 ) => {
   const { hardwareType, dataStats, period, offset } = props;
   const { settings } = useSettingsAtom();
-  const { error } = useTauriDialog();
 
   const gpuName = hardwareType === "gpu" ? props.gpuName : "";
   const dataType = hardwareType === "gpu" ? props.dataType : undefined;
 
   const [data, setData] = useState<ArchiveSeriesPoint[]>([]);
+  const [hasError, setHasError] = useState(false);
 
   const prevOffsetRef = useRef(offset);
   const activeRequestIdRef = useRef(0);
@@ -127,6 +126,26 @@ export const useInsightChart = (
     [settings.temperatureUnit, dataType, hardwareType],
   );
 
+  const load = useCallback(async () => {
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
+
+    try {
+      const rows = await getData();
+      if (activeRequestIdRef.current !== requestId) {
+        return;
+      }
+      setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
+      setHasError(false);
+    } catch (e) {
+      console.error(e);
+      if (activeRequestIdRef.current === requestId) {
+        setData([]);
+        setHasError(true);
+      }
+    }
+  }, [getData, formatValue]);
+
   useEffect(() => {
     const isOffsetChanged = prevOffsetRef.current !== offset;
     prevOffsetRef.current = offset;
@@ -135,30 +154,18 @@ export const useInsightChart = (
     // Debounce DB reads to avoid spamming when scrubbing.
     const debounceMs = isOffsetChanged ? 250 : 0;
 
-    const requestId = activeRequestIdRef.current + 1;
-    activeRequestIdRef.current = requestId;
-
-    const run = async () => {
-      try {
-        const rows = await getData();
-        if (activeRequestIdRef.current !== requestId) {
-          return;
-        }
-        setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
-      } catch (e) {
-        console.error(e);
-        if (activeRequestIdRef.current === requestId) {
-          setData([]);
-        }
-        void error(String(e));
-      }
-    };
+    // Invalidate any in-flight read right away, not when the debounce fires,
+    // so a slow answer for the previous window cannot land in the new one.
+    activeRequestIdRef.current += 1;
 
     if (scheduledTimeoutIdRef.current != null) {
       clearTimeout(scheduledTimeoutIdRef.current);
     }
 
-    scheduledTimeoutIdRef.current = window.setTimeout(run, debounceMs);
+    scheduledTimeoutIdRef.current = window.setTimeout(
+      () => void load(),
+      debounceMs,
+    );
 
     return () => {
       if (scheduledTimeoutIdRef.current != null) {
@@ -166,7 +173,7 @@ export const useInsightChart = (
         scheduledTimeoutIdRef.current = null;
       }
     };
-  }, [getData, formatValue, offset, error]);
+  }, [load, offset]);
 
   useEffect(() => {
     // Only auto-refresh the "current" window.
@@ -174,28 +181,17 @@ export const useInsightChart = (
       return;
     }
 
-    const intervalId = window.setInterval(() => {
-      const requestId = activeRequestIdRef.current + 1;
-      activeRequestIdRef.current = requestId;
-
-      void getData()
-        .then((rows) => {
-          if (activeRequestIdRef.current !== requestId) {
-            return;
-          }
-          setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
-        })
-        .catch((e) => {
-          console.error(e);
-          if (activeRequestIdRef.current === requestId) {
-            setData([]);
-          }
-          void error(String(e));
-        });
-    }, chartConfig.archiveUpdateIntervalMilSec);
+    const intervalId = window.setInterval(
+      () => void load(),
+      chartConfig.archiveUpdateIntervalMilSec,
+    );
 
     return () => clearInterval(intervalId);
-  }, [getData, formatValue, offset, error]);
+  }, [load, offset]);
+
+  const retry = useCallback(() => {
+    void load();
+  }, [load]);
 
   const dateFormatter = useMemo(() => {
     // Define display options (set properties based on conditions)
@@ -234,5 +230,11 @@ export const useInsightChart = (
 
   const hasData = filledChartData.some((v) => v != null);
 
-  return { labels: filledLabels, chartData: filledChartData, hasData };
+  return {
+    labels: filledLabels,
+    chartData: filledChartData,
+    hasData,
+    hasError,
+    retry,
+  };
 };

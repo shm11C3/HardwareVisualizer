@@ -1,19 +1,18 @@
 import { useAtomValue, useStore } from "jotai";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import {
   disabledProcessesAtom,
   processesAtom,
+  processListLoadFailedAtom,
 } from "@/features/hardware/store/processes";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { commands } from "@/rspc/bindings";
 
 const PROCESS_POLL_INTERVAL_MS = 3000;
 
-type ErrorReporter = (pollingError: unknown) => void;
 type Store = ReturnType<typeof useStore>;
 
 class ProcessPollingCoordinator {
-  private readonly consumers = new Map<symbol, ErrorReporter>();
+  private readonly consumers = new Set<symbol>();
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private requestInFlight = false;
   private pendingDemandRefresh = false;
@@ -22,10 +21,10 @@ class ProcessPollingCoordinator {
 
   constructor(private readonly store: Store) {}
 
-  subscribe(reportError: ErrorReporter) {
+  subscribe() {
     const consumerId = Symbol("process-polling-consumer");
     const isFirstConsumer = this.consumers.size === 0;
-    this.consumers.set(consumerId, reportError);
+    this.consumers.add(consumerId);
 
     if (isFirstConsumer) {
       document.addEventListener(
@@ -118,11 +117,13 @@ class ProcessPollingCoordinator {
       const processesData = await commands.getProcessList();
       if (this.isCurrentRequest(requestGeneration)) {
         this.store.set(processesAtom, processesData);
+        this.store.set(processListLoadFailedAtom, false);
       }
     } catch (pollingError) {
       if (this.isCurrentRequest(requestGeneration)) {
-        // All reporters open the same shared dialog; any surviving one works.
-        this.consumers.values().next().value?.(pollingError);
+        // Failure is state, not a notice: polling keeps retrying on its own
+        // and the next success clears it, so repeated failures cannot stack.
+        this.store.set(processListLoadFailedAtom, true);
         console.error("Failed to fetch processes:", pollingError);
       }
     } finally {
@@ -160,26 +161,19 @@ export const useProcessInfo = ({
 }: {
   enabled?: boolean;
 } = {}) => {
-  const { error } = useTauriDialog();
-  const errorRef = useRef(error);
   const store = useStore();
   const processes = useAtomValue(
     enabled ? processesAtom : disabledProcessesAtom,
   );
-
-  useEffect(() => {
-    errorRef.current = error;
-  }, [error]);
+  const pollingFailed = useAtomValue(processListLoadFailedAtom);
 
   useEffect(() => {
     if (!enabled) {
       return;
     }
 
-    return getCoordinator(store).subscribe((pollingError) => {
-      errorRef.current(pollingError as string);
-    });
+    return getCoordinator(store).subscribe();
   }, [store, enabled]);
 
-  return processes;
+  return { processes, hasError: enabled && pollingFailed };
 };

@@ -1,7 +1,7 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtomValue } from "jotai";
 import { RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import {
@@ -9,6 +9,7 @@ import {
   type StorageBarChartData,
 } from "@/components/charts/Bar";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
+import { LoadFailure } from "@/components/LoadFailure";
 import { InfoTable } from "@/components/shared/InfoTable";
 import {
   Accordion,
@@ -60,7 +61,6 @@ import type {
   NameValues,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { formatBytes } from "@/lib/formatter";
@@ -82,8 +82,8 @@ export const CPUInfo = () => {
   const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
   const cpuTemp = useAtomValue(cpuTempAtom);
   const sensorTemps = useAtomValue(sensorTempsAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
-  const processes = useProcessInfo();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
+  const { processes } = useProcessInfo();
   const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
 
   const cpuTemperature = cpuTemp[0]?.value;
@@ -116,6 +116,14 @@ export const CPUInfo = () => {
             [t("shared.processCount")]: processes.length,
           }}
         />
+      ) : inventoryLoadFailed ? (
+        <LoadFailure
+          className="h-[188px]"
+          message={t(
+            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
+          )}
+          onRetry={() => void init()}
+        />
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
@@ -145,7 +153,7 @@ export const GPUInfo = () => {
   const gpuTemp = useAtomValue(gpuTempAtom);
   const gpuUsageSource = useAtomValue(gpuUsageSourceAtom);
   const { effectiveGpuId, selectedGpuId, selectGpu } = useGpuAdapters();
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
   const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
@@ -323,6 +331,14 @@ export const GPUInfo = () => {
             })()}
           </div>
         ))
+      ) : inventoryLoadFailed ? (
+        <LoadFailure
+          className="h-[188px]"
+          message={t(
+            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
+          )}
+          onRetry={() => void init()}
+        />
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
@@ -333,7 +349,7 @@ export const GPUInfo = () => {
 export const MemoryInfo = () => {
   const { t } = useTranslation();
   const memoryUsageHistory = useAtomValue(memoryUsageHistoryAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   const os = platform();
 
   const {
@@ -423,6 +439,14 @@ export const MemoryInfo = () => {
             )}
           </div>
         </div>
+      ) : inventoryLoadFailed ? (
+        <LoadFailure
+          className="h-[188px]"
+          message={t(
+            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
+          )}
+          onRetry={() => void init()}
+        />
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
@@ -433,18 +457,32 @@ export const MemoryInfo = () => {
 export const FetchDetailButton = () => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const { fetchMemoryInfoDetail } = useHardwareInfoAtom();
 
   const handleLoadDetail = async () => {
     setLoading(true);
-    await fetchMemoryInfoDetail();
+    setFailed(false);
+    const loaded = await fetchMemoryInfoDetail();
+    setFailed(!loaded);
     setLoading(false);
   };
 
   return (
-    <Button onClick={handleLoadDetail} disabled={loading}>
-      {t("shared.loadDetailedInfo")}
-    </Button>
+    <div className="flex items-center gap-3">
+      {failed && (
+        <span
+          role="alert"
+          data-testid="memory-detail-load-failure"
+          className="text-destructive text-sm"
+        >
+          {t("shared.loadFailed")}
+        </span>
+      )}
+      <Button onClick={handleLoadDetail} disabled={loading}>
+        {t("shared.loadDetailedInfo")}
+      </Button>
+    </div>
   );
 };
 
@@ -460,13 +498,12 @@ const storageDataInfoGridVariants = tv({
 
 export const StorageDataInfo = () => {
   const { t } = useTranslation();
-  const { error } = useTauriDialog();
   const { settings } = useSettingsAtom();
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
-  const storageHealthErrorShownRef = useRef(false);
-  const liveStorageHealthErrorShownRef = useRef(false);
   const storageHealthRecordsVersionRef = useRef(0);
+  const storageHealthRequestIdRef = useRef(0);
+  const liveStorageHealthRequestIdRef = useRef(0);
   const storageHealthEnabled = settings.storageHealth.enabled ?? true;
   const { selectedStorageDeviceId, selectStorageDevice } =
     useSelectedStorageDevice();
@@ -480,6 +517,11 @@ export const StorageDataInfo = () => {
   const [storageHealthRefreshError, setStorageHealthRefreshError] = useState<
     string | null
   >(null);
+  // A failed read is its own state, not an empty record list: the overview
+  // renders a failure line with a retry instead of the "unavailable" look.
+  const [storageHealthRecordsFailed, setStorageHealthRecordsFailed] =
+    useState(false);
+  const [liveStorageHealthFailed, setLiveStorageHealthFailed] = useState(false);
 
   // Sort by drive name
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
@@ -519,88 +561,85 @@ export const StorageDataInfo = () => {
       selectedStorageDeviceId,
     ]);
 
+  // Stable loaders: the effects poll them and the failure line's retry calls
+  // them directly. A request-id guard drops answers a newer read superseded.
+  const loadStorageHealthRecords = useCallback(async () => {
+    const requestId = storageHealthRequestIdRef.current + 1;
+    storageHealthRequestIdRef.current = requestId;
+    const recordsVersionAtRequest = storageHealthRecordsVersionRef.current;
+    const result = await commands.getStorageHealthLatestRecords();
+    if (storageHealthRequestIdRef.current !== requestId) return;
+    if (recordsVersionAtRequest !== storageHealthRecordsVersionRef.current) {
+      return;
+    }
+
+    if (isError(result)) {
+      console.error(
+        "Failed to fetch storage health dashboard records",
+        result.error,
+      );
+      setStorageHealthRecords([]);
+      setStorageHealthRecordsFailed(true);
+      return;
+    }
+
+    setStorageHealthRecordsFailed(false);
+    setStorageHealthRecords(result.data);
+  }, []);
+
+  const loadLiveStorageHealth = useCallback(async () => {
+    const requestId = liveStorageHealthRequestIdRef.current + 1;
+    liveStorageHealthRequestIdRef.current = requestId;
+    const result = await commands.getLiveStorageHealth();
+    if (liveStorageHealthRequestIdRef.current !== requestId) return;
+
+    if (isError(result)) {
+      console.error("Failed to fetch live storage health", result.error);
+      setLiveStorageHealth([]);
+      setLiveStorageHealthFailed(true);
+      return;
+    }
+
+    setLiveStorageHealthFailed(false);
+    setLiveStorageHealth(result.data);
+  }, []);
+
   useEffect(() => {
     if (!storageHealthEnabled) {
-      storageHealthErrorShownRef.current = false;
+      setStorageHealthRecordsFailed(false);
       setStorageHealthRecords([]);
       setStorageHealthRefreshError(null);
       setStorageHealthRefreshing(false);
       return;
     }
 
-    let isMounted = true;
-
-    const loadStorageHealthDevices = async () => {
-      const recordsVersionAtRequest = storageHealthRecordsVersionRef.current;
-      const result = await commands.getStorageHealthLatestRecords();
-      if (!isMounted) return;
-      if (recordsVersionAtRequest !== storageHealthRecordsVersionRef.current) {
-        return;
-      }
-
-      if (isError(result)) {
-        console.error(
-          "Failed to fetch storage health dashboard records",
-          result.error,
-        );
-        setStorageHealthRecords([]);
-        if (!storageHealthErrorShownRef.current) {
-          storageHealthErrorShownRef.current = true;
-          void error(
-            `${t("pages.dashboard.storageHealth.errors.fetchLatest")}\n${result.error}`,
-          );
-        }
-        return;
-      }
-
-      storageHealthErrorShownRef.current = false;
-      setStorageHealthRecords(result.data);
-    };
-
-    const stopPolling = startVisiblePolling(loadStorageHealthDevices, 60_000);
+    const stopPolling = startVisiblePolling(loadStorageHealthRecords, 60_000);
 
     return () => {
-      isMounted = false;
+      storageHealthRequestIdRef.current += 1;
       stopPolling();
     };
-  }, [storageHealthEnabled, error, t]);
+  }, [storageHealthEnabled, loadStorageHealthRecords]);
 
   useEffect(() => {
     if (!storageHealthEnabled) {
-      liveStorageHealthErrorShownRef.current = false;
+      setLiveStorageHealthFailed(false);
       setLiveStorageHealth([]);
       return;
     }
 
-    let isMounted = true;
-
-    const loadLiveStorageHealth = async () => {
-      const result = await commands.getLiveStorageHealth();
-      if (!isMounted) return;
-
-      if (isError(result)) {
-        console.error("Failed to fetch live storage health", result.error);
-        setLiveStorageHealth([]);
-        if (!liveStorageHealthErrorShownRef.current) {
-          liveStorageHealthErrorShownRef.current = true;
-          void error(
-            `${t("pages.dashboard.storageHealth.errors.fetchLive")}\n${result.error}`,
-          );
-        }
-        return;
-      }
-
-      liveStorageHealthErrorShownRef.current = false;
-      setLiveStorageHealth(result.data);
-    };
-
     const stopPolling = startVisiblePolling(loadLiveStorageHealth, 10_000);
 
     return () => {
-      isMounted = false;
+      liveStorageHealthRequestIdRef.current += 1;
       stopPolling();
     };
-  }, [storageHealthEnabled, error, t]);
+  }, [storageHealthEnabled, loadLiveStorageHealth]);
+
+  const retryStorageHealthReads = () => {
+    void loadStorageHealthRecords();
+    void loadLiveStorageHealth();
+  };
 
   const refreshStorageDevices = async () => {
     if (!storageHealthEnabled || storageHealthRefreshing) return;
@@ -612,15 +651,21 @@ export const StorageDataInfo = () => {
 
     if (isError(result)) {
       console.error("Failed to refresh storage devices", result.error);
-      const message = `${t("pages.dashboard.storageHealth.errors.refresh")}\n${result.error}`;
-      setStorageHealthRefreshError(message);
-      void error(message);
+      // User-triggered, so the failure belongs next to the refresh control.
+      // The Rust error stays in the console; the copy is translated.
+      setStorageHealthRefreshError(
+        t("pages.dashboard.storageHealth.errors.refresh"),
+      );
       setStorageHealthRefreshing(false);
       return;
     }
 
     storageHealthRecordsVersionRef.current += 1;
     setStorageHealthRecords(result.data);
+    // Fresh records supersede an earlier failed read; keeping its failure
+    // line beside them would contradict the data on screen.
+    setStorageHealthRecordsFailed(false);
+    setStorageHealthRefreshError(null);
     setStorageHealthRefreshing(false);
   };
 
@@ -632,6 +677,14 @@ export const StorageDataInfo = () => {
         onSelectDevice={selectStorageDevice}
         refreshError={storageHealthRefreshError}
         refreshing={storageHealthRefreshing}
+        loadFailure={
+          storageHealthRecordsFailed
+            ? "records"
+            : liveStorageHealthFailed
+              ? "live"
+              : null
+        }
+        onRetryLoad={retryStorageHealthReads}
       />
       <div
         className={storageDataInfoGridVariants({ isWindows: os === "windows" })}
@@ -660,6 +713,14 @@ export const StorageDataInfo = () => {
                 </div>
               );
             })
+          ) : inventoryLoadFailed ? (
+            <LoadFailure
+              className="h-[188px]"
+              message={t(
+                "pages.dashboard.systemSpecifications.inventoryLoadFailed",
+              )}
+              onRetry={() => void init()}
+            />
           ) : (
             <Skeleton className="h-[188px] rounded-md" />
           )}
@@ -670,7 +731,7 @@ export const StorageDataInfo = () => {
               chartData={chartData}
               unit={sortedStorage[0].sizeUnit}
             />
-          ) : (
+          ) : inventoryLoadFailed ? null : (
             <>
               <Skeleton className="ml-6 h-[88px] rounded-md" />
               <Skeleton className="mt-3 ml-6 h-[88px] rounded-md" />
@@ -710,12 +771,17 @@ const StorageHealthOverview = ({
   refreshError,
   refreshing = false,
   summary,
+  loadFailure = null,
+  onRetryLoad,
 }: {
   onRefresh?: (() => void) | undefined;
   onSelectDevice?: ((deviceId: string) => void) | undefined;
   refreshError?: string | null;
   refreshing?: boolean;
   summary: StorageHealthSummaryViewModel | null;
+  /** Which automatic read failed. Distinct from "no records yet". */
+  loadFailure?: "records" | "live" | null;
+  onRetryLoad?: (() => void) | undefined;
 }) => {
   const { t } = useTranslation();
 
@@ -780,8 +846,25 @@ const StorageHealthOverview = ({
         />
       )}
 
+      {loadFailure != null && (
+        <LoadFailure
+          className="h-auto flex-row justify-between gap-2 text-left"
+          message={t(
+            loadFailure === "records"
+              ? "pages.dashboard.storageHealth.errors.fetchLatest"
+              : "pages.dashboard.storageHealth.errors.fetchLive",
+          )}
+          onRetry={onRetryLoad}
+        />
+      )}
+
       {refreshError && (
-        <p className="truncate text-destructive text-xs" title={refreshError}>
+        <p
+          role="alert"
+          data-testid="storage-health-refresh-error"
+          className="truncate text-destructive text-xs"
+          title={refreshError}
+        >
           {refreshError}
         </p>
       )}
@@ -1063,7 +1146,7 @@ export const NetworkInfo = ({
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { networkInfo, initNetwork } = useHardwareInfoAtom();
+  const { networkInfo, networkLoadFailed, initNetwork } = useHardwareInfoAtom();
   const [isLoading, setIsLoading] = useState(showUnavailableState);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `initNetwork` is a stable function
@@ -1086,6 +1169,18 @@ export const NetworkInfo = ({
       <Skeleton
         className="h-24 w-full rounded-md"
         data-testid="network-info-loading"
+      />
+    );
+  }
+
+  // A failed read is not "this machine has no network adapter", and it must
+  // show wherever the panel is mounted, not only where the empty copy is.
+  if (networkLoadFailed && networkInfo.length === 0) {
+    return (
+      <LoadFailure
+        className="h-auto px-4 pb-4"
+        message={t("pages.dashboard.systemSpecifications.networkLoadFailed")}
+        onRetry={() => void initNetwork()}
       />
     );
   }

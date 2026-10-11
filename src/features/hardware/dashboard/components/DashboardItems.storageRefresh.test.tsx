@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => {
   const translations = {
     "pages.dashboard.storageHealth.errors.fetchLatest":
       "Failed to fetch storage health data.",
+    "pages.dashboard.storageHealth.errors.fetchLive":
+      "Failed to fetch live storage health data.",
     "pages.dashboard.storageHealth.errors.refresh":
       "Failed to re-detect storage devices.",
     "pages.dashboard.storageHealth.lastRecorded": "Last recorded 2026-05-10",
@@ -20,6 +22,7 @@ const mocks = vi.hoisted(() => {
       "Record: 2026-05-10 09:12",
     "shared.driveFileSystem": "File system",
     "shared.driveType": "Type",
+    "shared.retry": "Try again",
   } as Record<string, string>;
 
   return {
@@ -28,7 +31,7 @@ const mocks = vi.hoisted(() => {
       getStorageHealthLatestRecords: vi.fn(),
       refreshStorageDevices: vi.fn(),
     },
-    dialogError: vi.fn(),
+    dialogMessage: vi.fn(),
     settings: {
       storageHealth: {
         enabled: true,
@@ -69,6 +72,8 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
     hardwareInfo: {
       storage: mocks.storage,
     },
+    inventoryLoadFailed: false,
+    init: vi.fn(),
   }),
 }));
 
@@ -78,10 +83,12 @@ vi.mock("@/hooks/useSettingsAtom", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: mocks.dialogError,
-  }),
+// Storage Health read failures are panel states and the refresh failure sits
+// next to its control; none of them is a native dialog.
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  message: mocks.dialogMessage,
+  ask: mocks.dialogMessage,
+  confirm: mocks.dialogMessage,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -162,7 +169,7 @@ describe("StorageDataInfo storage device re-detection", () => {
     await waitFor(() => expect(screen.getByText("45°C")).toBeInTheDocument());
   });
 
-  it("shows an inline error while keeping the existing summary", async () => {
+  it("shows an inline refresh error next to the control while keeping the existing summary", async () => {
     const user = userEvent.setup();
     mocks.commands.refreshStorageDevices.mockResolvedValueOnce({
       status: "error",
@@ -178,10 +185,72 @@ describe("StorageDataInfo storage device re-detection", () => {
     expect(
       await screen.findByText(/Failed to re-detect storage devices/),
     ).toBeInTheDocument();
-    expect(mocks.dialogError).toHaveBeenCalledWith(
-      "Failed to re-detect storage devices.\nrefresh failed",
-    );
+    // The Rust error is for the console; the copy is translated.
+    expect(screen.queryByText(/refresh failed/)).not.toBeInTheDocument();
+    expect(mocks.dialogMessage).not.toHaveBeenCalled();
     expect(screen.getByText("42°C")).toBeInTheDocument();
+  });
+
+  it("renders a failed latest-records read as a failure with retry, not as an unavailable summary", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.commands.getStorageHealthLatestRecords
+      .mockResolvedValueOnce({ status: "error", error: "db locked" })
+      .mockResolvedValue({ status: "ok", data: [record()] });
+    render(<StorageDataInfo />);
+
+    expect(
+      await screen.findByText("Failed to fetch storage health data."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/db locked/)).not.toBeInTheDocument();
+    expect(mocks.dialogMessage).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    await screen.findByText("42°C");
+    expect(
+      screen.queryByText("Failed to fetch storage health data."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a successful manual refresh clears an earlier records failure", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.commands.getStorageHealthLatestRecords.mockResolvedValue({
+      status: "error",
+      error: "db locked",
+    });
+    render(<StorageDataInfo />);
+
+    expect(
+      await screen.findByText("Failed to fetch storage health data."),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Re-detect storage devices" }),
+    );
+
+    // Fresh records are on screen, so the failure line must be gone at once
+    // instead of lingering until the next 60 s poll.
+    await waitFor(() => expect(screen.getByText("45°C")).toBeInTheDocument());
+    expect(
+      screen.queryByText("Failed to fetch storage health data."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a failed live read as its own failure while keeping the recorded summary", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.commands.getLiveStorageHealth.mockResolvedValue({
+      status: "error",
+      error: "smart unavailable",
+    });
+    render(<StorageDataInfo />);
+
+    expect(
+      await screen.findByText("Failed to fetch live storage health data."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("42°C")).toBeInTheDocument();
+    expect(mocks.dialogMessage).not.toHaveBeenCalled();
   });
 
   it("does not offer refresh when Storage Health is disabled", () => {

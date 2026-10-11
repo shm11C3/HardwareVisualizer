@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import {
   Accordion,
   AccordionContent,
@@ -37,9 +38,11 @@ const TONE_DOT_CLASSES: Record<ObservationDisplay["tone"], string> = {
 export const ObservationStrip = ({
   baselineDelta,
   hasError = false,
+  onRetry,
 }: {
   baselineDelta: CoolingBaselineDelta | null;
   hasError?: boolean;
+  onRetry?: () => void;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -51,9 +54,11 @@ export const ObservationStrip = ({
       data-testid="cooling-observation-strip"
     >
       {hasError && (
-        <p className="text-muted-foreground text-sm">
-          {t("pages.insights.cooling.observationStrip.loadFailed")}
-        </p>
+        <LoadFailure
+          className="items-start text-left"
+          message={t("pages.insights.cooling.observationStrip.loadFailed")}
+          onRetry={onRetry}
+        />
       )}
       {!hasError && lifecycle.kind === "loading" && (
         <div aria-busy="true" data-testid="cooling-observation-strip-loading">

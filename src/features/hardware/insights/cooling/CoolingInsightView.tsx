@@ -39,10 +39,16 @@ import { resolveRoutedPowerCapability } from "./utils/thermalTimeline";
  */
 export const CoolingInsightView = () => {
   const periodState = useCoolingInsightPeriod();
-  const { data: baselineDelta, hasError: baselineDeltaHasError } =
-    useCoolingBaselineDelta();
-  const { data: bandComparison, hasError: bandComparisonHasError } =
-    useCoolingBandComparison();
+  const {
+    data: baselineDelta,
+    hasError: baselineDeltaHasError,
+    retry: retryBaselineDelta,
+  } = useCoolingBaselineDelta();
+  const {
+    data: bandComparison,
+    hasError: bandComparisonHasError,
+    retry: retryBandComparison,
+  } = useCoolingBandComparison();
 
   // The store-backed period is not ready yet; bail out before mounting
   // `CoolingInsightBody`, which calls one more hook (the daily-trend fetch)
@@ -59,8 +65,10 @@ export const CoolingInsightView = () => {
       onPeriodChange={setPeriod}
       baselineDelta={baselineDelta}
       baselineDeltaHasError={baselineDeltaHasError}
+      onRetryBaselineDelta={retryBaselineDelta}
       bandComparison={bandComparison}
       bandComparisonHasError={bandComparisonHasError}
+      onRetryBandComparison={retryBandComparison}
     />
   );
 };
@@ -70,21 +78,28 @@ const CoolingInsightBody = ({
   onPeriodChange,
   baselineDelta,
   baselineDeltaHasError,
+  onRetryBaselineDelta,
   bandComparison,
   bandComparisonHasError,
+  onRetryBandComparison,
 }: {
   period: CoolingInsightPeriod;
   onPeriodChange: (period: CoolingInsightPeriod) => Promise<void>;
   baselineDelta: CoolingBaselineDelta | null;
   baselineDeltaHasError: boolean;
+  onRetryBaselineDelta: () => void;
   bandComparison: CoolingBandComparison | null;
   bandComparisonHasError: boolean;
+  onRetryBandComparison: () => void;
 }) => {
   const cpuPowerSupport = useAtomValue(cpuPowerSupportAtom);
   const motherboardFanSupport = useAtomValue(motherboardFanSupportAtom);
   const route = resolveCoolingPeriodRoute(period);
-  const { data: dailyTrend, hasError: dailyTrendHasError } =
-    useCoolingDailyTrend(route.kind === "dailyTrend" ? route.days : null);
+  const {
+    data: dailyTrend,
+    hasError: dailyTrendHasError,
+    retry: retryDailyTrend,
+  } = useCoolingDailyTrend(route.kind === "dailyTrend" ? route.days : null);
   const { data: fanTrend, hasError: fanTrendHasError } = useCoolingFanTrend(
     route.kind === "dailyTrend" ? route.days : null,
   );
@@ -150,6 +165,7 @@ const CoolingInsightBody = ({
       <ObservationStrip
         baselineDelta={baselineDelta}
         hasError={baselineDeltaHasError}
+        onRetry={onRetryBaselineDelta}
       />
       <ThermalTimelineLane
         route={route}
@@ -157,6 +173,8 @@ const CoolingInsightBody = ({
         dailyTrend={dailyTrend}
         fanTrend={fanTrend?.series ?? null}
         archive={archive}
+        dailyTrendHasError={dailyTrendHasError}
+        onRetryDailyTrend={retryDailyTrend}
       />
       <SensorStatusNote powerNotice={powerNotice} fanNotice={fanNotice} />
       {route.kind === "dailyTrend" && (
@@ -164,11 +182,13 @@ const CoolingInsightBody = ({
           points={dailyTrend}
           days={route.days}
           hasError={dailyTrendHasError}
+          onRetry={retryDailyTrend}
         />
       )}
       <LoadBandComparisonPanel
         bandComparison={bandComparison}
         hasError={bandComparisonHasError}
+        onRetry={onRetryBandComparison}
         powerNotice={powerNotice}
         fanNotice={fanNotice}
         ambientSources={ambientSources}

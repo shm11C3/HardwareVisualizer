@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCoolingCovariateComparison } from "@/features/hardware/insights/cooling/hooks/useCoolingCovariateComparison";
 import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
@@ -67,7 +68,8 @@ const NOT_COMPARABLE_KEYS: Record<
 export const CovariateComparisonPanel = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { data, hasError } = useCoolingCovariateComparison(COMPARED_BAND);
+  const { data, hasError, retry } =
+    useCoolingCovariateComparison(COMPARED_BAND);
 
   // The same gate as the strip's ambient-adjusted line (see
   // `resolveAmbientAdjustedDisplay`): a machine with no environmental
@@ -91,9 +93,11 @@ export const CovariateComparisonPanel = () => {
         {t("pages.insights.cooling.covariateComparison.title")}
       </h3>
       {hasError && (
-        <p className="text-muted-foreground text-sm">
-          {t("pages.insights.cooling.covariateComparison.loadFailed")}
-        </p>
+        <LoadFailure
+          className="items-start text-left"
+          message={t("pages.insights.cooling.covariateComparison.loadFailed")}
+          onRetry={retry}
+        />
       )}
       {!hasError && lifecycle.kind === "loading" && (
         <div aria-busy="true" data-testid="cooling-covariate-panel-loading">

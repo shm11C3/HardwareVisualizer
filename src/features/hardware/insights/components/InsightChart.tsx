@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
+import { LoadFailure } from "@/components/LoadFailure";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { archivePeriods } from "@/features/hardware/consts/chart";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
@@ -23,7 +24,7 @@ export const InsightChart = ({
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { labels, chartData, hasData } = useInsightChart({
+  const { labels, chartData, hasData, hasError, retry } = useInsightChart({
     hardwareType,
     dataStats,
     period,
@@ -69,6 +70,10 @@ export const InsightChart = ({
       color: "245, 158, 11",
     },
   } satisfies ChartConfig;
+
+  if (hasError) {
+    return <LoadFailure message={t("shared.loadFailed")} onRetry={retry} />;
+  }
 
   if ((isTemperature || isPower) && !hasData) {
     return (
@@ -147,7 +152,7 @@ export const GpuInsightChart = ({
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
-  const { labels, chartData, hasData } = useInsightChart({
+  const { labels, chartData, hasData, hasError, retry } = useInsightChart({
     hardwareType: "gpu",
     dataStats,
     dataType,
@@ -206,6 +211,10 @@ export const GpuInsightChart = ({
     // Round up the maximum value to the nearest integer to ensure proper grid alignment in the chart.
     return Math.ceil(max);
   }, [hardwareInfo.gpus]);
+
+  if (hasError) {
+    return <LoadFailure message={t("shared.loadFailed")} onRetry={retry} />;
+  }
 
   if (chartData.every((v) => v == null)) {
     return (

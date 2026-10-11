@@ -3,16 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getArchivedRecord } from "@/features/hardware/insights/snapshot/funcs/getArchivedRecord";
 import { useSnapshot } from "@/features/hardware/insights/snapshot/hooks/useSnapshot";
 
-const hoisted = vi.hoisted(() => ({
-  errorMock: vi.fn(),
-}));
-
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
-}));
-
-vi.mock("@/hooks/useTauriDialog", () => ({
-  useTauriDialog: () => ({ error: hoisted.errorMock }),
 }));
 
 vi.mock("@/features/hardware/insights/snapshot/funcs/getArchivedRecord");
@@ -281,5 +273,35 @@ describe("useSnapshot - Branch Coverage", () => {
     });
 
     expect(result.current.totalMemoryMB).toBe(32768);
+  });
+
+  it("reports a failed read as hasError, clears stale data, and refetches on retry", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mockGetArchivedRecord.mockRejectedValueOnce(new Error("db locked"));
+    mockGetArchivedRecord.mockResolvedValue([
+      { value: 75, timestamp: new Date("2023-01-01T10:00:00Z").getTime() },
+    ]);
+
+    const { result } = renderHook(() => useSnapshot());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(result.current.hasError).toBe(true);
+    expect(result.current.filledChartData).toEqual([]);
+    expect(result.current.processData).toEqual([]);
+
+    act(() => {
+      result.current.retry();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(result.current.hasError).toBe(false);
+    expect(result.current.filledChartData).toEqual([75]);
+    consoleErrorSpy.mockRestore();
   });
 });

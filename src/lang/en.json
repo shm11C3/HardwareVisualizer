@@ -25,6 +25,9 @@
     "memorySizeSharedUsage": "Memory Usage",
     "memorySizeDedicatedUsage": "Dedicated GPU Memory Usage",
     "loadDetailedInfo": "Load detailed info",
+    "retry": "Try again",
+    "loadFailed": "Could not load the data.",
+    "processListLoadFailed": "Could not load the process list. Retrying automatically.",
     "memoryType": "Memory Type",
     "totalMemory": "Total Memory",
     "memoryCount": "Memory Count",
@@ -266,6 +269,8 @@
       "copyHardwareReport": "Copy hardware report",
       "systemSpecifications": {
         "networkUnavailable": "Network information is unavailable on this system.",
+        "inventoryLoadFailed": "Could not load the hardware information.",
+        "networkLoadFailed": "Could not load the network information.",
         "platform": "Platform",
         "operatingSystem": "Operating system",
         "architecture": "Architecture",

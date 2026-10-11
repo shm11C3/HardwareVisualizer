@@ -10,6 +10,7 @@ import {
 import { arch, platform, version } from "@tauri-apps/plugin-os";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FetchDetailButton,
@@ -37,13 +38,24 @@ const platformLabels: Record<string, string> = {
 export const SystemSpecifications = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { hardwareInfo, init } = useHardwareInfoAtom();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: one-time static-fact fetch
   useEffect(() => {
     void init();
   }, []);
+
+  // A failed inventory read leaves the fields empty. Render that as a
+  // failure with a retry, never as a skeleton that waits forever and never
+  // as "no such component on this machine".
+  const inventoryFailure = (
+    <LoadFailure
+      className="h-20"
+      message={t("pages.dashboard.systemSpecifications.inventoryLoadFailed")}
+      onRetry={() => void init()}
+    />
+  );
 
   const gpuSections = hardwareInfo.gpus?.map((gpu, index, gpus) => {
     const showCoreCount = gpu.memorySizeDedicated === "N/A" && os === "macos";
@@ -97,6 +109,8 @@ export const SystemSpecifications = () => {
                 },
               ]}
             />
+          ) : inventoryLoadFailed ? (
+            inventoryFailure
           ) : (
             <Skeleton className="h-20 w-full rounded-md" />
           )}
@@ -121,7 +135,12 @@ export const SystemSpecifications = () => {
               ) : undefined
             }
           >
-            {gpuSections ?? <Skeleton className="h-20 w-full rounded-md" />}
+            {gpuSections ??
+              (inventoryLoadFailed ? (
+                inventoryFailure
+              ) : (
+                <Skeleton className="h-20 w-full rounded-md" />
+              ))}
           </SpecSection>
         )}
 
@@ -172,6 +191,8 @@ export const SystemSpecifications = () => {
                 </div>
               )}
             </div>
+          ) : inventoryLoadFailed ? (
+            inventoryFailure
           ) : (
             <Skeleton className="h-20 w-full rounded-md" />
           )}

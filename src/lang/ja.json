@@ -26,6 +26,9 @@
     "memorySizeSharedUsage": "メモリ使用量",
     "memorySizeDedicatedUsage": "専用GPUメモリ使用量",
     "loadDetailedInfo": "より詳細なデータを読み込む",
+    "retry": "再試行",
+    "loadFailed": "データを読み込めませんでした。",
+    "processListLoadFailed": "プロセス一覧を読み込めませんでした。自動的に再試行します。",
     "memoryType": "メモリタイプ",
     "totalMemory": "合計メモリ",
     "memoryCount": "メモリ枚数",
@@ -266,6 +269,8 @@
       "copyHardwareReport": "ハードウェアレポートをコピー",
       "systemSpecifications": {
         "networkUnavailable": "このシステムではネットワーク情報を利用できません。",
+        "inventoryLoadFailed": "ハードウェア情報を読み込めませんでした。",
+        "networkLoadFailed": "ネットワーク情報を読み込めませんでした。",
         "platform": "プラットフォーム",
         "operatingSystem": "オペレーティングシステム",
         "architecture": "アーキテクチャ",
