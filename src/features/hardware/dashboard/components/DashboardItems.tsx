@@ -48,10 +48,11 @@ import {
 import {
   cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
+  processorCountAtom,
 } from "@/features/hardware/store/liveUsage";
 import {
   cpuTempAtom,
+  hasMotherboardSensorsAtom,
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
   sensorTempsAtom,
@@ -70,95 +71,121 @@ import type {
   LiveStorageHealth,
   StorageHealthRecord,
   StorageInfo,
+  SysInfo,
 } from "@/rspc/bindings";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import { MiniLineChart } from "./MiniLineChart";
 import { StorageHealthStatusIcon } from "./StorageHealthStatusIcon";
 
+/**
+ * The live and static halves of each card are separate components on purpose.
+ *
+ * The live readings (doughnuts, current values, mini charts) re-render with
+ * every 1 Hz sample; the specification tables, tooltips and buttons around
+ * them do not depend on it. Keeping the two apart means a sample re-renders
+ * only the readings, instead of every Radix tree and table in the card
+ * (subscription granularity, #1638).
+ */
 export const CPUInfo = () => {
-  const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
-  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
-  const cpuTemp = useAtomValue(cpuTempAtom);
-  const sensorTemps = useAtomValue(sensorTempsAtom);
-  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
-  const { processes } = useProcessInfo();
-  const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
-
-  const cpuTemperature = cpuTemp[0]?.value;
-  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
-
   return (
     <>
-      <div className="flex h-[100px] justify-around xl:h-[200px]">
-        <DoughnutChart
-          chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
-        {/** Temperature is only available on supported platforms (Windows thermal zones) */}
-        {cpuTemperature != null ? (
-          <DoughnutChart chartValue={cpuTemperature} dataType={"temp"} />
-        ) : (
-          <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
-        )}
-      </div>
-
-      {hardwareInfo.cpu ? (
-        <InfoTable
-          data={{
-            [t("shared.name")]: hardwareInfo.cpu.name,
-            [t("shared.vendor")]: hardwareInfo.cpu.vendor,
-            [t("shared.coreCount")]: hardwareInfo.cpu.coreCount,
-            [t("shared.threadCount")]: processorsUsageHistory[0]?.length || 0,
-            [t("shared.defaultClockSpeed")]:
-              `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
-            [t("shared.processCount")]: processes.length,
-          }}
-        />
-      ) : inventoryLoadFailed ? (
-        <LoadFailure
-          className="h-[188px]"
-          message={t(
-            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
-          )}
-          onRetry={() => void init()}
-        />
-      ) : (
-        <Skeleton className="h-[188px] w-full rounded-md" />
-      )}
-
-      {sensorTemps.length > 0 && (
-        <div className="mt-2 ml-2">
-          <h4 className="font-bold text-sm md:text-md">
-            {t("shared.thermalSensors")}
-          </h4>
-          <InfoTable
-            data={Object.fromEntries(
-              sensorTemps.map((sensor) => [
-                sensor.name,
-                `${sensor.value} ${temperatureUnit}`,
-              ]),
-            )}
-          />
-        </div>
-      )}
+      <CpuLiveReadings />
+      <CpuSpecifications />
+      <CpuThermalSensors />
     </>
+  );
+};
+
+const CpuLiveReadings = () => {
+  const cpuUsageHistory = useAtomValue(cpuUsageHistoryAtom);
+  const cpuTemp = useAtomValue(cpuTempAtom);
+  const cpuTemperature = cpuTemp[0]?.value;
+
+  return (
+    <div className="flex h-[100px] justify-around xl:h-[200px]">
+      <DoughnutChart
+        chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
+        dataType={"usage"}
+      />
+      {/** Temperature is only available on supported platforms (Windows thermal zones) */}
+      {cpuTemperature != null ? (
+        <DoughnutChart chartValue={cpuTemperature} dataType={"temp"} />
+      ) : (
+        <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
+      )}
+    </div>
+  );
+};
+
+const CpuSpecifications = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
+  const { processes } = useProcessInfo();
+  // The count, not the per-second history it is read from.
+  const processorCount = useAtomValue(processorCountAtom);
+
+  if (hardwareInfo.cpu) {
+    return (
+      <InfoTable
+        data={{
+          [t("shared.name")]: hardwareInfo.cpu.name,
+          [t("shared.vendor")]: hardwareInfo.cpu.vendor,
+          [t("shared.coreCount")]: hardwareInfo.cpu.coreCount,
+          [t("shared.threadCount")]: processorCount,
+          [t("shared.defaultClockSpeed")]:
+            `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
+          [t("shared.processCount")]: processes.length,
+        }}
+      />
+    );
+  }
+
+  return inventoryLoadFailed ? (
+    <LoadFailure
+      className="h-[188px]"
+      message={t("pages.dashboard.systemSpecifications.inventoryLoadFailed")}
+      onRetry={() => void init()}
+    />
+  ) : (
+    <Skeleton className="h-[188px] w-full rounded-md" />
+  );
+};
+
+const CpuThermalSensors = () => {
+  const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
+  const sensorTemps = useAtomValue(sensorTempsAtom);
+  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
+
+  if (sensorTemps.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 ml-2">
+      <h4 className="font-bold text-sm md:text-md">
+        {t("shared.thermalSensors")}
+      </h4>
+      <InfoTable
+        data={Object.fromEntries(
+          sensorTemps.map((sensor) => [
+            sensor.name,
+            `${sensor.value} ${temperatureUnit}`,
+          ]),
+        )}
+      />
+    </div>
   );
 };
 
 export const GPUInfo = () => {
   const { t } = useTranslation();
-  const graphicUsageHistory = useAtomValue(graphicUsageHistoryAtom);
-  const gpuTemp = useAtomValue(gpuTempAtom);
-  const gpuUsageSource = useAtomValue(gpuUsageSourceAtom);
   const { effectiveGpuId, selectedGpuId, selectGpu } = useGpuAdapters();
   const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
-  const { isBreak } = useWindowSize();
-  const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
-  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
+  // Stable between samples: it changes only when an adapter appears,
+  // disappears or is renamed.
   const gpuNames = useAtomValue(gpuNamesAtom);
-  const os = useMemo(() => platform(), []);
 
   const gpus = hardwareInfo.gpus ?? [];
   // The live resolver owns fallback after a selected adapter is retired. The
@@ -175,21 +202,6 @@ export const GPUInfo = () => {
         ? (findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? null)
         : (gpus[0] ?? null);
   const hasMultipleGpus = gpus.length > 1;
-
-  const getTargetInfo = (data: NameValues) => {
-    if (!targetGpu || data.length === 0) return undefined;
-    // Prefer an exact name match for the currently selected GPU.
-    const matched = data.find((x) => x.name === targetGpu.name);
-    if (matched) return matched.value;
-    // If there is exactly one GPU and one metric entry, allow a safe fallback.
-    if (gpus.length === 1 && data.length === 1) {
-      return data[0]?.value;
-    }
-    // Otherwise, avoid showing potentially incorrect metrics.
-    return undefined;
-  };
-
-  const targetTemperature = getTargetInfo(gpuTemp);
 
   return (
     <>
@@ -228,33 +240,10 @@ export const GPUInfo = () => {
           </div>
         </TooltipProvider>
       )}
-      <div className="relative" data-testid="dashboard-gpu-readings">
-        <div
-          className={cn(
-            "flex justify-around",
-            !isBreak("md") && targetTemperature
-              ? "h-[150px] lg:h-[100px] xl:h-[200px]"
-              : "h-[100px] xl:h-[200px]",
-          )}
-        >
-          <DoughnutChart
-            chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
-            dataType={"usage"}
-          />
-          {targetTemperature && (
-            <DoughnutChart
-              chartValue={targetTemperature}
-              dataType={"temp"}
-              className={!isBreak("md") ? "mt-12" : ""}
-            />
-          )}
-        </div>
-        {showGpuUsageSource && gpuUsageSource && (
-          <span className="absolute top-0 right-0 rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-            {gpuUsageSource}
-          </span>
-        )}
-      </div>
+      <GpuLiveReadings
+        targetGpuName={targetGpu?.name ?? null}
+        inventoryGpuCount={gpus.length}
+      />
 
       {hardwareInfo.gpus ? (
         hardwareInfo.gpus.map((gpu, index, arr) => (
@@ -276,59 +265,23 @@ export const GPUInfo = () => {
                 </span>
               </div>
             )}
-            {(() => {
-              // gpu.id is an inventory id; the map is keyed by live ids. The
-              // branded types surfaced this: the old direct index could never
-              // match, so this row always showed the total without usage.
-              //
-              // The name join has to be unique on BOTH sides. `toLiveGpuId`
-              // only checks the live side, so two identically named inventory
-              // rows would each resolve to the one reporting adapter and show
-              // its usage twice (ADR 0016).
-              const inventoryTwin =
-                gpus.filter((entry) => entry.name === gpu.name).length > 1;
-              const dedicatedMemoryKb = inventoryTwin
-                ? null
-                : (gpuDedicatedMemoryKbMap[toLiveGpuId(gpu, gpuNames)] ?? null);
-              const hasMemorySize = gpu.memorySize !== "N/A";
-              const hasMemoryUsage = dedicatedMemoryKb != null;
-              const formattedMemoryUsage = hasMemoryUsage
-                ? (() => {
-                    const [value, unit] = formatBytes(dedicatedMemoryKb * 1024);
-                    return `${value} ${unit}`;
-                  })()
-                : null;
-              const memorySizeDisplay = hasMemorySize
-                ? gpu.memorySize
-                : hasMemoryUsage
-                  ? (formattedMemoryUsage ?? "N/A")
-                  : "N/A";
-              const memorySizeLabel = hasMemorySize
-                ? t("shared.memorySize")
-                : hasMemoryUsage
-                  ? t("shared.memorySizeSharedUsage")
-                  : t("shared.memorySize");
-
-              const showCoreCount =
-                gpu.memorySizeDedicated === "N/A" && os === "macos";
-              const dedicatedMemoryDisplay = showCoreCount
-                ? (gpu.coreCount ?? "N/A")
-                : gpu.memorySizeDedicated;
-              const dedicatedMemoryLabel = showCoreCount
-                ? t("shared.coreCount")
-                : t("shared.memorySizeDedicated");
-
-              return (
-                <InfoTable
-                  data={{
-                    [t("shared.name")]: gpu.name,
-                    [t("shared.vendor")]: gpu.vendorName,
-                    [memorySizeLabel]: memorySizeDisplay,
-                    [dedicatedMemoryLabel]: dedicatedMemoryDisplay,
-                  }}
-                />
-              );
-            })()}
+            {/* The live dedicated-memory figure only ever replaces a size the
+                inventory could not report. Every other row is static, so only
+                a row with `N/A` subscribes to it. */}
+            {gpu.memorySize === "N/A" ? (
+              <SharedMemoryGpuSpecifications
+                gpu={gpu}
+                // The name join has to be unique on BOTH sides. `toLiveGpuId`
+                // only checks the live side, so two identically named
+                // inventory rows would each resolve to the one reporting
+                // adapter and show its usage twice (ADR 0016).
+                inventoryTwin={
+                  gpus.filter((entry) => entry.name === gpu.name).length > 1
+                }
+              />
+            ) : (
+              <GpuSpecifications gpu={gpu} dedicatedMemoryKb={null} />
+            )}
           </div>
         ))
       ) : inventoryLoadFailed ? (
@@ -346,11 +299,168 @@ export const GPUInfo = () => {
   );
 };
 
-export const MemoryInfo = () => {
+/** The temperature that belongs to the target adapter, if it can be told. */
+const findTargetTemperature = (
+  temperatures: NameValues,
+  targetGpuName: string | null,
+  inventoryGpuCount: number,
+) => {
+  if (targetGpuName == null || temperatures.length === 0) return undefined;
+  // Prefer an exact name match for the currently selected GPU.
+  const matched = temperatures.find((x) => x.name === targetGpuName);
+  if (matched) return matched.value;
+  // If there is exactly one GPU and one metric entry, allow a safe fallback.
+  if (inventoryGpuCount === 1 && temperatures.length === 1) {
+    return temperatures[0]?.value;
+  }
+  // Otherwise, avoid showing potentially incorrect metrics.
+  return undefined;
+};
+
+/**
+ * The GPU card's live half: the usage and temperature doughnuts and the usage
+ * source badge. Takes the target adapter as plain props so nothing static
+ * above it has to follow the sample rate.
+ */
+const GpuLiveReadings = ({
+  targetGpuName,
+  inventoryGpuCount,
+}: {
+  targetGpuName: string | null;
+  inventoryGpuCount: number;
+}) => {
+  const graphicUsageHistory = useAtomValue(graphicUsageHistoryAtom);
+  const gpuTemp = useAtomValue(gpuTempAtom);
+  const gpuUsageSource = useAtomValue(gpuUsageSourceAtom);
+  const { isBreak } = useWindowSize();
+  const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
+
+  const targetTemperature = findTargetTemperature(
+    gpuTemp,
+    targetGpuName,
+    inventoryGpuCount,
+  );
+
+  return (
+    <div className="relative" data-testid="dashboard-gpu-readings">
+      <div
+        className={cn(
+          "flex justify-around",
+          !isBreak("md") && targetTemperature
+            ? "h-[150px] lg:h-[100px] xl:h-[200px]"
+            : "h-[100px] xl:h-[200px]",
+        )}
+      >
+        <DoughnutChart
+          chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
+          dataType={"usage"}
+        />
+        {targetTemperature && (
+          <DoughnutChart
+            chartValue={targetTemperature}
+            dataType={"temp"}
+            className={!isBreak("md") ? "mt-12" : ""}
+          />
+        )}
+      </div>
+      {showGpuUsageSource && gpuUsageSource && (
+        <span className="absolute top-0 right-0 rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {gpuUsageSource}
+        </span>
+      )}
+    </div>
+  );
+};
+
+type InventoryGpu = NonNullable<SysInfo["gpus"]>[number];
+
+/** One inventory adapter's specification table. Static unless `dedicatedMemoryKb` moves. */
+const GpuSpecifications = ({
+  gpu,
+  dedicatedMemoryKb,
+}: {
+  gpu: InventoryGpu;
+  dedicatedMemoryKb: number | null;
+}) => {
   const { t } = useTranslation();
+  const os = useMemo(() => platform(), []);
+
+  const hasMemorySize = gpu.memorySize !== "N/A";
+  const hasMemoryUsage = dedicatedMemoryKb != null;
+  const formattedMemoryUsage = hasMemoryUsage
+    ? (() => {
+        const [value, unit] = formatBytes(dedicatedMemoryKb * 1024);
+        return `${value} ${unit}`;
+      })()
+    : null;
+  const memorySizeDisplay = hasMemorySize
+    ? gpu.memorySize
+    : hasMemoryUsage
+      ? (formattedMemoryUsage ?? "N/A")
+      : "N/A";
+  const memorySizeLabel = hasMemorySize
+    ? t("shared.memorySize")
+    : hasMemoryUsage
+      ? t("shared.memorySizeSharedUsage")
+      : t("shared.memorySize");
+
+  const showCoreCount = gpu.memorySizeDedicated === "N/A" && os === "macos";
+  const dedicatedMemoryDisplay = showCoreCount
+    ? (gpu.coreCount ?? "N/A")
+    : gpu.memorySizeDedicated;
+  const dedicatedMemoryLabel = showCoreCount
+    ? t("shared.coreCount")
+    : t("shared.memorySizeDedicated");
+
+  return (
+    <InfoTable
+      data={{
+        [t("shared.name")]: gpu.name,
+        [t("shared.vendor")]: gpu.vendorName,
+        [memorySizeLabel]: memorySizeDisplay,
+        [dedicatedMemoryLabel]: dedicatedMemoryDisplay,
+      }}
+    />
+  );
+};
+
+/**
+ * The specification table of an adapter whose memory size the inventory could
+ * not report, which shows the live dedicated-memory usage instead. The only
+ * part of the GPU card's specifications that follows the sample rate.
+ */
+const SharedMemoryGpuSpecifications = ({
+  gpu,
+  inventoryTwin,
+}: {
+  gpu: InventoryGpu;
+  inventoryTwin: boolean;
+}) => {
+  const gpuNames = useAtomValue(gpuNamesAtom);
+  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
+
+  // gpu.id is an inventory id; the map is keyed by live ids. The branded
+  // types surfaced this: the old direct index could never match, so this row
+  // always showed the total without usage.
+  const dedicatedMemoryKb = inventoryTwin
+    ? null
+    : (gpuDedicatedMemoryKbMap[toLiveGpuId(gpu, gpuNames)] ?? null);
+
+  return <GpuSpecifications gpu={gpu} dedicatedMemoryKb={dedicatedMemoryKb} />;
+};
+
+export const MemoryInfo = () => {
+  return (
+    <>
+      <MemoryLiveReadings />
+      <MemorySpecifications />
+    </>
+  );
+};
+
+const MemoryLiveReadings = () => {
   const memoryUsageHistory = useAtomValue(memoryUsageHistoryAtom);
-  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
-  const os = platform();
+  const { hardwareInfo } = useHardwareInfoAtom();
 
   const {
     memoryCurrentUsage,
@@ -383,74 +493,80 @@ export const MemoryInfo = () => {
   }, [memoryUsageHistory, hardwareInfo.memory]);
 
   return (
-    <>
-      <div className="flex h-[100px] justify-around xl:h-[200px]">
-        {memoryCurrentUsage ? (
-          <DoughnutChart
-            chartValue={memoryCurrentUsage}
-            usagePercentage={
-              memoryUsageHistory[memoryUsageHistory.length - 1] ?? 0
-            }
-            dataType={"memoryUsageValue"}
-            unit={memoryCurrentUsageUnit}
-          />
-        ) : (
-          <DoughnutChart
-            chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
-            dataType={"usage"}
-          />
-        )}
-        {/**  TODO If temperature can be retrieved here, display temperature instead of `MiniLineChart`  */}
-        <MiniLineChart hardwareType="memory" usage={memoryUsageHistory} />
-      </div>
-
-      {hardwareInfo.memory ? (
-        <div className="space-y-2">
-          <InfoTable
-            data={
-              // On Linux, detailed information can only be obtained with pkexec,
-              // so initially display memory.size and load button
-              hardwareInfo.memory.isDetailed
-                ? {
-                    [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
-                    [t("shared.totalMemory")]: hardwareInfo.memory.size,
-                    ...(hardwareInfo.memory.totalSlots > 0
-                      ? {
-                          [t("shared.memoryCount")]:
-                            `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
-                        }
-                      : {}),
-                    ...(hardwareInfo.memory.clock > 0
-                      ? {
-                          [t("shared.memoryClockSpeed")]:
-                            `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
-                        }
-                      : {}),
-                  }
-                : {
-                    [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
-                    [t("shared.totalMemory")]: hardwareInfo.memory.size,
-                  }
-            }
-          />
-          <div className="flex justify-end">
-            {!hardwareInfo.memory.isDetailed && os !== "macos" && (
-              <FetchDetailButton />
-            )}
-          </div>
-        </div>
-      ) : inventoryLoadFailed ? (
-        <LoadFailure
-          className="h-[188px]"
-          message={t(
-            "pages.dashboard.systemSpecifications.inventoryLoadFailed",
-          )}
-          onRetry={() => void init()}
+    <div className="flex h-[100px] justify-around xl:h-[200px]">
+      {memoryCurrentUsage ? (
+        <DoughnutChart
+          chartValue={memoryCurrentUsage}
+          usagePercentage={
+            memoryUsageHistory[memoryUsageHistory.length - 1] ?? 0
+          }
+          dataType={"memoryUsageValue"}
+          unit={memoryCurrentUsageUnit}
         />
       ) : (
-        <Skeleton className="h-[188px] w-full rounded-md" />
+        <DoughnutChart
+          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
+          dataType={"usage"}
+        />
       )}
-    </>
+      {/**  TODO If temperature can be retrieved here, display temperature instead of `MiniLineChart`  */}
+      <MiniLineChart hardwareType="memory" usage={memoryUsageHistory} />
+    </div>
+  );
+};
+
+const MemorySpecifications = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
+  const os = platform();
+
+  if (hardwareInfo.memory) {
+    return (
+      <div className="space-y-2">
+        <InfoTable
+          data={
+            // On Linux, detailed information can only be obtained with pkexec,
+            // so initially display memory.size and load button
+            hardwareInfo.memory.isDetailed
+              ? {
+                  [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
+                  [t("shared.totalMemory")]: hardwareInfo.memory.size,
+                  ...(hardwareInfo.memory.totalSlots > 0
+                    ? {
+                        [t("shared.memoryCount")]:
+                          `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
+                      }
+                    : {}),
+                  ...(hardwareInfo.memory.clock > 0
+                    ? {
+                        [t("shared.memoryClockSpeed")]:
+                          `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
+                      }
+                    : {}),
+                }
+              : {
+                  [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
+                  [t("shared.totalMemory")]: hardwareInfo.memory.size,
+                }
+          }
+        />
+        <div className="flex justify-end">
+          {!hardwareInfo.memory.isDetailed && os !== "macos" && (
+            <FetchDetailButton />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return inventoryLoadFailed ? (
+    <LoadFailure
+      className="h-[188px]"
+      message={t("pages.dashboard.systemSpecifications.inventoryLoadFailed")}
+      onRetry={() => void init()}
+    />
+  ) : (
+    <Skeleton className="h-[188px] w-full rounded-md" />
   );
 };
 
@@ -1043,31 +1159,13 @@ const StorageDeviceProtocolBadge = ({
 
 export const MotherboardDataInfo = () => {
   const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
-  const motherboardTemps = useAtomValue(motherboardTempsAtom);
-  const motherboardFanSpeeds = useAtomValue(motherboardFanSpeedsAtom);
+  const hasLiveSensors = useAtomValue(hasMotherboardSensorsAtom);
   const mb = hardwareInfo.motherboard;
-  const hasLiveSensors =
-    motherboardTemps.length > 0 || motherboardFanSpeeds.length > 0;
 
   if (!mb && !hasLiveSensors) {
     return <Skeleton className="h-[188px] w-full rounded-md" />;
   }
-
-  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
-  const sensorSource =
-    motherboardTemps[0]?.source ?? motherboardFanSpeeds[0]?.source;
-  const fanStatusLabel = (status: FanSpeedStatus) => {
-    switch (status) {
-      case "active":
-        return t("pages.dashboard.motherboardSensors.status.active");
-      case "inactive":
-        return t("pages.dashboard.motherboardSensors.status.inactive");
-      case "invalid":
-        return t("pages.dashboard.motherboardSensors.status.invalid");
-    }
-  };
 
   return (
     <>
@@ -1087,55 +1185,82 @@ export const MotherboardDataInfo = () => {
         />
       )}
 
-      {hasLiveSensors && (
-        <div className={cn("space-y-3", mb && "mt-3")}>
-          <div className="ml-2 flex items-center gap-2">
-            <h4 className="font-bold text-sm md:text-md">
-              {t("pages.dashboard.motherboardSensors.title")}
-            </h4>
-            {sensorSource && (
-              <span className="rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                {sensorSource}
-              </span>
+      {hasLiveSensors && <MotherboardLiveSensors hasInventory={mb != null} />}
+    </>
+  );
+};
+
+/** The motherboard card's live half: Super I/O temperatures and fan speeds. */
+const MotherboardLiveSensors = ({
+  hasInventory,
+}: {
+  hasInventory: boolean;
+}) => {
+  const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
+  const motherboardTemps = useAtomValue(motherboardTempsAtom);
+  const motherboardFanSpeeds = useAtomValue(motherboardFanSpeedsAtom);
+  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
+  const sensorSource =
+    motherboardTemps[0]?.source ?? motherboardFanSpeeds[0]?.source;
+  const fanStatusLabel = (status: FanSpeedStatus) => {
+    switch (status) {
+      case "active":
+        return t("pages.dashboard.motherboardSensors.status.active");
+      case "inactive":
+        return t("pages.dashboard.motherboardSensors.status.inactive");
+      case "invalid":
+        return t("pages.dashboard.motherboardSensors.status.invalid");
+    }
+  };
+
+  return (
+    <div className={cn("space-y-3", hasInventory && "mt-3")}>
+      <div className="ml-2 flex items-center gap-2">
+        <h4 className="font-bold text-sm md:text-md">
+          {t("pages.dashboard.motherboardSensors.title")}
+        </h4>
+        {sensorSource && (
+          <span className="rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            {sensorSource}
+          </span>
+        )}
+      </div>
+
+      {motherboardTemps.length > 0 && (
+        <div className="ml-2">
+          <h5 className="mb-1 font-medium text-muted-foreground text-xs">
+            {t("pages.dashboard.motherboardSensors.temperatures")}
+          </h5>
+          <InfoTable
+            data={Object.fromEntries(
+              motherboardTemps.map((sensor) => [
+                sensor.name,
+                `${sensor.value} ${temperatureUnit}`,
+              ]),
             )}
-          </div>
-
-          {motherboardTemps.length > 0 && (
-            <div className="ml-2">
-              <h5 className="mb-1 font-medium text-muted-foreground text-xs">
-                {t("pages.dashboard.motherboardSensors.temperatures")}
-              </h5>
-              <InfoTable
-                data={Object.fromEntries(
-                  motherboardTemps.map((sensor) => [
-                    sensor.name,
-                    `${sensor.value} ${temperatureUnit}`,
-                  ]),
-                )}
-              />
-            </div>
-          )}
-
-          {motherboardFanSpeeds.length > 0 && (
-            <div className="ml-2">
-              <h5 className="mb-1 font-medium text-muted-foreground text-xs">
-                {t("pages.dashboard.motherboardSensors.fanSpeeds")}
-              </h5>
-              <InfoTable
-                data={Object.fromEntries(
-                  motherboardFanSpeeds.map((fan) => [
-                    fan.name,
-                    fan.rpm != null
-                      ? `${fan.rpm} RPM (${fanStatusLabel(fan.status)})`
-                      : `${t("shared.notAvailable")} (${fanStatusLabel(fan.status)})`,
-                  ]),
-                )}
-              />
-            </div>
-          )}
+          />
         </div>
       )}
-    </>
+
+      {motherboardFanSpeeds.length > 0 && (
+        <div className="ml-2">
+          <h5 className="mb-1 font-medium text-muted-foreground text-xs">
+            {t("pages.dashboard.motherboardSensors.fanSpeeds")}
+          </h5>
+          <InfoTable
+            data={Object.fromEntries(
+              motherboardFanSpeeds.map((fan) => [
+                fan.name,
+                fan.rpm != null
+                  ? `${fan.rpm} RPM (${fanStatusLabel(fan.status)})`
+                  : `${t("shared.notAvailable")} (${fanStatusLabel(fan.status)})`,
+              ]),
+            )}
+          />
+        </div>
+      )}
+    </div>
   );
 };
 

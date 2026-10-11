@@ -23,6 +23,10 @@ const powerKey = {
   package: "packageWatts",
 } as const;
 
+// Static, so it is created once: a rail that re-renders with every power
+// sample does not re-render its icon.
+const railIcon = <LightningIcon size={18} className="text-amber-400" />;
+
 export const PowerDrawRail = () => {
   const { t } = useTranslation();
   const power = useAtomValue(powerDrawAtom);
@@ -38,7 +42,7 @@ export const PowerDrawRail = () => {
       data-testid="performance-monitor-power-rail"
     >
       <div className="flex items-center gap-2 text-muted-foreground">
-        <LightningIcon size={18} className="text-amber-400" />
+        {railIcon}
         <h3 className="font-mono font-semibold text-[11px] uppercase tracking-[0.18em]">
           {t("pages.performance.panels.power")}
         </h3>

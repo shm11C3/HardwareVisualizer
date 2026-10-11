@@ -73,6 +73,33 @@ Two rules close the obvious bypasses:
   persist through typed Rust settings commands, and Tauri Store remains only
   for UI-local state.
 
+### Live metrics subscriptions
+
+The monitor stream writes about twenty atoms once a second. Render cost scales
+with who subscribes to them and what sits under those subscribers, not with the
+number of writes (the 19 writes batch into one commit), so three rules keep a
+tick from fanning out ([#1638](https://github.com/shm11c3/HardwareVisualizer/issues/1638)):
+
+1. **The listener never publishes a new reference for an unchanged value.**
+   `useHardwareEventListener` writes every non-history map or array with a
+   functional update that returns the previous value when the new one is
+   shallow-equal (`shallowEqualRecord` / `shallowEqualArray` in
+   `src/lib/shallowEqual.ts`). Jotai skips subscribers whose value is
+   `Object.is`-equal, so an unchanged map costs nothing. History atoms are the
+   exception: they change every sample.
+2. **Components subscribe to the narrowest derived atom.** A component that
+   needs a count, a flag, or one adapter's value reads a derived scalar or
+   per-key atom from the owning `store/` module (`processorCountAtom`,
+   `hasCpuUsageHistoryAtom`, `gpuAdaptersAtom`, `gpuTemperatureValueAtom`, ...),
+   never a whole history or map to take one value out of it. Static UI (spec
+   tables, tooltips, buttons) lives in components that do not read live atoms,
+   so only the elements that show a live value re-render.
+3. **The numbers are guarded by a test.** `src/features/hardware/renderFanout.test.tsx`
+   mounts each live screen, replays a fixture series through the real listener,
+   and holds per-screen upper bounds on components re-rendered, chart leaves
+   rendered and commits per steady update. The bounds only go down: a change
+   that lowers a count lowers the bound in the same change.
+
 ## Enforcement
 
 Root `biome.jsonc` enables `noImportCycles`, `noBarrelFile`, and

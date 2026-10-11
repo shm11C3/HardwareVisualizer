@@ -149,6 +149,9 @@ Frontend tests are co-located with the code they cover:
 - hooks: `useThing.test.ts`
 - pure helpers: `helper.test.ts`
 - feature workflows: under the owning `features/<feature>/` tree
+- render fan-out: `src/features/hardware/renderFanout.test.tsx` holds per-screen
+  upper bounds on what one 1 Hz update re-renders; see
+  [Live metrics subscriptions](../docs/design/frontend-architecture.md#live-metrics-subscriptions)
 
 Use Vitest and Testing Library patterns already present in the repository.
 Prefer focused tests around behavior, command result handling, formatting, and

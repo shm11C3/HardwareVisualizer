@@ -6,10 +6,10 @@ import { GpuAdapterSelector } from "./GpuAdapterSelector";
 /**
  * Monitor's adapter attribution, kept in its own component.
  *
- * `useGpuAdapters` subscribes to atoms the event listener rewrites on every
- * sample, so calling it from the Performance parent would rerender the whole
- * screen — panels, toolbar, and all — once a second. The subscription belongs
- * where the value is rendered.
+ * `useGpuAdapters` is built from atoms that stay referentially stable between
+ * samples, but "no readings" can flip with any of them. Calling it from the
+ * Performance parent would rerender the whole screen — panels, toolbar, and
+ * all — when it does. The subscription belongs where the value is rendered.
  */
 export const MonitorGpuSelector = () => {
   const { t } = useTranslation();

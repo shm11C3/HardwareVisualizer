@@ -1,10 +1,17 @@
 import { createStore } from "jotai";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
+  effectiveGpuAdapterAtom,
+  effectiveGpuIdAtom,
+  gpuAdaptersAtom,
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
+  gpuFanSpeedMapAtom,
+  gpuFanSpeedValueAtom,
+  gpuHasNoReadingsAtom,
   gpuNamesAtom,
+  gpuTemperatureValueAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   gpuUsageSourceAtom,
@@ -77,5 +84,160 @@ describe("derived GPU atoms", () => {
     expect(store.get(graphicUsageHistoryAtom)).toEqual([]);
     expect(store.get(gpuUsageSourceAtom)).toBeNull();
     expect(store.get(gpuDedicatedMemoryKbAtom)).toBeNull();
+  });
+});
+
+/**
+ * The adapter list and the effective-adapter answers change when the hardware
+ * does, not when a reading does. Screens subscribe to them to avoid
+ * re-rendering once a second (subscription granularity, #1638).
+ */
+describe("GPU identity atoms stay stable between samples", () => {
+  const liveMap = <T>(map: Record<string, T>) =>
+    map as unknown as Record<LiveGpuId, T>;
+
+  const seeded = () => {
+    const store = createStore();
+    store.set(selectedGpuIdAtom, asLiveGpuId("nvapi:1"));
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "nvapi:1": "GeForce RTX 4080",
+        "pci:0:2:0": "UHD Graphics 770",
+      }),
+    );
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70] }));
+    store.set(
+      gpuTempMapAtom,
+      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 60 } }),
+    );
+    return store;
+  };
+
+  it("keeps the adapter list reference while only readings change", () => {
+    const store = seeded();
+    const adapters = store.get(gpuAdaptersAtom);
+    const effective = store.get(effectiveGpuAdapterAtom);
+    expect(adapters.map((adapter) => adapter.id)).toEqual([
+      "nvapi:1",
+      "pci:0:2:0",
+    ]);
+
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70, 71] }));
+    store.set(
+      gpuTempMapAtom,
+      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 61 } }),
+    );
+
+    expect(store.get(gpuAdaptersAtom)).toBe(adapters);
+    expect(store.get(effectiveGpuAdapterAtom)).toBe(effective);
+  });
+
+  it("does not notify an adapter-list subscriber when only readings change", () => {
+    const store = seeded();
+    const onAdapters = vi.fn();
+    const onEffective = vi.fn();
+    const onNoReadings = vi.fn();
+    store.sub(gpuAdaptersAtom, onAdapters);
+    store.sub(effectiveGpuIdAtom, onEffective);
+    store.sub(gpuHasNoReadingsAtom, onNoReadings);
+
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70, 71] }));
+    store.set(
+      gpuTempMapAtom,
+      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 61 } }),
+    );
+
+    expect(onAdapters).not.toHaveBeenCalled();
+    expect(onEffective).not.toHaveBeenCalled();
+    expect(onNoReadings).not.toHaveBeenCalled();
+  });
+
+  it("publishes a new list when an adapter appears or is renamed", () => {
+    const store = seeded();
+    const adapters = store.get(gpuAdaptersAtom);
+
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "nvapi:1": "GeForce RTX 4080",
+        "pci:0:2:0": "UHD Graphics 770",
+        "pci:0:3:0": "Radeon",
+      }),
+    );
+    const grown = store.get(gpuAdaptersAtom);
+    expect(grown).not.toBe(adapters);
+    expect(grown).toHaveLength(3);
+
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "nvapi:1": "GeForce RTX 4090",
+        "pci:0:2:0": "UHD Graphics 770",
+        "pci:0:3:0": "Radeon",
+      }),
+    );
+    expect(store.get(gpuAdaptersAtom)).not.toBe(grown);
+    expect(store.get(effectiveGpuAdapterAtom)?.name).toBe("GeForce RTX 4090");
+  });
+
+  it("keeps naming an adapter that only a sensor map knows about", () => {
+    const store = createStore();
+    store.set(
+      gpuTempMapAtom,
+      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 60 } }),
+    );
+
+    expect(store.get(gpuAdaptersAtom)).toEqual([
+      {
+        id: "nvapi:1",
+        name: "GeForce RTX 4080",
+        label: "GeForce RTX 4080",
+        isNameAmbiguous: false,
+      },
+    ]);
+  });
+
+  it("reports no readings only for a detected adapter that has none", () => {
+    const store = seeded();
+    expect(store.get(gpuHasNoReadingsAtom)).toBe(false);
+
+    store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
+    expect(store.get(effectiveGpuIdAtom)).toBe("pci:0:2:0");
+    expect(store.get(gpuHasNoReadingsAtom)).toBe(true);
+  });
+
+  it("is silent before the first sample", () => {
+    const store = createStore();
+
+    expect(store.get(gpuAdaptersAtom)).toEqual([]);
+    expect(store.get(effectiveGpuIdAtom)).toBeUndefined();
+    expect(store.get(effectiveGpuAdapterAtom)).toBeUndefined();
+    expect(store.get(gpuHasNoReadingsAtom)).toBe(false);
+  });
+
+  it("hands out the effective adapter's own temperature and fan speed", () => {
+    const store = seeded();
+    store.set(
+      gpuFanSpeedMapAtom,
+      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 42 } }),
+    );
+    expect(store.get(gpuTemperatureValueAtom)).toBe(60);
+    expect(store.get(gpuFanSpeedValueAtom)).toBe(42);
+
+    store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
+    expect(store.get(gpuTemperatureValueAtom)).toBeNull();
+    expect(store.get(gpuFanSpeedValueAtom)).toBeNull();
+  });
+
+  it("returns one shared empty history, not a new array per sample", () => {
+    const store = seeded();
+    store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
+    const empty = store.get(graphicUsageHistoryAtom);
+
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70, 71] }));
+
+    expect(empty).toEqual([]);
+    expect(store.get(graphicUsageHistoryAtom)).toBe(empty);
   });
 });
