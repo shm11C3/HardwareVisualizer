@@ -2,22 +2,23 @@ import { createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
+  liveGpu,
+  liveSample,
+  paddedHistory,
+} from "@/features/hardware/live/liveSamples.testHelpers";
+import {
   effectiveGpuAdapterAtom,
   effectiveGpuIdAtom,
   gpuAdaptersAtom,
   gpuDedicatedMemoryKbAtom,
-  gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedMapAtom,
   gpuFanSpeedValueAtom,
   gpuHasNoReadingsAtom,
   gpuNamesAtom,
   gpuTemperatureValueAtom,
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
   gpuUsageSourceAtom,
-  gpuUsageSourcesAtom,
   graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 
 /**
@@ -41,14 +42,22 @@ describe("derived GPU atoms", () => {
         "pci:0:2:0": "UHD Graphics 770",
       }),
     );
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70] }));
-    store.set(gpuUsageSourcesAtom, liveMap({ "nvapi:1": "NVAPI" }));
-    store.set(gpuDedicatedMemoryKbMapAtom, liveMap({ "nvapi:1": 4096 }));
     store.set(
-      gpuTempMapAtom,
-      liveMap({
-        "pci:0:2:0": { name: "UHD Graphics 770", value: 48 },
+      publishLiveSampleAtom,
+      liveSample({
+        gpus: [
+          liveGpu("nvapi:1", {
+            gpuUsage: 70,
+            gpuSource: "NVAPI",
+            gpuDedicatedMemoryUsageKb: 4096,
+          }),
+          liveGpu("pci:0:2:0", {
+            gpuName: "UHD Graphics 770",
+            gpuTemperature: 48,
+          }),
+        ],
       }),
+      0,
     );
     return store;
   };
@@ -66,7 +75,7 @@ describe("derived GPU atoms", () => {
   it("resolves a selection that does report", () => {
     const store = withSelection("nvapi:1");
 
-    expect(store.get(graphicUsageHistoryAtom)).toEqual([70]);
+    expect(store.get(graphicUsageHistoryAtom)).toEqual(paddedHistory(70));
     expect(store.get(gpuUsageSourceAtom)).toBe("NVAPI");
     expect(store.get(gpuDedicatedMemoryKbAtom)).toBe(4096);
   });
@@ -74,7 +83,7 @@ describe("derived GPU atoms", () => {
   it("falls back to the first reporting adapter when the selection is gone", () => {
     const store = withSelection("removed-gpu");
 
-    expect(store.get(graphicUsageHistoryAtom)).toEqual([70]);
+    expect(store.get(graphicUsageHistoryAtom)).toEqual(paddedHistory(70));
     expect(store.get(gpuUsageSourceAtom)).toBe("NVAPI");
   });
 
@@ -106,10 +115,18 @@ describe("GPU identity atoms stay stable between samples", () => {
         "pci:0:2:0": "UHD Graphics 770",
       }),
     );
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70] }));
     store.set(
-      gpuTempMapAtom,
-      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 60 } }),
+      publishLiveSampleAtom,
+      liveSample({
+        gpus: [
+          liveGpu("nvapi:1", {
+            gpuName: "GeForce RTX 4080",
+            gpuUsage: 70,
+            gpuTemperature: 60,
+          }),
+        ],
+      }),
+      0,
     );
     return store;
   };
@@ -123,10 +140,18 @@ describe("GPU identity atoms stay stable between samples", () => {
       "pci:0:2:0",
     ]);
 
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70, 71] }));
     store.set(
-      gpuTempMapAtom,
-      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 61 } }),
+      publishLiveSampleAtom,
+      liveSample({
+        gpus: [
+          liveGpu("nvapi:1", {
+            gpuName: "GeForce RTX 4080",
+            gpuUsage: 71,
+            gpuTemperature: 61,
+          }),
+        ],
+      }),
+      0,
     );
 
     expect(store.get(gpuAdaptersAtom)).toBe(adapters);
@@ -142,10 +167,18 @@ describe("GPU identity atoms stay stable between samples", () => {
     store.sub(effectiveGpuIdAtom, onEffective);
     store.sub(gpuHasNoReadingsAtom, onNoReadings);
 
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70, 71] }));
     store.set(
-      gpuTempMapAtom,
-      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 61 } }),
+      publishLiveSampleAtom,
+      liveSample({
+        gpus: [
+          liveGpu("nvapi:1", {
+            gpuName: "GeForce RTX 4080",
+            gpuUsage: 71,
+            gpuTemperature: 61,
+          }),
+        ],
+      }),
+      0,
     );
 
     expect(onAdapters).not.toHaveBeenCalled();
@@ -184,8 +217,16 @@ describe("GPU identity atoms stay stable between samples", () => {
   it("keeps naming an adapter that only a sensor map knows about", () => {
     const store = createStore();
     store.set(
-      gpuTempMapAtom,
-      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 60 } }),
+      publishLiveSampleAtom,
+      liveSample({
+        gpus: [
+          liveGpu("nvapi:1", {
+            gpuName: "GeForce RTX 4080",
+            gpuTemperature: 60,
+          }),
+        ],
+      }),
+      0,
     );
 
     expect(store.get(gpuAdaptersAtom)).toEqual([
@@ -219,8 +260,18 @@ describe("GPU identity atoms stay stable between samples", () => {
   it("hands out the effective adapter's own temperature and fan speed", () => {
     const store = seeded();
     store.set(
-      gpuFanSpeedMapAtom,
-      liveMap({ "nvapi:1": { name: "GeForce RTX 4080", value: 42 } }),
+      publishLiveSampleAtom,
+      liveSample({
+        gpus: [
+          liveGpu("nvapi:1", {
+            gpuName: "GeForce RTX 4080",
+            gpuUsage: 70,
+            gpuTemperature: 60,
+            gpuCoolerLevel: 42,
+          }),
+        ],
+      }),
+      0,
     );
     expect(store.get(gpuTemperatureValueAtom)).toBe(60);
     expect(store.get(gpuFanSpeedValueAtom)).toBe(42);
@@ -235,7 +286,13 @@ describe("GPU identity atoms stay stable between samples", () => {
     store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
     const empty = store.get(graphicUsageHistoryAtom);
 
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70, 71] }));
+    store.set(
+      publishLiveSampleAtom,
+      liveSample({
+        gpus: [liveGpu("nvapi:1", { gpuUsage: 71, gpuTemperature: 60 })],
+      }),
+      0,
+    );
 
     expect(empty).toEqual([]);
     expect(store.get(graphicUsageHistoryAtom)).toBe(empty);

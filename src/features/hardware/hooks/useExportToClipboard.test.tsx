@@ -1,11 +1,11 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { act, renderHook } from "@testing-library/react";
-import { Provider } from "jotai";
-import { useHydrateAtoms } from "jotai/utils";
-import type { ReactNode } from "react";
+import { createStore, Provider } from "jotai";
+import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useExportToClipboard } from "@/features/hardware/dashboard/hooks/useExportToClipboard";
-import { processorsUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
+import { liveSample } from "@/features/hardware/live/liveSamples.testHelpers";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import type {
   DiskKind,
   GraphicInfo,
@@ -122,15 +122,14 @@ const makeStorageItem = (
 const makeWrapper =
   (processorHistory: number[][] = []) =>
   ({ children }: { children: ReactNode }) => {
-    const HydrateAtoms = ({ children }: { children: ReactNode }) => {
-      useHydrateAtoms([[processorsUsageHistoryAtom, processorHistory]]);
-      return <>{children}</>;
-    };
-    return (
-      <Provider>
-        <HydrateAtoms>{children}</HydrateAtoms>
-      </Provider>
-    );
+    const [store] = useState(() => {
+      const seeded = createStore();
+      for (const processorsUsage of processorHistory) {
+        seeded.set(publishLiveSampleAtom, liveSample({ processorsUsage }), 0);
+      }
+      return seeded;
+    });
+    return <Provider store={store}>{children}</Provider>;
   };
 
 const getWrittenContent = () =>

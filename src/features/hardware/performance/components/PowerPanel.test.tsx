@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { powerDrawAtom } from "@/features/hardware/store/power";
+import { liveSample } from "@/features/hardware/live/liveSamples.testHelpers";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { PowerPanel } from "./PowerPanel";
 
 let powerDisplayTargets = ["cpu", "gpu", "package"];
@@ -20,12 +21,16 @@ describe("PowerPanel", () => {
   it("shows only selected components while preserving missing readings", () => {
     powerDisplayTargets = ["cpu", "ane", "package"];
     const store = createStore();
-    store.set(powerDrawAtom, {
-      cpuWatts: 10.1,
-      gpuWatts: 2.2,
-      aneWatts: null,
-      packageWatts: null,
-    });
+    store.set(
+      publishLiveSampleAtom,
+      liveSample({
+        cpuPowerWatts: 10.1,
+        gpuPowerWatts: 2.2,
+        anePowerWatts: null,
+        packagePowerWatts: null,
+      }),
+      0,
+    );
 
     render(
       <Provider store={store}>

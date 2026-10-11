@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { powerDrawAtom } from "@/features/hardware/store/power";
+import { liveSample } from "@/features/hardware/live/liveSamples.testHelpers";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { PowerDrawRail } from "./PowerDrawRail";
 
 vi.mock("react-i18next", () => ({
@@ -17,12 +18,16 @@ vi.mock("@/hooks/settings/useSettingsAtom", () => ({
 describe("PowerDrawRail", () => {
   it("shows selected current readings and preserves unavailable values", () => {
     const store = createStore();
-    store.set(powerDrawAtom, {
-      cpuWatts: 10.1,
-      gpuWatts: 2.2,
-      aneWatts: null,
-      packageWatts: 12.3,
-    });
+    store.set(
+      publishLiveSampleAtom,
+      liveSample({
+        cpuPowerWatts: 10.1,
+        gpuPowerWatts: 2.2,
+        anePowerWatts: null,
+        packagePowerWatts: 12.3,
+      }),
+      0,
+    );
 
     render(
       <Provider store={store}>

@@ -4,21 +4,20 @@ import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
-  gpuDedicatedMemoryKbMapAtom,
-  gpuNamesAtom,
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
-} from "@/features/hardware/store/gpu";
-import {
-  cpuUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
-import {
-  powerDrawAtom,
-  powerDrawAvailableAtom,
-} from "@/features/hardware/store/power";
+  liveGpu,
+  liveSample,
+} from "@/features/hardware/live/liveSamples.testHelpers";
+import { gpuNamesAtom } from "@/features/hardware/store/gpu";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
+import { powerDrawAvailableAtom } from "@/features/hardware/store/power";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import { Performance } from "./Performance";
+
+/** Publishes one monitor sample, the only way the live buffers are written. */
+const publish = (
+  store: ReturnType<typeof createStore>,
+  overrides: Parameters<typeof liveSample>[0],
+) => store.set(publishLiveSampleAtom, liveSample(overrides), 0);
 
 /** Seeds mint live ids the way the event listener does at the boundary. */
 // biome-ignore format: keep the generic arrow readable
@@ -213,8 +212,7 @@ describe("Performance", () => {
 
   it("limits a CPU tick to the mounted CPU chart instead of fanning out across charts", () => {
     const store = createStore();
-    store.set(cpuUsageHistoryAtom, [20]);
-    store.set(memoryUsageHistoryAtom, [40]);
+    publish(store, { cpuUsage: 20, memoryUsage: 40 });
 
     render(
       <Provider store={store}>
@@ -224,9 +222,11 @@ describe("Performance", () => {
 
     expect(state.chartRenders).toEqual({ cpu: 1, memory: 1, gpu: 1 });
 
-    act(() => store.set(cpuUsageHistoryAtom, [20, 30]));
+    act(() => publish(store, { cpuUsage: 30, memoryUsage: 40 }));
 
-    expect(state.chartRenders).toEqual({ cpu: 2, memory: 1, gpu: 1 });
+    // A sample slides every window it carries, so the CPU and memory charts
+    // each render once; the GPU chart has no series to move.
+    expect(state.chartRenders).toEqual({ cpu: 2, memory: 2, gpu: 1 });
     expect(state.processRenders).toBe(1);
   });
 
@@ -234,7 +234,7 @@ describe("Performance", () => {
     // The GPU atoms are rewritten on every sample. A subscription in the
     // Performance parent would rerender the whole screen once a second.
     const store = createStore();
-    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25] }));
+    publish(store, { gpus: [liveGpu("gpu-1", { gpuUsage: 25 })] });
 
     render(
       <Provider store={store}>
@@ -244,11 +244,13 @@ describe("Performance", () => {
 
     const before = { ...state.chartRenders, process: state.processRenders };
 
-    act(() => store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25, 40] })));
+    act(() => publish(store, { gpus: [liveGpu("gpu-1", { gpuUsage: 40 })] }));
 
     expect(state.processRenders).toBe(before.process);
-    expect(state.chartRenders.cpu).toBe(before.cpu);
-    expect(state.chartRenders.memory).toBe(before.memory);
+    // The sample slides the CPU and memory windows too: one render each, not
+    // a render per atom the sample touches.
+    expect(state.chartRenders.cpu).toBe(before.cpu + 1);
+    expect(state.chartRenders.memory).toBe(before.memory + 1);
   });
 
   it("mounts only the dense strip in Compact", () => {
@@ -295,11 +297,11 @@ describe("Performance", () => {
     const user = userEvent.setup();
     const store = createStore();
     store.set(powerDrawAvailableAtom, true);
-    store.set(powerDrawAtom, {
-      cpuWatts: 10.1,
-      gpuWatts: 2.2,
-      aneWatts: null,
-      packageWatts: 12.3,
+    publish(store, {
+      cpuPowerWatts: 10.1,
+      gpuPowerWatts: 2.2,
+      anePowerWatts: null,
+      packagePowerWatts: 12.3,
     });
 
     render(
@@ -342,11 +344,11 @@ describe("Performance", () => {
     const user = userEvent.setup();
     const store = createStore();
     store.set(powerDrawAvailableAtom, true);
-    store.set(powerDrawAtom, {
-      cpuWatts: 10.1,
-      gpuWatts: 2.2,
-      aneWatts: null,
-      packageWatts: 12.3,
+    publish(store, {
+      cpuPowerWatts: 10.1,
+      gpuPowerWatts: 2.2,
+      anePowerWatts: null,
+      packagePowerWatts: 12.3,
     });
     const view = render(
       <Provider store={store}>
@@ -422,7 +424,7 @@ describe("Performance", () => {
     expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
   });
 
-  it("keeps Usage Graphs out of the 1 Hz current Power Draw render path", () => {
+  it("renders each Usage Graph once for a sample that carries Power Draw", () => {
     state.view = "monitor";
     const store = createStore();
     store.set(powerDrawAvailableAtom, true);
@@ -436,15 +438,19 @@ describe("Performance", () => {
     const before = { ...state.chartRenders };
 
     act(() =>
-      store.set(powerDrawAtom, {
-        cpuWatts: 10.1,
-        gpuWatts: 2.2,
-        aneWatts: null,
-        packageWatts: 12.3,
+      publish(store, {
+        cpuPowerWatts: 10.1,
+        gpuPowerWatts: 2.2,
+        anePowerWatts: null,
+        packagePowerWatts: 12.3,
       }),
     );
 
-    expect(state.chartRenders).toEqual(before);
+    expect(state.chartRenders).toEqual({
+      cpu: before.cpu + 1,
+      memory: before.memory + 1,
+      gpu: before.gpu,
+    });
   });
 
   it("keeps hidden panels unmounted in the panels view", () => {
@@ -478,11 +484,11 @@ describe("Performance", () => {
     expect(screen.queryByTestId("performance-panel-power")).toBeNull();
 
     act(() => {
-      store.set(powerDrawAtom, {
-        cpuWatts: 10.1,
-        gpuWatts: 2.2,
-        aneWatts: 0.3,
-        packageWatts: 12.6,
+      publish(store, {
+        cpuPowerWatts: 10.1,
+        gpuPowerWatts: 2.2,
+        anePowerWatts: 0.3,
+        packagePowerWatts: 12.6,
       });
       store.set(powerDrawAvailableAtom, true);
     });
@@ -490,11 +496,11 @@ describe("Performance", () => {
     expect(screen.getByTestId("performance-panel-power")).toBeVisible();
 
     act(() =>
-      store.set(powerDrawAtom, {
-        cpuWatts: null,
-        gpuWatts: null,
-        aneWatts: null,
-        packageWatts: null,
+      publish(store, {
+        cpuPowerWatts: null,
+        gpuPowerWatts: null,
+        anePowerWatts: null,
+        packagePowerWatts: null,
       }),
     );
 
@@ -505,20 +511,20 @@ describe("Performance", () => {
   it("shows the temperature for the GPU selected by the usage history", () => {
     const store = createStore();
     store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
-    store.set(
-      gpuUsageHistoriesAtom,
-      liveMap({
-        "gpu-1": [25],
-        "gpu-2": [50],
-      }),
-    );
-    store.set(
-      gpuTempMapAtom,
-      liveMap({
-        "gpu-1": { name: "GPU 1", value: 45 },
-        "gpu-2": { name: "GPU 2", value: 67 },
-      }),
-    );
+    publish(store, {
+      gpus: [
+        liveGpu("gpu-1", {
+          gpuName: "GPU 1",
+          gpuUsage: 25,
+          gpuTemperature: 45,
+        }),
+        liveGpu("gpu-2", {
+          gpuName: "GPU 2",
+          gpuUsage: 50,
+          gpuTemperature: 67,
+        }),
+      ],
+    });
 
     render(
       <Provider store={store}>
@@ -533,7 +539,9 @@ describe("Performance", () => {
 
   it("leaves visible gaps between unavailable sparkline samples", () => {
     const store = createStore();
-    store.set(cpuUsageHistoryAtom, [10, 20, null, 30, 40]);
+    for (const cpuUsage of [10, 20, null, 30, 40]) {
+      publish(store, { cpuUsage });
+    }
 
     render(
       <Provider store={store}>
@@ -551,19 +559,16 @@ describe("Performance", () => {
     // A selection left over from an adapter that is no longer detected: it
     // appears in no live map and in no detected list, so it cannot be honored.
     store.set(selectedGpuIdAtom, asLiveGpuId("removed-gpu"));
-    store.set(
-      gpuUsageHistoriesAtom,
-      liveMap({
-        "gpu-1": [25],
-      }),
-    );
-    store.set(
-      gpuTempMapAtom,
-      liveMap({
-        "gpu-1": { name: "GPU 1", value: 45 },
-        "gpu-2": { name: "GPU 2", value: 67 },
-      }),
-    );
+    publish(store, {
+      gpus: [
+        liveGpu("gpu-1", {
+          gpuName: "GPU 1",
+          gpuUsage: 25,
+          gpuTemperature: 45,
+        }),
+        liveGpu("gpu-2", { gpuName: "GPU 2", gpuTemperature: 67 }),
+      ],
+    });
 
     render(
       <Provider store={store}>
@@ -581,7 +586,7 @@ describe("Performance", () => {
     const store = createStore();
     state.gpus = [gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080")];
     store.set(gpuNamesAtom, liveMap({ "gpu-1": "NVIDIA GeForce RTX 4080" }));
-    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [42] }));
+    publish(store, { gpus: [liveGpu("gpu-1", { gpuUsage: 42 })] });
 
     render(
       <Provider store={store}>
@@ -605,11 +610,14 @@ describe("Performance", () => {
       gpuFixture("inventory-b", "NVIDIA GeForce RTX 4090"),
     ];
     store.set(gpuNamesAtom, liveMap({ "nvapi:1": "NVIDIA GeForce RTX 4090" }));
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [40] }));
-    store.set(
-      gpuDedicatedMemoryKbMapAtom,
-      liveMap({ "nvapi:1": 4 * 1024 * 1024 }),
-    );
+    publish(store, {
+      gpus: [
+        liveGpu("nvapi:1", {
+          gpuUsage: 40,
+          gpuDedicatedMemoryUsageKb: 4 * 1024 * 1024,
+        }),
+      ],
+    });
 
     render(
       <Provider store={store}>
@@ -626,11 +634,14 @@ describe("Performance", () => {
     const store = createStore();
     state.gpus = [gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090")];
     store.set(gpuNamesAtom, liveMap({ "nvapi:1": "NVIDIA GeForce RTX 4090" }));
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [40] }));
-    store.set(
-      gpuDedicatedMemoryKbMapAtom,
-      liveMap({ "nvapi:1": 4 * 1024 * 1024 }),
-    );
+    publish(store, {
+      gpus: [
+        liveGpu("nvapi:1", {
+          gpuUsage: 40,
+          gpuDedicatedMemoryUsageKb: 4 * 1024 * 1024,
+        }),
+      ],
+    });
 
     render(
       <Provider store={store}>
@@ -656,14 +667,20 @@ describe("Performance", () => {
         "gpu-2": "Intel UHD Graphics 770",
       }),
     );
-    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25], "gpu-2": [50] }));
-    store.set(
-      gpuTempMapAtom,
-      liveMap({
-        "gpu-1": { name: "GPU 1", value: 45 },
-        "gpu-2": { name: "GPU 2", value: 67 },
-      }),
-    );
+    publish(store, {
+      gpus: [
+        liveGpu("gpu-1", {
+          gpuName: "GPU 1",
+          gpuUsage: 25,
+          gpuTemperature: 45,
+        }),
+        liveGpu("gpu-2", {
+          gpuName: "GPU 2",
+          gpuUsage: 50,
+          gpuTemperature: 67,
+        }),
+      ],
+    });
 
     render(
       <Provider store={store}>
@@ -703,11 +720,15 @@ describe("Performance", () => {
         "gpu-2": "Intel UHD Graphics 770",
       }),
     );
-    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25] }));
-    store.set(
-      gpuTempMapAtom,
-      liveMap({ "gpu-1": { name: "GPU 1", value: 45 } }),
-    );
+    publish(store, {
+      gpus: [
+        liveGpu("gpu-1", {
+          gpuName: "GPU 1",
+          gpuUsage: 25,
+          gpuTemperature: 45,
+        }),
+      ],
+    });
 
     render(
       <Provider store={store}>
@@ -752,7 +773,7 @@ describe("Performance", () => {
         "gpu-2": "Intel UHD Graphics 770",
       }),
     );
-    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25] }));
+    publish(store, { gpus: [liveGpu("gpu-1", { gpuUsage: 25 })] });
 
     render(
       <Provider store={store}>
@@ -781,7 +802,12 @@ describe("Performance", () => {
         "gpu-2": "Intel UHD Graphics 770",
       }),
     );
-    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25], "gpu-2": [50] }));
+    publish(store, {
+      gpus: [
+        liveGpu("gpu-1", { gpuUsage: 25 }),
+        liveGpu("gpu-2", { gpuUsage: 50 }),
+      ],
+    });
 
     render(
       <Provider store={store}>

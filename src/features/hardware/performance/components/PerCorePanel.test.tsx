@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { processorsUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
+import { liveSample } from "@/features/hardware/live/liveSamples.testHelpers";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { PerCorePanel } from "./PerCorePanel";
 
 vi.mock("react-i18next", () => ({
@@ -34,7 +35,7 @@ describe("PerCorePanel", () => {
 
   it("reports absence once a sample arrived without per-core data", () => {
     const store = createStore();
-    store.set(processorsUsageHistoryAtom, [[]]);
+    store.set(publishLiveSampleAtom, liveSample({ processorsUsage: [] }), 0);
 
     render(
       <Provider store={store}>
@@ -49,7 +50,11 @@ describe("PerCorePanel", () => {
 
   it("renders one bar per logical processor", () => {
     const store = createStore();
-    store.set(processorsUsageHistoryAtom, [[10, 55, 90, 33]]);
+    store.set(
+      publishLiveSampleAtom,
+      liveSample({ processorsUsage: [10, 55, 90, 33] }),
+      0,
+    );
 
     render(
       <Provider store={store}>

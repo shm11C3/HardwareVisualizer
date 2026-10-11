@@ -1,8 +1,47 @@
 import { atom } from "jotai";
+import { toProcessorRows } from "@/features/hardware/live/liveBuffers";
+import {
+  cpuUsageSeriesAtom,
+  liveMetricsAtom,
+  memoryUsageSeriesAtom,
+} from "@/features/hardware/store/liveMetrics";
 
-export const cpuUsageHistoryAtom = atom<(number | null)[]>([]);
-export const processorsUsageHistoryAtom = atom<number[][]>([]);
-export const memoryUsageHistoryAtom = atom<(number | null)[]>([]);
+// ── Compatibility atoms ──
+//
+// The histories below used to be written by the monitor listener once a
+// second. They are now derived from the Live Metrics Buffer
+// (`store/liveMetrics.ts`) with the same names and shapes, so the screens that
+// read them are unchanged; each is deleted once its last reader has moved to
+// `useLiveSeries` (#1638, slice 3).
+
+/** What a history reads as before the first sample arrives. */
+const NO_SAMPLES: (number | null)[] = [];
+const NO_ROWS: number[][] = [];
+
+/** The CPU window, padded to its length once a sample has arrived. */
+export const cpuUsageHistoryAtom = atom<(number | null)[]>((get) =>
+  get(liveMetricsAtom).buffers.cpu.size === 0
+    ? NO_SAMPLES
+    : get(cpuUsageSeriesAtom),
+);
+
+/** The memory window, padded to its length once a sample has arrived. */
+export const memoryUsageHistoryAtom = atom<(number | null)[]>((get) =>
+  get(liveMetricsAtom).buffers.memory.size === 0
+    ? NO_SAMPLES
+    : get(memoryUsageSeriesAtom),
+);
+
+/**
+ * Time-major per-core usage, oldest sample first and not padded: the matrix
+ * the per-core series were split out of, rebuilt on every sample.
+ */
+export const processorsUsageHistoryAtom = atom<number[][]>((get) => {
+  const { buffers } = get(liveMetricsAtom);
+  return buffers.processorCounts.size === 0
+    ? NO_ROWS
+    : toProcessorRows(buffers);
+});
 
 // ── Derived scalars ──
 //
@@ -18,7 +57,7 @@ export const memoryUsageHistoryAtom = atom<(number | null)[]>([]);
  * first sample arrives.
  */
 export const processorCountAtom = atom(
-  (get) => get(processorsUsageHistoryAtom)[0]?.length || 0,
+  (get) => get(liveMetricsAtom).buffers.processorCounts.oldest() ?? 0,
 );
 
 /**
@@ -27,7 +66,7 @@ export const processorCountAtom = atom(
  * its processor count mid-window.
  */
 export const latestProcessorCountAtom = atom(
-  (get) => get(processorsUsageHistoryAtom).at(-1)?.length ?? 0,
+  (get) => get(liveMetricsAtom).buffers.processorCounts.latest() ?? 0,
 );
 
 /**
@@ -35,7 +74,7 @@ export const latestProcessorCountAtom = atom(
  * to tell "nothing has arrived yet" from "this sensor is absent".
  */
 export const hasCpuUsageHistoryAtom = atom(
-  (get) => get(cpuUsageHistoryAtom).length > 0,
+  (get) => get(liveMetricsAtom).buffers.cpu.size > 0,
 );
 
 /** Stand-in for `processorCountAtom` while runtime stats are disabled. */

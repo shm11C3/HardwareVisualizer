@@ -2,7 +2,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { powerDrawHistoryAtom } from "@/features/hardware/store/power";
+import { liveSample } from "@/features/hardware/live/liveSamples.testHelpers";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { PowerDrawChart } from "./PowerDrawChart";
 
 vi.mock("react-i18next", () => ({
@@ -59,12 +60,21 @@ describe("PowerDrawChart", () => {
 
   it("renders selected series while retaining null gaps in the chart data", () => {
     const store = createStore();
-    store.set(powerDrawHistoryAtom, {
-      cpuWatts: [null, 10.1, null],
-      gpuWatts: [null, 2.2, 2.4],
-      aneWatts: [null, null, null],
-      packageWatts: [null, 12.3, null],
-    });
+    for (const [cpu, gpu, package_] of [
+      [null, null, null],
+      [10.1, 2.2, 12.3],
+      [null, 2.4, null],
+    ]) {
+      store.set(
+        publishLiveSampleAtom,
+        liveSample({
+          cpuPowerWatts: cpu,
+          gpuPowerWatts: gpu,
+          packagePowerWatts: package_,
+        }),
+        0,
+      );
+    }
 
     render(
       <Provider store={store}>
@@ -87,12 +97,11 @@ describe("PowerDrawChart", () => {
 
   it("uses a full-width layout when embedded in the Power panel", () => {
     const store = createStore();
-    store.set(powerDrawHistoryAtom, {
-      cpuWatts: [10],
-      gpuWatts: [],
-      aneWatts: [],
-      packageWatts: [12],
-    });
+    store.set(
+      publishLiveSampleAtom,
+      liveSample({ cpuPowerWatts: 10, packagePowerWatts: 12 }),
+      0,
+    );
 
     render(
       <Provider store={store}>
