@@ -128,3 +128,5 @@ shared enforcement surface.
 - [Coordinate worker restoration with shutdown](coordinate-worker-restoration-with-shutdown.md)
 - [Exclude major upgrades from deferred setup](exclude-major-upgrades-from-deferred-setup.md)
 - [Correct inherited WinGet license metadata](correct-inherited-winget-license-metadata.md)
+
+- [Cache native E2E compilation, not only its driver](cache-native-e2e-compilation.md)

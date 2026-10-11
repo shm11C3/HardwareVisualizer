@@ -48,6 +48,7 @@ directory is the owner.
 | `test-update-winget-license.mjs` | `ci.yml` |
 | `test-cache-inventory.cjs` | `ci.yml` |
 | `test-cache-metrics.cjs` | `ci.yml` |
+| `test-e2e-ci-policy.mjs` | `ci.yml` change detection |
 | `test-check-tauri-deps-changed.mjs` | `ci.yml` |
 | `test-ci-telemetry-action.mts` | `ci.yml` |
 | `test-ci-telemetry-aggregate.mts` | `ci.yml`, `ci-telemetry.yml` |

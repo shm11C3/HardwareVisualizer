@@ -28,6 +28,7 @@ jobs:
     outputs:
       is-push: ${{ steps.meta.outputs.is_push }}
       frontend-changed: ${{ steps.changes.outputs.frontend }}
+      bindings-changed: ${{ steps.changes.outputs.bindings }}
       backend-changed: ${{ steps.changes.outputs.backend }}
       core-changed: ${{ steps.changes.outputs.core }}
       tauri-changed: ${{ steps.changes.outputs.tauri }}
@@ -66,6 +67,8 @@ jobs:
               - 'tsconfig*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
+            bindings:
+              - 'src/rspc/bindings.ts'
             backend:
               - 'core/**'
               - 'src-tauri/**'
@@ -169,6 +172,9 @@ jobs:
         with:
           install-deps: "false"
           setup-safe-chain: "false"
+
+      - name: Test E2E CI policy
+        run: node .github/scripts/test-e2e-ci-policy.mjs
 
       - name: Test Tauri dependency change detection
         run: node .github/scripts/test-check-tauri-deps-changed.mjs
@@ -549,7 +555,9 @@ jobs:
   #
   check-tauri-bindings:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true' || needs.change-detection.outputs.core-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.actions-changed == 'true'
+    # Frontend consumers do not change exported Rust types. Check both the
+    # generated file and its producers, including attempts to hand-edit it.
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.bindings-changed == 'true' || needs.change-detection.outputs.core-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.actions-changed == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -1023,11 +1031,24 @@ jobs:
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
-          cache-key: tauri-driver
-          cache-targets: "false"
+          components: ""
+          # Unlike the driver-only cache, retain compiled app dependencies.
+          # Keep this key separate from release/check/coverage Cargo modes.
+          cache-key: tauri-native-e2e
 
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked --version 2.0.6
+
+      - name: Cache sccache (R2)
+        if: env.R2_CACHE_ALLOWED == 'true'
+        uses: ./.github/actions/cache-sccache
+        with:
+          # The app's default features compile bundled DuckDB C++ sources.
+          expect-cpp: "true"
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Run native E2E smoke
         run: xvfb-run npm run test:e2e:native
