@@ -17,9 +17,16 @@ import {
 import {
   clearGpuTemperaturesAtom,
   cpuUsageCurrentAtom,
+  cpuUsageSeriesAtom,
+  gpuUsageCurrentAtom,
   gpuUsageSeriesAtom,
+  latestProcessorUsagesAtom,
   liveMetricsAtom,
+  liveScalarAtom,
+  liveSeriesAtom,
   memoryUsageCurrentAtom,
+  powerCurrentAtom,
+  powerDrawSeriesAtom,
   processorUsageSeriesAtom,
   publishLiveSampleAtom,
 } from "@/features/hardware/store/liveMetrics";
@@ -131,6 +138,114 @@ describe("series", () => {
     expect(store.get(gpuUsageSeriesAtom(gpuA))).toHaveLength(
       chartConfig.historyLengthSec,
     );
+  });
+});
+
+describe("per-adapter and per-domain channels", () => {
+  it("read one adapter's current usage, null for a gap or an unknown adapter", () => {
+    const store = createStore();
+    expect(store.get(gpuUsageCurrentAtom(gpuA))).toBeNull();
+
+    publish(store, { gpus: [liveGpu("gpu-a", { gpuUsage: 7 })] });
+    expect(store.get(gpuUsageCurrentAtom(gpuA))).toBe(7);
+    expect(store.get(gpuUsageCurrentAtom(asLiveGpuId("gpu-b")))).toBeNull();
+
+    publish(store, { gpus: [liveGpu("gpu-a", { gpuUsage: null })] });
+    expect(store.get(gpuUsageCurrentAtom(gpuA))).toBeNull();
+  });
+
+  it("read each power domain on its own, in watts", () => {
+    const store = createStore();
+    expect(store.get(powerCurrentAtom("cpuWatts"))).toBeNull();
+
+    publish(store, { cpuPowerWatts: 12.5, packagePowerWatts: 30 });
+    publish(store, { cpuPowerWatts: 13, packagePowerWatts: 30 });
+
+    expect(store.get(powerCurrentAtom("cpuWatts"))).toBe(13);
+    expect(store.get(powerCurrentAtom("gpuWatts"))).toBeNull();
+    expect(store.get(powerDrawSeriesAtom("cpuWatts"))).toEqual(
+      paddedHistory(12.5, 13),
+    );
+    expect(store.get(powerDrawSeriesAtom("packageWatts"))).toEqual(
+      paddedHistory(30, 30),
+    );
+  });
+
+  it("do not wake a power-domain subscriber when another domain moves", () => {
+    const store = createStore();
+    publish(store, { cpuPowerWatts: 10, packagePowerWatts: 30 });
+    const onCpu = vi.fn();
+    store.sub(powerCurrentAtom("cpuWatts"), onCpu);
+
+    publish(store, { cpuPowerWatts: 10, packagePowerWatts: 31 });
+
+    expect(onCpu).not.toHaveBeenCalled();
+  });
+
+  it("resolve the same atoms through the channel lookups", () => {
+    expect(liveScalarAtom({ kind: "gpu", id: gpuA })).toBe(
+      gpuUsageCurrentAtom(gpuA),
+    );
+    expect(liveScalarAtom({ kind: "power", key: "gpuWatts" })).toBe(
+      powerCurrentAtom("gpuWatts"),
+    );
+    expect(liveSeriesAtom({ kind: "power", key: "gpuWatts" })).toBe(
+      powerDrawSeriesAtom("gpuWatts"),
+    );
+  });
+});
+
+describe("series before any sample", () => {
+  it("are one shared window of gaps, so waiting does not wake a subscriber", () => {
+    const store = createStore();
+    const cpu = store.get(cpuUsageSeriesAtom);
+    const power = store.get(powerDrawSeriesAtom("cpuWatts"));
+    const onPower = vi.fn();
+    store.sub(powerDrawSeriesAtom("cpuWatts"), onPower);
+
+    publish(store, { cpuUsage: 5 });
+
+    expect(cpu).toEqual(paddedHistory());
+    expect(power).toBe(store.get(powerDrawSeriesAtom("cpuWatts")));
+    expect(onPower).not.toHaveBeenCalled();
+    expect(store.get(cpuUsageSeriesAtom)).toEqual(paddedHistory(5));
+  });
+});
+
+describe("latest per-core usage", () => {
+  it("is null before a sample, then one entry per processor of the newest sample", () => {
+    const store = createStore();
+    expect(store.get(latestProcessorUsagesAtom)).toBeNull();
+
+    publish(store, { processorsUsage: [1, 2, 3] });
+    publish(store, { processorsUsage: [4, 5] });
+
+    expect(store.get(latestProcessorUsagesAtom)).toEqual([4, 5]);
+  });
+
+  it("is an empty list for a sample without per-core data", () => {
+    const store = createStore();
+
+    publish(store, { processorsUsage: [] });
+
+    expect(store.get(latestProcessorUsagesAtom)).toEqual([]);
+  });
+
+  it("keeps its reference, and does not notify, while no core moves", () => {
+    const store = createStore();
+    publish(store, { processorsUsage: [1, 2] });
+    const latest = store.get(latestProcessorUsagesAtom);
+    const onLatest = vi.fn();
+    store.sub(latestProcessorUsagesAtom, onLatest);
+
+    publish(store, { processorsUsage: [1, 2] });
+
+    expect(store.get(latestProcessorUsagesAtom)).toBe(latest);
+    expect(onLatest).not.toHaveBeenCalled();
+
+    publish(store, { processorsUsage: [1, 3] });
+
+    expect(onLatest).toHaveBeenCalledTimes(1);
   });
 });
 

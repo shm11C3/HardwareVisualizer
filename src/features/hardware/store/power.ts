@@ -10,8 +10,8 @@ import { shallowEqualRecord } from "@/lib/shallowEqual";
 import type { SensorSupport } from "@/rspc/bindings";
 
 // The two atoms below are compatibility views of the Live Metrics Buffer
-// (`store/liveMetrics.ts`), kept until their readers move to the live hooks
-// (#1638, slice 3).
+// (`store/liveMetrics.ts`). No screen reads them any more (they read
+// `useLiveSeries` / `useLiveScalar`); they are removed in #1638, slice 4.
 
 /**
  * The latest power reading. Recomputed with every sample but kept

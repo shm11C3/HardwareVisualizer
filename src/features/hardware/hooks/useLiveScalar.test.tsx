@@ -2,8 +2,12 @@ import { act, renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
+import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useLiveScalar } from "@/features/hardware/hooks/useLiveScalar";
-import { liveSample } from "@/features/hardware/live/liveSamples.testHelpers";
+import {
+  liveGpu,
+  liveSample,
+} from "@/features/hardware/live/liveSamples.testHelpers";
 import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 
 const mount = (channel: Parameters<typeof useLiveScalar>[0]) => {
@@ -37,6 +41,31 @@ describe("useLiveScalar", () => {
     publish({ cpuUsage: 1, memoryUsage: 64 });
 
     expect(hook.result.current).toBe(64);
+  });
+
+  it("reads one adapter's usage by id", () => {
+    const { hook, publish } = mount({
+      kind: "gpu",
+      id: asLiveGpuId("gpu-b"),
+    });
+
+    publish({
+      gpus: [
+        liveGpu("gpu-a", { gpuUsage: 1 }),
+        liveGpu("gpu-b", { gpuUsage: 2 }),
+      ],
+    });
+
+    expect(hook.result.current).toBe(2);
+  });
+
+  it("reads one power domain", () => {
+    const { hook, publish } = mount({ kind: "power", key: "packageWatts" });
+    expect(hook.result.current).toBeNull();
+
+    publish({ cpuPowerWatts: 5, packagePowerWatts: 40 });
+
+    expect(hook.result.current).toBe(40);
   });
 
   it("re-renders only when the value changes", () => {

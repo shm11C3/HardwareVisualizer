@@ -34,12 +34,16 @@ import {
 import { afterAll, describe, expect, it, vi } from "vitest";
 import {
   buildHardwareUpdateSeries,
+  GPU_FIXTURES,
   sysInfoFixture,
 } from "@/e2e/fixtures/hardware";
 import { Dashboard } from "@/features/hardware/dashboard/Dashboard";
+import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { Performance } from "@/features/hardware/performance/Performance";
 import {
+  effectiveGpuUsageCurrentAtom,
+  effectiveGpuUsageSeriesAtom,
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedAtom,
@@ -52,6 +56,17 @@ import {
   gpuUsageSourcesAtom,
   graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
+import {
+  cpuUsageCurrentAtom,
+  cpuUsageSeriesAtom,
+  gpuUsageSeriesAtom,
+  latestProcessorUsagesAtom,
+  memoryUsageCurrentAtom,
+  memoryUsageSeriesAtom,
+  powerCurrentAtom,
+  powerDrawSeriesAtom,
+  processorUsageSeriesAtom,
+} from "@/features/hardware/store/liveMetrics";
 import {
   cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
@@ -78,8 +93,8 @@ import type { HardwareMonitorUpdate } from "@/rspc/bindings";
 // ── Bounds ──
 //
 // Per-screen upper bounds on what one steady-state update (updates 2-10 of the
-// series) may cost. They are the values measured after slice 1 of #1638
-// (subscription granularity), with no margin because the counts are
+// series) may cost. They are the values measured after slice 3 of #1638
+// (the screens reading through the live hooks), with no margin because the counts are
 // deterministic. They may only go down: when a change lowers a count, lower
 // the number here in the same change; if a change raises one, the screen has
 // started re-rendering something it did not before.
@@ -130,7 +145,7 @@ const BOUNDS = {
     firstUpdateCommits: 1,
   },
   "cpu-detail": {
-    components: 19,
+    components: 18,
     leaves: 9,
     commits: 1,
     firstUpdateCommits: 1,
@@ -541,6 +556,30 @@ const liveAtoms: ReadonlyArray<readonly [string, Atom<unknown>]> = [
   ["powerDraw", powerDrawAtom],
   ["powerDrawHistory", powerDrawHistoryAtom],
   ["powerDrawAvailable", powerDrawAvailableAtom],
+  // The live channels the screens read through the hooks (#1638 slice 3).
+  ["cpuUsageSeries", cpuUsageSeriesAtom],
+  ["memoryUsageSeries", memoryUsageSeriesAtom],
+  ["cpuUsageCurrent", cpuUsageCurrentAtom],
+  ["memoryUsageCurrent", memoryUsageCurrentAtom],
+  ["effectiveGpuUsageSeries", effectiveGpuUsageSeriesAtom],
+  ["effectiveGpuUsageCurrent", effectiveGpuUsageCurrentAtom],
+  ["latestProcessorUsages", latestProcessorUsagesAtom],
+  ...Array.from(
+    { length: 64 },
+    (_, index) =>
+      ["processorUsageSeries", processorUsageSeriesAtom(index)] as const,
+  ),
+  ...GPU_FIXTURES.map(
+    ({ liveId }) =>
+      ["gpuUsageSeries", gpuUsageSeriesAtom(asLiveGpuId(liveId))] as const,
+  ),
+  ...(["cpuWatts", "gpuWatts", "aneWatts", "packageWatts"] as const).flatMap(
+    (key) =>
+      [
+        [`powerDrawSeries (${key})`, powerDrawSeriesAtom(key)],
+        [`powerCurrent (${key})`, powerCurrentAtom(key)],
+      ] as const,
+  ),
 ];
 
 /** A store that counts active component subscriptions to the live atoms. */

@@ -1,20 +1,22 @@
-import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
-import { powerDrawAtom } from "@/features/hardware/store/power";
+import { useLiveScalar } from "@/features/hardware/hooks/useLiveScalar";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 
 export const PowerPanel = () => {
   const { t } = useTranslation();
-  const power = useAtomValue(powerDrawAtom);
+  const cpuWatts = useLiveScalar({ kind: "power", key: "cpuWatts" });
+  const gpuWatts = useLiveScalar({ kind: "power", key: "gpuWatts" });
+  const aneWatts = useLiveScalar({ kind: "power", key: "aneWatts" });
+  const packageWatts = useLiveScalar({ kind: "power", key: "packageWatts" });
   const { settings } = useSettingsAtom();
   const allReadings: readonly [
     "cpu" | "gpu" | "ane" | "package",
     number | null,
   ][] = [
-    ["cpu", power.cpuWatts],
-    ["gpu", power.gpuWatts],
-    ["ane", power.aneWatts],
-    ["package", power.packageWatts],
+    ["cpu", cpuWatts],
+    ["gpu", gpuWatts],
+    ["ane", aneWatts],
+    ["package", packageWatts],
   ];
   const readings = allReadings.filter(([component]) =>
     settings.powerDisplayTargets.includes(component),

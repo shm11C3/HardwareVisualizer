@@ -105,7 +105,8 @@ Use the existing boundary when choosing where state lives:
 - The 1 Hz monitor stream is buffered in
   `src/features/hardware/store/liveMetrics.ts` (ring buffers from
   `src/features/hardware/live/`, created per Jotai store). The listener writes
-  one atom per sample; read it with `useLiveScalar` / `useLiveSeries` rather
+  one atom per sample; screens read it with `useLiveScalar` / `useLiveSeries`
+  (or the effective-GPU atoms in `store/gpu.ts`) rather
   than a whole history or map. Rules:
   [Live metrics subscriptions](../docs/design/frontend-architecture.md#live-metrics-subscriptions).
 - Per-store mutable state (counters, coalescing flags) also lives in a `store/`

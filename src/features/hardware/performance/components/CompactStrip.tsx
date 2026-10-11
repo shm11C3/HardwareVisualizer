@@ -2,14 +2,11 @@ import { useAtomValue } from "jotai";
 import { type CSSProperties, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
+import { useLiveSeries } from "@/features/hardware/hooks/useLiveSeries";
 import {
+  effectiveGpuUsageSeriesAtom,
   gpuTemperatureValueAtom,
-  graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
-import {
-  cpuUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
 import { cpuTempAtom } from "@/features/hardware/store/sensors";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -131,10 +128,10 @@ export const CompactStrip = ({
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const cpuHistory = useAtomValue(cpuUsageHistoryAtom);
-  const memoryHistory = useAtomValue(memoryUsageHistoryAtom);
+  const cpuHistory = useLiveSeries({ kind: "cpu" });
+  const memoryHistory = useLiveSeries({ kind: "memory" });
   const cpuTemperatures = useAtomValue(cpuTempAtom);
-  const gpuHistory = useAtomValue(graphicUsageHistoryAtom);
+  const gpuHistory = useAtomValue(effectiveGpuUsageSeriesAtom);
   const gpuTemperature = useAtomValue(gpuTemperatureValueAtom);
   const {
     effectiveGpuId,

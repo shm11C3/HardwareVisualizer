@@ -13,7 +13,12 @@ import type {
   LiveBuffers,
   LiveGpuBuffer,
 } from "@/features/hardware/live/liveBuffers";
-import { liveMetricsAtom } from "@/features/hardware/store/liveMetrics";
+import {
+  gpuUsageCurrentAtom,
+  gpuUsageSeriesAtom,
+  liveMetricsAtom,
+  NO_LIVE_SAMPLES,
+} from "@/features/hardware/store/liveMetrics";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { shallowEqualArray, shallowEqualRecord } from "@/lib/shallowEqual";
@@ -24,7 +29,7 @@ import type { NameValue } from "@/rspc/bindings";
 // The per-GPU maps below are compatibility views of the Live Metrics Buffer
 // (`store/liveMetrics.ts`): same names, same record shapes, rebuilt from the
 // buffers on every sample. They are deleted once their last reader has moved
-// to the live hooks (#1638, slice 3). `gpuNamesAtom` is not one of them; a
+// to the live hooks (#1638, slice 4). `gpuNamesAtom` is not one of them; a
 // name is an identity, written by the listener.
 
 /** The adapters that reported in the latest sample, in payload order. */
@@ -186,6 +191,27 @@ export const gpuHasNoReadingsAtom = atom<boolean>((get) =>
     Object.keys(get(gpuNamesAtom)) as LiveGpuId[],
   ),
 );
+
+/**
+ * The effective adapter's usage window, padded like every live series. All
+ * gaps while there is no effective adapter or it has not reported usage; use
+ * `gpuHasNoReadingsAtom` to tell "silent" from "not yet".
+ */
+export const effectiveGpuUsageSeriesAtom = atom<(number | null)[]>((get) => {
+  const effective = get(effectiveGpuIdAtom);
+  return effective != null
+    ? get(gpuUsageSeriesAtom(effective))
+    : NO_LIVE_SAMPLES;
+});
+
+/**
+ * The effective adapter's current usage, or `null` while there is none. A
+ * primitive, so it notifies only when the reading changes.
+ */
+export const effectiveGpuUsageCurrentAtom = atom<number | null>((get) => {
+  const effective = get(effectiveGpuIdAtom);
+  return effective != null ? get(gpuUsageCurrentAtom(effective)) : null;
+});
 
 /**
  * What `graphicUsageHistoryAtom` returns when the effective adapter has no

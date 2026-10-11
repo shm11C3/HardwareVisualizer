@@ -18,13 +18,12 @@ vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({ settings: mockSettings }),
 }));
 
-vi.mock("@/features/hardware/store/liveUsage", () => ({
-  cpuUsageHistoryAtom: {},
-  memoryUsageHistoryAtom: {},
+vi.mock("@/features/hardware/hooks/useLiveSeries", () => ({
+  useLiveSeries: () => [],
 }));
 
 vi.mock("@/features/hardware/store/gpu", () => ({
-  graphicUsageHistoryAtom: {},
+  effectiveGpuUsageSeriesAtom: {},
 }));
 
 vi.mock("jotai", () => ({

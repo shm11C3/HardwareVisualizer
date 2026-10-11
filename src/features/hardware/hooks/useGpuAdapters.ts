@@ -20,7 +20,7 @@ import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
  * stable between samples, so a component that calls this hook does not
  * re-render once a second. A surface that renders the effective adapter's
  * numbers reads them from the per-adapter atoms in `store/gpu.ts`
- * (`graphicUsageHistoryAtom`, `gpuTemperatureValueAtom`, ...) in the smallest
+ * (`effectiveGpuUsageSeriesAtom`, `gpuTemperatureValueAtom`, ...) in the smallest
  * component that shows them.
  */
 export const useGpuAdapters = () => {

@@ -10,17 +10,14 @@ import { useTranslation } from "react-i18next";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { useLiveSeries } from "@/features/hardware/hooks/useLiveSeries";
 import {
+  effectiveGpuUsageSeriesAtom,
   gpuDedicatedMemoryKbAtom,
   gpuFanSpeedValueAtom,
   gpuTemperatureValueAtom,
-  graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
-import {
-  cpuUsageHistoryAtom,
-  latestProcessorCountAtom,
-  memoryUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
+import { latestProcessorCountAtom } from "@/features/hardware/store/liveUsage";
 import { cpuTempAtom } from "@/features/hardware/store/sensors";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { useWindowSize } from "@/hooks/window/useWindowSize";
@@ -137,9 +134,9 @@ const MetricInstrument = memo(
  */
 export const InstrumentStrip = ({ className }: { className?: string }) => {
   const { t } = useTranslation();
-  const cpuHistory = useAtomValue(cpuUsageHistoryAtom);
-  const memoryHistory = useAtomValue(memoryUsageHistoryAtom);
-  const gpuHistory = useAtomValue(graphicUsageHistoryAtom);
+  const cpuHistory = useLiveSeries({ kind: "cpu" });
+  const memoryHistory = useLiveSeries({ kind: "memory" });
+  const gpuHistory = useAtomValue(effectiveGpuUsageSeriesAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperature = useAtomValue(gpuTemperatureValueAtom);
   const gpuDedicatedMemoryKb = useAtomValue(gpuDedicatedMemoryKbAtom);

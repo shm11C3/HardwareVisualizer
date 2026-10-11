@@ -10,9 +10,9 @@ import {
 //
 // The histories below used to be written by the monitor listener once a
 // second. They are now derived from the Live Metrics Buffer
-// (`store/liveMetrics.ts`) with the same names and shapes, so the screens that
-// read them are unchanged; each is deleted once its last reader has moved to
-// `useLiveSeries` (#1638, slice 3).
+// (`store/liveMetrics.ts`) with the same names and shapes. No screen reads the
+// histories any more (they read `useLiveSeries` / `useLiveScalar`); they are
+// removed in #1638, slice 4.
 
 /** What a history reads as before the first sample arrives. */
 const NO_SAMPLES: (number | null)[] = [];

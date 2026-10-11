@@ -9,6 +9,8 @@ import {
 import {
   effectiveGpuAdapterAtom,
   effectiveGpuIdAtom,
+  effectiveGpuUsageCurrentAtom,
+  effectiveGpuUsageSeriesAtom,
   gpuAdaptersAtom,
   gpuDedicatedMemoryKbAtom,
   gpuFanSpeedValueAtom,
@@ -93,6 +95,57 @@ describe("derived GPU atoms", () => {
     expect(store.get(graphicUsageHistoryAtom)).toEqual([]);
     expect(store.get(gpuUsageSourceAtom)).toBeNull();
     expect(store.get(gpuDedicatedMemoryKbAtom)).toBeNull();
+  });
+
+  it("reads the effective adapter's live channel, padded, without resolving an id", () => {
+    const store = withSelection("nvapi:1");
+
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toEqual(paddedHistory(70));
+    expect(store.get(effectiveGpuUsageCurrentAtom)).toBe(70);
+  });
+
+  it("reads as all gaps, and no current value, for an adapter without usage", () => {
+    const store = withSelection("pci:0:2:0");
+
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toEqual(paddedHistory());
+    expect(store.get(effectiveGpuUsageCurrentAtom)).toBeNull();
+  });
+
+  it("reads as all gaps before the first sample, as one shared array", () => {
+    const store = createStore();
+    const empty = store.get(effectiveGpuUsageSeriesAtom);
+
+    expect(empty).toEqual(paddedHistory());
+    expect(store.get(effectiveGpuUsageCurrentAtom)).toBeNull();
+
+    store.set(publishLiveSampleAtom, liveSample(), 0);
+
+    expect(store.get(effectiveGpuUsageSeriesAtom)).toBe(empty);
+  });
+
+  it("follows the selection to another adapter's channel", () => {
+    const store = withSelection("nvapi:1");
+    const onCurrent = vi.fn();
+    store.sub(effectiveGpuUsageCurrentAtom, onCurrent);
+
+    store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
+
+    expect(onCurrent).toHaveBeenCalledTimes(1);
+    expect(store.get(effectiveGpuUsageCurrentAtom)).toBeNull();
+  });
+
+  it("does not wake a current-value subscriber for a sample that leaves it unchanged", () => {
+    const store = withSelection("nvapi:1");
+    const onCurrent = vi.fn();
+    store.sub(effectiveGpuUsageCurrentAtom, onCurrent);
+
+    store.set(
+      publishLiveSampleAtom,
+      liveSample({ gpus: [liveGpu("nvapi:1", { gpuUsage: 70 })] }),
+      0,
+    );
+
+    expect(onCurrent).not.toHaveBeenCalled();
   });
 });
 
