@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { type DashboardItemType, dashBoardItems } from "../types/dashboardItem";
 
 const mockInit = vi.fn();
@@ -15,7 +15,7 @@ vi.mock("../../hooks/useHardwareInfoAtom", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: vi
     .fn()
     .mockImplementation((_key: string, defaultValue: DashboardItemType[]) => [

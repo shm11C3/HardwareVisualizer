@@ -1,12 +1,12 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
-import { externalComponentGuidanceDocsBaseUrl } from "@/components/shared/externalComponentGuidance";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
+import { externalComponentGuidanceDocsBaseUrl } from "@/lib/externalComponentGuidance";
 import { openURL } from "@/lib/openUrl";
 import { ElevatedStartupModeToggle } from "./ElevatedStartupModeToggle";
 import { ExternalComponentSetupSection } from "./ExternalComponentSetupSection";

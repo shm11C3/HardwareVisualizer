@@ -5,7 +5,7 @@ import {
 } from "@tauri-apps/plugin-dialog";
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 
 // Mock the useTranslation hook from react-i18next
 vi.mock("react-i18next", () => ({

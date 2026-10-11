@@ -1,5 +1,5 @@
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { commands } from "@/rspc/bindings";
-import { useTauriStore } from "./useTauriStore";
 
 export const useFullScreenMode = () => {
   const [isFullScreen, setIsFullScreen] = useTauriStore("isFullScreen", false);

@@ -7,7 +7,7 @@ import {
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/liveUsage";
 import { cpuTempAtom } from "@/features/hardware/store/sensors";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import { formatTemperature, toCssColor } from "./InstrumentStrip";
 import { Sparkline } from "./Sparkline";

@@ -24,7 +24,7 @@ These instructions add to the repository root `AGENTS.md` for work under
   never rendered as a failure or vice versa. See the Failure Reporting
   section of `docs/design/frontend-architecture.md`.
 - Backend `error_event` is handled by `useErrorModalListener` in
-  `src/hooks/useTauriEventListener.ts`; preserve the existing error boundary
+  `src/hooks/tauri/useTauriEventListener.ts`; preserve the existing error boundary
   unless the product flow needs a more specific user action.
 - Add user-visible strings to the language files under `src/lang/` and use
   `useTranslation()`.

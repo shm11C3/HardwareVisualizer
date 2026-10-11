@@ -1,6 +1,6 @@
 import { useEffect } from "react";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { commands } from "@/rspc/bindings";
-import { useTauriDialog } from "./useTauriDialog";
 
 export const useKeydown = ({
   isDecorated,

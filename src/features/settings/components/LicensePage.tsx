@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { commands } from "@/rspc/bindings";
 import { isError, isOk } from "@/types/result";
 

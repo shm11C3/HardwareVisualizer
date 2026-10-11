@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useMarkRestartRequired } from "@/hooks/useRestartRequired";
+import { useMarkRestartRequired } from "@/hooks/settings/useRestartRequired";
 import { commands } from "@/rspc/bindings";
 
 export const NeedRestart = ({

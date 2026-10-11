@@ -28,7 +28,7 @@ import {
   isExplorerRecentDays,
 } from "@/features/hardware/insights/cooling/utils/loadTemperatureExplorer";
 import { formatSignedTemperatureDelta } from "@/features/hardware/insights/cooling/utils/temperatureUnit";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type { CoolingLoadTemperatureExplorer } from "@/rspc/bindings";
 import { ExplorerWindowMinimap } from "./ExplorerWindowMinimap";
 import { LoadTemperatureScatterChart } from "./LoadTemperatureScatterChart";

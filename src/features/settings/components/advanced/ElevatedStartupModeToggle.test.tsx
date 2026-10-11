@@ -11,13 +11,16 @@ const mocks = vi.hoisted(() => ({
   useProcessElevated: vi.fn((): boolean | null => false),
 }));
 
-vi.mock("@/hooks/useElevationAvailability", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("@/hooks/useElevationAvailability")
-  >()),
-  useElevationAvailability: mocks.useElevationAvailability,
-  useProcessElevated: mocks.useProcessElevated,
-}));
+vi.mock(
+  "@/hooks/settings/useElevationAvailability",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/hooks/settings/useElevationAvailability")
+    >()),
+    useElevationAvailability: mocks.useElevationAvailability,
+    useProcessElevated: mocks.useProcessElevated,
+  }),
+);
 
 vi.mock("@tauri-apps/plugin-os", () => ({
   platform: mocks.platform,
@@ -39,7 +42,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: mocks.settings,
     updateSettingAtom: mocks.updateSettingAtom,

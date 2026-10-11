@@ -1,6 +1,7 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { convertFileToBase64 } from "@/lib/file";
 import { commands } from "@/rspc/bindings";
 import {
@@ -8,7 +9,6 @@ import {
   uploadedBackgroundImagesAtom,
 } from "@/store/backgroundImage";
 import { isError, isOk } from "@/types/result";
-import { useTauriDialog } from "./useTauriDialog";
 
 export const useBackgroundImage = () => {
   const { error } = useTauriDialog();

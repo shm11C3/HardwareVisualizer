@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import ErrorFallback from "@/components/ErrorFallback";
+import ErrorFallback from "./ErrorFallback";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({

@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useFullScreenMode } from "@/hooks/useFullScreenMode";
+import { useFullScreenMode } from "@/hooks/window/useFullScreenMode";
 
 const hoisted = vi.hoisted(() => ({
   setDecoration: vi.fn().mockResolvedValue(undefined),
@@ -13,7 +13,7 @@ vi.mock("@/rspc/bindings", () => ({
   },
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: vi.fn().mockReturnValue([false, hoisted.setIsFullScreen]),
 }));
 

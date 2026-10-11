@@ -51,7 +51,7 @@ vi.mock("@/components/charts/DoughnutChart", () => ({
   }) => <div data-testid="doughnut-chart">{chartValue}</div>,
 }));
 
-vi.mock("@/components/shared/InfoTable", () => ({
+vi.mock("@/components/InfoTable", () => ({
   InfoTable: () => <div data-testid="info-table" />,
 }));
 
@@ -68,11 +68,11 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: () => [false],
 }));
 
-vi.mock("@/hooks/useWindowSize", () => ({
+vi.mock("@/hooks/window/useWindowSize", () => ({
   useWindowSize: () => ({
     isBreak: () => true,
   }),

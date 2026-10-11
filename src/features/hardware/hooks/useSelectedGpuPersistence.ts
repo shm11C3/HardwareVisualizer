@@ -8,7 +8,7 @@ import {
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { gpuNamesAtom } from "@/features/hardware/store/gpu";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 
 const STORE_KEY = "selectedGpuId";
 

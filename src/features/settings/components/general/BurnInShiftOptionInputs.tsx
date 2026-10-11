@@ -2,7 +2,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type { BurnInShiftOptions } from "@/rspc/bindings";
 
 export const BurnInShiftOptionInputs = () => {

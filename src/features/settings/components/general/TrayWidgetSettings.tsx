@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 

@@ -1,7 +1,7 @@
-// src/hooks/useColorTheme.test.ts
+// src/hooks/appearance/useColorTheme.test.ts
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useColorTheme } from "@/hooks/useColorTheme";
+import { useColorTheme } from "@/hooks/appearance/useColorTheme";
 import type { Theme } from "@/rspc/bindings";
 
 // Create mock functions that can be reconfigured per test

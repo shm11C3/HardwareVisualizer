@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { randInt } from "@/lib/math";
 import type { BurnInShiftOptions, BurnInShiftPreset } from "@/rspc/bindings";
 

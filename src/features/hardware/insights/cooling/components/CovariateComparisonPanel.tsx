@@ -13,7 +13,7 @@ import {
   type EstablishedCovariateComparison,
   temperatureUnitSuffix,
 } from "@/features/hardware/insights/cooling/utils/covariateComparison";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type {
   CoolingCovariateComparability,
   CoolingLoadBand,

@@ -13,8 +13,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 

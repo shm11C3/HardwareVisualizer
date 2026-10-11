@@ -15,7 +15,7 @@ import {
   resolveObservationDisplay,
 } from "@/features/hardware/insights/cooling/utils/observationDisplay";
 import { formatSignedTemperatureDelta } from "@/features/hardware/insights/cooling/utils/temperatureUnit";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type {
   CoolingBaselineDelta,
   CoolingBaselineState,

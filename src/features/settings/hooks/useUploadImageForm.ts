@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { useBackgroundImage } from "@/hooks/useBgImage";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useBackgroundImage } from "@/hooks/appearance/useBgImage";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 
 // Custom hook for image upload
 export const useUploadImage = () => {

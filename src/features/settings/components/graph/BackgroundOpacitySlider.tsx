@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 
 export const BackgroundOpacitySlider = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();

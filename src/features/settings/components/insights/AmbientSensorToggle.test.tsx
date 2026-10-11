@@ -39,12 +39,12 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/components/shared/System", () => ({
+vi.mock("@/components/NeedRestart", () => ({
   NeedRestart: ({ alertOpen }: { alertOpen: boolean }) =>
     alertOpen ? <div>Restart Required</div> : null,
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
       hardwareArchive: { enabled: mocks.hardwareArchiveEnabled },

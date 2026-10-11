@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import React from "react";
 import { describe, expect, it } from "vitest";
-import { useTitleIconVisualSelector } from "@/hooks/useTitleIconVisualSelector";
+import { useTitleIconVisualSelector } from "@/hooks/appearance/useTitleIconVisualSelector";
 
 // Wrap each renderHook with a fresh Jotai Provider to isolate atom state
 const wrapper = ({ children }: { children: React.ReactNode }) =>

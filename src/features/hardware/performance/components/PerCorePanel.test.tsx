@@ -8,7 +8,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: { lineGraphColor: { cpu: "75, 192, 192" } },
   }),

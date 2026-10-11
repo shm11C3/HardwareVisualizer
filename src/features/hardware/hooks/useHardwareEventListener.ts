@@ -33,7 +33,7 @@ import {
   motherboardTempsAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/sensors";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import {
   events,
   type HardwareMonitorUpdate,

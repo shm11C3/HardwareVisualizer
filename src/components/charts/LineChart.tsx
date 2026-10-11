@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/chart";
 import type { sizeOptions } from "@/consts/chart";
 import { darkClasses } from "@/consts/style";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { LineGraphType, Theme } from "@/rspc/bindings";
 import { currentThemeAtom } from "@/store/theme";

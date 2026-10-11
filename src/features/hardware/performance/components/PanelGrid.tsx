@@ -35,7 +35,7 @@ import type {
 } from "@/features/hardware/performance/types/performanceLayout";
 import { powerDrawAvailableAtom } from "@/features/hardware/store/power";
 import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import { MotherboardSensorsPanel } from "./MotherboardSensorsPanel";
 import { PerCorePanel } from "./PerCorePanel";

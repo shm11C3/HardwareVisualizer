@@ -15,8 +15,8 @@ import {
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/liveUsage";
 import { cpuTempAtom } from "@/features/hardware/store/sensors";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useWindowSize } from "@/hooks/useWindowSize";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useWindowSize } from "@/hooks/window/useWindowSize";
 import { cn } from "@/lib/utils";
 import { GpuAdapterSelector } from "./GpuAdapterSelector";
 import { Sparkline } from "./Sparkline";

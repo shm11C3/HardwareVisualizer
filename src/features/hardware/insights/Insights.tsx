@@ -20,12 +20,12 @@ import {
   InsightChart,
 } from "@/features/hardware/insights/components/InsightChart";
 import type { DataStats } from "@/features/hardware/types/hardwareDataType";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import type { GpuDataType } from "@/types/chart";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { CoolingInsightView } from "./cooling/CoolingInsightView";
-import { SnapshotIcon } from "./icons/snapshot";
+import { SnapshotIcon } from "./icons/SnapshotIcon";
 import { ProcessInsight } from "./process/ProcessInsight";
 import { Snapshot } from "./snapshot/Snapshot";
 import type { InsightType } from "./types/insight";

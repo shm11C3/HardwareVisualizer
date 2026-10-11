@@ -1,6 +1,6 @@
 import { useAtom, useStore } from "jotai";
 import { useCallback } from "react";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import {
   type ClientSettings,
   commands,

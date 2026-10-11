@@ -1,4 +1,4 @@
-// src/hooks/useBgImage.test.ts
+// src/hooks/appearance/useBgImage.test.ts
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 // Mock Tauri dialog error function
 const errorMock = vi.fn();
-vi.mock("@/hooks/useTauriDialog", () => ({
+vi.mock("@/hooks/tauri/useTauriDialog", () => ({
   useTauriDialog: () => ({ error: errorMock }),
 }));
 
@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 // Mock useSettingsAtom (references global variables that can be changed per test)
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: settingsMock,
     updateSettingAtom: updateSettingAtomMock,
@@ -56,7 +56,10 @@ import { convertFileToBase64 } from "@/lib/file";
 
 const convertFileToBase64Mock = vi.mocked(convertFileToBase64);
 
-import { useBackgroundImage, useBackgroundImageList } from "@/hooks/useBgImage";
+import {
+  useBackgroundImage,
+  useBackgroundImageList,
+} from "@/hooks/appearance/useBgImage";
 import { commands } from "@/rspc/bindings";
 
 // ----------------------

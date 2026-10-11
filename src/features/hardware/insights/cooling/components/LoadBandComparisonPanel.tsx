@@ -13,7 +13,7 @@ import {
   groupSensorNotices,
   type SensorNotice,
 } from "@/features/hardware/insights/cooling/utils/sensorNotice";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type { CoolingBandComparison, TemperatureUnit } from "@/rspc/bindings";
 import { LoadBandDumbbellChart } from "./LoadBandDumbbellChart";
 

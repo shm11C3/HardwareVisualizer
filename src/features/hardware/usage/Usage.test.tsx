@@ -14,7 +14,7 @@ const mockSettings = vi.hoisted(() => ({
   burnInShiftOptions: null,
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({ settings: mockSettings }),
 }));
 
@@ -31,7 +31,7 @@ vi.mock("jotai", () => ({
   useAtomValue: () => [],
 }));
 
-vi.mock("@/hooks/useBurnInShift", () => ({
+vi.mock("@/hooks/appearance/useBurnInShift", () => ({
   useBurnInShift: vi.fn(),
 }));
 

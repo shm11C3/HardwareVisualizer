@@ -1,14 +1,14 @@
 import { useAtomValue } from "jotai";
 import type { CSSProperties } from "react";
+import { BurnInShift } from "@/components/BurnInShift";
 import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
-import { BurnInShift } from "@/components/shared/BurnInShift";
 import { chartConfig } from "@/consts/chart";
 import { graphicUsageHistoryAtom } from "@/features/hardware/store/gpu";
 import {
   cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/liveUsage";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 
 const labels = Array(chartConfig.historyLengthSec).fill("");

@@ -19,7 +19,7 @@ import {
 } from "@/features/hardware/dashboard/components/DashboardItems";
 import { ExportHardwareInfo } from "@/features/hardware/dashboard/components/ExportHardwareInfo";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { SpecList } from "./components/SpecList";
 import { SpecBadge, SpecSection } from "./components/SpecSection";
 

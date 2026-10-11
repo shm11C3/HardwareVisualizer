@@ -3,7 +3,7 @@ import type { TFunction } from "i18next";
 import { DownloadIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NeedRestart } from "@/components/shared/System";
+import { NeedRestart } from "@/components/NeedRestart";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,8 +11,8 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
-} from "@/hooks/useElevationAvailability";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
+} from "@/hooks/settings/useElevationAvailability";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import {
   commands,
   type ExternalComponent,

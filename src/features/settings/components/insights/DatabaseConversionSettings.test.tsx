@@ -54,7 +54,7 @@ vi.mock("@/features/settings/hooks/useDatabaseConversionNoticeShown", () => ({
   ],
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: { hardwareArchive: { retentionDays: 30 } },
     setHardwareArchiveRetentionDays: mockSetHardwareArchiveRetentionDays,

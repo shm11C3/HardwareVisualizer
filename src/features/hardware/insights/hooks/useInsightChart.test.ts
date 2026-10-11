@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInsightChart } from "@/features/hardware/insights/hooks/useInsightChart";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 const hoisted = vi.hoisted(() => ({
@@ -31,7 +31,7 @@ vi.mock("@/rspc/bindings", () => ({
   },
 }));
 
-vi.mock("@/hooks/useSettingsAtom", () => ({
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: vi.fn().mockReturnValue({
     settings: { temperatureUnit: "C" },
   }),

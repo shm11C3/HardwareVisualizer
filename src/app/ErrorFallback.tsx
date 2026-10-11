@@ -1,6 +1,6 @@
 import type { FallbackProps } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   const { t } = useTranslation();

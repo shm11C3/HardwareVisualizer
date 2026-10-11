@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { displayHardType } from "@/features/hardware/consts/chart";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { useWindowSize } from "@/hooks/useWindowSize";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useWindowSize } from "@/hooks/window/useWindowSize";
 import type { ChartDataType } from "@/types/chart";
 
 const miniLineChartVariant = tv({

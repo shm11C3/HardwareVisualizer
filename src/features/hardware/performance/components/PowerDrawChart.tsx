@@ -15,7 +15,7 @@ import {
   type PowerDrawHistory,
   powerDrawHistoryAtom,
 } from "@/features/hardware/store/power";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { LineGraphType, PowerDisplayTarget } from "@/rspc/bindings";
 

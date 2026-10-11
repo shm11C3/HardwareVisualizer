@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: mocks.listen,
 }));
 
-vi.mock("@/hooks/useTauriDialog", () => ({
+vi.mock("@/hooks/tauri/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: mocks.error,
   }),

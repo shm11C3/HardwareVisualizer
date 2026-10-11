@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NeedRestart } from "@/components/shared/System";
+import { NeedRestart } from "@/components/NeedRestart";
 import {
   AlertDialog,
   AlertDialogAction,

@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   loadFailed: false,
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
+vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: () => [
     mocks.storeValue,
     mocks.setStored,
