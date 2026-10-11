@@ -34,6 +34,7 @@ import {
   sensorTempsAtom,
 } from "@/features/hardware/store/sensors";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { shallowEqualArray, shallowEqualRecord } from "@/lib/shallowEqual";
 import {
   events,
   type HardwareMonitorUpdate,
@@ -46,6 +47,27 @@ const padHistory = (arr: (number | null)[]): (number | null)[] => {
     .concat(arr);
   return padded.slice(-chartConfig.historyLengthSec);
 };
+
+/**
+ * Functional updates for values the listener rebuilds on every tick.
+ *
+ * Jotai skips notification when the written value is `Object.is`-equal, so
+ * handing the previous reference back for an unchanged value is what stops
+ * its subscribers from re-rendering once a second. Histories are not written
+ * this way: they legitimately change on every sample.
+ */
+const keepRecord =
+  <T extends object>(
+    next: T,
+    valueEqual?: (a: T[keyof T], b: T[keyof T]) => boolean,
+  ) =>
+  (previous: T): T =>
+    shallowEqualRecord(previous, next, valueEqual) ? previous : next;
+
+const keepArray =
+  <T>(next: readonly T[], itemEqual?: (a: T, b: T) => boolean) =>
+  (previous: T[]): T[] =>
+    shallowEqualArray(previous, next, itemEqual) ? previous : [...next];
 
 const MONITOR_SAMPLE_INTERVAL_MS = 1000;
 
@@ -156,13 +178,22 @@ export const useHardwareEventListener = () => {
 
       // CPU temperature (Windows thermal zones; null where unsupported)
       setCpuTemp(
-        cpuTemperature != null ? [{ name: "CPU", value: cpuTemperature }] : [],
+        keepArray(
+          cpuTemperature != null
+            ? [{ name: "CPU", value: cpuTemperature }]
+            : [],
+          shallowEqualRecord,
+        ),
       );
 
       // All named temperature sensors (thermal zones)
-      setSensorTemps(sensorTemperatures);
-      setMotherboardTemps(motherboardTemperatures);
-      setMotherboardFanSpeeds(motherboardFanSpeeds);
+      setSensorTemps(keepArray(sensorTemperatures, shallowEqualRecord));
+      setMotherboardTemps(
+        keepArray(motherboardTemperatures, shallowEqualRecord),
+      );
+      setMotherboardFanSpeeds(
+        keepArray(motherboardFanSpeeds, shallowEqualRecord),
+      );
       setMotherboardFanSupport(motherboardFanSupport);
       setCpuPowerSupport(cpuPowerSupport);
       const powerDraw = {
@@ -171,7 +202,7 @@ export const useHardwareEventListener = () => {
         aneWatts: anePowerWatts,
         packageWatts: packagePowerWatts,
       };
-      setPowerDraw(powerDraw);
+      setPowerDraw(keepRecord(powerDraw));
       const hasPowerReading = Object.values(powerDraw).some(
         (value) => value != null,
       );
@@ -240,16 +271,19 @@ export const useHardwareEventListener = () => {
 
       // Temperature from all GPUs
       setGpuTempMap(
-        liveGpuRecord(
-          gpus
-            .filter(
-              (g): g is typeof g & { gpuTemperature: number } =>
-                g.gpuTemperature != null,
-            )
-            .map((g) => [
-              asLiveGpuId(g.gpuId),
-              { name: g.gpuName, value: g.gpuTemperature },
-            ]),
+        keepRecord(
+          liveGpuRecord(
+            gpus
+              .filter(
+                (g): g is typeof g & { gpuTemperature: number } =>
+                  g.gpuTemperature != null,
+              )
+              .map((g) => [
+                asLiveGpuId(g.gpuId),
+                { name: g.gpuName, value: g.gpuTemperature },
+              ]),
+          ),
+          shallowEqualRecord,
         ),
       );
 
@@ -270,44 +304,53 @@ export const useHardwareEventListener = () => {
         for (const gpuId of retiredGpuIds) {
           delete next[gpuId];
         }
-        return next;
+        // Names rarely change, and everything that lists adapters hangs off
+        // this reference.
+        return shallowEqualRecord(prev, next) ? prev : next;
       });
 
       // Usage sources from all GPUs
       setGpuSources(
-        liveGpuRecord(
-          gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuSource]),
+        keepRecord<Record<LiveGpuId, string | null>>(
+          liveGpuRecord(
+            gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuSource]),
+          ),
         ),
       );
 
       // Dedicated memory is a per-sample reading. Replacing the map clears a
       // value when the adapter or the metric is absent instead of freezing it.
       setGpuMemoryMap(
-        liveGpuRecord(
-          gpus
-            .filter(
-              (g): g is typeof g & { gpuDedicatedMemoryUsageKb: number } =>
-                g.gpuDedicatedMemoryUsageKb != null,
-            )
-            .map((gpu) => [
-              asLiveGpuId(gpu.gpuId),
-              gpu.gpuDedicatedMemoryUsageKb,
-            ]),
+        keepRecord<Record<LiveGpuId, number | null>>(
+          liveGpuRecord(
+            gpus
+              .filter(
+                (g): g is typeof g & { gpuDedicatedMemoryUsageKb: number } =>
+                  g.gpuDedicatedMemoryUsageKb != null,
+              )
+              .map((gpu) => [
+                asLiveGpuId(gpu.gpuId),
+                gpu.gpuDedicatedMemoryUsageKb,
+              ]),
+          ),
         ),
       );
 
       // Fan speed from all GPUs
       setGpuFanSpeedMap(
-        liveGpuRecord(
-          gpus
-            .filter(
-              (g): g is typeof g & { gpuCoolerLevel: number } =>
-                g.gpuCoolerLevel != null,
-            )
-            .map((g) => [
-              asLiveGpuId(g.gpuId),
-              { name: g.gpuName, value: g.gpuCoolerLevel },
-            ]),
+        keepRecord(
+          liveGpuRecord(
+            gpus
+              .filter(
+                (g): g is typeof g & { gpuCoolerLevel: number } =>
+                  g.gpuCoolerLevel != null,
+              )
+              .map((g) => [
+                asLiveGpuId(g.gpuId),
+                { name: g.gpuName, value: g.gpuCoolerLevel },
+              ]),
+          ),
+          shallowEqualRecord,
         ),
       );
 

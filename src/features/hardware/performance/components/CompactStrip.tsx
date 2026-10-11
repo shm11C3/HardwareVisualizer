@@ -3,6 +3,10 @@ import { type CSSProperties, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import {
+  gpuTemperatureValueAtom,
+  graphicUsageHistoryAtom,
+} from "@/features/hardware/store/gpu";
+import {
   cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/liveUsage";
@@ -130,8 +134,9 @@ export const CompactStrip = ({
   const cpuHistory = useAtomValue(cpuUsageHistoryAtom);
   const memoryHistory = useAtomValue(memoryUsageHistoryAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
+  const gpuHistory = useAtomValue(graphicUsageHistoryAtom);
+  const gpuTemperature = useAtomValue(gpuTemperatureValueAtom);
   const {
-    live: gpuLive,
     effectiveGpuId,
     effectiveAdapter: activeGpuAdapter,
     hasNoReadings: gpuHasNoReadings,
@@ -160,11 +165,8 @@ export const CompactStrip = ({
             id: "gpu",
             label: t("pages.performance.metrics.gpu"),
             color: toCssColor(settings.lineGraphColor.gpu),
-            history: gpuLive.usageHistories[effectiveGpuId] ?? [],
-            detail: formatTemperature(
-              gpuLive.temperatures[effectiveGpuId]?.value,
-              settings.temperatureUnit,
-            ),
+            history: gpuHistory,
+            detail: formatTemperature(gpuTemperature, settings.temperatureUnit),
           },
         ]
       : []),

@@ -20,3 +20,13 @@ export const motherboardFanSpeedsAtom = atom<MotherboardFanSpeedValues>([]);
 
 /** Hardware support for motherboard fan-speed collection. */
 export const motherboardFanSupportAtom = atom<SensorSupport>("unknown");
+
+/**
+ * Whether any Super I/O reading is present. A flag, so the card that decides
+ * whether to show the sensor section does not re-render with every sample.
+ */
+export const hasMotherboardSensorsAtom = atom(
+  (get) =>
+    get(motherboardTempsAtom).length > 0 ||
+    get(motherboardFanSpeedsAtom).length > 0,
+);

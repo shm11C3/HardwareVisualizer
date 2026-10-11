@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { createStore, Provider, useAtom } from "jotai";
+import { type Atom, createStore, Provider, useAtom } from "jotai";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chartConfig } from "@/consts/chart";
@@ -902,6 +902,116 @@ describe("useHardwareEventListener", () => {
     act(() => emit(makePayload({ gpus: [makeGpu({ gpuCoolerLevel: null })] })));
 
     expect(result.current).toEqual([]);
+  });
+
+  // ── Reference stability (subscription granularity, #1638) ──
+
+  describe("reference stability", () => {
+    const richGpu = () =>
+      makeGpu({
+        gpuDedicatedMemoryUsageKb: 2048,
+        gpuCoolerLevel: 40,
+      });
+    const richPayload = (overrides: Partial<HardwareMonitorUpdate> = {}) =>
+      makePayload({
+        gpus: [richGpu()],
+        cpuTemperature: 55,
+        sensorTemperatures: [{ name: "TZ01", value: 40 }],
+        motherboardTemperatures: [
+          { name: "SYSTIN", value: 38, source: "Super I/O" },
+        ],
+        motherboardFanSpeeds: [
+          { name: "Fan 1", rpm: 1200, status: "active", source: "Super I/O" },
+        ],
+        cpuPowerWatts: 12,
+        ...overrides,
+      });
+
+    const unchangedAtoms: ReadonlyArray<readonly [string, Atom<unknown>]> = [
+      ["gpuNames", gpuNamesAtom],
+      ["gpuUsageSources", gpuUsageSourcesAtom],
+      ["gpuDedicatedMemoryKbMap", gpuDedicatedMemoryKbMapAtom],
+      ["gpuTempMap", gpuTempMapAtom],
+      ["gpuFanSpeedMap", gpuFanSpeedMapAtom],
+      ["cpuTemp", cpuTempAtom],
+      ["sensorTemps", sensorTempsAtom],
+      ["motherboardTemps", motherboardTempsAtom],
+      ["motherboardFanSpeeds", motherboardFanSpeedsAtom],
+      ["powerDraw", powerDrawAtom],
+    ];
+
+    const mountWithStore = () => {
+      const store = createStore();
+      renderHook(() => useHardwareEventListener(), {
+        wrapper: ({ children }) => createElement(Provider, { store }, children),
+      });
+      return store;
+    };
+
+    it.each(unchangedAtoms)(
+      "keeps the %s reference when the next sample carries the same value",
+      (_name, atom) => {
+        const store = mountWithStore();
+        act(() => emit(richPayload()));
+        const first = store.get(atom);
+
+        act(() => emit(richPayload({ cpuUsage: 51 })));
+
+        expect(store.get(atom)).toBe(first);
+      },
+    );
+
+    it("does not notify subscribers of an unchanged value", () => {
+      const store = mountWithStore();
+      act(() => emit(richPayload()));
+      const onNames = vi.fn();
+      const onTemps = vi.fn();
+      store.sub(gpuNamesAtom, onNames);
+      store.sub(gpuTempMapAtom, onTemps);
+
+      act(() => emit(richPayload()));
+
+      expect(onNames).not.toHaveBeenCalled();
+      expect(onTemps).not.toHaveBeenCalled();
+    });
+
+    it("publishes a new reference when a value changes", () => {
+      const store = mountWithStore();
+      act(() => emit(richPayload()));
+      const names = store.get(gpuNamesAtom);
+      const temps = store.get(gpuTempMapAtom);
+      const sensors = store.get(sensorTempsAtom);
+
+      act(() =>
+        emit(
+          richPayload({
+            gpus: [{ ...richGpu(), gpuName: "Renamed", gpuTemperature: 66 }],
+            sensorTemperatures: [{ name: "TZ01", value: 41 }],
+          }),
+        ),
+      );
+
+      expect(store.get(gpuNamesAtom)).not.toBe(names);
+      expect(store.get(gpuNamesAtom)).toEqual({ "nvapi:0": "Renamed" });
+      expect(store.get(gpuTempMapAtom)).not.toBe(temps);
+      expect(store.get(gpuTempMapAtom)).toEqual({
+        "nvapi:0": { name: "Renamed", value: 66 },
+      });
+      expect(store.get(sensorTempsAtom)).not.toBe(sensors);
+      expect(store.get(sensorTempsAtom)).toEqual([{ name: "TZ01", value: 41 }]);
+    });
+
+    it("still writes the history atoms on every sample", () => {
+      const store = mountWithStore();
+      act(() => emit(richPayload()));
+      const cpu = store.get(cpuUsageHistoryAtom);
+      const gpuHistories = store.get(gpuUsageHistoriesAtom);
+
+      act(() => emit(richPayload()));
+
+      expect(store.get(cpuUsageHistoryAtom)).not.toBe(cpu);
+      expect(store.get(gpuUsageHistoriesAtom)).not.toBe(gpuHistories);
+    });
   });
 
   // ── Consecutive events ──

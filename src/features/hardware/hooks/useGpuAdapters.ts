@@ -1,17 +1,9 @@
 import { useAtom, useAtomValue } from "jotai";
-import { useMemo } from "react";
 import {
-  type GpuLiveMaps,
-  getEffectiveGpuId,
-  hasNoLiveGpuReadings,
-  listGpuAdapters,
-} from "@/features/hardware/gpuIdentity";
-import {
-  gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedMapAtom,
-  gpuNamesAtom,
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
+  effectiveGpuAdapterAtom,
+  effectiveGpuIdAtom,
+  gpuAdaptersAtom,
+  gpuHasNoReadingsAtom,
 } from "@/features/hardware/store/gpu";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 
@@ -22,47 +14,28 @@ import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
  * adapters exist, which one is effective, and whether it is reporting — and
  * they have to be the same answers, or two views would attribute the same
  * numbers to different devices.
+ *
+ * It returns identity only, never a reading. The adapter list, the effective
+ * id and the "no readings" flag are derived atoms that stay referentially
+ * stable between samples, so a component that calls this hook does not
+ * re-render once a second. A surface that renders the effective adapter's
+ * numbers reads them from the per-adapter atoms in `store/gpu.ts`
+ * (`graphicUsageHistoryAtom`, `gpuTemperatureValueAtom`, ...) in the smallest
+ * component that shows them.
  */
 export const useGpuAdapters = () => {
-  const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
-  const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
-  const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
-  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
-  const gpuNames = useAtomValue(gpuNamesAtom);
+  const adapters = useAtomValue(gpuAdaptersAtom);
+  const effectiveGpuId = useAtomValue(effectiveGpuIdAtom);
+  const effectiveAdapter = useAtomValue(effectiveGpuAdapterAtom);
+  const hasNoReadings = useAtomValue(gpuHasNoReadingsAtom);
   const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
 
-  const live = useMemo<GpuLiveMaps>(
-    () => ({
-      usageHistories: gpuUsageHistories,
-      temperatures: gpuTemperatureMap,
-      fanSpeeds: gpuFanSpeedMap,
-      dedicatedMemoryKb: gpuDedicatedMemoryKbMap,
-    }),
-    [
-      gpuUsageHistories,
-      gpuTemperatureMap,
-      gpuFanSpeedMap,
-      gpuDedicatedMemoryKbMap,
-    ],
-  );
-
-  const adapters = useMemo(
-    () => listGpuAdapters(gpuNames, live),
-    [gpuNames, live],
-  );
-  const detectedGpuIds = useMemo(
-    () => adapters.map((adapter) => adapter.id),
-    [adapters],
-  );
-  const effectiveGpuId = getEffectiveGpuId(selectedGpuId, live, detectedGpuIds);
-
   return {
-    live,
     adapters,
     selectedGpuId,
     effectiveGpuId,
-    effectiveAdapter: adapters.find((adapter) => adapter.id === effectiveGpuId),
-    hasNoReadings: hasNoLiveGpuReadings(effectiveGpuId, live, detectedGpuIds),
+    effectiveAdapter,
+    hasNoReadings,
     selectGpu: setSelectedGpuId,
   };
 };

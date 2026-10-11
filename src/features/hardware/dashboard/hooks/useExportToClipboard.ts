@@ -5,8 +5,8 @@ import { useTranslation } from "react-i18next";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import {
-  disabledProcessorsUsageHistoryAtom,
-  processorsUsageHistoryAtom,
+  disabledProcessorCountAtom,
+  processorCountAtom,
 } from "@/features/hardware/store/liveUsage";
 
 export const useExportToClipboard = ({
@@ -16,10 +16,10 @@ export const useExportToClipboard = ({
 } = {}) => {
   const { hardwareInfo, networkInfo } = useHardwareInfoAtom();
   const { processes } = useProcessInfo({ enabled: includeRuntimeStats });
-  const processorsUsageHistory = useAtomValue(
-    includeRuntimeStats
-      ? processorsUsageHistoryAtom
-      : disabledProcessorsUsageHistoryAtom,
+  // Only the thread count is exported, so subscribe to the count, not the
+  // per-second history it is read from.
+  const processorCount = useAtomValue(
+    includeRuntimeStats ? processorCountAtom : disabledProcessorCountAtom,
   );
   const { t } = useTranslation();
 
@@ -33,7 +33,7 @@ export const useExportToClipboard = ({
             ? [
                 {
                   key: t("shared.threadCount"),
-                  value: processorsUsageHistory[0]?.length || 0,
+                  value: processorCount,
                 },
               ]
             : []),
@@ -186,7 +186,7 @@ export const useExportToClipboard = ({
   }, [
     hardwareInfo,
     includeRuntimeStats,
-    processorsUsageHistory,
+    processorCount,
     processes,
     networkInfo,
     t,

@@ -1,4 +1,9 @@
-import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
+import {
+  CpuIcon,
+  GraphicsCardIcon,
+  type Icon,
+  MemoryIcon,
+} from "@phosphor-icons/react";
 import { useAtomValue } from "jotai";
 import { memo, type ReactNode, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,13 +11,15 @@ import { DoughnutChart } from "@/components/charts/DoughnutChart";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
+  gpuDedicatedMemoryKbAtom,
+  gpuFanSpeedValueAtom,
+  gpuTemperatureValueAtom,
+  graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
 import {
   cpuUsageHistoryAtom,
+  latestProcessorCountAtom,
   memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/liveUsage";
 import { cpuTempAtom } from "@/features/hardware/store/sensors";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -37,6 +44,14 @@ export const formatTemperature = (
 };
 
 type Substat = { key: string; text: string };
+
+/**
+ * A metric's card icon. Memoized because the instruments re-render with every
+ * sample while the icon only changes with the user's color setting.
+ */
+const MetricIcon = memo(({ Glyph, rgb }: { Glyph: Icon; rgb: string }) => (
+  <Glyph size={22} color={`rgb(${rgb})`} />
+));
 
 const MetricInstrument = memo(
   ({
@@ -124,15 +139,16 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
   const { t } = useTranslation();
   const cpuHistory = useAtomValue(cpuUsageHistoryAtom);
   const memoryHistory = useAtomValue(memoryUsageHistoryAtom);
-  const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
+  const gpuHistory = useAtomValue(graphicUsageHistoryAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
-  const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
-  const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
+  const gpuTemperature = useAtomValue(gpuTemperatureValueAtom);
+  const gpuDedicatedMemoryKb = useAtomValue(gpuDedicatedMemoryKbAtom);
+  const gpuFanSpeed = useAtomValue(gpuFanSpeedValueAtom);
+  const threadCount = useAtomValue(latestProcessorCountAtom);
   const {
     adapters: gpuAdapters,
     effectiveGpuId,
     effectiveAdapter: effectiveGpuAdapter,
-    live: gpuLive,
     hasNoReadings: gpuHasNoReadings,
     selectGpu: setSelectedGpuId,
   } = useGpuAdapters();
@@ -149,12 +165,6 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     void init();
   }, []);
 
-  const gpuHistory =
-    effectiveGpuId != null ? (gpuUsageHistories[effectiveGpuId] ?? []) : [];
-  const gpuTemperature =
-    effectiveGpuId != null
-      ? gpuTemperatureMap[effectiveGpuId]?.value
-      : undefined;
   const cpuTemperature = cpuTemperatures[0]?.value;
 
   const cpuSubstats = useMemo<Substat[]>(() => {
@@ -162,7 +172,6 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
       return [];
     }
 
-    const threadCount = processorsUsageHistory.at(-1)?.length ?? 0;
     return [
       {
         key: "clock",
@@ -176,7 +185,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
             : `${hardwareInfo.cpu.coreCount}C`,
       },
     ];
-  }, [hardwareInfo.cpu, processorsUsageHistory]);
+  }, [hardwareInfo.cpu, threadCount]);
 
   const memoryReadings = useMemo(() => {
     const current = memoryHistory.at(-1);
@@ -216,53 +225,57 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
 
   const gpuSubstats = useMemo<Substat[]>(() => {
     const substats: Substat[] = [];
-    if (effectiveGpuId != null) {
-      const usedKb = gpuLive.dedicatedMemoryKb[effectiveGpuId];
-      if (usedKb != null) {
-        // Matched by name, not id: the inventory and the live samples use
-        // different id namespaces (see `gpuNamesAtom`), so an id lookup here
-        // always misses and silently drops the total. Two identical cards
-        // make the name ambiguous, and a total attributed to the wrong one
-        // of them is worse than no total, so the denominator is dropped.
-        // Both sides have to be unambiguous, not just the live one: the
-        // inventory can hold two identically named cards while only one of
-        // them reports, and `.find()` would then pick a capacity at random.
-        const inventoryMatches =
-          effectiveGpuAdapter == null
-            ? []
-            : (hardwareInfo.gpus?.filter(
-                (gpu) => gpu.name === effectiveGpuAdapter.name,
-              ) ?? []);
-        const totalLabel =
-          effectiveGpuAdapter != null &&
-          !effectiveGpuAdapter.isNameAmbiguous &&
-          inventoryMatches.length === 1
-            ? inventoryMatches[0].memorySizeDedicated
-            : undefined;
-        const usedGb = (usedKb / 1024 / 1024).toFixed(1);
-        substats.push({
-          key: "vram",
-          text:
-            totalLabel != null && totalLabel !== "N/A"
-              ? `VRAM ${usedGb}/${totalLabel}`
-              : `VRAM ${usedGb} GB`,
-        });
-      }
+    // Both readings are the effective adapter's own, and null when there is
+    // no effective adapter.
+    if (gpuDedicatedMemoryKb != null) {
+      // Matched by name, not id: the inventory and the live samples use
+      // different id namespaces (see `gpuNamesAtom`), so an id lookup here
+      // always misses and silently drops the total. Two identical cards
+      // make the name ambiguous, and a total attributed to the wrong one
+      // of them is worse than no total, so the denominator is dropped.
+      // Both sides have to be unambiguous, not just the live one: the
+      // inventory can hold two identically named cards while only one of
+      // them reports, and `.find()` would then pick a capacity at random.
+      const inventoryMatches =
+        effectiveGpuAdapter == null
+          ? []
+          : (hardwareInfo.gpus?.filter(
+              (gpu) => gpu.name === effectiveGpuAdapter.name,
+            ) ?? []);
+      const totalLabel =
+        effectiveGpuAdapter != null &&
+        !effectiveGpuAdapter.isNameAmbiguous &&
+        inventoryMatches.length === 1
+          ? inventoryMatches[0].memorySizeDedicated
+          : undefined;
+      const usedGb = (gpuDedicatedMemoryKb / 1024 / 1024).toFixed(1);
+      substats.push({
+        key: "vram",
+        text:
+          totalLabel != null && totalLabel !== "N/A"
+            ? `VRAM ${usedGb}/${totalLabel}`
+            : `VRAM ${usedGb} GB`,
+      });
+    }
 
-      const fan = gpuLive.fanSpeeds[effectiveGpuId];
-      if (fan != null) {
-        substats.push({
-          key: "fan",
-          // VRAM stays an acronym in every supported language; "fan" is a
-          // word, so it comes from the language files.
-          text: t("pages.performance.substats.fan", {
-            value: Math.round(fan.value),
-          }),
-        });
-      }
+    if (gpuFanSpeed != null) {
+      substats.push({
+        key: "fan",
+        // VRAM stays an acronym in every supported language; "fan" is a
+        // word, so it comes from the language files.
+        text: t("pages.performance.substats.fan", {
+          value: Math.round(gpuFanSpeed),
+        }),
+      });
     }
     return substats;
-  }, [effectiveGpuId, effectiveGpuAdapter, gpuLive, hardwareInfo.gpus, t]);
+  }, [
+    gpuDedicatedMemoryKb,
+    gpuFanSpeed,
+    effectiveGpuAdapter,
+    hardwareInfo.gpus,
+    t,
+  ]);
 
   const currentMemoryUsage = memoryHistory.at(-1) ?? null;
 
@@ -278,9 +291,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         history={cpuHistory}
         color={toCssColor(settings.lineGraphColor.cpu)}
         substats={cpuSubstats}
-        icon={
-          <CpuIcon size={22} color={`rgb(${settings.lineGraphColor.cpu})`} />
-        }
+        icon={<MetricIcon Glyph={CpuIcon} rgb={settings.lineGraphColor.cpu} />}
         staggered={staggerGauges && cpuTemperature != null}
         gauges={
           <>
@@ -306,10 +317,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         badge={memoryReadings.badge}
         substats={memorySubstats}
         icon={
-          <MemoryIcon
-            size={22}
-            color={`rgb(${settings.lineGraphColor.memory})`}
-          />
+          <MetricIcon Glyph={MemoryIcon} rgb={settings.lineGraphColor.memory} />
         }
         gauges={
           memoryReadings.usedValue != null &&
@@ -344,9 +352,9 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
           />
         }
         icon={
-          <GraphicsCardIcon
-            size={22}
-            color={`rgb(${settings.lineGraphColor.gpu})`}
+          <MetricIcon
+            Glyph={GraphicsCardIcon}
+            rgb={settings.lineGraphColor.gpu}
           />
         }
         staggered={staggerGauges && gpuTemperature != null}
