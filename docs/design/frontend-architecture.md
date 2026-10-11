@@ -60,9 +60,11 @@ Two rules close the obvious bypasses:
   which live in `src/store/settings.ts` with their hook in
   `src/hooks/settings/useSettingsAtom.ts`. `src/features/<f>/store` holds state owned by
   one feature.
-- `getDefaultStore` and `createStore` stay out of production code. State reaches
-  React through the Provider-scoped store, which is what lets tests isolate
-  each case with their own store.
+- The app mounts exactly one Jotai `Provider` per window, at the composition
+  root (`AppStateProvider`). That store is the unit of reset: error-boundary
+  recovery remounts the Provider, so the app restarts from initial state.
+  `createStore` and `getDefaultStore` stay out of production code. Tests mount
+  their own Provider with a seeded store.
 - Module-scope `let` is allowed only in store modules, because only there is it
   visible as owned state. Anything shared between hook instances becomes an
   atom or store-keyed state, for example the `WeakMap` keyed by the Jotai store
