@@ -355,7 +355,8 @@
                       "@/app/**",
                       "../**",
                       "jotai/**",
-                      "!@/features/hardware/**"
+                      "!@/features/hardware/**",
+                      "@/features/hardware/live/**"
                     ]
                   }
                 ],
@@ -417,6 +418,7 @@
                       "!@/features/hardware/**/utils/**",
                       "!@/features/hardware/**/funcs",
                       "!@/features/hardware/**/funcs/**",
+                      "!@/features/hardware/live/**",
                       "!@/features/hardware/**/hooks/**",
                       "!@/features/hardware/gpuIdentity"
                     ]
@@ -482,6 +484,7 @@
                       "!@/features/hardware/**/utils/**",
                       "!@/features/hardware/**/funcs",
                       "!@/features/hardware/**/funcs/**",
+                      "!@/features/hardware/live/**",
                       "!@/features/hardware/gpuIdentity"
                     ]
                   }
@@ -508,6 +511,54 @@
                     ]
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Feature hardware: live (pure data structures below the store; no React, no Jotai, no store or hooks)
+    {
+      "includes": [
+        "src/features/hardware/live/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "message": "This import crosses a frontend layer boundary. See docs/design/frontend-architecture.md.",
+                    "group": [
+                      "@/features/**",
+                      "@/store/**",
+                      "@/hooks/**",
+                      "@/components/**",
+                      "@/app/**",
+                      "../**",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**",
+                      "jotai",
+                      "jotai/**",
+                      "!@/features/hardware/live/**",
+                      "!@/features/hardware/**/types",
+                      "!@/features/hardware/**/types/**",
+                      "!@/features/hardware/**/consts",
+                      "!@/features/hardware/**/consts/**",
+                      "!@/features/hardware/**/utils",
+                      "!@/features/hardware/**/utils/**",
+                      "!@/features/hardware/**/funcs",
+                      "!@/features/hardware/**/funcs/**",
+                      "!@/features/hardware/gpuIdentity"
+                    ]
+                  }
+                ]
               }
             }
           }

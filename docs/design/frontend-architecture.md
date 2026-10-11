@@ -33,8 +33,12 @@ top-level directories, so the path scopes above stay fixed.
 Within a feature, `store/` and `hooks/` import their own feature through a
 closed allow-list rather than an open exemption:
 
-- `store/` may import the feature's `store`, `types`, `consts`, `utils`, and
-  `funcs` modules.
+- `store/` may import the feature's `store`, `types`, `consts`, `utils`,
+  `funcs`, and `live` modules. `live/` sits below `store/`: pure data
+  structures such as the Live Metrics ring buffers, allowed to import only the
+  foundation layer, the feature's `types`/`consts`/`utils`/`funcs`, and
+  `gpuIdentity`; lint rejects `store`, `hooks`, components, React and Jotai
+  from it, and rejects `live/` from components and other features.
 - `hooks/` may import the same modules plus the feature's `hooks`.
 - Feature root modules such as `hardware/gpuIdentity` are allowed by name.
 
@@ -75,18 +79,35 @@ Two rules close the obvious bypasses:
 
 ### Live metrics subscriptions
 
-The monitor stream writes about twenty atoms once a second. Render cost scales
-with who subscribes to them and what sits under those subscribers, not with the
-number of writes (the 19 writes batch into one commit), so three rules keep a
-tick from fanning out ([#1638](https://github.com/shm11c3/HardwareVisualizer/issues/1638)):
+The monitor stream arrives about once a second. Render cost scales with who
+subscribes to the live values and what sits under those subscribers, not with
+the number of writes, so the stream is buffered and read through narrow derived
+atoms ([#1638](https://github.com/shm11c3/HardwareVisualizer/issues/1638)).
 
-1. **The listener never publishes a new reference for an unchanged value.**
-   `useHardwareEventListener` writes every non-history map or array with a
-   functional update that returns the previous value when the new one is
-   shallow-equal (`shallowEqualRecord` / `shallowEqualArray` in
-   `src/lib/shallowEqual.ts`). Jotai skips subscribers whose value is
-   `Object.is`-equal, so an unchanged map costs nothing. History atoms are the
-   exception: they change every sample.
+0. **The stream is buffered in `store/liveMetrics.ts`.** CPU, memory,
+   per-processor, per-GPU and Power Draw samples are appended to fixed-length
+   ring buffers (`src/features/hardware/live/`) by one write per sample,
+   `publishLiveSampleAtom`, which mutates the buffers in place and bumps a
+   version atom. Derived atoms are the only readers: scalars
+   (`cpuUsageCurrentAtom`), per-channel series (`cpuUsageSeriesAtom`,
+   `processorUsageSeriesAtom(index)`, `gpuUsageSeriesAtom(id)`) and, until the
+   screens move over, compatibility atoms with the old names and shapes
+   (`cpuUsageHistoryAtom`, `gpuTempMapAtom`, `powerDrawAtom`, ...). The buffers
+   are created by an atom, so there is one set per Jotai store and none at
+   module level: remounting the window's `Provider` starts from empty buffers,
+   and every test store is isolated, which a module-level object would break
+   for both. Components use `useLiveScalar` / `useLiveSeries`.
+
+Three rules keep a tick from fanning out:
+
+1. **A derived atom hands back the previous reference for an unchanged value.**
+   Everything rebuilt from the buffers on every sample that is not itself a
+   history (the per-GPU reading maps, `powerDrawAtom`) goes through `selectAtom`
+   with `shallowEqualRecord` / `shallowEqualArray` (`src/lib/shallowEqual.ts`),
+   and the listener's remaining writes (sensors) use functional updates that
+   return the previous value when the new one is shallow-equal. Jotai skips
+   subscribers whose value is `Object.is`-equal, so an unchanged value costs
+   nothing. Series are the exception: they change every sample.
 2. **Components subscribe to the narrowest derived atom.** A component that
    needs a count, a flag, or one adapter's value reads a derived scalar or
    per-key atom from the owning `store/` module (`processorCountAtom`,

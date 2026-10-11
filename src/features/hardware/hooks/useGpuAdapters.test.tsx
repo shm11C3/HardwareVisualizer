@@ -5,10 +5,11 @@ import { describe, expect, it } from "vitest";
 import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import {
-  gpuNamesAtom,
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
-} from "@/features/hardware/store/gpu";
+  liveGpu,
+  liveSample,
+} from "@/features/hardware/live/liveSamples.testHelpers";
+import { gpuNamesAtom } from "@/features/hardware/store/gpu";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 
 const nvidia = asLiveGpuId("nvapi:1");
 const intel = asLiveGpuId("pci:0:2:0");
@@ -22,7 +23,11 @@ const mount = () => {
       [intel, "Intel UHD Graphics 770"],
     ]),
   );
-  store.set(gpuUsageHistoriesAtom, liveGpuRecord([[nvidia, [70]]]));
+  store.set(
+    publishLiveSampleAtom,
+    liveSample({ gpus: [liveGpu(nvidia, { gpuUsage: 70 })] }),
+    0,
+  );
 
   let renders = 0;
   const hook = renderHook(
@@ -66,12 +71,18 @@ describe("useGpuAdapters", () => {
     const before = renderCount();
 
     act(() => {
-      store.set(gpuUsageHistoriesAtom, liveGpuRecord([[nvidia, [70, 71]]]));
       store.set(
-        gpuTempMapAtom,
-        liveGpuRecord([
-          [nvidia, { name: "NVIDIA GeForce RTX 4080", value: 61 }],
-        ]),
+        publishLiveSampleAtom,
+        liveSample({
+          gpus: [
+            liveGpu(nvidia, {
+              gpuName: "NVIDIA GeForce RTX 4080",
+              gpuUsage: 71,
+              gpuTemperature: 61,
+            }),
+          ],
+        }),
+        0,
       );
     });
 

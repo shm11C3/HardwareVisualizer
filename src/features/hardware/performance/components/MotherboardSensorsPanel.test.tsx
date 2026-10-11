@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cpuUsageHistoryAtom } from "@/features/hardware/store/liveUsage";
+import { liveSample } from "@/features/hardware/live/liveSamples.testHelpers";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { motherboardTempsAtom } from "@/features/hardware/store/sensors";
 import { MotherboardSensorsPanel } from "./MotherboardSensorsPanel";
 
@@ -34,7 +35,7 @@ describe("MotherboardSensorsPanel", () => {
 
   it("reports absence once a sample arrived without sensor readings", () => {
     const store = createStore();
-    store.set(cpuUsageHistoryAtom, [42]);
+    store.set(publishLiveSampleAtom, liveSample({ cpuUsage: 42 }), 0);
 
     render(
       <Provider store={store}>

@@ -18,6 +18,7 @@ import {
   gpuUsageSourcesAtom,
   graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import {
   cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
@@ -346,9 +347,11 @@ describe("useHardwareEventListener", () => {
 
     it("does not clear the GPU temperature map for the first observed unit", () => {
       const store = createStore();
-      store.set(gpuTempMapAtom, {
-        [asLiveGpuId("nvapi:0")]: { name: "TestGPU", value: 65 },
-      });
+      store.set(
+        publishLiveSampleAtom,
+        makePayload({ gpus: [makeGpu({ gpuTemperature: 65 })] }),
+        0,
+      );
       mockTemperatureUnit = "F";
 
       renderHook(() => useHardwareEventListener(), {

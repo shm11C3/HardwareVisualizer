@@ -7,16 +7,60 @@ import {
   hasNoLiveGpuReadings,
   type LiveGpuId,
   listGpuAdapters,
+  liveGpuRecord,
 } from "@/features/hardware/gpuIdentity";
+import type {
+  LiveBuffers,
+  LiveGpuBuffer,
+} from "@/features/hardware/live/liveBuffers";
+import { liveMetricsAtom } from "@/features/hardware/store/liveMetrics";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { shallowEqualArray, shallowEqualRecord } from "@/lib/shallowEqual";
+import type { NameValue } from "@/rspc/bindings";
 
 // ── Multi-GPU state ──
+//
+// The per-GPU maps below are compatibility views of the Live Metrics Buffer
+// (`store/liveMetrics.ts`): same names, same record shapes, rebuilt from the
+// buffers on every sample. They are deleted once their last reader has moved
+// to the live hooks (#1638, slice 3). `gpuNamesAtom` is not one of them; a
+// name is an identity, written by the listener.
 
-/** Per-GPU usage histories keyed by gpuId */
+/** The adapters that reported in the latest sample, in payload order. */
+const currentGpus = (buffers: LiveBuffers) =>
+  buffers.currentGpuIds.flatMap((id) => {
+    const entry = buffers.gpus.get(id);
+    return entry != null ? [[id, entry] as const] : [];
+  });
+
+/**
+ * One reading per adapter that carried it in the latest sample. A reading the
+ * sample lacked leaves its key out, so the record clears a value when the
+ * adapter or the metric is absent instead of freezing it.
+ */
+const currentReadings = <T>(
+  buffers: LiveBuffers,
+  pick: (entry: LiveGpuBuffer) => T | null,
+) =>
+  liveGpuRecord(
+    currentGpus(buffers).flatMap(([id, entry]) => {
+      const reading = pick(entry);
+      return reading != null ? [[id, reading] as const] : [];
+    }),
+  );
+
+/**
+ * Per-GPU usage histories keyed by gpuId. Changes with every sample, so it is
+ * not stabilised. An adapter has a key once it has reported usage.
+ */
 export const gpuUsageHistoriesAtom = atom<Record<LiveGpuId, (number | null)[]>>(
-  {},
+  (get) =>
+    liveGpuRecord(
+      [...get(liveMetricsAtom).buffers.gpus]
+        .filter(([, entry]) => entry.usage.size > 0)
+        .map(([id, entry]) => [id, entry.usage.toPaddedArray(null)] as const),
+    ),
 );
 
 /**
@@ -31,23 +75,42 @@ export const gpuUsageHistoriesAtom = atom<Record<LiveGpuId, (number | null)[]>>(
  */
 export const gpuNamesAtom = atom<Record<LiveGpuId, string>>({});
 
+// Rebuilt per sample but handed back unchanged when nothing moved, so a
+// subscriber hears only about a changed reading.
+
 /** Per-GPU usage source keyed by gpuId */
-export const gpuUsageSourcesAtom = atom<Record<LiveGpuId, string | null>>({});
+export const gpuUsageSourcesAtom = selectAtom(
+  liveMetricsAtom,
+  ({ buffers }): Record<LiveGpuId, string | null> =>
+    liveGpuRecord(
+      currentGpus(buffers).map(([id, entry]) => [id, entry.source]),
+    ),
+  (previous, next) => shallowEqualRecord(previous, next),
+);
 
 /** Per-GPU dedicated memory (KB) keyed by gpuId */
-export const gpuDedicatedMemoryKbMapAtom = atom<
-  Record<LiveGpuId, number | null>
->({});
+export const gpuDedicatedMemoryKbMapAtom = selectAtom(
+  liveMetricsAtom,
+  ({ buffers }): Record<LiveGpuId, number | null> =>
+    currentReadings(buffers, (entry) => entry.dedicatedMemoryKb),
+  (previous, next) => shallowEqualRecord(previous, next),
+);
 
 /** Per-GPU temperature keyed by gpuId */
-export const gpuTempMapAtom = atom<
-  Record<LiveGpuId, { name: string; value: number }>
->({});
+export const gpuTempMapAtom = selectAtom(
+  liveMetricsAtom,
+  ({ buffers }): Record<LiveGpuId, NameValue> =>
+    currentReadings(buffers, (entry) => entry.temperature),
+  (previous, next) => shallowEqualRecord(previous, next, shallowEqualRecord),
+);
 
 /** Per-GPU fan speed keyed by gpuId */
-export const gpuFanSpeedMapAtom = atom<
-  Record<LiveGpuId, { name: string; value: number }>
->({});
+export const gpuFanSpeedMapAtom = selectAtom(
+  liveMetricsAtom,
+  ({ buffers }): Record<LiveGpuId, NameValue> =>
+    currentReadings(buffers, (entry) => entry.fanSpeed),
+  (previous, next) => shallowEqualRecord(previous, next, shallowEqualRecord),
+);
 
 /** All GPUs temperature as NameValues */
 export const gpuTempAtom = atom<NameValues>((get) =>

@@ -4,9 +4,11 @@ import type { PropsWithChildren } from "react";
 import { expect, it, vi } from "vitest";
 import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
 import {
-  gpuNamesAtom,
-  gpuUsageHistoriesAtom,
-} from "@/features/hardware/store/gpu";
+  liveGpu,
+  liveSample,
+} from "@/features/hardware/live/liveSamples.testHelpers";
+import { gpuNamesAtom } from "@/features/hardware/store/gpu";
+import { publishLiveSampleAtom } from "@/features/hardware/store/liveMetrics";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import { GPUInfo } from "./DashboardItems";
 
@@ -83,8 +85,11 @@ it("shows the effective live fallback while preserving a retired selection", () 
   store.set(selectedGpuIdAtom, asLiveGpuId("nvapi:0"));
   store.set(gpuNamesAtom, liveGpuRecord([[asLiveGpuId("nvapi:1"), "GPU B"]]));
   store.set(
-    gpuUsageHistoriesAtom,
-    liveGpuRecord([[asLiveGpuId("nvapi:1"), [70]]]),
+    publishLiveSampleAtom,
+    liveSample({
+      gpus: [liveGpu("nvapi:1", { gpuName: "GPU B", gpuUsage: 70 })],
+    }),
+    0,
   );
 
   render(

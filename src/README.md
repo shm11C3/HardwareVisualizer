@@ -102,6 +102,12 @@ Use the existing boundary when choosing where state lives:
   for feature state, and `src/store/` when the state is genuinely shared.
   Group a feature's atoms by subject (for example `liveUsage`, `gpu`,
   `selection`) so a subject can change without touching the others.
+- The 1 Hz monitor stream is buffered in
+  `src/features/hardware/store/liveMetrics.ts` (ring buffers from
+  `src/features/hardware/live/`, created per Jotai store). The listener writes
+  one atom per sample; read it with `useLiveScalar` / `useLiveSeries` rather
+  than a whole history or map. Rules:
+  [Live metrics subscriptions](../docs/design/frontend-architecture.md#live-metrics-subscriptions).
 - Per-store mutable state (counters, coalescing flags) also lives in a `store/`
   module, as a `WeakMap` keyed by the Jotai store. Components read atoms with
   `useAtomValue`; every write is a named function returned by a hook.

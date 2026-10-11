@@ -11,10 +11,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { chartConfig } from "@/consts/chart";
-import {
-  type PowerDrawHistory,
-  powerDrawHistoryAtom,
-} from "@/features/hardware/store/power";
+import { powerDrawHistoryAtom } from "@/features/hardware/store/power";
+import type { PowerDrawHistory } from "@/features/hardware/types/powerDraw";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { LineGraphType, PowerDisplayTarget } from "@/rspc/bindings";

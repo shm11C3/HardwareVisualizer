@@ -1,29 +1,15 @@
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import { chartConfig } from "@/consts/chart";
+import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
+import { gpuNamesAtom } from "@/features/hardware/store/gpu";
 import {
-  asLiveGpuId,
-  type LiveGpuId,
-  liveGpuRecord,
-} from "@/features/hardware/gpuIdentity";
-import {
-  gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedMapAtom,
-  gpuNamesAtom,
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
-  gpuUsageSourcesAtom,
-} from "@/features/hardware/store/gpu";
-import {
-  cpuUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
-} from "@/features/hardware/store/liveUsage";
+  clearGpuTemperaturesAtom,
+  publishLiveSampleAtom,
+} from "@/features/hardware/store/liveMetrics";
 import {
   cpuPowerSupportAtom,
-  powerDrawAtom,
   powerDrawAvailableAtom,
-  powerDrawHistoryAtom,
 } from "@/features/hardware/store/power";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import {
@@ -41,29 +27,15 @@ import {
   type TemperatureUnit,
 } from "@/rspc/bindings";
 
-const padHistory = (arr: (number | null)[]): (number | null)[] => {
-  const padded = Array(Math.max(chartConfig.historyLengthSec - arr.length, 0))
-    .fill(null)
-    .concat(arr);
-  return padded.slice(-chartConfig.historyLengthSec);
-};
-
 /**
- * Functional updates for values the listener rebuilds on every tick.
+ * Functional update for a value the listener rebuilds on every tick.
  *
  * Jotai skips notification when the written value is `Object.is`-equal, so
  * handing the previous reference back for an unchanged value is what stops
- * its subscribers from re-rendering once a second. Histories are not written
- * this way: they legitimately change on every sample.
+ * its subscribers from re-rendering once a second. The high-frequency live
+ * channels do not go through here: they are appended to the Live Metrics
+ * Buffer (`store/liveMetrics.ts`), whose derived atoms do the same.
  */
-const keepRecord =
-  <T extends object>(
-    next: T,
-    valueEqual?: (a: T[keyof T], b: T[keyof T]) => boolean,
-  ) =>
-  (previous: T): T =>
-    shallowEqualRecord(previous, next, valueEqual) ? previous : next;
-
 const keepArray =
   <T>(next: readonly T[], itemEqual?: (a: T, b: T) => boolean) =>
   (previous: T[]): T[] =>
@@ -77,29 +49,17 @@ const getMissingSampleCount = (elapsedMs: number): number =>
     chartConfig.historyLengthSec - 1,
   );
 
-// One omitted sample can be a provider hiccup. Three consecutive visible
-// samples establish that the adapter is no longer part of the live set while
-// keeping unplug/fallback feedback within a few seconds at the 1 Hz cadence.
-const GPU_RETIREMENT_MISSED_SAMPLES = 3;
-
 /**
  * Listen for hardware monitor update events pushed from the backend.
  * Replaces the 4x useUsageUpdater polling hooks with a single event listener.
  */
 export const useHardwareEventListener = () => {
-  const gpuMissedSamples = useRef(new Map<LiveGpuId, number>());
   const lastVisibleUpdateAt = useRef<number | null>(null);
   const { settings } = useSettingsAtom();
   const lastTemperatureUnit = useRef<TemperatureUnit | null>(null);
-  const setCpuHistory = useSetAtom(cpuUsageHistoryAtom);
-  const setMemoryHistory = useSetAtom(memoryUsageHistoryAtom);
-  const setGpuHistories = useSetAtom(gpuUsageHistoriesAtom);
-  const setProcessorsHistory = useSetAtom(processorsUsageHistoryAtom);
-  const setGpuTempMap = useSetAtom(gpuTempMapAtom);
+  const publishLiveSample = useSetAtom(publishLiveSampleAtom);
+  const clearGpuTemperatures = useSetAtom(clearGpuTemperaturesAtom);
   const setGpuNames = useSetAtom(gpuNamesAtom);
-  const setGpuSources = useSetAtom(gpuUsageSourcesAtom);
-  const setGpuMemoryMap = useSetAtom(gpuDedicatedMemoryKbMapAtom);
-  const setGpuFanSpeedMap = useSetAtom(gpuFanSpeedMapAtom);
   const setSelectedGpuId = useSetAtom(selectedGpuIdAtom);
   const setCpuTemp = useSetAtom(cpuTempAtom);
   const setSensorTemps = useSetAtom(sensorTempsAtom);
@@ -108,8 +68,6 @@ export const useHardwareEventListener = () => {
   const setMotherboardFanSupport = useSetAtom(motherboardFanSupportAtom);
   const setCpuPowerSupport = useSetAtom(cpuPowerSupportAtom);
   const setPowerDrawAvailable = useSetAtom(powerDrawAvailableAtom);
-  const setPowerDraw = useSetAtom(powerDrawAtom);
-  const setPowerDrawHistory = useSetAtom(powerDrawHistoryAtom);
 
   const handleHardwareUpdate = useCallback(
     (event: { payload: HardwareMonitorUpdate }) => {
@@ -128,15 +86,9 @@ export const useHardwareEventListener = () => {
               updateReceivedAt - lastVisibleUpdateAt.current,
             );
       lastVisibleUpdateAt.current = updateReceivedAt;
-      const missingPowerDrawSamples = Array<number | null>(
-        missingSampleCount,
-      ).fill(null);
 
       const {
-        cpuUsage,
-        memoryUsage,
         gpus,
-        processorsUsage,
         cpuTemperature,
         sensorTemperatures,
         motherboardTemperatures,
@@ -149,32 +101,13 @@ export const useHardwareEventListener = () => {
         motherboardFanSupport,
       } = event.payload;
 
-      const currentGpuIds = gpus.map((gpu) => asLiveGpuId(gpu.gpuId));
-      const currentGpuIdSet = new Set(currentGpuIds);
-      const retiredGpuIds = new Set<LiveGpuId>();
-
-      for (const gpuId of currentGpuIds) {
-        gpuMissedSamples.current.set(gpuId, 0);
-      }
-      for (const [gpuId, missedSamples] of gpuMissedSamples.current) {
-        if (currentGpuIdSet.has(gpuId)) {
-          continue;
-        }
-
-        const nextMissedSamples = missedSamples + 1;
-        if (nextMissedSamples >= GPU_RETIREMENT_MISSED_SAMPLES) {
-          retiredGpuIds.add(gpuId);
-          gpuMissedSamples.current.delete(gpuId);
-        } else {
-          gpuMissedSamples.current.set(gpuId, nextMissedSamples);
-        }
-      }
-      const absentGpuIds = [...gpuMissedSamples.current.keys()].filter(
-        (gpuId) => !currentGpuIdSet.has(gpuId),
+      // Usage, power and per-adapter readings are appended to the Live Metrics
+      // Buffer in one write. It also decides which adapters have been absent
+      // long enough to retire.
+      const { retiredGpuIds } = publishLiveSample(
+        event.payload,
+        missingSampleCount,
       );
-
-      setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
-      setMemoryHistory((prev) => padHistory([...prev, memoryUsage]));
 
       // CPU temperature (Windows thermal zones; null where unsupported)
       setCpuTemp(
@@ -196,96 +129,15 @@ export const useHardwareEventListener = () => {
       );
       setMotherboardFanSupport(motherboardFanSupport);
       setCpuPowerSupport(cpuPowerSupport);
-      const powerDraw = {
-        cpuWatts: cpuPowerWatts,
-        gpuWatts: gpuPowerWatts,
-        aneWatts: anePowerWatts,
-        packageWatts: packagePowerWatts,
-      };
-      setPowerDraw(keepRecord(powerDraw));
-      const hasPowerReading = Object.values(powerDraw).some(
-        (value) => value != null,
-      );
+      const hasPowerReading = [
+        cpuPowerWatts,
+        gpuPowerWatts,
+        anePowerWatts,
+        packagePowerWatts,
+      ].some((value) => value != null);
       if (hasPowerReading) {
         setPowerDrawAvailable(true);
       }
-      setPowerDrawHistory((previous) => {
-        const historyStarted = Object.values(previous).some(
-          (history) => history.length > 0,
-        );
-        if (!hasPowerReading && !historyStarted) {
-          return previous;
-        }
-
-        return {
-          cpuWatts: padHistory([
-            ...previous.cpuWatts,
-            ...missingPowerDrawSamples,
-            powerDraw.cpuWatts,
-          ]),
-          gpuWatts: padHistory([
-            ...previous.gpuWatts,
-            ...missingPowerDrawSamples,
-            powerDraw.gpuWatts,
-          ]),
-          aneWatts: padHistory([
-            ...previous.aneWatts,
-            ...missingPowerDrawSamples,
-            powerDraw.aneWatts,
-          ]),
-          packageWatts: padHistory([
-            ...previous.packageWatts,
-            ...missingPowerDrawSamples,
-            powerDraw.packageWatts,
-          ]),
-        };
-      });
-
-      // Per-GPU usage histories
-      setGpuHistories((prev) => {
-        const next = { ...prev };
-
-        for (const gpuId of retiredGpuIds) {
-          delete next[gpuId];
-        }
-        for (const gpuId of absentGpuIds) {
-          const history = next[gpuId];
-          if (history != null) {
-            next[gpuId] = padHistory([...history, null]);
-          }
-        }
-        for (const gpu of gpus) {
-          // The monitor-payload boundary: ids from the stream are branded
-          // here. The other minting sites are the restored stored intent in
-          // `useSelectedGpuPersistence` and the unresolved fallback in
-          // `toLiveGpuId`; nothing else may mint.
-          const gpuId = asLiveGpuId(gpu.gpuId);
-          const history = next[gpuId];
-          if (gpu.gpuUsage != null || history != null) {
-            next[gpuId] = padHistory([...(history ?? []), gpu.gpuUsage]);
-          }
-        }
-
-        return next;
-      });
-
-      // Temperature from all GPUs
-      setGpuTempMap(
-        keepRecord(
-          liveGpuRecord(
-            gpus
-              .filter(
-                (g): g is typeof g & { gpuTemperature: number } =>
-                  g.gpuTemperature != null,
-              )
-              .map((g) => [
-                asLiveGpuId(g.gpuId),
-                { name: g.gpuName, value: g.gpuTemperature },
-              ]),
-          ),
-          shallowEqualRecord,
-        ),
-      );
 
       // Names from all GPUs. Every sample carries one, and it is the only way
       // to name an adapter: live ids and the inventory's ids do not share a
@@ -309,51 +161,6 @@ export const useHardwareEventListener = () => {
         return shallowEqualRecord(prev, next) ? prev : next;
       });
 
-      // Usage sources from all GPUs
-      setGpuSources(
-        keepRecord<Record<LiveGpuId, string | null>>(
-          liveGpuRecord(
-            gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuSource]),
-          ),
-        ),
-      );
-
-      // Dedicated memory is a per-sample reading. Replacing the map clears a
-      // value when the adapter or the metric is absent instead of freezing it.
-      setGpuMemoryMap(
-        keepRecord<Record<LiveGpuId, number | null>>(
-          liveGpuRecord(
-            gpus
-              .filter(
-                (g): g is typeof g & { gpuDedicatedMemoryUsageKb: number } =>
-                  g.gpuDedicatedMemoryUsageKb != null,
-              )
-              .map((gpu) => [
-                asLiveGpuId(gpu.gpuId),
-                gpu.gpuDedicatedMemoryUsageKb,
-              ]),
-          ),
-        ),
-      );
-
-      // Fan speed from all GPUs
-      setGpuFanSpeedMap(
-        keepRecord(
-          liveGpuRecord(
-            gpus
-              .filter(
-                (g): g is typeof g & { gpuCoolerLevel: number } =>
-                  g.gpuCoolerLevel != null,
-              )
-              .map((g) => [
-                asLiveGpuId(g.gpuId),
-                { name: g.gpuName, value: g.gpuCoolerLevel },
-              ]),
-          ),
-          shallowEqualRecord,
-        ),
-      );
-
       // Auto-select first GPU if none selected
       setSelectedGpuId((prev) =>
         prev != null
@@ -362,22 +169,10 @@ export const useHardwareEventListener = () => {
             ? asLiveGpuId(gpus[0].gpuId)
             : null,
       );
-
-      setProcessorsHistory((prev) => {
-        const next = [...prev, processorsUsage];
-        return next.slice(-chartConfig.historyLengthSec);
-      });
     },
     [
-      setCpuHistory,
-      setMemoryHistory,
-      setGpuHistories,
-      setGpuTempMap,
-      setProcessorsHistory,
+      publishLiveSample,
       setGpuNames,
-      setGpuSources,
-      setGpuMemoryMap,
-      setGpuFanSpeedMap,
       setSelectedGpuId,
       setCpuTemp,
       setSensorTemps,
@@ -386,8 +181,6 @@ export const useHardwareEventListener = () => {
       setMotherboardFanSupport,
       setCpuPowerSupport,
       setPowerDrawAvailable,
-      setPowerDraw,
-      setPowerDrawHistory,
     ],
   );
 
@@ -399,9 +192,9 @@ export const useHardwareEventListener = () => {
     const previousUnit = lastTemperatureUnit.current;
     lastTemperatureUnit.current = temperatureUnit;
     if (previousUnit !== null && previousUnit !== temperatureUnit) {
-      setGpuTempMap({});
+      clearGpuTemperatures();
     }
-  }, [temperatureUnit, setGpuTempMap]);
+  }, [temperatureUnit, clearGpuTemperatures]);
 
   useEffect(() => {
     const unlisten = events.hardwareMonitorUpdate.listen(handleHardwareUpdate);
