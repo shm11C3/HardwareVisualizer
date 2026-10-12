@@ -54,16 +54,6 @@ vi.mock("./TimelineLanes", () => ({
   TimelineLanes: () => <div data-testid="timeline-lanes-stub" />,
 }));
 
-type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
-
-const defer = <T,>(): Deferred<T> => {
-  let resolve: (value: T) => void = () => {};
-  const promise = new Promise<T>((res) => {
-    resolve = res;
-  });
-  return { promise, resolve };
-};
-
 const ok = <T,>(data: T) => ({ status: "ok" as const, data });
 
 const dailyTrend: CoolingDailyTrendPoint[] = buildCoolingDailyTrendFixture(90);
@@ -98,6 +88,9 @@ const Panels = () => (
 const mount = (store: ReturnType<typeof createStore>, ui: ReactNode) =>
   render(<Provider store={store}>{ui}</Provider>);
 
+// The read mechanism (params rule, superseded requests, leave/return lifetime)
+// is proven in store/sharedRead.test.ts; this file only proves the real panels
+// are wired to one shared atom and render its failure state.
 describe("Cooling panels sharing one read", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -125,83 +118,6 @@ describe("Cooling panels sharing one read", () => {
     expect(mocks.getCoolingFanTrend).toHaveBeenCalledTimes(1);
     // The observation strip and the timeline's baseline band share one read.
     expect(mocks.getCoolingBaselineDelta).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows the loading state, not the previous period's data, after a period change", async () => {
-    const store = seededStore("90d");
-    mount(store, <Panels />);
-    await flush();
-    expect(screen.getByTestId("timeline-lanes-stub")).toBeInTheDocument();
-
-    const next = defer<ReturnType<typeof ok<CoolingDailyTrendPoint[]>>>();
-    mocks.getCoolingTrend.mockReturnValue(next.promise);
-    act(() => {
-      store.set(coolingInsightPeriodAtom, "1y");
-    });
-    await flush();
-
-    expect(mocks.getCoolingTrend).toHaveBeenLastCalledWith(365);
-    expect(screen.getByTestId("cooling-timeline-loading")).toBeInTheDocument();
-    expect(screen.queryByTestId("timeline-lanes-stub")).toBeNull();
-    expect(
-      screen.getByTestId("cooling-coverage-strip-loading"),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("img")).toBeNull();
-
-    await act(async () => {
-      next.resolve(ok(buildCoolingDailyTrendFixture(365)));
-    });
-    await flush();
-
-    expect(screen.getByTestId("timeline-lanes-stub")).toBeInTheDocument();
-    expect(screen.getByRole("img")).toBeInTheDocument();
-  });
-
-  it("does not duplicate an in-flight request when the tab is left and re-entered", async () => {
-    const store = seededStore("90d");
-    const trend = defer<ReturnType<typeof ok<CoolingDailyTrendPoint[]>>>();
-    const fan = defer<ReturnType<typeof ok<CoolingFanTrend>>>();
-    const baseline = defer<ReturnType<typeof ok<CoolingBaselineDelta>>>();
-    mocks.getCoolingTrend.mockReturnValue(trend.promise);
-    mocks.getCoolingFanTrend.mockReturnValue(fan.promise);
-    mocks.getCoolingBaselineDelta.mockReturnValue(baseline.promise);
-
-    const first = mount(store, <Panels />);
-    await flush();
-    first.unmount();
-    mount(store, <Panels />);
-    await flush();
-
-    expect(mocks.getCoolingTrend).toHaveBeenCalledTimes(1);
-    expect(mocks.getCoolingFanTrend).toHaveBeenCalledTimes(1);
-    expect(mocks.getCoolingBaselineDelta).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      trend.resolve(ok(dailyTrend));
-      fan.resolve(ok(fanTrend));
-      baseline.resolve(ok(coolingBaselineDeltaFixture));
-    });
-    await flush();
-
-    expect(screen.getByTestId("timeline-lanes-stub")).toBeInTheDocument();
-    expect(mocks.getCoolingTrend).toHaveBeenCalledTimes(1);
-    expect(mocks.getCoolingFanTrend).toHaveBeenCalledTimes(1);
-    expect(mocks.getCoolingBaselineDelta).toHaveBeenCalledTimes(1);
-  });
-
-  it("refetches once on return to a tab whose reads had settled, showing them meanwhile", async () => {
-    const store = seededStore("90d");
-    const first = mount(store, <Panels />);
-    await flush();
-    first.unmount();
-
-    const refetch = defer<ReturnType<typeof ok<CoolingDailyTrendPoint[]>>>();
-    mocks.getCoolingTrend.mockReturnValue(refetch.promise);
-    mount(store, <Panels />);
-    await flush();
-
-    expect(mocks.getCoolingTrend).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId("timeline-lanes-stub")).toBeInTheDocument();
   });
 
   it("renders the failure state in both panels and retries from either", async () => {
