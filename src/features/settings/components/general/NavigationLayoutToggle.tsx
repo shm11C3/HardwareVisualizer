@@ -46,7 +46,7 @@ export const NavigationLayoutToggle = () => {
           aria-label={t("pages.settings.general.navigationLayout.name")}
         />
       </div>
-      <SettingWriteFailure keys="navigationLayout" />
+      <SettingWriteFailure actions="navigationLayout" />
     </div>
   );
 };

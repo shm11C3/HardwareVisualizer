@@ -66,7 +66,7 @@ export const ElevatedStartupModeToggle = () => {
           }
         />
       </div>
-      <SettingWriteFailure keys="elevatedStartupMode" />
+      <SettingWriteFailure actions="elevatedStartupMode" />
     </div>
   );
 };

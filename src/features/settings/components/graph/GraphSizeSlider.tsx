@@ -59,6 +59,7 @@ export const GraphSizeSlider = () => {
                 />
               ))}
             </div>
+            <SettingWriteFailure actions="graphSize" />
           </div>
 
           <GraphMarginInput />
@@ -74,7 +75,7 @@ export const GraphSizeSlider = () => {
             {t("pages.settings.customTheme.graphStyle.graphFitToWindow")}
           </Label>
         </div>
-        <SettingWriteFailure keys={["graphSize", "graphFitToWindow"]} />
+        <SettingWriteFailure actions="graphFitToWindow" />
       </fieldset>
     </div>
   );

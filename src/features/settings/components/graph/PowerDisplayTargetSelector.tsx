@@ -30,7 +30,7 @@ export const PowerDisplayTargetSelector = () => {
           </div>
         );
       })}
-      <SettingWriteFailure keys="powerDisplayTargets" />
+      <SettingWriteFailure actions="powerDisplayTargets" />
     </div>
   );
 };

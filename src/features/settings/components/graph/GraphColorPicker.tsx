@@ -1,3 +1,4 @@
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { RGB2HEX } from "@/lib/color";
@@ -30,6 +31,10 @@ export const GraphColorPicker = ({
         className="h-6 w-6 cursor-pointer border-none p-0"
         value={hexValue}
         onChange={(e) => updateGraphColor(e.target.value)}
+      />
+      <SettingWriteFailure
+        actions={`lineGraphColor.${hardwareType}`}
+        className="col-span-2"
       />
     </div>
   );

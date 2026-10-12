@@ -91,6 +91,7 @@ export const AmbientSensorToggle = () => {
                     }
                     onSelect={setSwitchbotMeterDevice}
                   />
+                  <SettingWriteFailure actions="environmentalSensors.device" />
                 </div>
               ) : (
                 <p className="pt-2 text-muted-foreground text-sm">
@@ -99,7 +100,7 @@ export const AmbientSensorToggle = () => {
                   )}
                 </p>
               ))}
-            <SettingWriteFailure keys="environmentalSensors" />
+            <SettingWriteFailure actions="environmentalSensors.enabled" />
           </div>
         </div>
 

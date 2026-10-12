@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { defaultColorRGB } from "@/consts/chart";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -12,19 +13,26 @@ export const GraphColorReset = () => {
   const updateGraphColor = async () => {
     await Promise.all(
       chartHardwareTypes.map((type) =>
-        updateLineGraphColorAtom(type, RGB2HEX(defaultColorRGB[type])),
+        updateLineGraphColorAtom(
+          type,
+          RGB2HEX(defaultColorRGB[type]),
+          "lineGraphColor.reset",
+        ),
       ),
     );
   };
 
   return (
-    <Button
-      onClick={() => updateGraphColor()}
-      className="mt-4"
-      variant="secondary"
-      size="lg"
-    >
-      {t("shared.reset")}
-    </Button>
+    <>
+      <Button
+        onClick={() => updateGraphColor()}
+        className="mt-4"
+        variant="secondary"
+        size="lg"
+      >
+        {t("shared.reset")}
+      </Button>
+      <SettingWriteFailure actions="lineGraphColor.reset" />
+    </>
   );
 };

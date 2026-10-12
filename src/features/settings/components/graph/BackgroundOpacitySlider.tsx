@@ -26,7 +26,7 @@ export const BackgroundOpacitySlider = () => {
           onValueChange={changeBackGroundOpacity}
           className="mt-4 w-full"
         />
-        <SettingWriteFailure keys="backgroundImgOpacity" />
+        <SettingWriteFailure actions="backgroundImgOpacity" />
       </div>
     )
   );

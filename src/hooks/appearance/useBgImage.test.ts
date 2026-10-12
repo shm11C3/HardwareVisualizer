@@ -113,7 +113,7 @@ describe("useBackgroundImage", () => {
         await result.current.initBackgroundImage();
       });
 
-      expect(result.current.failure).toBeNull();
+      expect(result.current.failures.size).toBe(0);
       expect(consoleError).toHaveBeenCalledWith(
         "Failed to load background image:",
         errorMsg,
@@ -194,7 +194,7 @@ describe("useBackgroundImage", () => {
       });
 
       expect(saved).toBe(false);
-      expect(result.current.failure).toBe("upload");
+      expect([...result.current.failures]).toEqual(["upload"]);
       expect(updateSettingAtomMock).not.toHaveBeenCalled();
     });
 
@@ -214,7 +214,7 @@ describe("useBackgroundImage", () => {
       });
 
       expect(saved).toBe(false);
-      expect(result.current.failure).toBe("upload");
+      expect([...result.current.failures]).toEqual(["upload"]);
       expect(commands.saveBackgroundImage).not.toHaveBeenCalled();
     });
 
@@ -234,14 +234,14 @@ describe("useBackgroundImage", () => {
       await act(async () => {
         await result.current.saveBackgroundImage(file);
       });
-      expect(result.current.failure).toBe("upload");
+      expect([...result.current.failures]).toEqual(["upload"]);
 
       let saved = false;
       await act(async () => {
         saved = await result.current.saveBackgroundImage(file);
       });
       expect(saved).toBe(true);
-      expect(result.current.failure).toBeNull();
+      expect(result.current.failures.size).toBe(0);
     });
   });
 
@@ -309,7 +309,7 @@ describe("useBackgroundImage", () => {
         await result.current.deleteBackgroundImage("fileToDelete");
       });
 
-      expect(result.current.failure).toBe("delete");
+      expect([...result.current.failures]).toEqual(["delete"]);
     });
 
     it("Records a delete failure and keeps the image when the command returns an error", async () => {
@@ -337,8 +337,65 @@ describe("useBackgroundImage", () => {
         await result.current.bg.deleteBackgroundImage("keep");
       });
 
-      expect(result.current.bg.failure).toBe("delete");
+      expect([...result.current.bg.failures]).toEqual(["delete"]);
       expect(result.current.list.backgroundImageList).toHaveLength(1);
+    });
+
+    it("Keeps the image selected when the delete fails, and deselects only after it succeeds", async () => {
+      settingsMock.selectedBackgroundImg = "selected";
+      (commands.deleteBackgroundImage as Mock)
+        .mockResolvedValueOnce({ status: "error", error: "in use" })
+        .mockResolvedValueOnce({ status: "ok", data: null });
+
+      const { result } = renderHook(() => useBackgroundImage(), {
+        wrapper: Provider,
+      });
+
+      await act(async () => {
+        await result.current.deleteBackgroundImage("selected");
+      });
+      expect(updateSettingAtomMock).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await result.current.deleteBackgroundImage("selected");
+      });
+      expect(updateSettingAtomMock).toHaveBeenCalledWith(
+        "selectedBackgroundImg",
+        null,
+      );
+    });
+
+    it("Holds delete and upload failures independently", async () => {
+      const file = new File(["dummy content"], "dummy.png", {
+        type: "image/png",
+      });
+      convertFileToBase64Mock.mockResolvedValue("base64image");
+      (commands.deleteBackgroundImage as Mock).mockResolvedValue({
+        status: "error",
+        error: "in use",
+      });
+      (commands.saveBackgroundImage as Mock)
+        .mockResolvedValueOnce({ status: "error", error: "disk full" })
+        .mockResolvedValueOnce({ status: "ok", data: "newFileId" });
+
+      const { result } = renderHook(() => useBackgroundImage(), {
+        wrapper: Provider,
+      });
+
+      await act(async () => {
+        await result.current.deleteBackgroundImage("any");
+      });
+      await act(async () => {
+        await result.current.saveBackgroundImage(file);
+      });
+      // The upload failure does not hide the pending delete failure.
+      expect([...result.current.failures].sort()).toEqual(["delete", "upload"]);
+
+      await act(async () => {
+        await result.current.saveBackgroundImage(file);
+      });
+      // A successful upload clears only its own action.
+      expect([...result.current.failures]).toEqual(["delete"]);
     });
 
     it("Removes deleted file from backgroundImageList via filter callback", async () => {

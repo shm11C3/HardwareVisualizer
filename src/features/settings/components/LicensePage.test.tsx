@@ -65,6 +65,26 @@ describe("LicensePage", () => {
     expect(screen.queryByTestId("load-failure")).toBeNull();
   });
 
+  it("keeps a successful read visible when the other read fails", async () => {
+    const user = userEvent.setup();
+    mocks.readLicenseFile.mockResolvedValue({
+      status: "ok",
+      data: "license body",
+    });
+    mocks.readThirdPartyNoticesFile.mockRejectedValue(new Error("ipc closed"));
+
+    render(<LicensePage onBack={() => {}} />);
+
+    expect(await screen.findByText("license body")).toBeInTheDocument();
+    expect(screen.queryByTestId("load-failure")).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Third-Party Licenses" }));
+
+    expect(await screen.findByTestId("load-failure")).toHaveTextContent(
+      "Could not load the license text.",
+    );
+  });
+
   it("reports a failed open under the button, not as a dialog", async () => {
     const user = userEvent.setup();
     mocks.readLicenseFile.mockResolvedValue({

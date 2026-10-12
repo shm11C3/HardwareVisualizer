@@ -41,7 +41,7 @@ export const GraphStyleToggle = ({
             onCheckedChange={settingGraphSwitch}
           />
         </div>
-        <SettingWriteFailure keys={type} />
+        <SettingWriteFailure actions={type} />
       </div>
     </div>
   );

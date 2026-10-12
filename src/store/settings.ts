@@ -68,19 +68,26 @@ export const settingsAtom = atom<ClientSettings>({
 export const navigationMutationPendingAtom = atom(false);
 
 /**
- * The last Application Preference write that failed (user-action tier of the
- * failure-reporting policy). `key` lets the control that owns the setting
- * render the failure under itself; `reason` is the backend detail and is for
- * logs only, never user-facing copy. A later successful write of the same
- * `key` clears it. Only the latest failure is kept, so two rows failing in a
- * row show one line, not a stack.
+ * Names the control whose Application Preference write failed (user-action
+ * tier of the failure-reporting policy). One id per control the user can
+ * operate: a plain setting key when the control owns the whole setting
+ * (`"theme"`), or `"<key>.<part>"` when several controls write parts of one
+ * setting (`"hardwareArchive.retentionDays"`).
  */
-export type SettingsWriteFailure = {
-  key: keyof ClientSettings;
-  reason: string;
-};
+export type SettingWriteAction =
+  | keyof ClientSettings
+  | `${keyof ClientSettings}.${string}`;
 
-export const settingsWriteFailureAtom = atom<SettingsWriteFailure | null>(null);
+/**
+ * Failed Application Preference writes, held per action. The value is the
+ * backend detail, for logs only and never user-facing copy. A control renders
+ * its own ids (`useSettingWriteFailure`); a later successful write of the
+ * same action clears only its own entry, and a second control failing does
+ * not hide the first.
+ */
+export const settingsWriteFailuresAtom = atom<
+  ReadonlyMap<SettingWriteAction, string>
+>(new Map<SettingWriteAction, string>());
 
 type PowerDisplayTargets = ClientSettings["powerDisplayTargets"];
 

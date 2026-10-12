@@ -25,7 +25,7 @@ export const TextSelectionToggle = () => {
           }
         />
       </div>
-      <SettingWriteFailure keys="textSelectable" />
+      <SettingWriteFailure actions="textSelectable" />
     </div>
   );
 };

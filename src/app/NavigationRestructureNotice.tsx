@@ -65,7 +65,7 @@ export const NavigationRestructureNotice = ({
         >
           {t("navigation.notice.openSettings")}
         </Button>
-        <SettingWriteFailure keys="uiAnnouncementVersion" />
+        <SettingWriteFailure actions="uiAnnouncementVersion" />
       </div>
       <Button
         type="button"

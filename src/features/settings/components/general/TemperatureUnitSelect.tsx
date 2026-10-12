@@ -42,7 +42,7 @@ export const TemperatureUnitSelect = () => {
           </SelectContent>
         </Select>
       </div>
-      <SettingWriteFailure keys="temperatureUnit" />
+      <SettingWriteFailure actions="temperatureUnit" />
     </div>
   );
 };

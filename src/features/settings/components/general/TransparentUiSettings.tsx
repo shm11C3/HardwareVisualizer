@@ -93,7 +93,7 @@ export const TransparentUiSettings = () => {
             }
           />
         </div>
-        <SettingWriteFailure keys="transparentUi" />
+        <SettingWriteFailure actions="transparentUi" />
       </div>
 
       {settings.transparentUi && (
@@ -117,6 +117,7 @@ export const TransparentUiSettings = () => {
               onValueChange={changeWindowOpacity}
               className="mt-4 w-full"
             />
+            <SettingWriteFailure actions="windowOpacity" />
           </div>
 
           <div>
@@ -153,8 +154,8 @@ export const TransparentUiSettings = () => {
                 className="mt-4 w-full"
               />
             )}
+            <SettingWriteFailure actions="glassBlur" />
           </div>
-          <SettingWriteFailure keys={["windowOpacity", "glassBlur"]} />
         </div>
       )}
     </>

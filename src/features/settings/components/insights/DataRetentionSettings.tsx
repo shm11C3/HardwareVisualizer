@@ -118,36 +118,43 @@ export const DataRetentionSettings = () => {
           {t("pages.settings.insights.holdingPeriod.title")}
         </Label>
         <div className="flex items-center justify-between">
-          <div className="mt-2 flex items-center">
-            <Input
-              id={holdingPeriodId}
-              type="number"
-              placeholder={t(
-                "pages.settings.insights.holdingPeriod.placeHolder",
-              )}
-              value={settings.hardwareArchive.retentionDays}
-              onChange={(e) => changeNumberOfDays(Number(e.target.value))}
-              min={1}
-              max={100000}
-              disabled={!settings.hardwareArchive.scheduledDataDeletion}
-            />
-            <span className="ml-2">{t("shared.time.days")}</span>
+          <div>
+            <div className="mt-2 flex items-center">
+              <Input
+                id={holdingPeriodId}
+                type="number"
+                placeholder={t(
+                  "pages.settings.insights.holdingPeriod.placeHolder",
+                )}
+                value={settings.hardwareArchive.retentionDays}
+                onChange={(e) => changeNumberOfDays(Number(e.target.value))}
+                min={1}
+                max={100000}
+                disabled={!settings.hardwareArchive.scheduledDataDeletion}
+              />
+              <span className="ml-2">{t("shared.time.days")}</span>
+            </div>
+            <SettingWriteFailure actions="hardwareArchive.retentionDays" />
           </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id={scheduledDataDeletionId}
-              checked={settings.hardwareArchive.scheduledDataDeletion ?? false}
-              onCheckedChange={handleScheduledDataDeletion}
-            />
-            <Label
-              htmlFor={scheduledDataDeletionId}
-              className="flex items-center space-x-2 text-lg"
-            >
-              {t("pages.settings.insights.scheduledDataDeletionButton")}
-            </Label>
+          <div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={scheduledDataDeletionId}
+                checked={
+                  settings.hardwareArchive.scheduledDataDeletion ?? false
+                }
+                onCheckedChange={handleScheduledDataDeletion}
+              />
+              <Label
+                htmlFor={scheduledDataDeletionId}
+                className="flex items-center space-x-2 text-lg"
+              >
+                {t("pages.settings.insights.scheduledDataDeletionButton")}
+              </Label>
+            </div>
+            <SettingWriteFailure actions="hardwareArchive.scheduledDeletion" />
           </div>
         </div>
-        <SettingWriteFailure keys="hardwareArchive" />
       </div>
       <div className="py-4">
         <Label className="my-4 text-lg" htmlFor={storageHealthRetentionId}>
@@ -205,7 +212,7 @@ export const DataRetentionSettings = () => {
             );
           })}
         </div>
-        <SettingWriteFailure keys="storageHealth" />
+        <SettingWriteFailure actions="storageHealth.retentionDays" />
       </div>
       <div className="flex items-center justify-end py-2">
         <TooltipProvider>

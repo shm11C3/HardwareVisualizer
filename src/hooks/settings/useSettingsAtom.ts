@@ -8,8 +8,9 @@ import {
 import {
   getPowerDisplayTargetMutationState,
   navigationMutationPendingAtom,
+  type SettingWriteAction,
   settingsAtom,
-  settingsWriteFailureAtom,
+  settingsWriteFailuresAtom,
 } from "@/store/settings";
 import type { ChartDataType } from "@/types/chart";
 import type { Result } from "@/types/result";
@@ -28,21 +29,27 @@ export const useSettingsAtom = () => {
   const store = useStore();
 
   /**
-   * A failed write is state, not a dialog: the control that owns `key`
+   * A failed write is state, not a dialog: the control that owns `action`
    * renders it (`useSettingWriteFailure`). The backend detail only goes to
-   * the log. A later successful write of the same key clears it.
+   * the log and the state. Failures are held per action, and only a later
+   * successful write of the same action clears its own entry.
    */
-  const recordWriteFailure = (key: keyof ClientSettings, reason: unknown) => {
-    console.error(`Failed to save setting "${key}":`, reason);
-    store.set(settingsWriteFailureAtom, {
-      key,
-      reason: reason instanceof Error ? reason.message : String(reason),
-    });
-  };
-  const clearWriteFailure = (key: keyof ClientSettings) => {
-    store.set(settingsWriteFailureAtom, (current) =>
-      current?.key === key ? null : current,
+  const recordWriteFailure = (action: SettingWriteAction, reason: unknown) => {
+    console.error(`Failed to save setting "${action}":`, reason);
+    store.set(settingsWriteFailuresAtom, (current) =>
+      new Map(current).set(
+        action,
+        reason instanceof Error ? reason.message : String(reason),
+      ),
     );
+  };
+  const clearWriteFailure = (action: SettingWriteAction) => {
+    store.set(settingsWriteFailuresAtom, (current) => {
+      if (!current.has(action)) return current;
+      const next = new Map(current);
+      next.delete(action);
+      return next;
+    });
   };
 
   const mapSettingUpdater: {
@@ -133,6 +140,7 @@ export const useSettingsAtom = () => {
   >(
     key: K,
     value: ClientSettings[K],
+    action: SettingWriteAction = key,
   ) => {
     const previousValue = settings[key];
 
@@ -144,18 +152,18 @@ export const useSettingsAtom = () => {
       // A rejected IPC call never reached the backend, so the optimistic
       // value must not stay on screen. The failure is recorded for the
       // control and the rejection is still rethrown for the caller.
-      recordWriteFailure(key, err);
+      recordWriteFailure(action, err);
       setSettings((prev) => ({ ...prev, [key]: previousValue }));
       throw err;
     }
 
     if (isError(result)) {
-      recordWriteFailure(key, result.error);
+      recordWriteFailure(action, result.error);
       setSettings((prev) => ({ ...prev, [key]: previousValue }));
       return false;
     }
 
-    clearWriteFailure(key);
+    clearWriteFailure(action);
     return true;
   };
 
@@ -322,19 +330,21 @@ export const useSettingsAtom = () => {
    *
    * @param key
    * @param value Color code in hexadecimal format
+   * @param action the control that asked (a picker, or the reset button)
    */
   const updateLineGraphColorAtom = async (
     key: keyof LineGraphColorStringSettings,
     value: string,
+    action: SettingWriteAction = `lineGraphColor.${key}`,
   ) => {
     const result = await commands.setLineGraphColor(key, value);
 
     if (isError(result)) {
-      recordWriteFailure("lineGraphColor", result.error);
+      recordWriteFailure(action, result.error);
       return;
     }
 
-    clearWriteFailure("lineGraphColor");
+    clearWriteFailure(action);
     setSettings((prev) => ({
       ...prev,
       lineGraphColor: { ...prev.lineGraphColor, [key]: result.data },
@@ -345,11 +355,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setHardwareArchiveEnabled(value);
 
     if (isError(result)) {
-      recordWriteFailure("hardwareArchive", result.error);
+      recordWriteFailure("hardwareArchive.enabled", result.error);
       return;
     }
 
-    clearWriteFailure("hardwareArchive");
+    clearWriteFailure("hardwareArchive.enabled");
     setSettings((prev) => ({
       ...prev,
       hardwareArchive: { ...prev.hardwareArchive, enabled: value },
@@ -367,11 +377,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setSwitchbotMeterEnabled(value);
 
     if (isError(result)) {
-      recordWriteFailure("environmentalSensors", result.error);
+      recordWriteFailure("environmentalSensors.enabled", result.error);
       return false;
     }
 
-    clearWriteFailure("environmentalSensors");
+    clearWriteFailure("environmentalSensors.enabled");
     setSettings((prev) => ({
       ...prev,
       environmentalSensors: {
@@ -392,11 +402,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setSwitchbotMeterDevice(deviceId);
 
     if (isError(result)) {
-      recordWriteFailure("environmentalSensors", result.error);
+      recordWriteFailure("environmentalSensors.device", result.error);
       return false;
     }
 
-    clearWriteFailure("environmentalSensors");
+    clearWriteFailure("environmentalSensors.device");
     setSettings((prev) => ({
       ...prev,
       environmentalSensors: {
@@ -407,15 +417,22 @@ export const useSettingsAtom = () => {
     return true;
   };
 
-  const setHardwareArchiveRetentionDays = async (value: number) => {
+  /**
+   * `action` names the control that asked, so the retention input and the
+   * database conversion notice each show only their own failure.
+   */
+  const setHardwareArchiveRetentionDays = async (
+    value: number,
+    action: SettingWriteAction = "hardwareArchive.retentionDays",
+  ) => {
     const result = await commands.setHardwareArchiveRetentionDays(value);
 
     if (isError(result)) {
-      recordWriteFailure("hardwareArchive", result.error);
+      recordWriteFailure(action, result.error);
       return false;
     }
 
-    clearWriteFailure("hardwareArchive");
+    clearWriteFailure(action);
     setSettings((prev) => ({
       ...prev,
       hardwareArchive: { ...prev.hardwareArchive, retentionDays: value },
@@ -428,11 +445,11 @@ export const useSettingsAtom = () => {
       await commands.setHardwareArchiveScheduledDataDeletion(value);
 
     if (isError(result)) {
-      recordWriteFailure("hardwareArchive", result.error);
+      recordWriteFailure("hardwareArchive.scheduledDeletion", result.error);
       return;
     }
 
-    clearWriteFailure("hardwareArchive");
+    clearWriteFailure("hardwareArchive.scheduledDeletion");
     setSettings((prev) => ({
       ...prev,
       hardwareArchive: {
@@ -446,11 +463,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setStorageHealthRetentionDays(value);
 
     if (isError(result)) {
-      recordWriteFailure("storageHealth", result.error);
+      recordWriteFailure("storageHealth.retentionDays", result.error);
       return false;
     }
 
-    clearWriteFailure("storageHealth");
+    clearWriteFailure("storageHealth.retentionDays");
     setSettings((prev) => ({
       ...prev,
       storageHealth: { ...prev.storageHealth, retentionDays: value },

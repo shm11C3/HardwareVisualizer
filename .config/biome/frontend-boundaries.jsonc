@@ -13,8 +13,9 @@
   // entry tagged with the #2325 migration slice that removes it. None remain.
   // Never add a new pending exception to make new code pass.
   //
-  // Every layer override bans `@/hooks/tauri/useTauriDialog`; only the App
-  // override (src/app/**, modal flows) may open an OS error dialog. Keep the
+  // Every layer override bans `@/hooks/tauri/useTauriDialog`, including the
+  // entry-point override at the end; only the App override (src/app/**, modal
+  // flows) may open an OS error dialog. Keep the
   // `paths` entry in each new override. `useTauriEventListener.ts` opens its
   // dialog through the Tauri plugin directly, so it needs no exception here.
   //
@@ -1302,6 +1303,28 @@
                       "INTERNAL_overrideCreateStore",
                       "getDefaultStore"
                     ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    // Entry points (src/main*.tsx): composition roots may import every layer, so
+    // the only constraint is the dialog ban shared by all layers.
+    {
+      "includes": ["src/main*.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
                   }
                 }
               }

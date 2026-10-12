@@ -21,11 +21,11 @@ vi.mock("@/hooks/tauri/useTauriDialog", () => {
 
 // Mock useBackgroundImage
 const saveBackgroundImageMock = vi.fn();
-let failureMock: "upload" | "delete" | null = null;
+let failuresMock: ReadonlySet<"upload" | "delete"> = new Set();
 vi.mock("@/hooks/appearance/useBgImage", () => ({
   useBackgroundImage: () => ({
     saveBackgroundImage: saveBackgroundImageMock,
-    failure: failureMock,
+    failures: failuresMock,
   }),
 }));
 
@@ -37,7 +37,7 @@ const createObjectURLSpy = vi
 describe("useUploadImage", () => {
   beforeEach(() => {
     saveBackgroundImageMock.mockReset();
-    failureMock = null;
+    failuresMock = new Set();
   });
 
   afterEach(() => {
@@ -105,7 +105,7 @@ describe("useUploadImage", () => {
     });
     // The hook reports a failed save by returning false and recording it.
     saveBackgroundImageMock.mockResolvedValue(false);
-    failureMock = "upload";
+    failuresMock = new Set(["upload"]);
     const { result } = renderHook(() => useUploadImage());
 
     act(() => {
@@ -123,7 +123,7 @@ describe("useUploadImage", () => {
   });
 
   it("does not report a failure for other background image failures", () => {
-    failureMock = "delete";
+    failuresMock = new Set(["delete"]);
     const { result } = renderHook(() => useUploadImage());
 
     expect(result.current.saveFailed).toBe(false);

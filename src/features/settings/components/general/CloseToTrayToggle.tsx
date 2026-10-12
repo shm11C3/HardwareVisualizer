@@ -61,7 +61,7 @@ export const CloseToTrayToggle = () => {
           onCheckedChange={updateCloseToTray}
         />
       </div>
-      <SettingWriteFailure keys="closeToTray" />
+      <SettingWriteFailure actions="closeToTray" />
 
       {!isAvailable && (
         <div className="flex items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">

@@ -1,19 +1,20 @@
 import { useAtomValue } from "jotai";
-import type { ClientSettings } from "@/rspc/bindings";
-import { settingsWriteFailureAtom } from "@/store/settings";
+import {
+  type SettingWriteAction,
+  settingsWriteFailuresAtom,
+} from "@/store/settings";
 
 /**
- * Whether the last Application Preference write failed for one of `keys`.
- * The control that owns the setting renders the failure under itself; a later
- * successful write of the same key clears it.
+ * Whether a write failed for one of the `actions` the calling control owns.
+ * Pass exactly the ids of the control the line sits under; a later successful
+ * write of the same action clears it.
  */
 export const useSettingWriteFailure = (
-  keys: keyof ClientSettings | readonly (keyof ClientSettings)[],
+  actions: SettingWriteAction | readonly SettingWriteAction[],
 ): boolean => {
-  const failure = useAtomValue(settingsWriteFailureAtom);
+  const failures = useAtomValue(settingsWriteFailuresAtom);
 
-  if (failure === null) return false;
-  return typeof keys === "string"
-    ? failure.key === keys
-    : keys.includes(failure.key);
+  return typeof actions === "string"
+    ? failures.has(actions)
+    : actions.some((action) => failures.has(action));
 };

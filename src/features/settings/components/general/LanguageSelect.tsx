@@ -54,7 +54,7 @@ export const LanguageSelect = () => {
           </SelectContent>
         </Select>
       </div>
-      <SettingWriteFailure keys="language" />
+      <SettingWriteFailure actions="language" />
     </div>
   );
 };

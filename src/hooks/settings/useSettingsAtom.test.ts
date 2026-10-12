@@ -59,14 +59,14 @@ vi.mock("@/rspc/bindings", () => ({
  */
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
-import { settingsWriteFailureAtom } from "@/store/settings";
+import { settingsWriteFailuresAtom } from "@/store/settings";
 
-/** The hook plus the recorded write failure a control would read. */
+/** The hook plus the recorded write failures a control would read. */
 const renderSettings = () =>
   renderHook(
     () => ({
       ...useSettingsAtom(),
-      failure: useAtomValue(settingsWriteFailureAtom),
+      failures: useAtomValue(settingsWriteFailuresAtom),
     }),
     { wrapper: Provider },
   );
@@ -188,15 +188,12 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       await result.current.updateSettingAtom("theme", "dark");
     });
-    expect(result.current.failure).toEqual({
-      key: "theme",
-      reason: "disk full",
-    });
+    expect(result.current.failures).toEqual(new Map([["theme", "disk full"]]));
 
     await act(async () => {
       await result.current.updateSettingAtom("theme", "dark");
     });
-    expect(result.current.failure).toBeNull();
+    expect(result.current.failures.size).toBe(0);
   });
 
   it("a successful write of another key leaves the recorded failure alone", async () => {
@@ -215,10 +212,78 @@ describe("useSettingsAtom", () => {
       await result.current.updateSettingAtom("temperatureUnit", "F");
     });
 
-    expect(result.current.failure).toEqual({
-      key: "theme",
-      reason: "disk full",
+    expect(result.current.failures).toEqual(new Map([["theme", "disk full"]]));
+  });
+
+  it("holds failures per action: a second control failing does not hide the first", async () => {
+    (commands.setHardwareArchiveEnabled as Mock).mockResolvedValue({
+      status: "error",
+      error: "enable failed",
     });
+    (commands.setHardwareArchiveRetentionDays as Mock).mockResolvedValue({
+      status: "error",
+      error: "retention failed",
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    await act(async () => {
+      await result.current.toggleHardwareArchiveAtom(false);
+    });
+    await act(async () => {
+      await result.current.setHardwareArchiveRetentionDays(7);
+    });
+
+    expect(result.current.failures).toEqual(
+      new Map([
+        ["hardwareArchive.enabled", "enable failed"],
+        ["hardwareArchive.retentionDays", "retention failed"],
+      ]),
+    );
+  });
+
+  it("a successful write of a sibling action of the same setting does not clear a failure", async () => {
+    (commands.setHardwareArchiveEnabled as Mock).mockResolvedValue({
+      status: "error",
+      error: "enable failed",
+    });
+    (commands.setHardwareArchiveRetentionDays as Mock).mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    await act(async () => {
+      await result.current.toggleHardwareArchiveAtom(false);
+    });
+    await act(async () => {
+      await result.current.setHardwareArchiveRetentionDays(7);
+    });
+
+    expect(result.current.failures).toEqual(
+      new Map([["hardwareArchive.enabled", "enable failed"]]),
+    );
+  });
+
+  it("records under the action id the calling control passes", async () => {
+    (commands.setHardwareArchiveRetentionDays as Mock).mockResolvedValue({
+      status: "error",
+      error: "retention failed",
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    await act(async () => {
+      await result.current.setHardwareArchiveRetentionDays(
+        365,
+        "hardwareArchive.conversionNotice",
+      );
+    });
+
+    expect(result.current.failures).toEqual(
+      new Map([["hardwareArchive.conversionNotice", "retention failed"]]),
+    );
   });
 
   it("logs the backend detail for support", async () => {
@@ -253,7 +318,7 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       await result.current.updateSettingAtom("theme", "dark");
     });
-    expect(result.current.failure).toEqual({ key: "theme", reason: errorMsg });
+    expect(result.current.failures).toEqual(new Map([["theme", errorMsg]]));
     // On failure, reverts to original value ("system")
     expect(result.current.settings.theme).toEqual("system");
   });
@@ -287,10 +352,9 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       await result.current.toggleDisplayTarget("cpu");
     });
-    expect(result.current.failure).toEqual({
-      key: "displayTargets",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["displayTargets", errorMsg]]),
+    );
     // On error, remains at initial state (empty array)
     expect(result.current.settings.displayTargets).toEqual([]);
   });
@@ -403,10 +467,9 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       await result.current.updateLineGraphColorAtom("cpu", "#FFFFFF");
     });
-    expect(result.current.failure).toEqual({
-      key: "lineGraphColor",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["lineGraphColor.cpu", errorMsg]]),
+    );
     expect(result.current.settings.lineGraphColor.cpu).toEqual(initialColor);
   });
 
@@ -449,10 +512,9 @@ describe("useSettingsAtom", () => {
       await result.current.updateSettingAtom("elevatedStartupMode", true);
     });
 
-    expect(result.current.failure).toEqual({
-      key: "elevatedStartupMode",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["elevatedStartupMode", errorMsg]]),
+    );
     expect(result.current.settings.elevatedStartupMode).toBe(false);
   });
 
@@ -476,10 +538,9 @@ describe("useSettingsAtom", () => {
     expect(consoleError).toHaveBeenCalled();
     // The atom rolls back and records the failure for the control; the caller
     // still gets the rejection.
-    expect(result.current.failure).toEqual({
-      key: "elevatedStartupMode",
-      reason: "ipc failed",
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["elevatedStartupMode", "ipc failed"]]),
+    );
     expect(result.current.settings.elevatedStartupMode).toBe(false);
     consoleError.mockRestore();
   });
@@ -660,10 +721,9 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       await result.current.toggleHardwareArchiveAtom(!initialEnabled);
     });
-    expect(result.current.failure).toEqual({
-      key: "hardwareArchive",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["hardwareArchive.enabled", errorMsg]]),
+    );
     expect(result.current.settings.hardwareArchive.enabled).toBe(
       initialEnabled,
     );
@@ -698,10 +758,9 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       saved = await result.current.toggleSwitchbotMeterAtom(true);
     });
-    expect(result.current.failure).toEqual({
-      key: "environmentalSensors",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["environmentalSensors.enabled", errorMsg]]),
+    );
     // The caller uses this to decide whether to prompt for a restart.
     expect(saved).toBe(false);
     expect(
@@ -733,10 +792,9 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       await result.current.setHardwareArchiveRetentionDays(7);
     });
-    expect(result.current.failure).toEqual({
-      key: "hardwareArchive",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["hardwareArchive.retentionDays", errorMsg]]),
+    );
     expect(result.current.settings.hardwareArchive.retentionDays).toBe(
       initialDays,
     );
@@ -768,10 +826,9 @@ describe("useSettingsAtom", () => {
     await act(async () => {
       await result.current.setScheduledDataDeletion(!initialValue);
     });
-    expect(result.current.failure).toEqual({
-      key: "hardwareArchive",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["hardwareArchive.scheduledDeletion", errorMsg]]),
+    );
     expect(result.current.settings.hardwareArchive.scheduledDataDeletion).toBe(
       initialValue,
     );
@@ -805,10 +862,9 @@ describe("useSettingsAtom", () => {
       saved = await result.current.setStorageHealthRetentionDays(730);
     });
     expect(saved).toBe(false);
-    expect(result.current.failure).toEqual({
-      key: "storageHealth",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["storageHealth.retentionDays", errorMsg]]),
+    );
     expect(result.current.settings.storageHealth.retentionDays).toBe(
       initialDays,
     );
@@ -860,10 +916,9 @@ describe("useSettingsAtom", () => {
     });
 
     expect(saved).toBe(false);
-    expect(result.current.failure).toEqual({
-      key: "closeToTray",
-      reason: errorMsg,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["closeToTray", errorMsg]]),
+    );
     expect(result.current.settings.closeToTray).toBe(
       initialSettings.closeToTray,
     );
@@ -907,10 +962,9 @@ describe("useSettingsAtom", () => {
       2,
       initialSettings.trayWidget,
     );
-    expect(result.current.failure).toEqual({
-      key: "closeToTray",
-      reason: preferenceError,
-    });
+    expect(result.current.failures).toEqual(
+      new Map([["closeToTray", preferenceError]]),
+    );
     expect(result.current.settings.closeToTray).toBe(
       initialSettings.closeToTray,
     );

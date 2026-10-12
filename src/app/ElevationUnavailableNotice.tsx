@@ -66,7 +66,7 @@ const Notice = ({ onDismiss }: { onDismiss: () => void }) => {
         >
           {t("elevationUnavailable.startupNotice.turnOff")}
         </Button>
-        <SettingWriteFailure keys="elevatedStartupMode" />
+        <SettingWriteFailure actions="elevatedStartupMode" />
       </div>
       <Button
         type="button"

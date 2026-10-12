@@ -11,7 +11,7 @@ export const useUploadImage = () => {
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [fileName, setFilename] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { saveBackgroundImage, failure } = useBackgroundImage();
+  const { saveBackgroundImage, failures } = useBackgroundImage();
 
   const formSchema = z.object({
     picture: z
@@ -63,7 +63,7 @@ export const useUploadImage = () => {
     picture,
     onSubmit,
     isSubmitting,
-    saveFailed: failure === "upload",
+    saveFailed: failures.has("upload"),
     fileName,
     displayUrl,
   };

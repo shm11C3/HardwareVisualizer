@@ -388,8 +388,10 @@ describe("ExternalComponentSetupSection", () => {
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Installation failed: The downloaded runtime installer did not match its expected digest. (the setup process exited with code 13)",
+      "Installation failed: The downloaded runtime installer did not match its expected digest.",
     );
+    // The technical detail is logged, not shown.
+    expect(screen.getByRole("alert")).not.toHaveTextContent("exited with code");
   });
 
   it("explains a timed-out setup as a retryable failure", async () => {
@@ -409,7 +411,7 @@ describe("ExternalComponentSetupSection", () => {
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Installation failed: Setup did not finish in time and was stopped. (the setup process did not finish in time and was stopped)",
+      "Installation failed: Setup did not finish in time and was stopped.",
     );
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
   });
@@ -432,7 +434,7 @@ describe("ExternalComponentSetupSection", () => {
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Installation failed: Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again. (the setup process did not finish in time and may still be running; restart the app before trying again)",
+      "Installation failed: Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again.",
     );
   });
 

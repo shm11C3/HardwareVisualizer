@@ -41,35 +41,42 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
     setIsLoading(true);
     setLicenseFailed(false);
     setThirdPartyFailed(false);
-    try {
-      const [licenseResult, thirdPartyResult] = await Promise.all([
-        commands.readLicenseFile(),
-        commands.readThirdPartyNoticesFile(),
-      ]);
 
-      if (isOk(licenseResult)) {
-        setLicenseContent(licenseResult.data);
-      } else {
-        console.error("Failed to load license file:", licenseResult.error);
-        setLicenseFailed(true);
-      }
+    // The two reads settle independently: a successful read stays visible
+    // when the other one fails, and each tab reflects only its own read.
+    const [licenseSettled, thirdPartySettled] = await Promise.allSettled([
+      commands.readLicenseFile(),
+      commands.readThirdPartyNoticesFile(),
+    ]);
 
-      if (isOk(thirdPartyResult)) {
-        setThirdPartyContent(thirdPartyResult.data);
-      } else {
-        console.error(
-          "Failed to load third party notices file:",
-          thirdPartyResult.error,
-        );
-        setThirdPartyFailed(true);
-      }
-    } catch (e) {
-      console.error("Failed to load license files:", e);
+    if (licenseSettled.status === "fulfilled" && isOk(licenseSettled.value)) {
+      setLicenseContent(licenseSettled.value.data);
+    } else {
+      console.error(
+        "Failed to load license file:",
+        licenseSettled.status === "fulfilled"
+          ? licenseSettled.value
+          : licenseSettled.reason,
+      );
       setLicenseFailed(true);
-      setThirdPartyFailed(true);
-    } finally {
-      setIsLoading(false);
     }
+
+    if (
+      thirdPartySettled.status === "fulfilled" &&
+      isOk(thirdPartySettled.value)
+    ) {
+      setThirdPartyContent(thirdPartySettled.value.data);
+    } else {
+      console.error(
+        "Failed to load third party notices file:",
+        thirdPartySettled.status === "fulfilled"
+          ? thirdPartySettled.value
+          : thirdPartySettled.reason,
+      );
+      setThirdPartyFailed(true);
+    }
+
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {

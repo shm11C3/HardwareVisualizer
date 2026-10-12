@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { GraphColorPicker } from "./GraphColorPicker";
 import { GraphColorReset } from "./GraphColorReset";
 
@@ -17,7 +16,6 @@ export const GraphColorSettings = () => {
         <GraphColorPicker label="GPU" hardwareType="gpu" />
       </div>
       <GraphColorReset />
-      <SettingWriteFailure keys="lineGraphColor" />
     </div>
   );
 };

@@ -186,7 +186,7 @@ surface; who started the work decides when it may interrupt.
 | App cannot continue | Blocking dialog (`useTauriDialog`, backend `error_event`) | Immediately | Database cannot open, conversion failed |
 | One panel's read | Failure state where the data would appear, with retry | Never interrupts; automatic refreshes keep retrying | Insight charts, Cooling panels, Storage Health, process table |
 | Secondary lane | Nothing in the UI; log only | Never | Fan and ambient lanes next to a primary series |
-| User action failed | One translated line under the control that was used (`src/components/ActionFailure.tsx`); no toast, no retry button | Immediately, once; the next successful write of the same key or action clears it, never an unrelated write | Settings toggles, tray and autostart actions, background image upload |
+| User action failed | One translated line under the control that was used (`src/components/ActionFailure.tsx`); no toast, no retry button | Immediately, once; the next successful write of the same control (action id) clears only its own entry, never an unrelated write | Settings toggles, tray and autostart actions, background image upload |
 
 Rules that follow from the axes:
 
@@ -205,19 +205,23 @@ Rules that follow from the axes:
   Insight already models (establishing baseline, recording coverage, sensor
   unsupported) stay their own states and are never rendered as failures.
 
-- A failure is attributed explicitly: by the setting key for Application
-  Preference writes, or by a named action for hooks that are not settings
-  (background image: `upload` and `delete`; selecting an image is a write of
-  `selectedBackgroundImg`). Only the next success of that same key or action
-  clears it.
+- A failure is attributed to one control. The id is the setting key when the
+  control owns the whole setting (`theme`), or `<key>.<part>` when several
+  controls write parts of one setting (`hardwareArchive.retentionDays`,
+  `hardwareArchive.scheduledDeletion`, `environmentalSensors.device`). Hooks
+  that are not settings use a named action (background image: `upload` and
+  `delete`; selecting an image is a write of `selectedBackgroundImg`). One id
+  per control the user can operate; each control lists exactly its own ids.
+  Failures are held per id, so a second control failing does not hide the
+  first, and only the next success of the same id clears its own entry, never
+  an unrelated write.
 - A failed user action is state, not a dialog. The optimistic update has
   already rolled the control back, and the line under the control says why.
-  Application Preference writes record the last failure in
-  `settingsWriteFailureAtom` (`src/store/settings.ts`, owned by the store
+  Application Preference writes record failures in
+  `settingsWriteFailuresAtom` (`src/store/settings.ts`, owned by the store
   layer, written by `useSettingsAtom`). A control asks `useSettingWriteFailure`
-  (or renders `SettingWriteFailure`) for its keys; a later successful write of
-  the same key clears it. The backend detail is kept in that state and in
-  `console.error`, never in the copy.
+  (or renders `SettingWriteFailure`) for its action ids. The backend detail is
+  kept in that state and in `console.error`, never in the copy.
 - A shared hook that several components use (`useBackgroundImage`) returns the
   failure as state, and the component that owns the control renders it.
 - A flow that is already a modal dialog keeps the native dialog: the startup
@@ -226,7 +230,7 @@ Rules that follow from the axes:
   import `useTauriDialog`.
 
 Enforcement: no layer outside `src/app/**` may import `useTauriDialog`
-(`noRestrictedImports` in every layer override; `useTauriEventListener.ts`
+(`noRestrictedImports` in every layer override and the `src/main*.tsx` entry-point override; `useTauriEventListener.ts`
 calls the Tauri dialog plugin directly and needs no exception).
 
 ### Call-site classification

@@ -52,7 +52,7 @@ export const GraphTypeSelector = () => {
           GPU
         </Label>
       </div>
-      <SettingWriteFailure keys="displayTargets" />
+      <SettingWriteFailure actions="displayTargets" />
     </div>
   );
 };

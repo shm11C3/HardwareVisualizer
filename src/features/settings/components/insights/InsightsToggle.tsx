@@ -46,7 +46,7 @@ export const InsightsToggle = () => {
               onCheckedChange={handleCheckedChange}
             />
           </div>
-          <SettingWriteFailure keys="hardwareArchive" />
+          <SettingWriteFailure actions="hardwareArchive.enabled" />
         </div>
       </div>
       <NeedRestart alertOpen={alertOpen} setAlertOpen={setAlertOpen} />

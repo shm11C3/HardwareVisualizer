@@ -73,7 +73,7 @@ export const GraphMarginInput = () => {
         />
         <span className="ml-2">px</span>
       </div>
-      <SettingWriteFailure keys="graphMarginPx" />
+      <SettingWriteFailure actions="graphMarginPx" />
     </div>
   );
 };

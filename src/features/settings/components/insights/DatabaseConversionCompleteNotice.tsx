@@ -35,6 +35,7 @@ export const DatabaseConversionCompleteNotice = ({
     // value it already had.
     const saved = await setHardwareArchiveRetentionDays(
       ONE_YEAR_RETENTION_DAYS,
+      "hardwareArchive.conversionNotice",
     );
     if (saved) {
       onDismiss();
@@ -69,7 +70,7 @@ export const DatabaseConversionCompleteNotice = ({
           {t("pages.settings.insights.databaseConversion.notice.keep")}
         </Button>
       </div>
-      <SettingWriteFailure keys="hardwareArchive" />
+      <SettingWriteFailure actions="hardwareArchive.conversionNotice" />
       <p className="mt-3 text-muted-foreground text-xs">
         {t("pages.settings.insights.databaseConversion.notice.footnote")}
       </p>

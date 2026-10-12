@@ -37,7 +37,7 @@ export const LineChartTypeSelector = () => {
       </Label>
       <RadioGroup
         className="mt-4 flex items-center space-x-4"
-        defaultValue={settings.lineGraphType}
+        value={settings.lineGraphType}
         onValueChange={changeLineGraphType}
       >
         {lineGraphTypes.map((type) => {
@@ -57,7 +57,7 @@ export const LineChartTypeSelector = () => {
           );
         })}
       </RadioGroup>
-      <SettingWriteFailure keys="lineGraphType" />
+      <SettingWriteFailure actions="lineGraphType" />
     </div>
   );
 };

@@ -414,7 +414,10 @@ describe("DatabaseConversionPromptDialog", () => {
       );
     });
 
-    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(365);
+    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(
+      365,
+      "hardwareArchive.conversionNotice",
+    );
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 

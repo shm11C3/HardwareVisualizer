@@ -138,6 +138,12 @@ export const ExternalComponentSetupSection = () => {
 
       if (result.data.outcome === "installed") {
         setRestartDialogOpen(true);
+      } else if (result.data.outcome === "failed") {
+        console.error(
+          "External component setup failed:",
+          result.data.failureStage,
+          result.data.detail,
+        );
       }
     } catch (err) {
       console.error("Failed to run external component setup:", err);
@@ -223,22 +229,17 @@ type TranslateFailureStage = (
 
 /**
  * The elevated setup process reports only an exit code, so the stage is the
- * user-facing explanation; free-text detail exists only for failures the app
- * process itself detected.
+ * user-facing explanation. `result.detail` is technical text (exit codes,
+ * OS errors), so it goes to the log and never into the message.
  */
 const failureMessage = (
   t: Translate,
   translateFailureStage: TranslateFailureStage,
   result: ExternalComponentSetupResult,
 ): string => {
-  const stage = translateFailureStage(result.failureStage ?? "other");
-  return result.detail
-    ? t("pages.settings.advanced.externalComponentSetup.result.failed", {
-        detail: `${stage} (${result.detail})`,
-      })
-    : t("pages.settings.advanced.externalComponentSetup.result.failed", {
-        detail: stage,
-      });
+  return t("pages.settings.advanced.externalComponentSetup.result.failed", {
+    detail: translateFailureStage(result.failureStage ?? "other"),
+  });
 };
 
 /** Copy keys per component; a component without copy has no setup plan. */

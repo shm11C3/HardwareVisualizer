@@ -262,7 +262,7 @@ export const TrayWidgetSettings = () => {
         </div>
       )}
 
-      <SettingWriteFailure keys="trayWidget" />
+      <SettingWriteFailure actions="trayWidget" />
     </div>
   );
 };

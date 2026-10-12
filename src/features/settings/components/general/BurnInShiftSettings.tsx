@@ -55,7 +55,7 @@ export const BurnInShiftSettings = () => {
             onCheckedChange={toggleBurnInShift}
           />
         </div>
-        <SettingWriteFailure keys="burnInShift" />
+        <SettingWriteFailure actions="burnInShift" />
       </div>
       {settings.burnInShift && (
         <Accordion
@@ -75,31 +75,28 @@ export const BurnInShiftSettings = () => {
                     settings={settings}
                     selectShiftPreset={selectShiftPreset}
                   />
+                  <SettingWriteFailure actions="burnInShiftPreset" />
                 </div>
                 <div className="py-4">
                   <BurnInShiftModeRadio
                     settings={settings}
                     selectShiftMode={selectShiftMode}
                   />
+                  <SettingWriteFailure actions="burnInShiftMode" />
                 </div>
 
                 <BurnInShiftIdleCheckbox
                   settings={settings}
                   toggleIdleOnly={toggleIdleOnly}
                 />
+                <SettingWriteFailure actions="burnInShiftIdleOnly" />
 
                 <BurnInShiftOverrideCheckbox />
+                <SettingWriteFailure actions="burnInShiftOptions.override" />
                 {settings.burnInShiftOptions !== null && (
                   <BurnInShiftOptionInputs />
                 )}
-                <SettingWriteFailure
-                  keys={[
-                    "burnInShiftPreset",
-                    "burnInShiftMode",
-                    "burnInShiftIdleOnly",
-                    "burnInShiftOptions",
-                  ]}
-                />
+                <SettingWriteFailure actions="burnInShiftOptions" />
               </div>
             </AccordionContent>
           </AccordionItem>

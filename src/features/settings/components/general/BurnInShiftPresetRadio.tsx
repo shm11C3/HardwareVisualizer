@@ -23,7 +23,7 @@ export const BurnInShiftPresetRadio = ({
       </Label>
       <RadioGroup
         className="mt-2 flex space-x-2"
-        defaultValue={settings.burnInShiftPreset}
+        value={settings.burnInShiftPreset}
         onValueChange={selectShiftPreset}
       >
         <div className="flex items-center space-x-2">

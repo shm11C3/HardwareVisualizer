@@ -14,7 +14,7 @@ import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 export const BackgroundImageList = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { backgroundImageList } = useBackgroundImageList();
-  const { deleteBackgroundImage, failure } = useBackgroundImage();
+  const { deleteBackgroundImage, failures } = useBackgroundImage();
   const { t } = useTranslation();
 
   const selectImageVariants = tv({
@@ -77,12 +77,12 @@ export const BackgroundImageList = () => {
           ))}
         </div>
       )}
-      {failure === "delete" && (
+      {failures.has("delete") && (
         <ActionFailure
           message={t("pages.settings.backgroundImage.errors.delete")}
         />
       )}
-      <SettingWriteFailure keys="selectedBackgroundImg" className="mt-0" />
+      <SettingWriteFailure actions="selectedBackgroundImg" className="mt-0" />
     </>
   );
 };

@@ -99,7 +99,7 @@ export const ThemeSelect = () => {
           </SelectContent>
         </Select>
       </div>
-      <SettingWriteFailure keys="theme" />
+      <SettingWriteFailure actions="theme" />
     </div>
   );
 };

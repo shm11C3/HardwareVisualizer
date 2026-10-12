@@ -4,9 +4,9 @@ import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
 import { commands } from "@/rspc/bindings";
 import {
-  type BackgroundImageFailure,
+  type BackgroundImageAction,
   backgroundImageAtom,
-  backgroundImageFailureAtom,
+  backgroundImageFailuresAtom,
   uploadedBackgroundImagesAtom,
 } from "@/store/backgroundImage";
 import { isError, isOk } from "@/types/result";
@@ -16,21 +16,26 @@ import { isError, isOk } from "@/types/result";
  * clears it when the same kind succeeds later. The detail only goes to the log.
  */
 const useBackgroundImageFailure = () => {
-  const [failure, setFailure] = useAtom(backgroundImageFailureAtom);
+  const [failures, setFailures] = useAtom(backgroundImageFailuresAtom);
 
-  const recordFailure = (kind: BackgroundImageFailure, reason: unknown) => {
-    console.error(`Background image ${kind} failed:`, reason);
-    setFailure(kind);
+  const recordFailure = (action: BackgroundImageAction, reason: unknown) => {
+    console.error(`Background image ${action} failed:`, reason);
+    setFailures((current) => new Set(current).add(action));
   };
-  const clearFailure = (kind: BackgroundImageFailure) => {
-    setFailure((current) => (current === kind ? null : current));
+  const clearFailure = (action: BackgroundImageAction) => {
+    setFailures((current) => {
+      if (!current.has(action)) return current;
+      const next = new Set(current);
+      next.delete(action);
+      return next;
+    });
   };
 
-  return { failure, recordFailure, clearFailure };
+  return { failures, recordFailure, clearFailure };
 };
 
 export const useBackgroundImage = () => {
-  const { failure, recordFailure, clearFailure } = useBackgroundImageFailure();
+  const { failures, recordFailure, clearFailure } = useBackgroundImageFailure();
   const [backgroundImage, setBackgroundImage] = useAtom(backgroundImageAtom);
   const { initBackgroundImages, backgroundImageList, setBackgroundImageList } =
     useBackgroundImageList();
@@ -84,11 +89,6 @@ export const useBackgroundImage = () => {
   };
 
   const deleteBackgroundImage = async (fileId: string) => {
-    // Deselect if deleting the currently selected file
-    if (fileId === settings.selectedBackgroundImg) {
-      updateSettingAtom("selectedBackgroundImg", null);
-    }
-
     try {
       const result = await commands.deleteBackgroundImage(fileId);
       if (isError(result)) {
@@ -102,11 +102,18 @@ export const useBackgroundImage = () => {
       setBackgroundImageList(newBackgroundImages);
     } catch (err) {
       recordFailure("delete", err);
+      return;
+    }
+
+    // Deselect only once the file is really gone: a failed delete leaves the
+    // image in the list and keeps it selected.
+    if (fileId === settings.selectedBackgroundImg) {
+      updateSettingAtom("selectedBackgroundImg", null);
     }
   };
 
   return {
-    failure,
+    failures,
     backgroundImage,
     saveBackgroundImage,
     initBackgroundImage,
