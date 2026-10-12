@@ -119,9 +119,11 @@ describe("Cooling panels sharing one read", () => {
 
     expect(screen.getByTestId("timeline-lanes-stub")).toBeInTheDocument();
     // The lanes draw the rows derived from that one daily-trend read: one
-    // row per day, keyed by the point's date.
+    // row per calendar day of the 90-day window (gaps included), so every
+    // point the read returned is a row keyed by its date.
+    expect(mocks.timelineRowKeys).toHaveLength(90);
     expect(mocks.timelineRowKeys).toEqual(
-      dailyTrend.map((point) => point.date),
+      expect.arrayContaining(dailyTrend.map((point) => point.date)),
     );
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(mocks.getCoolingTrend).toHaveBeenCalledTimes(1);
