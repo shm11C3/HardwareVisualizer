@@ -552,6 +552,17 @@ export type ArchiveTimelineSeries = {
   powerMin: readonly ArchiveSeriesPoint[];
 };
 
+/** No series at all: what a lane builder gets while the archive has not landed. */
+export const EMPTY_ARCHIVE_TIMELINE_SERIES: ArchiveTimelineSeries = {
+  temperatureAvg: [],
+  temperatureMax: [],
+  temperatureMin: [],
+  cpuUsage: [],
+  powerAvg: [],
+  powerMax: [],
+  powerMin: [],
+};
+
 const valueByTimestamp = (
   points: readonly ArchiveSeriesPoint[],
 ): Map<number, number | null> =>

@@ -13,8 +13,10 @@ Follow `src/AGENTS.md` and `docs/design-principles.md`.
 - Preserve missing/unsupported/stale states instead of displaying invented zero
   or healthy values.
 - Report a failed read where its data would appear: the hook exposes
-  `hasError` and `retry`, the panel renders the shared failure component, and
-  secondary lanes log only. Report a failed user action as one translated
+  `hasError` and `retry` (a read several panels share is a shared-read atom
+  that reads as `failed` and is retried by a small hook writing `"refresh"` to
+  it), the panel renders the shared failure component, and secondary lanes log
+  only. Report a failed user action as one translated
   `ActionFailure` line under the control that was used. Only `src/app/**`
   (already-modal flows) may import `useTauriDialog` (lint); the backend
   `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` is the

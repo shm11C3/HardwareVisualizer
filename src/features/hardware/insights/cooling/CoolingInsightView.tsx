@@ -1,10 +1,5 @@
 import { useAtomValue } from "jotai";
-import { cpuPowerSupportAtom } from "@/features/hardware/store/power";
-import { motherboardFanSupportAtom } from "@/features/hardware/store/sensors";
-import type {
-  CoolingBandComparison,
-  CoolingBaselineDelta,
-} from "@/rspc/bindings";
+import { coolingInsightPeriodHydratedAtom } from "@/features/hardware/store/coolingPeriod";
 import { CoolingPeriodSelect } from "./components/CoolingPeriodSelect";
 import { CovariateComparisonPanel } from "./components/CovariateComparisonPanel";
 import { CoverageStrip } from "./components/CoverageStrip";
@@ -13,21 +8,7 @@ import { LoadTemperatureExplorerPanel } from "./components/LoadTemperatureExplor
 import { ObservationStrip } from "./components/ObservationStrip";
 import { SensorStatusNote } from "./components/SensorStatusNote";
 import { ThermalTimelineLane } from "./components/ThermalTimelineLane";
-import { useCoolingArchiveTimeline } from "./hooks/useCoolingArchiveTimeline";
-import { useCoolingBandComparison } from "./hooks/useCoolingBandComparison";
-import { useCoolingBaselineDelta } from "./hooks/useCoolingBaselineDelta";
-import { useCoolingDailyTrend } from "./hooks/useCoolingDailyTrend";
-import { useCoolingFanTrend } from "./hooks/useCoolingFanTrend";
-import { useCoolingInsightPeriod } from "./hooks/useCoolingInsightPeriod";
-import type { CoolingInsightPeriod } from "./types";
-import {
-  namedAmbientSources,
-  resolveRoutedAmbientCapability,
-} from "./utils/ambientTimeline";
-import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
-import { resolveRoutedFanCapability } from "./utils/fanTimeline";
-import { resolveSensorNotice } from "./utils/sensorNotice";
-import { resolveRoutedPowerCapability } from "./utils/thermalTimeline";
+import { useCoolingInsightPeriodPersistence } from "./hooks/useCoolingInsightPeriodPersistence";
 
 /**
  * The Cooling tab: zone structure, single period selector, and
@@ -36,163 +17,33 @@ import { resolveRoutedPowerCapability } from "./utils/thermalTimeline";
  * load-band comparison (#2020) - see each component's doc comment for its
  * own responsibilities. The load-vs-temperature Explorer (#2023) closes the
  * view as a collapsed secondary analysis below the comparison.
+ *
+ * The view only lays the panels out. Each panel reads what it renders: a
+ * read that several panels share is an atom in `store/` (the period, the
+ * baseline delta, the daily and fan rollups and the archive timeline), a
+ * read one panel owns is a hook called in that panel.
  */
 export const CoolingInsightView = () => {
-  const periodState = useCoolingInsightPeriod();
-  const {
-    data: baselineDelta,
-    hasError: baselineDeltaHasError,
-    retry: retryBaselineDelta,
-  } = useCoolingBaselineDelta();
-  const {
-    data: bandComparison,
-    hasError: bandComparisonHasError,
-    retry: retryBandComparison,
-  } = useCoolingBandComparison();
+  useCoolingInsightPeriodPersistence();
+  const periodHydrated = useAtomValue(coolingInsightPeriodHydratedAtom);
 
-  // The store-backed period is not ready yet; bail out before mounting
-  // `CoolingInsightBody`, which calls one more hook (the daily-trend fetch)
-  // that must not appear or disappear across renders of the same instance.
-  if (periodState[2]) {
+  // The stored period has not landed yet; mounting the panels now would
+  // flash, and fetch for, the default period.
+  if (!periodHydrated) {
     return null;
   }
-
-  const [period, setPeriod] = periodState;
-
-  return (
-    <CoolingInsightBody
-      period={period}
-      onPeriodChange={setPeriod}
-      baselineDelta={baselineDelta}
-      baselineDeltaHasError={baselineDeltaHasError}
-      onRetryBaselineDelta={retryBaselineDelta}
-      bandComparison={bandComparison}
-      bandComparisonHasError={bandComparisonHasError}
-      onRetryBandComparison={retryBandComparison}
-    />
-  );
-};
-
-const CoolingInsightBody = ({
-  period,
-  onPeriodChange,
-  baselineDelta,
-  baselineDeltaHasError,
-  onRetryBaselineDelta,
-  bandComparison,
-  bandComparisonHasError,
-  onRetryBandComparison,
-}: {
-  period: CoolingInsightPeriod;
-  onPeriodChange: (period: CoolingInsightPeriod) => Promise<void>;
-  baselineDelta: CoolingBaselineDelta | null;
-  baselineDeltaHasError: boolean;
-  onRetryBaselineDelta: () => void;
-  bandComparison: CoolingBandComparison | null;
-  bandComparisonHasError: boolean;
-  onRetryBandComparison: () => void;
-}) => {
-  const cpuPowerSupport = useAtomValue(cpuPowerSupportAtom);
-  const motherboardFanSupport = useAtomValue(motherboardFanSupportAtom);
-  const route = resolveCoolingPeriodRoute(period);
-  const {
-    data: dailyTrend,
-    hasError: dailyTrendHasError,
-    retry: retryDailyTrend,
-  } = useCoolingDailyTrend(route.kind === "dailyTrend" ? route.days : null);
-  const { data: fanTrend, hasError: fanTrendHasError } = useCoolingFanTrend(
-    route.kind === "dailyTrend" ? route.days : null,
-  );
-  // Owned here rather than inside the timeline: both the timeline's power
-  // and fan lanes and the sensor-status note below them read the same
-  // series, and fetching them twice would double the archive round trips.
-  const archive = useCoolingArchiveTimeline(
-    route.kind === "archive" ? route.minutes : null,
-  );
-
-  // Historical absence says only that this route has no values. Combine it
-  // with Core's hardware-support fact before explaining why the lane is gone.
-  const powerNotice = resolveSensorNotice(
-    resolveRoutedPowerCapability(route, archive, {
-      points: dailyTrend,
-      hasError: dailyTrendHasError,
-    }),
-    cpuPowerSupport,
-  );
-  // Power and fan are resolved separately: a machine can support either one.
-  const fanNotice = resolveSensorNotice(
-    resolveRoutedFanCapability(
-      route,
-      {
-        fanSeries: archive.fanSeries,
-        cpuSeries: archive.series,
-        hasLoaded: archive.hasLoaded,
-        hasError: archive.hasError,
-        fanHasError: archive.fanHasError,
-      },
-      {
-        fanSeries: fanTrend?.series ?? null,
-        archiveHasReadings: fanTrend?.archiveHasReadings ?? false,
-        recordedDays: dailyTrend?.length ?? null,
-        hasError: fanTrendHasError || dailyTrendHasError,
-      },
-    ),
-    motherboardFanSupport,
-  );
-  // The same three-state contract once more, for the data-state panel's
-  // ambient row - only a routed window that actually carries ambient
-  // licenses naming the sensors behind it. The co-variate panel does not
-  // read it: that panel compares its own baseline and recent windows, so
-  // a routed period without ambient readings must not hide it.
-  const ambientCapability = resolveRoutedAmbientCapability(route, {
-    ambientSeries: archive.ambientSeries,
-    cpuSeries: archive.series,
-    hasLoaded: archive.hasLoaded,
-    hasError: archive.hasError,
-    ambientHasError: archive.ambientHasError,
-  });
-  const ambientSources = namedAmbientSources(
-    ambientCapability,
-    archive.ambientSeries,
-  );
 
   return (
     <div className="space-y-4 pb-6">
       <div className="flex items-center justify-end">
-        <CoolingPeriodSelect value={period} onChange={onPeriodChange} />
+        <CoolingPeriodSelect />
       </div>
 
-      <ObservationStrip
-        baselineDelta={baselineDelta}
-        hasError={baselineDeltaHasError}
-        onRetry={onRetryBaselineDelta}
-      />
-      <ThermalTimelineLane
-        route={route}
-        baseline={baselineDelta?.baseline ?? null}
-        dailyTrend={dailyTrend}
-        fanTrend={fanTrend?.series ?? null}
-        archive={archive}
-        dailyTrendHasError={dailyTrendHasError}
-        onRetryDailyTrend={retryDailyTrend}
-      />
-      <SensorStatusNote powerNotice={powerNotice} fanNotice={fanNotice} />
-      {route.kind === "dailyTrend" && (
-        <CoverageStrip
-          points={dailyTrend}
-          days={route.days}
-          hasError={dailyTrendHasError}
-          onRetry={retryDailyTrend}
-        />
-      )}
-      <LoadBandComparisonPanel
-        bandComparison={bandComparison}
-        hasError={bandComparisonHasError}
-        onRetry={onRetryBandComparison}
-        powerNotice={powerNotice}
-        fanNotice={fanNotice}
-        ambientSources={ambientSources}
-      />
+      <ObservationStrip />
+      <ThermalTimelineLane />
+      <SensorStatusNote />
+      <CoverageStrip />
+      <LoadBandComparisonPanel />
       <CovariateComparisonPanel />
       <LoadTemperatureExplorerPanel />
     </div>

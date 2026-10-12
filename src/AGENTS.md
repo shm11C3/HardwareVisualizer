@@ -20,8 +20,9 @@ These instructions add to the repository root `AGENTS.md` for work under
   Do not copy it as a persistence pattern or migrate it opportunistically; see
   `docs/agents/lessons/legacy-gpu-source-display-preference.md`.
 - A failed read is a panel state, not an OS dialog: read hooks expose
-  `hasError` and `retry`, panels render `LoadFailure`, and an empty result is
-  never rendered as a failure or vice versa. A failed user action is an
+  `hasError` and `retry` (a read several panels share is a shared-read atom
+  with a loading/ready/failed state instead), panels render `LoadFailure`, and
+  an empty result is never rendered as a failure or vice versa. A failed user action is an
   `ActionFailure` line under its control (settings writes record it in
   `settingsWriteFailuresAtom`, per control action id). Only `src/app/**` may use `useTauriDialog`; the backend `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` is the one other dialog site (app-cannot-continue tier) and uses the dialog plugin directly. See
   the Failure Reporting section of `docs/design/frontend-architecture.md`.

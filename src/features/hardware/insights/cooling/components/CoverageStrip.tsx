@@ -1,9 +1,12 @@
+import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRetryCoolingDailyTrend } from "@/features/hardware/insights/cooling/hooks/useCoolingReadRetry";
 import { buildCoverageCells } from "@/features/hardware/insights/cooling/utils/coverageStrip";
-import type { CoolingDailyTrendPoint } from "@/rspc/bindings";
+import { coolingDailyTrendDaysAtom } from "@/features/hardware/store/coolingPeriod";
+import { coolingDailyTrendAtom } from "@/features/hardware/store/coolingReads";
 
 /**
  * Zone (4): a self-drawn day-by-day coverage strip (one cell per day,
@@ -12,23 +15,22 @@ import type { CoolingDailyTrendPoint } from "@/rspc/bindings";
  * 90d/1y - at 24h/7d/30d, gaps are already visible directly in the archive
  * charts above.
  *
- * `points: null` means the trend has not been established yet (idle or
- * in flight) and renders a skeleton; `hasError` renders a load-failure
- * line. Neither may be conflated with a genuinely empty period - a
- * failed or pending fetch is not evidence of absent history.
+ * It renders nothing on the archive periods. While the daily trend has not
+ * landed it renders a skeleton, and a failed read renders a load-failure
+ * line. Neither may be conflated with a genuinely empty period - a failed or
+ * pending fetch is not evidence of absent history.
  */
-export const CoverageStrip = ({
-  points,
-  days,
-  hasError = false,
-  onRetry,
-}: {
-  points: CoolingDailyTrendPoint[] | null;
-  days: 90 | 365;
-  hasError?: boolean;
-  onRetry?: () => void;
-}) => {
+export const CoverageStrip = () => {
+  const days = useAtomValue(coolingDailyTrendDaysAtom);
+
+  return days == null ? null : <CoverageStripBody days={days} />;
+};
+
+const CoverageStripBody = ({ days }: { days: 90 | 365 }) => {
   const { t } = useTranslation();
+  const trend = useAtomValue(coolingDailyTrendAtom);
+  const retry = useRetryCoolingDailyTrend();
+  const points = trend.kind === "ready" ? trend.data : null;
   const cells = useMemo(
     () => buildCoverageCells(points ?? [], days),
     [points, days],
@@ -44,11 +46,11 @@ export const CoverageStrip = ({
       <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
         {t("pages.insights.cooling.coverage.title")}
       </h3>
-      {hasError ? (
+      {trend.kind === "failed" ? (
         <LoadFailure
           className="items-start text-left"
           message={t("pages.insights.cooling.coverage.loadFailed")}
-          onRetry={onRetry}
+          onRetry={retry}
         />
       ) : points == null ? (
         <Skeleton

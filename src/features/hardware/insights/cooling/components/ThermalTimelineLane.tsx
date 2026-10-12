@@ -1,13 +1,17 @@
+import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { CoolingArchiveTimeline } from "@/features/hardware/insights/cooling/hooks/useCoolingArchiveTimeline";
+import { useCoolingArchiveRefresh } from "@/features/hardware/insights/cooling/hooks/useCoolingArchiveRefresh";
+import {
+  useRetryCoolingArchive,
+  useRetryCoolingDailyTrend,
+} from "@/features/hardware/insights/cooling/hooks/useCoolingReadRetry";
 import {
   buildAmbientLaneRows,
   computeAmbientDomain,
 } from "@/features/hardware/insights/cooling/utils/ambientTimeline";
-import type { CoolingPeriodRoute } from "@/features/hardware/insights/cooling/utils/coolingPeriodRoute";
 import {
   buildFanLaneRows,
   computeFanDomain,
@@ -22,16 +26,20 @@ import {
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
   computePowerDomain,
+  EMPTY_ARCHIVE_TIMELINE_SERIES,
   hasRecordedLoad,
   resolveBaselineBand,
   type ThermalTimelineRow,
 } from "@/features/hardware/insights/cooling/utils/thermalTimeline";
+import { coolingPeriodRouteAtom } from "@/features/hardware/store/coolingPeriod";
+import {
+  coolingArchiveAtom,
+  coolingBaselineDeltaAtom,
+  coolingDailyTrendAtom,
+  coolingFanTrendAtom,
+} from "@/features/hardware/store/coolingReads";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
-import type {
-  CoolingBaselineState,
-  CoolingDailyTrendPoint,
-  CoolingFanTrendSeries,
-} from "@/rspc/bindings";
+import type { FanArchiveSeries } from "@/rspc/bindings";
 import { type LoadLaneMode, TimelineLanes } from "./TimelineLanes";
 
 // Day keys are UTC-midnight anchored (`${isoDate}T00:00:00Z`); the labels
@@ -61,6 +69,8 @@ const archiveDateFormatOptions = (
   return options;
 };
 
+const NO_FAN_SERIES: readonly FanArchiveSeries[] = [];
+
 /**
  * Zone (2) of the Cooling Insight layout: the synchronized thermal timeline.
  *
@@ -72,51 +82,36 @@ const archiveDateFormatOptions = (
  *   no intra-day usage series, so the load lane shows how each day was split
  *   across the load bands instead of inventing a daily average.
  */
-export const ThermalTimelineLane = ({
-  route,
-  baseline,
-  dailyTrend,
-  fanTrend,
-  archive,
-  dailyTrendHasError = false,
-  onRetryDailyTrend,
-}: {
-  route: CoolingPeriodRoute;
-  baseline: CoolingBaselineState | null;
-  dailyTrend: CoolingDailyTrendPoint[] | null;
-  /**
-   * The daily fan rollup for 90d/1y, owned by `CoolingInsightView` for the
-   * same reason the archive fetch is: the sensor-status note beside the
-   * timeline reads it to decide whether to keep naming the fan.
-   */
-  fanTrend: CoolingFanTrendSeries[] | null;
-  /**
-   * The archive fetch for 24h/7d/30d, owned by `CoolingInsightView` rather
-   * than by this lane: the sensor-status note beside the timeline reads
-   * the same power and fan series to decide whether to keep naming them,
-   * and a second fetch to answer that would double the archive round trips.
-   */
-  archive: CoolingArchiveTimeline;
-  /**
-   * The daily rollup read failed. Distinct from `dailyTrend == null`, which
-   * only means "not established yet": a failed query must not keep the
-   * skeleton forever.
-   */
-  dailyTrendHasError?: boolean;
-  onRetryDailyTrend?: () => void;
-}) => {
+export const ThermalTimelineLane = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const temperatureUnit = settings.temperatureUnit;
 
-  const {
-    series,
-    fanSeries: archiveFanSeries,
-    ambientSeries,
-    stepMs,
-    hasLoaded: archiveLoaded,
-    hasError: archiveHasError,
-  } = archive;
+  const route = useAtomValue(coolingPeriodRouteAtom);
+  const baselineState = useAtomValue(coolingBaselineDeltaAtom);
+  const dailyTrendState = useAtomValue(coolingDailyTrendAtom);
+  // The fan rollup, the archive and the baseline are shared reads rather
+  // than this lane's own: the sensor-status note beside the timeline reads
+  // the same power and fan sources to decide whether to keep naming them,
+  // and a second fetch to answer that would double the round trips.
+  const fanTrendState = useAtomValue(coolingFanTrendAtom);
+  const archiveState = useAtomValue(coolingArchiveAtom);
+  const retryDailyTrend = useRetryCoolingDailyTrend();
+  const retryArchive = useRetryCoolingArchive();
+  // The archive is re-read every minute for as long as this lane is mounted.
+  useCoolingArchiveRefresh();
+
+  const baseline =
+    baselineState.kind === "ready" ? baselineState.data.baseline : null;
+  const dailyTrend =
+    dailyTrendState.kind === "ready" ? dailyTrendState.data : null;
+  const fanTrend =
+    fanTrendState.kind === "ready" ? fanTrendState.data.series : null;
+  const archive = archiveState.kind === "ready" ? archiveState.data : null;
+  const series = archive?.series ?? EMPTY_ARCHIVE_TIMELINE_SERIES;
+  const archiveFanSeries = archive?.fanSeries ?? NO_FAN_SERIES;
+  const ambientSeries = archive?.ambientSeries ?? null;
+  const stepMs = archive?.stepMs ?? 0;
 
   // Ambient reaches the timeline only through the archive routes: the
   // daily rollup stores the per-band Thermal Delta but no ambient
@@ -234,20 +229,20 @@ export const ThermalTimelineLane = ({
       <h3 className="mb-3 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
         {t("pages.insights.cooling.timeline.title")}
       </h3>
-      {route.kind === "archive" && archiveHasError ? (
+      {route.kind === "archive" && archiveState.kind === "failed" ? (
         <LoadFailure
           className="h-50"
           message={t("pages.insights.cooling.timeline.loadFailed")}
-          onRetry={archive.retry}
+          onRetry={retryArchive}
         />
-      ) : route.kind === "dailyTrend" && dailyTrendHasError ? (
+      ) : route.kind === "dailyTrend" && dailyTrendState.kind === "failed" ? (
         <LoadFailure
           className="h-50"
           message={t("pages.insights.cooling.timeline.loadFailed")}
-          onRetry={onRetryDailyTrend}
+          onRetry={retryDailyTrend}
         />
       ) : (route.kind === "dailyTrend" && dailyTrend == null) ||
-        (route.kind === "archive" && !archiveLoaded) ? (
+        (route.kind === "archive" && archive == null) ? (
         <Skeleton
           aria-busy="true"
           className="h-50 w-full"
