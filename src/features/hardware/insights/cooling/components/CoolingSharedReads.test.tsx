@@ -31,6 +31,8 @@ const mocks = vi.hoisted(() => ({
   getCoolingTrend: vi.fn(),
   getCoolingFanTrend: vi.fn(),
   getCoolingBaselineDelta: vi.fn(),
+  /** The rows the timeline handed to its lanes on the latest render. */
+  timelineRowKeys: [] as string[],
 }));
 
 vi.mock("react-i18next", () => ({
@@ -51,7 +53,10 @@ vi.mock("@/rspc/bindings", () => ({
 // The lanes are drawn by recharts; these tests are about which state the
 // timeline panel is in, not about the drawing.
 vi.mock("./TimelineLanes", () => ({
-  TimelineLanes: () => <div data-testid="timeline-lanes-stub" />,
+  TimelineLanes: ({ rows }: { rows: { key: string }[] }) => {
+    mocks.timelineRowKeys = rows.map((row) => row.key);
+    return <div data-testid="timeline-lanes-stub" />;
+  },
 }));
 
 const ok = <T,>(data: T) => ({ status: "ok" as const, data });
@@ -94,6 +99,7 @@ const mount = (store: ReturnType<typeof createStore>, ui: ReactNode) =>
 describe("Cooling panels sharing one read", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.timelineRowKeys = [];
     vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.getCoolingTrend.mockResolvedValue(ok(dailyTrend));
     mocks.getCoolingFanTrend.mockResolvedValue(ok(fanTrend));
@@ -112,6 +118,11 @@ describe("Cooling panels sharing one read", () => {
     await flush();
 
     expect(screen.getByTestId("timeline-lanes-stub")).toBeInTheDocument();
+    // The lanes draw the rows derived from that one daily-trend read: one
+    // row per day, keyed by the point's date.
+    expect(mocks.timelineRowKeys).toEqual(
+      dailyTrend.map((point) => point.date),
+    );
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(mocks.getCoolingTrend).toHaveBeenCalledTimes(1);
     expect(mocks.getCoolingTrend).toHaveBeenCalledWith(90);
