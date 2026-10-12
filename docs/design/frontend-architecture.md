@@ -229,7 +229,8 @@ Rules that follow from the axes:
   may import `useTauriDialog`. The one other dialog site is the backend
   `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` (the
   app-cannot-continue tier); it uses the dialog plugin directly, not
-  `useTauriDialog`.
+  `useTauriDialog`. In-app modals such as the restart prompt (`NeedRestart`,
+  an `AlertDialog`) are not native dialogs and are unaffected by this rule.
 
 Enforcement: no layer outside `src/app/**` may import `useTauriDialog`
 (`noRestrictedImports` in every layer override and the `src/main*.tsx` entry-point override; `useTauriEventListener.ts`

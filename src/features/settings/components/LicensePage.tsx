@@ -33,13 +33,16 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
     const setFailed = (failed: boolean) =>
       setOpenFailed((current) => ({ ...current, [tab]: failed }));
 
-    setFailed(false);
+    // The line clears only once this tab's own open succeeds, so a retry
+    // that stalls or fails again does not hide the failure meanwhile.
     try {
       const result = await commands.openLicenseFilePath();
       if (isError(result)) {
         console.error("Failed to open LICENSE file in explorer:", result.error);
         setFailed(true);
+        return;
       }
+      setFailed(false);
     } catch (e) {
       console.error("Failed to open LICENSE file in explorer:", e);
       setFailed(true);
