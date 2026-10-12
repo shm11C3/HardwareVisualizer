@@ -219,7 +219,9 @@ Rules that follow from the axes:
   already rolled the control back, and the line under the control says why.
   Application Preference writes record failures in
   `settingsWriteFailuresAtom` (`src/store/settings.ts`, owned by the store
-  layer, written by `useSettingsAtom`). A control asks `useSettingWriteFailure`
+  layer, written by `useSettingsAtom`, whose every write goes through
+  `persistOptimistic` (apply, write, roll back) or `persistThenApply` (write,
+  then apply), so a failure is recorded or cleared once per write). A control asks `useSettingWriteFailure`
   (or renders `SettingWriteFailure`) for its action ids. The backend detail is
   kept in that state and in `console.error`, never in the copy.
 - A shared hook that several components use (`useBackgroundImage`) returns the

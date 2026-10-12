@@ -32,10 +32,19 @@ export const useSettingsAtom = () => {
   const store = useStore();
 
   /**
+   * Every Application Preference write goes through one of two shapes, so a
+   * failure is recorded or cleared exactly once per write by construction:
+   *
+   * - `persistOptimistic`: apply the new value first, then write, and roll
+   *   back when the write fails (toggles and inputs that must feel instant).
+   * - `persistThenApply`: write first and apply the new value only once it is
+   *   saved (the value comes from, or must match, what the backend kept).
+   *
    * A failed write is state, not a dialog: the control that owns `action`
    * renders it (`useSettingWriteFailure`). The backend detail only goes to
    * the log and the state. Failures are held per action, and only a later
-   * successful write of the same action clears its own entry.
+   * successful write of the same action clears its own entry. Do not call
+   * `recordWriteFailure` / `clearWriteFailure` from a mutator directly.
    */
   const recordWriteFailure = (action: SettingWriteAction, reason: unknown) => {
     console.error(`Failed to save setting "${action}":`, reason);
@@ -53,6 +62,79 @@ export const useSettingsAtom = () => {
       next.delete(action);
       return next;
     });
+  };
+
+  /**
+   * Optimistic write: `apply()` runs before `write()`. A backend error
+   * records the failure, runs `rollback()` and resolves `false`. A rejected
+   * call never reached the backend, so it is recorded and rolled back too,
+   * then rethrown for the caller. Success clears the failure and resolves
+   * `true`.
+   */
+  const persistOptimistic = async ({
+    action,
+    apply,
+    rollback,
+    write,
+  }: {
+    action: SettingWriteAction;
+    apply: () => void;
+    rollback: () => void;
+    write: () => Promise<Result<unknown, string>>;
+  }): Promise<boolean> => {
+    apply();
+    let result: Result<unknown, string>;
+    try {
+      result = await write();
+    } catch (err) {
+      recordWriteFailure(action, err);
+      rollback();
+      throw err;
+    }
+
+    if (isError(result)) {
+      recordWriteFailure(action, result.error);
+      rollback();
+      return false;
+    }
+
+    clearWriteFailure(action);
+    return true;
+  };
+
+  /**
+   * Write-then-apply: `apply(data)` runs only after the backend accepted the
+   * write, so a failure leaves the previous value untouched. A backend error
+   * records the failure and resolves `false`. A rejected call is recorded and
+   * rethrown (nothing was applied, so there is nothing to roll back); the
+   * existing mutators of this shape never caught it either, because
+   * `commands.*` reports failures as a `Result` and does not throw.
+   */
+  const persistThenApply = async <T>({
+    action,
+    write,
+    apply,
+  }: {
+    action: SettingWriteAction;
+    write: () => Promise<Result<T, string>>;
+    apply: (data: T) => void;
+  }): Promise<boolean> => {
+    let result: Result<T, string>;
+    try {
+      result = await write();
+    } catch (err) {
+      recordWriteFailure(action, err);
+      throw err;
+    }
+
+    if (isError(result)) {
+      recordWriteFailure(action, result.error);
+      return false;
+    }
+
+    clearWriteFailure(action);
+    apply(result.data);
+    return true;
   };
 
   const mapSettingUpdater: {
@@ -147,27 +229,13 @@ export const useSettingsAtom = () => {
   ) => {
     const previousValue = settings[key];
 
-    setSettings((prev) => ({ ...prev, [key]: value }));
-    let result: Result<null, string>;
-    try {
-      result = await mapSettingUpdater[key](value);
-    } catch (err) {
-      // A rejected IPC call never reached the backend, so the optimistic
-      // value must not stay on screen. The failure is recorded for the
-      // control and the rejection is still rethrown for the caller.
-      recordWriteFailure(action, err);
-      setSettings((prev) => ({ ...prev, [key]: previousValue }));
-      throw err;
-    }
-
-    if (isError(result)) {
-      recordWriteFailure(action, result.error);
-      setSettings((prev) => ({ ...prev, [key]: previousValue }));
-      return false;
-    }
-
-    clearWriteFailure(action);
-    return true;
+    return persistOptimistic({
+      action,
+      apply: () => setSettings((prev) => ({ ...prev, [key]: value })),
+      rollback: () =>
+        setSettings((prev) => ({ ...prev, [key]: previousValue })),
+      write: () => mapSettingUpdater[key](value),
+    });
   };
 
   const toggleDisplayTarget = async (target: ChartDataType) => {
@@ -175,15 +243,12 @@ export const useSettingsAtom = () => {
       ? settings.displayTargets.filter((t) => t !== target)
       : [...settings.displayTargets, target];
 
-    const result = await commands.setDisplayTargets(newTargets);
-
-    if (isError(result)) {
-      recordWriteFailure("displayTargets", result.error);
-      return;
-    }
-
-    clearWriteFailure("displayTargets");
-    setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
+    await persistThenApply({
+      action: "displayTargets",
+      write: () => commands.setDisplayTargets(newTargets),
+      apply: () =>
+        setSettings((prev) => ({ ...prev, displayTargets: newTargets })),
+    });
   };
 
   const togglePowerDisplayTarget = async (
@@ -211,21 +276,27 @@ export const useSettingsAtom = () => {
           !samePowerDisplayTargets(mutation.desired, mutation.persisted)
         ) {
           const nextTargets = [...mutation.desired];
-          const result = await commands.setPowerDisplayTargets(nextTargets);
-          if (isError(result)) {
-            recordWriteFailure("powerDisplayTargets", result.error);
-            const rollbackTargets = mutation.persisted;
-            setSettings((prev) => ({
-              ...prev,
-              powerDisplayTargets: rollbackTargets,
-            }));
-            mutation.desired = null;
-            mutation.persisted = null;
-            mutation.inFlight = null;
+          const rollbackTargets = mutation.persisted;
+          // The toggles already applied `desired` optimistically; each pass
+          // only persists the latest value and settles its outcome.
+          const saved = await persistOptimistic({
+            action: "powerDisplayTargets",
+            apply: () => {},
+            rollback: () => {
+              setSettings((prev) => ({
+                ...prev,
+                powerDisplayTargets: rollbackTargets,
+              }));
+              mutation.desired = null;
+              mutation.persisted = null;
+              mutation.inFlight = null;
+            },
+            write: () => commands.setPowerDisplayTargets(nextTargets),
+          });
+          if (!saved) {
             return false;
           }
           mutation.persisted = nextTargets;
-          clearWriteFailure("powerDisplayTargets");
         }
 
         mutation.desired = null;
@@ -254,35 +325,23 @@ export const useSettingsAtom = () => {
           )
         : previousAnnouncementVersion;
 
-    setSettings((prev) => ({
-      ...prev,
-      navigationLayout: value,
-      uiAnnouncementVersion: announcementVersion,
-    }));
-
     try {
-      const result = await commands.setNavigationLayout(value);
-
-      if (isError(result)) {
-        recordWriteFailure("navigationLayout", result.error);
-        setSettings((prev) => ({
-          ...prev,
-          navigationLayout: previousLayout,
-          uiAnnouncementVersion: previousAnnouncementVersion,
-        }));
-        return false;
-      }
-
-      clearWriteFailure("navigationLayout");
-      return true;
-    } catch (err) {
-      recordWriteFailure("navigationLayout", err);
-      setSettings((prev) => ({
-        ...prev,
-        navigationLayout: previousLayout,
-        uiAnnouncementVersion: previousAnnouncementVersion,
-      }));
-      throw err;
+      return await persistOptimistic({
+        action: "navigationLayout",
+        apply: () =>
+          setSettings((prev) => ({
+            ...prev,
+            navigationLayout: value,
+            uiAnnouncementVersion: announcementVersion,
+          })),
+        rollback: () =>
+          setSettings((prev) => ({
+            ...prev,
+            navigationLayout: previousLayout,
+            uiAnnouncementVersion: previousAnnouncementVersion,
+          })),
+        write: () => commands.setNavigationLayout(value),
+      });
     } finally {
       store.set(navigationMutationPendingAtom, false);
     }
@@ -293,61 +352,39 @@ export const useSettingsAtom = () => {
 
     store.set(navigationMutationPendingAtom, true);
     const previousValue = settings.uiAnnouncementVersion;
-    setSettings((prev) => ({
-      ...prev,
-      uiAnnouncementVersion: Math.max(
-        prev.uiAnnouncementVersion,
-        prev.currentUiAnnouncementVersion,
-      ),
-    }));
 
     try {
-      const result =
-        await commands.acknowledgeNavigationRestructureAnnouncement();
-
-      if (isError(result)) {
-        recordWriteFailure("uiAnnouncementVersion", result.error);
-        setSettings((prev) => ({
-          ...prev,
-          uiAnnouncementVersion: previousValue,
-        }));
-        return false;
-      }
-
-      clearWriteFailure("uiAnnouncementVersion");
-      return true;
-    } catch (err) {
-      recordWriteFailure("uiAnnouncementVersion", err);
-      setSettings((prev) => ({
-        ...prev,
-        uiAnnouncementVersion: previousValue,
-      }));
-      throw err;
+      return await persistOptimistic({
+        action: "uiAnnouncementVersion",
+        apply: () =>
+          setSettings((prev) => ({
+            ...prev,
+            uiAnnouncementVersion: Math.max(
+              prev.uiAnnouncementVersion,
+              prev.currentUiAnnouncementVersion,
+            ),
+          })),
+        rollback: () =>
+          setSettings((prev) => ({
+            ...prev,
+            uiAnnouncementVersion: previousValue,
+          })),
+        write: () => commands.acknowledgeNavigationRestructureAnnouncement(),
+      });
     } finally {
       store.set(navigationMutationPendingAtom, false);
     }
   };
 
-  /**
-   * Persists one line graph color and applies it only once saved, so a failed
-   * write leaves the previous color. Returns the backend error, or null.
-   */
-  const writeLineGraphColor = async (
+  /** Applies a color the backend returned (it normalizes the code). */
+  const applyLineGraphColor = (
     key: keyof LineGraphColorStringSettings,
-    value: string,
-  ): Promise<string | null> => {
-    const result = await commands.setLineGraphColor(key, value);
-
-    if (isError(result)) {
-      return result.error;
-    }
-
+    color: string,
+  ) =>
     setSettings((prev) => ({
       ...prev,
-      lineGraphColor: { ...prev.lineGraphColor, [key]: result.data },
+      lineGraphColor: { ...prev.lineGraphColor, [key]: color },
     }));
-    return null;
-  };
 
   /**
    * Update color code
@@ -359,15 +396,11 @@ export const useSettingsAtom = () => {
     key: keyof LineGraphColorStringSettings,
     value: string,
   ) => {
-    const action: SettingWriteAction = `lineGraphColor.${key}`;
-    const error = await writeLineGraphColor(key, value);
-
-    if (error !== null) {
-      recordWriteFailure(action, error);
-      return;
-    }
-
-    clearWriteFailure(action);
+    await persistThenApply({
+      action: `lineGraphColor.${key}`,
+      write: () => commands.setLineGraphColor(key, value),
+      apply: (color) => applyLineGraphColor(key, color),
+    });
   };
 
   /**
@@ -379,15 +412,22 @@ export const useSettingsAtom = () => {
    * @returns whether every color was restored
    */
   const resetLineGraphColors = async () => {
-    const errors = await Promise.all(
-      chartHardwareTypes.map((type) =>
-        writeLineGraphColor(type, RGB2HEX(defaultColorRGB[type])),
-      ),
+    const results = await Promise.all(
+      chartHardwareTypes.map(async (type) => {
+        const result = await commands.setLineGraphColor(
+          type,
+          RGB2HEX(defaultColorRGB[type]),
+        );
+        if (!isError(result)) {
+          applyLineGraphColor(type, result.data);
+        }
+        return result;
+      }),
     );
-    const failed = errors.find((error) => error !== null);
+    const failed = results.find(isError);
 
     if (failed !== undefined) {
-      recordWriteFailure("lineGraphColor.reset", failed);
+      recordWriteFailure("lineGraphColor.reset", failed.error);
       return false;
     }
 
@@ -396,18 +436,15 @@ export const useSettingsAtom = () => {
   };
 
   const toggleHardwareArchiveAtom = async (value: boolean) => {
-    const result = await commands.setHardwareArchiveEnabled(value);
-
-    if (isError(result)) {
-      recordWriteFailure("hardwareArchive.enabled", result.error);
-      return;
-    }
-
-    clearWriteFailure("hardwareArchive.enabled");
-    setSettings((prev) => ({
-      ...prev,
-      hardwareArchive: { ...prev.hardwareArchive, enabled: value },
-    }));
+    await persistThenApply({
+      action: "hardwareArchive.enabled",
+      write: () => commands.setHardwareArchiveEnabled(value),
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          hardwareArchive: { ...prev.hardwareArchive, enabled: value },
+        })),
+    });
   };
 
   /**
@@ -417,224 +454,170 @@ export const useSettingsAtom = () => {
    * exactly as it was, and the settings screen must not follow it with a
    * "restart to apply" prompt for a change that did not happen.
    */
-  const toggleSwitchbotMeterAtom = async (value: boolean) => {
-    const result = await commands.setSwitchbotMeterEnabled(value);
+  const toggleSwitchbotMeterAtom = (value: boolean) =>
+    persistThenApply({
+      action: "environmentalSensors.enabled",
+      write: () => commands.setSwitchbotMeterEnabled(value),
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          environmentalSensors: {
+            ...prev.environmentalSensors,
+            switchbotMeterEnabled: value,
+            // Turning the source off clears the chosen device in Core, so
+            // the screen must forget it too or the picker would keep
+            // showing a selection the app no longer holds.
+            switchbotMeterDevice: value
+              ? (prev.environmentalSensors.switchbotMeterDevice ?? null)
+              : null,
+          },
+        })),
+    });
 
-    if (isError(result)) {
-      recordWriteFailure("environmentalSensors.enabled", result.error);
-      return false;
-    }
-
-    clearWriteFailure("environmentalSensors.enabled");
-    setSettings((prev) => ({
-      ...prev,
-      environmentalSensors: {
-        ...prev.environmentalSensors,
-        switchbotMeterEnabled: value,
-        // Turning the source off clears the chosen device in Core, so
-        // the screen must forget it too or the picker would keep
-        // showing a selection the app no longer holds.
-        switchbotMeterDevice: value
-          ? (prev.environmentalSensors.switchbotMeterDevice ?? null)
-          : null,
-      },
-    }));
-    return true;
-  };
-
-  const setSwitchbotMeterDevice = async (deviceId: string) => {
-    const result = await commands.setSwitchbotMeterDevice(deviceId);
-
-    if (isError(result)) {
-      recordWriteFailure("environmentalSensors.device", result.error);
-      return false;
-    }
-
-    clearWriteFailure("environmentalSensors.device");
-    setSettings((prev) => ({
-      ...prev,
-      environmentalSensors: {
-        ...prev.environmentalSensors,
-        switchbotMeterDevice: deviceId,
-      },
-    }));
-    return true;
-  };
+  const setSwitchbotMeterDevice = (deviceId: string) =>
+    persistThenApply({
+      action: "environmentalSensors.device",
+      write: () => commands.setSwitchbotMeterDevice(deviceId),
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          environmentalSensors: {
+            ...prev.environmentalSensors,
+            switchbotMeterDevice: deviceId,
+          },
+        })),
+    });
 
   /**
    * `action` names the control that asked, so the retention input and the
    * database conversion notice each show only their own failure.
    */
-  const setHardwareArchiveRetentionDays = async (
+  const setHardwareArchiveRetentionDays = (
     value: number,
     action: SettingWriteAction = "hardwareArchive.retentionDays",
-  ) => {
-    const result = await commands.setHardwareArchiveRetentionDays(value);
-
-    if (isError(result)) {
-      recordWriteFailure(action, result.error);
-      return false;
-    }
-
-    clearWriteFailure(action);
-    setSettings((prev) => ({
-      ...prev,
-      hardwareArchive: { ...prev.hardwareArchive, retentionDays: value },
-    }));
-    return true;
-  };
+  ) =>
+    persistThenApply({
+      action,
+      write: () => commands.setHardwareArchiveRetentionDays(value),
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          hardwareArchive: { ...prev.hardwareArchive, retentionDays: value },
+        })),
+    });
 
   const setScheduledDataDeletion = async (value: boolean) => {
-    const result =
-      await commands.setHardwareArchiveScheduledDataDeletion(value);
-
-    if (isError(result)) {
-      recordWriteFailure("hardwareArchive.scheduledDeletion", result.error);
-      return;
-    }
-
-    clearWriteFailure("hardwareArchive.scheduledDeletion");
-    setSettings((prev) => ({
-      ...prev,
-      hardwareArchive: {
-        ...prev.hardwareArchive,
-        scheduledDataDeletion: value,
-      },
-    }));
+    await persistThenApply({
+      action: "hardwareArchive.scheduledDeletion",
+      write: () => commands.setHardwareArchiveScheduledDataDeletion(value),
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          hardwareArchive: {
+            ...prev.hardwareArchive,
+            scheduledDataDeletion: value,
+          },
+        })),
+    });
   };
 
-  const setStorageHealthRetentionDays = async (value: number) => {
-    const result = await commands.setStorageHealthRetentionDays(value);
+  const setStorageHealthRetentionDays = (value: number) =>
+    persistThenApply({
+      action: "storageHealth.retentionDays",
+      write: () => commands.setStorageHealthRetentionDays(value),
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          storageHealth: { ...prev.storageHealth, retentionDays: value },
+        })),
+    });
 
-    if (isError(result)) {
-      recordWriteFailure("storageHealth.retentionDays", result.error);
-      return false;
-    }
-
-    clearWriteFailure("storageHealth.retentionDays");
-    setSettings((prev) => ({
-      ...prev,
-      storageHealth: { ...prev.storageHealth, retentionDays: value },
-    }));
-    return true;
-  };
-
-  const setCloseToTrayPreferenceAtom = async (value: boolean) => {
+  const setCloseToTrayPreferenceAtom = (value: boolean) => {
     const previousCloseToTray = settings.closeToTray;
     const previousChoiceMade = settings.closeToTrayChoiceMade;
     const previousTrayWidget = settings.trayWidget;
-
-    setSettings((prev) => ({
-      ...prev,
-      closeToTray: value,
-      closeToTrayChoiceMade: true,
-      trayWidget: value
-        ? { ...prev.trayWidget, enabled: true }
-        : prev.trayWidget,
-    }));
-
     const shouldEnableTrayWidget = value && !previousTrayWidget.enabled;
     let trayWidgetPersisted = false;
+    // Set when undoing the tray widget save failed: the backend then still
+    // has the widget enabled, so the restored atom must keep it enabled too.
+    let keepTrayWidgetEnabled = false;
 
-    try {
-      if (shouldEnableTrayWidget) {
-        const nextTrayWidget = { ...previousTrayWidget, enabled: true };
-        const trayWidgetResult =
-          await commands.setTrayWidgetSettings(nextTrayWidget);
-
-        if (isError(trayWidgetResult)) {
-          recordWriteFailure("closeToTray", trayWidgetResult.error);
-          setSettings((prev) => ({
-            ...prev,
-            closeToTray: previousCloseToTray,
-            closeToTrayChoiceMade: previousChoiceMade,
-            trayWidget: previousTrayWidget,
-          }));
-          return false;
-        }
-        trayWidgetPersisted = true;
-      }
-
-      const result = await commands.setCloseToTrayPreference(value);
-
-      if (isError(result)) {
-        if (shouldEnableTrayWidget) {
-          const rollbackResult =
-            await commands.setTrayWidgetSettings(previousTrayWidget);
-
-          if (isError(rollbackResult)) {
-            console.error(rollbackResult.error);
-            recordWriteFailure("closeToTray", result.error);
-            setSettings((prev) => ({
-              ...prev,
-              closeToTray: previousCloseToTray,
-              closeToTrayChoiceMade: previousChoiceMade,
-            }));
-            return false;
-          }
-        }
-
-        recordWriteFailure("closeToTray", result.error);
+    // Two backend writes, one outcome: `closeToTray` is recorded or cleared
+    // once, by `persistOptimistic`, from whatever `write` resolves to.
+    return persistOptimistic({
+      action: "closeToTray",
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          closeToTray: value,
+          closeToTrayChoiceMade: true,
+          trayWidget: value
+            ? { ...prev.trayWidget, enabled: true }
+            : prev.trayWidget,
+        })),
+      rollback: () =>
         setSettings((prev) => ({
           ...prev,
           closeToTray: previousCloseToTray,
           closeToTrayChoiceMade: previousChoiceMade,
-          trayWidget: previousTrayWidget,
-        }));
-        return false;
-      }
-
-      clearWriteFailure("closeToTray");
-      return true;
-    } catch (err) {
-      recordWriteFailure("closeToTray", err);
-      if (trayWidgetPersisted) {
-        // The widget save already landed on disk; undo it best-effort so
-        // the backend matches the restored atom. Its own failure is only
-        // logged so it never masks the original rejection.
+          ...(keepTrayWidgetEnabled ? {} : { trayWidget: previousTrayWidget }),
+        })),
+      write: async () => {
         try {
-          const undoResult =
-            await commands.setTrayWidgetSettings(previousTrayWidget);
-          if (isError(undoResult)) {
-            console.error(undoResult.error);
+          if (shouldEnableTrayWidget) {
+            const trayWidgetResult = await commands.setTrayWidgetSettings({
+              ...previousTrayWidget,
+              enabled: true,
+            });
+            if (isError(trayWidgetResult)) {
+              return trayWidgetResult;
+            }
+            trayWidgetPersisted = true;
           }
-        } catch (undoErr) {
-          console.error(undoErr);
+
+          const result = await commands.setCloseToTrayPreference(value);
+
+          if (isError(result) && shouldEnableTrayWidget) {
+            const rollbackResult =
+              await commands.setTrayWidgetSettings(previousTrayWidget);
+            if (isError(rollbackResult)) {
+              console.error(rollbackResult.error);
+              keepTrayWidgetEnabled = true;
+            }
+          }
+
+          return result;
+        } catch (err) {
+          if (trayWidgetPersisted) {
+            // The widget save already landed on disk; undo it best-effort so
+            // the backend matches the restored atom. Its own failure is only
+            // logged so it never masks the original rejection.
+            try {
+              const undoResult =
+                await commands.setTrayWidgetSettings(previousTrayWidget);
+              if (isError(undoResult)) {
+                console.error(undoResult.error);
+              }
+            } catch (undoErr) {
+              console.error(undoErr);
+            }
+          }
+          throw err;
         }
-      }
-      setSettings((prev) => ({
-        ...prev,
-        closeToTray: previousCloseToTray,
-        closeToTrayChoiceMade: previousChoiceMade,
-        trayWidget: previousTrayWidget,
-      }));
-      throw err;
-    }
+      },
+    });
   };
 
-  const setTrayWidgetSettingsAtom = async (
-    value: ClientSettings["trayWidget"],
-  ) => {
+  const setTrayWidgetSettingsAtom = (value: ClientSettings["trayWidget"]) => {
     const previousValue = settings.trayWidget;
 
-    setSettings((prev) => ({ ...prev, trayWidget: value }));
-    let result: Result<null, string>;
-    try {
-      result = await commands.setTrayWidgetSettings(value);
-    } catch (err) {
-      recordWriteFailure("trayWidget", err);
-      setSettings((prev) => ({ ...prev, trayWidget: previousValue }));
-      throw err;
-    }
-
-    if (isError(result)) {
-      recordWriteFailure("trayWidget", result.error);
-      setSettings((prev) => ({ ...prev, trayWidget: previousValue }));
-      return false;
-    }
-
-    clearWriteFailure("trayWidget");
-    return true;
+    return persistOptimistic({
+      action: "trayWidget",
+      apply: () => setSettings((prev) => ({ ...prev, trayWidget: value })),
+      rollback: () =>
+        setSettings((prev) => ({ ...prev, trayWidget: previousValue })),
+      write: () => commands.setTrayWidgetSettings(value),
+    });
   };
 
   return {
