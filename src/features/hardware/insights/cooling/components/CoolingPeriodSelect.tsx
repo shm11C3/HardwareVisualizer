@@ -1,3 +1,4 @@
+import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import {
   Select,
@@ -6,11 +7,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useSetCoolingInsightPeriod } from "@/features/hardware/insights/cooling/hooks/useSetCoolingInsightPeriod";
 import {
-  type CoolingInsightPeriod,
   coolingInsightPeriods,
   isCoolingInsightPeriod,
 } from "@/features/hardware/insights/cooling/types";
+import { coolingInsightPeriodAtom } from "@/features/hardware/store/coolingPeriod";
 
 /**
  * The Cooling tab's single top-of-view period selector (#2018). Replaces the
@@ -18,21 +20,17 @@ import {
  * `ArchivePeriod`-typed `SelectPeriod` those charts still use elsewhere -
  * 90d/1y have no archive-bucket equivalent.
  */
-export const CoolingPeriodSelect = ({
-  value,
-  onChange,
-}: {
-  value: CoolingInsightPeriod;
-  onChange: (value: CoolingInsightPeriod) => void;
-}) => {
+export const CoolingPeriodSelect = () => {
   const { t } = useTranslation();
+  const value = useAtomValue(coolingInsightPeriodAtom);
+  const setPeriod = useSetCoolingInsightPeriod();
 
   return (
     <Select
       value={value}
       onValueChange={(next) => {
         if (isCoolingInsightPeriod(next)) {
-          onChange(next);
+          setPeriod(next);
         }
       }}
     >

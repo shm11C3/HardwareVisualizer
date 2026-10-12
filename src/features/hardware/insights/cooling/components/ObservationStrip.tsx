@@ -1,3 +1,4 @@
+import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
 import {
@@ -7,6 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRetryCoolingBaselineDelta } from "@/features/hardware/insights/cooling/hooks/useCoolingReadRetry";
 import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
 import {
   daysInclusive,
@@ -15,6 +17,7 @@ import {
   resolveObservationDisplay,
 } from "@/features/hardware/insights/cooling/utils/observationDisplay";
 import { formatSignedTemperatureDelta } from "@/features/hardware/insights/cooling/utils/temperatureUnit";
+import { coolingBaselineDeltaAtom } from "@/features/hardware/store/coolingReads";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type {
   CoolingBaselineDelta,
@@ -35,17 +38,14 @@ const TONE_DOT_CLASSES: Record<ObservationDisplay["tone"], string> = {
  * dot color - it never re-derives what counts as a rise or how many days
  * make it "sustained" (see `resolveObservationDisplay`).
  */
-export const ObservationStrip = ({
-  baselineDelta,
-  hasError = false,
-  onRetry,
-}: {
-  baselineDelta: CoolingBaselineDelta | null;
-  hasError?: boolean;
-  onRetry?: () => void;
-}) => {
+export const ObservationStrip = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
+  const baselineDeltaState = useAtomValue(coolingBaselineDeltaAtom);
+  const retry = useRetryCoolingBaselineDelta();
+  const baselineDelta =
+    baselineDeltaState.kind === "ready" ? baselineDeltaState.data : null;
+  const hasError = baselineDeltaState.kind === "failed";
   const lifecycle = resolveBaselineLifecycle(baselineDelta?.baseline ?? null);
 
   return (
@@ -57,7 +57,7 @@ export const ObservationStrip = ({
         <LoadFailure
           className="items-start text-left"
           message={t("pages.insights.cooling.observationStrip.loadFailed")}
-          onRetry={onRetry}
+          onRetry={retry}
         />
       )}
       {!hasError && lifecycle.kind === "loading" && (

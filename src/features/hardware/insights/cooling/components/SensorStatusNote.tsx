@@ -1,18 +1,16 @@
+import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
+import { groupSensorNotices } from "@/features/hardware/insights/cooling/utils/sensorNotice";
 import {
-  groupSensorNotices,
-  type SensorNotice,
-} from "@/features/hardware/insights/cooling/utils/sensorNotice";
+  coolingFanNoticeAtom,
+  coolingPowerNoticeAtom,
+} from "@/features/hardware/store/coolingSensorNotices";
 
 /** Zone (3): explain omitted power/fan lanes using the cause we can prove. */
-export const SensorStatusNote = ({
-  powerNotice,
-  fanNotice,
-}: {
-  powerNotice: SensorNotice | null;
-  fanNotice: SensorNotice | null;
-}) => {
+export const SensorStatusNote = () => {
   const { t } = useTranslation();
+  const powerNotice = useAtomValue(coolingPowerNoticeAtom);
+  const fanNotice = useAtomValue(coolingFanNoticeAtom);
   const groups = groupSensorNotices(powerNotice, fanNotice);
 
   if (groups.length === 0) {

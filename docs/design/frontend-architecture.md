@@ -193,7 +193,8 @@ Rules that follow from the axes:
 - A read hook exposes `hasError` (and `hasLoaded` when the panel needs to
   tell "not yet" from "empty"), and a `retry` function. It never opens a
   dialog. The panel renders the shared failure component
-  (`src/components/LoadFailure.tsx`) in place of the data.
+  (`src/components/LoadFailure.tsx`) in place of the data. A read that more
+  than one panel shares is a shared-read atom instead, described below.
 - A failed read is a distinct state from an empty result (DP-02). Empty data
   renders the panel's empty state; a failure renders the failure state.
 - Failure copy is translated and does not embed Rust error strings. The
@@ -205,6 +206,42 @@ Rules that follow from the axes:
   Insight already models (establishing baseline, recording coverage, sensor
   unsupported) stay their own states and are never rendered as failures.
 
+### Shared reads
+
+A read stays a hook in the one panel that renders it. A read that feeds
+several panels, or that would otherwise be passed down through a component
+that only forwards it, is a shared-read atom in a `store/` module
+(`createSharedRead` in `src/features/hardware/store/sharedRead.ts`; the Cooling
+reads in `coolingReads.ts` are the first users). The convention:
+
+- **Three states.** The atom reads as `{ kind: "loading" }`,
+  `{ kind: "ready"; params; data }` or `{ kind: "failed"; params }`, where
+  `params` are the exact values the request was made with. The underlying
+  async atom never rejects: the fetch is caught and becomes `failed`, which
+  stays distinct from an empty `ready` result. A panel switches on `kind`,
+  renders `LoadFailure` for `failed`, and gets its retry from a small hook
+  that writes `"refresh"` to the atom (`atomWithRefresh` underneath).
+- **`unwrap` lives in the store module.** `jotai/utils` is importable only
+  there. The async atom is unwrapped with a fallback that carries the previous
+  value out, and a derived atom applies the params rule, because `unwrap`'s
+  fallback only receives the previous value, not the params the new request is
+  for. The rule: a previous value is shown only if its `params` equal the
+  current ones, otherwise the state is `loading`. A period change therefore
+  shows loading and never the old period's data under the new label, while a
+  periodic refresh of the same params keeps the last data visible until the
+  new one lands. A retry from a failure reads as `loading`, so "Try again" has
+  a visible response. Params are compared with `Object.is`, so they are
+  primitives.
+- **No request-id guard.** Jotai drops a superseded promise on its own, so the
+  per-hook request counter is deleted for atomised reads. Hooks that stay hooks
+  keep theirs.
+- **Lifetime follows the subscribers.** Subscribers share one request, and
+  nothing fetches while no panel is subscribed. No atom schedules its own
+  refetch: a periodic refresh is a hook (for example
+  `useCoolingArchiveRefresh`) that holds the interval while its panel is
+  mounted and writes the atom. A settled read is refetched once when a later
+  visit subscribes; a request still in flight is reused, not duplicated.
+
 Enforcement: `features/hardware` may not import `useTauriDialog`
 (`noRestrictedImports` in its three overrides). The user-action tier is
 review-checked; it has no in-app notice primitive yet, and choosing one is a
@@ -214,7 +251,7 @@ separate decision.
 
 | Call site | Tier | Status |
 | --- | --- | --- |
-| Insight main chart hook, Cooling hooks, process stats, snapshot | One panel's read | Done in #2311 |
+| Insight main chart hook, Cooling hooks, process stats, snapshot | One panel's read | Done in #2311; Cooling reads shared by several panels are shared-read atoms (#2390) |
 | GPU archive names, hardware inventory, process list polling | One panel's read, or log only when the screen renders without them | Done in #2311 |
 | Dashboard Storage Health reads | One panel's read | Done in #2311 |
 | Settings toggles and actions (`useSettingsAtom`, tray, autostart, elevation) | User action failed | Pending: needs a near-control notice; tracked in #2388 |

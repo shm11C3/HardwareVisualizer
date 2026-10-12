@@ -1,7 +1,9 @@
+import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCoolingBandComparison } from "@/features/hardware/insights/cooling/hooks/useCoolingBandComparison";
 import { resolveBaselineLifecycle } from "@/features/hardware/insights/cooling/utils/baselineLifecycle";
 import {
   buildAmbientAdjustedDumbbellRows,
@@ -13,6 +15,11 @@ import {
   groupSensorNotices,
   type SensorNotice,
 } from "@/features/hardware/insights/cooling/utils/sensorNotice";
+import {
+  coolingAmbientSourcesAtom,
+  coolingFanNoticeAtom,
+  coolingPowerNoticeAtom,
+} from "@/features/hardware/store/coolingSensorNotices";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import type { CoolingBandComparison, TemperatureUnit } from "@/rspc/bindings";
 import { LoadBandDumbbellChart } from "./LoadBandDumbbellChart";
@@ -28,25 +35,19 @@ type EstablishedComparison = Extract<
  * `CoolingBandComparison` carries, so the "not enough data yet" state stays
  * a fact Core computed rather than a frontend guess.
  */
-export const LoadBandComparisonPanel = ({
-  bandComparison,
-  hasError = false,
-  onRetry,
-  powerNotice = null,
-  fanNotice = null,
-  ambientSources = [],
-}: {
-  bandComparison: CoolingBandComparison | null;
-  hasError?: boolean;
-  onRetry?: () => void;
-  powerNotice?: SensorNotice | null;
-  fanNotice?: SensorNotice | null;
-  /** Sensor Source Labels carried by the routed ambient archive. */
-  ambientSources?: readonly string[];
-}) => {
+export const LoadBandComparisonPanel = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const temperatureUnit = settings.temperatureUnit;
+  // Only this panel renders the band comparison, so it owns the read.
+  const {
+    data: bandComparison,
+    hasError,
+    retry: onRetry,
+  } = useCoolingBandComparison();
+  const powerNotice = useAtomValue(coolingPowerNoticeAtom);
+  const fanNotice = useAtomValue(coolingFanNoticeAtom);
+  const ambientSources = useAtomValue(coolingAmbientSourcesAtom);
   const lifecycle = resolveBaselineLifecycle(bandComparison);
 
   const rows = useMemo(
