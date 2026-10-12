@@ -130,3 +130,4 @@ shared enforcement surface.
 - [Correct inherited WinGet license metadata](correct-inherited-winget-license-metadata.md)
 
 - [Cache native E2E compilation, not only its driver](cache-native-e2e-compilation.md)
+- [Re-measure before the next slice](remeasure-before-the-next-slice.md)
