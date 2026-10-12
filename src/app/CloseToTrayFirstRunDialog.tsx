@@ -149,6 +149,8 @@ export const CloseToTrayFirstRunDialog = ({
       const saved = await setCloseToTrayPreferenceAtom(true);
 
       if (!saved) {
+        // The prompt is a modal flow, so a failed save stays a dialog.
+        await error(t("closeToTray.errors.savePreference"));
         return;
       }
 
@@ -172,6 +174,7 @@ export const CloseToTrayFirstRunDialog = ({
       const saved = await setCloseToTrayPreferenceAtom(false);
 
       if (!saved) {
+        await error(t("closeToTray.errors.savePreference"));
         return;
       }
 

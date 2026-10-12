@@ -13,6 +13,11 @@
   // entry tagged with the #2325 migration slice that removes it. None remain.
   // Never add a new pending exception to make new code pass.
   //
+  // Every layer override bans `@/hooks/tauri/useTauriDialog`; only the App
+  // override (src/app/**, modal flows) may open an OS error dialog. Keep the
+  // `paths` entry in each new override. `useTauriEventListener.ts` opens its
+  // dialog through the Tauri plugin directly, so it needs no exception here.
+  //
   // Plugin paths in this file resolve from the repository root (the config
   // that extends this file), not from this directory.
   "overrides": [
@@ -61,7 +66,13 @@
                       "jotai/**"
                     ]
                   }
-                ]
+                ],
+                "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  }
+                }
               }
             }
           }
@@ -96,6 +107,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -141,6 +156,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -190,6 +209,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "@/rspc/bindings": {
                     "message": "UI primitives do not call IPC. See docs/design/frontend-architecture.md.",
                     "importNames": ["*", "commands", "events"]
@@ -227,6 +250,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -269,6 +296,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -310,6 +341,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -361,7 +396,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -424,7 +459,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -488,7 +523,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "The hardware feature reports failures in place, never through an OS dialog. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -543,6 +578,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -601,6 +640,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -660,6 +703,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -712,6 +759,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -770,6 +821,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -829,6 +884,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -881,6 +940,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -939,6 +1002,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -998,6 +1065,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -1050,6 +1121,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -1108,6 +1183,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [
@@ -1167,6 +1246,10 @@
                   }
                 ],
                 "paths": {
+                  "@/hooks/tauri/useTauriDialog": {
+                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "importNames": ["*", "useTauriDialog"]
+                  },
                   "jotai": {
                     "message": "This Jotai API is not allowed in this layer. See docs/design/frontend-architecture.md.",
                     "importNames": [

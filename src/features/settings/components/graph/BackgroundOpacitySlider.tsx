@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -25,6 +26,7 @@ export const BackgroundOpacitySlider = () => {
           onValueChange={changeBackGroundOpacity}
           className="mt-4 w-full"
         />
+        <SettingWriteFailure keys="backgroundImgOpacity" />
       </div>
     )
   );

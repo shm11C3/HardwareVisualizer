@@ -14,19 +14,18 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-// Mock useTauriDialog
-const errorMock = vi.fn();
-vi.mock("@/hooks/tauri/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: errorMock,
-  }),
-}));
+// The upload form reports a failed save under its control, never as a dialog.
+vi.mock("@/hooks/tauri/useTauriDialog", () => {
+  throw new Error("useUploadImage must not open a dialog");
+});
 
 // Mock useBackgroundImage
 const saveBackgroundImageMock = vi.fn();
+let failureMock: "upload" | "delete" | null = null;
 vi.mock("@/hooks/appearance/useBgImage", () => ({
   useBackgroundImage: () => ({
     saveBackgroundImage: saveBackgroundImageMock,
+    failure: failureMock,
   }),
 }));
 
@@ -37,8 +36,8 @@ const createObjectURLSpy = vi
 
 describe("useUploadImage", () => {
   beforeEach(() => {
-    errorMock.mockReset();
     saveBackgroundImageMock.mockReset();
+    failureMock = null;
   });
 
   afterEach(() => {
@@ -76,6 +75,7 @@ describe("useUploadImage", () => {
     const fakeFile = new File(["dummy content"], "test.jpg", {
       type: "image/jpeg",
     });
+    saveBackgroundImageMock.mockResolvedValue(true);
     const { result } = renderHook(() => useUploadImage());
 
     // First, set value to picture
@@ -99,18 +99,15 @@ describe("useUploadImage", () => {
     expect(result.current.isSubmitting).toBe(false);
   });
 
-  it("Error handler is called when saveBackgroundImage returns error in onSubmit", async () => {
+  it("keeps the chosen file and exposes the failure when the save fails", async () => {
     const fakeFile = new File(["dummy content"], "error.png", {
       type: "image/png",
     });
-    // Override saveBackgroundImageMock to return error
-    saveBackgroundImageMock.mockRejectedValue(new Error("Test error"));
-    const consoleErrorSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    // The hook reports a failed save by returning false and recording it.
+    saveBackgroundImageMock.mockResolvedValue(false);
+    failureMock = "upload";
     const { result } = renderHook(() => useUploadImage());
 
-    // Set value to picture
     act(() => {
       result.current.form.setValue("picture", fakeFile);
     });
@@ -119,15 +116,17 @@ describe("useUploadImage", () => {
       await result.current.onSubmit({ picture: fakeFile });
     });
 
-    // Verify error handler was called on error
-    expect(errorMock).toHaveBeenCalledWith(new Error("Test error"));
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "Error saveBackgroundImage:",
-      expect.any(Error),
-    );
-    // isSubmitting returns to false
+    expect(result.current.saveFailed).toBe(true);
+    // The user can submit the same file again.
+    expect(result.current.form.getValues("picture")).toBe(fakeFile);
     expect(result.current.isSubmitting).toBe(false);
-    consoleErrorSpy.mockRestore();
+  });
+
+  it("does not report a failure for other background image failures", () => {
+    failureMock = "delete";
+    const { result } = renderHook(() => useUploadImage());
+
+    expect(result.current.saveFailed).toBe(false);
   });
 
   it("form validation rejects files with unsupported type (e.g. image/gif)", async () => {

@@ -1,6 +1,5 @@
 import { useAtom, useStore } from "jotai";
 import { useCallback } from "react";
-import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import {
   type ClientSettings,
   commands,
@@ -10,6 +9,7 @@ import {
   getPowerDisplayTargetMutationState,
   navigationMutationPendingAtom,
   settingsAtom,
+  settingsWriteFailureAtom,
 } from "@/store/settings";
 import type { ChartDataType } from "@/types/chart";
 import type { Result } from "@/types/result";
@@ -25,8 +25,26 @@ const samePowerDisplayTargets = (
   left.every((value, index) => value === right[index]);
 
 export const useSettingsAtom = () => {
-  const { error } = useTauriDialog();
   const store = useStore();
+
+  /**
+   * A failed write is state, not a dialog: the control that owns `key`
+   * renders it (`useSettingWriteFailure`). The backend detail only goes to
+   * the log. A later successful write of the same key clears it.
+   */
+  const recordWriteFailure = (key: keyof ClientSettings, reason: unknown) => {
+    console.error(`Failed to save setting "${key}":`, reason);
+    store.set(settingsWriteFailureAtom, {
+      key,
+      reason: reason instanceof Error ? reason.message : String(reason),
+    });
+  };
+  const clearWriteFailure = (key: keyof ClientSettings) => {
+    store.set(settingsWriteFailureAtom, (current) =>
+      current?.key === key ? null : current,
+    );
+  };
+
   const mapSettingUpdater: {
     [K in keyof Omit<
       ClientSettings,
@@ -77,13 +95,11 @@ export const useSettingsAtom = () => {
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
   const loadSettings = useCallback(async () => {
     try {
       const setting = await commands.getSettings();
 
       if (isError(setting)) {
-        await error(setting.error);
         console.error("Failed to fetch settings:", setting.error);
         return false;
       }
@@ -91,8 +107,6 @@ export const useSettingsAtom = () => {
       setSettings(setting.data);
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await error(message);
       console.error("Failed to fetch settings:", err);
       return false;
     }
@@ -128,18 +142,21 @@ export const useSettingsAtom = () => {
       result = await mapSettingUpdater[key](value);
     } catch (err) {
       // A rejected IPC call never reached the backend, so the optimistic
-      // value must not stay on screen. The caller owns the user-facing
-      // message, so rethrow instead of showing the raw error here.
-      console.error(err);
+      // value must not stay on screen. The failure is recorded for the
+      // control and the rejection is still rethrown for the caller.
+      recordWriteFailure(key, err);
       setSettings((prev) => ({ ...prev, [key]: previousValue }));
       throw err;
     }
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure(key, result.error);
       setSettings((prev) => ({ ...prev, [key]: previousValue }));
+      return false;
     }
+
+    clearWriteFailure(key);
+    return true;
   };
 
   const toggleDisplayTarget = async (target: ChartDataType) => {
@@ -150,11 +167,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setDisplayTargets(newTargets);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("displayTargets", result.error);
       return;
     }
 
+    clearWriteFailure("displayTargets");
     setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
   };
 
@@ -185,8 +202,7 @@ export const useSettingsAtom = () => {
           const nextTargets = [...mutation.desired];
           const result = await commands.setPowerDisplayTargets(nextTargets);
           if (isError(result)) {
-            await error(result.error);
-            console.error(result.error);
+            recordWriteFailure("powerDisplayTargets", result.error);
             const rollbackTargets = mutation.persisted;
             setSettings((prev) => ({
               ...prev,
@@ -198,6 +214,7 @@ export const useSettingsAtom = () => {
             return false;
           }
           mutation.persisted = nextTargets;
+          clearWriteFailure("powerDisplayTargets");
         }
 
         mutation.desired = null;
@@ -236,8 +253,7 @@ export const useSettingsAtom = () => {
       const result = await commands.setNavigationLayout(value);
 
       if (isError(result)) {
-        await error(result.error);
-        console.error(result.error);
+        recordWriteFailure("navigationLayout", result.error);
         setSettings((prev) => ({
           ...prev,
           navigationLayout: previousLayout,
@@ -246,9 +262,10 @@ export const useSettingsAtom = () => {
         return false;
       }
 
+      clearWriteFailure("navigationLayout");
       return true;
     } catch (err) {
-      console.error(err);
+      recordWriteFailure("navigationLayout", err);
       setSettings((prev) => ({
         ...prev,
         navigationLayout: previousLayout,
@@ -278,8 +295,7 @@ export const useSettingsAtom = () => {
         await commands.acknowledgeNavigationRestructureAnnouncement();
 
       if (isError(result)) {
-        await error(result.error);
-        console.error(result.error);
+        recordWriteFailure("uiAnnouncementVersion", result.error);
         setSettings((prev) => ({
           ...prev,
           uiAnnouncementVersion: previousValue,
@@ -287,9 +303,10 @@ export const useSettingsAtom = () => {
         return false;
       }
 
+      clearWriteFailure("uiAnnouncementVersion");
       return true;
     } catch (err) {
-      console.error(err);
+      recordWriteFailure("uiAnnouncementVersion", err);
       setSettings((prev) => ({
         ...prev,
         uiAnnouncementVersion: previousValue,
@@ -313,11 +330,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setLineGraphColor(key, value);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("lineGraphColor", result.error);
       return;
     }
 
+    clearWriteFailure("lineGraphColor");
     setSettings((prev) => ({
       ...prev,
       lineGraphColor: { ...prev.lineGraphColor, [key]: result.data },
@@ -328,11 +345,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setHardwareArchiveEnabled(value);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("hardwareArchive", result.error);
       return;
     }
 
+    clearWriteFailure("hardwareArchive");
     setSettings((prev) => ({
       ...prev,
       hardwareArchive: { ...prev.hardwareArchive, enabled: value },
@@ -350,11 +367,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setSwitchbotMeterEnabled(value);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("environmentalSensors", result.error);
       return false;
     }
 
+    clearWriteFailure("environmentalSensors");
     setSettings((prev) => ({
       ...prev,
       environmentalSensors: {
@@ -375,11 +392,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setSwitchbotMeterDevice(deviceId);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("environmentalSensors", result.error);
       return false;
     }
 
+    clearWriteFailure("environmentalSensors");
     setSettings((prev) => ({
       ...prev,
       environmentalSensors: {
@@ -394,11 +411,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setHardwareArchiveRetentionDays(value);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("hardwareArchive", result.error);
       return false;
     }
 
+    clearWriteFailure("hardwareArchive");
     setSettings((prev) => ({
       ...prev,
       hardwareArchive: { ...prev.hardwareArchive, retentionDays: value },
@@ -411,11 +428,11 @@ export const useSettingsAtom = () => {
       await commands.setHardwareArchiveScheduledDataDeletion(value);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("hardwareArchive", result.error);
       return;
     }
 
+    clearWriteFailure("hardwareArchive");
     setSettings((prev) => ({
       ...prev,
       hardwareArchive: {
@@ -429,11 +446,11 @@ export const useSettingsAtom = () => {
     const result = await commands.setStorageHealthRetentionDays(value);
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("storageHealth", result.error);
       return false;
     }
 
+    clearWriteFailure("storageHealth");
     setSettings((prev) => ({
       ...prev,
       storageHealth: { ...prev.storageHealth, retentionDays: value },
@@ -465,8 +482,7 @@ export const useSettingsAtom = () => {
           await commands.setTrayWidgetSettings(nextTrayWidget);
 
         if (isError(trayWidgetResult)) {
-          error(trayWidgetResult.error);
-          console.error(trayWidgetResult.error);
+          recordWriteFailure("closeToTray", trayWidgetResult.error);
           setSettings((prev) => ({
             ...prev,
             closeToTray: previousCloseToTray,
@@ -486,9 +502,8 @@ export const useSettingsAtom = () => {
             await commands.setTrayWidgetSettings(previousTrayWidget);
 
           if (isError(rollbackResult)) {
-            await error(rollbackResult.error);
             console.error(rollbackResult.error);
-            console.error(result.error);
+            recordWriteFailure("closeToTray", result.error);
             setSettings((prev) => ({
               ...prev,
               closeToTray: previousCloseToTray,
@@ -498,8 +513,7 @@ export const useSettingsAtom = () => {
           }
         }
 
-        await error(result.error);
-        console.error(result.error);
+        recordWriteFailure("closeToTray", result.error);
         setSettings((prev) => ({
           ...prev,
           closeToTray: previousCloseToTray,
@@ -509,9 +523,10 @@ export const useSettingsAtom = () => {
         return false;
       }
 
+      clearWriteFailure("closeToTray");
       return true;
     } catch (err) {
-      console.error(err);
+      recordWriteFailure("closeToTray", err);
       if (trayWidgetPersisted) {
         // The widget save already landed on disk; undo it best-effort so
         // the backend matches the restored atom. Its own failure is only
@@ -546,18 +561,18 @@ export const useSettingsAtom = () => {
     try {
       result = await commands.setTrayWidgetSettings(value);
     } catch (err) {
-      console.error(err);
+      recordWriteFailure("trayWidget", err);
       setSettings((prev) => ({ ...prev, trayWidget: previousValue }));
       throw err;
     }
 
     if (isError(result)) {
-      error(result.error);
-      console.error(result.error);
+      recordWriteFailure("trayWidget", result.error);
       setSettings((prev) => ({ ...prev, trayWidget: previousValue }));
       return false;
     }
 
+    clearWriteFailure("trayWidget");
     return true;
   };
 

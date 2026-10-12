@@ -1,6 +1,7 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import {
   useElevationAvailability,
@@ -65,6 +66,7 @@ const Notice = ({ onDismiss }: { onDismiss: () => void }) => {
         >
           {t("elevationUnavailable.startupNotice.turnOff")}
         </Button>
+        <SettingWriteFailure keys="elevatedStartupMode" />
       </div>
       <Button
         type="button"

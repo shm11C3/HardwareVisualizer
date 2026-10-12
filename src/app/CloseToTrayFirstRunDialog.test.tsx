@@ -165,7 +165,7 @@ describe("CloseToTrayFirstRunDialog", () => {
     expect(screen.queryByText("Try system tray mode?")).not.toBeInTheDocument();
   });
 
-  it("does not show a second error dialog when accepting tray mode fails", async () => {
+  it("shows one translated error dialog, not the backend error, when accepting tray mode fails", async () => {
     const user = userEvent.setup();
     mocks.setCloseToTrayPreference.mockResolvedValue({
       status: "error",
@@ -178,8 +178,13 @@ describe("CloseToTrayFirstRunDialog", () => {
       await screen.findByRole("button", { name: "Use tray mode" }),
     );
 
-    expect(mocks.error).toHaveBeenCalledTimes(1);
-    expect(mocks.error).toHaveBeenCalledWith("save failed");
+    // The settings hook no longer opens a dialog; this modal flow reports
+    // the failed save itself, once, in translated copy.
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
+    expect(mocks.error).toHaveBeenCalledWith(
+      "Failed to save the close-to-tray setting.",
+    );
+    expect(mocks.error).not.toHaveBeenCalledWith("save failed");
     expect(mocks.error).not.toHaveBeenCalledWith(
       "Failed to keep the app running in the background.",
     );
@@ -247,7 +252,7 @@ describe("CloseToTrayFirstRunDialog", () => {
     );
   });
 
-  it("does not show a second error dialog when rejecting tray mode fails", async () => {
+  it("shows one translated error dialog, not the backend error, when rejecting tray mode fails", async () => {
     const user = userEvent.setup();
     mocks.setCloseToTrayPreference.mockResolvedValue({
       status: "error",
@@ -264,8 +269,11 @@ describe("CloseToTrayFirstRunDialog", () => {
     await screen.findByText("Keep HardwareVisualizer running?");
     await user.click(screen.getAllByRole("button", { name: "Quit app" })[1]);
 
-    expect(mocks.error).toHaveBeenCalledTimes(1);
-    expect(mocks.error).toHaveBeenCalledWith("save failed");
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
+    expect(mocks.error).toHaveBeenCalledWith(
+      "Failed to save the close-to-tray setting.",
+    );
+    expect(mocks.error).not.toHaveBeenCalledWith("save failed");
     expect(mocks.error).not.toHaveBeenCalledWith("Failed to quit the app.");
     expect(mocks.quitApp).not.toHaveBeenCalled();
   });

@@ -2,6 +2,7 @@ import { CheckCircleIcon, ProhibitInsetIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeedRestart } from "@/components/NeedRestart";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -19,7 +20,7 @@ export const InsightsToggle = () => {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex items-center space-x-4 py-3">
+        <div className="py-3">
           <div className="flex w-full flex-row items-center justify-between rounded-lg border border-zinc-800 p-4 dark:border-gray-100">
             <div className="space-y-0.5">
               <Label htmlFor="insight" className="flex items-center text-lg">
@@ -45,6 +46,7 @@ export const InsightsToggle = () => {
               onCheckedChange={handleCheckedChange}
             />
           </div>
+          <SettingWriteFailure keys="hardwareArchive" />
         </div>
       </div>
       <NeedRestart alertOpen={alertOpen} setAlertOpen={setAlertOpen} />

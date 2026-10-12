@@ -1,6 +1,9 @@
 import { XIcon } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import { tv } from "tailwind-variants";
+import { ActionFailure } from "@/components/ActionFailure";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import {
   useBackgroundImage,
@@ -11,7 +14,8 @@ import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 export const BackgroundImageList = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { backgroundImageList } = useBackgroundImageList();
-  const { deleteBackgroundImage } = useBackgroundImage();
+  const { deleteBackgroundImage, failure } = useBackgroundImage();
+  const { t } = useTranslation();
 
   const selectImageVariants = tv({
     base: "relative w-20 h-20 mx-2 rounded-2xl",
@@ -73,6 +77,12 @@ export const BackgroundImageList = () => {
           ))}
         </div>
       )}
+      {failure === "delete" && (
+        <ActionFailure
+          message={t("pages.settings.backgroundImage.errors.delete")}
+        />
+      )}
+      <SettingWriteFailure keys="selectedBackgroundImg" className="mt-0" />
     </>
   );
 };

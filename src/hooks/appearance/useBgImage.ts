@@ -1,24 +1,42 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { convertFileToBase64 } from "@/lib/file";
 import { commands } from "@/rspc/bindings";
 import {
+  type BackgroundImageFailure,
   backgroundImageAtom,
+  backgroundImageFailureAtom,
   uploadedBackgroundImagesAtom,
 } from "@/store/backgroundImage";
 import { isError, isOk } from "@/types/result";
 
+/**
+ * Records a failed background image action for the control that owns it, and
+ * clears it when the same kind succeeds later. The detail only goes to the log.
+ */
+const useBackgroundImageFailure = () => {
+  const [failure, setFailure] = useAtom(backgroundImageFailureAtom);
+
+  const recordFailure = (kind: BackgroundImageFailure, reason: unknown) => {
+    console.error(`Background image ${kind} failed:`, reason);
+    setFailure(kind);
+  };
+  const clearFailure = (kind: BackgroundImageFailure) => {
+    setFailure((current) => (current === kind ? null : current));
+  };
+
+  return { failure, recordFailure, clearFailure };
+};
+
 export const useBackgroundImage = () => {
-  const { error } = useTauriDialog();
+  const { failure, recordFailure, clearFailure } = useBackgroundImageFailure();
   const [backgroundImage, setBackgroundImage] = useAtom(backgroundImageAtom);
   const { initBackgroundImages, backgroundImageList, setBackgroundImageList } =
     useBackgroundImageList();
 
   const { settings, updateSettingAtom } = useSettingsAtom();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to initialize the background images
   const initBackgroundImage = useCallback(async () => {
     if (settings.selectedBackgroundImg) {
       const base64Image = await commands.getBackgroundImage(
@@ -28,7 +46,8 @@ export const useBackgroundImage = () => {
       if (isOk(base64Image)) {
         setBackgroundImage(`data:image/png;base64,${base64Image.data}`);
       } else {
-        error(base64Image.error);
+        // An automatic read with no control to report under, and a missing
+        // background is cosmetic: log only.
         console.error("Failed to load background image:", base64Image.error);
       }
     } else {
@@ -39,21 +58,29 @@ export const useBackgroundImage = () => {
   /**
    * Save background image
    *
-   * @param filePath
+   * @param imageFile
+   * @returns whether the image was saved, so the upload form knows whether
+   * to keep the chosen file for another try
    */
   const saveBackgroundImage = async (imageFile: File) => {
-    const base64Image = await convertFileToBase64(imageFile);
+    try {
+      const base64Image = await convertFileToBase64(imageFile);
 
-    const fileId = await commands.saveBackgroundImage(base64Image);
+      const fileId = await commands.saveBackgroundImage(base64Image);
 
-    if (isError(fileId)) {
-      error(fileId.error);
-      console.error("Failed to save background image:", fileId.error);
-      return;
+      if (isError(fileId)) {
+        recordFailure("upload", fileId.error);
+        return false;
+      }
+
+      clearFailure("upload");
+      updateSettingAtom("selectedBackgroundImg", fileId.data);
+      initBackgroundImages();
+      return true;
+    } catch (err) {
+      recordFailure("upload", err);
+      return false;
     }
-
-    updateSettingAtom("selectedBackgroundImg", fileId.data);
-    initBackgroundImages();
   };
 
   const deleteBackgroundImage = async (fileId: string) => {
@@ -63,18 +90,23 @@ export const useBackgroundImage = () => {
     }
 
     try {
-      await commands.deleteBackgroundImage(fileId);
+      const result = await commands.deleteBackgroundImage(fileId);
+      if (isError(result)) {
+        recordFailure("delete", result.error);
+        return;
+      }
+      clearFailure("delete");
       const newBackgroundImages = backgroundImageList.filter(
         (v) => v.fileId !== fileId,
       );
       setBackgroundImageList(newBackgroundImages);
     } catch (err) {
-      error(err as string);
-      console.error("Failed to delete background image:", err);
+      recordFailure("delete", err);
     }
   };
 
   return {
+    failure,
     backgroundImage,
     saveBackgroundImage,
     initBackgroundImage,
@@ -83,7 +115,6 @@ export const useBackgroundImage = () => {
 };
 
 export const useBackgroundImageList = () => {
-  const { error } = useTauriDialog();
   const [backgroundImageList, setBackgroundImageList] = useAtom(
     uploadedBackgroundImagesAtom,
   );
@@ -92,7 +123,7 @@ export const useBackgroundImageList = () => {
     const uploadedBackgroundImages = await commands.getBackgroundImages();
 
     if (isError(uploadedBackgroundImages)) {
-      error(uploadedBackgroundImages.error);
+      // Automatic read: log only.
       console.error(
         "Failed to load background images:",
         uploadedBackgroundImages.error,

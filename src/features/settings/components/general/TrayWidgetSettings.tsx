@@ -19,6 +19,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import { AlertTriangleIcon, GripVerticalIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -260,6 +261,8 @@ export const TrayWidgetSettings = () => {
           </div>
         </div>
       )}
+
+      <SettingWriteFailure keys="trayWidget" />
     </div>
   );
 };

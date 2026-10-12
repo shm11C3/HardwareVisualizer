@@ -21,8 +21,10 @@ These instructions add to the repository root `AGENTS.md` for work under
   `docs/agents/lessons/legacy-gpu-source-display-preference.md`.
 - A failed read is a panel state, not an OS dialog: read hooks expose
   `hasError` and `retry`, panels render `LoadFailure`, and an empty result is
-  never rendered as a failure or vice versa. See the Failure Reporting
-  section of `docs/design/frontend-architecture.md`.
+  never rendered as a failure or vice versa. A failed user action is an
+  `ActionFailure` line under its control (settings writes record it in
+  `settingsWriteFailureAtom`). Only `src/app/**` may open a native dialog. See
+  the Failure Reporting section of `docs/design/frontend-architecture.md`.
 - Backend `error_event` is handled by `useErrorModalListener` in
   `src/hooks/tauri/useTauriEventListener.ts`; preserve the existing error boundary
   unless the product flow needs a more specific user action.

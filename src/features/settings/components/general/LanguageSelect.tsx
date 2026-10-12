@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -35,22 +36,25 @@ export const LanguageSelect = () => {
   };
 
   return (
-    <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
-      <Label htmlFor="language" className="text-lg">
-        {t("pages.settings.general.language")}
-      </Label>
-      <Select value={settings.language} onValueChange={changeLanguage}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Language" />
-        </SelectTrigger>
-        <SelectContent>
-          {supported.map((lang) => (
-            <SelectItem key={lang} value={lang}>
-              {displaySupported[lang]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="w-full py-6 xl:w-1/3">
+      <div className="flex w-full items-center justify-between space-x-4">
+        <Label htmlFor="language" className="text-lg">
+          {t("pages.settings.general.language")}
+        </Label>
+        <Select value={settings.language} onValueChange={changeLanguage}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Language" />
+          </SelectTrigger>
+          <SelectContent>
+            {supported.map((lang) => (
+              <SelectItem key={lang} value={lang}>
+                {displaySupported[lang]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <SettingWriteFailure keys="language" />
     </div>
   );
 };

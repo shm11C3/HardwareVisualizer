@@ -3,6 +3,7 @@ import { ThermometerIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeedRestart } from "@/components/NeedRestart";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -98,6 +99,7 @@ export const AmbientSensorToggle = () => {
                   )}
                 </p>
               ))}
+            <SettingWriteFailure keys="environmentalSensors" />
           </div>
         </div>
 

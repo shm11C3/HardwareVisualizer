@@ -1,18 +1,16 @@
 import { act, renderHook } from "@testing-library/react";
-import { Provider } from "jotai";
+import { Provider, useAtomValue } from "jotai";
 // src/hooks/settings/useSettingsAtom.test.ts
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 /**
  * Mock setup
  */
-const errorMock = vi.fn();
-
-vi.mock("@/hooks/tauri/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: errorMock,
-  }),
-}));
+// The hook must not open an OS dialog: a failed write is state that the
+// control renders. Fail loudly if it ever imports the dialog hook again.
+vi.mock("@/hooks/tauri/useTauriDialog", () => {
+  throw new Error("useSettingsAtom must not import useTauriDialog");
+});
 
 vi.mock("@/rspc/bindings", () => ({
   commands: {
@@ -61,6 +59,17 @@ vi.mock("@/rspc/bindings", () => ({
  */
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
+import { settingsWriteFailureAtom } from "@/store/settings";
+
+/** The hook plus the recorded write failure a control would read. */
+const renderSettings = () =>
+  renderHook(
+    () => ({
+      ...useSettingsAtom(),
+      failure: useAtomValue(settingsWriteFailureAtom),
+    }),
+    { wrapper: Provider },
+  );
 
 /**
  * Test execution
@@ -104,9 +113,7 @@ describe("useSettingsAtom", () => {
     // Mock commands.getSettings to return success result
     (commands.getSettings as Mock).mockResolvedValue({ data: settingsData });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     let loaded = false;
     await act(async () => {
       loaded = await result.current.loadSettings();
@@ -115,16 +122,17 @@ describe("useSettingsAtom", () => {
     expect(result.current.settings).toEqual(settingsData);
   });
 
-  it("loadSettings: error() is called on error and settings remains at initial value", async () => {
+  it("loadSettings: returns false, logs the error and keeps the initial settings", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const errorMsg = "Failed to fetch settings";
     (commands.getSettings as Mock).mockResolvedValue({
       status: "error",
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     // Save initial state before loadSettings
     const initialSettings = result.current.settings;
     let loaded = true;
@@ -132,17 +140,19 @@ describe("useSettingsAtom", () => {
       loaded = await result.current.loadSettings();
     });
     expect(loaded).toBe(false);
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to fetch settings:",
+      errorMsg,
+    );
     expect(result.current.settings).toEqual(initialSettings);
+    consoleError.mockRestore();
   });
 
   it("updateSettingAtom: settings is updated on success", async () => {
     // Test "theme" update as example
     (commands.setTheme as Mock).mockResolvedValue({ data: null });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     // Initially theme is "light" (settingsAtom default value)
     await act(async () => {
       await result.current.updateSettingAtom("theme", "dark");
@@ -150,21 +160,100 @@ describe("useSettingsAtom", () => {
     expect(result.current.settings.theme).toEqual("dark");
   });
 
-  it("updateSettingAtom: error() is called on error and value is reverted", async () => {
+  it("updateSettingAtom: reports whether the write persisted", async () => {
+    (commands.setTheme as Mock).mockResolvedValueOnce({ data: null });
+    (commands.setTheme as Mock).mockResolvedValueOnce({
+      status: "error",
+      error: "disk full",
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    const outcomes: boolean[] = [];
+    await act(async () => {
+      outcomes.push(await result.current.updateSettingAtom("theme", "dark"));
+      outcomes.push(await result.current.updateSettingAtom("theme", "light"));
+    });
+
+    expect(outcomes).toEqual([true, false]);
+  });
+
+  it("a later successful write of the same key clears the recorded failure", async () => {
+    (commands.setTheme as Mock)
+      .mockResolvedValueOnce({ status: "error", error: "disk full" })
+      .mockResolvedValueOnce({ data: null });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    await act(async () => {
+      await result.current.updateSettingAtom("theme", "dark");
+    });
+    expect(result.current.failure).toEqual({
+      key: "theme",
+      reason: "disk full",
+    });
+
+    await act(async () => {
+      await result.current.updateSettingAtom("theme", "dark");
+    });
+    expect(result.current.failure).toBeNull();
+  });
+
+  it("a successful write of another key leaves the recorded failure alone", async () => {
+    (commands.setTheme as Mock).mockResolvedValue({
+      status: "error",
+      error: "disk full",
+    });
+    (commands.setTemperatureUnit as Mock).mockResolvedValue({ data: null });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    await act(async () => {
+      await result.current.updateSettingAtom("theme", "dark");
+    });
+    await act(async () => {
+      await result.current.updateSettingAtom("temperatureUnit", "F");
+    });
+
+    expect(result.current.failure).toEqual({
+      key: "theme",
+      reason: "disk full",
+    });
+  });
+
+  it("logs the backend detail for support", async () => {
+    (commands.setTheme as Mock).mockResolvedValue({
+      status: "error",
+      error: "disk full",
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    await act(async () => {
+      await result.current.updateSettingAtom("theme", "dark");
+    });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to save setting "theme":',
+      "disk full",
+    );
+  });
+
+  it("updateSettingAtom: records the failing key, reports false and reverts the value", async () => {
     const errorMsg = "Failed to update theme";
     (commands.setTheme as Mock).mockResolvedValue({
       status: "error",
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     // Initial theme is "system"
     await act(async () => {
       await result.current.updateSettingAtom("theme", "dark");
     });
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({ key: "theme", reason: errorMsg });
     // On failure, reverts to original value ("system")
     expect(result.current.settings.theme).toEqual("system");
   });
@@ -172,9 +261,7 @@ describe("useSettingsAtom", () => {
   it("toggleDisplayTarget: displayTargets is updated on success", async () => {
     (commands.setDisplayTargets as Mock).mockResolvedValue({ data: null });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     // Initially displayTargets is empty array
     await act(async () => {
       await result.current.toggleDisplayTarget("cpu");
@@ -196,22 +283,21 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     await act(async () => {
       await result.current.toggleDisplayTarget("cpu");
     });
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "displayTargets",
+      reason: errorMsg,
+    });
     // On error, remains at initial state (empty array)
     expect(result.current.settings.displayTargets).toEqual([]);
   });
 
   it("togglePowerDisplayTarget persists opt-in and opt-out selections", async () => {
     (commands.setPowerDisplayTargets as Mock).mockResolvedValue({ data: null });
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     await act(async () => {
       await result.current.togglePowerDisplayTarget("ane");
@@ -251,9 +337,7 @@ describe("useSettingsAtom", () => {
             resolveSecond = resolve;
           }),
       );
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     let firstMutation: Promise<boolean> | undefined;
     let secondMutation: Promise<boolean> | undefined;
@@ -298,9 +382,7 @@ describe("useSettingsAtom", () => {
       data: "rgb(255,255,255)",
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     await act(async () => {
       await result.current.updateLineGraphColorAtom("cpu", "#FFFFFF");
     });
@@ -316,23 +398,22 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialColor = result.current.settings.lineGraphColor.cpu;
     await act(async () => {
       await result.current.updateLineGraphColorAtom("cpu", "#FFFFFF");
     });
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "lineGraphColor",
+      reason: errorMsg,
+    });
     expect(result.current.settings.lineGraphColor.cpu).toEqual(initialColor);
   });
 
   it("updateSettingAtom: 'system' theme can be set successfully", async () => {
     (commands.setTheme as Mock).mockResolvedValue({ data: null });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     await act(async () => {
       await result.current.updateSettingAtom("theme", "system");
@@ -345,9 +426,7 @@ describe("useSettingsAtom", () => {
   it("updateSettingAtom: elevated startup mode is updated on success", async () => {
     (commands.setElevatedStartupMode as Mock).mockResolvedValue({ data: null });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     await act(async () => {
       await result.current.updateSettingAtom("elevatedStartupMode", true);
@@ -364,15 +443,16 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     await act(async () => {
       await result.current.updateSettingAtom("elevatedStartupMode", true);
     });
 
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "elevatedStartupMode",
+      reason: errorMsg,
+    });
     expect(result.current.settings.elevatedStartupMode).toBe(false);
   });
 
@@ -383,9 +463,7 @@ describe("useSettingsAtom", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     let thrown: unknown;
     await act(async () => {
@@ -396,8 +474,12 @@ describe("useSettingsAtom", () => {
 
     expect(thrown).toBe(failure);
     expect(consoleError).toHaveBeenCalled();
-    // The caller owns the localized dialog; the atom only rolls back.
-    expect(errorMock).not.toHaveBeenCalled();
+    // The atom rolls back and records the failure for the control; the caller
+    // still gets the rejection.
+    expect(result.current.failure).toEqual({
+      key: "elevatedStartupMode",
+      reason: "ipc failed",
+    });
     expect(result.current.settings.elevatedStartupMode).toBe(false);
     consoleError.mockRestore();
   });
@@ -407,9 +489,7 @@ describe("useSettingsAtom", () => {
     (commands.setTrayWidgetSettings as Mock).mockRejectedValue(failure);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialTrayWidget = result.current.settings.trayWidget;
 
     let thrown: unknown;
@@ -430,9 +510,7 @@ describe("useSettingsAtom", () => {
     (commands.setCloseToTrayPreference as Mock).mockRejectedValue(failure);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialSettings = result.current.settings;
 
     let thrown: unknown;
@@ -473,9 +551,7 @@ describe("useSettingsAtom", () => {
     (commands.setCloseToTrayPreference as Mock).mockRejectedValue(failure);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialSettings = result.current.settings;
 
     let thrown: unknown;
@@ -501,9 +577,7 @@ describe("useSettingsAtom", () => {
     (commands.setNavigationLayout as Mock).mockRejectedValue(failure);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const previousLayout = result.current.settings.navigationLayout;
     const previousAnnouncementVersion =
       result.current.settings.uiAnnouncementVersion;
@@ -536,9 +610,7 @@ describe("useSettingsAtom", () => {
       commands.acknowledgeNavigationRestructureAnnouncement as Mock
     ).mockRejectedValue(failure);
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     (commands.getSettings as Mock).mockResolvedValue({
       data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
     });
@@ -559,9 +631,7 @@ describe("useSettingsAtom", () => {
   });
 
   it("Default theme is 'system'", () => {
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     expect(result.current.settings.theme).toEqual("system");
   });
@@ -571,9 +641,7 @@ describe("useSettingsAtom", () => {
       data: null,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     await act(async () => {
       await result.current.toggleHardwareArchiveAtom(false);
     });
@@ -587,14 +655,15 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialEnabled = result.current.settings.hardwareArchive.enabled;
     await act(async () => {
       await result.current.toggleHardwareArchiveAtom(!initialEnabled);
     });
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "hardwareArchive",
+      reason: errorMsg,
+    });
     expect(result.current.settings.hardwareArchive.enabled).toBe(
       initialEnabled,
     );
@@ -605,9 +674,7 @@ describe("useSettingsAtom", () => {
       data: null,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     let saved: boolean | undefined;
     await act(async () => {
       saved = await result.current.toggleSwitchbotMeterAtom(true);
@@ -626,14 +693,15 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     let saved: boolean | undefined;
     await act(async () => {
       saved = await result.current.toggleSwitchbotMeterAtom(true);
     });
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "environmentalSensors",
+      reason: errorMsg,
+    });
     // The caller uses this to decide whether to prompt for a restart.
     expect(saved).toBe(false);
     expect(
@@ -646,9 +714,7 @@ describe("useSettingsAtom", () => {
       data: null,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     await act(async () => {
       await result.current.setHardwareArchiveRetentionDays(7);
     });
@@ -662,14 +728,15 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialDays = result.current.settings.hardwareArchive.retentionDays;
     await act(async () => {
       await result.current.setHardwareArchiveRetentionDays(7);
     });
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "hardwareArchive",
+      reason: errorMsg,
+    });
     expect(result.current.settings.hardwareArchive.retentionDays).toBe(
       initialDays,
     );
@@ -680,9 +747,7 @@ describe("useSettingsAtom", () => {
       commands.setHardwareArchiveScheduledDataDeletion as Mock
     ).mockResolvedValue({ data: null });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     await act(async () => {
       await result.current.setScheduledDataDeletion(false);
     });
@@ -697,15 +762,16 @@ describe("useSettingsAtom", () => {
       commands.setHardwareArchiveScheduledDataDeletion as Mock
     ).mockResolvedValue({ status: "error", error: errorMsg });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialValue =
       result.current.settings.hardwareArchive.scheduledDataDeletion;
     await act(async () => {
       await result.current.setScheduledDataDeletion(!initialValue);
     });
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "hardwareArchive",
+      reason: errorMsg,
+    });
     expect(result.current.settings.hardwareArchive.scheduledDataDeletion).toBe(
       initialValue,
     );
@@ -716,9 +782,7 @@ describe("useSettingsAtom", () => {
       data: null,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     let saved = false;
     await act(async () => {
       saved = await result.current.setStorageHealthRetentionDays(730);
@@ -734,16 +798,17 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const initialDays = result.current.settings.storageHealth.retentionDays;
     let saved = true;
     await act(async () => {
       saved = await result.current.setStorageHealthRetentionDays(730);
     });
     expect(saved).toBe(false);
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "storageHealth",
+      reason: errorMsg,
+    });
     expect(result.current.settings.storageHealth.retentionDays).toBe(
       initialDays,
     );
@@ -757,9 +822,7 @@ describe("useSettingsAtom", () => {
       data: null,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     await act(async () => {
       await result.current.setCloseToTrayPreferenceAtom(true);
@@ -787,9 +850,7 @@ describe("useSettingsAtom", () => {
       error: errorMsg,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     const initialSettings = result.current.settings;
     let saved = true;
@@ -799,7 +860,10 @@ describe("useSettingsAtom", () => {
     });
 
     expect(saved).toBe(false);
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.failure).toEqual({
+      key: "closeToTray",
+      reason: errorMsg,
+    });
     expect(result.current.settings.closeToTray).toBe(
       initialSettings.closeToTray,
     );
@@ -825,9 +889,7 @@ describe("useSettingsAtom", () => {
       error: preferenceError,
     });
 
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     const initialSettings = result.current.settings;
     let saved = true;
@@ -845,7 +907,10 @@ describe("useSettingsAtom", () => {
       2,
       initialSettings.trayWidget,
     );
-    expect(errorMock).toHaveBeenCalledWith(rollbackError);
+    expect(result.current.failure).toEqual({
+      key: "closeToTray",
+      reason: preferenceError,
+    });
     expect(result.current.settings.closeToTray).toBe(
       initialSettings.closeToTray,
     );
@@ -857,9 +922,7 @@ describe("useSettingsAtom", () => {
 
   it("setNavigationLayoutAtom: opting out acknowledges the current announcement", async () => {
     (commands.setNavigationLayout as Mock).mockResolvedValue({ data: null });
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     (commands.getSettings as Mock).mockResolvedValue({
       data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
     });
@@ -881,9 +944,7 @@ describe("useSettingsAtom", () => {
       status: "error",
       error: "save failed",
     });
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     const previousLayout = result.current.settings.navigationLayout;
     const previousAnnouncementVersion =
       result.current.settings.uiAnnouncementVersion;
@@ -902,9 +963,7 @@ describe("useSettingsAtom", () => {
     (
       commands.acknowledgeNavigationRestructureAnnouncement as Mock
     ).mockResolvedValue({ data: null });
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     (commands.getSettings as Mock).mockResolvedValue({
       data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
     });
@@ -926,9 +985,7 @@ describe("useSettingsAtom", () => {
     (
       commands.acknowledgeNavigationRestructureAnnouncement as Mock
     ).mockResolvedValue({ status: "error", error: "save failed" });
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     (commands.getSettings as Mock).mockResolvedValue({
       data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
     });
@@ -950,9 +1007,7 @@ describe("useSettingsAtom", () => {
     (
       commands.acknowledgeNavigationRestructureAnnouncement as Mock
     ).mockResolvedValue({ data: null });
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
     (commands.getSettings as Mock).mockResolvedValue({
       data: {
         ...result.current.settings,
@@ -978,9 +1033,7 @@ describe("useSettingsAtom", () => {
         resolveFirst = resolve;
       }),
     );
-    const { result } = renderHook(() => useSettingsAtom(), {
-      wrapper: Provider,
-    });
+    const { result } = renderSettings();
 
     let firstMutation: Promise<boolean> | undefined;
     act(() => {

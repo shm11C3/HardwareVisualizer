@@ -7,11 +7,10 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 // Mock setup
 // ----------------------
 
-// Mock Tauri dialog error function
-const errorMock = vi.fn();
-vi.mock("@/hooks/tauri/useTauriDialog", () => ({
-  useTauriDialog: () => ({ error: errorMock }),
-}));
+// Failures are state for the control that owns them, never an OS dialog.
+vi.mock("@/hooks/tauri/useTauriDialog", () => {
+  throw new Error("useBgImage must not open a dialog");
+});
 
 // Manage settings state and update function with global variables for useSettingsAtom mock
 let settingsMock: { selectedBackgroundImg: string | null } = {
@@ -67,7 +66,6 @@ import { commands } from "@/rspc/bindings";
 // ----------------------
 describe("useBackgroundImage", () => {
   beforeEach(() => {
-    errorMock.mockClear();
     updateSettingAtomMock.mockClear();
     convertFileToBase64Mock.mockClear();
     (commands.getBackgroundImages as Mock).mockResolvedValue({ data: [] });
@@ -96,9 +94,12 @@ describe("useBackgroundImage", () => {
       );
     });
 
-    it("Calls error when getBackgroundImage returns error", async () => {
+    it("Only logs when getBackgroundImage returns error (automatic read)", async () => {
       settingsMock.selectedBackgroundImg = "file123";
       const errorMsg = "Error loading image";
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       (commands.getBackgroundImage as Mock).mockResolvedValue({
         status: "error",
         error: errorMsg,
@@ -112,7 +113,12 @@ describe("useBackgroundImage", () => {
         await result.current.initBackgroundImage();
       });
 
-      expect(errorMock).toHaveBeenCalledWith(errorMsg);
+      expect(result.current.failure).toBeNull();
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to load background image:",
+        errorMsg,
+      );
+      consoleError.mockRestore();
       // Background image is not set (null state)
       expect(result.current.backgroundImage).toBeNull();
     });
@@ -165,7 +171,7 @@ describe("useBackgroundImage", () => {
       );
     });
 
-    it("Calls error and does not update settings when saveBackgroundImage returns error", async () => {
+    it("Records an upload failure, reports false and does not update settings when saveBackgroundImage returns error", async () => {
       const file = new File(["dummy content"], "dummy.png", {
         type: "image/png",
       });
@@ -182,12 +188,60 @@ describe("useBackgroundImage", () => {
         wrapper: Provider,
       });
 
+      let saved = true;
+      await act(async () => {
+        saved = await result.current.saveBackgroundImage(file);
+      });
+
+      expect(saved).toBe(false);
+      expect(result.current.failure).toBe("upload");
+      expect(updateSettingAtomMock).not.toHaveBeenCalled();
+    });
+
+    it("Reports a rejected file conversion as an upload failure instead of throwing", async () => {
+      const file = new File(["dummy content"], "dummy.png", {
+        type: "image/png",
+      });
+      convertFileToBase64Mock.mockRejectedValue(new Error("unreadable"));
+
+      const { result } = renderHook(() => useBackgroundImage(), {
+        wrapper: Provider,
+      });
+
+      let saved = true;
+      await act(async () => {
+        saved = await result.current.saveBackgroundImage(file);
+      });
+
+      expect(saved).toBe(false);
+      expect(result.current.failure).toBe("upload");
+      expect(commands.saveBackgroundImage).not.toHaveBeenCalled();
+    });
+
+    it("A later successful save clears the upload failure", async () => {
+      const file = new File(["dummy content"], "dummy.png", {
+        type: "image/png",
+      });
+      convertFileToBase64Mock.mockResolvedValue("base64image");
+      (commands.saveBackgroundImage as Mock)
+        .mockResolvedValueOnce({ status: "error", error: "Save failed" })
+        .mockResolvedValueOnce({ status: "ok", data: "newFileId" });
+
+      const { result } = renderHook(() => useBackgroundImage(), {
+        wrapper: Provider,
+      });
+
       await act(async () => {
         await result.current.saveBackgroundImage(file);
       });
+      expect(result.current.failure).toBe("upload");
 
-      expect(errorMock).toHaveBeenCalledWith(errorMsg);
-      expect(updateSettingAtomMock).not.toHaveBeenCalled();
+      let saved = false;
+      await act(async () => {
+        saved = await result.current.saveBackgroundImage(file);
+      });
+      expect(saved).toBe(true);
+      expect(result.current.failure).toBeNull();
     });
   });
 
@@ -229,7 +283,7 @@ describe("useBackgroundImage", () => {
       );
     });
 
-    it("Calls error dialog when deletion throws error", async () => {
+    it("Records a delete failure and keeps the list when deletion throws", async () => {
       // Initial background image list
       const initialList = [
         { fileId: "fileToDelete", imageData: "data:image/png;base64,oldData" },
@@ -255,7 +309,36 @@ describe("useBackgroundImage", () => {
         await result.current.deleteBackgroundImage("fileToDelete");
       });
 
-      expect(errorMock).toHaveBeenCalledWith(errorMsg);
+      expect(result.current.failure).toBe("delete");
+    });
+
+    it("Records a delete failure and keeps the image when the command returns an error", async () => {
+      (commands.getBackgroundImages as Mock).mockResolvedValue({
+        status: "ok",
+        data: [{ fileId: "keep", imageData: "dataA" }],
+      });
+      (commands.deleteBackgroundImage as Mock).mockResolvedValue({
+        status: "error",
+        error: "in use",
+      });
+
+      const { result } = renderHook(
+        () => ({
+          bg: useBackgroundImage(),
+          list: useBackgroundImageList(),
+        }),
+        { wrapper: Provider },
+      );
+      await waitFor(() =>
+        expect(result.current.list.backgroundImageList).toHaveLength(1),
+      );
+
+      await act(async () => {
+        await result.current.bg.deleteBackgroundImage("keep");
+      });
+
+      expect(result.current.bg.failure).toBe("delete");
+      expect(result.current.list.backgroundImageList).toHaveLength(1);
     });
 
     it("Removes deleted file from backgroundImageList via filter callback", async () => {
@@ -299,10 +382,6 @@ describe("useBackgroundImage", () => {
 });
 
 describe("useBackgroundImageList", () => {
-  beforeEach(() => {
-    errorMock.mockClear();
-  });
-
   it("initBackgroundImages: Updates backgroundImageList when getBackgroundImages returns success", async () => {
     // getBackgroundImages returns multiple image data
     const images = [
@@ -329,8 +408,11 @@ describe("useBackgroundImageList", () => {
     ]);
   });
 
-  it("initBackgroundImages: Calls error when getBackgroundImages returns error", async () => {
+  it("initBackgroundImages: Only logs when getBackgroundImages returns error (automatic read)", async () => {
     const errorMsg = "Failed to load images";
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     (commands.getBackgroundImages as Mock).mockResolvedValue({
       status: "error",
       error: errorMsg,
@@ -348,7 +430,11 @@ describe("useBackgroundImageList", () => {
       await result.current.initBackgroundImages();
     });
 
-    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to load background images:",
+      errorMsg,
+    );
+    consoleError.mockRestore();
     expect(result.current.backgroundImageList).toEqual([]);
   });
 });

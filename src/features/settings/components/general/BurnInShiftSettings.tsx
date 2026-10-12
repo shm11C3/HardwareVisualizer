@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import {
   Accordion,
   AccordionContent,
@@ -40,18 +41,21 @@ export const BurnInShiftSettings = () => {
 
   return (
     <>
-      <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
-        <div className="space-y-0.5">
-          <Label htmlFor={toggleBurnInShiftId} className="text-lg">
-            {t("pages.settings.general.burnInShift.name")}
-          </Label>
-        </div>
+      <div className="w-full py-6 xl:w-1/3">
+        <div className="flex w-full items-center justify-between space-x-4">
+          <div className="space-y-0.5">
+            <Label htmlFor={toggleBurnInShiftId} className="text-lg">
+              {t("pages.settings.general.burnInShift.name")}
+            </Label>
+          </div>
 
-        <Switch
-          id={toggleBurnInShiftId}
-          checked={settings.burnInShift}
-          onCheckedChange={toggleBurnInShift}
-        />
+          <Switch
+            id={toggleBurnInShiftId}
+            checked={settings.burnInShift}
+            onCheckedChange={toggleBurnInShift}
+          />
+        </div>
+        <SettingWriteFailure keys="burnInShift" />
       </div>
       {settings.burnInShift && (
         <Accordion
@@ -88,6 +92,14 @@ export const BurnInShiftSettings = () => {
                 {settings.burnInShiftOptions !== null && (
                   <BurnInShiftOptionInputs />
                 )}
+                <SettingWriteFailure
+                  keys={[
+                    "burnInShiftPreset",
+                    "burnInShiftMode",
+                    "burnInShiftIdleOnly",
+                    "burnInShiftOptions",
+                  ]}
+                />
               </div>
             </AccordionContent>
           </AccordionItem>

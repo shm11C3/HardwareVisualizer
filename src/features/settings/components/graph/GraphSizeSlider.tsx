@@ -1,6 +1,7 @@
 import { DotOutlineIcon } from "@phosphor-icons/react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -73,6 +74,7 @@ export const GraphSizeSlider = () => {
             {t("pages.settings.customTheme.graphStyle.graphFitToWindow")}
           </Label>
         </div>
+        <SettingWriteFailure keys={["graphSize", "graphFitToWindow"]} />
       </fieldset>
     </div>
   );

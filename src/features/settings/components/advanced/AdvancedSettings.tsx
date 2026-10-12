@@ -1,10 +1,11 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ActionFailure } from "@/components/ActionFailure";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { externalComponentGuidanceDocsBaseUrl } from "@/lib/externalComponentGuidance";
 import { openURL } from "@/lib/openUrl";
@@ -13,13 +14,14 @@ import { ExternalComponentSetupSection } from "./ExternalComponentSetupSection";
 
 export const AdvancedSettings = () => {
   const { t, i18n } = useTranslation();
-  const { error } = useTauriDialog();
+  const [docsOpenFailed, setDocsOpenFailed] = useState(false);
   const [showGpuUsageSource, setShowGpuUsageSource, isPending] = useTauriStore(
     "showGpuUsageSource",
     false,
   );
 
   const handleOpenExternalComponentDocs = async () => {
+    setDocsOpenFailed(false);
     try {
       await openURL(
         externalComponentGuidanceDocsBaseUrl(
@@ -28,7 +30,7 @@ export const AdvancedSettings = () => {
       );
     } catch (err) {
       console.error("Failed to open external components documentation:", err);
-      await error(t("pages.settings.advanced.openExternalComponentsDocsError"));
+      setDocsOpenFailed(true);
     }
   };
 
@@ -60,24 +62,34 @@ export const AdvancedSettings = () => {
           )}
         </div>
         <ExternalComponentSetupSection />
-        <div className="flex w-full flex-col items-start gap-4 py-6 sm:flex-row sm:items-center sm:justify-between xl:w-1/2">
-          <div className="space-y-0.5">
-            <Label className="text-lg">
-              {t("pages.settings.advanced.externalComponents")}
-            </Label>
-            <p className="text-muted-foreground text-sm">
-              {t("pages.settings.advanced.externalComponentsDescription")}
-            </p>
-          </div>
+        <div className="w-full py-6 xl:w-1/2">
+          <div className="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-lg">
+                {t("pages.settings.advanced.externalComponents")}
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                {t("pages.settings.advanced.externalComponentsDescription")}
+              </p>
+            </div>
 
-          <Button
-            onClick={() => void handleOpenExternalComponentDocs()}
-            type="button"
-            variant="secondary"
-          >
-            {t("pages.settings.advanced.openExternalComponentsDocs")}
-            <ArrowSquareOutIcon size={16} />
-          </Button>
+            <Button
+              onClick={() => void handleOpenExternalComponentDocs()}
+              type="button"
+              variant="secondary"
+            >
+              {t("pages.settings.advanced.openExternalComponentsDocs")}
+              <ArrowSquareOutIcon size={16} />
+            </Button>
+          </div>
+          {docsOpenFailed && (
+            <ActionFailure
+              message={t(
+                "pages.settings.advanced.openExternalComponentsDocsError",
+              )}
+              className="mt-2"
+            />
+          )}
         </div>
       </div>
     </div>

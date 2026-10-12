@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useNavigationLayoutFocusRequest } from "@/hooks/navigation/useNavigationLayoutFocusRequest";
@@ -23,26 +24,29 @@ export const NavigationLayoutToggle = () => {
   }, [focusRequested, clearFocusRequest]);
 
   return (
-    <div className="flex w-full items-center justify-between gap-4 py-6 xl:w-1/2">
-      <div className="space-y-1">
-        <Label htmlFor="classicNavigation" className="text-lg">
-          {t("pages.settings.general.navigationLayout.name")}
-        </Label>
-        <p className="text-muted-foreground text-sm">
-          {t("pages.settings.general.navigationLayout.description")}
-        </p>
-      </div>
+    <div className="w-full py-6 xl:w-1/2">
+      <div className="flex w-full items-center justify-between gap-4">
+        <div className="space-y-1">
+          <Label htmlFor="classicNavigation" className="text-lg">
+            {t("pages.settings.general.navigationLayout.name")}
+          </Label>
+          <p className="text-muted-foreground text-sm">
+            {t("pages.settings.general.navigationLayout.description")}
+          </p>
+        </div>
 
-      <Switch
-        ref={switchRef}
-        id="classicNavigation"
-        checked={settings.navigationLayout === "classic"}
-        disabled={navigationMutationPending}
-        onCheckedChange={(classic) =>
-          setNavigationLayoutAtom(classic ? "classic" : "grouped")
-        }
-        aria-label={t("pages.settings.general.navigationLayout.name")}
-      />
+        <Switch
+          ref={switchRef}
+          id="classicNavigation"
+          checked={settings.navigationLayout === "classic"}
+          disabled={navigationMutationPending}
+          onCheckedChange={(classic) =>
+            setNavigationLayoutAtom(classic ? "classic" : "grouped")
+          }
+          aria-label={t("pages.settings.general.navigationLayout.name")}
+        />
+      </div>
+      <SettingWriteFailure keys="navigationLayout" />
     </div>
   );
 };

@@ -234,9 +234,12 @@ export const ExternalComponentGuidanceDialog = ({
     try {
       // Through the settings atom, not the raw command: when the process is
       // already elevated the backend persists "on" without relaunching, and
-      // the Settings toggle must show that saved value. The atom reports a
-      // command error itself (dialog + rollback), so only a throw is left here.
-      await updateSettingAtom("elevatedStartupMode", true);
+      // the Settings toggle must show that saved value. The atom rolls back
+      // and returns false on a command error; this modal flow reports it as a
+      // dialog, like a throw.
+      if (!(await updateSettingAtom("elevatedStartupMode", true))) {
+        await error(t("externalComponentGuidance.errors.elevatedStartupMode"));
+      }
     } catch (err) {
       console.error(
         "Failed to enable elevated startup mode from external component guidance:",

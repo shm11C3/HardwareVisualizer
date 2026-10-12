@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -56,6 +57,7 @@ export const LineChartTypeSelector = () => {
           );
         })}
       </RadioGroup>
+      <SettingWriteFailure keys="lineGraphType" />
     </div>
   );
 };

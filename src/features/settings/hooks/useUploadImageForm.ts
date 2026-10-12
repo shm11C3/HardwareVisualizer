@@ -4,16 +4,14 @@ import { useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { useBackgroundImage } from "@/hooks/appearance/useBgImage";
-import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 
 // Custom hook for image upload
 export const useUploadImage = () => {
   const { t } = useTranslation();
-  const { error } = useTauriDialog();
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [fileName, setFilename] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { saveBackgroundImage } = useBackgroundImage();
+  const { saveBackgroundImage, failure } = useBackgroundImage();
 
   const formSchema = z.object({
     picture: z
@@ -35,14 +33,14 @@ export const useUploadImage = () => {
     setIsSubmitting(true);
 
     try {
-      await saveBackgroundImage(values.picture);
-      form.reset();
-    } catch (err) {
-      error(err as string);
-      console.error("Error saveBackgroundImage:", err);
+      // Keep the chosen file when the save failed, so the user can submit
+      // again; the failure line under the control says why nothing changed.
+      if (await saveBackgroundImage(values.picture)) {
+        form.reset();
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   const picture = useWatch({
@@ -65,6 +63,7 @@ export const useUploadImage = () => {
     picture,
     onSubmit,
     isSubmitting,
+    saveFailed: failure === "upload",
     fileName,
     displayUrl,
   };

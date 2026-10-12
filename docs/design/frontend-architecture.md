@@ -186,7 +186,7 @@ surface; who started the work decides when it may interrupt.
 | App cannot continue | Blocking dialog (`useTauriDialog`, backend `error_event`) | Immediately | Database cannot open, conversion failed |
 | One panel's read | Failure state where the data would appear, with retry | Never interrupts; automatic refreshes keep retrying | Insight charts, Cooling panels, Storage Health, process table |
 | Secondary lane | Nothing in the UI; log only | Never | Fan and ambient lanes next to a primary series |
-| User action failed | Near the control that was used | Immediately, once | Settings toggles, restart, tray actions |
+| User action failed | One translated line under the control that was used (`src/components/ActionFailure.tsx`); no toast, no retry button | Immediately, once; the next successful write of the same key or action clears it, never an unrelated write | Settings toggles, tray and autostart actions, background image upload |
 
 Rules that follow from the axes:
 
@@ -205,10 +205,29 @@ Rules that follow from the axes:
   Insight already models (establishing baseline, recording coverage, sensor
   unsupported) stay their own states and are never rendered as failures.
 
-Enforcement: `features/hardware` may not import `useTauriDialog`
-(`noRestrictedImports` in its three overrides). The user-action tier is
-review-checked; it has no in-app notice primitive yet, and choosing one is a
-separate decision.
+- A failure is attributed explicitly: by the setting key for Application
+  Preference writes, or by a named action for hooks that are not settings
+  (background image: `upload` and `delete`; selecting an image is a write of
+  `selectedBackgroundImg`). Only the next success of that same key or action
+  clears it.
+- A failed user action is state, not a dialog. The optimistic update has
+  already rolled the control back, and the line under the control says why.
+  Application Preference writes record the last failure in
+  `settingsWriteFailureAtom` (`src/store/settings.ts`, owned by the store
+  layer, written by `useSettingsAtom`). A control asks `useSettingWriteFailure`
+  (or renders `SettingWriteFailure`) for its keys; a later successful write of
+  the same key clears it. The backend detail is kept in that state and in
+  `console.error`, never in the copy.
+- A shared hook that several components use (`useBackgroundImage`) returns the
+  failure as state, and the component that owns the control renders it.
+- A flow that is already a modal dialog keeps the native dialog: the startup
+  dialogs and `FullScreenExit` in `src/app/`, and the backend `error_event`
+  listener (`useTauriEventListener.ts`). These are the only places that may
+  import `useTauriDialog`.
+
+Enforcement: no layer outside `src/app/**` may import `useTauriDialog`
+(`noRestrictedImports` in every layer override; `useTauriEventListener.ts`
+calls the Tauri dialog plugin directly and needs no exception).
 
 ### Call-site classification
 
@@ -217,9 +236,14 @@ separate decision.
 | Insight main chart hook, Cooling hooks, process stats, snapshot | One panel's read | Done in #2311 |
 | GPU archive names, hardware inventory, process list polling | One panel's read, or log only when the screen renders without them | Done in #2311 |
 | Dashboard Storage Health reads | One panel's read | Done in #2311 |
-| Settings toggles and actions (`useSettingsAtom`, tray, autostart, elevation) | User action failed | Pending: needs a near-control notice; tracked in #2388 |
-| License page reads | One panel's read | Pending: tracked in #2388 |
-| Startup dialogs in `src/app` | Already inside a dialog flow | Review-checked |
+| Settings toggles and actions (`useSettingsAtom`, tray, autostart, elevation, documentation link) | User action failed | Done in #2388: `ActionFailure` under the control |
+| Background image upload, select and delete | User action failed | Done in #2388: failure state from `useBackgroundImage`, rendered by the upload and list controls |
+| External Component Setup run | User action failed | Done in #2388: `ActionFailure` under the component card |
+| License page reads | One panel's read | Done in #2388: `LoadFailure` with retry |
+| F11 window decoration toggle (`useKeydown`) | Keyboard action, no control on screen | Log only |
+| Startup reads without a control: selected background image, background image list | Automatic read | Log only |
+| Settings load at startup (`loadSettings`, shown by `AppContent`) | App cannot continue as configured | Dialog kept in `src/app/App.tsx`; the hook only logs and returns `false` |
+| Startup dialogs and `FullScreenExit` in `src/app` | Already inside a dialog flow | Dialog kept; the only importers of `useTauriDialog` |
 | Backend `error_event` (`useErrorModalListener`) | App cannot continue | Unchanged |
 
 ## Migration
@@ -247,5 +271,7 @@ A future structural change to these boundaries follows the same pattern:
   hooks may. Today only UI primitives are restricted. Read hooks now own the
   failure state, which pulls reads into hooks; the remaining question is
   operation commands called from components.
-- Which in-app notice surface the user-action tier uses. The repository has
-  no toast primitive; adding one is a dependency decision.
+- Whether a user-action failure needs a surface that outlives its screen.
+  Every current site is a settings row or a control with its own panel, so
+  the inline line is enough; a cross-screen notice would need a demonstrated
+  case first.

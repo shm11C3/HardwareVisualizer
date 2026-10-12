@@ -3,6 +3,7 @@ import type { TFunction } from "i18next";
 import { DownloadIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ActionFailure } from "@/components/ActionFailure";
 import { NeedRestart } from "@/components/NeedRestart";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,7 +13,6 @@ import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
 } from "@/hooks/settings/useElevationAvailability";
-import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import {
   commands,
   type ExternalComponent,
@@ -34,16 +34,17 @@ type ComponentEntry = {
  */
 export const ExternalComponentSetupSection = () => {
   const { t } = useTranslation();
-  const { t: translateFailureStage } = useTranslation("translation", {
-    keyPrefix: "pages.settings.advanced.externalComponentSetup.failureStage",
-  });
-  const { error } = useTauriDialog();
   const [entries, setEntries] = useState<ComponentEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [runningComponent, setRunningComponent] =
     useState<ExternalComponent | null>(null);
   const [lastResult, setLastResult] =
     useState<ExternalComponentSetupResult | null>(null);
+  // The component whose last run could not produce a result at all (a command
+  // error or a rejected call), reported under its card. A run that finished
+  // as `failed` is a result and renders through `lastResult` instead.
+  const [failedRunComponent, setFailedRunComponent] =
+    useState<ExternalComponent | null>(null);
   // Whether the last run started with only outdated files to replace, so its
   // success is reported as an update rather than an installation.
   const [lastRunUpdateOnly, setLastRunUpdateOnly] = useState(false);
@@ -112,6 +113,7 @@ export const ExternalComponentSetupSection = () => {
   const handleSetup = async (component: ExternalComponent) => {
     setRunningComponent(component);
     setLastResult(null);
+    setFailedRunComponent(null);
     setLastRunUpdateOnly(
       isUpdateOnly(
         entries?.find((entry) => entry.component === component)?.status ?? null,
@@ -120,11 +122,8 @@ export const ExternalComponentSetupSection = () => {
     try {
       const result = await commands.runExternalComponentSetup(component);
       if (isError(result)) {
-        await error(
-          t("pages.settings.advanced.externalComponentSetup.result.failed", {
-            detail: result.error,
-          }),
-        );
+        console.error("Failed to run external component setup:", result.error);
+        setFailedRunComponent(component);
         return;
       }
 
@@ -139,16 +138,10 @@ export const ExternalComponentSetupSection = () => {
 
       if (result.data.outcome === "installed") {
         setRestartDialogOpen(true);
-      } else if (result.data.outcome === "failed") {
-        await error(failureMessage(t, translateFailureStage, result.data));
       }
     } catch (err) {
       console.error("Failed to run external component setup:", err);
-      await error(
-        t("pages.settings.advanced.externalComponentSetup.result.failed", {
-          detail: err instanceof Error ? err.message : String(err),
-        }),
-      );
+      setFailedRunComponent(component);
     } finally {
       setRunningComponent(null);
     }
@@ -184,6 +177,7 @@ export const ExternalComponentSetupSection = () => {
               lastResult?.component === entry.component ? lastResult : null
             }
             resultIsUpdate={lastRunUpdateOnly}
+            runFailed={failedRunComponent === entry.component}
             onSetup={() => void handleSetup(entry.component)}
           />
         ))
@@ -284,6 +278,8 @@ type ComponentCardProps = {
   result: ExternalComponentSetupResult | null;
   /** Whether `result` comes from a run that only replaced outdated files. */
   resultIsUpdate: boolean;
+  /** Whether the last run ended without a result (command error or throw). */
+  runFailed: boolean;
   onSetup: () => void;
 };
 
@@ -295,6 +291,7 @@ const ComponentCard = ({
   elevationReasonKey,
   result,
   resultIsUpdate,
+  runFailed,
   onSetup,
 }: ComponentCardProps) => {
   const { t } = useTranslation();
@@ -465,10 +462,24 @@ const ComponentCard = ({
         </p>
       )}
 
-      {!running && result !== null && (
-        <p className="pt-3 text-sm" role="status">
-          {resultMessage(result)}
-        </p>
+      {!running &&
+        result !== null &&
+        (result.outcome === "failed" ? (
+          <ActionFailure message={resultMessage(result)} className="pt-3" />
+        ) : (
+          <p className="pt-3 text-sm" role="status">
+            {resultMessage(result)}
+          </p>
+        ))}
+
+      {!running && runFailed && (
+        <ActionFailure
+          message={t(
+            "pages.settings.advanced.externalComponentSetup.result.failed",
+            { detail: translateFailureStage("other") },
+          )}
+          className="pt-3"
+        />
       )}
     </div>
   );

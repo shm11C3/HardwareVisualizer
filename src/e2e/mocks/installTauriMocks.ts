@@ -71,6 +71,8 @@ declare global {
       completeDatabaseConversion: () => Promise<void>;
       /** Start or stop `?archiveReadFailure=1` at runtime (see its docs). */
       setArchiveReadFailure: (failing: boolean) => void;
+      /** Start or stop `?settingsWriteFailure=1` at runtime (see its docs). */
+      setSettingsWriteFailure: (failing: boolean) => void;
     };
   }
 }
@@ -163,6 +165,11 @@ type FixtureOverrides = {
    * doc). It is mutable at runtime: `window.__E2E__.setArchiveReadFailure`
    * clears it so the retry path can be exercised against the same page. */
   archiveReadFailure: boolean;
+  /** `?settingsWriteFailure=1` makes the Application Preference writes listed
+   * in `SETTINGS_WRITE_FAILURE_COMMANDS` reject, so a capture or test can
+   * render the inline failure line under a settings row. Mutable at runtime
+   * through `window.__E2E__.setSettingsWriteFailure`. */
+  settingsWriteFailure: boolean;
 };
 type CoolingAmbientOverride = "present" | "only" | null;
 /** See `FixtureOverrides.databaseConversionScenario`. `"converting"` and
@@ -198,6 +205,12 @@ const applySensorSupportOverrides = (
     ? "unsupported"
     : payload.motherboardFanSupport,
 });
+
+/** Writes that `?settingsWriteFailure=1` rejects. One row is enough to prove
+ * the user-action tier; every other `set_*` keeps succeeding. */
+const SETTINGS_WRITE_FAILURE_COMMANDS: ReadonlySet<string> = new Set([
+  "set_text_selectable",
+]);
 
 /** Reads that `?archiveReadFailure=1` rejects. Operation commands and the
  * live hardware stream stay healthy: the point is a failed panel read on an
@@ -282,6 +295,10 @@ const readFixtureOverrides = (): FixtureOverrides => {
     archiveReadFailure:
       new URLSearchParams(window.location.search).get("archiveReadFailure") ===
       "1",
+    settingsWriteFailure:
+      new URLSearchParams(window.location.search).get(
+        "settingsWriteFailure",
+      ) === "1",
   };
 };
 
@@ -866,6 +883,13 @@ export const installTauriMocks = () => {
       throw new Error(`[e2e-mock] Simulated read failure: ${cmd}`);
     }
 
+    if (
+      fixtureOverrides.settingsWriteFailure &&
+      SETTINGS_WRITE_FAILURE_COMMANDS.has(cmd)
+    ) {
+      throw new Error(`[e2e-mock] Simulated write failure: ${cmd}`);
+    }
+
     if (Object.hasOwn(handlers, cmd)) {
       return handlers[cmd](args);
     }
@@ -925,6 +949,9 @@ export const installTauriMocks = () => {
     },
     setArchiveReadFailure: (failing) => {
       fixtureOverrides.archiveReadFailure = failing;
+    },
+    setSettingsWriteFailure: (failing) => {
+      fixtureOverrides.settingsWriteFailure = failing;
     },
   };
 };

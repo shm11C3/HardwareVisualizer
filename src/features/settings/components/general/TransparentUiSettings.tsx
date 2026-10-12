@@ -1,6 +1,7 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -65,29 +66,34 @@ export const TransparentUiSettings = () => {
 
   return (
     <>
-      <div className="flex w-full items-center justify-between gap-4 py-6 xl:w-1/2">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Label htmlFor={transparentUiId} className="text-lg">
-              {t("pages.settings.general.transparentUi.name")}
-            </Label>
-            <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs">
-              {t("pages.settings.general.transparentUi.experimentalBadge")}
-            </span>
+      <div className="w-full py-6 xl:w-1/2">
+        <div className="flex w-full items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Label htmlFor={transparentUiId} className="text-lg">
+                {t("pages.settings.general.transparentUi.name")}
+              </Label>
+              <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs">
+                {t("pages.settings.general.transparentUi.experimentalBadge")}
+              </span>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              {t("pages.settings.general.transparentUi.description")}
+            </p>
+            <p className="text-muted-foreground text-xs">
+              {t("pages.settings.general.transparentUi.experimentalNote")}
+            </p>
           </div>
-          <p className="text-muted-foreground text-sm">
-            {t("pages.settings.general.transparentUi.description")}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {t("pages.settings.general.transparentUi.experimentalNote")}
-          </p>
-        </div>
 
-        <Switch
-          id={transparentUiId}
-          checked={settings.transparentUi}
-          onCheckedChange={(value) => updateSettingAtom("transparentUi", value)}
-        />
+          <Switch
+            id={transparentUiId}
+            checked={settings.transparentUi}
+            onCheckedChange={(value) =>
+              updateSettingAtom("transparentUi", value)
+            }
+          />
+        </div>
+        <SettingWriteFailure keys="transparentUi" />
       </div>
 
       {settings.transparentUi && (
@@ -148,6 +154,7 @@ export const TransparentUiSettings = () => {
               />
             )}
           </div>
+          <SettingWriteFailure keys={["windowOpacity", "glassBlur"]} />
         </div>
       )}
     </>

@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -72,6 +73,7 @@ export const GraphMarginInput = () => {
         />
         <span className="ml-2">px</span>
       </div>
+      <SettingWriteFailure keys="graphMarginPx" />
     </div>
   );
 };

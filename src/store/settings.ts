@@ -67,6 +67,21 @@ export const settingsAtom = atom<ClientSettings>({
 
 export const navigationMutationPendingAtom = atom(false);
 
+/**
+ * The last Application Preference write that failed (user-action tier of the
+ * failure-reporting policy). `key` lets the control that owns the setting
+ * render the failure under itself; `reason` is the backend detail and is for
+ * logs only, never user-facing copy. A later successful write of the same
+ * `key` clears it. Only the latest failure is kept, so two rows failing in a
+ * row show one line, not a stack.
+ */
+export type SettingsWriteFailure = {
+  key: keyof ClientSettings;
+  reason: string;
+};
+
+export const settingsWriteFailureAtom = atom<SettingsWriteFailure | null>(null);
+
 type PowerDisplayTargets = ClientSettings["powerDisplayTargets"];
 
 /**

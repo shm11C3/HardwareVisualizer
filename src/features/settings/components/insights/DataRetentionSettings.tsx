@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -146,6 +147,7 @@ export const DataRetentionSettings = () => {
             </Label>
           </div>
         </div>
+        <SettingWriteFailure keys="hardwareArchive" />
       </div>
       <div className="py-4">
         <Label className="my-4 text-lg" htmlFor={storageHealthRetentionId}>
@@ -203,6 +205,7 @@ export const DataRetentionSettings = () => {
             );
           })}
         </div>
+        <SettingWriteFailure keys="storageHealth" />
       </div>
       <div className="flex items-center justify-end py-2">
         <TooltipProvider>

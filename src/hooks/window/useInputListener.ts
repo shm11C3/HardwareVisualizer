@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 
 export const useKeydown = ({
   isDecorated,
@@ -9,15 +9,18 @@ export const useKeydown = ({
   isDecorated: boolean;
   setDecorated: (newValue: boolean) => Promise<void>;
 }) => {
-  const { error } = useTauriDialog();
-
   useEffect(() => {
     const handleDecoration = async () => {
       try {
-        await commands.setDecoration(!isDecorated);
+        // F11 has no control of its own on screen to report under, so a
+        // failure is log-only (the fullscreen buttons report their own).
+        const result = await commands.setDecoration(!isDecorated);
+        if (isError(result)) {
+          console.error("Failed to toggle window decoration:", result.error);
+          return;
+        }
         await setDecorated(!isDecorated);
       } catch (e) {
-        error(e as string);
         console.error("Failed to toggle window decoration:", e);
       }
     };
@@ -30,5 +33,5 @@ export const useKeydown = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isDecorated, setDecorated, error]);
+  }, [isDecorated, setDecorated]);
 };

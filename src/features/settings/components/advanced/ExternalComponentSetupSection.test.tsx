@@ -9,7 +9,6 @@ import type {
 import { ExternalComponentSetupSection } from "./ExternalComponentSetupSection";
 
 const mocks = vi.hoisted(() => ({
-  error: vi.fn(),
   getExternalComponentSetupComponents: vi.fn(),
   getExternalComponentSetupStatus: vi.fn(),
   platform: vi.fn(() => "windows"),
@@ -23,11 +22,10 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: mocks.platform,
 }));
 
-vi.mock("@/hooks/tauri/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: mocks.error,
-  }),
-}));
+// Setup failures are reported under the component card, never as a dialog.
+vi.mock("@/hooks/tauri/useTauriDialog", () => {
+  throw new Error("ExternalComponentSetupSection must not open a dialog");
+});
 
 vi.mock(
   "@/hooks/settings/useElevationAvailability",
@@ -242,7 +240,6 @@ describe("ExternalComponentSetupSection", () => {
         "PawnIO module files were updated. Restart HardwareVisualizer to use them.",
       ),
     ).toBeInTheDocument();
-    expect(mocks.error).not.toHaveBeenCalled();
   });
 
   it("disables setup outside Program Files and says why", async () => {
@@ -353,7 +350,6 @@ describe("ExternalComponentSetupSection", () => {
         "PawnIO was installed. Restart HardwareVisualizer to use the new sensors.",
       ),
     ).toBeInTheDocument();
-    expect(mocks.error).not.toHaveBeenCalled();
   });
 
   it("reports a cancelled elevation prompt without an error dialog", async () => {
@@ -373,10 +369,9 @@ describe("ExternalComponentSetupSection", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
-    expect(mocks.error).not.toHaveBeenCalled();
   });
 
-  it("explains a failure by its stage in an error dialog", async () => {
+  it("explains a failure by its stage under the card", async () => {
     const user = userEvent.setup();
     mocks.runExternalComponentSetup.mockResolvedValue({
       status: "ok",
@@ -392,11 +387,9 @@ describe("ExternalComponentSetupSection", () => {
 
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
-    await waitFor(() => {
-      expect(mocks.error).toHaveBeenCalledWith(
-        "Installation failed: The downloaded runtime installer did not match its expected digest. (the setup process exited with code 13)",
-      );
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Installation failed: The downloaded runtime installer did not match its expected digest. (the setup process exited with code 13)",
+    );
   });
 
   it("explains a timed-out setup as a retryable failure", async () => {
@@ -415,11 +408,9 @@ describe("ExternalComponentSetupSection", () => {
 
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
-    await waitFor(() => {
-      expect(mocks.error).toHaveBeenCalledWith(
-        "Installation failed: Setup did not finish in time and was stopped. (the setup process did not finish in time and was stopped)",
-      );
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Installation failed: Setup did not finish in time and was stopped. (the setup process did not finish in time and was stopped)",
+    );
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
   });
 
@@ -440,11 +431,9 @@ describe("ExternalComponentSetupSection", () => {
 
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
-    await waitFor(() => {
-      expect(mocks.error).toHaveBeenCalledWith(
-        "Installation failed: Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again. (the setup process did not finish in time and may still be running; restart the app before trying again)",
-      );
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Installation failed: Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again. (the setup process did not finish in time and may still be running; restart the app before trying again)",
+    );
   });
 
   it("surfaces a command error as a failure", async () => {
@@ -458,11 +447,11 @@ describe("ExternalComponentSetupSection", () => {
 
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
-    await waitFor(() => {
-      expect(mocks.error).toHaveBeenCalledWith(
-        "Installation failed: External Component Setup for pawnio is already running",
-      );
-    });
+    // Translated copy under the card; the backend string stays in the log.
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Installation failed: Setup failed.");
+    expect(alert).not.toHaveTextContent("already running");
+    expect(alert).toHaveAttribute("data-testid", "action-failure");
   });
 
   it("surfaces a thrown setup call as a failure and clears the spinner", async () => {
@@ -478,11 +467,9 @@ describe("ExternalComponentSetupSection", () => {
 
     await user.click(await screen.findByRole("button", { name: "Install" }));
 
-    await waitFor(() => {
-      expect(mocks.error).toHaveBeenCalledWith(
-        "Installation failed: IPC channel closed",
-      );
-    });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Installation failed: Setup failed.");
+    expect(alert).not.toHaveTextContent("IPC channel closed");
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
     expect(screen.queryByRole("status")).toBeNull();
     expect(consoleError).toHaveBeenCalled();

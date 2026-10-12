@@ -1,5 +1,6 @@
 import { CheckCircleIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 
@@ -68,6 +69,7 @@ export const DatabaseConversionCompleteNotice = ({
           {t("pages.settings.insights.databaseConversion.notice.keep")}
         </Button>
       </div>
+      <SettingWriteFailure keys="hardwareArchive" />
       <p className="mt-3 text-muted-foreground text-xs">
         {t("pages.settings.insights.databaseConversion.notice.footnote")}
       </p>
