@@ -1,5 +1,6 @@
 import { CheckCircleIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 
@@ -34,6 +35,7 @@ export const DatabaseConversionCompleteNotice = ({
     // value it already had.
     const saved = await setHardwareArchiveRetentionDays(
       ONE_YEAR_RETENTION_DAYS,
+      "hardwareArchive.conversionNotice",
     );
     if (saved) {
       onDismiss();
@@ -68,6 +70,7 @@ export const DatabaseConversionCompleteNotice = ({
           {t("pages.settings.insights.databaseConversion.notice.keep")}
         </Button>
       </div>
+      <SettingWriteFailure actions="hardwareArchive.conversionNotice" />
       <p className="mt-3 text-muted-foreground text-xs">
         {t("pages.settings.insights.databaseConversion.notice.footnote")}
       </p>

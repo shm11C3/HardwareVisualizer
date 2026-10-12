@@ -1,20 +1,18 @@
 import { AlertTriangleIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 export const CloseToTrayToggle = () => {
   const { t } = useTranslation();
-  const { error } = useTauriDialog();
   const { settings, setCloseToTrayPreferenceAtom } = useSettingsAtom();
   const [isAvailable, setIsAvailable] = useState(true);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Availability is checked once when the settings row mounts.
   useEffect(() => {
     const checkAvailability = async () => {
       try {
@@ -26,7 +24,6 @@ export const CloseToTrayToggle = () => {
             "Failed to check close-to-tray availability:",
             result.error,
           );
-          await error(t("closeToTray.errors.availability"));
           return;
         }
 
@@ -34,7 +31,6 @@ export const CloseToTrayToggle = () => {
       } catch (err) {
         setIsAvailable(false);
         console.error("Failed to check close-to-tray availability:", err);
-        await error(t("closeToTray.errors.availability"));
       }
     };
 
@@ -42,11 +38,8 @@ export const CloseToTrayToggle = () => {
   }, []);
 
   const updateCloseToTray = async (value: boolean) => {
-    const saved = await setCloseToTrayPreferenceAtom(value);
-
-    if (!saved) {
-      await error(t("closeToTray.errors.savePreference"));
-    }
+    // A failed save is recorded for this row (`SettingWriteFailure`).
+    await setCloseToTrayPreferenceAtom(value);
   };
 
   return (
@@ -68,6 +61,7 @@ export const CloseToTrayToggle = () => {
           onCheckedChange={updateCloseToTray}
         />
       </div>
+      <SettingWriteFailure actions="closeToTray" />
 
       {!isAvailable && (
         <div className="flex items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">

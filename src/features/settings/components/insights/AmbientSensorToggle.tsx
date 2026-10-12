@@ -3,6 +3,7 @@ import { ThermometerIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeedRestart } from "@/components/NeedRestart";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -90,6 +91,7 @@ export const AmbientSensorToggle = () => {
                     }
                     onSelect={setSwitchbotMeterDevice}
                   />
+                  <SettingWriteFailure actions="environmentalSensors.device" />
                 </div>
               ) : (
                 <p className="pt-2 text-muted-foreground text-sm">
@@ -98,6 +100,7 @@ export const AmbientSensorToggle = () => {
                   )}
                 </p>
               ))}
+            <SettingWriteFailure actions="environmentalSensors.enabled" />
           </div>
         </div>
 

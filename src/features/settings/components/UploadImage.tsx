@@ -4,6 +4,7 @@ import {
   UploadSimpleIcon,
 } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
+import { ActionFailure } from "@/components/ActionFailure";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -18,8 +19,15 @@ import { Input } from "@/components/ui/input";
 import { useUploadImage } from "@/features/settings/hooks/useUploadImageForm";
 
 export const UploadImage = () => {
-  const { form, picture, onSubmit, isSubmitting, fileName, displayUrl } =
-    useUploadImage();
+  const {
+    form,
+    picture,
+    onSubmit,
+    isSubmitting,
+    saveFailed,
+    fileName,
+    displayUrl,
+  } = useUploadImage();
   const { t } = useTranslation();
 
   return (
@@ -72,6 +80,14 @@ export const UploadImage = () => {
                       </div>
                     </FormControl>
                     <FormMessage />
+                    {saveFailed && (
+                      <ActionFailure
+                        message={t(
+                          "pages.settings.backgroundImage.errors.upload",
+                        )}
+                        className="mb-2"
+                      />
+                    )}
                     <FormDescription className="my-2">
                       {t("pages.settings.backgroundImage.upload.description")}
                     </FormDescription>

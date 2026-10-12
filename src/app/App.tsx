@@ -19,6 +19,7 @@ import { SideMenu } from "@/features/menu/SideMenu";
 import { useBackgroundImage } from "@/hooks/appearance/useBgImage";
 import { useColorTheme } from "@/hooks/appearance/useColorTheme";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
+import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
 import { useErrorModalListener } from "@/hooks/tauri/useTauriEventListener";
 import { useDocumentVisibilityClass } from "@/hooks/window/useDocumentVisibilityClass";
 import type { SelectedDisplayType } from "@/types/ui";
@@ -118,11 +119,13 @@ const AppContent = () => {
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
   const { t, i18n } = useTranslation();
+  const { error } = useTauriDialog();
   const [isDecorated, setDecorated] = useTauriStore("window_decorated", true);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   // Each startup dialog reports whether it is open and, separately, whether
   // it still does not know if it will open (its eligibility check is async).
   // Lower-priority dialogs wait for both, so one never opens first only to
@@ -176,9 +179,10 @@ const AppContent = () => {
       ]);
 
       if (!isCancelled) {
-        setSettingsLoaded(
-          didLoadSettings.status === "fulfilled" && didLoadSettings.value,
-        );
+        const loaded =
+          didLoadSettings.status === "fulfilled" && didLoadSettings.value;
+        setSettingsLoaded(loaded);
+        setSettingsLoadFailed(!loaded);
       }
 
       if (backgroundResult.status === "rejected") {
@@ -192,6 +196,14 @@ const AppContent = () => {
       isCancelled = true;
     };
   }, [loadSettings, initBackgroundImage]);
+
+  // Settings that cannot be read are an app-level failure (the screens run on
+  // defaults), so this stays a dialog. Reported once per failed load.
+  useEffect(() => {
+    if (!settingsLoadFailed) return;
+    setSettingsLoadFailed(false);
+    void error(t("shared.settingsLoadFailed"));
+  }, [settingsLoadFailed, error, t]);
 
   const displayTarget = useAtomValue(displayTargetAtom);
 

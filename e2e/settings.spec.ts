@@ -117,4 +117,40 @@ test.describe("settings captures", () => {
       )
       .toBe(1);
   });
+
+  test("a failed settings write shows an inline line under the row and no dialog", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?settingsWriteFailure=1" });
+    await navigateTo(page, "settings");
+
+    const toggle = page.getByRole("switch", { name: "Enable text selection" });
+    await toggle.scrollIntoViewIfNeeded();
+    await expect(toggle).not.toBeChecked();
+
+    await toggle.click();
+
+    const failure = page.getByTestId("action-failure");
+    await expect(failure).toBeVisible();
+    await expect(failure).toHaveText(
+      "Could not save this setting. The previous value was restored.",
+    );
+    // The optimistic update was rolled back.
+    await expect(toggle).not.toBeChecked();
+    // An OS dialog would go through the Tauri dialog plugin's IPC command.
+    expect(
+      await page.evaluate(
+        () => window.__E2E__?.getInvokeCount("plugin:dialog|message") ?? 0,
+      ),
+    ).toBe(0);
+    await page.waitForTimeout(400);
+
+    await saveCapture(page, "settings-write-failure");
+
+    // The next successful write of the same key clears the line.
+    await page.evaluate(() => window.__E2E__?.setSettingsWriteFailure(false));
+    await toggle.click();
+    await expect(page.getByTestId("action-failure")).toHaveCount(0);
+    await expect(toggle).toBeChecked();
+  });
 });

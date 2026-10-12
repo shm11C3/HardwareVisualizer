@@ -27,6 +27,8 @@
     "loadDetailedInfo": "Load detailed info",
     "retry": "Try again",
     "loadFailed": "Could not load the data.",
+    "settingWriteFailed": "Could not save this setting. The previous value was restored.",
+    "settingsLoadFailed": "Could not load your settings.",
     "processListLoadFailed": "Could not load the process list. Retrying automatically.",
     "memoryType": "Memory Type",
     "totalMemory": "Total Memory",
@@ -669,7 +671,8 @@
           }
         },
         "autostart": {
-          "name": "Automatic startup at OS startup"
+          "name": "Automatic startup at OS startup",
+          "error": "Could not change the automatic startup setting."
         },
         "burnInShift": {
           "name": "Burn-In Protection",
@@ -737,7 +740,11 @@
           "confirm": "Confirm",
           "description": "The file will only be saved on your device"
         },
-        "opacity": "Opacity"
+        "opacity": "Opacity",
+        "errors": {
+          "upload": "Could not save the background image.",
+          "delete": "Could not delete the background image."
+        }
       },
       "insights": {
         "name": "Insights",
@@ -847,7 +854,9 @@
       },
       "license": {
         "applicationLicense": "Application License",
-        "thirdPartyLicenses": "Third-Party Licenses"
+        "thirdPartyLicenses": "Third-Party Licenses",
+        "loadFailed": "Could not load the license text.",
+        "openFailed": "Could not open the folder that contains the license files."
       },
       "advanced": {
         "name": "Advanced",

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -19,26 +20,29 @@ export const TemperatureUnitSelect = () => {
   };
 
   return (
-    <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
-      <Label htmlFor="temperatureUnit" className="text-lg">
-        {t("pages.settings.general.temperatureUnit.name")}
-      </Label>
-      <Select
-        value={settings.temperatureUnit}
-        onValueChange={changeTemperatureUnit}
-      >
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Temperature Unit" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="C">
-            {t("pages.settings.general.temperatureUnit.celsius")}
-          </SelectItem>
-          <SelectItem value="F">
-            {t("pages.settings.general.temperatureUnit.fahrenheit")}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+    <div className="w-full py-6 xl:w-1/3">
+      <div className="flex w-full items-center justify-between space-x-4">
+        <Label htmlFor="temperatureUnit" className="text-lg">
+          {t("pages.settings.general.temperatureUnit.name")}
+        </Label>
+        <Select
+          value={settings.temperatureUnit}
+          onValueChange={changeTemperatureUnit}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Temperature Unit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="C">
+              {t("pages.settings.general.temperatureUnit.celsius")}
+            </SelectItem>
+            <SelectItem value="F">
+              {t("pages.settings.general.temperatureUnit.fahrenheit")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <SettingWriteFailure actions="temperatureUnit" />
     </div>
   );
 };

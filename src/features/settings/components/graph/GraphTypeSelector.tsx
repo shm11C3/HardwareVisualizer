@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -51,6 +52,7 @@ export const GraphTypeSelector = () => {
           GPU
         </Label>
       </div>
+      <SettingWriteFailure actions="displayTargets" />
     </div>
   );
 };
