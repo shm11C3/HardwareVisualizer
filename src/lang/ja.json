@@ -28,6 +28,8 @@
     "loadDetailedInfo": "より詳細なデータを読み込む",
     "retry": "再試行",
     "loadFailed": "データを読み込めませんでした。",
+    "settingWriteFailed": "この設定を保存できませんでした。以前の値に戻しました。",
+    "settingsLoadFailed": "設定を読み込めませんでした。",
     "processListLoadFailed": "プロセス一覧を読み込めませんでした。自動的に再試行します。",
     "memoryType": "メモリタイプ",
     "totalMemory": "合計メモリ",
@@ -669,7 +671,8 @@
           }
         },
         "autostart": {
-          "name": "OS起動時に自動起動"
+          "name": "OS起動時に自動起動",
+          "error": "自動起動の設定を変更できませんでした。"
         },
         "burnInShift": {
           "name": "画面焼き付き防止シフト",
@@ -737,7 +740,11 @@
           "confirm": "確認",
           "description": "アップロードしたファイルはこのデバイスにのみ保存されます"
         },
-        "opacity": "透過率"
+        "opacity": "透過率",
+        "errors": {
+          "upload": "背景画像を保存できませんでした。",
+          "delete": "背景画像を削除できませんでした。"
+        }
       },
       "insights": {
         "name": "インサイト",
@@ -847,7 +854,9 @@
       },
       "license": {
         "applicationLicense": "アプリケーションライセンス",
-        "thirdPartyLicenses": "サードパーティライセンス"
+        "thirdPartyLicenses": "サードパーティライセンス",
+        "loadFailed": "ライセンス文書を読み込めませんでした。",
+        "openFailed": "ライセンスファイルのあるフォルダーを開けませんでした。"
       },
       "advanced": {
         "name": "高度な設定",

@@ -14,6 +14,7 @@ export const BurnInShiftOverrideCheckbox = () => {
     updateSettingAtom(
       "burnInShiftOptions",
       checked ? ({} as BurnInShiftOptions) : null,
+      "burnInShiftOptions.override",
     );
   };
 

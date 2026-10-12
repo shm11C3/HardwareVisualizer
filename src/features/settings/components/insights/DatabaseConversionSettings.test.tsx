@@ -291,7 +291,10 @@ describe("DatabaseConversionSettings", () => {
       );
     });
 
-    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(365);
+    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(
+      365,
+      "hardwareArchive.conversionNotice",
+    );
     expect(mockSetNoticeShown).toHaveBeenCalledWith(true);
     expect(mockAcknowledgeCompletion).toHaveBeenCalledTimes(1);
   });
@@ -312,7 +315,10 @@ describe("DatabaseConversionSettings", () => {
       );
     });
 
-    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(365);
+    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(
+      365,
+      "hardwareArchive.conversionNotice",
+    );
     expect(mockSetNoticeShown).not.toHaveBeenCalled();
     expect(mockAcknowledgeCompletion).not.toHaveBeenCalled();
     expect(

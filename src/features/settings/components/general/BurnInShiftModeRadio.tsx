@@ -21,7 +21,7 @@ export const BurnInShiftModeRadio = ({
       </Label>
       <RadioGroup
         className="mt-2 flex space-x-2"
-        defaultValue={settings.burnInShiftMode}
+        value={settings.burnInShiftMode}
         onValueChange={selectShiftMode}
       >
         <div className="flex items-center space-x-2">

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -36,7 +37,7 @@ export const LineChartTypeSelector = () => {
       </Label>
       <RadioGroup
         className="mt-4 flex items-center space-x-4"
-        defaultValue={settings.lineGraphType}
+        value={settings.lineGraphType}
         onValueChange={changeLineGraphType}
       >
         {lineGraphTypes.map((type) => {
@@ -56,6 +57,7 @@ export const LineChartTypeSelector = () => {
           );
         })}
       </RadioGroup>
+      <SettingWriteFailure actions="lineGraphType" />
     </div>
   );
 };

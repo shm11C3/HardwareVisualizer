@@ -19,7 +19,7 @@ src/
 │   ├── ui/                  # Radix/Tailwind primitives (shadcn, kebab-case files)
 │   ├── icons/               # Icon components
 │   ├── charts/              # Recharts wrappers
-│   └── *.tsx                # Shared components: BurnInShift, InfoTable, LoadFailure, NeedRestart
+│   └── *.tsx                # Shared components: ActionFailure, BurnInShift, InfoTable, LoadFailure, NeedRestart, SettingWriteFailure
 ├── features/                # Feature-owned UI, hooks, stores, and types
 │   ├── hardware/            # Dashboard, usage graphs, insights
 │   ├── settings/            # Settings screen and settings state

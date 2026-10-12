@@ -12,9 +12,6 @@ import { useKeydown } from "@/hooks/window/useInputListener";
 import { commands } from "@/rspc/bindings";
 
 // --- Mock definitions ---
-// Mock the error function from useTauriDialog
-const errorMock = vi.fn();
-
 // Mock returning [state, setState] as the return value of useTauriStore
 let storeValue = false;
 const setDecoratedMock = vi.fn((newVal: boolean) => {
@@ -22,12 +19,11 @@ const setDecoratedMock = vi.fn((newVal: boolean) => {
   return Promise.resolve();
 });
 
-// Mock useTauriDialog
-vi.mock("@/hooks/tauri/useTauriDialog", () => ({
-  useTauriDialog: () => ({
-    error: errorMock,
-  }),
-}));
+// F11 has no control to report under, so a failure is log-only: the hook must
+// not open a dialog.
+vi.mock("@/hooks/tauri/useTauriDialog", () => {
+  throw new Error("useKeydown must not open a dialog");
+});
 // Mock useTauriStore
 vi.mock("@/hooks/tauri/useTauriStore", () => ({
   useTauriStore: (_key: string, defaultValue: boolean) => {
@@ -39,7 +35,7 @@ vi.mock("@/hooks/tauri/useTauriStore", () => ({
 // Mock commands.setDecoration
 vi.mock("@/rspc/bindings", () => ({
   commands: {
-    setDecoration: vi.fn(() => Promise.resolve()),
+    setDecoration: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
   },
 }));
 
@@ -63,7 +59,6 @@ describe("useKeydown", () => {
   beforeEach(() => {
     // Reset initial state
     storeValue = false;
-    errorMock.mockReset();
     setDecoratedMock.mockReset();
     (commands.setDecoration as Mock).mockClear();
   });
@@ -93,7 +88,7 @@ describe("useKeydown", () => {
     expect(setDecoratedMock).not.toHaveBeenCalled();
   });
 
-  it("When commands.setDecoration throws an error, error handler and console.error are called", async () => {
+  it("When commands.setDecoration throws an error, it is logged and no dialog opens", async () => {
     // Configure commands.setDecoration to return an error
     const errorMessage = "Test error";
     (commands.setDecoration as Mock).mockImplementationOnce(() =>
@@ -107,13 +102,33 @@ describe("useKeydown", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "F11" }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // Verify that error mock and console.error were called
-    expect(errorMock).toHaveBeenCalled();
+    // Log-only: the dialog hook is mocked to throw if it were ever imported
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       "Failed to toggle window decoration:",
       expect.any(Error),
     );
 
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("When commands.setDecoration returns an error, it is logged and the stored decoration is left alone", async () => {
+    (commands.setDecoration as Mock).mockResolvedValueOnce({
+      status: "error",
+      error: "window gone",
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    render(<TestComponent />);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "F11" }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "Failed to toggle window decoration:",
+      "window gone",
+    );
+    expect(setDecoratedMock).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
 

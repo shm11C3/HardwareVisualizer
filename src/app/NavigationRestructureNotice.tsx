@@ -1,6 +1,7 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_DISPLAY_TARGET } from "@/features/menu/hooks/useMenu";
 import { useDisplayTargetSetter } from "@/hooks/navigation/useDisplayTargetSetter";
@@ -64,6 +65,7 @@ export const NavigationRestructureNotice = ({
         >
           {t("navigation.notice.openSettings")}
         </Button>
+        <SettingWriteFailure actions="uiAnnouncementVersion" />
       </div>
       <Button
         type="button"

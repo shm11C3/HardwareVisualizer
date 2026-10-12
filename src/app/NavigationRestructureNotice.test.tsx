@@ -18,6 +18,12 @@ vi.mock("jotai", async (importOriginal) => ({
   useAtomValue: () => mockMenuOpen,
 }));
 
+// The failure line reads its own atom; this file's `useAtomValue` stub answers
+// every read with the menu state, so the line is stubbed out here.
+vi.mock("@/components/SettingWriteFailure", () => ({
+  SettingWriteFailure: () => null,
+}));
+
 vi.mock("@/hooks/navigation/useDisplayTargetSetter", () => ({
   useDisplayTargetSetter: () => ({
     setDisplayTargetAtom: mockSetDisplayTargetAtom,

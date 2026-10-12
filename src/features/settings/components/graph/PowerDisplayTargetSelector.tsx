@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
+import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -29,6 +30,7 @@ export const PowerDisplayTargetSelector = () => {
           </div>
         );
       })}
+      <SettingWriteFailure actions="powerDisplayTargets" />
     </div>
   );
 };
