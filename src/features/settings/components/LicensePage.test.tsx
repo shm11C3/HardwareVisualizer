@@ -107,4 +107,38 @@ describe("LicensePage", () => {
       ),
     );
   });
+
+  it("tracks a failed open per tab: another tab neither shows nor clears it", async () => {
+    const user = userEvent.setup();
+    mocks.readLicenseFile.mockResolvedValue({
+      status: "ok",
+      data: "license body",
+    });
+    mocks.openLicenseFilePath
+      .mockResolvedValueOnce({ status: "error", error: "no file manager" })
+      .mockResolvedValueOnce({ status: "ok", data: null });
+
+    render(<LicensePage onBack={() => {}} />);
+    await screen.findByText("license body");
+
+    await user.click(screen.getByRole("button", { name: /explorer/i }));
+    expect(await screen.findByTestId("action-failure")).toBeInTheDocument();
+
+    // The other tab's button has not failed, so it shows no line ...
+    await user.click(screen.getByRole("tab", { name: "Third-Party Licenses" }));
+    await screen.findByText("third party text");
+    expect(screen.queryByTestId("action-failure")).toBeNull();
+
+    // ... and its success does not clear the first tab's failure.
+    await user.click(screen.getByRole("button", { name: /explorer/i }));
+    await waitFor(() =>
+      expect(mocks.openLicenseFilePath).toHaveBeenCalledTimes(2),
+    );
+    expect(screen.queryByTestId("action-failure")).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Application License" }));
+    expect(await screen.findByTestId("action-failure")).toHaveTextContent(
+      "Could not open the folder that contains the license files.",
+    );
+  });
 });

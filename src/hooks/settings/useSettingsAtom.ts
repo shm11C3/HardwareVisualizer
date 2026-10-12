@@ -1,5 +1,7 @@
 import { useAtom, useStore } from "jotai";
 import { useCallback } from "react";
+import { defaultColorRGB } from "@/consts/chart";
+import { RGB2HEX } from "@/lib/color";
 import {
   type ClientSettings,
   commands,
@@ -13,6 +15,7 @@ import {
   settingsWriteFailuresAtom,
 } from "@/store/settings";
 import type { ChartDataType } from "@/types/chart";
+import { chartHardwareTypes } from "@/types/chart";
 import type { Result } from "@/types/result";
 import { isError } from "@/types/result";
 
@@ -326,29 +329,70 @@ export const useSettingsAtom = () => {
   };
 
   /**
-   * Update color code
-   *
-   * @param key
-   * @param value Color code in hexadecimal format
-   * @param action the control that asked (a picker, or the reset button)
+   * Persists one line graph color and applies it only once saved, so a failed
+   * write leaves the previous color. Returns the backend error, or null.
    */
-  const updateLineGraphColorAtom = async (
+  const writeLineGraphColor = async (
     key: keyof LineGraphColorStringSettings,
     value: string,
-    action: SettingWriteAction = `lineGraphColor.${key}`,
-  ) => {
+  ): Promise<string | null> => {
     const result = await commands.setLineGraphColor(key, value);
 
     if (isError(result)) {
-      recordWriteFailure(action, result.error);
-      return;
+      return result.error;
     }
 
-    clearWriteFailure(action);
     setSettings((prev) => ({
       ...prev,
       lineGraphColor: { ...prev.lineGraphColor, [key]: result.data },
     }));
+    return null;
+  };
+
+  /**
+   * Update color code
+   *
+   * @param key
+   * @param value Color code in hexadecimal format
+   */
+  const updateLineGraphColorAtom = async (
+    key: keyof LineGraphColorStringSettings,
+    value: string,
+  ) => {
+    const action: SettingWriteAction = `lineGraphColor.${key}`;
+    const error = await writeLineGraphColor(key, value);
+
+    if (error !== null) {
+      recordWriteFailure(action, error);
+      return;
+    }
+
+    clearWriteFailure(action);
+  };
+
+  /**
+   * Restores every line graph color to its default as one operation. Each
+   * color keeps its own outcome (a failed write leaves that color as it was),
+   * and `lineGraphColor.reset` is recorded once from the aggregate: a failure
+   * if any write failed, cleared only if all succeeded.
+   *
+   * @returns whether every color was restored
+   */
+  const resetLineGraphColors = async () => {
+    const errors = await Promise.all(
+      chartHardwareTypes.map((type) =>
+        writeLineGraphColor(type, RGB2HEX(defaultColorRGB[type])),
+      ),
+    );
+    const failed = errors.find((error) => error !== null);
+
+    if (failed !== undefined) {
+      recordWriteFailure("lineGraphColor.reset", failed);
+      return false;
+    }
+
+    clearWriteFailure("lineGraphColor.reset");
+    return true;
   };
 
   const toggleHardwareArchiveAtom = async (value: boolean) => {
@@ -600,6 +644,7 @@ export const useSettingsAtom = () => {
     togglePowerDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,
+    resetLineGraphColors,
     toggleHardwareArchiveAtom,
     toggleSwitchbotMeterAtom,
     setSwitchbotMeterDevice,

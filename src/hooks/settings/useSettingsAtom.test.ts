@@ -286,6 +286,59 @@ describe("useSettingsAtom", () => {
     );
   });
 
+  it("resetLineGraphColors: one failing write records the reset failure and it stays", async () => {
+    (commands.setLineGraphColor as Mock).mockImplementation(
+      async (key: string) =>
+        key === "memory"
+          ? { status: "error", error: "memory color failed" }
+          : { status: "ok", data: "rgb(1, 2, 3)" },
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    const initialMemory = result.current.settings.lineGraphColor.memory;
+    let reset = true;
+    await act(async () => {
+      reset = await result.current.resetLineGraphColors();
+    });
+
+    expect(reset).toBe(false);
+    expect(result.current.failures).toEqual(
+      new Map([["lineGraphColor.reset", "memory color failed"]]),
+    );
+    // The failed color keeps its previous value; the others were restored.
+    expect(result.current.settings.lineGraphColor.memory).toBe(initialMemory);
+    expect(result.current.settings.lineGraphColor.cpu).toBe("rgb(1, 2, 3)");
+  });
+
+  it("resetLineGraphColors: the failure clears only once every write succeeds", async () => {
+    (commands.setLineGraphColor as Mock).mockImplementation(
+      async (key: string) =>
+        key === "memory"
+          ? { status: "error", error: "memory color failed" }
+          : { status: "ok", data: "rgb(1, 2, 3)" },
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderSettings();
+    await act(async () => {
+      await result.current.resetLineGraphColors();
+    });
+    expect(result.current.failures.has("lineGraphColor.reset")).toBe(true);
+
+    (commands.setLineGraphColor as Mock).mockImplementation(async () => ({
+      status: "ok",
+      data: "rgb(1, 2, 3)",
+    }));
+    let reset = false;
+    await act(async () => {
+      reset = await result.current.resetLineGraphColors();
+    });
+
+    expect(reset).toBe(true);
+    expect(result.current.failures.size).toBe(0);
+  });
+
   it("logs the backend detail for support", async () => {
     (commands.setTheme as Mock).mockResolvedValue({
       status: "error",

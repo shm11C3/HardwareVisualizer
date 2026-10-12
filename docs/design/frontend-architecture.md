@@ -225,9 +225,11 @@ Rules that follow from the axes:
 - A shared hook that several components use (`useBackgroundImage`) returns the
   failure as state, and the component that owns the control renders it.
 - A flow that is already a modal dialog keeps the native dialog: the startup
-  dialogs and `FullScreenExit` in `src/app/`, and the backend `error_event`
-  listener (`useTauriEventListener.ts`). These are the only places that may
-  import `useTauriDialog`.
+  dialogs and `FullScreenExit` in `src/app/`, which are the only places that
+  may import `useTauriDialog`. The one other dialog site is the backend
+  `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` (the
+  app-cannot-continue tier); it uses the dialog plugin directly, not
+  `useTauriDialog`.
 
 Enforcement: no layer outside `src/app/**` may import `useTauriDialog`
 (`noRestrictedImports` in every layer override and the `src/main*.tsx` entry-point override; `useTauriEventListener.ts`

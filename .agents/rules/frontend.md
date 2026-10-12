@@ -16,7 +16,9 @@ Follow `src/AGENTS.md` and `docs/design-principles.md`.
   `hasError` and `retry`, the panel renders the shared failure component, and
   secondary lanes log only. Report a failed user action as one translated
   `ActionFailure` line under the control that was used. Only `src/app/**`
-  (already-modal flows) may import `useTauriDialog` (lint). See the Failure
+  (already-modal flows) may import `useTauriDialog` (lint); the backend
+  `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` is the
+  one other dialog site and uses the dialog plugin directly. See the Failure
   Reporting section of `docs/design/frontend-architecture.md`.
 - Keep high-frequency updates from rerendering unrelated subtrees; add a focused
   regression test when changing fan-out.

@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { commands } from "@/rspc/bindings";
 import { isError, isOk } from "@/types/result";
 
+type LicenseTab = "license" | "thirdParty";
+
 interface LicensePageProps {
   onBack: () => void;
 }
@@ -20,20 +22,27 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [licenseFailed, setLicenseFailed] = useState(false);
   const [thirdPartyFailed, setThirdPartyFailed] = useState(false);
-  const [openFailed, setOpenFailed] = useState(false);
+  // Per tab: each "Show in explorer" button owns its own failure line.
+  const [openFailed, setOpenFailed] = useState<Record<LicenseTab, boolean>>({
+    license: false,
+    thirdParty: false,
+  });
 
   // Open the directory where files exist
-  const openLicenseInExplorer = async () => {
-    setOpenFailed(false);
+  const openLicenseInExplorer = async (tab: LicenseTab) => {
+    const setFailed = (failed: boolean) =>
+      setOpenFailed((current) => ({ ...current, [tab]: failed }));
+
+    setFailed(false);
     try {
       const result = await commands.openLicenseFilePath();
       if (isError(result)) {
         console.error("Failed to open LICENSE file in explorer:", result.error);
-        setOpenFailed(true);
+        setFailed(true);
       }
     } catch (e) {
       console.error("Failed to open LICENSE file in explorer:", e);
-      setOpenFailed(true);
+      setFailed(true);
     }
   };
 
@@ -144,14 +153,14 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={openLicenseInExplorer}
+                  onClick={() => void openLicenseInExplorer("license")}
                   className="gap-2"
                 >
                   <ExternalLink size={16} />
                   {t("shared.showInExplorer")}
                 </Button>
               </div>
-              {openFailed && (
+              {openFailed.license && (
                 <ActionFailure
                   message={t("pages.settings.license.openFailed")}
                   className="border-b px-4 py-2"
@@ -172,14 +181,14 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={openLicenseInExplorer}
+                  onClick={() => void openLicenseInExplorer("thirdParty")}
                   className="gap-2"
                 >
                   <ExternalLink size={16} />
                   {t("shared.showInExplorer")}
                 </Button>
               </div>
-              {openFailed && (
+              {openFailed.thirdParty && (
                 <ActionFailure
                   message={t("pages.settings.license.openFailed")}
                   className="border-b px-4 py-2"
