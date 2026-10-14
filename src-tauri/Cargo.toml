@@ -87,7 +87,7 @@ webview2-com = "0.39.1"
 # Keep this aligned with webview2-com; its COM interfaces implement this
 # windows-core version's Interface trait. A mismatch fails to compile with
 # "no method named `cast`".
-windows-core = "0.62"
+windows-core = "0.100"
 winapi = { version = "0.3", features = ["dxgi", "setupapi", "devguid"] }
 windows = { version = "0.62.2", features = [
     "Data_Xml_Dom",
