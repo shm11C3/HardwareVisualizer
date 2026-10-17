@@ -21,6 +21,7 @@
 //!   fully written sibling over it, after its contents were checked again.
 //! - Enumeration failures are reported as unknown state, never as absence.
 
+use std::borrow::Cow;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{Cursor, Read, Write};
@@ -859,7 +860,16 @@ fn update_module_files(
     .copied()
     .chain(outdated.iter().map(|(file, _)| file.file_name))
     .collect::<Vec<_>>();
-  let entry_names = archive.file_names().map(str::to_string).collect::<Vec<_>>();
+  let entry_names = archive
+    .file_names()
+    .map(|name| name.map(Cow::into_owned))
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| {
+      (
+        SetupFailureStage::ArchiveContents,
+        format!("failed to list {}: {e}", bundle.artifact.file_name),
+      )
+    })?;
   let selected = select_bundle_entries(&entry_names, &needed);
   if selected.len() != needed.len() {
     let found = selected
