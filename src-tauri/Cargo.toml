@@ -45,7 +45,7 @@ sys-locale = "0.3.2"
 tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
 specta-typescript = "0.0.11"
 specta = "=2.0.0-rc.24"
-tauri-plugin-shell = "2.4.1"
+tauri-plugin-shell = "2.5.0"
 sqlx = { version = "0.8.6", features = [
     "sqlite",
     "runtime-tokio-rustls",
