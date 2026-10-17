@@ -1,5 +1,5 @@
 import { Channel } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   commands,
   type DownloadEvent,
@@ -13,6 +13,13 @@ type UpdateMeta = {
   notes?: string | null;
   pubDate?: string | null;
 };
+
+/**
+ * How often a running app looks for a newer release. The app can stay resident
+ * in the tray for days, so a startup-only check would leave it on an old
+ * version until the next launch.
+ */
+export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 export type UpdateInstallError =
   | { kind: "before-shutdown"; message: string }
@@ -37,12 +44,28 @@ function installErrorFrom(error: UpdaterError): UpdateInstallError {
   };
 }
 
+/**
+ * Keep the current meta while the recheck finds the same version: a new object
+ * would reopen the update modal the user already postponed with "Later".
+ */
+function nextMeta(
+  current: UpdateMeta | null,
+  fetched: UpdateMeta | null,
+): UpdateMeta | null {
+  return current && fetched && current.version === fetched.version
+    ? current
+    : fetched;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 export function useUpdater() {
   const [meta, setMeta] = useState<UpdateMeta | null>(null);
+  // install_update consumes the pending update; a concurrent check must not
+  // replace it or reopen the modal mid-install.
+  const installStartedRef = useRef(false);
 
   const [installing, setInstalling] = useState(false);
   const [downloaded, setDownloaded] = useState<bigint>(0n);
@@ -61,15 +84,21 @@ export function useUpdater() {
   }, [downloaded, total]);
 
   useEffect(() => {
-    (async () => {
+    const check = async () => {
+      if (installStartedRef.current) return;
       const res = await commands.fetchUpdate();
       if (isOk(res)) {
-        setMeta(res.data);
+        setMeta((current) => nextMeta(current, res.data));
       }
-    })();
+    };
+
+    void check();
+    const intervalId = window.setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   const install = async () => {
+    installStartedRef.current = true;
     setInstalling(true);
     setDownloaded(0n);
     setTotal(null);
@@ -118,6 +147,7 @@ export function useUpdater() {
       setInstallError(failure);
 
       if (failure.kind === "before-shutdown") {
+        installStartedRef.current = false;
         // install_update consumes PendingUpdate before downloading. Recheck
         // after a download failure so the update button can retry with a new
         // pending value, without restarting an app whose workers are running.
@@ -132,12 +162,11 @@ export function useUpdater() {
       }
     } catch (error) {
       const message = errorMessage(error);
+      const kind = downloadCompleted ? "restart-required" : "before-shutdown";
+      installStartedRef.current = kind === "restart-required";
       setInstalling(false);
       setIsFinished(false);
-      setInstallError({
-        kind: downloadCompleted ? "restart-required" : "before-shutdown",
-        message,
-      });
+      setInstallError({ kind, message });
     }
   };
 

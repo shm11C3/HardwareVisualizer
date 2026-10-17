@@ -1,5 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({
   Channel: class Channel<T> {
@@ -15,7 +23,10 @@ vi.mock("@/rspc/bindings", () => ({
   },
 }));
 
-import { useUpdater } from "@/features/updater/hooks/useAppUpdate";
+import {
+  UPDATE_CHECK_INTERVAL_MS,
+  useUpdater,
+} from "@/features/updater/hooks/useAppUpdate";
 import { commands } from "@/rspc/bindings";
 
 type TestDownloadEvent =
@@ -256,5 +267,111 @@ describe("useUpdater", () => {
     });
 
     expect(result.current.meta).toBeNull();
+  });
+
+  describe("periodic check", () => {
+    const update = (version: string) => ({
+      status: "ok",
+      data: { version, currentVersion: "1.0.0", notes: null, pubDate: null },
+    });
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const advanceOneInterval = async () => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(UPDATE_CHECK_INTERVAL_MS);
+      });
+    };
+
+    it("finds a release published after startup", async () => {
+      (commands.fetchUpdate as Mock)
+        .mockResolvedValueOnce({ status: "ok", data: null })
+        .mockResolvedValueOnce(update("2.0.0"));
+
+      const { result } = renderHook(() => useUpdater());
+      await act(async () => {});
+      expect(result.current.meta).toBeNull();
+
+      await advanceOneInterval();
+
+      expect(commands.fetchUpdate).toHaveBeenCalledTimes(2);
+      expect(result.current.meta?.version).toBe("2.0.0");
+    });
+
+    it("keeps the same meta when the recheck finds the same version", async () => {
+      // A new object would reopen a modal the user already postponed.
+      (commands.fetchUpdate as Mock)
+        .mockResolvedValueOnce(update("2.0.0"))
+        .mockResolvedValueOnce(update("2.0.0"));
+
+      const { result } = renderHook(() => useUpdater());
+      await act(async () => {});
+      const first = result.current.meta;
+
+      await advanceOneInterval();
+
+      expect(commands.fetchUpdate).toHaveBeenCalledTimes(2);
+      expect(result.current.meta).toBe(first);
+    });
+
+    it("replaces the meta when a newer version is published", async () => {
+      (commands.fetchUpdate as Mock)
+        .mockResolvedValueOnce(update("2.0.0"))
+        .mockResolvedValueOnce(update("2.1.0"));
+
+      const { result } = renderHook(() => useUpdater());
+      await act(async () => {});
+
+      await advanceOneInterval();
+
+      expect(result.current.meta?.version).toBe("2.1.0");
+    });
+
+    it("keeps the known update when a recheck fails", async () => {
+      (commands.fetchUpdate as Mock)
+        .mockResolvedValueOnce(update("2.0.0"))
+        .mockResolvedValueOnce({
+          status: "error",
+          error: { Updater: "offline" },
+        });
+
+      const { result } = renderHook(() => useUpdater());
+      await act(async () => {});
+
+      await advanceOneInterval();
+
+      expect(result.current.meta?.version).toBe("2.0.0");
+    });
+
+    it("does not recheck while an install is in progress", async () => {
+      (commands.fetchUpdate as Mock).mockResolvedValue(update("2.0.0"));
+      (commands.installUpdate as Mock).mockReturnValue(new Promise(() => {}));
+
+      const { result } = renderHook(() => useUpdater());
+      await act(async () => {});
+      act(() => {
+        void result.current.install();
+      });
+
+      await advanceOneInterval();
+
+      expect(commands.fetchUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops checking after unmount", async () => {
+      const { unmount } = renderHook(() => useUpdater());
+      await act(async () => {});
+      unmount();
+
+      await advanceOneInterval();
+
+      expect(commands.fetchUpdate).toHaveBeenCalledTimes(1);
+    });
   });
 });
