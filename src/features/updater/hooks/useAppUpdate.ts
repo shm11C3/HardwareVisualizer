@@ -1,5 +1,9 @@
 import { Channel } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useAvailableUpdate,
+  useUpdateDialog,
+} from "@/hooks/updater/useAppUpdateState";
 import {
   commands,
   type DownloadEvent,
@@ -7,12 +11,13 @@ import {
 } from "@/rspc/bindings";
 import { isOk } from "@/types/result";
 
-type UpdateMeta = {
-  version: string;
-  currentVersion: string;
-  notes?: string | null;
-  pubDate?: string | null;
-};
+/**
+ * How often a running app looks for a newer release. The app can stay resident
+ * in the tray for days, so a startup-only check would leave it on an old
+ * version until the next launch. Only the startup check opens the update
+ * dialog; a later one updates the side menu entry so it does not interrupt.
+ */
+export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 export type UpdateInstallError =
   | { kind: "before-shutdown"; message: string }
@@ -42,7 +47,26 @@ function errorMessage(error: unknown): string {
 }
 
 export function useUpdater() {
-  const [meta, setMeta] = useState<UpdateMeta | null>(null);
+  const {
+    availableUpdate: meta,
+    setAvailableUpdate: setMeta,
+    setInstallStarted,
+  } = useAvailableUpdate();
+  const { setUpdateDialogOpen } = useUpdateDialog();
+  // install_update consumes the pending update; a concurrent check must not
+  // replace it mid-install. The ref is what an in-flight check can still read.
+  const installStartedRef = useRef(false);
+  // Bumped when an install starts, so a check that began earlier cannot apply
+  // its result after the install fails and the recovery refresh has run.
+  const checkGenerationRef = useRef(0);
+  const markInstallStarted = useCallback(
+    (started: boolean) => {
+      installStartedRef.current = started;
+      if (started) checkGenerationRef.current += 1;
+      setInstallStarted(started);
+    },
+    [setInstallStarted],
+  );
 
   const [installing, setInstalling] = useState(false);
   const [downloaded, setDownloaded] = useState<bigint>(0n);
@@ -61,15 +85,28 @@ export function useUpdater() {
   }, [downloaded, total]);
 
   useEffect(() => {
-    (async () => {
+    const check = async (openDialog: boolean) => {
+      if (installStartedRef.current) return;
+      const generation = checkGenerationRef.current;
       const res = await commands.fetchUpdate();
+      // An install started while this check was in flight.
+      if (generation !== checkGenerationRef.current) return;
       if (isOk(res)) {
         setMeta(res.data);
+        if (openDialog && res.data) setUpdateDialogOpen(true);
       }
-    })();
-  }, []);
+    };
+
+    void check(true);
+    const intervalId = window.setInterval(
+      () => check(false),
+      UPDATE_CHECK_INTERVAL_MS,
+    );
+    return () => window.clearInterval(intervalId);
+  }, [setMeta, setUpdateDialogOpen]);
 
   const install = async () => {
+    markInstallStarted(true);
     setInstalling(true);
     setDownloaded(0n);
     setTotal(null);
@@ -118,6 +155,7 @@ export function useUpdater() {
       setInstallError(failure);
 
       if (failure.kind === "before-shutdown") {
+        markInstallStarted(false);
         // install_update consumes PendingUpdate before downloading. Recheck
         // after a download failure so the update button can retry with a new
         // pending value, without restarting an app whose workers are running.
@@ -132,12 +170,11 @@ export function useUpdater() {
       }
     } catch (error) {
       const message = errorMessage(error);
+      const kind = downloadCompleted ? "restart-required" : "before-shutdown";
+      markInstallStarted(kind === "restart-required");
       setInstalling(false);
       setIsFinished(false);
-      setInstallError({
-        kind: downloadCompleted ? "restart-required" : "before-shutdown",
-        message,
-      });
+      setInstallError({ kind, message });
     }
   };
 

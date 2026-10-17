@@ -1,4 +1,5 @@
 import {
+  ArrowCircleUpIcon,
   CaretDoubleLeftIcon,
   CaretDoubleRightIcon,
   ChartLineIcon,
@@ -11,6 +12,7 @@ import {
 import { type JSX, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { useUpdateIndicator } from "@/hooks/updater/useAppUpdateState";
 import { cn } from "@/lib/utils";
 import type { NavigationLayout } from "@/rspc/bindings";
 import type { SelectedDisplayType } from "@/types/ui";
@@ -197,6 +199,39 @@ const ClosedSideMenu = ({
   );
 };
 
+/**
+ * Offers an update found while the app was running. Only the startup check
+ * opens the update dialog by itself; this entry opens it on demand.
+ */
+const UpdateAvailableItem = ({ compact }: { compact: boolean }) => {
+  const { t } = useTranslation();
+  const { version, openUpdateDialog } = useUpdateIndicator();
+
+  if (!version) return null;
+
+  const label = t("pages.updater.available", { version });
+
+  return (
+    <ul className="absolute bottom-14 w-full px-3 pb-2">
+      <li>
+        <button
+          type="button"
+          className={cn(
+            "flex w-full cursor-pointer items-center rounded-lg bg-primary/5 p-2 text-left text-primary transition-colors hover:bg-primary/30",
+            compact && "justify-center",
+          )}
+          onClick={openUpdateDialog}
+          aria-label={compact ? label : undefined}
+          title={compact ? label : undefined}
+        >
+          <ArrowCircleUpIcon size={compact ? 24 : 20} weight="fill" />
+          {!compact && <span className="ml-1 text-sm">{label}</span>}
+        </button>
+      </li>
+    </ul>
+  );
+};
+
 export const SideMenu = memo(
   ({
     isFullScreen,
@@ -264,6 +299,7 @@ export const SideMenu = memo(
                     />
                   ))}
                 </ul>
+                <UpdateAvailableItem compact={false} />
                 <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
                   <MenuItem
                     type="settings"
@@ -292,6 +328,7 @@ export const SideMenu = memo(
                       />
                     ))}
                   </ul>
+                  <UpdateAvailableItem compact />
                   <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
                     <ClosedSideMenu
                       type="settings"

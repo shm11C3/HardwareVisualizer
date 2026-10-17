@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useUpdateDialog } from "@/hooks/updater/useAppUpdateState";
 import { UpdateTopBar } from "./components/UpdateBar";
 import { useUpdater } from "./hooks/useAppUpdate";
 
@@ -74,13 +75,16 @@ function AppUpdateModal({
   errorMessage: string | null;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const { isUpdateDialogOpen: open, setUpdateDialogOpen: setOpen } =
+    useUpdateDialog();
 
+  // The updater opens the dialog for the startup check and the side menu for
+  // a later one; a failed install reopens it so the error stays visible.
   useEffect(() => {
-    if (meta || errorMessage) {
+    if (errorMessage) {
       setOpen(true);
     }
-  }, [meta, errorMessage]);
+  }, [errorMessage, setOpen]);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>

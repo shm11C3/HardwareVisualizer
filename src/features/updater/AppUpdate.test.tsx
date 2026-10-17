@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock useUpdater
@@ -57,6 +58,17 @@ vi.mock("./components/UpdateBar", () => ({
 }));
 
 import { AppUpdate } from "@/features/updater/AppUpdate";
+import { updateDialogOpenAtom } from "@/store/appUpdate";
+
+const renderAppUpdate = ({ dialogOpen = false } = {}) => {
+  const store = createStore();
+  store.set(updateDialogOpenAtom, dialogOpen);
+  return render(
+    <Provider store={store}>
+      <AppUpdate />
+    </Provider>,
+  );
+};
 
 describe("AppUpdate", () => {
   beforeEach(() => {
@@ -77,7 +89,7 @@ describe("AppUpdate", () => {
   });
 
   it("should not display modal when meta is null", () => {
-    render(<AppUpdate />);
+    renderAppUpdate();
     expect(screen.queryByText("Update Available")).not.toBeInTheDocument();
   });
 
@@ -97,11 +109,33 @@ describe("AppUpdate", () => {
       isFinished: false,
     });
 
-    render(<AppUpdate />);
+    renderAppUpdate({ dialogOpen: true });
 
     expect(screen.getByText("Update Available")).toBeInTheDocument();
     expect(screen.getByText("Version 2.0.0 is available")).toBeInTheDocument();
     expect(screen.getByText("Current: 1.0.0")).toBeInTheDocument();
+  });
+
+  it("does not open the modal by itself when an update is known", () => {
+    // Updates found after startup are offered in the side menu instead.
+    mockUseUpdater.mockReturnValue({
+      meta: {
+        version: "2.0.0",
+        currentVersion: "1.0.0",
+        notes: null,
+        pubDate: null,
+      },
+      installing: false,
+      percent: null,
+      downloaded: 0n,
+      total: null,
+      install: mockInstall,
+      isFinished: false,
+    });
+
+    renderAppUpdate();
+
+    expect(screen.queryByText("Update Available")).not.toBeInTheDocument();
   });
 
   it("should display UpdateTopBar when installing and percent is not null", () => {
@@ -115,7 +149,7 @@ describe("AppUpdate", () => {
       isFinished: false,
     });
 
-    render(<AppUpdate />);
+    renderAppUpdate();
 
     expect(screen.getByTestId("update-top-bar")).toBeInTheDocument();
     expect(screen.getByText("Progress: 50%")).toBeInTheDocument();
@@ -133,7 +167,7 @@ describe("AppUpdate", () => {
       isFinished: true,
     });
 
-    render(<AppUpdate />);
+    renderAppUpdate();
 
     expect(
       screen.getByText("Please restart to complete the update"),
@@ -160,7 +194,7 @@ describe("AppUpdate", () => {
       installError: { kind: "before-shutdown", message: "network failure" },
     });
 
-    render(<AppUpdate />);
+    renderAppUpdate();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Update failed: network failure",
@@ -185,7 +219,7 @@ describe("AppUpdate", () => {
       },
     });
 
-    render(<AppUpdate />);
+    renderAppUpdate();
 
     expect(
       screen.getByText("Restart to restore the app: installer handoff failed"),
@@ -214,7 +248,7 @@ describe("AppUpdate", () => {
       isFinished: false,
     });
 
-    render(<AppUpdate />);
+    renderAppUpdate({ dialogOpen: true });
 
     expect(screen.getByText("Update Available")).toBeInTheDocument();
 
@@ -243,7 +277,7 @@ describe("AppUpdate", () => {
       isFinished: false,
     });
 
-    render(<AppUpdate />);
+    renderAppUpdate({ dialogOpen: true });
 
     const updateButton = screen.getByRole("button", {
       name: "Update and Restart",
