@@ -56,9 +56,13 @@ export function useUpdater() {
   // install_update consumes the pending update; a concurrent check must not
   // replace it mid-install. The ref is what an in-flight check can still read.
   const installStartedRef = useRef(false);
+  // Bumped when an install starts, so a check that began earlier cannot apply
+  // its result after the install fails and the recovery refresh has run.
+  const checkGenerationRef = useRef(0);
   const markInstallStarted = useCallback(
     (started: boolean) => {
       installStartedRef.current = started;
+      if (started) checkGenerationRef.current += 1;
       setInstallStarted(started);
     },
     [setInstallStarted],
@@ -83,9 +87,10 @@ export function useUpdater() {
   useEffect(() => {
     const check = async (openDialog: boolean) => {
       if (installStartedRef.current) return;
+      const generation = checkGenerationRef.current;
       const res = await commands.fetchUpdate();
-      // The install may have started while this check was in flight.
-      if (installStartedRef.current) return;
+      // An install started while this check was in flight.
+      if (generation !== checkGenerationRef.current) return;
       if (isOk(res)) {
         setMeta(res.data);
         if (openDialog && res.data) setUpdateDialogOpen(true);

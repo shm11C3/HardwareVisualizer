@@ -425,6 +425,37 @@ describe("useUpdater", () => {
       expect(result.current.meta?.version).toBe("2.0.0");
     });
 
+    it("ignores a check that started before a failed install", async () => {
+      let resolveStaleCheck: (value: unknown) => void = () => {};
+      (commands.fetchUpdate as Mock)
+        .mockResolvedValueOnce(update("2.0.0"))
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveStaleCheck = resolve;
+          }),
+        )
+        // The recovery refresh after the download failure.
+        .mockResolvedValueOnce(update("2.1.0"));
+      (commands.installUpdate as Mock).mockResolvedValue({
+        status: "error",
+        error: { Updater: "network failure" },
+      });
+
+      const { result } = renderUpdater();
+      await act(async () => {});
+      await advanceOneInterval();
+      await act(async () => {
+        await result.current.install();
+      });
+      expect(result.current.meta?.version).toBe("2.1.0");
+
+      await act(async () => {
+        resolveStaleCheck(update("2.0.0"));
+      });
+
+      expect(result.current.meta?.version).toBe("2.1.0");
+    });
+
     it("stops checking after unmount", async () => {
       const { unmount } = renderUpdater();
       await act(async () => {});
