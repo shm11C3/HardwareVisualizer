@@ -87,6 +87,8 @@ export function useUpdater() {
     const check = async () => {
       if (installStartedRef.current) return;
       const res = await commands.fetchUpdate();
+      // The install may have started while this check was in flight.
+      if (installStartedRef.current) return;
       if (isOk(res)) {
         setMeta((current) => nextMeta(current, res.data));
       }

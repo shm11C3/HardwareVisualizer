@@ -364,6 +364,32 @@ describe("useUpdater", () => {
       expect(commands.fetchUpdate).toHaveBeenCalledTimes(1);
     });
 
+    it("ignores a check that resolves after an install started", async () => {
+      let resolveRecheck: (value: unknown) => void = () => {};
+      (commands.fetchUpdate as Mock)
+        .mockResolvedValueOnce(update("2.0.0"))
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveRecheck = resolve;
+          }),
+        );
+      (commands.installUpdate as Mock).mockReturnValue(new Promise(() => {}));
+
+      const { result } = renderHook(() => useUpdater());
+      await act(async () => {});
+      await advanceOneInterval();
+      act(() => {
+        void result.current.install();
+      });
+
+      await act(async () => {
+        resolveRecheck(update("2.1.0"));
+      });
+
+      expect(commands.fetchUpdate).toHaveBeenCalledTimes(2);
+      expect(result.current.meta?.version).toBe("2.0.0");
+    });
+
     it("stops checking after unmount", async () => {
       const { unmount } = renderHook(() => useUpdater());
       await act(async () => {});
