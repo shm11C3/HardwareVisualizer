@@ -86,9 +86,17 @@ reason = "unic-ucd-version - unmaintained; transitive dep of Tauri runtime, no f
 id = "RUSTSEC-2024-0429"
 reason = "glib VariantStrIter unsoundness - pulled by Tauri runtime for Linux GTK3; not used directly in this project"
 
-[[PackageOverrides]]
-name = "zip"
-version = "4.6.1"
-ecosystem = "crates.io"
-vulnerability.ignore = true
-reason = "RUSTSEC-2026-0367/0368/0369 - zip 4.x is pulled only by tauri-plugin-updater, which calls ZipArchive::extract on Windows only and only after the update signature is verified against the bundled public key; the fix (zip 9) is not available upstream in the 2.x updater"
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0367"
+ignoreUntil = 2027-01-18
+reason = "zip SUID/SGID bits preserved during extraction - zip 4.6.1 is pulled only by tauri-plugin-updater (2.x still requires zip ^4), which calls ZipArchive::extract on Windows only and only after the update signature is verified against the bundled public key. Re-evaluate when the updater moves to zip >= 9."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0368"
+ignoreUntil = 2027-01-18
+reason = "zip symlink targets outside the destination - zip 4.6.1 is pulled only by tauri-plugin-updater (2.x still requires zip ^4), which calls ZipArchive::extract on Windows only and only after the update signature is verified against the bundled public key. Re-evaluate when the updater moves to zip >= 9."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0369"
+ignoreUntil = 2027-01-18
+reason = "zip Unix permissions applied through symlinks - zip 4.6.1 is pulled only by tauri-plugin-updater (2.x still requires zip ^4), which calls ZipArchive::extract on Windows only and only after the update signature is verified against the bundled public key. Re-evaluate when the updater moves to zip >= 9."
