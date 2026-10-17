@@ -72,6 +72,11 @@ updates:
       - dependency-name: "tauri-specta"
       # Keep aligned with Tauri's dependency; a second semver-incompatible copy duplicates macOS Objective-C symbols under release LTO.
       - dependency-name: "window-vibrancy"
+      # Keep aligned with webview2-com (windows-core ^0.62); its COM interfaces implement only that version's Interface trait, so a newer 0.x fails to compile with "no method named `cast`".
+      - dependency-name: "windows-core"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
 
   - package-ecosystem: "rust-toolchain"
     directory: "/"
