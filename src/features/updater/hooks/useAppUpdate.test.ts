@@ -1,4 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
+import { createElement, type ReactNode } from "react";
 import {
   afterEach,
   beforeEach,
@@ -28,6 +30,18 @@ import {
   useUpdater,
 } from "@/features/updater/hooks/useAppUpdate";
 import { commands } from "@/rspc/bindings";
+import {
+  updateDialogOpenAtom,
+  updateIndicatorVersionAtom,
+} from "@/store/appUpdate";
+
+let store = createStore();
+
+const renderUpdater = () =>
+  renderHook(() => useUpdater(), {
+    wrapper: ({ children }: { children: ReactNode }) =>
+      createElement(Provider, { store }, children),
+  });
 
 type TestDownloadEvent =
   | { event: "started"; data: { contentLength: string } }
@@ -41,6 +55,7 @@ type TestChannel = {
 describe("useUpdater", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    store = createStore();
     (commands.fetchUpdate as Mock).mockResolvedValue({
       status: "ok",
       data: null,
@@ -65,7 +80,7 @@ describe("useUpdater", () => {
       data: meta,
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await waitFor(() => result.current.meta?.version === "2.0.0");
@@ -108,7 +123,7 @@ describe("useUpdater", () => {
       return { status: "ok", data: null };
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await result.current.install();
@@ -141,7 +156,7 @@ describe("useUpdater", () => {
       },
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await result.current.install();
@@ -163,7 +178,7 @@ describe("useUpdater", () => {
       error: { RestartRequired: "installer handoff failed" },
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await result.current.install();
@@ -188,7 +203,7 @@ describe("useUpdater", () => {
       };
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await result.current.install();
@@ -203,7 +218,7 @@ describe("useUpdater", () => {
   });
 
   it("percent: null when total is null", () => {
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
     expect(result.current.total).toBeNull();
     expect(result.current.percent).toBeNull();
   });
@@ -217,7 +232,7 @@ describe("useUpdater", () => {
       return { status: "ok", data: null };
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await result.current.install();
@@ -242,7 +257,7 @@ describe("useUpdater", () => {
       return { status: "ok", data: null };
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await result.current.install();
@@ -260,7 +275,7 @@ describe("useUpdater", () => {
       error: "network failure",
     });
 
-    const { result } = renderHook(() => useUpdater());
+    const { result } = renderUpdater();
 
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -294,7 +309,7 @@ describe("useUpdater", () => {
         .mockResolvedValueOnce({ status: "ok", data: null })
         .mockResolvedValueOnce(update("2.0.0"));
 
-      const { result } = renderHook(() => useUpdater());
+      const { result } = renderUpdater();
       await act(async () => {});
       expect(result.current.meta).toBeNull();
 
@@ -304,20 +319,40 @@ describe("useUpdater", () => {
       expect(result.current.meta?.version).toBe("2.0.0");
     });
 
-    it("keeps the same meta when the recheck finds the same version", async () => {
-      // A new object would reopen a modal the user already postponed.
+    it("opens the update dialog for an update found at startup", async () => {
+      (commands.fetchUpdate as Mock).mockResolvedValueOnce(update("2.0.0"));
+
+      renderUpdater();
+      await act(async () => {});
+
+      expect(store.get(updateDialogOpenAtom)).toBe(true);
+      expect(store.get(updateIndicatorVersionAtom)).toBe("2.0.0");
+    });
+
+    it("offers a later update in the side menu without opening the dialog", async () => {
       (commands.fetchUpdate as Mock)
-        .mockResolvedValueOnce(update("2.0.0"))
+        .mockResolvedValueOnce({ status: "ok", data: null })
         .mockResolvedValueOnce(update("2.0.0"));
 
-      const { result } = renderHook(() => useUpdater());
+      renderUpdater();
       await act(async () => {});
-      const first = result.current.meta;
-
       await advanceOneInterval();
 
-      expect(commands.fetchUpdate).toHaveBeenCalledTimes(2);
-      expect(result.current.meta).toBe(first);
+      expect(store.get(updateDialogOpenAtom)).toBe(false);
+      expect(store.get(updateIndicatorVersionAtom)).toBe("2.0.0");
+    });
+
+    it("hides the side menu entry once an install starts", async () => {
+      (commands.fetchUpdate as Mock).mockResolvedValue(update("2.0.0"));
+      (commands.installUpdate as Mock).mockReturnValue(new Promise(() => {}));
+
+      const { result } = renderUpdater();
+      await act(async () => {});
+      act(() => {
+        void result.current.install();
+      });
+
+      expect(store.get(updateIndicatorVersionAtom)).toBeNull();
     });
 
     it("replaces the meta when a newer version is published", async () => {
@@ -325,7 +360,7 @@ describe("useUpdater", () => {
         .mockResolvedValueOnce(update("2.0.0"))
         .mockResolvedValueOnce(update("2.1.0"));
 
-      const { result } = renderHook(() => useUpdater());
+      const { result } = renderUpdater();
       await act(async () => {});
 
       await advanceOneInterval();
@@ -341,7 +376,7 @@ describe("useUpdater", () => {
           error: { Updater: "offline" },
         });
 
-      const { result } = renderHook(() => useUpdater());
+      const { result } = renderUpdater();
       await act(async () => {});
 
       await advanceOneInterval();
@@ -353,7 +388,7 @@ describe("useUpdater", () => {
       (commands.fetchUpdate as Mock).mockResolvedValue(update("2.0.0"));
       (commands.installUpdate as Mock).mockReturnValue(new Promise(() => {}));
 
-      const { result } = renderHook(() => useUpdater());
+      const { result } = renderUpdater();
       await act(async () => {});
       act(() => {
         void result.current.install();
@@ -375,7 +410,7 @@ describe("useUpdater", () => {
         );
       (commands.installUpdate as Mock).mockReturnValue(new Promise(() => {}));
 
-      const { result } = renderHook(() => useUpdater());
+      const { result } = renderUpdater();
       await act(async () => {});
       await advanceOneInterval();
       act(() => {
@@ -391,7 +426,7 @@ describe("useUpdater", () => {
     });
 
     it("stops checking after unmount", async () => {
-      const { unmount } = renderHook(() => useUpdater());
+      const { unmount } = renderUpdater();
       await act(async () => {});
       unmount();
 
