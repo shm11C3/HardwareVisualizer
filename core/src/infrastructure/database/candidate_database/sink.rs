@@ -87,10 +87,10 @@ impl CandidateSink {
     let version: String = connection
       .query_row("SELECT version()", [], |row| row.get(0))
       .map_err(|error| candidate_error("read DuckDB candidate version", error))?;
-    if version.trim_start_matches('v') != "1.5.5" {
+    if version.trim_start_matches('v') != "1.5.6" {
       return Err(candidate_error(
         "verify DuckDB candidate version",
-        format!("expected 1.5.5, got {version}"),
+        format!("expected 1.5.6, got {version}"),
       ));
     }
 
