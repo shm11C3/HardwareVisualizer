@@ -1070,7 +1070,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a"
 dependencies = [
  "quote",
- "syn 3.0.6",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -2135,7 +2135,7 @@ dependencies = [
  "winapi",
  "windows",
  "wmi",
- "zip 9.0.2",
+ "zip 9.0.3",
 ]
 
 [[package]]
@@ -2891,7 +2891,7 @@ dependencies = [
  "tar",
  "ureq",
  "vcpkg",
- "zip 9.0.2",
+ "zip 9.0.3",
 ]
 
 [[package]]
@@ -7850,9 +7850,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "9.0.2"
+version = "9.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e2fc56a6707efb066c40aead2409ebb1224e6dde24a074e9fbc78ced500507b"
+checksum = "c2d98561b612a84ae525331a7a094429ef8a5772514ed507ff6db5f54badc971"
 dependencies = [
  "crc32fast",
  "flate2",
