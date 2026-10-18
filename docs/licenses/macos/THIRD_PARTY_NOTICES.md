@@ -26606,13 +26606,13 @@ DEALINGS IN THE SOFTWARE.
 
 # DuckDB bundled libraries
 
-Covered `duckdb` version: `1.10505.0` (DuckDB 1.5.5)
+Covered `duckdb` version: `1.10506.1` (DuckDB 1.5.6)
 
-Covered libduckdb-sys version: `1.10505.0`
+Covered libduckdb-sys version: `1.10506.1`
 
 Covered duckdb features: `bundled`
 
-Source: `libduckdb-sys-1.10505.0/duckdb.tar.gz`, `third_party/`
+Source: `libduckdb-sys-1.10506.1/duckdb.tar.gz`, `third_party/`
 
 This notice covers the C and C++ libraries compiled into the bundled DuckDB
 engine. The published tarball contains no separate `LICENSE`, `COPYING`, or

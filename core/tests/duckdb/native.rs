@@ -220,11 +220,11 @@ async fn refuses_legacy_native_metadata_with_an_explicit_compatibility_error() {
 fn duckdb_lock_bumps_require_a_storage_format_review() {
   let lock = include_str!("../../../Cargo.lock").replace("\r\n", "\n");
   assert!(
-    lock.contains("name = \"duckdb\"\nversion = \"1.10505.0\""),
+    lock.contains("name = \"duckdb\"\nversion = \"1.10506.1\""),
     "a DuckDB crate bump requires reviewing the pinned native storage format"
   );
   assert!(
-    lock.contains("name = \"libduckdb-sys\"\nversion = \"1.10505.0\""),
+    lock.contains("name = \"libduckdb-sys\"\nversion = \"1.10506.1\""),
     "a libduckdb-sys bump requires reviewing the pinned native storage format"
   );
 }
