@@ -83,39 +83,26 @@ test.describe("settings captures", () => {
     ).toHaveCount(0);
   });
 
-  test("navigation notice links to Settings and can be dismissed", async ({
+  test("retired navigation notice stays absent for an unacknowledged user", async ({
     page,
   }) => {
     await gotoApp(page, { path: "/?showNavigationNotice=1" });
-
-    const notice = page.getByRole("complementary", {
-      name: "Navigation has been reorganized",
-    });
-    await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
-
-    await notice
-      .getByRole("button", { name: "Open navigation settings" })
-      .click();
-    const classicNavigation = page.getByRole("switch", {
-      name: "Classic navigation",
-    });
-    await expect(classicNavigation).toBeVisible();
-    await expect(classicNavigation).toBeFocused();
-
-    await notice
-      .getByRole("button", { name: "Dismiss navigation notice" })
-      .click();
-    await expect(notice).toHaveCount(0);
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () =>
-            window.__E2E__?.getInvokeCount(
-              "acknowledge_navigation_restructure_announcement",
-            ) ?? 0,
+    await expect(
+      page.getByRole("complementary", {
+        name: "Navigation has been reorganized",
+      }),
+    ).toHaveCount(0);
+    await navigateTo(page, "settings");
+    await expect(
+      page.getByRole("switch", { name: "Classic navigation" }),
+    ).not.toBeChecked();
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount(
+          "acknowledge_navigation_restructure_announcement",
         ),
-      )
-      .toBe(1);
+      ),
+    ).toBe(0);
   });
 
   test("a failed settings write shows an inline line under the row and no dialog", async ({

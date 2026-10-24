@@ -4,8 +4,6 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -19,36 +17,27 @@ import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 const EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED = "close-to-tray-choice-requested";
-type PromptReason = "startup" | "close";
-
 type CloseToTrayFirstRunDialogProps = {
-  closeToTrayChoiceMade?: boolean;
-  settingsLoaded?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  /** Whether it is still unknown if the startup prompt will open. */
-  onPendingChange?: (pending: boolean) => void;
+  /** A failed settings load must not strand an intercepted native close. */
+  settingsSettled?: boolean;
+  deferred?: boolean;
+  onRequestChange?: (requested: boolean) => void;
 };
 
 export const CloseToTrayFirstRunDialog = ({
-  closeToTrayChoiceMade = false,
-  settingsLoaded = true,
-  onOpenChange,
-  onPendingChange,
+  settingsSettled = true,
+  deferred = false,
+  onRequestChange,
 }: CloseToTrayFirstRunDialogProps) => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const { setCloseToTrayPreferenceAtom } = useSettingsAtom();
-  const [promptReason, setPromptReason] = useState<PromptReason | null>(null);
-  const [startupCheckPending, setStartupCheckPending] = useState(true);
-  const isOpen = promptReason !== null;
+  const [requested, setRequested] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
-    onOpenChange?.(isOpen);
-  }, [isOpen, onOpenChange]);
-  useLayoutEffect(() => {
-    onPendingChange?.(startupCheckPending);
-  }, [startupCheckPending, onPendingChange]);
+    onRequestChange?.(requested && settingsSettled);
+  }, [requested, settingsSettled, onRequestChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The listener is registered once for the app lifetime.
   useEffect(() => {
@@ -60,15 +49,15 @@ export const CloseToTrayFirstRunDialog = ({
         const unlisten = await listen(
           EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED,
           () => {
-            setPromptReason("close");
+            setRequested(true);
           },
         );
 
         if (isCancelled) {
           unlisten();
-        } else {
-          off = unlisten;
+          return;
         }
+        off = unlisten;
 
         const result = await commands.markCloseToTrayListenerReady();
 
@@ -93,58 +82,8 @@ export const CloseToTrayFirstRunDialog = ({
     };
   }, []);
 
-  useEffect(() => {
-    let isCancelled = false;
-
-    const showStartupPromptIfNeeded = async () => {
-      if (!settingsLoaded) {
-        setStartupCheckPending(true);
-        return;
-      }
-      if (closeToTrayChoiceMade) {
-        setStartupCheckPending(false);
-        return;
-      }
-
-      setStartupCheckPending(true);
-      try {
-        const availabilityResult = await commands.isCloseToTrayAvailable();
-
-        if (isCancelled) {
-          return;
-        }
-
-        if (isError(availabilityResult)) {
-          console.error(
-            "Failed to check close-to-tray availability for startup prompt:",
-            availabilityResult.error,
-          );
-          return;
-        }
-
-        if (availabilityResult.data) {
-          setPromptReason((currentReason) => currentReason ?? "startup");
-        }
-      } catch (err) {
-        console.error(
-          "Failed to initialize close-to-tray startup prompt:",
-          err,
-        );
-      } finally {
-        if (!isCancelled) {
-          setStartupCheckPending(false);
-        }
-      }
-    };
-
-    showStartupPromptIfNeeded();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [closeToTrayChoiceMade, settingsLoaded]);
-
   const enableCloseToTray = async () => {
+    setSaving(true);
     try {
       const saved = await setCloseToTrayPreferenceAtom(true);
 
@@ -154,91 +93,66 @@ export const CloseToTrayFirstRunDialog = ({
         return;
       }
 
-      if (promptReason === "close") {
-        const hidden = await commands.hideMainWindowToTray();
-
-        if (isError(hidden)) {
-          throw new Error(hidden.error);
-        }
-      }
-
-      setPromptReason(null);
+      const hidden = await commands.hideMainWindowToTray();
+      if (isError(hidden)) throw new Error(hidden.error);
+      setRequested(false);
     } catch (err) {
       console.error("Failed to continue in background:", err);
       await error(t("closeToTray.errors.continueInBackground"));
+    } finally {
+      setSaving(false);
     }
   };
 
   const rejectCloseToTray = async () => {
+    setSaving(true);
     try {
-      const saved = await setCloseToTrayPreferenceAtom(false);
-
-      if (!saved) {
+      if (!(await setCloseToTrayPreferenceAtom(false))) {
         await error(t("closeToTray.errors.savePreference"));
         return;
       }
-
-      setPromptReason(null);
-
-      if (promptReason === "close") {
-        await commands.quitApp();
-      }
+      await commands.quitApp();
+      setRequested(false);
     } catch (err) {
-      console.error("Failed to reject close-to-tray prompt:", err);
-      await error(
-        t(
-          promptReason === "close"
-            ? "closeToTray.errors.quitApp"
-            : "closeToTray.errors.savePreference",
-        ),
-      );
+      console.error("Failed to quit from close-to-tray prompt:", err);
+      await error(t("closeToTray.errors.quitApp"));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const isStartupPrompt = promptReason === "startup";
-  const dismissPrompt = () => {
-    setPromptReason(null);
-  };
-  const titleKey = isStartupPrompt
-    ? "closeToTray.startupDialog.title"
-    : "closeToTray.firstRunDialog.title";
-  const descriptionKey = isStartupPrompt
-    ? "closeToTray.startupDialog.description"
-    : "closeToTray.firstRunDialog.description";
-  const acceptKey = isStartupPrompt
-    ? "closeToTray.startupDialog.enable"
-    : "closeToTray.firstRunDialog.continueInBackground";
-  const rejectKey = isStartupPrompt
-    ? "closeToTray.startupDialog.keepQuitOnClose"
-    : "closeToTray.firstRunDialog.quitApp";
-  const closeButtonKey = isStartupPrompt
-    ? "closeToTray.firstRunDialog.close"
-    : "closeToTray.firstRunDialog.quitApp";
-
   return (
-    <AlertDialog open={promptReason !== null}>
+    <AlertDialog open={requested && settingsSettled && !deferred}>
       <AlertDialogContent className="text-foreground">
         <Button
-          aria-label={t(closeButtonKey)}
+          aria-label={t("closeToTray.firstRunDialog.quitApp")}
           className="absolute top-4 right-4 h-8 w-8 border-0 bg-transparent p-0 opacity-70 hover:bg-muted hover:opacity-100"
-          onClick={isStartupPrompt ? dismissPrompt : rejectCloseToTray}
+          disabled={saving}
+          onClick={() => void rejectCloseToTray()}
           type="button"
           variant="outline"
         >
           <XIcon className="size-4" />
-          <span className="sr-only">{t(closeButtonKey)}</span>
         </Button>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t(titleKey)}</AlertDialogTitle>
-          <AlertDialogDescription>{t(descriptionKey)}</AlertDialogDescription>
+          <AlertDialogTitle>
+            {t("closeToTray.firstRunDialog.title")}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("closeToTray.firstRunDialog.description")}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={rejectCloseToTray}>
-            {t(rejectKey)}
-          </AlertDialogCancel>
-          <AlertDialogAction onClick={enableCloseToTray}>
-            {t(acceptKey)}
-          </AlertDialogAction>
+          <Button
+            disabled={saving}
+            variant="outline"
+            onClick={() => void rejectCloseToTray()}
+          >
+            {t("closeToTray.firstRunDialog.quitApp")}
+          </Button>
+          <Button disabled={saving} onClick={() => void enableCloseToTray()}>
+            {t("closeToTray.firstRunDialog.continueInBackground")}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

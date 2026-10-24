@@ -6,7 +6,8 @@ use hardviz_core::models::external_component_guidance::{
   SMARTCTL_STORAGE_HEALTH_KEY,
 };
 use hardviz_core::models::{
-  ExternalComponent, ExternalComponentGuidanceCandidate, ExternalComponentUsage,
+  ExternalComponent, ExternalComponentGuidanceCandidate, ExternalComponentReasonKind,
+  ExternalComponentUsage,
 };
 use serde::Deserialize;
 use specta::Type;
@@ -28,6 +29,7 @@ pub(crate) fn guidance_keys_for(component: ExternalComponent) -> &'static [&'sta
 #[serde(rename_all = "camelCase")]
 pub enum ExternalComponentGuidanceView {
   Dashboard,
+  Performance,
   CpuDetail,
   StorageHealth,
 }
@@ -123,6 +125,15 @@ fn is_relevant_to_view(
 ) -> bool {
   match view {
     ExternalComponentGuidanceView::Dashboard => true,
+    ExternalComponentGuidanceView::Performance => {
+      candidate.component == ExternalComponent::Pawnio
+        && candidate.reason_kind == ExternalComponentReasonKind::Permission
+        && matches!(
+          candidate.usage,
+          ExternalComponentUsage::CpuPackageTemperature
+            | ExternalComponentUsage::MotherboardSensors
+        )
+    }
     ExternalComponentGuidanceView::CpuDetail => {
       candidate.component == ExternalComponent::Pawnio
         && candidate.usage == ExternalComponentUsage::CpuPackageTemperature
@@ -216,6 +227,58 @@ mod tests {
 
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].key, "smartctl:storage-health:v1");
+  }
+
+  #[test]
+  fn performance_only_offers_permission_candidates_for_its_readings() {
+    let state = ExternalComponentGuidanceState::default();
+    let cpu = ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
+      "Access denied".to_string(),
+    );
+    let motherboard = ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+      "Access denied".to_string(),
+    );
+    state.record_candidates(vec![cpu.clone(), motherboard.clone(), smartctl_candidate()]);
+    let pending =
+      state.pending_candidates(ExternalComponentGuidanceView::Performance, &[]);
+    assert_eq!(pending, vec![cpu.clone(), motherboard.clone()]);
+
+    state.defer_for_session(&cpu.key);
+    assert_eq!(
+      state.pending_candidates(ExternalComponentGuidanceView::Performance, &[]),
+      vec![motherboard.clone()]
+    );
+    assert!(
+      state
+        .pending_candidates(
+          ExternalComponentGuidanceView::Performance,
+          &[motherboard.key]
+        )
+        .is_empty()
+    );
+
+    for reason in [
+      ExternalComponentReasonKind::Missing,
+      ExternalComponentReasonKind::Misconfigured,
+      ExternalComponentReasonKind::Failed,
+    ] {
+      let mut candidate = cpu.clone();
+      candidate.reason_kind = reason;
+      assert!(!is_relevant_to_view(
+        &candidate,
+        ExternalComponentGuidanceView::Performance
+      ));
+      assert!(is_relevant_to_view(
+        &candidate,
+        ExternalComponentGuidanceView::Dashboard
+      ));
+    }
+    let mut storage = smartctl_candidate();
+    storage.reason_kind = ExternalComponentReasonKind::Permission;
+    assert!(!is_relevant_to_view(
+      &storage,
+      ExternalComponentGuidanceView::Performance
+    ));
   }
 
   #[test]

@@ -22,6 +22,7 @@ const DISMISSED_STORE_KEY = "databaseConversionPromptDismissed";
 
 type DatabaseConversionPromptDialogProps = {
   settingsLoaded?: boolean;
+  onRequestChange?: (requested: boolean) => void;
   /** Another startup AlertDialog is open; wait before opening. */
   deferred?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -34,7 +35,7 @@ type DatabaseConversionPromptDialogProps = {
  * users who already have Insights recording on must see this right after
  * updating, without opening the Insights screen first - the Settings entry
  * point (`DatabaseConversionSettings`) alone isn't enough for that. Mounted
- * beside `NavigationRestructureNotice` and `CloseToTrayFirstRunDialog`,
+ * beside `CloseToTrayFirstRunDialog`,
  * following the same app-wide-one-time-dialog shape as the latter
  * (`AlertDialog`, a controlled `open` boolean, no Radix `onOpenChange`, so
  * only its own buttons close it).
@@ -64,6 +65,7 @@ type DatabaseConversionPromptDialogProps = {
  */
 export const DatabaseConversionPromptDialog = ({
   settingsLoaded = true,
+  onRequestChange,
   deferred = false,
   onOpenChange,
   onPendingChange,
@@ -93,6 +95,10 @@ export const DatabaseConversionPromptDialog = ({
     (conversion.state.kind === "sqliteAuthoritative" ||
       conversion.state.kind === "conversionRecoverable");
   const eligible = wouldOpen && !deferred;
+
+  useLayoutEffect(() => {
+    onRequestChange?.(Boolean(open || (wouldOpen && !everOffered)));
+  }, [open, wouldOpen, everOffered, onRequestChange]);
 
   // Pending until the state and the dismissal flag are known, and also while
   // this prompt is going to open but has not yet (the open lands in a passive

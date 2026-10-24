@@ -5,7 +5,7 @@ import type { ClientSettings_Serialize } from "@/rspc/bindings";
  *
  * - `language: "en"` keeps captured text stable across machines.
  * - `closeToTrayChoiceMade: true` and `nsisMigrationNoticeDismissed: true`
- *   suppress the first-run tray dialog and the NSIS migration notice so they
+ *   represent a saved close preference and suppress the NSIS notice so they
  *   never overlap capture screenshots.
  * - `selectedBackgroundImg: null` avoids loading a background image.
  */

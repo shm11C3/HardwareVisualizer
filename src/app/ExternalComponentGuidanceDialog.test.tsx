@@ -80,6 +80,7 @@ describe("ExternalComponentGuidanceDialog", () => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("windows");
     mocks.useElevationAvailability.mockReturnValue("available");
+    mocks.useProcessElevated.mockReturnValue(false);
     mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
       status: "ok",
       data: [candidate()],
@@ -88,7 +89,7 @@ describe("ExternalComponentGuidanceDialog", () => {
       status: "ok",
       data: null,
     });
-    mocks.updateSettingAtom.mockResolvedValue(undefined);
+    mocks.updateSettingAtom.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -102,7 +103,7 @@ describe("ExternalComponentGuidanceDialog", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: "Restart as administrator",
+        name: "Enable Run as administrator on startup",
       }),
     );
 
@@ -130,7 +131,7 @@ describe("ExternalComponentGuidanceDialog", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: "Restart as administrator",
+        name: "Enable Run as administrator on startup",
       }),
     );
 
@@ -140,7 +141,9 @@ describe("ExternalComponentGuidanceDialog", () => {
     );
     expect(consoleError).toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: "Restart as administrator" }),
+      screen.getByRole("button", {
+        name: "Enable Run as administrator on startup",
+      }),
     ).toBeEnabled();
     consoleError.mockRestore();
   });
@@ -154,7 +157,9 @@ describe("ExternalComponentGuidanceDialog", () => {
       await screen.findByRole("button", { name: "Open details" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Restart as administrator" }),
+      screen.queryByRole("button", {
+        name: "Enable Run as administrator on startup",
+      }),
     ).toBeNull();
     expect(
       screen.getByText(/not installed under Program Files/),
@@ -184,7 +189,9 @@ describe("ExternalComponentGuidanceDialog", () => {
     );
 
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
-    await screen.findByRole("button", { name: "Restart as administrator" });
+    await screen.findByRole("button", {
+      name: "Enable Run as administrator on startup",
+    });
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
   });
 
@@ -225,7 +232,9 @@ describe("ExternalComponentGuidanceDialog", () => {
       />,
     );
     expect(
-      await screen.findByRole("button", { name: "Restart as administrator" }),
+      await screen.findByRole("button", {
+        name: "Enable Run as administrator on startup",
+      }),
     ).toBeInTheDocument();
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
     expect(onPendingChange).toHaveBeenLastCalledWith(false);
@@ -286,10 +295,145 @@ describe("ExternalComponentGuidanceDialog", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: "Restart as administrator" }),
+      screen.queryByRole("button", {
+        name: "Enable Run as administrator on startup",
+      }),
     ).toBeNull();
     expect(mocks.openURL).toHaveBeenCalledTimes(1);
     expect(mocks.updateSettingAtom).not.toHaveBeenCalled();
     expect(mocks.setElevatedStartupMode).not.toHaveBeenCalled();
+  });
+  it.each([true, null])(
+    "does not offer elevation when process status is %s",
+    async (elevated) => {
+      mocks.useProcessElevated.mockReturnValue(elevated);
+      render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+      await screen.findByRole("alertdialog");
+      expect(
+        screen.queryByRole("button", {
+          name: "Enable Run as administrator on startup",
+        }),
+      ).toBeNull();
+    },
+  );
+
+  it("filters Performance candidates before selecting the first relevant reading", async () => {
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [
+        candidate({
+          key: "smartctl:storage-health:v1",
+          component: "smartctl",
+          usage: "storageHealth",
+        }),
+        candidate({
+          key: "pawnio:motherboard-sensors:v1",
+          usage: "motherboardSensors",
+        }),
+        candidate(),
+      ],
+    });
+    const context = {
+      settled: true,
+      cpuTemperatureVisible: true,
+      motherboardSensorsVisible: false,
+      expanded: false,
+    };
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={context}
+      />,
+    );
+    await screen.findByText(/CPU package temperature/);
+    expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalledWith(
+      "performance",
+    );
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={{ ...context, expanded: true }}
+      />,
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={{
+          ...context,
+          cpuTemperatureVisible: false,
+          motherboardSensorsVisible: true,
+        }}
+      />,
+    );
+    await screen.findByText(/Motherboard temperature sensors and fan speeds/);
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={{ ...context, cpuTemperatureVisible: false }}
+      />,
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it.each([true, null])(
+    "keeps Performance guidance hidden with elevated status %s",
+    async (elevated) => {
+      mocks.useProcessElevated.mockReturnValue(elevated);
+      const onPendingChange = vi.fn();
+      render(
+        <ExternalComponentGuidanceDialog
+          displayTarget="performance"
+          performanceContext={{
+            settled: true,
+            cpuTemperatureVisible: true,
+            motherboardSensorsVisible: true,
+            expanded: false,
+          }}
+          onPendingChange={onPendingChange}
+        />,
+      );
+      await waitFor(() =>
+        expect(onPendingChange).toHaveBeenLastCalledWith(false),
+      );
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    },
+  );
+
+  it("does not offer the CTA while elevation availability is loading", async () => {
+    mocks.useElevationAvailability.mockReturnValue(null);
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog displayTarget="dashboard" />,
+    );
+    await waitFor(() =>
+      expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalled(),
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    mocks.useElevationAvailability.mockReturnValue("available");
+    rerender(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+    await screen.findByRole("button", {
+      name: "Enable Run as administrator on startup",
+    });
+    expect(screen.getByText(/requests Windows approval/)).toBeInTheDocument();
+  });
+
+  it("keeps the candidate and reports failure when enabling the setting is cancelled", async () => {
+    mocks.updateSettingAtom.mockResolvedValue(false);
+    const user = userEvent.setup();
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Enable Run as administrator on startup",
+      }),
+    );
+    expect(mocks.updateSettingAtom).toHaveBeenCalledWith(
+      "elevatedStartupMode",
+      true,
+    );
+    expect(mocks.error).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(
+      mocks.acknowledgeExternalComponentGuidanceKey,
+    ).not.toHaveBeenCalled();
   });
 });

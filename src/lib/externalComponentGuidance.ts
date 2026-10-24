@@ -33,12 +33,22 @@ const EXTERNAL_COMPONENT_COPY_KEYS: Record<
   "smartctl:storage-health:v1": "smartctlStorageHealth",
 };
 
+/** Visibility reported by the mounted Performance view after layout hydration. */
+export type PerformanceGuidanceContext = {
+  settled: boolean;
+  cpuTemperatureVisible: boolean;
+  motherboardSensorsVisible: boolean;
+  expanded: boolean;
+};
+
 export const externalComponentGuidanceViewForDisplayTarget = (
   displayTarget: SelectedDisplayType | null,
 ): ExternalComponentGuidanceView | null => {
   switch (displayTarget) {
     case "dashboard":
       return "dashboard";
+    case "performance":
+      return "performance";
     case "cpuDetail":
       return "cpuDetail";
     default:

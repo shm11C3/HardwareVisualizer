@@ -146,12 +146,6 @@
     }
   },
   "closeToTray": {
-    "startupDialog": {
-      "title": "Try system tray mode?",
-      "description": "HardwareVisualizer can stay available in the system tray after the main window is closed, so monitoring and tray metrics continue without keeping the dashboard open. This is useful for quick hardware checks throughout the day, and you can change it later in Settings.",
-      "enable": "Use tray mode",
-      "keepQuitOnClose": "Quit when closing"
-    },
     "firstRunDialog": {
       "title": "Keep HardwareVisualizer running?",
       "description": "HardwareVisualizer can keep monitoring in the background after you close the main window. You can change this later in Settings.",
@@ -194,7 +188,7 @@
     },
     "actions": {
       "openDetails": "Open details",
-      "enableElevatedStartupMode": "Restart as administrator",
+      "enableElevatedStartupMode": "Enable Run as administrator on startup",
       "hide": "Hide",
       "hideThisSession": "Hide for this session",
       "neverShowAgain": "Never show again"
@@ -230,7 +224,8 @@
       "defer": "Failed to hide this guidance for the current session.",
       "elevatedStartupMode": "Failed to restart as administrator.",
       "openDetails": "Failed to open the details page."
-    }
+    },
+    "elevatedStartupConsent": "Enabling this saves the startup preference and requests Windows approval to restart HardwareVisualizer with administrator privileges."
   },
   "nsisMigrationNotice": {
     "title": "Switch to the MSI installer",
@@ -257,13 +252,7 @@
   "navigation": {
     "performance": "Performance",
     "systemSpecifications": "System Specifications",
-    "openDestination": "Open {{name}}",
-    "notice": {
-      "title": "Navigation has been reorganized",
-      "description": "Performance and System Specifications are now separate entries in the side menu. You can switch back to the previous navigation in Settings.",
-      "openSettings": "Open navigation settings",
-      "dismiss": "Dismiss navigation notice"
-    }
+    "openDestination": "Open {{name}}"
   },
   "pages": {
     "dashboard": {
