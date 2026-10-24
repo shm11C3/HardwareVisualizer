@@ -12,3 +12,4 @@ pub mod network_service;
 pub mod settings_service;
 pub mod system_service;
 pub mod ui_service;
+pub mod window_appearance_service;
