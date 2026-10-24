@@ -321,6 +321,7 @@
     "performance": {
       "viewSwitcher": "Вид производительности",
       "editPanels": "Изменить панели",
+      "editPanelsWithUndiscovered": "Изменить панели (непросмотренных скрытых панелей: {{count}})",
       "doneEditing": "Готово",
       "hiddenPanels": "Скрытые панели:",
       "showPanel": "Показать {{panel}}",

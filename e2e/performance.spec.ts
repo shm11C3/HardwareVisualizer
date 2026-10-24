@@ -312,9 +312,11 @@ test.describe("Grouped navigation destinations", () => {
     await seedHardwareHistory(page);
 
     await page.getByTestId("performance-edit-toggle").click();
-    await expect(page.getByTestId("performance-hidden-panels")).toBeVisible();
+    // Every panel is visible by default, so the strip has nothing to list yet.
+    await expect(page.getByTestId("performance-hidden-panels")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Hide Usage graphs" }).click();
+    await expect(page.getByTestId("performance-hidden-panels")).toBeVisible();
     await expect(page.getByTestId("performance-usage-graphs")).toHaveCount(0);
 
     await saveCapture(page, "performance-panels-editing-desktop");
@@ -332,24 +334,75 @@ test.describe("Grouped navigation destinations", () => {
     await expect(page.getByTestId("performance-usage-graphs")).toBeVisible();
   });
 
-  test("adds a default-hidden panel from the edit strip", async ({ page }) => {
+  test("shows every panel in a fresh layout without a discovery badge", async ({
+    page,
+  }) => {
     await gotoApp(page);
     await seedHardwareHistory(page);
 
+    for (const panel of [
+      "usageGraphs",
+      "processTable",
+      "perCore",
+      "motherboardSensors",
+      "power",
+    ]) {
+      await expect(
+        page.getByTestId(`performance-panel-${panel}`),
+      ).toBeVisible();
+    }
+    await expect(
+      page.getByTestId("performance-panel-motherboardSensors"),
+    ).toContainText("SYSTIN");
+    await expect(page.getByTestId("performance-edit-badge")).toHaveCount(0);
+  });
+
+  test("badges Edit panels once for hidden panels in an upgraded layout", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?legacyPerformanceLayout=1" });
+    await seedHardwareHistory(page);
+
+    // The saved visibility is preserved exactly: nothing is shown or hidden.
+    await expect(page.getByTestId("performance-panel-perCore")).toHaveCount(0);
     await expect(
       page.getByTestId("performance-panel-motherboardSensors"),
     ).toHaveCount(0);
 
-    await page.getByTestId("performance-edit-toggle").click();
-    await page
-      .getByRole("button", { name: "Show Motherboard sensors" })
-      .click();
-
-    const sensorsPanel = page.getByTestId(
-      "performance-panel-motherboardSensors",
+    const toggle = page.getByTestId("performance-edit-toggle");
+    await expect(page.getByTestId("performance-edit-badge")).toHaveText("2");
+    await expect(toggle).toHaveAccessibleName(
+      "Edit panels (2 hidden panels not yet reviewed)",
     );
-    await expect(sensorsPanel).toBeVisible();
-    await expect(sensorsPanel).toContainText("SYSTIN");
+    await saveCapture(page, "performance-edit-badge-desktop");
+
+    await page.setViewportSize({ width: 520, height: 800 });
+    await expect(page.getByTestId("performance-edit-badge")).toBeVisible();
+    await saveCapture(page, "performance-edit-badge-compact-window");
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    await toggle.click();
+    await expect(page.getByTestId("performance-hidden-panels")).toBeVisible();
+    await toggle.click();
+    await expect(page.getByTestId("performance-edit-badge")).toHaveCount(0);
+    await expect(toggle).toHaveAccessibleName("Edit panels");
+
+    await navigateTo(page, "settings");
+    await navigateTo(page, "performance");
+    await expect(page.getByTestId("performance-edit-badge")).toHaveCount(0);
+  });
+
+  test("does not badge a panel the user hid on purpose", async ({ page }) => {
+    await gotoApp(page);
+    await seedHardwareHistory(page);
+
+    const toggle = page.getByTestId("performance-edit-toggle");
+    await toggle.click();
+    await page.getByRole("button", { name: "Hide Per-core usage" }).click();
+    await toggle.click();
+
+    await expect(page.getByTestId("performance-panel-perCore")).toHaveCount(0);
+    await expect(page.getByTestId("performance-edit-badge")).toHaveCount(0);
   });
 
   test("offers two columns only while the window can hold them", async ({

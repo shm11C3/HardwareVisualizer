@@ -19,6 +19,7 @@ import { PanelColumnsSelector } from "./components/PanelColumnsSelector";
 import { PanelGrid } from "./components/PanelGrid";
 import { PerformanceViewSwitcher } from "./components/PerformanceViewSwitcher";
 import { PowerDisplayModeSwitcher } from "./components/PowerDisplayModeSwitcher";
+import { useAvailablePerformancePanels } from "./hooks/useAvailablePerformancePanels";
 import { usePerformanceLayout } from "./hooks/usePerformanceLayout";
 
 export const Performance = ({
@@ -39,11 +40,30 @@ export const Performance = ({
     compactExpanded,
     setCompactExpanded,
     customLayout,
+    discoveredPanels,
+    markPanelsDiscovered,
     togglePanel,
     handlePanelDragEnd,
     isPending,
   } = usePerformanceLayout();
   const [editing, setEditing] = useState(false);
+  const { hiddenPanels } = useAvailablePerformancePanels(customLayout);
+  const undiscoveredCount = hiddenPanels.filter(
+    (panel) => !discoveredPanels.includes(panel),
+  ).length;
+  const showsHiddenStrip =
+    view === "panels" && editing && hiddenPanels.length > 0;
+  const hiddenPanelsKey = hiddenPanels.join(",");
+
+  // The hidden-panel strip is where a hidden panel is discovered. This also
+  // covers a panel the user just hid, since it appears in the strip at once.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: hiddenPanelsKey is the stable identity of hiddenPanels
+  useEffect(() => {
+    if (!showsHiddenStrip || isPending) {
+      return;
+    }
+    void markPanelsDiscovered(hiddenPanels);
+  }, [showsHiddenStrip, isPending, hiddenPanelsKey, markPanelsDiscovered]);
   const isMonitor = view === "monitor";
   const isCompactFullScreen = view === "compact" && compactExpanded;
 
@@ -100,8 +120,7 @@ export const Performance = ({
         )}
         <div
           className={cn(
-            "flex items-center gap-2",
-            isMonitor && "min-w-0 flex-wrap",
+            "flex min-w-0 flex-wrap items-center gap-2",
             isMonitor
               ? showTitle
                 ? "ml-auto w-full sm:w-auto"
@@ -142,8 +161,15 @@ export const Performance = ({
               type="button"
               onClick={() => setEditing((current) => !current)}
               aria-pressed={editing}
+              aria-label={
+                !editing && undiscoveredCount > 0
+                  ? t("pages.performance.editPanelsWithUndiscovered", {
+                      count: undiscoveredCount,
+                    })
+                  : undefined
+              }
               className={cn(
-                "flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm",
+                "flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 text-sm",
                 editing
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -158,6 +184,15 @@ export const Performance = ({
               {editing
                 ? t("pages.performance.doneEditing")
                 : t("pages.performance.editPanels")}
+              {!editing && undiscoveredCount > 0 && (
+                <span
+                  className="flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-semibold text-[10px] text-primary-foreground tabular-nums leading-4"
+                  aria-hidden="true"
+                  data-testid="performance-edit-badge"
+                >
+                  {undiscoveredCount}
+                </span>
+              )}
             </button>
           )}
           <PerformanceViewSwitcher view={view} onViewChange={setView} />

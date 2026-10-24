@@ -92,13 +92,9 @@ import type { HardwareMonitorUpdate } from "@/rspc/bindings";
 //                       panels and GPU auto-selection settle
 const BOUNDS = {
   dashboard: { components: 14, leaves: 6, commits: 1, firstUpdateCommits: 1 },
+  // #2293 raised this on purpose: the default layout now carries all five
+  // panels (it was 19 components with three). Measured, not a regression.
   "performance-panels": {
-    components: 19,
-    leaves: 11,
-    commits: 1,
-    firstUpdateCommits: 2,
-  },
-  "performance-panels-all": {
     components: 21,
     leaves: 11,
     commits: 1,
@@ -404,23 +400,6 @@ vi.mock("@/features/hardware/dashboard/components/ProcessTable", () => ({
 // ── Measurement ──
 
 const UPDATE_COUNT = 10;
-const ALL_PANELS_LAYOUT = {
-  order: [
-    "usageGraphs",
-    "processTable",
-    "perCore",
-    "motherboardSensors",
-    "power",
-  ],
-  visible: [
-    "usageGraphs",
-    "processTable",
-    "perCore",
-    "motherboardSensors",
-    "power",
-  ],
-};
-
 type ScreenSpec = {
   id: ScreenId;
   label: string;
@@ -455,20 +434,10 @@ const specs: ScreenSpec[] = [
   },
   {
     id: "performance-panels",
-    label: "Performance / Panels (default layout)",
+    label: "Performance / Panels (default layout, all five panels)",
     Screen: Performance,
     ready: '[data-testid="performance-current-values"]',
     store: { performanceLayoutPreset: "panels" },
-  },
-  {
-    id: "performance-panels-all",
-    label: "Performance / Panels (all five panels visible)",
-    Screen: Performance,
-    ready: '[data-testid="performance-current-values"]',
-    store: {
-      performanceLayoutPreset: "panels",
-      performanceCustomLayout: ALL_PANELS_LAYOUT,
-    },
   },
   {
     id: "performance-compact",

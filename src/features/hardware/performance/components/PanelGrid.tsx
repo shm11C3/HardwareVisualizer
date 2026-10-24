@@ -23,17 +23,16 @@ import {
   LightningIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
-import { useAtomValue } from "jotai";
 import { GripVerticalIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
+import { useAvailablePerformancePanels } from "@/features/hardware/performance/hooks/useAvailablePerformancePanels";
 import type {
   PerformanceCustomLayout,
   PerformancePanelColumns,
   PerformancePanelId,
   PerformancePowerMode,
 } from "@/features/hardware/performance/types/performanceLayout";
-import { powerDrawAvailableAtom } from "@/features/hardware/store/power";
 import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -198,21 +197,13 @@ export const PanelGrid = ({
   onPanelDragEnd: (event: DragEndEvent) => void;
 }) => {
   const { t } = useTranslation();
-  const powerAvailable = useAtomValue(powerDrawAvailableAtom);
-  const { settings } = useSettingsAtom();
+  const { availablePanels, hiddenPanels } =
+    useAvailablePerformancePanels(layout);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
-  );
-  const availablePanels = layout.order.filter(
-    (panel) =>
-      panel !== "power" ||
-      (powerAvailable && settings.powerDisplayTargets.length > 0),
-  );
-  const hiddenPanels = availablePanels.filter(
-    (panel) => !layout.visible.includes(panel),
   );
   const isTwoColumn = columns === 2;
 

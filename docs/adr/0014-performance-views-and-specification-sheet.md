@@ -45,12 +45,10 @@ Panels combines a fixed Instrument Strip with one reorderable panel stack:
   extended with a short-window sparkline. Secondary readings (clock,
   core/thread count, used/total memory, VRAM, fan) render inside the card and
   only when the platform reports them.
-- The panel stack is ordered with dnd-kit. Usage Graphs and Live Processes are
-  visible by default; Per-core Usage and Motherboard Sensors ship hidden until
-  explicitly enabled, so the default screen only carries what most sessions
-  watch. Newly introduced panels join a stored layout hidden unless they are
-  visible by default. An empty visible set is valid because the Instrument
-  Strip stays mounted.
+- The panel stack is ordered with dnd-kit. A fresh layout shows all five panels
+  (see "Revision: all panels visible by default (#2293)"). Newly introduced
+  panels join a stored layout hidden. An empty visible set is valid because the
+  Instrument Strip stays mounted.
 - Arrangement controls (drag handles, hide buttons, the hidden-panel strip)
   exist only inside an explicit edit mode entered from a toolbar button. There
   is no permanently mounted layout editor.
@@ -112,6 +110,41 @@ stack as a live metric. A capacity reading may only appear on a Performance
 surface if it is labelled as a snapshot with its own timestamp instead of
 being mixed into the short window.
 
+## Revision: all panels visible by default (#2293)
+
+Reason: during v1.11.0 hands-on verification, the Per-core Usage and
+Motherboard Sensors panels, hidden by default, went unnoticed because Edit
+panels gave no hint that anything was hidden.
+
+Decision:
+
+- A fresh layout shows all five panels. A saved layout is unchanged: its
+  visibility and order are preserved exactly, and a panel missing from a stored
+  order is appended hidden, which is how a newly introduced panel arrives.
+- Edit panels shows a small numeric badge, with an accessible name that
+  explains the count, while the panels the editor can show are hidden and not
+  yet discovered. A hidden panel is discovered when the hidden-panel strip is
+  shown in edit mode, which also covers explicitly hiding it. Discovery is
+  stored as UI-local state (`performanceDiscoveredPanels`) and never changes
+  visibility.
+- Older saved layouts cannot distinguish an intentional hide from an untouched
+  old default, so an upgrade shows the badge once for them.
+- Power is excluded from the count while it is unavailable, because the editor
+  cannot show it.
+
+Consequences:
+
+- Rendering cost measured by `renderFanout.test.tsx` for the default layout
+  rose from 19 to 21 components per steady 1 Hz update, with chart leaves
+  (11 to 11) and commits (1 to 1) unchanged. Direct live-atom subscriptions
+  rose from 12 to 15 (adds `processorsUsageHistory`, `motherboardTemps`, and
+  `motherboardFanSpeeds`). Hidden panels still unmount.
+- At a 1280 px desktop width the two added panels are short rows below the
+  Live Process Table, so the first screen is unchanged and the page only grows
+  downward. At a 520 px compact width the badge stays on one line with the
+  Edit panels label; the toolbar now wraps, so the view switcher moves to a
+  second row instead of being clipped.
+
 ## Consequences
 
 ### Positive
@@ -121,8 +154,9 @@ being mixed into the short window.
 - Wide windows can show two panel columns without the layout breaking on
   narrow ones, because the column count degrades instead of scrolling
   sideways.
-- The default Performance screen carries only the panels most sessions watch;
-  everything else is opt-in and unmounted while hidden.
+- A hidden panel is unmounted and stops subscribing to live updates, so a user
+  who hides a panel removes its cost entirely. (The default screen carries all
+  five panels since #2293; see the revision below.)
 - Compact has a defined job (small-window monitoring) and a defined growth
   path for not-yet-collected metrics.
 - The specifications sheet reads as one reference document and no longer

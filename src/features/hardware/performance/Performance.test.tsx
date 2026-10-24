@@ -28,6 +28,7 @@ const liveMap = <T,>(map: Record<string, T>) =>
 import type {
   PerformanceCustomLayout,
   PerformancePanelColumns,
+  PerformancePanelId,
   PerformancePowerMode,
   PerformanceView,
 } from "./types/performanceLayout";
@@ -48,6 +49,8 @@ const state = vi.hoisted(() => ({
     ],
     visible: ["usageGraphs", "processTable", "power"],
   } as PerformanceCustomLayout,
+  discoveredPanels: [] as PerformancePanelId[],
+  markPanelsDiscovered: vi.fn(),
   chartRenders: { cpu: 0, memory: 0, gpu: 0 },
   processRenders: 0,
   gpus: null as
@@ -176,6 +179,8 @@ vi.mock("./hooks/usePerformanceLayout", () => ({
     compactExpanded: state.compactExpanded,
     setCompactExpanded: vi.fn(),
     customLayout: state.customLayout,
+    discoveredPanels: state.discoveredPanels,
+    markPanelsDiscovered: state.markPanelsDiscovered,
     togglePanel: vi.fn(),
     handlePanelDragEnd: vi.fn(),
     isPending: false,
@@ -203,6 +208,8 @@ describe("Performance", () => {
       ],
       visible: ["usageGraphs", "processTable", "power"],
     };
+    state.discoveredPanels = [];
+    state.markPanelsDiscovered.mockClear();
     state.chartRenders = { cpu: 0, memory: 0, gpu: 0 };
     state.processRenders = 0;
     state.gpus = null;
@@ -826,5 +833,99 @@ describe("Performance", () => {
         name: /^pages\.performance\.showPanel/,
       }),
     ).toHaveLength(2);
+  });
+
+  describe("hidden-panel discovery badge", () => {
+    const editToggle = () => screen.getByTestId("performance-edit-toggle");
+
+    it("counts undiscovered hidden panels and explains the count in the accessible name", () => {
+      render(<Performance />);
+
+      expect(screen.getByTestId("performance-edit-badge")).toHaveTextContent(
+        "2",
+      );
+      expect(
+        screen.getByRole("button", {
+          name: "pages.performance.editPanelsWithUndiscovered 2",
+        }),
+      ).toBe(editToggle());
+    });
+
+    it("does not count Power while it is unavailable", () => {
+      // Power is hidden in the layout, but with no target (or no reading) the
+      // editor cannot show it, so it must not inflate the badge.
+      state.customLayout = {
+        ...state.customLayout,
+        visible: ["usageGraphs", "processTable"],
+      };
+      render(<Performance />);
+      expect(screen.getByTestId("performance-edit-badge")).toHaveTextContent(
+        "2",
+      );
+      cleanup();
+
+      settings.powerDisplayTargets = [];
+      const store = createStore();
+      store.set(powerDrawAvailableAtom, true);
+      render(
+        <Provider store={store}>
+          <Performance />
+        </Provider>,
+      );
+      expect(screen.getByTestId("performance-edit-badge")).toHaveTextContent(
+        "2",
+      );
+    });
+
+    it("counts a hidden Power panel once it is available", () => {
+      state.customLayout = {
+        ...state.customLayout,
+        visible: ["usageGraphs", "processTable"],
+      };
+      const store = createStore();
+      store.set(powerDrawAvailableAtom, true);
+      render(
+        <Provider store={store}>
+          <Performance />
+        </Provider>,
+      );
+
+      expect(screen.getByTestId("performance-edit-badge")).toHaveTextContent(
+        "3",
+      );
+    });
+
+    it("marks the strip's panels discovered when editing opens and drops the badge while editing", () => {
+      render(<Performance />);
+      expect(state.markPanelsDiscovered).not.toHaveBeenCalled();
+
+      act(() => {
+        editToggle().click();
+      });
+
+      expect(state.markPanelsDiscovered).toHaveBeenCalledWith([
+        "perCore",
+        "motherboardSensors",
+      ]);
+      expect(screen.queryByTestId("performance-edit-badge")).toBeNull();
+      expect(editToggle()).not.toHaveAttribute("aria-label");
+    });
+
+    it("shows no badge for hidden panels the user has already discovered", () => {
+      state.discoveredPanels = ["perCore", "motherboardSensors"];
+      render(<Performance />);
+
+      expect(screen.queryByTestId("performance-edit-badge")).toBeNull();
+      expect(editToggle()).not.toHaveAttribute("aria-label");
+    });
+
+    it("badges only a newly hidden panel when the others were already discovered", () => {
+      state.discoveredPanels = ["perCore"];
+      render(<Performance />);
+
+      expect(screen.getByTestId("performance-edit-badge")).toHaveTextContent(
+        "1",
+      );
+    });
   });
 });
