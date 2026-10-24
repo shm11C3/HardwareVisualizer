@@ -701,7 +701,10 @@ fn readonly_candidate(path: &Path) -> Connection {
 }
 
 fn file_hash(path: &Path) -> String {
-  format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+  Sha256::digest(std::fs::read(path).unwrap())
+    .iter()
+    .map(|byte| format!("{byte:02x}"))
+    .collect()
 }
 
 /// A digest over a SQLite database's logical content - its schema objects
@@ -781,7 +784,11 @@ async fn logical_content_hash(path: &Path) -> String {
   }
 
   pool.close().await;
-  format!("{:x}", hasher.finalize())
+  hasher
+    .finalize()
+    .iter()
+    .map(|byte| format!("{byte:02x}"))
+    .collect()
 }
 
 fn assert_no_candidate_workdirs(fixture: &Fixture) {
