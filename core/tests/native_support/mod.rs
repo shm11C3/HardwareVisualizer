@@ -177,7 +177,10 @@ pub async fn open_pool(path: &Path, create: bool) -> SqlitePool {
 }
 
 pub fn file_hash(path: &Path) -> String {
-  format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+  Sha256::digest(std::fs::read(path).unwrap())
+    .iter()
+    .map(|byte| format!("{byte:02x}"))
+    .collect()
 }
 
 pub fn read_only(path: &Path) -> duckdb::Connection {
