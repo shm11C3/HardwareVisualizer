@@ -768,7 +768,7 @@ mod tests {
   fn hashed_identifier_preserves_the_persisted_v1_value() {
     // Keep the v1 identity stable across digest/HMAC dependency upgrades.
     assert_eq!(
-      hash_identifier("SERIAL123", &[0x42; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES]),
+      hash_identifier("SERIAL123", &TEST_IDENTITY_HASH_KEY),
       "hmac-sha256:v1:85da13c56494d443482cf8d352a7a9dbf903b1563c03448cc59c4b33fcbffd68"
     );
   }
