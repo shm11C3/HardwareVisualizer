@@ -1,6 +1,6 @@
 //! Daily storage health record worker.
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use std::sync::Arc;
 use tokio::runtime::Handle;
@@ -762,6 +762,15 @@ mod tests {
     );
 
     assert_eq!(storage_device_id(&input, &TEST_IDENTITY_HASH_KEY), expected);
+  }
+
+  #[test]
+  fn hashed_identifier_preserves_the_persisted_v1_value() {
+    // Keep the v1 identity stable across digest/HMAC dependency upgrades.
+    assert_eq!(
+      hash_identifier("SERIAL123", &[0x42; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES]),
+      "hmac-sha256:v1:85da13c56494d443482cf8d352a7a9dbf903b1563c03448cc59c4b33fcbffd68"
+    );
   }
 
   #[test]
