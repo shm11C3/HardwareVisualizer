@@ -965,7 +965,7 @@ export type ExternalComponentGuidanceSettings = {
 	acknowledgedKeys?: string[],
 };
 
-export type ExternalComponentGuidanceView = "dashboard" | "cpuDetail" | "storageHealth";
+export type ExternalComponentGuidanceView = "dashboard" | "performance" | "cpuDetail" | "storageHealth";
 
 /**
  *  Whether a module file is missing, matches the pinned release, matches

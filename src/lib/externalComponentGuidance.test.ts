@@ -27,6 +27,9 @@ describe("externalComponentGuidance", () => {
     expect(externalComponentGuidanceViewForDisplayTarget("dashboard")).toBe(
       "dashboard",
     );
+    expect(externalComponentGuidanceViewForDisplayTarget("performance")).toBe(
+      "performance",
+    );
     expect(externalComponentGuidanceViewForDisplayTarget("cpuDetail")).toBe(
       "cpuDetail",
     );

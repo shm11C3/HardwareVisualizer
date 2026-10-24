@@ -34,6 +34,7 @@ import type {
 } from "./types/performanceLayout";
 
 const state = vi.hoisted(() => ({
+  isPending: false,
   view: "panels" as PerformanceView,
   columns: 1 as PerformancePanelColumns,
   compactExpanded: false,
@@ -183,7 +184,7 @@ vi.mock("./hooks/usePerformanceLayout", () => ({
     markPanelsDiscovered: state.markPanelsDiscovered,
     togglePanel: vi.fn(),
     handlePanelDragEnd: vi.fn(),
-    isPending: false,
+    isPending: state.isPending,
   }),
 }));
 
@@ -193,6 +194,7 @@ vi.mock("./components/PowerDrawChart", () => ({
 
 describe("Performance", () => {
   beforeEach(() => {
+    state.isPending = false;
     state.view = "panels";
     state.columns = 1;
     state.compactExpanded = false;
@@ -926,6 +928,55 @@ describe("Performance", () => {
       expect(screen.getByTestId("performance-edit-badge")).toHaveTextContent(
         "1",
       );
+    });
+  });
+  it("reports hydrated reading visibility and defers expanded Compact guidance", () => {
+    const onGuidanceContextChange = vi.fn();
+    state.isPending = true;
+    const { rerender, unmount } = render(
+      <Performance onGuidanceContextChange={onGuidanceContextChange} />,
+    );
+    expect(onGuidanceContextChange).toHaveBeenLastCalledWith({
+      settled: false,
+      cpuTemperatureVisible: true,
+      motherboardSensorsVisible: false,
+      expanded: false,
+    });
+    state.isPending = false;
+    state.customLayout.visible = [
+      ...state.customLayout.visible,
+      "motherboardSensors",
+    ];
+    rerender(<Performance onGuidanceContextChange={onGuidanceContextChange} />);
+    expect(onGuidanceContextChange).toHaveBeenLastCalledWith({
+      settled: true,
+      cpuTemperatureVisible: true,
+      motherboardSensorsVisible: true,
+      expanded: false,
+    });
+    state.view = "monitor";
+    rerender(<Performance onGuidanceContextChange={onGuidanceContextChange} />);
+    expect(onGuidanceContextChange).toHaveBeenLastCalledWith({
+      settled: true,
+      cpuTemperatureVisible: false,
+      motherboardSensorsVisible: false,
+      expanded: false,
+    });
+    state.view = "compact";
+    state.compactExpanded = true;
+    rerender(<Performance onGuidanceContextChange={onGuidanceContextChange} />);
+    expect(onGuidanceContextChange).toHaveBeenLastCalledWith({
+      settled: true,
+      cpuTemperatureVisible: true,
+      motherboardSensorsVisible: false,
+      expanded: true,
+    });
+    unmount();
+    expect(onGuidanceContextChange).toHaveBeenLastCalledWith({
+      settled: false,
+      cpuTemperatureVisible: false,
+      motherboardSensorsVisible: false,
+      expanded: false,
     });
   });
 });

@@ -25,6 +25,7 @@ import {
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
+  useProcessElevated,
 } from "@/hooks/settings/useElevationAvailability";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/tauri/useTauriDialog";
@@ -33,6 +34,7 @@ import {
   externalComponentGuidanceCopyKey,
   externalComponentGuidanceDocsUrl,
   externalComponentGuidanceViewForDisplayTarget,
+  type PerformanceGuidanceContext,
 } from "@/lib/externalComponentGuidance";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";
@@ -47,6 +49,8 @@ import type { SelectedDisplayType } from "@/types/ui";
 type ExternalComponentGuidanceDialogProps = {
   displayTarget: SelectedDisplayType | null;
   settingsLoaded?: boolean;
+  performanceContext?: PerformanceGuidanceContext;
+  onRequestChange?: (requested: boolean) => void;
   /** Another startup AlertDialog is open; keep the candidate, wait to show. */
   deferred?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -57,6 +61,8 @@ type ExternalComponentGuidanceDialogProps = {
 export const ExternalComponentGuidanceDialog = ({
   displayTarget,
   settingsLoaded = true,
+  performanceContext,
+  onRequestChange,
   deferred = false,
   onOpenChange,
   onPendingChange,
@@ -126,7 +132,29 @@ export const ExternalComponentGuidanceDialog = ({
     };
   }, [settingsLoaded, screenKnown, view]);
 
-  const candidate = candidates[0] ?? null;
+  const processElevated = useProcessElevated();
+  const isPerformance = view === "performance";
+  const performanceReady =
+    !isPerformance || Boolean(performanceContext?.settled);
+  const candidate =
+    (loadedView === view ? candidates : []).find((item) => {
+      if (!isPerformance) return true;
+      if (
+        platform() !== "windows" ||
+        processElevated !== false ||
+        !performanceReady ||
+        performanceContext?.expanded
+      )
+        return false;
+      if (item.component !== "pawnio" || item.reasonKind !== "permission")
+        return false;
+      return (
+        (item.usage === "cpuPackageTemperature" &&
+          performanceContext?.cpuTemperatureVisible) ||
+        (item.usage === "motherboardSensors" &&
+          performanceContext?.motherboardSensorsVisible)
+      );
+    }) ?? null;
   const copyKey = candidate
     ? externalComponentGuidanceCopyKey(candidate)
     : null;
@@ -139,7 +167,9 @@ export const ExternalComponentGuidanceDialog = ({
   const isWindowsPermissionGuidance =
     candidate?.reasonKind === "permission" && platform() === "windows";
   const shouldShowElevatedStartupAction =
-    isWindowsPermissionGuidance && elevationAvailability === "available";
+    isWindowsPermissionGuidance &&
+    processElevated === false &&
+    elevationAvailability === "available";
   // The permission copy suggests running as administrator, which is refused
   // here, so say why instead.
   const elevationReasonKey = isWindowsPermissionGuidance
@@ -212,12 +242,24 @@ export const ExternalComponentGuidanceDialog = ({
     }
   };
 
-  const wouldOpen = Boolean(candidate && copyKey && actionKey);
+  const elevationPending =
+    isWindowsPermissionGuidance && elevationAvailability === null;
+  const wouldOpen = Boolean(
+    candidate && copyKey && actionKey && !elevationPending,
+  );
   const isOpen = wouldOpen && !deferred;
   // A candidate that is ready but held back still counts as pending: it will
   // open the moment the blocker closes, so dialogs that yield to this one
   // must not take that same render.
-  const pending = lookupPending || (wouldOpen && deferred);
+  const pending =
+    lookupPending ||
+    !performanceReady ||
+    elevationPending ||
+    (wouldOpen && deferred);
+
+  useLayoutEffect(() => {
+    onRequestChange?.(wouldOpen);
+  }, [wouldOpen, onRequestChange]);
 
   // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
@@ -228,15 +270,13 @@ export const ExternalComponentGuidanceDialog = ({
   }, [pending, onPendingChange]);
 
   const handleEnableElevatedStartupMode = async () => {
-    if (!candidate) return;
+    if (!candidate || !shouldShowElevatedStartupAction) return;
 
     setIsEnablingElevatedStartupMode(true);
     try {
-      // Through the settings atom, not the raw command: when the process is
-      // already elevated the backend persists "on" without relaunching, and
-      // the Settings toggle must show that saved value. The atom rolls back
-      // and returns false on a command error; this modal flow reports it as a
-      // dialog, like a throw.
+      // Share the Settings toggle's persistence and rollback behavior.
+      // The existing command owns the elevated relaunch and UAC cancellation;
+      // this modal reports a failed update once, in translated copy.
       if (!(await updateSettingAtom("elevatedStartupMode", true))) {
         await error(t("externalComponentGuidance.errors.elevatedStartupMode"));
       }
@@ -257,7 +297,7 @@ export const ExternalComponentGuidanceDialog = ({
 
   return (
     <AlertDialog open>
-      <AlertDialogContent className="text-foreground">
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto text-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle>
             {t("externalComponentGuidance.title")}
@@ -283,6 +323,9 @@ export const ExternalComponentGuidanceDialog = ({
                     `externalComponentGuidance.candidates.${copyKey}.${actionKey}`,
                 )}
               />
+              {shouldShowElevatedStartupAction && (
+                <p>{t("externalComponentGuidance.elevatedStartupConsent")}</p>
+              )}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

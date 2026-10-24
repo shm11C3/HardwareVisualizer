@@ -146,12 +146,6 @@
     }
   },
   "closeToTray": {
-    "startupDialog": {
-      "title": "システムトレイで使ってみますか？",
-      "description": "HardwareVisualizer はメインウィンドウを閉じたあともシステムトレイに残り、監視とトレイメトリクスの表示を続けられます。ダッシュボードを開き続けなくても日常的にハードウェア状態を確認しやすくなります。この設定はあとから設定画面で変更できます。",
-      "enable": "トレイモードを使う",
-      "keepQuitOnClose": "閉じたら終了する"
-    },
     "firstRunDialog": {
       "title": "HardwareVisualizer を起動したままにしますか？",
       "description": "メインウィンドウを閉じたあとも、HardwareVisualizer はバックグラウンドで監視を続けられます。この設定はあとから設定画面で変更できます。",
@@ -194,7 +188,7 @@
     },
     "actions": {
       "openDetails": "詳細を開く",
-      "enableElevatedStartupMode": "管理者として再起動",
+      "enableElevatedStartupMode": "「起動時に管理者として実行」を有効にする",
       "hide": "表示しない",
       "hideThisSession": "このセッションでは表示しない",
       "neverShowAgain": "二度と表示しない"
@@ -230,7 +224,8 @@
       "defer": "このセッションで案内を非表示にできませんでした。",
       "elevatedStartupMode": "管理者として再起動できませんでした。",
       "openDetails": "詳細ページを開けませんでした。"
-    }
+    },
+    "elevatedStartupConsent": "有効にすると起動設定が保存され、管理者権限で HardwareVisualizer を再起動するために Windows の承認を求めます。"
   },
   "nsisMigrationNotice": {
     "title": "MSI インストーラーへの移行のおすすめ",
@@ -257,13 +252,7 @@
   "navigation": {
     "performance": "パフォーマンス",
     "systemSpecifications": "システム仕様",
-    "openDestination": "{{name}}を開く",
-    "notice": {
-      "title": "ナビゲーションが新しくなりました",
-      "description": "パフォーマンスとシステム仕様は、サイドメニューの独立した項目になりました。設定から以前のナビゲーションに戻すこともできます。",
-      "openSettings": "ナビゲーション設定を開く",
-      "dismiss": "ナビゲーションのお知らせを閉じる"
-    }
+    "openDestination": "{{name}}を開く"
   },
   "pages": {
     "dashboard": {
@@ -555,7 +544,9 @@
             "atMatchedPower": "同一電力で比較"
           },
           "footnote": "「範囲内」はベースライン期間自身のばらつきの内側という意味です。動いた行は同時に観察された事実であり、原因ではありません。",
-          "units": { "points": " ポイント" },
+          "units": {
+            "points": " ポイント"
+          },
           "chart": {
             "title": "周囲温度との差 ({{unit}}) vs パッケージ電力 · {{band}}帯域",
             "powerAxis": "CPU パッケージ電力 (W)",

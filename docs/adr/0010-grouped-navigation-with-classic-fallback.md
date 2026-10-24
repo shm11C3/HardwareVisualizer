@@ -80,6 +80,13 @@ levels explicitly rather than inferring routes from a grouped label.
 Grouped Dashboard, Performance Tab, System Specifications Tab, Performance
 Layout Preset, and Classic Navigation are defined in `CONTEXT.md`.
 
+## Restructure announcement retirement
+
+Issue #2309 retires the v1.11.0 restructure announcement, including for users
+who never dismissed it. It described a past navigation change and was not useful
+to fresh users. Its persisted acknowledgement remains compatible; retiring the
+notice does not rewrite navigation choices or other preferences.
+
 ## Consequences
 
 ### Positive

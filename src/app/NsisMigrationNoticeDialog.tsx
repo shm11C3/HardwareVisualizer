@@ -1,6 +1,6 @@
 import { BundleType, getBundleType } from "@tauri-apps/api/app";
 import { ChevronDownIcon, ExternalLinkIcon, EyeOffIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -29,6 +29,7 @@ const MIGRATION_STEPS = ["step1", "step2", "step3", "step4"] as const;
 type NsisMigrationNoticeDialogProps = {
   dismissed: boolean;
   settingsLoaded?: boolean;
+  onRequestChange?: (requested: boolean) => void;
   /** Another startup AlertDialog is open; wait so modals never stack. */
   deferred?: boolean;
 };
@@ -44,6 +45,7 @@ type NsisMigrationNoticeDialogProps = {
 export const NsisMigrationNoticeDialog = ({
   dismissed,
   settingsLoaded = true,
+  onRequestChange,
   deferred = false,
 }: NsisMigrationNoticeDialogProps) => {
   const { t } = useTranslation();
@@ -73,15 +75,13 @@ export const NsisMigrationNoticeDialog = ({
     };
   }, [settingsLoaded, dismissed]);
 
-  if (
-    !settingsLoaded ||
-    dismissed ||
-    hiddenThisSession ||
-    !isNsisBuild ||
-    deferred
-  ) {
-    return null;
-  }
+  const requested =
+    settingsLoaded && !dismissed && !hiddenThisSession && isNsisBuild;
+  useLayoutEffect(() => {
+    onRequestChange?.(requested);
+  }, [requested, onRequestChange]);
+
+  if (!requested || deferred) return null;
 
   const handleOpenDownload = async () => {
     try {

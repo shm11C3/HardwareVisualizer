@@ -40,7 +40,6 @@ const FAILURE_CAPTURE = path.join(
   SCREEN_NAME,
   `${SCENARIO_NAME}-failure.png`,
 );
-const CLOSE_TO_TRAY_CLOSE_BUTTON = By.css('button[aria-label="Close dialog"]');
 const EXTERNAL_GUIDANCE_TITLE = By.xpath(
   "//*[normalize-space()='Optional components can enable more data']",
 );
@@ -55,7 +54,6 @@ const buildEnv: NodeJS.ProcessEnv = {
   ...process.env,
   HARDVIZ_E2E: "1",
   HARDVIZ_E2E_DEFAULT_LANGUAGE: "en",
-  HARDVIZ_E2E_FORCE_CLOSE_TO_TRAY_PROMPT: "1",
   LANG: "C.UTF-8",
   LC_ALL: "C.UTF-8",
   LANGUAGE: "en",
@@ -362,44 +360,20 @@ const dismissExternalComponentGuidanceIfVisible = async (driver: WebDriver) => {
   return true;
 };
 
-const clickFirstRunCloseToTrayPrompt = async (driver: WebDriver) => {
-  const startedAt = Date.now();
-  let lastClickError: unknown = null;
-
-  while (Date.now() - startedAt < BOOT_TIMEOUT_MS) {
-    if (await dismissExternalComponentGuidanceIfVisible(driver)) {
-      await driver.sleep(250);
-      continue;
-    }
-
-    const closeDialogButton = await findVisibleElement(
-      driver,
-      CLOSE_TO_TRAY_CLOSE_BUTTON,
-    );
-    if (!closeDialogButton) {
-      await driver.sleep(250);
-      continue;
-    }
-
-    try {
-      await clickElement(driver, closeDialogButton);
-      return closeDialogButton;
-    } catch (error) {
-      lastClickError = error;
-      await driver.sleep(250);
-    }
-  }
-
-  if (lastClickError instanceof Error) {
-    throw lastClickError;
-  }
-  throw new Error("Timed out waiting for first-run close-to-tray prompt");
-};
-
 const runSmoke = async (driver: WebDriver) => {
-  log("waiting for first-run close-to-tray prompt");
-  const closeDialogButton = await clickFirstRunCloseToTrayPrompt(driver);
-  await driver.wait(until.stalenessOf(closeDialogButton), DEFAULT_TIMEOUT_MS);
+  log("waiting for the default screen without a startup tray prompt");
+  await waitForVisible(
+    driver,
+    By.css('button[aria-label="Open Settings"]'),
+    BOOT_TIMEOUT_MS,
+  );
+  await dismissExternalComponentGuidanceIfVisible(driver);
+  const startupTrayPrompt = await findVisibleElement(
+    driver,
+    By.xpath("//*[normalize-space()='Try system tray mode?']"),
+  );
+  if (startupTrayPrompt)
+    throw new Error("Unexpected proactive Close to Tray prompt");
 
   log("opening Settings");
   // The side menu builds its accessible name from the translated destination

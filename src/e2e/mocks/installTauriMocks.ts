@@ -35,6 +35,7 @@ import { storeFixture } from "@/e2e/fixtures/store";
 import type {
   ArchiveBucketTimestamp,
   DatabaseConversionState,
+  ExternalComponentGuidanceCandidate,
   HardwareMonitorUpdate,
 } from "@/rspc/bindings";
 
@@ -47,6 +48,10 @@ declare global {
       emitHardwareUpdateSeries: (count?: number) => Promise<void>;
       /** Number of mocked IPC invocations observed for a command. */
       getInvokeCount: (command: string) => number;
+      setGuidanceCandidates: (
+        candidates: ExternalComponentGuidanceCandidate[],
+      ) => void;
+      requestFirstClose: () => void;
       /**
        * Start a deterministic event stream through the mocked Tauri event IPC.
        * Used by long-running frontend memory tests.
@@ -90,6 +95,8 @@ type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
 type FixtureOverrides = {
   storageDeviceCount: number | null;
   showNavigationNotice: boolean;
+  processElevated: boolean;
+  firstClose: boolean;
   /** `?elevation=unprotected` reports an install outside Program Files with
    * Elevated Startup Mode saved as on, so the refused-elevation UI (#2216)
    * can be captured. */
@@ -260,6 +267,11 @@ const readFixtureOverrides = (): FixtureOverrides => {
       new URLSearchParams(window.location.search).get(
         "showNavigationNotice",
       ) === "1",
+    processElevated:
+      new URLSearchParams(window.location.search).get("processElevated") ===
+      "1",
+    firstClose:
+      new URLSearchParams(window.location.search).get("firstClose") === "1",
     elevationUnprotected:
       new URLSearchParams(window.location.search).get("elevation") ===
       "unprotected",
@@ -413,11 +425,18 @@ const initialDatabaseConversionState = (
  * tauri-specta commands (raw or typedError-boxed by the bindings).
  */
 
+type GuidanceMockState = {
+  candidates: ExternalComponentGuidanceCandidate[];
+  deferred: Set<string>;
+  acknowledged: Set<string>;
+};
+
 const buildInvokeHandlers = (
   store: Map<string, unknown>,
   eventListeners: Map<string, Set<number>>,
   fixtureOverrides: FixtureOverrides,
   databaseConversion: DatabaseConversionMockState,
+  guidance: GuidanceMockState,
 ): Record<string, InvokeHandler> => ({
   // --- @tauri-apps/plugin-event ---
   "plugin:event|listen": (args) => {
@@ -482,6 +501,9 @@ const buildInvokeHandlers = (
   // --- generated commands ---
   get_settings: () => ({
     ...settingsFixture,
+    closeToTrayChoiceMade: fixtureOverrides.firstClose
+      ? false
+      : settingsFixture.closeToTrayChoiceMade,
     navigationLayout: fixtureOverrides.classicNavigation
       ? "classic"
       : settingsFixture.navigationLayout,
@@ -490,7 +512,7 @@ const buildInvokeHandlers = (
       : settingsFixture.uiAnnouncementVersion,
     elevatedStartupMode: fixtureOverrides.elevationUnprotected
       ? window.localStorage.getItem(ELEVATED_STARTUP_MODE_KEY) !== "false"
-      : settingsFixture.elevatedStartupMode,
+      : window.localStorage.getItem(ELEVATED_STARTUP_MODE_KEY) === "true",
     nsisMigrationNoticeDismissed: fixtureOverrides.nsisMigrationNotice
       ? window.localStorage.getItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY) === "1"
       : settingsFixture.nsisMigrationNoticeDismissed,
@@ -526,13 +548,41 @@ const buildInvokeHandlers = (
       : buildStorageHealthFixture(fixtureOverrides.storageDeviceCount, {
           date: new Date().toISOString().slice(0, 10),
         }),
-  get_external_component_guidance_candidates: () => [],
-  defer_external_component_guidance_for_session: () => null,
-  acknowledge_external_component_guidance_key: () => null,
+  get_external_component_guidance_candidates: (args) => {
+    const { view } = args as { view: string };
+    return guidance.candidates.filter(
+      (candidate) =>
+        !guidance.deferred.has(candidate.key) &&
+        !guidance.acknowledged.has(candidate.key) &&
+        (view === "dashboard" ||
+          (view === "cpuDetail" &&
+            candidate.usage === "cpuPackageTemperature") ||
+          (view === "performance" &&
+            candidate.component === "pawnio" &&
+            candidate.reasonKind === "permission" &&
+            ["cpuPackageTemperature", "motherboardSensors"].includes(
+              candidate.usage,
+            ))),
+    );
+  },
+  defer_external_component_guidance_for_session: (args) => {
+    guidance.deferred.add((args as { key: string }).key);
+    return null;
+  },
+  acknowledge_external_component_guidance_key: (args) => {
+    guidance.acknowledged.add((args as { key: string }).key);
+    window.localStorage.setItem(
+      "e2e:guidanceAcknowledged",
+      JSON.stringify([...guidance.acknowledged]),
+    );
+    return null;
+  },
+  hide_main_window_to_tray: () => null,
+  quit_app: () => null,
   // External Component Setup (ADR 0024): a machine with the PawnIO runtime
   // installed and one module file still missing, so the Settings capture
   // shows the install action.
-  is_process_elevated: () => false,
+  is_process_elevated: () => fixtureOverrides.processElevated,
   set_elevated_startup_mode: (args) => {
     const { newValue } = args as { newValue: boolean };
     window.localStorage.setItem(ELEVATED_STARTUP_MODE_KEY, String(newValue));
@@ -868,11 +918,21 @@ export const installTauriMocks = () => {
     ),
     scenario: fixtureOverrides.databaseConversionScenario,
   };
+  const guidance: GuidanceMockState = {
+    candidates: [],
+    deferred: new Set(),
+    acknowledged: new Set(
+      JSON.parse(
+        window.localStorage.getItem("e2e:guidanceAcknowledged") ?? "[]",
+      ) as string[],
+    ),
+  };
   const handlers = buildInvokeHandlers(
     store,
     eventListeners,
     fixtureOverrides,
     databaseConversion,
+    guidance,
   );
   const invokeCounts = new Map<string, number>();
   let streamTimer: number | undefined;
@@ -929,6 +989,14 @@ export const installTauriMocks = () => {
 
   window.__E2E__ = {
     getInvokeCount: (command) => invokeCounts.get(command) ?? 0,
+    setGuidanceCandidates: (candidates) => {
+      guidance.candidates = candidates;
+    },
+    requestFirstClose: () =>
+      dispatchTauriEvent(eventListeners, {
+        event: "close-to-tray-choice-requested",
+        payload: null,
+      }),
     emitHardwareUpdate: async (payload) =>
       dispatchTauriEvent(eventListeners, {
         event: "hardware-monitor-update",

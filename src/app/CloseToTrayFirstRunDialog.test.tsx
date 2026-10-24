@@ -82,128 +82,48 @@ describe("CloseToTrayFirstRunDialog", () => {
     });
   });
 
-  it("prompts on startup when the close-to-tray choice has not been made", async () => {
-    const user = userEvent.setup();
-
+  it("does not prompt or check availability on startup", async () => {
     renderDialog();
-
-    expect(
-      await screen.findByText("Try system tray mode?"),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Use tray mode" }));
-
-    expect(mocks.setCloseToTrayPreference).toHaveBeenCalledWith(true);
-    expect(mocks.setTrayWidgetSettings).toHaveBeenCalledWith({
-      enabled: true,
-      metricOrder: ["cpu", "gpu", "gpu-temp"],
-      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
-      updateIntervalSecs: 1,
-    });
-    expect(mocks.hideMainWindowToTray).not.toHaveBeenCalled();
-    expect(mocks.quitApp).not.toHaveBeenCalled();
-  });
-
-  it("reports when the startup prompt opens and closes", async () => {
-    const user = userEvent.setup();
-    const onOpenChange = vi.fn();
-
-    renderDialog(<CloseToTrayFirstRunDialog onOpenChange={onOpenChange} />);
-
-    await screen.findByText("Try system tray mode?");
-    expect(onOpenChange).toHaveBeenLastCalledWith(true);
-
-    await user.click(screen.getByRole("button", { name: "Close dialog" }));
-    expect(onOpenChange).toHaveBeenLastCalledWith(false);
-  });
-
-  it("reports pending until the startup check has finished", async () => {
-    const onPendingChange = vi.fn();
-    let resolveAvailability: (value: unknown) => void = () => {};
-    mocks.isCloseToTrayAvailable.mockReturnValue(
-      new Promise((resolve) => {
-        resolveAvailability = resolve;
-      }),
-    );
-
-    renderDialog(
-      <CloseToTrayFirstRunDialog onPendingChange={onPendingChange} />,
-    );
-    expect(onPendingChange).toHaveBeenLastCalledWith(true);
-
-    await act(async () => {
-      resolveAvailability({ status: "ok", data: false });
-    });
-    expect(onPendingChange).toHaveBeenLastCalledWith(false);
-    expect(screen.queryByText("Try system tray mode?")).not.toBeInTheDocument();
-  });
-
-  it("is not pending once the choice is already saved", () => {
-    const onPendingChange = vi.fn();
-    renderDialog(
-      <CloseToTrayFirstRunDialog
-        closeToTrayChoiceMade
-        onPendingChange={onPendingChange}
-      />,
-    );
-    expect(onPendingChange).toHaveBeenLastCalledWith(false);
-  });
-
-  it("dismisses the startup prompt from the close icon without saving a preference", async () => {
-    const user = userEvent.setup();
-
-    renderDialog();
-
-    expect(
-      await screen.findByText("Try system tray mode?"),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Close dialog" }));
-
-    expect(mocks.setCloseToTrayPreference).not.toHaveBeenCalled();
-    expect(mocks.setTrayWidgetSettings).not.toHaveBeenCalled();
-    expect(screen.queryByText("Try system tray mode?")).not.toBeInTheDocument();
-  });
-
-  it("shows one translated error dialog, not the backend error, when accepting tray mode fails", async () => {
-    const user = userEvent.setup();
-    mocks.setCloseToTrayPreference.mockResolvedValue({
-      status: "error",
-      error: "save failed",
-    });
-
-    renderDialog();
-
-    await user.click(
-      await screen.findByRole("button", { name: "Use tray mode" }),
-    );
-
-    // The settings hook no longer opens a dialog; this modal flow reports
-    // the failed save itself, once, in translated copy.
-    await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
-    expect(mocks.error).toHaveBeenCalledWith(
-      "Failed to save the close-to-tray setting.",
-    );
-    expect(mocks.error).not.toHaveBeenCalledWith("save failed");
-    expect(mocks.error).not.toHaveBeenCalledWith(
-      "Failed to keep the app running in the background.",
-    );
-  });
-
-  it("does not prompt on startup after the choice is already saved", async () => {
-    renderDialog(<CloseToTrayFirstRunDialog closeToTrayChoiceMade />);
-
     await waitFor(() =>
       expect(mocks.markCloseToTrayListenerReady).toHaveBeenCalled(),
     );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(mocks.isCloseToTrayAvailable).not.toHaveBeenCalled();
+    expect(mocks.setCloseToTrayPreference).not.toHaveBeenCalled();
+  });
 
-    expect(screen.queryByText("Try system tray mode?")).not.toBeInTheDocument();
+  it("queues a close request until settings and the active dialog settle", async () => {
+    const onRequestChange = vi.fn();
+    const { rerender } = renderDialog(
+      <CloseToTrayFirstRunDialog
+        settingsLoaded={false}
+        deferred
+        onRequestChange={onRequestChange}
+      />,
+    );
+    await waitFor(() => expect(mocks.closeHandler).toBeDefined());
+    act(() => mocks.closeHandler?.());
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(onRequestChange).toHaveBeenLastCalledWith(false);
+    rerender(
+      <Provider>
+        <CloseToTrayFirstRunDialog deferred onRequestChange={onRequestChange} />
+      </Provider>,
+    );
+    expect(onRequestChange).toHaveBeenLastCalledWith(true);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    rerender(
+      <Provider>
+        <CloseToTrayFirstRunDialog onRequestChange={onRequestChange} />
+      </Provider>,
+    );
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
   });
 
   it("keeps the existing close-request flow and hides the window when accepted", async () => {
     const user = userEvent.setup();
 
-    renderDialog(<CloseToTrayFirstRunDialog closeToTrayChoiceMade />);
+    renderDialog(<CloseToTrayFirstRunDialog />);
 
     await waitFor(() => expect(mocks.closeHandler).toBeDefined());
     act(() => {
@@ -236,7 +156,7 @@ describe("CloseToTrayFirstRunDialog", () => {
       error: "hide failed",
     });
 
-    renderDialog(<CloseToTrayFirstRunDialog closeToTrayChoiceMade />);
+    renderDialog(<CloseToTrayFirstRunDialog />);
 
     await waitFor(() => expect(mocks.closeHandler).toBeDefined());
     act(() => {
@@ -259,7 +179,7 @@ describe("CloseToTrayFirstRunDialog", () => {
       error: "save failed",
     });
 
-    renderDialog(<CloseToTrayFirstRunDialog closeToTrayChoiceMade />);
+    renderDialog(<CloseToTrayFirstRunDialog />);
 
     await waitFor(() => expect(mocks.closeHandler).toBeDefined());
     act(() => {
@@ -276,5 +196,21 @@ describe("CloseToTrayFirstRunDialog", () => {
     expect(mocks.error).not.toHaveBeenCalledWith("save failed");
     expect(mocks.error).not.toHaveBeenCalledWith("Failed to quit the app.");
     expect(mocks.quitApp).not.toHaveBeenCalled();
+  });
+  it("saves Quit and exits only after the preference is saved", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(mocks.closeHandler).toBeDefined());
+    act(() => mocks.closeHandler?.());
+    await user.click(
+      (await screen.findAllByRole("button", { name: "Quit app" }))[1],
+    );
+    expect(mocks.setCloseToTrayPreference).toHaveBeenCalledWith(false);
+    expect(mocks.quitApp).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.setCloseToTrayPreference.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.quitApp.mock.invocationCallOrder[0] ?? 0);
+    expect(mocks.hideMainWindowToTray).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });

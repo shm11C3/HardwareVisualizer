@@ -5,11 +5,12 @@ import {
   GaugeIcon,
   SlidersHorizontalIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BurnInShift } from "@/components/BurnInShift";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { PerformanceGuidanceContext } from "@/lib/externalComponentGuidance";
 import { cn } from "@/lib/utils";
 import { CompactStrip } from "./components/CompactStrip";
 import { InstrumentStrip } from "./components/InstrumentStrip";
@@ -25,9 +26,11 @@ import { usePerformanceLayout } from "./hooks/usePerformanceLayout";
 export const Performance = ({
   isFullScreen = false,
   showTitle = true,
+  onGuidanceContextChange,
 }: {
   isFullScreen?: boolean;
   showTitle?: boolean;
+  onGuidanceContextChange?: (context: PerformanceGuidanceContext) => void;
 }) => {
   const { t } = useTranslation();
   const {
@@ -66,6 +69,35 @@ export const Performance = ({
   }, [showsHiddenStrip, isPending, hiddenPanelsKey, markPanelsDiscovered]);
   const isMonitor = view === "monitor";
   const isCompactFullScreen = view === "compact" && compactExpanded;
+  const motherboardSensorsVisible =
+    view === "panels" && customLayout.visible.includes("motherboardSensors");
+
+  useLayoutEffect(() => {
+    onGuidanceContextChange?.({
+      settled: !isPending,
+      cpuTemperatureVisible: view !== "monitor",
+      motherboardSensorsVisible,
+      expanded: isCompactFullScreen,
+    });
+  }, [
+    isPending,
+    view,
+    motherboardSensorsVisible,
+    isCompactFullScreen,
+    onGuidanceContextChange,
+  ]);
+
+  useLayoutEffect(
+    () => () => {
+      onGuidanceContextChange?.({
+        settled: false,
+        cpuTemperatureVisible: false,
+        motherboardSensorsVisible: false,
+        expanded: false,
+      });
+    },
+    [onGuidanceContextChange],
+  );
 
   useEffect(() => {
     if (!isCompactFullScreen) {
