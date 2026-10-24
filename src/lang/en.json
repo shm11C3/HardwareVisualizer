@@ -331,6 +331,7 @@
     "performance": {
       "viewSwitcher": "Performance view",
       "editPanels": "Edit panels",
+      "editPanelsWithUndiscovered": "Edit panels ({{count}} hidden panels not yet reviewed)",
       "doneEditing": "Done",
       "hiddenPanels": "Hidden panels:",
       "showPanel": "Show {{panel}}",

@@ -52,14 +52,12 @@ export type PerformanceCustomLayout = {
 export const DEFAULT_PERFORMANCE_VIEW: PerformanceView = "panels";
 
 /**
- * Panels every user starts with. perCore and motherboardSensors stay hidden
- * until explicitly enabled so the default screen only carries the panels most
- * sessions actually watch.
+ * Panels every fresh layout shows. Hiding perCore and motherboardSensors by
+ * default let them go unnoticed (#2293), so a fresh layout carries all of
+ * them. Only visible panels mount, so hiding one still removes its cost.
  */
 const DEFAULT_VISIBLE_PANELS: readonly PerformancePanelId[] = [
-  "usageGraphs",
-  "processTable",
-  "power",
+  ...performancePanelIds,
 ];
 
 export const DEFAULT_PERFORMANCE_CUSTOM_LAYOUT: PerformanceCustomLayout = {
@@ -105,11 +103,20 @@ const uniqueKnownPanels = (value: unknown): PerformancePanelId[] => {
 };
 
 /**
+ * Hidden panels the user has already seen in the edit strip. Unknown and
+ * duplicate ids are dropped.
+ */
+export const normalizePerformanceDiscoveredPanels = (
+  value: unknown,
+): PerformancePanelId[] => uniqueKnownPanels(value);
+
+/**
  * Normalize a stored layout: unknown panels are dropped, panels the stored
- * layout has never seen are appended to the order. Existing visibility is
- * preserved exactly; defaults apply only when the stored visibility is absent
- * or malformed. An empty visible set is valid because the Instrument Strip
- * stays mounted regardless of panel visibility.
+ * layout has never seen are appended to the order but stay hidden (this is how
+ * a newly introduced panel arrives on an existing install). Existing
+ * visibility is preserved exactly; the all-visible default applies only when
+ * the stored visibility is absent or malformed. An empty visible set is valid
+ * because the Instrument Strip stays mounted regardless of panel visibility.
  */
 export const normalizePerformanceCustomLayout = (
   value: unknown,

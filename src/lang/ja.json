@@ -331,6 +331,7 @@
     "performance": {
       "viewSwitcher": "パフォーマンス表示",
       "editPanels": "パネルを編集",
+      "editPanelsWithUndiscovered": "パネルを編集（未確認の非表示パネル {{count}} 件）",
       "doneEditing": "完了",
       "hiddenPanels": "非表示のパネル:",
       "showPanel": "{{panel}}を表示",

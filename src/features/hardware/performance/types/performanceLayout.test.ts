@@ -4,6 +4,7 @@ import {
   DEFAULT_PERFORMANCE_POWER_MODE,
   DEFAULT_PERFORMANCE_VIEW,
   normalizePerformanceCustomLayout,
+  normalizePerformanceDiscoveredPanels,
   normalizePerformancePowerMode,
   normalizePerformanceView,
   performanceCustomLayoutsEqual,
@@ -129,6 +130,49 @@ describe("performance layout normalization", () => {
     ).toEqual(DEFAULT_PERFORMANCE_CUSTOM_LAYOUT.visible);
   });
 
+  it("shows every panel in a fresh layout so none goes unnoticed (#2293)", () => {
+    expect(DEFAULT_PERFORMANCE_CUSTOM_LAYOUT.visible).toEqual([
+      "usageGraphs",
+      "processTable",
+      "perCore",
+      "motherboardSensors",
+      "power",
+    ]);
+  });
+
+  it("keeps a stored pre-#2293 layout's visibility and order exactly", () => {
+    const stored = {
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "processTable", "power"],
+    };
+
+    expect(normalizePerformanceCustomLayout(stored)).toEqual(stored);
+  });
+
+  it("appends a panel missing from a stored order but leaves it hidden", () => {
+    expect(
+      normalizePerformanceCustomLayout({
+        order: ["power", "usageGraphs", "processTable", "perCore"],
+        visible: ["power", "usageGraphs"],
+      }),
+    ).toEqual({
+      order: [
+        "power",
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+      ],
+      visible: ["power", "usageGraphs"],
+    });
+  });
+
   it("falls back to the default layout for malformed values", () => {
     expect(normalizePerformanceCustomLayout(null)).toEqual(
       DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
@@ -139,5 +183,19 @@ describe("performance layout normalization", () => {
     expect(
       performanceCustomLayoutsEqual({}, normalizePerformanceCustomLayout({})),
     ).toBe(false);
+  });
+});
+
+describe("discovered panel normalization", () => {
+  it("drops unknown and duplicate ids so a stale store cannot suppress a badge by accident", () => {
+    expect(
+      normalizePerformanceDiscoveredPanels([
+        "perCore",
+        "futurePanel",
+        "perCore",
+        "power",
+      ]),
+    ).toEqual(["perCore", "power"]);
+    expect(normalizePerformanceDiscoveredPanels("perCore")).toEqual([]);
   });
 });

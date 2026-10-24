@@ -13,6 +13,8 @@ const setCustomLayout = vi.fn();
 const setColumns = vi.fn();
 const setCompactExpanded = vi.fn();
 const setPowerMode = vi.fn();
+const setDiscoveredPanels = vi.fn();
+let discoveredPanels: unknown = [];
 let columns: unknown = 1;
 let compactExpanded: unknown = false;
 let powerMode: unknown = "current" satisfies PerformancePowerMode;
@@ -55,6 +57,8 @@ describe("usePerformanceLayout", () => {
     setColumns.mockResolvedValue(undefined);
     setCompactExpanded.mockResolvedValue(undefined);
     setPowerMode.mockResolvedValue(undefined);
+    setDiscoveredPanels.mockResolvedValue(undefined);
+    discoveredPanels = [];
     vi.mocked(useTauriStore).mockImplementation((key) => {
       if (key === "performanceLayoutPreset") {
         return [view, setView, false] as never;
@@ -67,6 +71,9 @@ describe("usePerformanceLayout", () => {
       }
       if (key === "performanceMonitorPowerMode") {
         return [powerMode, setPowerMode, false] as never;
+      }
+      if (key === "performanceDiscoveredPanels") {
+        return [discoveredPanels, setDiscoveredPanels, false] as never;
       }
       return [customLayout, setCustomLayout, false] as never;
     });
@@ -209,6 +216,9 @@ describe("usePerformanceLayout", () => {
       }
       if (key === "performanceMonitorPowerMode") {
         return [powerMode, setPowerMode, false] as never;
+      }
+      if (key === "performanceDiscoveredPanels") {
+        return [[], setDiscoveredPanels, false] as never;
       }
       return [null, setCompactExpanded, true] as never;
     });
@@ -372,6 +382,69 @@ describe("usePerformanceLayout", () => {
         "Failed to persist custom Performance layout:",
         persistenceError,
       ),
+    );
+  });
+
+  it("persists newly discovered panels as a union with those already seen", async () => {
+    discoveredPanels = ["perCore"];
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    await act(async () => {
+      await result.current.markPanelsDiscovered([
+        "perCore",
+        "motherboardSensors",
+      ]);
+    });
+
+    expect(setDiscoveredPanels).toHaveBeenCalledOnce();
+    expect(setDiscoveredPanels).toHaveBeenCalledWith([
+      "perCore",
+      "motherboardSensors",
+    ]);
+  });
+
+  it("does not write when every panel is already discovered", async () => {
+    discoveredPanels = ["perCore", "motherboardSensors"];
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    await act(async () => {
+      await result.current.markPanelsDiscovered(["motherboardSensors"]);
+    });
+
+    expect(setDiscoveredPanels).not.toHaveBeenCalled();
+  });
+
+  it("unions two quick discoveries instead of the second overwriting the first", async () => {
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    await act(async () => {
+      await Promise.all([
+        result.current.markPanelsDiscovered(["perCore"]),
+        result.current.markPanelsDiscovered(["motherboardSensors"]),
+      ]);
+    });
+
+    expect(setDiscoveredPanels).toHaveBeenLastCalledWith([
+      "perCore",
+      "motherboardSensors",
+    ]);
+  });
+
+  it("reports a rejected discovered-panel write without leaking the rejection", async () => {
+    const persistenceError = new Error("store unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    setDiscoveredPanels.mockRejectedValueOnce(persistenceError);
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    await act(async () => {
+      await result.current.markPanelsDiscovered(["perCore"]);
+    });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to persist discovered Performance panels:",
+      persistenceError,
     );
   });
 });

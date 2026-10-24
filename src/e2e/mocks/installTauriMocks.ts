@@ -100,6 +100,10 @@ type FixtureOverrides = {
   classicNavigation: boolean;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
   storedDisplayTarget: string | null;
+  /** `?legacyPerformanceLayout=1` seeds the pre-#2293 default Performance
+   * layout (Per-core and Motherboard sensors hidden) and no discovered-panel
+   * key, simulating an upgraded install. */
+  legacyPerformanceLayout: boolean;
   /** `?coolingBaseline=establishing` switches the Cooling tab's idle-baseline
    * fixtures (`get_cooling_baseline_delta`/`get_cooling_band_comparison`)
    * from "established" to "establishing" so both empty states are
@@ -268,6 +272,10 @@ const readFixtureOverrides = (): FixtureOverrides => {
     storedDisplayTarget: new URLSearchParams(window.location.search).get(
       "storedDisplay",
     ),
+    legacyPerformanceLayout:
+      new URLSearchParams(window.location.search).get(
+        "legacyPerformanceLayout",
+      ) === "1",
     coolingBaselineEstablishing:
       new URLSearchParams(window.location.search).get("coolingBaseline") ===
       "establishing",
@@ -838,6 +846,18 @@ export const installTauriMocks = () => {
   const fixtureOverrides = readFixtureOverrides();
   if (fixtureOverrides.storedDisplayTarget != null) {
     store.set("display", fixtureOverrides.storedDisplayTarget);
+  }
+  if (fixtureOverrides.legacyPerformanceLayout) {
+    store.set("performanceCustomLayout", {
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "processTable", "power"],
+    });
   }
   if (fixtureOverrides.databaseConversionPromptDismissed) {
     store.set("databaseConversionPromptDismissed", true);
