@@ -131,3 +131,5 @@ shared enforcement surface.
 
 - [Cache native E2E compilation, not only its driver](cache-native-e2e-compilation.md)
 - [Re-measure before the next slice](remeasure-before-the-next-slice.md)
+
+- [Match macOS native opacity to Transparent UI](macos-native-window-opacity.md)
