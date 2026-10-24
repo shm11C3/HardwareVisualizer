@@ -97,6 +97,7 @@ type FixtureOverrides = {
   showNavigationNotice: boolean;
   processElevated: boolean;
   firstClose: boolean;
+  settingsReadFailure: boolean;
   /** `?elevation=unprotected` reports an install outside Program Files with
    * Elevated Startup Mode saved as on, so the refused-elevation UI (#2216)
    * can be captured. */
@@ -272,6 +273,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       "1",
     firstClose:
       new URLSearchParams(window.location.search).get("firstClose") === "1",
+    settingsReadFailure:
+      new URLSearchParams(window.location.search).get("settingsReadFailure") ===
+      "1",
     elevationUnprotected:
       new URLSearchParams(window.location.search).get("elevation") ===
       "unprotected",
@@ -959,6 +963,9 @@ export const installTauriMocks = () => {
   mockIPC((cmd: string, args?: unknown) => {
     invokeCounts.set(cmd, (invokeCounts.get(cmd) ?? 0) + 1);
 
+    if (fixtureOverrides.settingsReadFailure && cmd === "get_settings") {
+      throw new Error("[e2e-mock] Simulated settings load failure");
+    }
     if (fixtureOverrides.archiveReadFailure && ARCHIVE_READ_COMMANDS.has(cmd)) {
       throw new Error(`[e2e-mock] Simulated read failure: ${cmd}`);
     }

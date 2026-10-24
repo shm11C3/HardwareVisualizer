@@ -122,6 +122,7 @@ const AppContent = () => {
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsSettled, setSettingsSettled] = useState(false);
   const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [performanceContext, setPerformanceContext] =
     useState<PerformanceGuidanceContext>({
@@ -173,6 +174,7 @@ const AppContent = () => {
         const loaded =
           didLoadSettings.status === "fulfilled" && didLoadSettings.value;
         setSettingsLoaded(loaded);
+        setSettingsSettled(true);
         setSettingsLoadFailed(!loaded);
       }
 
@@ -372,6 +374,7 @@ const AppContent = () => {
           <AppUpdate />
           <StartupDialogs
             settingsLoaded={settingsLoaded}
+            settingsSettled={settingsSettled}
             displayTarget={displayTarget}
             performanceContext={performanceContext}
             nsisMigrationNoticeDismissed={settings.nsisMigrationNoticeDismissed}

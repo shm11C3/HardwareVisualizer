@@ -96,7 +96,7 @@ describe("CloseToTrayFirstRunDialog", () => {
     const onRequestChange = vi.fn();
     const { rerender } = renderDialog(
       <CloseToTrayFirstRunDialog
-        settingsLoaded={false}
+        settingsSettled={false}
         deferred
         onRequestChange={onRequestChange}
       />,

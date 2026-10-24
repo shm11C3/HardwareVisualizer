@@ -18,13 +18,14 @@ import { isError } from "@/types/result";
 
 const EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED = "close-to-tray-choice-requested";
 type CloseToTrayFirstRunDialogProps = {
-  settingsLoaded?: boolean;
+  /** A failed settings load must not strand an intercepted native close. */
+  settingsSettled?: boolean;
   deferred?: boolean;
   onRequestChange?: (requested: boolean) => void;
 };
 
 export const CloseToTrayFirstRunDialog = ({
-  settingsLoaded = true,
+  settingsSettled = true,
   deferred = false,
   onRequestChange,
 }: CloseToTrayFirstRunDialogProps) => {
@@ -35,8 +36,8 @@ export const CloseToTrayFirstRunDialog = ({
   const [saving, setSaving] = useState(false);
 
   useLayoutEffect(() => {
-    onRequestChange?.(requested && settingsLoaded);
-  }, [requested, settingsLoaded, onRequestChange]);
+    onRequestChange?.(requested && settingsSettled);
+  }, [requested, settingsSettled, onRequestChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The listener is registered once for the app lifetime.
   useEffect(() => {
@@ -121,7 +122,7 @@ export const CloseToTrayFirstRunDialog = ({
   };
 
   return (
-    <AlertDialog open={requested && settingsLoaded && !deferred}>
+    <AlertDialog open={requested && settingsSettled && !deferred}>
       <AlertDialogContent className="text-foreground">
         <Button
           aria-label={t("closeToTray.firstRunDialog.quitApp")}

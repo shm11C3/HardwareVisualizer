@@ -261,3 +261,40 @@ test("late guidance and a close request wait behind an active conversion", async
       .first(),
   ).toBeVisible();
 });
+
+test("a failed settings load still permits the first-close Quit action", async ({
+  page,
+}) => {
+  await page.goto("/?settingsReadFailure=1&firstClose=1");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("plugin:dialog|message"),
+      ),
+    )
+    .toBe(1);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("mark_close_to_tray_listener_ready"),
+      ),
+    )
+    .toBe(1);
+  await page.evaluate(() => window.__E2E__?.requestFirstClose());
+  const dialog = page.getByRole("alertdialog", {
+    name: "Keep HardwareVisualizer running?",
+  });
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Quit app", exact: true })
+    .last()
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => window.__E2E__?.getInvokeCount("quit_app")))
+    .toBe(1);
+  expect(
+    await page.evaluate(() =>
+      window.__E2E__?.getInvokeCount("set_close_to_tray_preference"),
+    ),
+  ).toBe(1);
+});

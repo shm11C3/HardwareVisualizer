@@ -11,11 +11,13 @@ type Dialog = "close" | "guidance" | "conversion" | "nsis";
 /** App-owned arbitration: a late reading or close request never covers an active flow. */
 export const StartupDialogs = ({
   settingsLoaded,
+  settingsSettled,
   displayTarget,
   performanceContext,
   nsisMigrationNoticeDismissed,
 }: {
   settingsLoaded: boolean;
+  settingsSettled: boolean;
   displayTarget: SelectedDisplayType | null;
   performanceContext: PerformanceGuidanceContext;
   nsisMigrationNoticeDismissed: boolean;
@@ -61,7 +63,7 @@ export const StartupDialogs = ({
   return (
     <>
       <CloseToTrayFirstRunDialog
-        settingsLoaded={settingsLoaded}
+        settingsSettled={settingsSettled}
         deferred={active !== "close"}
         onRequestChange={setCloseRequested}
       />
