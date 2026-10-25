@@ -1,17 +1,21 @@
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use super::pawn_io::{ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule};
+use super::super::pawn_io::{
+  ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule,
+};
+use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
+use super::ite::{
+  decode_ite_temperature_byte, is_ite_temperature_channel_eligible,
+  is_plausible_ite_temperature,
+};
+use super::nuvoton::{
+  NuvotonHmBaseCheck, NuvotonHmProfile, decode_filtered_nuvoton_temperature_byte,
+  decode_nuvoton_direct_rpm, fan_speed_status_from_rpm, is_nct6701d_usable_hm_base,
+  is_nuvoton_hm_io_space_locked, nuvoton_hm_profile, nuvoton_hm_profiles,
+};
 use crate::models::{
   MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature, SensorSupport,
-};
-use crate::utils::super_io::{
-  NuvotonHmBaseCheck, NuvotonHmProfile, chip_id,
-  decode_filtered_nuvoton_temperature_byte, decode_ite_temperature_byte,
-  decode_nuvoton_direct_rpm, fan_speed_status_from_rpm, is_absent_id,
-  is_ite_temperature_channel_eligible, is_nct6701d_usable_hm_base,
-  is_nuvoton_hm_io_space_locked, is_plausible_ite_temperature, nuvoton_hm_profile,
-  nuvoton_hm_profiles, should_withhold_ite_exit, slot_ports,
 };
 use crate::{log_debug, log_warn};
 

@@ -11,7 +11,6 @@ mod pawn_io;
 pub mod pdh_provider;
 pub mod setupdi_provider;
 pub mod smart;
-pub mod super_io_diagnostics;
-pub mod super_io_motherboard;
+pub mod super_io;
 pub mod thermal_zone;
 pub mod wmi_provider;

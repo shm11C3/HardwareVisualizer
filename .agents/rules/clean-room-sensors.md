@@ -1,5 +1,5 @@
 ---
-scope: "docs/specs/sensors/**,docs/development/sensor-handoff/**,core/src/infrastructure/providers/windows/pawn_io.rs,core/src/infrastructure/providers/windows/cpu_temperature.rs,core/src/infrastructure/providers/windows/cpu_temperature_decode.rs,core/src/infrastructure/providers/windows/super_io*.rs,core/src/platform/windows/motherboard.rs,core/src/platform/windows/sensors.rs,core/src/utils/super_io.rs"
+scope: "docs/specs/sensors/**,docs/development/sensor-handoff/**,core/src/infrastructure/providers/windows/pawn_io.rs,core/src/infrastructure/providers/windows/cpu_temperature.rs,core/src/infrastructure/providers/windows/cpu_temperature_decode.rs,core/src/infrastructure/providers/windows/super_io/**,core/src/platform/windows/motherboard.rs,core/src/platform/windows/sensors.rs"
 ---
 
 # Clean-room rules for PawnIO sensor work (HardwareVisualizer)
