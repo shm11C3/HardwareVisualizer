@@ -4,7 +4,7 @@ This folder contains ready-to-paste prompts for continuing the Windows
 native Super I/O sensor work (#1635). Each session is intentionally
 small and scoped so clean-room boundaries and PR scope stay clean.
 
-## Status snapshot (updated 2026-08-30)
+## Status snapshot (updated 2026-10-25)
 
 - ✅ **Phase 1** — CPU package temperature (PawnIO `IntelMSR` / `RyzenSMU`). Shipped.
 - ✅ **Phase 2** — Super I/O chip-id diagnostic via PawnIO `LpcIO`. **Merged.**
@@ -23,8 +23,23 @@ small and scoped so clean-room boundaries and PR scope stay clean.
   Experimental read-only scope. Its implementation is the next separate
   clean-room task. ITE fans and every other IT86xx/IT87xx ID remain
   disabled or Unsupported.
+- ⚠️ **Phase 2 safety amendment** — `superio-access.md` rev 4 adds the
+  "Slot-1 ITE exit withhold rule": on slot 1 (`0x4E`/`0x4F`) the ITE
+  configuration-mode exit write must not be issued for raw IDs `0x8733`,
+  `0x8790`, `0x8695`, `0x8883`, and the diagnostic reports the exit as
+  intentionally skipped. The current diagnostic and motherboard provider
+  still exit on every slot; applying the rule is a separate clean-room
+  implementer task.
 
 ### What unblocks the next code
+
+The `superio-access.md` rev 4 exit withhold is unblocked for a separate
+clean-room implementation session covering
+`core/src/infrastructure/providers/windows/super_io_diagnostics.rs` and
+the ITE slot handling in `super_io_motherboard.rs`, plus the skipped-exit
+state in the diagnostic model. It should land before further ITE chip
+scopes widen the number of Gigabyte two-chip boards that run the slot-1
+ITE probe.
 
 The exact `0x8728` / IT8728F/EX Experimental temperature scope is
 unblocked for a separate clean-room implementation session. That work
