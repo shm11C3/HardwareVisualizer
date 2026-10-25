@@ -7,7 +7,7 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-access.md` revision 3
-//! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 8
+//! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 9
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
 //!
 //! No other external sensor source was used.
@@ -50,7 +50,7 @@ pub const fn is_absent_id(id_high: u8, id_low: u8) -> bool {
 /// Decode a Nuvoton bank 4 byte temperature as signed degrees C.
 ///
 /// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
-/// revision 8, scoped to the enabled normal HM bank 4 byte temperatures.
+/// revision 9, scoped to the enabled normal HM bank 4 byte temperatures.
 pub const fn decode_nuvoton_temperature_byte(raw: u8) -> f32 {
   (raw as i8) as f32
 }
@@ -58,7 +58,7 @@ pub const fn decode_nuvoton_temperature_byte(raw: u8) -> f32 {
 /// Decode a Nuvoton direct RPM high/low register pair.
 ///
 /// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
-/// revision 8, which defines the enabled direct RPM path as high byte then low
+/// revision 9, which defines the enabled direct RPM path as high byte then low
 /// byte, unsigned RPM.
 pub const fn decode_nuvoton_direct_rpm(high: u8, low: u8) -> u32 {
   ((high as u32) << 8) | low as u32
@@ -290,7 +290,7 @@ const fn family(family_id: u16, profile: NuvotonHmProfile) -> NuvotonFamilyEntry
   NuvotonFamilyEntry { family_id, profile }
 }
 
-/// Named rows of `superio-nuvoton-nct67xx.md` revision 8 ("ID-matching
+/// Named rows of `superio-nuvoton-nct67xx.md` revision 9 ("ID-matching
 /// policy" step 1): the Verified `0xD802` row with its Experimental
 /// sub-scopes, the exact `0xD421` row, the NCT6779D range, and the lead-only
 /// exact rows. Matched before the family ranges.
@@ -303,10 +303,8 @@ const NUVOTON_HM_PROFILES: [NuvotonProfileEntry; 15] = [
       ..verified_profile("NCT6799D", "NCT6799D / Super I/O")
     },
   ),
-  exact_id(
-    0xD421,
-    experimental_profile("NCT6796D/NCT6796D-E", 7, false),
-  ),
+  // The `0xD421` lock gate rests on S1 p. 376 alone (revision 9).
+  exact_id(0xD421, experimental_profile("NCT6796D/NCT6796D-E", 7, true)),
   NuvotonProfileEntry {
     first_id: 0xC560,
     last_id: 0xC567,
@@ -345,7 +343,7 @@ const NUVOTON_HM_PROFILES: [NuvotonProfileEntry; 15] = [
 ];
 
 /// Unrecognized-version range profiles of `superio-nuvoton-nct67xx.md`
-/// revision 8 ("ID-matching policy" step 2). Each unnamed version of a lead
+/// revision 9 ("ID-matching policy" step 2). Each unnamed version of a lead
 /// family range gets the conservative profile of that range: the fewest fan
 /// pairs of its named members, the intersection of their temperature sets,
 /// and every safety gate any named member applies. The NCT6779D family
@@ -454,7 +452,7 @@ const fn is_plausible_super_io_temperature(temperature: f32) -> bool {
 /// Whether a decoded Nuvoton bank 4 byte temperature is plausible.
 ///
 /// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
-/// revision 8 ("Temperature plausibility bounds", S1 Table 8-1): raw bytes
+/// revision 9 ("Temperature plausibility bounds", S1 Table 8-1): raw bytes
 /// `0x00`-`0x7D` and `0xC9`-`0xFF` are accepted, `0x7E`-`0xC8` are rejected.
 /// Applies to every row, including Verified `0xD802`.
 pub const fn is_plausible_nuvoton_temperature(temperature: f32) -> bool {
@@ -624,7 +622,7 @@ mod tests {
         "NCT6796D/NCT6796D-E",
         SensorEnablement::Experimental,
         7,
-        false,
+        true,
       ),
       (0xC560, "NCT6779D", SensorEnablement::Experimental, 5, false),
       (0xC803, "NCT6791D", SensorEnablement::Experimental, 6, true),
@@ -837,14 +835,15 @@ mod tests {
   }
 
   #[test]
-  fn nuvoton_d421_reads_seven_pairs_without_bank4_0x96_or_the_lock_gate() {
+  fn nuvoton_d421_reads_seven_pairs_behind_the_lock_gate_without_bank4_0x96() {
     let d421 = nuvoton_hm_profile(0xD421).unwrap();
 
     assert_eq!(d421.source_label, "Nuvoton / Super I/O");
     assert_eq!(temperature_register_indexes(d421), ALL_TEMPERATURES);
     assert_eq!(direct_rpm_register_indexes(d421), SEVEN_PAIRS);
     assert!(!d421.has_experimental_sub_scope());
-    assert!(!d421.lock_gate);
+    // Revision 9: the CR28 bit 4 gate applies to 0xD421 on S1 p. 376 alone.
+    assert!(d421.lock_gate);
     assert_eq!(d421.temperature_filter, NuvotonTemperatureFilter::None);
     assert_eq!(d421.hm_base_check, NuvotonHmBaseCheck::Standard);
   }

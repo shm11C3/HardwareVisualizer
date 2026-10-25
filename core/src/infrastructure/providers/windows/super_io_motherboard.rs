@@ -82,7 +82,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// Implemented from:
 /// - docs/specs/sensors/pawnio-interface.md revision 6
 /// - docs/specs/sensors/superio-access.md revision 3
-/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 8
+/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
 ///
 /// No other external sensor implementation source was used.
@@ -1489,25 +1489,49 @@ mod tests {
   }
 
   #[test]
-  fn d802_and_d421_discovery_skip_the_lock_gate() {
-    for raw_id in [D802_CHIP_ID, D421_CHIP_ID] {
-      let client = FakeLpcIo::with_chip_id(raw_id);
-      // A set lock bit must not matter for rows without the lock gate.
-      client.hm_io_space_lock.set(0x10);
+  fn d802_discovery_skips_the_lock_gate() {
+    let client = FakeLpcIo::with_chip_id(D802_CHIP_ID);
+    // A set lock bit must not matter for the Verified row without the gate.
+    client.hm_io_space_lock.set(0x10);
 
-      let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
-        .unwrap()
-        .unwrap();
+    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
 
-      assert_eq!(detected.hm_base, 0x0290, "0x{raw_id:04X}");
-      assert!(
-        !client
-          .superio_reads
-          .borrow()
-          .contains(&NUVOTON_HM_IO_SPACE_LOCK_REGISTER),
-        "0x{raw_id:04X}"
-      );
-    }
+    assert_eq!(detected.hm_base, 0x0290);
+    assert!(
+      !client
+        .superio_reads
+        .borrow()
+        .contains(&NUVOTON_HM_IO_SPACE_LOCK_REGISTER)
+    );
+  }
+
+  #[test]
+  fn d421_discovery_reads_the_lock_gate_and_stops_when_locked() {
+    // Revision 9: CR28 bit 4 gates 0xD421 on S1 p. 376; it is only read.
+    let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
+    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+    assert_eq!(detected.hm_base, 0x0290);
+    assert_eq!(
+      &client.superio_reads.borrow()[..3],
+      &[
+        CHIP_ID_HIGH_REGISTER,
+        CHIP_ID_LOW_REGISTER,
+        NUVOTON_HM_IO_SPACE_LOCK_REGISTER
+      ]
+    );
+
+    let locked = FakeLpcIo::with_chip_id(D421_CHIP_ID);
+    locked.hm_io_space_lock.set(0x10);
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&locked, 0).unwrap_err();
+    assert!(error.starts_with(D421_FAILURE_PREFIX), "{error}");
+    assert!(error.contains("CR28=0x10"));
+    assert_eq!(locked.selected_ldn.get(), None);
+    assert!(locked.superio_writes.borrow().is_empty());
+    assert_eq!(locked.find_bars_calls.get(), 0);
   }
 
   #[test]
