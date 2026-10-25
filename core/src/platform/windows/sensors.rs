@@ -72,6 +72,9 @@ fn motherboard_guidance_candidates_for_reason(
     || reason.starts_with(
       crate::infrastructure::providers::windows::super_io_motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
     )
+    || reason.starts_with(
+      crate::infrastructure::providers::windows::super_io_motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
+    )
   {
     return Vec::new();
   }
@@ -268,6 +271,30 @@ mod tests {
     ));
 
     assert!(candidates.is_empty());
+  }
+
+  #[test]
+  fn motherboard_guidance_suppresses_experimental_nuvoton_hardware_state_failure() {
+    let candidates = motherboard_guidance_candidates_for_reason(format!(
+      "{} (NCT6798D): Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)",
+      crate::infrastructure::providers::windows::super_io_motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
+    ));
+
+    assert!(candidates.is_empty());
+  }
+
+  #[test]
+  fn motherboard_guidance_remains_for_experimental_nuvoton_runtime_failure() {
+    let candidates = motherboard_guidance_candidates_for_reason(
+      "Experimental NCT6798D motherboard sensor path failed: pawnio_execute ioctl_pio_inb failed"
+        .to_string(),
+    );
+
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(
+      candidates[0].key,
+      crate::models::external_component_guidance::PAWNIO_MOTHERBOARD_SENSORS_KEY
+    );
   }
 
   #[test]

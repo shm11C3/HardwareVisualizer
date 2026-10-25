@@ -6,20 +6,16 @@ use crate::models::{
   MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature, SensorSupport,
 };
 use crate::utils::super_io::{
-  chip_id, decode_ite_temperature_byte, decode_nuvoton_direct_rpm,
-  decode_nuvoton_temperature_byte, fan_speed_status_from_rpm, is_absent_id,
-  is_ite_temperature_channel_eligible, is_plausible_ite_temperature,
-  should_withhold_ite_exit, slot_ports,
+  NuvotonHmBaseCheck, NuvotonHmProfile, chip_id,
+  decode_filtered_nuvoton_temperature_byte, decode_ite_temperature_byte,
+  decode_nuvoton_direct_rpm, fan_speed_status_from_rpm, is_absent_id,
+  is_ite_temperature_channel_eligible, is_nct6701d_usable_hm_base,
+  is_nuvoton_hm_io_space_locked, is_plausible_ite_temperature, nuvoton_hm_profile,
+  nuvoton_hm_profiles, should_withhold_ite_exit, slot_ports,
 };
 use crate::{log_debug, log_warn};
 
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
-const NUVOTON_NCT6799D_CHIP_ID: u16 = 0xD802;
-const NUVOTON_NCT6796D_CHIP_ID: u16 = 0xD421;
-const NUVOTON_CHIP_LABEL: &str = "NCT6799D";
-const NUVOTON_SOURCE_LABEL: &str = "NCT6799D / Super I/O";
-const NUVOTON_NCT6796D_CHIP_LABEL: &str = "NCT6796D/NCT6796D-E";
-const NUVOTON_NCT6796D_SOURCE_LABEL: &str = "Nuvoton / Super I/O";
 const ITE_IT8728F_CHIP_ID: u16 = 0x8728;
 const ITE_CHIP_LABEL: &str = "IT8728F/EX";
 const ITE_SOURCE_LABEL: &str = "IT8728F/EX / Super I/O";
@@ -29,8 +25,17 @@ pub(crate) const ITE_EXPERIMENTAL_FAILURE_PREFIX: &str =
   "Experimental IT8728F/EX motherboard temperature path failed";
 pub(crate) const ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
   "Experimental IT8728F/EX motherboard temperature path failed: hardware state";
-pub(crate) const NUVOTON_EXPERIMENTAL_FAILURE_PREFIX: &str =
-  "Experimental NCT6796D/NCT6796D-E motherboard sensor path failed";
+/// Experimental Nuvoton failures read
+/// `Experimental <chip label> motherboard sensor path failed: <reason>`.
+const NUVOTON_EXPERIMENTAL_FAILURE_LEAD: &str = "Experimental";
+const NUVOTON_EXPERIMENTAL_FAILURE_TAIL: &str = "motherboard sensor path failed";
+/// Experimental Nuvoton failures caused by firmware/hardware state that PawnIO
+/// already read successfully (a set `CR28` HM I/O-space lock, or the NCT6701D
+/// inactive-LDN / unusable-base quirks). These read
+/// `<prefix> (<chip label>): <reason>` and must not produce PawnIO
+/// install/permission guidance.
+pub(crate) const NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
+  "Experimental Nuvoton motherboard sensor path failed: hardware state";
 const NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "Nuvoton config exit failed";
 const ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "configuration exit failed";
 const ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT: &str =
@@ -38,6 +43,7 @@ const ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT: &str =
 
 const CHIP_ID_HIGH_REGISTER: u8 = 0x20;
 const CHIP_ID_LOW_REGISTER: u8 = 0x21;
+const NUVOTON_HM_IO_SPACE_LOCK_REGISTER: u8 = 0x28;
 const LOGICAL_DEVICE_SELECT_REGISTER: u8 = 0x07;
 const NUVOTON_HARDWARE_MONITOR_LDN: u8 = 0x0B;
 const ITE_ENVIRONMENT_CONTROLLER_LDN: u8 = 0x04;
@@ -56,24 +62,6 @@ const ITE_EC_CONFIGURATION_REGISTER: u8 = 0x00;
 const ITE_EC_CHANNEL_ENABLE_REGISTER: u8 = 0x51;
 const ITE_ABSENT_EC_BASE: u16 = 0x0FF8;
 const ITE_SAMPLE_MIN_INTERVAL: Duration = Duration::from_millis(1_500);
-
-const TEMPERATURE_REGISTERS: [(&str, u8); 6] = [
-  ("SYSTIN", 0x90),
-  ("CPUTIN", 0x91),
-  ("AUXTIN0", 0x92),
-  ("AUXTIN1", 0x93),
-  ("AUXTIN2", 0x94),
-  ("AUXTIN3", 0x95),
-];
-
-const FAN_RPM_REGISTERS: [(&str, u8, u8); 6] = [
-  ("Fan 1", 0xC0, 0xC1),
-  ("Fan 2", 0xC2, 0xC3),
-  ("Fan 3", 0xC4, 0xC5),
-  ("Fan 4", 0xC6, 0xC7),
-  ("Fan 5", 0xC8, 0xC9),
-  ("Fan 6", 0xCA, 0xCB),
-];
 
 const ITE_TEMPERATURE_REGISTERS: [(&str, u8, u8); 3] = [
   ("TMPIN1", 0x29, 1),
@@ -98,7 +86,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// Implemented from:
 /// - docs/specs/sensors/pawnio-interface.md revision 6
 /// - docs/specs/sensors/superio-access.md revision 3
-/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 6
+/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 7
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
 ///
 /// No other external sensor implementation source was used.
@@ -253,9 +241,7 @@ struct ActiveNuvotonMotherboardSensors<C: LpcIoOps> {
   client: C,
   slot: u8,
   hm_base: u16,
-  chip_label: &'static str,
-  source_label: &'static str,
-  experimental: bool,
+  profile: &'static NuvotonHmProfile,
 }
 
 struct ActiveIteMotherboardSensors<C: LpcIoOps> {
@@ -288,9 +274,7 @@ impl ActiveMotherboardSensors<PawnIoClient> {
             client,
             slot: discovered.slot,
             hm_base: discovered.hm_base,
-            chip_label: discovered.chip_label,
-            source_label: discovered.source_label,
-            experimental: discovered.experimental,
+            profile: discovered.profile,
           }));
         }
         Ok(None) => {}
@@ -342,7 +326,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
     match self {
       Self::Nuvoton(active) => format!(
         "active chip={} slot={} hm_base=0x{:04X}",
-        active.chip_label, active.slot, active.hm_base
+        active.profile.chip_label, active.slot, active.hm_base
       ),
       Self::Ite(active) => format!(
         "active chip={} slot={} ec_base=0x{:04X}",
@@ -368,10 +352,11 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
       (Ok(value), Err(exit_error)) => {
         let reason =
           format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}");
-        if value.as_ref().is_some_and(|slot| slot.experimental) {
-          Err(nuvoton_experimental_failure(reason))
-        } else {
-          Err(reason)
+        match value {
+          Some(detected) if detected.profile.is_experimental() => Err(
+            nuvoton_experimental_failure(detected.profile.chip_label, reason),
+          ),
+          _ => Err(reason),
         }
       }
       (Err(reason), Ok(())) => Err(reason),
@@ -399,20 +384,24 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
     // I/O fail with access denied on the validated NZXT N7 B650E path.
     self.write_hm_byte(HM_BANK_SELECT_REGISTER, NUVOTON_BANK_4)?;
 
-    let temperatures = TEMPERATURE_REGISTERS
-      .iter()
-      .map(|(name, register)| {
-        self
-          .read_hm_byte(*register)
-          .map(|raw| MotherboardTemperature {
-            name: (*name).to_string(),
-            temperature: decode_nuvoton_temperature_byte(raw),
-            source: self.source_label.to_string(),
-          })
-      })
-      .collect::<Result<Vec<_>, _>>()?;
+    let profile = self.profile;
+    let mut temperatures = Vec::with_capacity(profile.temperature_registers.len());
+    for (name, register) in profile.temperature_registers {
+      let raw = self.read_hm_byte(*register)?;
+      // A filtered raw byte leaves that input unavailable for this sample.
+      if let Some(temperature) =
+        decode_filtered_nuvoton_temperature_byte(raw, profile.temperature_filter)
+      {
+        temperatures.push(MotherboardTemperature {
+          name: (*name).to_string(),
+          temperature,
+          source: profile.source_label.to_string(),
+        });
+      }
+    }
 
-    let fan_speeds = FAN_RPM_REGISTERS
+    let fan_speeds = profile
+      .direct_rpm_registers()
       .iter()
       .map(|(name, high_register, low_register)| {
         let high = self.read_hm_byte(*high_register)?;
@@ -422,7 +411,7 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
           name: (*name).to_string(),
           rpm: Some(rpm),
           status: fan_speed_status_from_rpm(rpm),
-          source: self.source_label.to_string(),
+          source: profile.source_label.to_string(),
         })
       })
       .collect::<Result<Vec<_>, String>>()?;
@@ -434,11 +423,7 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
   }
 
   fn surface_sample_failure(&self, reason: String) -> String {
-    if self.experimental {
-      nuvoton_experimental_failure(reason)
-    } else {
-      reason
-    }
+    surface_nuvoton_failure(self.profile, reason)
   }
 
   fn write_hm_byte(&self, register: u8, value: u8) -> Result<(), String> {
@@ -643,9 +628,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
 struct DetectedSlot {
   slot: u8,
   hm_base: u16,
-  chip_label: &'static str,
-  source_label: &'static str,
-  experimental: bool,
+  profile: &'static NuvotonHmProfile,
 }
 
 #[derive(Debug)]
@@ -664,51 +647,92 @@ fn discover_nuvoton_hm_base(
     return Ok(None);
   }
 
-  let raw_chip_id = chip_id(id_high, id_low);
-  let (chip_label, source_label, experimental) = match raw_chip_id {
-    NUVOTON_NCT6799D_CHIP_ID => (NUVOTON_CHIP_LABEL, NUVOTON_SOURCE_LABEL, false),
-    NUVOTON_NCT6796D_CHIP_ID => (
-      NUVOTON_NCT6796D_CHIP_LABEL,
-      NUVOTON_NCT6796D_SOURCE_LABEL,
-      true,
-    ),
-    _ => return Ok(None),
+  let Some(profile) = nuvoton_hm_profile(chip_id(id_high, id_low)) else {
+    return Ok(None);
   };
 
+  // The NCT6701D row documents an inactive LDN B and an unusable CR60/61 base
+  // as known firmware states; other rows treat them as ordinary failures.
+  let firmware_quirks = profile.hm_base_check == NuvotonHmBaseCheck::Nct6701dUsableBase;
+
   let result = (|| {
-    client.superio_outb(LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN)?;
-    let activation = client.superio_inb(LDN_ACTIVATION_REGISTER)?;
-    if (activation & 0x01) == 0 {
-      return Err("Nuvoton hardware monitor logical device is inactive".to_string());
+    // The lock gate is a read of global CR28 while still in configuration
+    // mode, before LDN selection. CR28 is never written.
+    if profile.lock_gate {
+      let lock_state = client
+        .superio_inb(NUVOTON_HM_IO_SPACE_LOCK_REGISTER)
+        .map_err(NuvotonDiscoveryFailure::Transport)?;
+      if is_nuvoton_hm_io_space_locked(lock_state) {
+        return Err(NuvotonDiscoveryFailure::HardwareState(format!(
+          "Nuvoton hardware-monitor I/O space is locked (CR28=0x{lock_state:02X}, bit 4 set)"
+        )));
+      }
     }
 
-    let base_high = client.superio_inb(HM_BASE_HIGH_REGISTER)?;
-    let base_low = client.superio_inb(HM_BASE_LOW_REGISTER)?;
-    let hm_base = ((base_high as u16) << 8) | base_low as u16;
-    if !is_valid_hm_base(hm_base) {
-      return Err(format!(
-        "invalid Nuvoton hardware-monitor base 0x{hm_base:04X}"
+    client
+      .superio_outb(LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
+    let activation = client
+      .superio_inb(LDN_ACTIVATION_REGISTER)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
+    if (activation & 0x01) == 0 {
+      return Err(NuvotonDiscoveryFailure::firmware(
+        firmware_quirks,
+        "Nuvoton hardware monitor logical device is inactive".to_string(),
       ));
     }
 
-    client.find_lpc_bars()?;
+    let base_high = client
+      .superio_inb(HM_BASE_HIGH_REGISTER)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
+    let base_low = client
+      .superio_inb(HM_BASE_LOW_REGISTER)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
+    let hm_base = ((base_high as u16) << 8) | base_low as u16;
+    if !is_valid_nuvoton_hm_base(profile.hm_base_check, hm_base) {
+      return Err(NuvotonDiscoveryFailure::firmware(
+        firmware_quirks,
+        format!("invalid Nuvoton hardware-monitor base 0x{hm_base:04X}"),
+      ));
+    }
+
+    client
+      .find_lpc_bars()
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
 
     Ok(DetectedSlot {
       slot,
       hm_base,
-      chip_label,
-      source_label,
-      experimental,
+      profile,
     })
   })();
 
-  result.map(Some).map_err(|reason| {
-    if experimental {
-      nuvoton_experimental_failure(reason)
-    } else {
-      reason
+  result.map(Some).map_err(|failure| match failure {
+    NuvotonDiscoveryFailure::Transport(reason) => {
+      surface_nuvoton_failure(profile, reason)
+    }
+    NuvotonDiscoveryFailure::HardwareState(reason) => {
+      surface_nuvoton_hardware_state_failure(profile, reason)
     }
   })
+}
+
+/// Discovery failure classification used to pick the surfaced wording.
+enum NuvotonDiscoveryFailure {
+  /// PawnIO/transport or unexpected register failures; guidance may apply.
+  Transport(String),
+  /// Firmware/hardware state read successfully through PawnIO; no guidance.
+  HardwareState(String),
+}
+
+impl NuvotonDiscoveryFailure {
+  fn firmware(is_documented_quirk: bool, reason: String) -> Self {
+    if is_documented_quirk {
+      Self::HardwareState(reason)
+    } else {
+      Self::Transport(reason)
+    }
+  }
 }
 
 fn read_ite_chip_id(client: &impl LpcIoOps) -> Result<(u8, u8), String> {
@@ -814,6 +838,14 @@ fn is_valid_hm_base(base: u16) -> bool {
   base != 0x0000 && base != 0xFFFF && base <= u16::MAX - HM_DATA_OFFSET
 }
 
+fn is_valid_nuvoton_hm_base(check: NuvotonHmBaseCheck, base: u16) -> bool {
+  is_valid_hm_base(base)
+    && match check {
+      NuvotonHmBaseCheck::Standard => true,
+      NuvotonHmBaseCheck::Nct6701dUsableBase => is_nct6701d_usable_hm_base(base),
+    }
+}
+
 fn is_valid_ite_ec_base(base_high: u8, base_low: u8, ec_base: u16) -> bool {
   (base_high & 0xF0) == 0
     && (base_low & 0x07) == 0
@@ -839,18 +871,66 @@ fn ite_experimental_non_component_failure(reason: impl AsRef<str>) -> String {
   )
 }
 
-fn nuvoton_experimental_failure(reason: impl AsRef<str>) -> String {
+fn nuvoton_experimental_failure_prefix(chip_label: &str) -> String {
+  format!(
+    "{NUVOTON_EXPERIMENTAL_FAILURE_LEAD} {chip_label} {NUVOTON_EXPERIMENTAL_FAILURE_TAIL}"
+  )
+}
+
+fn nuvoton_experimental_failure(chip_label: &str, reason: impl AsRef<str>) -> String {
   let reason = reason.as_ref();
-  if reason.starts_with(NUVOTON_EXPERIMENTAL_FAILURE_PREFIX) {
+  let prefix = nuvoton_experimental_failure_prefix(chip_label);
+  if reason.starts_with(&prefix) {
     reason.to_string()
   } else {
-    format!("{NUVOTON_EXPERIMENTAL_FAILURE_PREFIX}: {reason}")
+    format!("{prefix}: {reason}")
   }
 }
 
+/// Identify a failure as experimental only for Experimental profiles; Verified
+/// failures keep their plain reason.
+fn surface_nuvoton_failure(profile: &NuvotonHmProfile, reason: String) -> String {
+  if profile.is_experimental() {
+    nuvoton_experimental_failure(profile.chip_label, reason)
+  } else {
+    reason
+  }
+}
+
+fn nuvoton_experimental_hardware_state_failure(
+  chip_label: &str,
+  reason: impl AsRef<str>,
+) -> String {
+  format!(
+    "{NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({chip_label}): {}",
+    reason.as_ref()
+  )
+}
+
+/// Hardware-state failures of Experimental profiles carry the non-component
+/// prefix so no PawnIO guidance is produced; Verified failures keep their
+/// plain reason.
+fn surface_nuvoton_hardware_state_failure(
+  profile: &NuvotonHmProfile,
+  reason: String,
+) -> String {
+  if profile.is_experimental() {
+    nuvoton_experimental_hardware_state_failure(profile.chip_label, reason)
+  } else {
+    reason
+  }
+}
+
+fn is_nuvoton_experimental_failure(reason: &str) -> bool {
+  nuvoton_hm_profiles()
+    .filter(|profile| profile.is_experimental())
+    .any(|profile| {
+      reason.starts_with(&nuvoton_experimental_failure_prefix(profile.chip_label))
+    })
+}
+
 fn is_retryable_init_error(reason: &str) -> bool {
-  let requires_nuvoton_rediscovery = reason
-    .starts_with(NUVOTON_EXPERIMENTAL_FAILURE_PREFIX)
+  let requires_nuvoton_rediscovery = is_nuvoton_experimental_failure(reason)
     && reason.contains(NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT);
   let requires_ite_rediscovery = reason.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX)
     && (reason.contains(ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT)
@@ -881,6 +961,11 @@ mod tests {
     hm_base_high_read: Cell<bool>,
     hm_base_low_read: Cell<bool>,
     read_registers: RefCell<Vec<u8>>,
+    hm_io_space_lock: Cell<u8>,
+    hm_base: Cell<(u8, u8)>,
+    temperature_override: Cell<Option<(u8, u8)>>,
+    superio_reads: RefCell<Vec<u8>>,
+    superio_writes: RefCell<Vec<(u8, u8)>>,
   }
 
   impl FakeLpcIo {
@@ -898,24 +983,21 @@ mod tests {
         hm_base_high_read: Cell::new(false),
         hm_base_low_read: Cell::new(false),
         read_registers: RefCell::new(Vec::new()),
+        hm_io_space_lock: Cell::new(0x00),
+        hm_base: Cell::new((0x02, 0x90)),
+        temperature_override: Cell::new(None),
+        superio_reads: RefCell::new(Vec::new()),
+        superio_writes: RefCell::new(Vec::new()),
       }
     }
 
     fn with_authorized_hm_bars() -> Self {
-      Self {
-        chip_id_high: Cell::new(0xD8),
-        chip_id_low: Cell::new(0x02),
-        activation: Cell::new(0x09),
-        selected_slot_calls: Cell::new(0),
-        find_bars_calls: Cell::new(0),
-        hm_bars_authorized: Cell::new(true),
-        selected_hm_register: Cell::new(None),
-        selected_hm_bank: Cell::new(0),
-        selected_ldn: Cell::new(Some(NUVOTON_HARDWARE_MONITOR_LDN)),
-        hm_base_high_read: Cell::new(true),
-        hm_base_low_read: Cell::new(true),
-        read_registers: RefCell::new(Vec::new()),
-      }
+      let client = Self::new();
+      client.hm_bars_authorized.set(true);
+      client.selected_ldn.set(Some(NUVOTON_HARDWARE_MONITOR_LDN));
+      client.hm_base_high_read.set(true);
+      client.hm_base_low_read.set(true);
+      client
     }
 
     fn with_chip_id(chip_id: u16) -> Self {
@@ -933,11 +1015,16 @@ mod tests {
       }
     }
 
-    fn read_value_for(register: u8) -> u8 {
+    fn read_value_for(&self, register: u8) -> u8 {
+      if let Some((overridden, raw)) = self.temperature_override.get()
+        && overridden == register
+      {
+        return raw;
+      }
       match register {
         0x90..=0x95 => 32,
-        0xC0 | 0xC2 | 0xC4 | 0xC6 | 0xC8 | 0xCA => 0x03,
-        0xC1 | 0xC3 | 0xC5 | 0xC7 | 0xC9 | 0xCB => 0x20,
+        0xC0 | 0xC2 | 0xC4 | 0xC6 | 0xC8 | 0xCA | 0xCE => 0x03,
+        0xC1 | 0xC3 | 0xC5 | 0xC7 | 0xC9 | 0xCB | 0xCF => 0x20,
         _ => 0,
       }
     }
@@ -979,7 +1066,7 @@ mod tests {
         .get()
         .ok_or_else(|| "HM index register was not selected".to_string())?;
       self.read_registers.borrow_mut().push(register);
-      Ok(Self::read_value_for(register))
+      Ok(self.read_value_for(register))
     }
 
     fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
@@ -1001,9 +1088,11 @@ mod tests {
     }
 
     fn superio_inb(&self, register: u8) -> Result<u8, String> {
+      self.superio_reads.borrow_mut().push(register);
       match register {
         CHIP_ID_HIGH_REGISTER => Ok(self.chip_id_high.get()),
         CHIP_ID_LOW_REGISTER => Ok(self.chip_id_low.get()),
+        NUVOTON_HM_IO_SPACE_LOCK_REGISTER => Ok(self.hm_io_space_lock.get()),
         LDN_ACTIVATION_REGISTER => {
           if self.selected_ldn.get() == Some(NUVOTON_HARDWARE_MONITOR_LDN) {
             Ok(self.activation.get())
@@ -1013,21 +1102,48 @@ mod tests {
         }
         HM_BASE_HIGH_REGISTER => {
           self.hm_base_high_read.set(true);
-          Ok(0x02)
+          Ok(self.hm_base.get().0)
         }
         HM_BASE_LOW_REGISTER => {
           self.hm_base_low_read.set(true);
-          Ok(0x90)
+          Ok(self.hm_base.get().1)
         }
         _ => Ok(0),
       }
     }
 
     fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+      self.superio_writes.borrow_mut().push((register, value));
       if register == LOGICAL_DEVICE_SELECT_REGISTER {
         self.selected_ldn.set(Some(value));
       }
       Ok(())
+    }
+  }
+
+  const D802_CHIP_ID: u16 = 0xD802;
+  const D421_CHIP_ID: u16 = 0xD421;
+  const D421_FAILURE_PREFIX: &str =
+    "Experimental NCT6796D/NCT6796D-E motherboard sensor path failed";
+  const SIX_PAIR_READS: [u8; 18] = [
+    0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7,
+    0xC8, 0xC9, 0xCA, 0xCB,
+  ];
+
+  fn d802_profile() -> &'static NuvotonHmProfile {
+    nuvoton_hm_profile(D802_CHIP_ID).unwrap()
+  }
+
+  /// Discover slot 0 with `client` and hand the client to an active path.
+  fn discovered_active(client: FakeLpcIo) -> ActiveNuvotonMotherboardSensors<FakeLpcIo> {
+    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+    ActiveNuvotonMotherboardSensors {
+      client,
+      slot: detected.slot,
+      hm_base: detected.hm_base,
+      profile: detected.profile,
     }
   }
 
@@ -1218,91 +1334,104 @@ mod tests {
 
   #[test]
   fn discover_slot_accepts_exact_d421_id() {
-    let client = FakeLpcIo::with_chip_id(NUVOTON_NCT6796D_CHIP_ID);
+    let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
 
     let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
       .unwrap()
       .unwrap();
 
-    assert_eq!(detected.chip_label, NUVOTON_NCT6796D_CHIP_LABEL);
-    assert_eq!(detected.source_label, NUVOTON_NCT6796D_SOURCE_LABEL);
-    assert!(detected.experimental);
+    assert_eq!(detected.profile.chip_label, "NCT6796D/NCT6796D-E");
+    assert_eq!(detected.profile.source_label, "Nuvoton / Super I/O");
+    assert!(detected.profile.is_experimental());
     assert!(client.hm_bars_authorized.get());
   }
 
   #[test]
   fn discover_slot_rejects_another_nuvoton_id() {
-    let client = FakeLpcIo::with_chip_id(0xD422);
+    for raw_id in [0xD422, 0xC568, 0xC800, 0xD428, 0xD800, 0xD807] {
+      let client = FakeLpcIo::with_chip_id(raw_id);
 
-    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap();
+      let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap();
 
-    assert!(detected.is_none());
-    assert_eq!(client.find_bars_calls.get(), 0);
-    assert_eq!(client.selected_ldn.get(), None);
+      assert!(detected.is_none(), "0x{raw_id:04X}");
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert_eq!(client.selected_ldn.get(), None);
+      assert_eq!(
+        client.superio_reads.borrow().as_slice(),
+        &[CHIP_ID_HIGH_REGISTER, CHIP_ID_LOW_REGISTER]
+      );
+    }
   }
 
   #[test]
   fn d421_failure_is_identified_as_experimental() {
-    let client = FakeLpcIo::with_chip_id(NUVOTON_NCT6796D_CHIP_ID);
+    let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
     client.activation.set(0x00);
 
     let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
 
-    assert!(error.starts_with(NUVOTON_EXPERIMENTAL_FAILURE_PREFIX));
+    assert!(error.starts_with(D421_FAILURE_PREFIX));
     assert!(error.contains("logical device is inactive"));
   }
 
   #[test]
+  fn d802_failure_keeps_the_plain_verified_reason() {
+    let client = FakeLpcIo::new();
+    client.activation.set(0x00);
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert_eq!(error, "Nuvoton hardware monitor logical device is inactive");
+  }
+
+  #[test]
   fn d421_uses_the_scoped_bank4_temperature_and_direct_rpm_path() {
-    let client = FakeLpcIo::with_chip_id(NUVOTON_NCT6796D_CHIP_ID);
-    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
-      .unwrap()
-      .unwrap();
-    let active = ActiveNuvotonMotherboardSensors {
-      client,
-      slot: detected.slot,
-      hm_base: detected.hm_base,
-      chip_label: detected.chip_label,
-      source_label: detected.source_label,
-      experimental: detected.experimental,
-    };
+    let active = discovered_active(FakeLpcIo::with_chip_id(D421_CHIP_ID));
 
     let sample = active.sample_unlocked().unwrap();
 
     assert_eq!(sample.temperatures[0].temperature, 32.0);
     assert_eq!(sample.fan_speeds[0].rpm, Some(0x0320));
-    assert_eq!(sample.temperatures[0].source, NUVOTON_NCT6796D_SOURCE_LABEL);
-    assert_eq!(sample.fan_speeds[0].source, NUVOTON_NCT6796D_SOURCE_LABEL);
+    assert_eq!(sample.temperatures[0].source, "Nuvoton / Super I/O");
+    assert_eq!(sample.fan_speeds[0].source, "Nuvoton / Super I/O");
     assert!(!sample.temperatures[0].source.contains("Experimental"));
     assert!(!sample.fan_speeds[0].source.contains("Experimental"));
     assert_eq!(
       active.client.read_registers.borrow().as_slice(),
-      &[
-        0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6,
-        0xC7, 0xC8, 0xC9, 0xCA, 0xCB
-      ]
+      &SIX_PAIR_READS
     );
   }
 
   #[test]
+  fn d802_and_d421_discovery_skip_the_lock_gate() {
+    for raw_id in [D802_CHIP_ID, D421_CHIP_ID] {
+      let client = FakeLpcIo::with_chip_id(raw_id);
+      // A set lock bit must not matter for rows without the lock gate.
+      client.hm_io_space_lock.set(0x10);
+
+      let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+        .unwrap()
+        .unwrap();
+
+      assert_eq!(detected.hm_base, 0x0290, "0x{raw_id:04X}");
+      assert!(
+        !client
+          .superio_reads
+          .borrow()
+          .contains(&NUVOTON_HM_IO_SPACE_LOCK_REGISTER),
+        "0x{raw_id:04X}"
+      );
+    }
+  }
+
+  #[test]
   fn d421_sample_failure_is_identified_as_experimental() {
-    let client = FakeLpcIo::with_chip_id(NUVOTON_NCT6796D_CHIP_ID);
-    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
-      .unwrap()
-      .unwrap();
-    let active = ActiveNuvotonMotherboardSensors {
-      client,
-      slot: detected.slot,
-      hm_base: detected.hm_base,
-      chip_label: detected.chip_label,
-      source_label: detected.source_label,
-      experimental: detected.experimental,
-    };
+    let active = discovered_active(FakeLpcIo::with_chip_id(D421_CHIP_ID));
     active.client.hm_bars_authorized.set(false);
 
     let error = active.sample_unlocked().unwrap_err();
 
-    assert!(error.starts_with(NUVOTON_EXPERIMENTAL_FAILURE_PREFIX));
+    assert!(error.starts_with(D421_FAILURE_PREFIX));
     assert!(error.contains("hm ports are not authorized"));
   }
 
@@ -1312,9 +1441,7 @@ mod tests {
       client: FakeLpcIo::with_authorized_hm_bars(),
       slot: 0,
       hm_base: 0x0290,
-      chip_label: NUVOTON_CHIP_LABEL,
-      source_label: NUVOTON_SOURCE_LABEL,
-      experimental: false,
+      profile: d802_profile(),
     };
 
     let sample = active.sample_unlocked().unwrap();
@@ -1322,13 +1449,312 @@ mod tests {
     assert_eq!(active.client.selected_slot_calls.get(), 0);
     assert_eq!(sample.temperatures.len(), 6);
     assert_eq!(sample.fan_speeds.len(), 6);
+    assert_eq!(sample.temperatures[0].source, "NCT6799D / Super I/O");
+    assert_eq!(
+      active.client.read_registers.borrow().as_slice(),
+      &SIX_PAIR_READS
+    );
+  }
+
+  #[test]
+  fn seven_input_rows_read_the_seventh_direct_rpm_pair() {
+    for raw_id in [0xD429, 0xD42B, 0xD451, 0xD801, 0xD806] {
+      let active = discovered_active(FakeLpcIo::with_chip_id(raw_id));
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(sample.temperatures.len(), 6, "0x{raw_id:04X}");
+      assert_eq!(sample.fan_speeds.len(), 7, "0x{raw_id:04X}");
+      assert_eq!(sample.fan_speeds[6].name, "Fan 7");
+      assert_eq!(sample.fan_speeds[6].rpm, Some(0x0320));
+      assert_eq!(sample.fan_speeds[6].source, "Nuvoton / Super I/O");
+      assert_eq!(
+        active.client.read_registers.borrow().as_slice(),
+        &[
+          0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6,
+          0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCE, 0xCF
+        ],
+        "0x{raw_id:04X}"
+      );
+    }
+  }
+
+  #[test]
+  fn six_input_lead_only_rows_do_not_read_the_seventh_pair() {
+    for raw_id in [0xC803, 0xC911, 0xC913, 0xD121, 0xD352, 0xD423] {
+      let active = discovered_active(FakeLpcIo::with_chip_id(raw_id));
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(sample.fan_speeds.len(), 6, "0x{raw_id:04X}");
+      assert_eq!(
+        active.client.read_registers.borrow().as_slice(),
+        &SIX_PAIR_READS,
+        "0x{raw_id:04X}"
+      );
+    }
+  }
+
+  #[test]
+  fn nct6779d_range_reads_five_pairs_and_skips_the_lock_gate() {
+    for raw_id in [0xC560, 0xC567] {
+      let client = FakeLpcIo::with_chip_id(raw_id);
+      client.hm_io_space_lock.set(0x10);
+      let active = discovered_active(client);
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(active.profile.chip_label, "NCT6779D");
+      assert!(
+        !active
+          .client
+          .superio_reads
+          .borrow()
+          .contains(&NUVOTON_HM_IO_SPACE_LOCK_REGISTER)
+      );
+      assert_eq!(sample.fan_speeds.len(), 5, "0x{raw_id:04X}");
+      assert_eq!(
+        active.client.read_registers.borrow().as_slice(),
+        &SIX_PAIR_READS[..16],
+        "0x{raw_id:04X}"
+      );
+    }
+  }
+
+  #[test]
+  fn d42a_reads_only_auxtin1_and_auxtin3() {
+    let active = discovered_active(FakeLpcIo::with_chip_id(0xD42A));
+
+    let sample = active.sample_unlocked().unwrap();
+
+    assert_eq!(
+      sample
+        .temperatures
+        .iter()
+        .map(|temperature| temperature.name.as_str())
+        .collect::<Vec<_>>(),
+      ["AUXTIN1", "AUXTIN3"]
+    );
+    assert_eq!(sample.fan_speeds.len(), 7);
     assert_eq!(
       active.client.read_registers.borrow().as_slice(),
       &[
-        0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6,
-        0xC7, 0xC8, 0xC9, 0xCA, 0xCB
+        0x93, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA,
+        0xCB, 0xCE, 0xCF
       ]
     );
+  }
+
+  #[test]
+  fn lock_gate_reads_cr28_in_configuration_mode_before_ldn_selection() {
+    let client = FakeLpcIo::with_chip_id(0xD42B);
+
+    ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+
+    let reads = client.superio_reads.borrow();
+    assert_eq!(
+      &reads[..3],
+      &[
+        CHIP_ID_HIGH_REGISTER,
+        CHIP_ID_LOW_REGISTER,
+        NUVOTON_HM_IO_SPACE_LOCK_REGISTER
+      ]
+    );
+    let writes = client.superio_writes.borrow();
+    assert_eq!(
+      writes.as_slice(),
+      &[(LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN)]
+    );
+  }
+
+  #[test]
+  fn set_lock_bit_stops_before_ldn_selection_with_an_experimental_failure() {
+    let client = FakeLpcIo::with_chip_id(0xD42B);
+    client.hm_io_space_lock.set(0x10);
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert_eq!(
+      error,
+      "Experimental Nuvoton motherboard sensor path failed: hardware state (NCT6798D): \
+       Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)"
+    );
+    assert!(error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
+    assert!(!is_retryable_init_error(&error));
+    assert_eq!(client.selected_ldn.get(), None);
+    assert!(client.superio_writes.borrow().is_empty());
+    assert!(!client.hm_base_high_read.get());
+    assert_eq!(client.find_bars_calls.get(), 0);
+    assert!(client.read_registers.borrow().is_empty());
+  }
+
+  #[test]
+  fn lock_gate_transport_failures_keep_the_component_failure_wording() {
+    // A failed CR28 read is a PawnIO/transport problem, not a hardware state.
+    struct FailingCr28(FakeLpcIo);
+    impl LpcIoOps for FailingCr28 {
+      fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+        self.0.select_lpc_slot(slot)
+      }
+      fn find_lpc_bars(&self) -> Result<(), String> {
+        self.0.find_lpc_bars()
+      }
+      fn pio_inb(&self, port: u16) -> Result<u8, String> {
+        self.0.pio_inb(port)
+      }
+      fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+        self.0.pio_outb(port, value)
+      }
+      fn superio_inb(&self, register: u8) -> Result<u8, String> {
+        if register == NUVOTON_HM_IO_SPACE_LOCK_REGISTER {
+          return Err("pawnio_execute ioctl_superio_inb failed".to_string());
+        }
+        self.0.superio_inb(register)
+      }
+      fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+        self.0.superio_outb(register, value)
+      }
+    }
+
+    let client = FailingCr28(FakeLpcIo::with_chip_id(0xD42B));
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(error.starts_with("Experimental NCT6798D motherboard sensor path failed: "));
+    assert!(!error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
+    assert!(error.contains("ioctl_superio_inb failed"));
+  }
+
+  #[test]
+  fn other_cr28_bits_do_not_engage_the_lock_gate() {
+    let client = FakeLpcIo::with_chip_id(0xC803);
+    client.hm_io_space_lock.set(0xEF);
+
+    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+
+    assert_eq!(detected.profile.chip_label, "NCT6791D");
+  }
+
+  #[test]
+  fn nct6701d_invalid_temperature_byte_is_reported_unavailable() {
+    for invalid in [0x00, 0xA0, 0x7E, 0x7F, 0x80] {
+      let client = FakeLpcIo::with_chip_id(0xD806);
+      client.temperature_override.set(Some((0x91, invalid)));
+      let active = discovered_active(client);
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(
+        sample
+          .temperatures
+          .iter()
+          .map(|temperature| temperature.name.as_str())
+          .collect::<Vec<_>>(),
+        ["SYSTIN", "AUXTIN0", "AUXTIN1", "AUXTIN2", "AUXTIN3"],
+        "0x{invalid:02X}"
+      );
+      assert_eq!(sample.fan_speeds.len(), 7);
+    }
+  }
+
+  #[test]
+  fn other_rows_decode_a_zero_temperature_byte() {
+    let client = FakeLpcIo::with_chip_id(0xD801);
+    client.temperature_override.set(Some((0x91, 0x00)));
+    let active = discovered_active(client);
+
+    let sample = active.sample_unlocked().unwrap();
+
+    assert_eq!(sample.temperatures.len(), 6);
+    assert_eq!(sample.temperatures[1].temperature, 0.0);
+  }
+
+  #[test]
+  fn nct6701d_inactive_ldn_is_unavailable_and_never_activated() {
+    let client = FakeLpcIo::with_chip_id(0xD806);
+    client.activation.set(0x00);
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert_eq!(
+      error,
+      "Experimental Nuvoton motherboard sensor path failed: hardware state (NCT6701D): \
+       Nuvoton hardware monitor logical device is inactive"
+    );
+    assert!(error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
+    assert_eq!(
+      client.superio_writes.borrow().as_slice(),
+      &[(LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN)]
+    );
+    assert_eq!(client.find_bars_calls.get(), 0);
+  }
+
+  #[test]
+  fn nct6701d_invalid_base_is_unavailable_without_a_cr64_fallback() {
+    for (high, low) in [(0x00, 0x90), (0x02, 0x91), (0x02, 0x94), (0x12, 0x90)] {
+      let client = FakeLpcIo::with_chip_id(0xD806);
+      client.hm_base.set((high, low));
+
+      let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+      assert!(
+        error.starts_with(
+          "Experimental Nuvoton motherboard sensor path failed: hardware state (NCT6701D): "
+        ),
+        "{error}"
+      );
+      assert!(error.contains("invalid Nuvoton hardware-monitor base"));
+      assert!(!client.superio_reads.borrow().contains(&0x64));
+      assert!(!client.superio_reads.borrow().contains(&0x65));
+      assert_eq!(client.find_bars_calls.get(), 0);
+    }
+  }
+
+  #[test]
+  fn other_experimental_rows_keep_inactive_ldn_as_a_component_failure() {
+    // Only the NCT6701D row documents an inactive LDN B as a firmware state.
+    let client = FakeLpcIo::with_chip_id(0xD801);
+    client.activation.set(0x00);
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(
+      error.starts_with("Experimental NCT6796D-S motherboard sensor path failed: ")
+    );
+    assert!(!error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
+    assert!(error.contains("logical device is inactive"));
+  }
+
+  #[test]
+  fn other_rows_keep_the_standard_base_check() {
+    let client = FakeLpcIo::with_chip_id(0xD801);
+    client.hm_base.set((0x00, 0x90));
+
+    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+
+    assert_eq!(detected.hm_base, 0x0090);
+  }
+
+  #[test]
+  fn lead_only_experimental_configuration_exit_failure_requires_rediscovery() {
+    let error = nuvoton_experimental_failure(
+      "NCT6796D-R / NCT5585D",
+      format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"),
+    );
+
+    assert!(error.starts_with(
+      "Experimental NCT6796D-R / NCT5585D motherboard sensor path failed: "
+    ));
+    assert!(is_retryable_init_error(&error));
+    assert!(!is_retryable_init_error(&format!(
+      "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: verified D802 failure"
+    )));
   }
 
   #[test]
@@ -1337,9 +1763,7 @@ mod tests {
       client: FakeLpcIo::with_authorized_hm_bars(),
       slot: 0,
       hm_base: 0x0290,
-      chip_label: NUVOTON_CHIP_LABEL,
-      source_label: NUVOTON_SOURCE_LABEL,
-      experimental: false,
+      profile: d802_profile(),
     });
     let ite = ActiveMotherboardSensors::Ite(ActiveIteMotherboardSensors {
       client: FakeIteLpcIo::new(),
@@ -1467,11 +1891,17 @@ mod tests {
 
   #[test]
   fn nuvoton_experimental_configuration_exit_failure_requires_rediscovery() {
-    let error = nuvoton_experimental_failure(format!(
-      "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"
-    ));
+    let error = nuvoton_experimental_failure(
+      d421_profile_label(),
+      format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"),
+    );
 
+    assert!(error.starts_with(D421_FAILURE_PREFIX));
     assert!(is_retryable_init_error(&error));
+  }
+
+  fn d421_profile_label() -> &'static str {
+    nuvoton_hm_profile(D421_CHIP_ID).unwrap().chip_label
   }
 
   #[test]
