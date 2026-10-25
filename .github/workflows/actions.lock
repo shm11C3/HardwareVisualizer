@@ -65,7 +65,7 @@ workflows:
         - 'tauri-apps/tauri-action@v1.0.0'
     '.github/workflows/claude.yml':
         - 'actions/checkout@v7.0.1'
-        - 'anthropics/claude-code-action@v1.0.244'
+        - 'anthropics/claude-code-action@v1.0.255'
     '.github/workflows/codeql.yml':
         - 'actions/checkout@v7.0.1'
         - 'github/codeql-action@v4.38.3'
@@ -170,9 +170,9 @@ dependencies:
         commit: 'sha1-cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         owner_id: 44036562
         repo_id: 192625955
-    'anthropics/claude-code-action@v1.0.244':
-        ref: 'v1.0.244'
-        commit: 'sha1-58985842b834ed26087302ba27d07bc24ca8697a'
+    'anthropics/claude-code-action@v1.0.255':
+        ref: 'v1.0.255'
+        commit: 'sha1-e4a6faad497d33dbc7144135c75e41f82f0bf6c0'
         owner_id: 76263028
         repo_id: 986421638
         uses:
