@@ -170,7 +170,7 @@ After launching the app:
 
 - **Performance**: Live CPU, memory, and GPU gauges and usage graphs, per-core usage, running processes, motherboard sensors and fans, and power draw. Switch between the Panels, Compact, and Monitor views, and hide or reorder panels. Systems with several GPUs can choose which GPU to show.
 - **System Specifications**: CPU, GPU, memory, storage, platform, motherboard / BIOS, and network details, with a hardware report you can copy. Storage Health shows SMART health, temperature, wear, and more for each drive.
-- **Insights**: Average, maximum, and minimum history for CPU, memory, and CPU temperature, and for each GPU's usage, temperature, and memory, over up to 30 days. Process history and snapshots show which processes used CPU and memory.
+- **Insights**: Average, maximum, and minimum history for CPU, memory, and CPU temperature, and for each GPU's usage, temperature, and memory, over up to 1 year. Process history (up to 30 days) and snapshots show which processes used CPU and memory.
 - **Cooling Insight**: Compares CPU temperature with its own baseline under similar load, for up to 1 year. A single timeline shows CPU temperature, load, package power, fan speed, and ambient temperature, so you can see whether cooling is getting worse or only the room got warmer.
 - **Ambient temperature** (Windows): Reads a nearby SwitchBot Meter over Bluetooth. No SwitchBot account, internet connection, or pairing is needed.
 - **Tray widget**: Shows CPU usage, GPU usage, and GPU temperature in the system tray or menu bar. The app can keep running in the tray when you close the window.

@@ -679,6 +679,68 @@ describe("useInsightChart – auto-refresh interval", () => {
     );
   });
 
+  it("reads a 1 year period on 12 hour buckets", async () => {
+    const getDataArchiveSeriesMock = vi.mocked(commands.getDataArchiveSeries);
+    getDataArchiveSeriesMock.mockResolvedValue(ok([]));
+
+    renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 525600,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    expect(getDataArchiveSeriesMock).toHaveBeenCalledWith(
+      "cpu",
+      "avg",
+      expect.any(String),
+      expect.any(String),
+      12 * 60 * 60_000,
+      "end",
+    );
+  });
+
+  it("refreshes a long period every five minutes instead of every minute", async () => {
+    const getDataArchiveSeriesMock = vi.mocked(commands.getDataArchiveSeries);
+    getDataArchiveSeriesMock.mockResolvedValue(ok([]));
+
+    renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 525600,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+    const callsAfterMount = getDataArchiveSeriesMock.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(4 * 60_000);
+      await Promise.resolve();
+    });
+    expect(getDataArchiveSeriesMock.mock.calls.length).toBe(callsAfterMount);
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+    });
+    expect(getDataArchiveSeriesMock.mock.calls.length).toBe(
+      callsAfterMount + 1,
+    );
+  });
+
   it("should not start auto-refresh when offset is non-zero", async () => {
     const getDataArchiveSeriesMock = vi.mocked(commands.getDataArchiveSeries);
     getDataArchiveSeriesMock.mockResolvedValue(ok([]));

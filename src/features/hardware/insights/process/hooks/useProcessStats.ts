@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chartConfig } from "@/consts/chart";
-import type { archivePeriods } from "@/features/hardware/consts/chart";
 import { getProcessStats } from "@/features/hardware/insights/process/funcs/getProcessStatsRecord";
 import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
+import type { ProcessStatsPeriod } from "@/features/hardware/insights/utils/archivePeriod";
 import { useProcessStatsAtom } from "./useProcessStatsAtom";
 
 export const useProcessStats = ({
   period,
   offset,
 }: {
-  period: (typeof archivePeriods)[number];
+  period: ProcessStatsPeriod;
   offset: number;
 }) => {
   const [loading, setLoading] = useState(true);

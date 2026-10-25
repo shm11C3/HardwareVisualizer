@@ -19,10 +19,12 @@ import {
   GpuInsightChart,
   InsightChart,
 } from "@/features/hardware/insights/components/InsightChart";
+import { useArchivePeriodOptions } from "@/features/hardware/insights/hooks/useArchivePeriodOptions";
 import type { DataStats } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import type { GpuDataType } from "@/types/chart";
+import { RetentionNote } from "./components/RetentionNote";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { CoolingInsightView } from "./cooling/CoolingInsightView";
 import { SnapshotIcon } from "./icons/SnapshotIcon";
@@ -43,7 +45,6 @@ const Border = ({ children }: { children: React.ReactNode }) => {
 };
 
 const MainInsights = () => {
-  const { t } = useTranslation();
   const [periodAvgCPU, setPeriodAvgCPU] = useTauriStore<
     (typeof archivePeriods)[number]
   >("periodAvgCPU", 60);
@@ -71,22 +72,7 @@ const MainInsights = () => {
   const [periodMinCpuTemperature, setPeriodMinCpuTemperature] = useTauriStore<
     (typeof archivePeriods)[number]
   >("periodMinCpuTemperature", 60);
-  const periods: Record<(typeof archivePeriods)[number], string> = {
-    "10": `10 ${t("shared.time.minutes")}`,
-    "30": `30 ${t("shared.time.minutes")}`,
-    "60": `1 ${t("shared.time.hours")}`,
-    "180": `3 ${t("shared.time.hours")}`,
-    "720": `12 ${t("shared.time.hours")}`,
-    "1440": `1 ${t("shared.time.days")}`,
-    "10080": `7 ${t("shared.time.days")}`,
-    "20160": `14 ${t("shared.time.days")}`,
-    "43200": `30 ${t("shared.time.days")}`,
-  };
-
-  const options = archivePeriods.map((period) => ({
-    label: periods[period],
-    value: period,
-  }));
+  const options = useArchivePeriodOptions(archivePeriods);
 
   const selections = [
     periodAvgCPU,
@@ -153,6 +139,7 @@ const MainInsights = () => {
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
       </div>
+      <RetentionNote periods={selections} />
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         {chartData.map((data) => {
@@ -170,7 +157,6 @@ const MainInsights = () => {
 };
 
 const GPUInsights = ({ gpuName }: { gpuName: string }) => {
-  const { t } = useTranslation();
   const [periodAvgGpuUsage, setPeriodAvgGpuUsage] = useTauriStore<
     (typeof archivePeriods)[number]
   >("periodAvgGpuUsage", 60);
@@ -205,22 +191,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
       60,
     );
 
-  const periods: Record<(typeof archivePeriods)[number], string> = {
-    "10": `10 ${t("shared.time.minutes")}`,
-    "30": `30 ${t("shared.time.minutes")}`,
-    "60": `1 ${t("shared.time.hours")}`,
-    "180": `3 ${t("shared.time.hours")}`,
-    "720": `12 ${t("shared.time.hours")}`,
-    "1440": `1 ${t("shared.time.days")}`,
-    "10080": `7 ${t("shared.time.days")}`,
-    "20160": `14 ${t("shared.time.days")}`,
-    "43200": `30 ${t("shared.time.days")}`,
-  };
-
-  const options = archivePeriods.map((period) => ({
-    label: periods[period],
-    value: period,
-  }));
+  const options = useArchivePeriodOptions(archivePeriods);
 
   const selections = [
     periodAvgGpuUsage,
@@ -229,6 +200,9 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
     periodMaxGpuTemperature,
     periodMinGpuUsage,
     periodMinGpuTemperature,
+    periodAvgGpuDedicatedMemory,
+    periodMaxGpuDedicatedMemory,
+    periodMinGpuDedicatedMemory,
   ];
 
   const chartData: {
@@ -311,6 +285,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
       </div>
+      <RetentionNote periods={selections} />
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         {chartData.map((data) => (

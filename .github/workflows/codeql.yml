@@ -74,7 +74,7 @@ jobs:
         # your codebase is analyzed, see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       # Reuse the base branch's Rust analysis when a pull request changes no Rust
       # input. The develop ruleset has a code_scanning rule that requires a
@@ -128,14 +128,16 @@ jobs:
 
           # perf-monitor is deliberately absent: it is excluded from the analysis
           # by paths-ignore in the init step, so changing it cannot change the
-          # result. The workflow file and the two local actions the full path runs
+          # result. The workflow file and the local actions the full path runs
+          # (setup-rust, the setup-rust-toolchain it calls, and cache-sccache)
           # are listed because they define how the analysis is produced; a pull
           # request that changes them must exercise that path, not skip it.
           if ! git fetch --depth=1 origin "$sha"; then
             decision="full analysis (the analysed commit could not be fetched)"
             reuse=false
           elif git diff --quiet "$sha" HEAD -- core src-tauri Cargo.toml Cargo.lock rust-toolchain.toml .cargo \
-              .github/workflows/codeql.yml .github/actions/setup-rust .github/actions/cache-sccache; then
+              .github/workflows/codeql.yml .github/actions/setup-rust .github/actions/setup-rust-toolchain \
+              .github/actions/cache-sccache; then
             decision="reuse the base analysis (Rust inputs are identical)"
             reuse=true
           else
@@ -179,7 +181,7 @@ jobs:
 
       - name: Upload the base Rust analysis for this pull request
         if: steps.base-analysis.outputs.reuse == 'true'
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/upload-sarif@v4.38.3
         with:
           sarif_file: ${{ runner.temp }}/base-rust.sarif
           category: "/language:rust"
@@ -213,14 +215,14 @@ jobs:
       # kind from every ci.yml key and would otherwise evict a sibling entry.
       - name: Setup Rust
         if: matrix.language == 'rust' && steps.base-analysis.outputs.reuse != 'true'
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           cache-key: codeql-rust
 
       - name: Cache sccache (R2)
         if: matrix.language == 'rust' && steps.base-analysis.outputs.reuse != 'true' && env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
@@ -236,7 +238,7 @@ jobs:
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         if: steps.base-analysis.outputs.reuse != 'true'
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/init@v4.38.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -272,7 +274,7 @@ jobs:
 
       - name: Perform CodeQL Analysis
         if: steps.base-analysis.outputs.reuse != 'true'
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/analyze@v4.38.3
         with:
           category: "/language:${{matrix.language}}"
           # The database upload only feeds multi-repository variant analysis,

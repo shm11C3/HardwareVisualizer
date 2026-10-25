@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chartConfig } from "@/consts/chart";
-import type { archivePeriods } from "@/features/hardware/consts/chart";
+import {
+  type ArchivePeriod,
+  insightBucketWidthMs,
+  insightRefreshIntervalMs,
+} from "@/features/hardware/insights/utils/archivePeriod";
 import type { DataStats } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import {
@@ -16,7 +20,7 @@ type UseInsightChartGpuProps = {
   hardwareType: Extract<HardwareType, "gpu">;
   dataStats: DataStats;
   dataType: GpuDataType;
-  period: (typeof archivePeriods)[number];
+  period: ArchivePeriod;
   offset: number;
   gpuName: string;
 };
@@ -24,7 +28,7 @@ type UseInsightChartGpuProps = {
 type UseInsightChartProps = {
   hardwareType: DataArchiveHardwareType;
   dataStats: DataStats;
-  period: (typeof archivePeriods)[number];
+  period: ArchivePeriod;
   offset: number;
 };
 
@@ -44,20 +48,8 @@ export const useInsightChart = (
   const activeRequestIdRef = useRef(0);
   const scheduledTimeoutIdRef = useRef<number | null>(null);
 
-  const stepMultiplierMap: Record<(typeof archivePeriods)[number], number> = {
-    10: 1,
-    30: 1,
-    60: 1,
-    180: 1,
-    720: 10,
-    1440: 30,
-    10080: 60,
-    20160: 180,
-    43200: 720,
-  };
-
-  const step =
-    (stepMultiplierMap[period] ?? 1) * chartConfig.archiveUpdateIntervalMilSec;
+  const step = insightBucketWidthMs(period);
+  const refreshIntervalMs = insightRefreshIntervalMs(period);
 
   const getData = useCallback(async (): Promise<ArchiveSeriesPoint[]> => {
     const endAt = new Date(Date.now() - offset * step);
@@ -181,13 +173,10 @@ export const useInsightChart = (
       return;
     }
 
-    const intervalId = window.setInterval(
-      () => void load(),
-      chartConfig.archiveUpdateIntervalMilSec,
-    );
+    const intervalId = window.setInterval(() => void load(), refreshIntervalMs);
 
     return () => clearInterval(intervalId);
-  }, [load, offset]);
+  }, [load, offset, refreshIntervalMs]);
 
   const retry = useCallback(() => {
     void load();
