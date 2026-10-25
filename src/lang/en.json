@@ -589,7 +589,16 @@
         "title": "GPU"
       },
       "process": {
-        "title": "Process"
+        "title": "Process",
+        "chartSummary": "Showing {{displayed}} entries; {{omitted}} others omitted. All entries are available in the table.",
+        "pagination": {
+          "label": "Process table pages",
+          "range": "{{start}}–{{end}} of {{total}} entries",
+          "previous": "Previous",
+          "next": "Next",
+          "page": "Page",
+          "pageNumber": "{{page}} / {{pages}}"
+        }
       },
       "snapshot": {
         "title": "Snapshot"

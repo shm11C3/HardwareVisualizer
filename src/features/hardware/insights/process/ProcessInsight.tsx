@@ -64,7 +64,11 @@ const ProcessArea = ({ period }: { period: ProcessStatsPeriod }) => {
   return (
     <div className="mt-4">
       <ProcessBubbleChart processStats={filteredData} loading={loading} />
-      <ProcessTable processStats={filteredData} loading={loading} />
+      <ProcessTable
+        processStats={filteredData}
+        loading={loading}
+        period={period}
+      />
     </div>
   );
 };
