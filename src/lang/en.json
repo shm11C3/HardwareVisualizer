@@ -62,7 +62,8 @@
       "days": "days",
       "weeks": "weeks",
       "months": "months",
-      "years": "years"
+      "years": "years",
+      "year": "year"
     },
     "avg": "Avg",
     "min": "Min",
@@ -544,7 +545,9 @@
             "atMatchedPower": "at matched power"
           },
           "footnote": "“Within range” means inside the baseline window's own spread. A row that moved is a co-observation, not a cause.",
-          "units": { "points": " pt" },
+          "units": {
+            "points": " pt"
+          },
           "chart": {
             "title": "Thermal Delta ({{unit}}) vs. package power · {{band}} band",
             "powerAxis": "CPU package power (W)",
@@ -591,7 +594,8 @@
       "snapshot": {
         "title": "Snapshot"
       },
-      "noDataForPeriod": "No data found for the selected period"
+      "noDataForPeriod": "No data found for the selected period",
+      "retentionNote": "History older than {{days}} days is deleted (Retention Period in Settings → Insights), so the earlier part of this range is empty."
     },
     "settings": {
       "name": "Settings",

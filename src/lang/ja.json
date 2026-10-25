@@ -66,7 +66,8 @@
       "days": "日",
       "weeks": "週",
       "months": "月",
-      "years": "年"
+      "years": "年",
+      "year": "年"
     },
     "select": "選択する",
     "total": "合計",
@@ -544,7 +545,9 @@
             "atMatchedPower": "同一電力で比較"
           },
           "footnote": "「範囲内」はベースライン期間自身のばらつきの内側という意味です。動いた行は同時に観察された事実であり、原因ではありません。",
-          "units": { "points": " ポイント" },
+          "units": {
+            "points": " ポイント"
+          },
           "chart": {
             "title": "周囲温度との差 ({{unit}}) vs パッケージ電力 · {{band}}帯域",
             "powerAxis": "CPU パッケージ電力 (W)",
@@ -591,7 +594,8 @@
       "snapshot": {
         "title": "スナップショット"
       },
-      "noDataForPeriod": "選択された期間のデータは見つかりませんでした"
+      "noDataForPeriod": "選択された期間のデータは見つかりませんでした",
+      "retentionNote": "{{days}} 日より古い履歴は削除されるため（設定 → インサイト の保持期間）、この期間の前半は空になります。"
     },
     "settings": {
       "name": "設定",

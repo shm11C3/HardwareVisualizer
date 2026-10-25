@@ -1,36 +1,22 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
-import { archivePeriods } from "@/features/hardware/consts/chart";
+import { processStatsPeriods } from "@/features/hardware/consts/chart";
 import { SelectPeriod } from "@/features/hardware/insights/components/SelectPeriod";
+import { useArchivePeriodOptions } from "@/features/hardware/insights/hooks/useArchivePeriodOptions";
+import type { ProcessStatsPeriod } from "@/features/hardware/insights/utils/archivePeriod";
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { ProcessBubbleChart } from "./chart/Bubble";
 import { useProcessStats } from "./hooks/useProcessStats";
 import { ProcessTable } from "./table/ProcessTable";
 
 export const ProcessInsight = () => {
-  const { t } = useTranslation();
-  const [period, setPeriod] = useTauriStore<(typeof archivePeriods)[number]>(
+  const [period, setPeriod] = useTauriStore<ProcessStatsPeriod>(
     "periodProcessStats",
     60,
   );
 
-  const periods: Record<(typeof archivePeriods)[number], string> = {
-    "10": `10 ${t("shared.time.minutes")}`,
-    "30": `30 ${t("shared.time.minutes")}`,
-    "60": `1 ${t("shared.time.hours")}`,
-    "180": `3 ${t("shared.time.hours")}`,
-    "720": `12 ${t("shared.time.hours")}`,
-    "1440": `1 ${t("shared.time.days")}`,
-    "10080": `7 ${t("shared.time.days")}`,
-    "20160": `14 ${t("shared.time.days")}`,
-    "43200": `30 ${t("shared.time.days")}`,
-  };
-
-  const options = archivePeriods.map((period) => ({
-    label: periods[period],
-    value: period,
-  }));
+  const options = useArchivePeriodOptions(processStatsPeriods);
 
   return (
     <div className="pb-6">
@@ -46,11 +32,7 @@ export const ProcessInsight = () => {
   );
 };
 
-const ProcessArea = ({
-  period,
-}: {
-  period: (typeof archivePeriods)[number];
-}) => {
+const ProcessArea = ({ period }: { period: ProcessStatsPeriod }) => {
   const { t } = useTranslation();
   const { processStats, loading, hasError, retry } = useProcessStats({
     period,
