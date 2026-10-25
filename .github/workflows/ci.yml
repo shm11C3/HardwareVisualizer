@@ -368,7 +368,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2.87.26
+        uses: taiki-e/install-action@v2.87.29
         with:
           tool: cargo-nextest
 
@@ -471,7 +471,7 @@ jobs:
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
-        uses: taiki-e/install-action@v2.87.26
+        uses: taiki-e/install-action@v2.87.29
         with:
           tool: cargo-llvm-cov
 
