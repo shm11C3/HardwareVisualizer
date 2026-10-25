@@ -12,12 +12,13 @@ Experimental coverage under [ADR 0023](../../adr/0023-copyleft-derived-facts-for
 The exact `0xD802` / `NCT6799D` path remains Verified by the independent
 hardware evidence described below, and the exact `0xD421` / NCT6796D /
 NCT6796D-E path remains Experimental on S1 alone; neither row changes in
-substance. The new rows rest on **lead-only facts**: copyleft monitoring
-implementations (S11-S15) describe the same LDN B / `CR30` / `CR60-61`
-discovery, the same bank 4 byte temperatures, and the same direct RPM
-pairs that S1 pins for NCT6796D, and differ only in the raw chip ID, the
-number of populated fan inputs, and a few read-only quirks. Those facts
-back Experimental rows only; no Verified fact depends on them.
+substance. The new rows rest on **lead-only facts**: copyleft leads
+describe the same LDN B / `CR60-61` discovery (S11, S14, S15) with the
+`CR30` enable bit (S11), the same bank 4 byte temperatures (S12, S14), and
+the same direct RPM pairs (S12) that S1 pins for NCT6796D, and differ only
+in the raw chip ID, the number of populated fan inputs (S12, S14), and a
+few read-only quirks. Those facts back Experimental rows only; no
+Verified fact depends on them.
 
 S1 does not identify `0xD802`. The package suffix/revision for `0xD802`
 remains unknown and must not be surfaced as `NCT6799D-R`.
@@ -36,11 +37,11 @@ remains unknown and must not be surfaced as `NCT6799D-R`.
 | S8 | [`docs/development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-source-hunt.md`](../../development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-source-hunt.md) | Source-hunt evidence: public Nuvoton product-selection data and direct public URL probes did not expose an NCT6799D/NCT6799D-R datasheet or product page; third-party board photos and public user reports suggest NCT6799D-R, while the later independent AIDA64 dump supports `NCT6799D` for raw ID `0xD802`. |
 | S9 | [`docs/development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-aida64-dump.md`](../../development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-aida64-dump.md), summarizing public AIDA64 text dumps attached to LibreHardwareMonitor issue #1720 | Independent dump evidence from an ASUS ROG Strix X670E-F Gaming WiFi board. The dump reports raw Super I/O device ID `D802h` and labels it `NCT6799D`; it records normal HM base `0x0290`, read-only HM base `0x0A00` on that board, bank 4 temperature bytes, and bank 4 direct RPM-style bytes. The public bank 4 dump row at `0xC0` also contains `0xCC`-`0xCF` = `0x07`, `0x17`, `0x15`, `0x59` (re-read from the public attachment on 2026-10-25). This is dump output only, not implementation source code. |
 | S10 | [ADR 0011](../../adr/0011-experimental-sensor-enablement.md) | Accepted project policy source for Experimental enablement of recognized hardware when a plausible read-only path is fully defined but lacks hardware validation; it supplies no hardware-register facts. |
-| S11 | Linux kernel `drivers/hwmon/nct6775-platform.c` and `drivers/hwmon/nct6775.h` (torvalds/linux `master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Super I/O detection: the raw 16-bit chip ID is matched after masking its low three bits (`0xFFF8`) against the family values `0xC560`, `0xC800`, `0xC910`, `0xD120`, `0xD350`, `0xD420`, `0xD450`, `0xD428`, `0xD800`; the hardware monitor is logical device `0x0B`, its enable bit is `CR30` bit 0, and its base is `CR60/61`; the driver's chip-name table covers both NCT6798D and NCT5585D under the kind matched by `0xD428`, and both NCT6796D-S and NCT6799D-R under the kind matched by `0xD800`; for the NCT6791D-and-later kinds the driver reads global `CR28` and, if bit 4 is set, clears it (a write) and logs that it enabled the hardware-monitor logical-device mapping; on listed ASUS boards the driver reaches the Super I/O and HM registers through an ACPI WMI method instead of port I/O. Restated in this document's own words; no code, structure, or identifier names were copied. |
-| S12 | Linux kernel `drivers/hwmon/nct6775-core.c` (torvalds/linux `master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Chip table comment: fan input counts NCT6779D 5; NCT6791D, NCT6792D, NCT6793D, NCT6795D 6; NCT6796D, NCT6797D, NCT6798D, NCT5585D, NCT6796D-S, NCT6799D-R 7; alternate IDs `0xD451` (NCT6797D) and `0xD429` (NCT6798D); NCT5585D under the `0xD428` kind; NCT6796D-S `0xD801`; NCT6799D-R `0xD802`. Register tables: for every kind from NCT6779D onward the 16-bit RPM registers are bank 4 `0xC0`, `0xC2`, `0xC4`, `0xC6`, `0xC8`, `0xCA`, `0xCE` and the byte temperature registers are bank 4 `0x90`-`0x95` (the `0xD428`/`0xD800` kinds add `0x96`). Restated; nothing copied. |
+| S11 | Linux kernel `drivers/hwmon/nct6775-platform.c` and `drivers/hwmon/nct6775.h` (torvalds/linux `master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Super I/O detection: the raw 16-bit chip ID is matched after masking its low three bits (`0xFFF8`) against the family values `0xC560`, `0xC800`, `0xC910`, `0xD120`, `0xD350`, `0xD420`, `0xD450`, `0xD428`, `0xD800`; the hardware monitor is logical device `0x0B`, its enable bit is `CR30` bit 0, and its base is `CR60/61`; the driver claims a two-port I/O region at base+5 (index) and base+6 (data) and selects a bank by writing index `0x4E` and then the bank number before each banked access; the driver's chip-name table covers both NCT6798D and NCT5585D under the kind matched by `0xD428`, and both NCT6796D-S and NCT6799D-R under the kind matched by `0xD800`; for the NCT6791D-and-later kinds the driver reads global `CR28` and, if bit 4 is set, clears it (a write) and logs that it enabled the hardware-monitor logical-device mapping; on listed ASUS boards the driver reaches the Super I/O and HM registers through an ACPI WMI method instead of port I/O. Restated in this document's own words; no code, structure, or identifier names were copied. |
+| S12 | Linux kernel `drivers/hwmon/nct6775-core.c` (torvalds/linux `master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Chip table comment: fan input counts NCT6779D 5; NCT6791D, NCT6792D, NCT6793D, NCT6795D 6; NCT6796D, NCT6797D, NCT6798D, NCT5585D, NCT6796D-S, NCT6799D-R 7; alternate IDs `0xD451` (NCT6797D) and `0xD429` (NCT6798D); NCT5585D under the `0xD428` kind; NCT6796D-S `0xD801`; NCT6799D-R `0xD802`. Register tables: for every kind from NCT6779D onward the 16-bit RPM registers are bank 4 `0xC0`, `0xC2`, `0xC4`, `0xC6`, `0xC8`, `0xCA`, `0xCE` and the byte temperature registers are bank 4 `0x90`-`0x95` (the `0xD428`/`0xD800` kinds add `0x96`); register addresses are 16-bit values whose high byte is the bank and whose low byte is the index. S12 does not itself describe Super I/O detection or port offsets. Restated; nothing copied. |
 | S13 | Linux kernel `Documentation/hwmon/nct6775.rst` (torvalds/linux `master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Documentation text: datasheets for NCT6779D-NCT6799D are "available from Nuvoton upon request", the NCT5585D datasheet is "not available" and the chip is "compatible to NCT6798D"; NCT6796D-S and NCT6799D-R "are very similar", their chip IDs indicate different versions, and the driver treats them the same way. |
-| S14 | LibreHardwareMonitor `LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/` chip-ID enumeration (`Chip.cs`), Super I/O detection (`LpcIO.cs`), configuration-port helper (`LpcPort.cs`), and Nuvoton hardware-monitor driver (`Nct677X.cs`) (`master`, retrieved 2026-10-25), MPL-2.0 | **lead-only (copyleft)**. Exact raw IDs: `0xC5` with CR21 high nibble `6` = NCT6779D; `0xC803` NCT6791D; `0xC911` NCT6792D; `0xC913` NCT6792D-A; `0xD121` NCT6793D; `0xD352` NCT6795D; `0xD423` NCT6796D; `0xD42A` = NCT5585D on ASRock X870E Nova WiFi, otherwise NCT6796D-R; `0xD451` NCT6797D; `0xD42B` NCT6798D; `0xD802` = NCT6796D-S on ASRock X870E Nova WiFi and B650M HDV M.2, otherwise NCT6799D; `0xD806` NCT6701D. Fan input counts: NCT6779D 5; NCT6796D-R, NCT6796D-S, NCT6797D, NCT6798D, NCT6799D, NCT6701D, NCT5585D 7; NCT6791D, NCT6792D, NCT6792D-A, NCT6793D, NCT6795D, NCT6796D 6. Bank 4 byte temperatures `0x90`-`0x95` for every listed chip. Global `CR28` bit 4 is the HM I/O-space lock for NCT6791D and later including NCT6701D and NCT5585D; the lead clears it (a write) and notes that the lock is already disabled when the Nuvoton vendor ID can be read. NCT6701D quirks: raw temperature bytes `0x00`, `0xA0`, `0x7E`-`0x80` are invalid; some firmware leaves LDN B inactive; a `CR60/61` value below `0x100` or with any bit of `0xF007` set is an invalid base, in which case the lead uses `CR64/65`; the vendor-ID check is skipped. Restated; nothing copied. |
-| S15 | lm-sensors `prog/detect/sensors-detect` (`master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Detection table: the same nine family values as S11 with mask `0xFFF8`, each with logical device `0x0B`; the `0xC560` entry covers both NCT5532D and NCT6779D. |
+| S14 | LibreHardwareMonitor `LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/` chip-ID enumeration (`Chip.cs`), Super I/O detection (`LpcIO.cs`), configuration-port helper (`LpcPort.cs`), and Nuvoton hardware-monitor driver (`Nct677X.cs`) (`master`, retrieved 2026-10-25), MPL-2.0 | **lead-only (copyleft)**. Exact raw IDs: `0xC5` with CR21 high nibble `6` = NCT6779D; `0xC803` NCT6791D; `0xC911` NCT6792D; `0xC913` NCT6792D-A; `0xD121` NCT6793D; `0xD352` NCT6795D; `0xD423` NCT6796D; `0xD42A` = NCT5585D on ASRock X870E Nova WiFi, otherwise NCT6796D-R; `0xD451` NCT6797D; `0xD42B` NCT6798D; `0xD802` = NCT6796D-S on ASRock X870E Nova WiFi and B650M HDV M.2, otherwise NCT6799D; `0xD806` NCT6701D. Fan input counts: NCT6779D 5; NCT6796D-R, NCT6796D-S, NCT6797D, NCT6798D, NCT6799D, NCT6701D, NCT5585D 7; NCT6791D, NCT6792D, NCT6792D-A, NCT6793D, NCT6795D, NCT6796D 6. Detection selects logical device `0x0B`, reads the base from `CR60/61` (twice, requiring equal values), and reads `CR30` only for NCT6701D; the hardware monitor is accessed through index port base+5 and data port base+6, selecting the bank by writing index `0x4E` and then the high byte of the 16-bit register address before each read. Bank 4 byte temperatures `0x90`-`0x95` for every listed chip except NCT5585D, whose table exposes only `0x93` and `0x95` of them. Fan speed is read from the 13-bit count registers (`0xB0`, `0xB2`, `0xB4`, `0xB6`, `0xB8`, `0xBA`, `0xCC`), not from the direct 16-bit RPM pairs. Global `CR28` bit 4 is the HM I/O-space lock for NCT6791D and later including NCT6701D and NCT5585D; the lead clears it (a write) and notes that the lock is already disabled when the Nuvoton vendor ID can be read. NCT6701D quirks: raw temperature bytes `0x00`, `0xA0`, `0x7E`-`0x80` are invalid; some firmware leaves LDN B inactive; a `CR60/61` value below `0x100` or with any bit of `0xF007` set is an invalid base, in which case the lead uses `CR64/65`; the vendor-ID check is skipped. Restated; nothing copied. |
+| S15 | lm-sensors `prog/detect/sensors-detect` (`master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Detection table: the same nine family values as S11 with mask `0xFFF8`, each with logical device `0x0B`; the `0xC560` entry covers both NCT5532D and NCT6779D. The generic Super I/O probe reads the logical-device base from `0x60/0x61`; it does not read `CR30` or any hardware-monitor register. |
 | S16 | [ADR 0023](../../adr/0023-copyleft-derived-facts-for-experimental-scopes.md) | Accepted project policy source allowing lead-only facts to back Experimental scopes; it supplies no hardware-register facts. |
 
 S11-S15 are copyleft monitoring implementations and documentation
@@ -78,14 +79,15 @@ Revision 7 passes the implementation-ready gate for the scoped
   bank 4 temperature, and six direct RPM-pair layouts used by this
   revision. No D421 hardware dump is available, so this path remains
   Experimental under ADR 0011 rather than Verified. (S1, S10)
-- Lead-only Experimental rows: S11, S12, S14, and S15 independently
-  describe, for every chip in the new rows, the same LDN B / `CR30` /
-  `CR60-61` discovery, the same bank 4 byte temperatures `0x90`-`0x95`,
-  and the same direct RPM pairs that S1 defines for NCT6796D. The chip
-  IDs, per-chip fan counts, lock applicability, and NCT6701D quirks are
+- Lead-only Experimental rows: for every chip in the new rows, S11, S14,
+  and S15 describe the same LDN B / `CR60-61` discovery (S11 also the
+  `CR30` enable bit), S12 and S14 describe the same bank 4 byte
+  temperatures `0x90`-`0x95`, and S12 describes the same direct RPM pairs
+  that S1 defines for NCT6796D. The chip IDs (S11, S12, S14, S15),
+  per-chip fan counts (S12, S14), lock applicability (S11, S14), NCT6701D
+  quirks (S14), and the NCT6796D-S similarity statement (S13) are
   lead-only facts and therefore cannot be Verified; the rows are
-  Experimental under ADR 0011 and ADR 0023. (S1, S10, S11, S12, S13, S14,
-  S15, S16)
+  Experimental under ADR 0011 and ADR 0023. (S1, S10, S16)
 - Remaining uncertainties are explicitly non-blocking or disabled in
   [Open questions](#open-questions) and [Scoped enablement](#scoped-enablement).
 
@@ -103,8 +105,8 @@ Revision 7 passes the implementation-ready gate for the scoped
 | The enabled runtime identity is therefore raw chip ID `0xD802` / `NCT6799D`. Do not claim package suffix `-R`, OEM variant, or package revision. | S7, S9 |
 | The local S7 board reads LDN B `CR30=0x09`, normal HM base `0x0290`, and read-only HM base `0x0000`; the S9 board reads normal HM base `0x0290` and read-only HM base `0x0A00`. The enabled path uses only the normal HM base. | S7, S9 |
 | On the local board, `ioctl_find_bars` failed before configuration/base discovery (`0x80070490`) but succeeded after Nuvoton configuration-mode entry and LDN B/base discovery. After that, normal HM bank select and reads through `0x0295`/`0x0296` succeeded. | S7 |
-| Lead-only: three copyleft leads match the Nuvoton NCT6779D-and-later family by raw chip ID, select logical device `0x0B`, read `CR30` bit 0 as the hardware-monitor enable, and read `CR60/61` as the hardware-monitor base; this is the same discovery S1 defines for NCT6796D and S7/S9 validate for `0xD802`. | S11, S14, S15 (lead-only); S1 pp. 431-432 |
-| Lead-only: for every NCT6779D-and-later chip the leads read bank 4 bytes `0x90`-`0x95` as the byte temperatures and bank 4 `0xC0`/`0xC1` ... `0xCA`/`0xCB` (plus `0xCE`/`0xCF` on seven-input chips) as 16-bit RPM pairs; this is the same layout S1 defines for NCT6796D on pp. 66 and 176. | S12, S14 (lead-only); S1 pp. 66, 176 |
+| Lead-only: three copyleft leads match the Nuvoton NCT6779D-and-later family by raw chip ID, select logical device `0x0B`, and read `CR60/61` as the hardware-monitor base (S11, S14, S15); the kernel lead also reads `CR30` bit 0 as the hardware-monitor enable for every kind, and S14 reads it only for NCT6701D. This is the same discovery S1 defines for NCT6796D and S7/S9 validate for `0xD802`. | S11, S14, S15 (lead-only); S1 pp. 431-432 |
+| Lead-only: for every NCT6779D-and-later chip, S12 and S14 read bank 4 bytes `0x90`-`0x95` as the byte temperatures, and S12 reads bank 4 `0xC0`/`0xC1` ... `0xCA`/`0xCB` (plus `0xCE`/`0xCF` on seven-input chips) as 16-bit RPM pairs (S14 reads the 13-bit count registers instead); this is the same layout S1 defines for NCT6796D on pp. 66 and 176. | S12, S14 (lead-only, temperatures); S12 (lead-only, RPM pairs); S1 pp. 66, 176 |
 
 ### Lead-only Experimental chip-id values
 
@@ -143,10 +145,10 @@ ranges above, remains Unsupported (see Open questions).
 | Nuvoton responder detection using Phase 2 raw chip-id bytes | Ready through `superio-access.md` rev 3; this document references the diagnostic result but does not change the Phase 2 scope. | Existing diagnostic may remain enabled. |
 | NCT6796D/NCT6796D-E chip-id mapping (`0xD421`) | **Experimental**: exact identity and the compatible read-only profile are pinned by S1, but no matching hardware dump is available. No behavior is inferred from the `0xD802` identity. | Enabled as Experimental for the scoped normal-HM reads. |
 | `0xD802` / `NCT6799D` chip-id mapping | **Verified** for the normal HM read scope. S7 proves the local raw ID; S9 independently maps `D802h` to `NCT6799D`. | Enabled as Verified for the scoped Phase 3 normal-HM reads. |
-| Normal HM logical-device selection and base discovery | Ready for both S1-backed IDs where S1 defines the NCT6796D register semantics: select LDN B, read `CR30`, read `CR60/61`, validate the discovered normal HM base, then use base+`0x05`/base+`0x06`. S7/S9 additionally validate the sequence on `0xD802`. For the lead-only rows the same sequence is lead-only (S11, S14, S15). | Enabled for `0xD421` as Experimental, `0xD802` as Verified, and the lead-only rows as Experimental. |
+| Normal HM logical-device selection and base discovery | Ready for both S1-backed IDs where S1 defines the NCT6796D register semantics: select LDN B, read `CR30`, read `CR60/61`, validate the discovered normal HM base, then use base+`0x05`/base+`0x06`. S7/S9 additionally validate the sequence on `0xD802`. For the lead-only rows the same sequence is lead-only: LDN B and `CR60/61` (S11, S14, S15), `CR30` bit 0 (S11; S14 for NCT6701D), index/data offsets and bank select (S11, S14). | Enabled for `0xD421` as Experimental, `0xD802` as Verified, and the lead-only rows as Experimental. |
 | Read-only HM base (`CR64/65`) | Board-variable in evidence: local S7 is `0x0000`, S9 is `0x0A00`. The ready scope does not need it. | Disabled. |
 | Bank 4 byte temperature reads `0x90`-`0x95` | S1 directly defines this NCT6796D bank/register layout; S7 and S9 independently validate the same bank/register set on `0xD802` / NCT6799D. For the lead-only rows the layout is lead-only (S12, S14). | Enabled with generic source labels for `0xD421` as Experimental, `0xD802` as Verified, and the lead-only rows as Experimental. |
-| Direct 16-bit fan RPM reads `0xC0`-`0xCB` | S1 directly defines these six NCT6796D direct high/low pairs; S7 and S9 independently validate the same six pairs on `0xD802` / NCT6799D. For the lead-only rows the layout and the number of populated pairs are lead-only (S12, S14). | Enabled with generic fan labels for `0xD421` as Experimental, `0xD802` as Verified, and the lead-only rows as Experimental for the populated pairs listed below. |
+| Direct 16-bit fan RPM reads `0xC0`-`0xCB` | S1 directly defines these six NCT6796D direct high/low pairs; S7 and S9 independently validate the same six pairs on `0xD802` / NCT6799D. For the lead-only rows the register positions are lead-only (S12) and the number of populated pairs is lead-only (S12, S14). | Enabled with generic fan labels for `0xD421` as Experimental, `0xD802` as Verified, and the lead-only rows as Experimental for the populated pairs listed below. |
 | Seventh direct RPM pair `0xCE`/`0xCF` (AUXFANIN4) | S1 p. 66 lists this pair as the AUXFANIN4 16-bit RPM reading for NCT6796D; S12 lists the same register as the seventh RPM register for every NCT6779D-and-later kind; S9 captured `0x15`/`0x59` (5465 RPM) and S7 captured `0x00`/`0x00` there on `0xD802`. Which chips populate the input is lead-only (S12, S14). Not adopted for `0xD802` or `0xD421` in this revision (see Open questions). | Enabled as Experimental only for the seven-input lead-only rows below. Disabled for `0xD802` and `0xD421`. |
 | Count-based fan reads `0xB0`-`0xBB`, `0xCC`/`0xCD` | Captured by S7/S9 but unnecessary while direct RPM registers are available. | Disabled. |
 | Bank 4 byte temperature `0x96` | Lead-only (S12, S14) for the `0xD428`/`0xD800` kinds only; not defined by S1 for NCT6796D. | Disabled. |
@@ -161,17 +163,17 @@ inputs" is the number of populated direct RPM pairs starting at
 
 | Raw ID match | Chip label | Fan inputs (direct pairs read) | Seventh pair `0xCE`/`0xCF` | Lock gate | Status (lead-only facts and sources) | Default enablement |
 | --- | --- | --- | --- | --- | --- | --- |
-| `0xC560`-`0xC567` (range) | NCT6779D | 5 (`0xC0`-`0xC9`; do not read `0xCA`/`0xCB`) | Not populated | No | Lead-only: range identity (S11, S14, S15); five fan inputs (S12, S14); bank 4 `0x90`-`0x95` and `0xC0`-`0xC9` layout (S12, S14). No exact ID or hardware dump exists. | Experimental |
-| `0xC803` | NCT6791D | 6 (`0xC0`-`0xCB`) | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); layout (S12, S14); lock applicability (S11, S14). | Experimental |
-| `0xC911` | NCT6792D | 6 | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); layout (S12, S14); lock applicability (S11, S14). | Experimental |
-| `0xC913` | NCT6792D | 6 | Not populated | Yes | Lead-only: exact ID (S14, labelled NCT6792D-A there) inside range (S11, S15); six fan inputs (S12, S14); layout (S12, S14); lock applicability (S11, S14). | Experimental |
-| `0xD121` | NCT6793D | 6 | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); layout (S12, S14); lock applicability (S11, S14). | Experimental |
-| `0xD352` | NCT6795D | 6 | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); layout (S12, S14); lock applicability (S11, S14). | Experimental |
+| `0xC560`-`0xC567` (range) | NCT6779D | 5 (`0xC0`-`0xC9`; do not read `0xCA`/`0xCB`) | Not populated | No | Lead-only: range identity (S11, S14, S15); five fan inputs (S12, S14); bank 4 `0x90`-`0x95` temperatures (S12, S14); `0xC0`-`0xC9` direct RPM pairs (S12). No exact ID or hardware dump exists. | Experimental |
+| `0xC803` | NCT6791D | 6 (`0xC0`-`0xCB`) | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); bank 4 temperatures (S12, S14); direct RPM pairs (S12); lock applicability (S11, S14). | Experimental |
+| `0xC911` | NCT6792D | 6 | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); bank 4 temperatures (S12, S14); direct RPM pairs (S12); lock applicability (S11, S14). | Experimental |
+| `0xC913` | NCT6792D | 6 | Not populated | Yes | Lead-only: exact ID (S14, labelled NCT6792D-A there) inside range (S11, S15); six fan inputs (S12, S14); bank 4 temperatures (S12, S14); direct RPM pairs (S12); lock applicability (S11, S14). | Experimental |
+| `0xD121` | NCT6793D | 6 | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); bank 4 temperatures (S12, S14); direct RPM pairs (S12); lock applicability (S11, S14). | Experimental |
+| `0xD352` | NCT6795D | 6 | Not populated | Yes | Lead-only: exact ID (S14) inside range (S11, S15); six fan inputs (S12, S14); bank 4 temperatures (S12, S14); direct RPM pairs (S12); lock applicability (S11, S14). | Experimental |
 | `0xD423` | NCT6796D | 6 (mirrors the `0xD421` row) | Disabled (S1 and S12 state seven inputs, S14 states six; see Open questions) | Yes | Lead-only: exact ID (S14) inside range (S11, S15). Layout is S1-backed for NCT6796D; lock register is S1 p. 376, applicability (S11, S14). | Experimental |
 | `0xD429` | NCT6798D | 7 (`0xC0`-`0xCB`, `0xCE`/`0xCF`) | Enabled (Experimental) | Yes | Lead-only: exact ID (S12 only) inside range (S11, S15); seven fan inputs (S12); layout including the seventh pair (S12; S1 p. 66 for the register position); lock applicability (S11, S14). | Experimental |
-| `0xD42A` | NCT6796D-R / NCT5585D | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S14) inside range (S11, S15); label is board-dependent in S14 and S11 attributes the range to both NCT6798D and NCT5585D (see Open questions); seven fan inputs for both candidate labels (S12, S14); layout (S12, S14; S1 p. 66); lock applicability (S11, S14). | Experimental |
-| `0xD42B` | NCT6798D | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S14) inside range (S11, S15); seven fan inputs (S12, S14); layout (S12, S14; S1 p. 66); lock applicability (S11, S14). | Experimental |
-| `0xD451` | NCT6797D | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S12, S14) inside range (S11, S15); seven fan inputs (S12, S14); layout (S12, S14; S1 p. 66); lock applicability (S11, S14). | Experimental |
+| `0xD42A` | NCT6796D-R / NCT5585D | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S14) inside range (S11, S15); label is board-dependent in S14 and S11 attributes the range to both NCT6798D and NCT5585D (see Open questions); seven fan inputs for both candidate labels (S12, S14); bank 4 temperatures `0x90`-`0x95` (S12 for the `0xD428` kind; S14 under the NCT6796D-R label, while S14's NCT5585D table exposes only `0x93` and `0x95`); direct RPM pairs including the seventh (S12; S1 p. 66 for the register position); lock applicability (S11, S14). | Experimental |
+| `0xD42B` | NCT6798D | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S14) inside range (S11, S15); seven fan inputs (S12, S14); bank 4 temperatures (S12, S14); direct RPM pairs including the seventh (S12; S1 p. 66 for the register position); lock applicability (S11, S14). | Experimental |
+| `0xD451` | NCT6797D | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S12, S14) inside range (S11, S15); seven fan inputs (S12, S14); bank 4 temperatures (S12, S14); direct RPM pairs including the seventh (S12; S1 p. 66 for the register position); lock applicability (S11, S14). | Experimental |
 | `0xD801` | NCT6796D-S | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S12; kind name S11) inside range (S11, S15); S13 states NCT6796D-S and NCT6799D-R are very similar; seven fan inputs (S12); layout (S12; S1 p. 66); lock applicability (S11, S14). S14 has no `0xD801` entry (see Open questions). | Experimental |
 | `0xD806` | NCT6701D | 7 | Enabled (Experimental) | Yes | Lead-only: exact ID (S14 only); seven fan inputs (S14; S12 for the `0xD800` kind); bank 4 `0x90`-`0x95` layout (S14) and RPM pairs (S12 for the `0xD800` kind; S1 p. 66); lock applicability (S14); invalid temperature bytes `0x00`, `0xA0`, `0x7E`-`0x80` (S14); inactive-LDN and invalid-base quirks handled as unavailable (S14). | Experimental |
 
@@ -201,14 +203,14 @@ are lead-only profile definitions.
 
 For every enabled normal-HM path, use the base discovered from LDN B
 `CR60/61` and these offsets. S1 confirms this layout for NCT6796D; S7/S9
-validate it on `0xD802`; S12/S14 describe the same offsets and bank
-mechanism for the lead-only rows.
+validate it on `0xD802`; S11 and S14 describe the same offsets and bank
+mechanism for the lead-only rows (lead-only).
 
 | Relative offset | Register | Access | Meaning | Source |
 | --- | --- | --- | --- | --- |
-| `+0x05` | HM index port | Write | Selects a Hardware Monitor register index. With base `0x0290`, this is port `0x0295`. | S1 pp. 54-55; S7, S9 |
-| `+0x06` | HM data port | Read/write for read plumbing | Reads the selected Hardware Monitor register; also receives the bank value after selecting the bank register. With base `0x0290`, this is port `0x0296`. | S1 pp. 54-55; S7, S9 |
-| HM index `0x4E` | Bank select register | Write for read plumbing | Bits `2:0` select the bank used by subsequent banked HM register reads; write data value `0x04` to access bank 4. Bit 7 selects the high or low byte of the vendor-ID register and is left at its default by this spec. | S1 pp. 110, 176; S7, S9 |
+| `+0x05` | HM index port | Write | Selects a Hardware Monitor register index. With base `0x0290`, this is port `0x0295`. | S1 pp. 54-55; S7, S9; S11, S14 (lead-only) |
+| `+0x06` | HM data port | Read/write for read plumbing | Reads the selected Hardware Monitor register; also receives the bank value after selecting the bank register. With base `0x0290`, this is port `0x0296`. | S1 pp. 54-55; S7, S9; S11, S14 (lead-only) |
+| HM index `0x4E` | Bank select register | Write for read plumbing | Bits `2:0` select the bank used by subsequent banked HM register reads; write data value `0x04` to access bank 4. Bit 7 selects the high or low byte of the vendor-ID register and is left at its default by this spec. | S1 pp. 110, 176; S7, S9; S11, S14 (lead-only) |
 
 Required writes in this table are read-transaction plumbing only. They
 must not be generalized to fan-control, threshold, alarm, GPIO, lock, or
@@ -327,13 +329,14 @@ observation beyond those facts. (S1, S7, S9)
 
 ### Lead-only row layout boundary
 
-The lead-only rows reuse the S1 NCT6796D layout only where S12 and S14
-independently describe the same register positions for the matched chip:
-LDN B discovery, normal-HM index/data offsets, bank 4 selection, byte
-temperatures `0x90`-`0x95`, and the populated direct RPM pairs. They do
-not adopt bank 4 `0x96`, any half-degree word register, voltages, count
-registers, or the read-only HM base. The `0xD806` row additionally
-applies the lead-only invalid-byte filter. (S12, S14)
+The lead-only rows reuse the S1 NCT6796D layout only where the leads
+describe the same register positions for the matched chip: LDN B
+discovery (S11, S14, S15), normal-HM index/data offsets and bank 4
+selection (S11, S14), byte temperatures `0x90`-`0x95` (S12, S14), and the
+populated direct RPM pairs (S12; S14 reads count registers instead).
+They do not adopt bank 4 `0x96`, any half-degree word register,
+voltages, count registers, or the read-only HM base. The `0xD806` row
+additionally applies the lead-only invalid-byte filter (S14).
 
 ## Procedures
 
@@ -372,17 +375,20 @@ applies the lead-only invalid-byte filter. (S12, S14)
    order changed `ioctl_find_bars` from `0x80070490` to success and
    authorized normal HM port I/O. (S7)
 8. Use normal HM index port `base + 0x05` and data port `base + 0x06`.
-   Select bank 4 by writing index `0x4E`, then data `0x04`. (S1, S7,
-   S9)
+   Select bank 4 by writing index `0x4E`, then data `0x04`. For the
+   lead-only rows the same offsets and bank mechanism are lead-only.
+   (S1, S7, S9; S11, S14 lead-only)
 9. Read the enabled register set: temperatures `0x90`-`0x95` and the
    direct RPM pairs populated for the matched row (`0xC0`-`0xC9` for the
    NCT6779D range; `0xC0`-`0xCB` for six-input rows, `0xD802`, `0xD421`,
    and `0xD423`; `0xC0`-`0xCB` plus `0xCE`/`0xCF` for seven-input
    lead-only rows). For `0xD421`, these addresses are used only because
-   S1 defines them for NCT6796D; for lead-only rows, only because S12/S14
-   describe them for the matched chip. Abort the current sample on any
-   failed index write or data read; do not synthesize values from partial
-   reads. (S1, S7, S9; S12, S14 lead-only)
+   S1 defines them for NCT6796D; for lead-only rows, only because S12 and
+   S14 describe the temperature bytes and S12 describes the direct RPM
+   pairs for the matched chip. Abort the current sample on any failed
+   index write or data read; do not synthesize values from partial reads.
+   (S1, S7, S9; S12, S14 lead-only for temperatures; S12 lead-only for
+   RPM pairs)
 10. Exit Nuvoton configuration mode and release the ISA mutex in all
     paths. (S2)
 
@@ -509,10 +515,13 @@ applies the lead-only invalid-byte filter. (S12, S14)
 - Non-blocking for Phase 3: `0xD42A` dual identity. S14 labels it
   NCT5585D on ASRock X870E Nova WiFi and NCT6796D-R otherwise; S11/S15
   place it in a range that S11 attributes to both NCT6798D and NCT5585D; S12 lists NCT5585D under
-  the same kind; S13 calls NCT5585D compatible to NCT6798D. All leads give
-  both candidates seven fan inputs and the same bank 4 layout, so rev 7
-  surfaces the generic label `NCT6796D-R / NCT5585D` and the register path
-  is unaffected.
+  the same kind; S13 calls NCT5585D compatible to NCT6798D. S12 and S14
+  give both candidates seven fan inputs, S12 describes the same bank 4
+  temperature bytes and direct RPM pairs for the whole `0xD428` kind,
+  and S14 describes the full `0x90`-`0x95` set under the NCT6796D-R label
+  but only `0x93` and `0x95` under its NCT5585D label, so rev 7 surfaces
+  the generic label `NCT6796D-R / NCT5585D`; the register path read by
+  this spec is the same for both candidates.
 - Non-blocking for Phase 3: NCT6796D fan count for `0xD423`. S1 (seven
   inputs including AUXFANIN4) and S12 (7) disagree with S14 (6). Rev 7
   reads six pairs for `0xD423`, mirroring `0xD421`; a dump or a
@@ -541,9 +550,11 @@ applies the lead-only invalid-byte filter. (S12, S14)
   additional byte temperature on the `0xD428`/`0xD800` kinds and is not
   defined by S1 for NCT6796D; it stays disabled.
 - Non-blocking for Phase 3: no hardware dump exists for any lead-only
-  row. Each row graduates to Verified only when a maintainer-accepted
-  dump confirms its chip ID, `CR28` bit 4 state, LDN B base, bank 4
-  temperature bytes, and the populated direct RPM pairs.
+  row. Each lead-only row graduates to Verified only when a primary
+  source or a maintainer-accepted independent hardware dump confirms
+  every fact it depends on, including its chip ID, `CR28` bit 4 state,
+  LDN B base, bank 4 temperature bytes, and the populated direct RPM
+  pairs.
 
 ## Implementation-ready transition checklist
 

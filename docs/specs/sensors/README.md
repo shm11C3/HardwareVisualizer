@@ -192,8 +192,9 @@ The Nuvoton Phase 3 document is implementation-ready only for the scoped
 `0xD802` / `NCT6799D` Verified path, the exact `0xD421` / NCT6796D /
 NCT6796D-E Experimental path, and the lead-only Experimental chip-id rows
 listed above; the lead-only rows rest on copyleft leads tagged
-`lead-only (copyleft)` under ADR 0023 and can only be Experimental until a
-maintainer-accepted dump verifies each row. The ITE Phase 4
+`lead-only (copyleft)` under ADR 0023 and can graduate to Verified when a
+primary source or a maintainer-accepted independent hardware dump confirms
+every fact each row depends on. The ITE Phase 4
 document is implementation-ready only for the exact `0x8728` Experimental
 temperature path; it does not make the broader IT86xx/IT87xx family or any
 ITE fan path ready. The current `superio-access.md` readiness remains
