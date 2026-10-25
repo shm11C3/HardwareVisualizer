@@ -579,7 +579,16 @@
         "title": "ГП"
       },
       "process": {
-        "title": "Процессы"
+        "title": "Процессы",
+        "chartSummary": "Показано записей: {{displayed}}; остальных скрыто: {{omitted}}. Все записи доступны в таблице.",
+        "pagination": {
+          "label": "Страницы таблицы процессов",
+          "range": "{{start}}–{{end}} из {{total}} записей",
+          "previous": "Назад",
+          "next": "Далее",
+          "page": "Страница",
+          "pageNumber": "{{page}} / {{pages}}"
+        }
       },
       "snapshot": {
         "title": "Срез"

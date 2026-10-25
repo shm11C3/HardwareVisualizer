@@ -589,7 +589,16 @@
         "title": "GPU"
       },
       "process": {
-        "title": "プロセス"
+        "title": "プロセス",
+        "chartSummary": "{{displayed}}件を表示・その他{{omitted}}件は省略。全件はテーブルで確認できます。",
+        "pagination": {
+          "label": "プロセステーブルのページ切り替え",
+          "range": "全{{total}}件中 {{start}}〜{{end}}件",
+          "previous": "前へ",
+          "next": "次へ",
+          "page": "ページ",
+          "pageNumber": "{{page}} / {{pages}}"
+        }
       },
       "snapshot": {
         "title": "スナップショット"
