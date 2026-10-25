@@ -4,12 +4,12 @@ This folder contains ready-to-paste prompts for continuing the Windows
 native Super I/O sensor work (#1635). Each session is intentionally
 small and scoped so clean-room boundaries and PR scope stay clean.
 
-## Status snapshot (updated 2026-08-30)
+## Status snapshot (updated 2026-10-25)
 
 - ✅ **Phase 1** — CPU package temperature (PawnIO `IntelMSR` / `RyzenSMU`). Shipped.
 - ✅ **Phase 2** — Super I/O chip-id diagnostic via PawnIO `LpcIO`. **Merged.**
   - PR [#1732](https://github.com/shm11C3/HardwareVisualizer/pull/1732) merged into `develop` (commit `d8bb4bb8`).
-  - Spec gate resolved by [#1734](https://github.com/shm11C3/HardwareVisualizer/pull/1734) (`a8c167b1`); `docs/specs/sensors/superio-access.md` is `Implementation-ready (rev 3)` for the **Phase 2 raw chip-id diagnostic scope only**.
+  - Spec gate resolved by [#1734](https://github.com/shm11C3/HardwareVisualizer/pull/1734) (`a8c167b1`); `docs/specs/sensors/superio-access.md` is `Implementation-ready (rev 4)`; the rev 3 ready scope remains the **Phase 2 raw chip-id diagnostic scope**, with the slot-1 ITE exit-withhold rule added in rev 4.
   - Code: `core/src/infrastructure/providers/windows/super_io_diagnostics.rs` (chip-id `0x20`/`0x21` only), routed through the `SuperIoPlatform` trait + `PlatformFactory` (post-review refactor). Pure helpers in `core/src/utils/super_io.rs`.
   - Command: `get_super_io_chip_id_diagnostics` / TS `commands.getSuperIoChipIdDiagnostics()`.
   - Hardware validation follow-ups remain useful for ITE graduation,
@@ -20,11 +20,26 @@ small and scoped so clean-room boundaries and PR scope stay clean.
   the current motherboard-sensor provider and presentation pipeline.
 - ✅ **Phase 4 spec** — exact `0x8728` / IT8728F/EX generic
   `TMPIN1`-`TMPIN3` is **Implementation-ready (rev 2)** as an
-  Experimental read-only scope. Its implementation is the next separate
-  clean-room task. ITE fans and every other IT86xx/IT87xx ID remain
-  disabled or Unsupported.
+  Experimental read-only scope. Its implementation is a separate
+  clean-room task that follows the rev 4 exit-withhold work. ITE fans
+  and every other IT86xx/IT87xx ID remain disabled or Unsupported.
+- ⚠️ **Phase 2 safety amendment** — `superio-access.md` rev 4 adds the
+  "Slot-1 ITE exit withhold rule": on slot 1 (`0x4E`/`0x4F`) the ITE
+  configuration-mode exit write must not be issued for raw IDs `0x8733`,
+  `0x8790`, `0x8695`, `0x8883`, and the diagnostic reports the exit as
+  intentionally skipped. The current diagnostic and motherboard provider
+  still exit on every slot; applying the rule is a separate clean-room
+  implementer task.
 
 ### What unblocks the next code
+
+The `superio-access.md` rev 4 exit withhold is unblocked for a separate
+clean-room implementation session covering
+`core/src/infrastructure/providers/windows/super_io_diagnostics.rs` and
+the ITE slot handling in `super_io_motherboard.rs`, plus the skipped-exit
+state in the diagnostic model. It should land before further ITE chip
+scopes widen the number of Gigabyte two-chip boards that run the slot-1
+ITE probe.
 
 The exact `0x8728` / IT8728F/EX Experimental temperature scope is
 unblocked for a separate clean-room implementation session. That work
@@ -53,15 +68,18 @@ scopes.
 
 Recommended order from here:
 
-1. In a separate clean-room implementer session, add exact `0x8728`
+1. In a separate clean-room implementer session, apply the rev 4 slot-1
+   ITE exit-withhold rule to the diagnostic, motherboard provider, and
+   diagnostic model state.
+2. In a separate clean-room implementer session, add exact `0x8728`
    mapping, LDN/base authorization, and Experimental `TMPIN1`-`TMPIN3`
    sampling to the existing motherboard-sensor provider.
-2. Reuse the shipped collection, presentation, and guidance pipeline;
+3. Reuse the shipped collection, presentation, and guidance pipeline;
    successful Experimental readings receive no badge or label suffix.
-3. Collect manual user feedback/hardware dumps and, when accepted,
+4. Collect manual user feedback/hardware dumps and, when accepted,
    revise the spec to graduate the exact scope from Experimental to
    Verified.
-4. Do not implement ITE fan RPM or additional IT86xx/IT87xx IDs until a
+5. Do not implement ITE fan RPM or additional IT86xx/IT87xx IDs until a
    later implementation-ready spec revision enables them.
 
 ## Common preamble (paste at the start of every session)
@@ -84,7 +102,7 @@ Recommended order from here:
 - PR作成時は `CONTRIBUTING.md` に従い、branch prefix / commit prefix / PR title / PR type checkbox を揃えること。
 - HardwareVisualizer のPR baseは基本 `develop`。
 - `src/rspc/bindings.ts` は生成物。必要なら `npm run tauri:dev` など既存の生成経路で更新し、手編集しない。
-- `superio-access.md` は `Implementation-ready (rev 3)` だが、ready範囲は Phase 2 raw chip-id diagnostic のみ。
+- `superio-access.md` は `Implementation-ready (rev 4)`。rev 3 からの ready 範囲は Phase 2 raw chip-id diagnostic のみで、rev 4 では slot-1 ITE exit-withhold rule が追加されている。
 - Phase 3 Nuvoton は exact `0xD802` / NCT6799D normal-HM scope が
   `superio-nuvoton-nct67xx.md` rev 5 で ready・実装済み。
 - Phase 4 ITE は exact `0x8728` / IT8728F/EX TMPIN1-3 のみ
@@ -105,8 +123,10 @@ Recommended order from here:
 現在のrepoでは Nuvoton mapping/base/decode、motherboard metrics/UI、
 External Component Guidance は実装済み。
 
-次の ITE 作業は別ブランチ・別PRの clean-room implementation とし、
-ready rev 2 の exact `0x8728` TMPIN1-3 だけを既存pipelineへ追加する。
-ITE fan RPM、その他 IT86xx/IT87xx ID、成功値へのExperimental badge、
-新しいtelemetry/guidance pathは追加しない。
+次の clean-room implementation は別ブランチ・別PRとし、まず
+`superio-access.md` rev 4 の slot-1 ITE exit-withhold rule を診断・
+motherboard provider・診断 model に適用する。その後、ready rev 2 の
+exact `0x8728` TMPIN1-3 だけを既存 pipeline へ追加する。ITE fan RPM、
+その他 IT86xx/IT87xx ID、成功値への Experimental badge、新しい
+telemetry/guidance path は追加しない。
 ```
