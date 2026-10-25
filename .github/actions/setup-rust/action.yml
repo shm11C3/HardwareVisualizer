@@ -63,7 +63,7 @@ runs:
 
     - name: Restore Rust cache
       id: rust-cache
-      uses: Swatinem/rust-cache@v2.9.2
+      uses: Swatinem/rust-cache@v2.9.3
       with:
         # src-tauri is a member of the root workspace, so it has no target/ of its own.
         workspaces: |

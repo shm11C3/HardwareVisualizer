@@ -16,7 +16,7 @@ workflows:
         - 'actions/setup-node@v7.1.0'
         - 'actions/upload-artifact@v7.0.2'
         - 'peter-evans/create-pull-request@v8.1.1'
-        - 'swatinem/rust-cache@v2.9.2'
+        - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/auto-update-npm.yml':
         - 'actions/cache@v6.1.0'
         - 'actions/checkout@v7.0.1'
@@ -33,7 +33,7 @@ workflows:
         - 'actions/create-github-app-token@v3.3.0'
         - 'actions/setup-node@v7.1.0'
         - 'peter-evans/create-pull-request@v8.1.1'
-        - 'swatinem/rust-cache@v2.9.2'
+        - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/cache-health.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/github-script@v9.0.0'
@@ -45,7 +45,7 @@ workflows:
         - 'actions/cache@v6.1.0'
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
-        - 'swatinem/rust-cache@v2.9.2'
+        - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/ci-telemetry.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
@@ -60,7 +60,7 @@ workflows:
         - 'ilammy/msvc-dev-cmd@v1.13.0'
         - 'marocchino/sticky-pull-request-comment@v3.0.5'
         - 'mozilla-actions/sccache-action@v0.0.11'
-        - 'swatinem/rust-cache@v2.9.2'
+        - 'swatinem/rust-cache@v2.9.3'
         - 'taiki-e/install-action@v2.87.29'
         - 'tauri-apps/tauri-action@v1.0.0'
     '.github/workflows/claude.yml':
@@ -71,7 +71,7 @@ workflows:
         - 'github/codeql-action@v4.39.0'
         - 'ilammy/msvc-dev-cmd@v1.13.0'
         - 'mozilla-actions/sccache-action@v0.0.11'
-        - 'swatinem/rust-cache@v2.9.2'
+        - 'swatinem/rust-cache@v2.9.3'
     '.github/workflows/osv-scan.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/download-artifact@v8.0.2'
@@ -84,7 +84,7 @@ workflows:
         - 'actions/github-script@v9.0.0'
         - 'actions/setup-node@v7.1.0'
         - 'actions/upload-artifact@v7.0.2'
-        - 'swatinem/rust-cache@v2.9.2'
+        - 'swatinem/rust-cache@v2.9.3'
         - 'tauri-apps/tauri-action@v1.0.0'
     '.github/workflows/pr-branch-name.yml': []
     '.github/workflows/pr-labeler.yml':
@@ -94,7 +94,7 @@ workflows:
         - 'actions/cache@v6.1.0'
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
-        - 'swatinem/rust-cache@v2.9.2'
+        - 'swatinem/rust-cache@v2.9.3'
         - 'tauri-apps/tauri-action@v1.0.0'
     '.github/workflows/scorecard.yml':
         - 'actions/checkout@v7.0.1'
@@ -239,9 +239,9 @@ dependencies:
         repo_id: 961432300
         uses:
             - 'actions/setup-node@v4'
-    'swatinem/rust-cache@v2.9.2':
-        ref: 'v2.9.2'
-        commit: 'sha1-6323deb102c322ba6fcbdcafc7e3dddab59af2b6'
+    'swatinem/rust-cache@v2.9.3':
+        ref: 'v2.9.3'
+        commit: 'sha1-d1527c8f67ef9af357290475d4af4b0fab8f12e0'
         owner_id: 580492
         repo_id: 298565987
     'taiki-e/install-action@v2.87.29':
