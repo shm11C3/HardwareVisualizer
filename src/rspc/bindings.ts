@@ -1285,6 +1285,7 @@ export type SuperIoChipIdAttempt = {
 	absent: boolean,
 	error: string | null,
 	exitError: string | null,
+	exitSkipped: boolean,
 };
 
 export type SuperIoChipIdDiagnostics = {

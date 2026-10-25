@@ -8,7 +8,8 @@ use crate::models::{
 use crate::utils::super_io::{
   chip_id, decode_ite_temperature_byte, decode_nuvoton_direct_rpm,
   decode_nuvoton_temperature_byte, fan_speed_status_from_rpm, is_absent_id,
-  is_ite_temperature_channel_eligible, is_plausible_ite_temperature, slot_ports,
+  is_ite_temperature_channel_eligible, is_plausible_ite_temperature,
+  should_withhold_ite_exit, slot_ports,
 };
 use crate::{log_debug, log_warn};
 
@@ -213,7 +214,7 @@ impl MotherboardSensorSampler {
   }
 }
 
-trait LpcIoOps {
+pub(super) trait LpcIoOps {
   fn select_lpc_slot(&self, slot: u64) -> Result<(), String>;
   fn find_lpc_bars(&self) -> Result<(), String>;
   fn pio_inb(&self, port: u16) -> Result<u8, String>;
@@ -463,7 +464,17 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
 
     client.select_lpc_slot(slot as u64)?;
     enter_ite(client, slot, index_port)?;
-    let result = discover_ite_ec_base(client, slot);
+    let id_bytes = read_ite_chip_id(client);
+    if let Ok((id_high, id_low)) = id_bytes
+      && should_withhold_ite_exit(slot, chip_id(id_high, id_low))
+    {
+      // `superio-access.md` rev 4 "Slot-1 ITE exit withhold rule": the exit
+      // write is not issued for these IDs, and skipping it is not a failure.
+      // None of them is the IT8728F, so there is no EC path on this slot.
+      return Ok(None);
+    }
+    let result = id_bytes
+      .and_then(|(id_high, id_low)| discover_ite_ec_base(client, slot, id_high, id_low));
     let exit_result = exit_ite(client);
 
     match (result, exit_result) {
@@ -700,12 +711,18 @@ fn discover_nuvoton_hm_base(
   })
 }
 
+fn read_ite_chip_id(client: &impl LpcIoOps) -> Result<(u8, u8), String> {
+  let id_high = client.superio_inb(CHIP_ID_HIGH_REGISTER)?;
+  let id_low = client.superio_inb(CHIP_ID_LOW_REGISTER)?;
+  Ok((id_high, id_low))
+}
+
 fn discover_ite_ec_base(
   client: &impl LpcIoOps,
   slot: u8,
+  id_high: u8,
+  id_low: u8,
 ) -> Result<Option<DetectedIteSlot>, String> {
-  let id_high = client.superio_inb(CHIP_ID_HIGH_REGISTER)?;
-  let id_low = client.superio_inb(CHIP_ID_LOW_REGISTER)?;
   if is_absent_id(id_high, id_low) {
     return Ok(None);
   }
@@ -1015,6 +1032,7 @@ mod tests {
   }
 
   struct FakeIteLpcIo {
+    chip_id_high: Cell<u8>,
     chip_id_low: Cell<u8>,
     activation: Cell<u8>,
     base_high: Cell<u8>,
@@ -1039,6 +1057,7 @@ mod tests {
   impl FakeIteLpcIo {
     fn new() -> Self {
       Self {
+        chip_id_high: Cell::new(0x87),
         chip_id_low: Cell::new(0x28),
         activation: Cell::new(0x01),
         base_high: Cell::new(0x02),
@@ -1150,7 +1169,7 @@ mod tests {
 
     fn superio_inb(&self, register: u8) -> Result<u8, String> {
       match register {
-        CHIP_ID_HIGH_REGISTER => Ok(0x87),
+        CHIP_ID_HIGH_REGISTER => Ok(self.chip_id_high.get()),
         CHIP_ID_LOW_REGISTER => Ok(self.chip_id_low.get()),
         LDN_ACTIVATION_REGISTER => Ok(self.activation.get()),
         HM_BASE_HIGH_REGISTER => {
@@ -1380,6 +1399,44 @@ mod tests {
         (0x004E, 0xAA)
       ]
     );
+  }
+
+  #[test]
+  fn ite_discovery_withholds_the_slot_one_exit_for_hazard_ids() {
+    for id in [0x8733_u16, 0x8790, 0x8695, 0x8883] {
+      let client = FakeIteLpcIo::new();
+      client.chip_id_high.set((id >> 8) as u8);
+      client.chip_id_low.set(id as u8);
+
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1);
+
+      assert!(matches!(detected, Ok(None)), "id 0x{id:04X}");
+      assert_eq!(client.config_exit_calls.get(), 0, "id 0x{id:04X}");
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert_eq!(client.selected_ldn.get(), None);
+    }
+  }
+
+  #[test]
+  fn ite_discovery_still_exits_on_slot_one_for_a_non_hazard_id() {
+    let client = FakeIteLpcIo::new();
+    client.chip_id_low.set(0x34);
+
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1).unwrap();
+
+    assert!(detected.is_none());
+    assert_eq!(client.config_exit_calls.get(), 1);
+  }
+
+  #[test]
+  fn ite_discovery_still_exits_on_slot_zero_for_a_hazard_id() {
+    let client = FakeIteLpcIo::new();
+    client.chip_id_low.set(0x33);
+
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap();
+
+    assert!(detected.is_none());
+    assert_eq!(client.config_exit_calls.get(), 1);
   }
 
   #[test]
