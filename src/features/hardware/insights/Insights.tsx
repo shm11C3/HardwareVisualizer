@@ -200,6 +200,9 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
     periodMaxGpuTemperature,
     periodMinGpuUsage,
     periodMinGpuTemperature,
+    periodAvgGpuDedicatedMemory,
+    periodMaxGpuDedicatedMemory,
+    periodMinGpuDedicatedMemory,
   ];
 
   const chartData: {
