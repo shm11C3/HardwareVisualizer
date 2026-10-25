@@ -187,7 +187,7 @@ Winget でのインストールでは PawnIO はセットアップされませ�
 | トレイウィジェット                 | ✅ フライアウト                        | ✅ トレイのタイトル  | ✅ メニューバー                               |
 
 1. Linux では NVIDIA GPU は一覧に表示されますが、値はまだ取得できません。Intel GPU の使用率の取得には `intel_gpu_top` が必要です。
-2. PawnIO と管理者権限が必要です。マザーボードのセンサーは Nuvoton NCT6799D に対応しています。Nuvoton NCT6779D、NCT6791D、NCT6792D、NCT6793D、NCT6795D、NCT6796D、NCT6796D-S、NCT6797D、NCT6798D、NCT6796D-R / NCT5585D、NCT6701D と ITE IT8728F（温度のみ）は実験的な対応です。
+2. PawnIO と管理者権限が必要です。マザーボードのセンサーは Nuvoton NCT6799D に対応しています。Nuvoton NCT6779D、NCT6791D、NCT6792D、NCT6793D、NCT6795D、NCT6796D、NCT6796D-S、NCT6797D、NCT6798D、NCT6796D-R / NCT5585D、NCT6701D、これらの Nuvoton チップファミリーの未認識バージョン、および ITE IT8728F（温度のみ）は実験的な対応です。
 3. smartmontools が必要です。
 4. CPU 温度が必要です。電力、ファン、室温の各レーンは、対応するセンサーがある場合に表示されます。
 

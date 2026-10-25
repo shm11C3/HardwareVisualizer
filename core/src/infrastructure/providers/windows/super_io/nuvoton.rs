@@ -2,16 +2,17 @@
 //! normal hardware-monitor decode.
 //!
 //! Implemented from:
-//! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 7
+//! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 9
 //!
 //! No other external sensor source was used.
 
+use super::is_plausible_super_io_temperature;
 use crate::models::{FanSpeedStatus, SensorEnablement};
 
 /// Decode a Nuvoton bank 4 byte temperature as signed degrees C.
 ///
 /// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
-/// revision 7, scoped to the enabled normal HM bank 4 byte temperatures.
+/// revision 9, scoped to the enabled normal HM bank 4 byte temperatures.
 pub const fn decode_nuvoton_temperature_byte(raw: u8) -> f32 {
   (raw as i8) as f32
 }
@@ -19,7 +20,7 @@ pub const fn decode_nuvoton_temperature_byte(raw: u8) -> f32 {
 /// Decode a Nuvoton direct RPM high/low register pair.
 ///
 /// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
-/// revision 7, which defines the enabled direct RPM path as high byte then low
+/// revision 9, which defines the enabled direct RPM path as high byte then low
 /// byte, unsigned RPM.
 pub const fn decode_nuvoton_direct_rpm(high: u8, low: u8) -> u32 {
   ((high as u32) << 8) | low as u32
@@ -35,14 +36,44 @@ const NUVOTON_ALL_TEMPERATURE_REGISTERS: &[(&str, u8)] = &[
   ("AUXTIN3", 0x95),
 ];
 
-/// The `0xD42A` subset: only AUXTIN1 (`0x93`) and AUXTIN3 (`0x95`) are read
-/// because the raw ID cannot distinguish its two candidate identities.
-const NUVOTON_D42A_TEMPERATURE_REGISTERS: &[(&str, u8)] =
-  &[("AUXTIN1", 0x93), ("AUXTIN3", 0x95)];
+/// Bank 4 `0x96`, surfaced with the deliberately generic label `Temperature 7`
+/// because the spec assigns it no physical input name.
+const NUVOTON_TEMPERATURE_7_REGISTER: (&str, u8) = ("Temperature 7", 0x96);
 
-/// Direct 16-bit RPM high/low pairs in bank 4. A profile reads only the first
-/// `fan_inputs` entries; the seventh pair (`0xCE`/`0xCF`) is populated only on
-/// the seven-input lead-only rows.
+/// Bank 4 `0x90`-`0x96` for the rows whose profile reads the seventh byte.
+const NUVOTON_SEVEN_TEMPERATURE_REGISTERS: &[(&str, u8)] = &[
+  ("SYSTIN", 0x90),
+  ("CPUTIN", 0x91),
+  ("AUXTIN0", 0x92),
+  ("AUXTIN1", 0x93),
+  ("AUXTIN2", 0x94),
+  ("AUXTIN3", 0x95),
+  NUVOTON_TEMPERATURE_7_REGISTER,
+];
+
+/// The `0xD42A` order: revision 7 exposed only AUXTIN1 (`0x93`) and AUXTIN3
+/// (`0x95`); revision 8 appends the remaining bank 4 bytes after them in
+/// register order so consumers that depend on list position keep working
+/// ("Input identity and ordering stability").
+const NUVOTON_D42A_TEMPERATURE_REGISTERS: &[(&str, u8)] = &[
+  ("AUXTIN1", 0x93),
+  ("AUXTIN3", 0x95),
+  ("SYSTIN", 0x90),
+  ("CPUTIN", 0x91),
+  ("AUXTIN0", 0x92),
+  ("AUXTIN2", 0x94),
+  NUVOTON_TEMPERATURE_7_REGISTER,
+];
+
+/// The `0xD802` Experimental sub-scope temperatures, read after the Verified
+/// set of the same sample.
+const NUVOTON_D802_EXPERIMENTAL_TEMPERATURE_REGISTERS: &[(&str, u8)] =
+  &[NUVOTON_TEMPERATURE_7_REGISTER];
+
+/// Direct 16-bit RPM high/low pairs in bank 4. A profile reads the first
+/// `fan_inputs` entries with the row's own enablement and then
+/// `experimental_fan_inputs` further entries as an Experimental sub-scope; the
+/// seventh pair (`0xCE`/`0xCF`) is populated only on seven-input rows.
 const NUVOTON_DIRECT_RPM_REGISTERS: [(&str, u8, u8); 7] = [
   ("Fan 1", 0xC0, 0xC1),
   ("Fan 2", 0xC2, 0xC3),
@@ -57,6 +88,9 @@ const NUVOTON_HM_IO_SPACE_LOCK_BIT: u8 = 1 << 4;
 const NCT6701D_MIN_HM_BASE: u16 = 0x0100;
 const NCT6701D_INVALID_HM_BASE_BITS: u16 = 0xF007;
 const NUVOTON_GENERIC_SOURCE_LABEL: &str = "Nuvoton / Super I/O";
+/// The leads classify a raw chip ID into a family by ignoring the low three
+/// bits of CR21, which S1 p. 362 describes as the IC version digit.
+const NUVOTON_FAMILY_ID_MASK: u16 = 0xFFF8;
 
 /// How raw bank 4 temperature bytes are screened before decoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,12 +122,20 @@ pub struct NuvotonHmProfile {
   pub source_label: &'static str,
   /// Verified or Experimental enablement from the spec's scoped tables.
   pub enablement: SensorEnablement,
-  /// Number of populated direct RPM pairs starting at `0xC0`/`0xC1`.
+  /// Number of direct RPM pairs, starting at `0xC0`/`0xC1`, read with the
+  /// row's own enablement. A failed read aborts the sample.
   pub fan_inputs: usize,
+  /// Number of further direct RPM pairs read as an Experimental sub-scope
+  /// after the row's own set. A failed read leaves only the sub-scope inputs
+  /// unavailable and keeps the values already read.
+  pub experimental_fan_inputs: usize,
   /// Whether global `CR28` bit 4 gates hardware-monitor availability.
   pub lock_gate: bool,
-  /// Bank 4 byte temperature registers read for this profile.
+  /// Bank 4 byte temperature registers read with the row's own enablement.
   pub temperature_registers: &'static [(&'static str, u8)],
+  /// Bank 4 byte temperature registers read as an Experimental sub-scope after
+  /// the row's own set.
+  pub experimental_temperature_registers: &'static [(&'static str, u8)],
   /// Raw temperature byte screening applied before decoding.
   pub temperature_filter: NuvotonTemperatureFilter,
   /// Normal HM base validation applied after reading `CR60/61`.
@@ -106,17 +148,39 @@ impl NuvotonHmProfile {
     matches!(self.enablement, SensorEnablement::Experimental)
   }
 
-  /// The populated direct RPM pairs, in register order.
+  /// The direct RPM pairs read with the row's own enablement, in register
+  /// order.
   pub fn direct_rpm_registers(&self) -> &'static [(&'static str, u8, u8)] {
     &NUVOTON_DIRECT_RPM_REGISTERS[..self.fan_inputs]
   }
+
+  /// The direct RPM pairs read as an Experimental sub-scope, in register
+  /// order, following [`Self::direct_rpm_registers`].
+  pub fn experimental_direct_rpm_registers(&self) -> &'static [(&'static str, u8, u8)] {
+    &NUVOTON_DIRECT_RPM_REGISTERS
+      [self.fan_inputs..self.fan_inputs + self.experimental_fan_inputs]
+  }
+
+  /// Whether this profile reads any Experimental sub-scope register.
+  #[cfg(test)]
+  pub const fn has_experimental_sub_scope(&self) -> bool {
+    self.experimental_fan_inputs > 0
+      || !self.experimental_temperature_registers.is_empty()
+  }
 }
 
-/// An inclusive raw chip-ID range mapped to one profile. Exact IDs use equal
-/// bounds; only the NCT6779D row spans a range.
+/// An inclusive raw chip-ID range mapped to one named profile. Exact IDs use
+/// equal bounds; only the NCT6779D row spans a range.
 struct NuvotonProfileEntry {
   first_id: u16,
   last_id: u16,
+  profile: NuvotonHmProfile,
+}
+
+/// One lead family value (raw ID masked with [`NUVOTON_FAMILY_ID_MASK`]) and
+/// the conservative profile applied to its unnamed versions.
+struct NuvotonFamilyEntry {
+  family_id: u16,
   profile: NuvotonHmProfile,
 }
 
@@ -129,8 +193,10 @@ const fn verified_profile(
     source_label,
     enablement: SensorEnablement::Verified,
     fan_inputs: 6,
+    experimental_fan_inputs: 0,
     lock_gate: false,
     temperature_registers: NUVOTON_ALL_TEMPERATURE_REGISTERS,
+    experimental_temperature_registers: &[],
     temperature_filter: NuvotonTemperatureFilter::None,
     hm_base_check: NuvotonHmBaseCheck::Standard,
   }
@@ -146,10 +212,32 @@ const fn experimental_profile(
     source_label: NUVOTON_GENERIC_SOURCE_LABEL,
     enablement: SensorEnablement::Experimental,
     fan_inputs,
+    experimental_fan_inputs: 0,
     lock_gate,
     temperature_registers: NUVOTON_ALL_TEMPERATURE_REGISTERS,
+    experimental_temperature_registers: &[],
     temperature_filter: NuvotonTemperatureFilter::None,
     hm_base_check: NuvotonHmBaseCheck::Standard,
+  }
+}
+
+/// A seven-input Experimental row that also reads bank 4 `0x96`.
+const fn experimental_seven_temperature_profile(
+  chip_label: &'static str,
+  lock_gate: bool,
+) -> NuvotonHmProfile {
+  NuvotonHmProfile {
+    temperature_registers: NUVOTON_SEVEN_TEMPERATURE_REGISTERS,
+    ..experimental_profile(chip_label, 7, lock_gate)
+  }
+}
+
+/// The `0xD806` / NCT6701D quirks: invalid-byte filter and usable-base check.
+const fn with_nct6701d_quirks(profile: NuvotonHmProfile) -> NuvotonHmProfile {
+  NuvotonHmProfile {
+    temperature_filter: NuvotonTemperatureFilter::Nct6701dInvalidBytes,
+    hm_base_check: NuvotonHmBaseCheck::Nct6701dUsableBase,
+    ..profile
   }
 }
 
@@ -161,15 +249,25 @@ const fn exact_id(id: u16, profile: NuvotonHmProfile) -> NuvotonProfileEntry {
   }
 }
 
-/// Scoped-enablement rows of `superio-nuvoton-nct67xx.md` revision 7. Any raw
-/// ID not listed here, including other members of the lead ranges, stays
-/// Unsupported.
+const fn family(family_id: u16, profile: NuvotonHmProfile) -> NuvotonFamilyEntry {
+  NuvotonFamilyEntry { family_id, profile }
+}
+
+/// Named rows of `superio-nuvoton-nct67xx.md` revision 9 ("ID-matching
+/// policy" step 1): the Verified `0xD802` row with its Experimental
+/// sub-scopes, the exact `0xD421` row, the NCT6779D range, and the lead-only
+/// exact rows. Matched before the family ranges.
 const NUVOTON_HM_PROFILES: [NuvotonProfileEntry; 15] = [
-  exact_id(0xD802, verified_profile("NCT6799D", "NCT6799D / Super I/O")),
   exact_id(
-    0xD421,
-    experimental_profile("NCT6796D/NCT6796D-E", 6, false),
+    0xD802,
+    NuvotonHmProfile {
+      experimental_fan_inputs: 1,
+      experimental_temperature_registers: NUVOTON_D802_EXPERIMENTAL_TEMPERATURE_REGISTERS,
+      ..verified_profile("NCT6799D", "NCT6799D / Super I/O")
+    },
   ),
+  // The `0xD421` lock gate rests on S1 p. 376 alone (revision 9).
+  exact_id(0xD421, experimental_profile("NCT6796D/NCT6796D-E", 7, true)),
   NuvotonProfileEntry {
     first_id: 0xC560,
     last_id: 0xC567,
@@ -180,8 +278,11 @@ const NUVOTON_HM_PROFILES: [NuvotonProfileEntry; 15] = [
   exact_id(0xC913, experimental_profile("NCT6792D", 6, true)),
   exact_id(0xD121, experimental_profile("NCT6793D", 6, true)),
   exact_id(0xD352, experimental_profile("NCT6795D", 6, true)),
-  exact_id(0xD423, experimental_profile("NCT6796D", 6, true)),
-  exact_id(0xD429, experimental_profile("NCT6798D", 7, true)),
+  exact_id(0xD423, experimental_profile("NCT6796D", 7, true)),
+  exact_id(
+    0xD429,
+    experimental_seven_temperature_profile("NCT6798D", true),
+  ),
   exact_id(
     0xD42A,
     NuvotonHmProfile {
@@ -189,32 +290,101 @@ const NUVOTON_HM_PROFILES: [NuvotonProfileEntry; 15] = [
       ..experimental_profile("NCT6796D-R / NCT5585D", 7, true)
     },
   ),
-  exact_id(0xD42B, experimental_profile("NCT6798D", 7, true)),
+  exact_id(
+    0xD42B,
+    experimental_seven_temperature_profile("NCT6798D", true),
+  ),
   exact_id(0xD451, experimental_profile("NCT6797D", 7, true)),
-  exact_id(0xD801, experimental_profile("NCT6796D-S", 7, true)),
+  exact_id(
+    0xD801,
+    experimental_seven_temperature_profile("NCT6796D-S", true),
+  ),
   exact_id(
     0xD806,
-    NuvotonHmProfile {
-      temperature_filter: NuvotonTemperatureFilter::Nct6701dInvalidBytes,
-      hm_base_check: NuvotonHmBaseCheck::Nct6701dUsableBase,
-      ..experimental_profile("NCT6701D", 7, true)
-    },
+    with_nct6701d_quirks(experimental_profile("NCT6701D", 7, true)),
   ),
 ];
 
-/// Every scoped Nuvoton profile, for callers that recognize profile failure
-/// text.
+/// Unrecognized-version range profiles of `superio-nuvoton-nct67xx.md`
+/// revision 9 ("ID-matching policy" step 2). Each unnamed version of a lead
+/// family range gets the conservative profile of that range: the fewest fan
+/// pairs of its named members, the intersection of their temperature sets,
+/// and every safety gate any named member applies. The NCT6779D family
+/// (`0xC560`) is not listed: its named range already covers `0xC560`-`0xC567`
+/// and `0xC568`-`0xC56F` stays Unsupported.
+const NUVOTON_UNRECOGNIZED_VERSION_PROFILES: [NuvotonFamilyEntry; 8] = [
+  family(
+    0xC800,
+    experimental_profile("NCT6791D family (unrecognized version)", 6, true),
+  ),
+  family(
+    0xC910,
+    experimental_profile("NCT6792D family (unrecognized version)", 6, true),
+  ),
+  family(
+    0xD120,
+    experimental_profile("NCT6793D family (unrecognized version)", 6, true),
+  ),
+  family(
+    0xD350,
+    experimental_profile("NCT6795D family (unrecognized version)", 6, true),
+  ),
+  family(
+    0xD420,
+    experimental_profile("NCT6796D family (unrecognized version)", 7, true),
+  ),
+  family(
+    0xD428,
+    experimental_seven_temperature_profile(
+      "NCT6798D family (unrecognized version)",
+      true,
+    ),
+  ),
+  family(
+    0xD450,
+    experimental_profile("NCT6797D family (unrecognized version)", 7, true),
+  ),
+  family(
+    0xD800,
+    with_nct6701d_quirks(experimental_profile(
+      "NCT6799D family (unrecognized version)",
+      7,
+      true,
+    )),
+  ),
+];
+
+/// Every scoped Nuvoton profile (named rows first, then the unrecognized-version
+/// range profiles), for callers that recognize profile failure text.
 pub fn nuvoton_hm_profiles() -> impl Iterator<Item = &'static NuvotonHmProfile> {
-  NUVOTON_HM_PROFILES.iter().map(|entry| &entry.profile)
+  NUVOTON_HM_PROFILES
+    .iter()
+    .map(|entry| &entry.profile)
+    .chain(
+      NUVOTON_UNRECOGNIZED_VERSION_PROFILES
+        .iter()
+        .map(|entry| &entry.profile),
+    )
 }
 
 /// Select the scoped Nuvoton normal-HM profile for a raw chip ID, or `None`
 /// when the ID is outside the enabled runtime scope.
+///
+/// Named IDs resolve first; any other ID whose family value (raw ID masked
+/// with `0xFFF8`) is one of the eight lead family ranges resolves to that
+/// range's conservative unrecognized-version profile.
 pub fn nuvoton_hm_profile(raw_chip_id: u16) -> Option<&'static NuvotonHmProfile> {
   NUVOTON_HM_PROFILES
     .iter()
     .find(|entry| (entry.first_id..=entry.last_id).contains(&raw_chip_id))
     .map(|entry| &entry.profile)
+    .or_else(|| {
+      let family_id = raw_chip_id & NUVOTON_FAMILY_ID_MASK;
+      NUVOTON_UNRECOGNIZED_VERSION_PROFILES
+        .iter()
+        .find(|entry| entry.family_id == family_id)
+        .map(|entry| &entry.profile)
+    })
 }
 
 /// Whether global `CR28` reports the hardware-monitor I/O space as locked
@@ -234,19 +404,35 @@ pub const fn is_nct6701d_usable_hm_base(base: u16) -> bool {
   base >= NCT6701D_MIN_HM_BASE && (base & NCT6701D_INVALID_HM_BASE_BITS) == 0
 }
 
-/// Decode a bank 4 byte temperature after the profile's invalid-byte filter.
-/// `None` means the input is unavailable for this sample.
+/// Whether a decoded Nuvoton bank 4 byte temperature is plausible.
+///
+/// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
+/// revision 9 ("Temperature plausibility bounds", S1 Table 8-1): raw bytes
+/// `0x00`-`0x7D` and `0xC9`-`0xFF` are accepted, `0x7E`-`0xC8` are rejected.
+/// Applies to every row, including Verified `0xD802`.
+pub const fn is_plausible_nuvoton_temperature(temperature: f32) -> bool {
+  is_plausible_super_io_temperature(temperature)
+}
+
+/// Decode a bank 4 byte temperature after the profile's invalid-byte filter
+/// and the plausibility filter. `None` means the input is unavailable for this
+/// sample: it is not published as a number, not clamped, not replaced by zero,
+/// and does not fail the other inputs.
 pub const fn decode_filtered_nuvoton_temperature_byte(
   raw: u8,
   filter: NuvotonTemperatureFilter,
 ) -> Option<f32> {
-  match filter {
-    NuvotonTemperatureFilter::Nct6701dInvalidBytes
-      if is_nct6701d_invalid_temperature_byte(raw) =>
-    {
-      None
-    }
-    _ => Some(decode_nuvoton_temperature_byte(raw)),
+  if matches!(filter, NuvotonTemperatureFilter::Nct6701dInvalidBytes)
+    && is_nct6701d_invalid_temperature_byte(raw)
+  {
+    return None;
+  }
+
+  let temperature = decode_nuvoton_temperature_byte(raw);
+  if is_plausible_nuvoton_temperature(temperature) {
+    Some(temperature)
+  } else {
+    None
   }
 }
 
@@ -296,16 +482,29 @@ mod tests {
       .collect()
   }
 
+  fn experimental_direct_rpm_register_indexes(profile: &NuvotonHmProfile) -> Vec<u8> {
+    profile
+      .experimental_direct_rpm_registers()
+      .iter()
+      .flat_map(|(_, high, low)| [*high, *low])
+      .collect()
+  }
+
   const SIX_PAIRS: [u8; 12] = [
     0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB,
   ];
   const SEVEN_PAIRS: [u8; 14] = [
     0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCE, 0xCF,
   ];
+  const SEVENTH_PAIR: [u8; 2] = [0xCE, 0xCF];
   const ALL_TEMPERATURES: [u8; 6] = [0x90, 0x91, 0x92, 0x93, 0x94, 0x95];
+  const SEVEN_TEMPERATURES: [u8; 7] = [0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96];
+  /// `0xD42A` keeps its revision 7 inputs first and appends the rest in
+  /// register order.
+  const D42A_TEMPERATURES: [u8; 7] = [0x93, 0x95, 0x90, 0x91, 0x92, 0x94, 0x96];
 
   #[test]
-  fn nuvoton_profile_table_matches_the_rev7_scoped_enablement_rows() {
+  fn nuvoton_profile_table_matches_the_rev8_named_rows() {
     // (raw id, label, enablement, fan inputs, lock gate)
     let rows: [(u16, &str, SensorEnablement, usize, bool); 15] = [
       (0xD802, "NCT6799D", SensorEnablement::Verified, 6, false),
@@ -313,8 +512,8 @@ mod tests {
         0xD421,
         "NCT6796D/NCT6796D-E",
         SensorEnablement::Experimental,
-        6,
-        false,
+        7,
+        true,
       ),
       (0xC560, "NCT6779D", SensorEnablement::Experimental, 5, false),
       (0xC803, "NCT6791D", SensorEnablement::Experimental, 6, true),
@@ -322,7 +521,7 @@ mod tests {
       (0xC913, "NCT6792D", SensorEnablement::Experimental, 6, true),
       (0xD121, "NCT6793D", SensorEnablement::Experimental, 6, true),
       (0xD352, "NCT6795D", SensorEnablement::Experimental, 6, true),
-      (0xD423, "NCT6796D", SensorEnablement::Experimental, 6, true),
+      (0xD423, "NCT6796D", SensorEnablement::Experimental, 7, true),
       (0xD429, "NCT6798D", SensorEnablement::Experimental, 7, true),
       (
         0xD42A,
@@ -355,22 +554,207 @@ mod tests {
         enablement == SensorEnablement::Experimental
       );
     }
-    assert_eq!(nuvoton_hm_profiles().count(), rows.len());
+    // 15 named rows plus the eight unrecognized-version range profiles.
+    assert_eq!(nuvoton_hm_profiles().count(), rows.len() + 8);
+  }
+
+  /// Expected conservative profile of one unrecognized-version range.
+  struct RangeExpectation {
+    unnamed_ids: &'static [u16],
+    label: &'static str,
+    fan_inputs: usize,
+    temperatures: &'static [u8],
+    nct6701d_quirks: bool,
   }
 
   #[test]
-  fn nuvoton_d802_and_d421_profiles_keep_the_six_pair_all_temperature_path() {
+  fn nuvoton_unrecognized_versions_resolve_to_the_range_profile() {
+    let ranges = [
+      RangeExpectation {
+        unnamed_ids: &[0xC800, 0xC802, 0xC805, 0xC807],
+        label: "NCT6791D family (unrecognized version)",
+        fan_inputs: 6,
+        temperatures: &ALL_TEMPERATURES,
+        nct6701d_quirks: false,
+      },
+      RangeExpectation {
+        unnamed_ids: &[0xC910, 0xC912, 0xC917],
+        label: "NCT6792D family (unrecognized version)",
+        fan_inputs: 6,
+        temperatures: &ALL_TEMPERATURES,
+        nct6701d_quirks: false,
+      },
+      RangeExpectation {
+        unnamed_ids: &[0xD120, 0xD127],
+        label: "NCT6793D family (unrecognized version)",
+        fan_inputs: 6,
+        temperatures: &ALL_TEMPERATURES,
+        nct6701d_quirks: false,
+      },
+      RangeExpectation {
+        unnamed_ids: &[0xD350, 0xD357],
+        label: "NCT6795D family (unrecognized version)",
+        fan_inputs: 6,
+        temperatures: &ALL_TEMPERATURES,
+        nct6701d_quirks: false,
+      },
+      RangeExpectation {
+        unnamed_ids: &[0xD420, 0xD422, 0xD427],
+        label: "NCT6796D family (unrecognized version)",
+        fan_inputs: 7,
+        temperatures: &ALL_TEMPERATURES,
+        nct6701d_quirks: false,
+      },
+      RangeExpectation {
+        unnamed_ids: &[0xD428, 0xD42C, 0xD42F],
+        label: "NCT6798D family (unrecognized version)",
+        fan_inputs: 7,
+        temperatures: &SEVEN_TEMPERATURES,
+        nct6701d_quirks: false,
+      },
+      RangeExpectation {
+        unnamed_ids: &[0xD450, 0xD457],
+        label: "NCT6797D family (unrecognized version)",
+        fan_inputs: 7,
+        temperatures: &ALL_TEMPERATURES,
+        nct6701d_quirks: false,
+      },
+      RangeExpectation {
+        unnamed_ids: &[0xD800, 0xD803, 0xD807],
+        label: "NCT6799D family (unrecognized version)",
+        fan_inputs: 7,
+        temperatures: &ALL_TEMPERATURES,
+        nct6701d_quirks: true,
+      },
+    ];
+
+    for RangeExpectation {
+      unnamed_ids,
+      label,
+      fan_inputs,
+      temperatures,
+      nct6701d_quirks,
+    } in ranges
+    {
+      for raw_id in unnamed_ids {
+        let profile = nuvoton_hm_profile(*raw_id)
+          .unwrap_or_else(|| panic!("0x{raw_id:04X} should resolve to a range profile"));
+        assert_eq!(profile.chip_label, label, "0x{raw_id:04X}");
+        assert_eq!(profile.source_label, "Nuvoton / Super I/O");
+        assert!(profile.is_experimental(), "0x{raw_id:04X}");
+        assert_eq!(profile.fan_inputs, fan_inputs, "0x{raw_id:04X}");
+        assert_eq!(profile.experimental_fan_inputs, 0, "0x{raw_id:04X}");
+        assert!(profile.lock_gate, "0x{raw_id:04X}");
+        assert_eq!(
+          temperature_register_indexes(profile),
+          temperatures,
+          "0x{raw_id:04X}"
+        );
+        assert!(profile.experimental_temperature_registers.is_empty());
+        assert_eq!(
+          profile.temperature_filter == NuvotonTemperatureFilter::Nct6701dInvalidBytes,
+          nct6701d_quirks,
+          "0x{raw_id:04X}"
+        );
+        assert_eq!(
+          profile.hm_base_check == NuvotonHmBaseCheck::Nct6701dUsableBase,
+          nct6701d_quirks,
+          "0x{raw_id:04X}"
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn nuvoton_range_labels_never_equal_a_named_row_label() {
+    let named_labels: Vec<&str> = NUVOTON_HM_PROFILES
+      .iter()
+      .map(|entry| entry.profile.chip_label)
+      .collect();
+    for entry in &NUVOTON_UNRECOGNIZED_VERSION_PROFILES {
+      assert!(
+        !named_labels.contains(&entry.profile.chip_label),
+        "{}",
+        entry.profile.chip_label
+      );
+      assert!(
+        entry
+          .profile
+          .chip_label
+          .ends_with(" family (unrecognized version)")
+      );
+    }
+  }
+
+  #[test]
+  fn nuvoton_named_ids_keep_their_exact_profiles_inside_a_range() {
+    // Named members are matched before the range fallback.
+    assert_eq!(nuvoton_hm_profile(0xD802).unwrap().chip_label, "NCT6799D");
+    assert_eq!(nuvoton_hm_profile(0xD806).unwrap().chip_label, "NCT6701D");
+    assert_eq!(
+      nuvoton_hm_profile(0xD421).unwrap().chip_label,
+      "NCT6796D/NCT6796D-E"
+    );
+    assert_eq!(nuvoton_hm_profile(0xD423).unwrap().chip_label, "NCT6796D");
+    assert_eq!(
+      nuvoton_hm_profile(0xD42A).unwrap().chip_label,
+      "NCT6796D-R / NCT5585D"
+    );
+  }
+
+  #[test]
+  fn nuvoton_d802_reads_the_verified_set_then_the_experimental_sub_scopes() {
     let d802 = nuvoton_hm_profile(0xD802).unwrap();
-    let d421 = nuvoton_hm_profile(0xD421).unwrap();
 
     assert_eq!(d802.source_label, "NCT6799D / Super I/O");
+    assert_eq!(d802.enablement, SensorEnablement::Verified);
+    assert_eq!(temperature_register_indexes(d802), ALL_TEMPERATURES);
+    assert_eq!(direct_rpm_register_indexes(d802), SIX_PAIRS);
+    assert_eq!(experimental_direct_rpm_register_indexes(d802), SEVENTH_PAIR);
+    assert_eq!(
+      d802.experimental_direct_rpm_registers(),
+      &[("Fan 7", 0xCE, 0xCF)]
+    );
+    assert_eq!(
+      d802.experimental_temperature_registers,
+      &[("Temperature 7", 0x96)]
+    );
+    assert!(d802.has_experimental_sub_scope());
+    assert!(!d802.lock_gate);
+    assert_eq!(d802.temperature_filter, NuvotonTemperatureFilter::None);
+    assert_eq!(d802.hm_base_check, NuvotonHmBaseCheck::Standard);
+  }
+
+  #[test]
+  fn nuvoton_d421_reads_seven_pairs_behind_the_lock_gate_without_bank4_0x96() {
+    let d421 = nuvoton_hm_profile(0xD421).unwrap();
+
     assert_eq!(d421.source_label, "Nuvoton / Super I/O");
-    for profile in [d802, d421] {
-      assert_eq!(temperature_register_indexes(profile), ALL_TEMPERATURES);
-      assert_eq!(direct_rpm_register_indexes(profile), SIX_PAIRS);
-      assert!(!profile.lock_gate);
-      assert_eq!(profile.temperature_filter, NuvotonTemperatureFilter::None);
-      assert_eq!(profile.hm_base_check, NuvotonHmBaseCheck::Standard);
+    assert_eq!(temperature_register_indexes(d421), ALL_TEMPERATURES);
+    assert_eq!(direct_rpm_register_indexes(d421), SEVEN_PAIRS);
+    assert!(!d421.has_experimental_sub_scope());
+    // Revision 9: the CR28 bit 4 gate applies to 0xD421 on S1 p. 376 alone.
+    assert!(d421.lock_gate);
+    assert_eq!(d421.temperature_filter, NuvotonTemperatureFilter::None);
+    assert_eq!(d421.hm_base_check, NuvotonHmBaseCheck::Standard);
+  }
+
+  #[test]
+  fn nuvoton_only_d802_has_experimental_sub_scopes() {
+    for profile in nuvoton_hm_profiles() {
+      let is_d802 = std::ptr::eq(profile, nuvoton_hm_profile(0xD802).unwrap());
+      assert_eq!(
+        profile.has_experimental_sub_scope(),
+        is_d802,
+        "{}",
+        profile.chip_label
+      );
+      assert!(
+        profile.fan_inputs + profile.experimental_fan_inputs
+          <= NUVOTON_DIRECT_RPM_REGISTERS.len(),
+        "{}",
+        profile.chip_label
+      );
     }
   }
 
@@ -379,7 +763,7 @@ mod tests {
     let nct6779d = nuvoton_hm_profile(0xC563).unwrap();
     assert_eq!(direct_rpm_register_indexes(nct6779d), &SIX_PAIRS[..10]);
 
-    for raw_id in [0xC803, 0xC911, 0xC913, 0xD121, 0xD352, 0xD423] {
+    for raw_id in [0xC803, 0xC911, 0xC913, 0xD121, 0xD352] {
       let profile = nuvoton_hm_profile(raw_id).unwrap();
       assert_eq!(
         direct_rpm_register_indexes(profile),
@@ -387,7 +771,9 @@ mod tests {
         "0x{raw_id:04X}"
       );
     }
-    for raw_id in [0xD429, 0xD42A, 0xD42B, 0xD451, 0xD801, 0xD806] {
+    for raw_id in [
+      0xD421, 0xD423, 0xD429, 0xD42A, 0xD42B, 0xD451, 0xD801, 0xD806,
+    ] {
       let profile = nuvoton_hm_profile(raw_id).unwrap();
       assert_eq!(
         direct_rpm_register_indexes(profile),
@@ -399,39 +785,46 @@ mod tests {
 
   #[test]
   fn nuvoton_profiles_scope_temperatures_filters_and_base_checks() {
-    for profile in nuvoton_hm_profiles() {
-      let expected_temperatures: &[u8] = if profile.chip_label == "NCT6796D-R / NCT5585D"
-      {
-        &[0x93, 0x95]
-      } else {
-        &ALL_TEMPERATURES
-      };
+    // Bank 4 0x96 is read exactly on the rows the spec lists for it.
+    for raw_id in [0xD429, 0xD42B, 0xD801] {
+      let profile = nuvoton_hm_profile(raw_id).unwrap();
       assert_eq!(
         temperature_register_indexes(profile),
-        expected_temperatures,
-        "{}",
-        profile.chip_label
+        SEVEN_TEMPERATURES,
+        "0x{raw_id:04X}"
       );
-      assert!(!temperature_register_indexes(profile).contains(&0x96));
+      assert_eq!(profile.temperature_registers[6], ("Temperature 7", 0x96));
+    }
+    for raw_id in [
+      0xD421, 0xC560, 0xC803, 0xC911, 0xC913, 0xD121, 0xD352, 0xD423, 0xD451, 0xD806,
+    ] {
+      let profile = nuvoton_hm_profile(raw_id).unwrap();
+      assert_eq!(
+        temperature_register_indexes(profile),
+        ALL_TEMPERATURES,
+        "0x{raw_id:04X}"
+      );
     }
 
     let d42a = nuvoton_hm_profile(0xD42A).unwrap();
+    assert_eq!(temperature_register_indexes(d42a), D42A_TEMPERATURES);
     assert_eq!(
-      d42a.temperature_registers,
+      &d42a.temperature_registers[..2],
       &[("AUXTIN1", 0x93), ("AUXTIN3", 0x95)]
     );
 
     for profile in nuvoton_hm_profiles() {
-      let is_nct6701d = std::ptr::eq(profile, nuvoton_hm_profile(0xD806).unwrap());
+      let is_nct6701d_profile = profile.chip_label == "NCT6701D"
+        || profile.chip_label == "NCT6799D family (unrecognized version)";
       assert_eq!(
         profile.temperature_filter == NuvotonTemperatureFilter::Nct6701dInvalidBytes,
-        is_nct6701d,
+        is_nct6701d_profile,
         "{}",
         profile.chip_label
       );
       assert_eq!(
         profile.hm_base_check == NuvotonHmBaseCheck::Nct6701dUsableBase,
-        is_nct6701d,
+        is_nct6701d_profile,
         "{}",
         profile.chip_label
       );
@@ -448,15 +841,16 @@ mod tests {
       );
     }
     assert_eq!(nuvoton_hm_profile(0xC55F), None);
-    assert_eq!(nuvoton_hm_profile(0xC568), None);
-    assert_eq!(nuvoton_hm_profile(0xC56F), None);
+    for raw_id in 0xC568..=0xC56F {
+      assert_eq!(nuvoton_hm_profile(raw_id), None, "0x{raw_id:04X}");
+    }
   }
 
   #[test]
-  fn nuvoton_unlisted_neighbour_ids_stay_unsupported() {
+  fn nuvoton_ids_outside_every_range_stay_unsupported() {
     for raw_id in [
-      0xC568, 0xC800, 0xC807, 0xC910, 0xC912, 0xD120, 0xD350, 0xD420, 0xD422, 0xD428,
-      0xD450, 0xD800, 0xD803, 0xD807, 0x8728, 0x0000, 0xFFFF,
+      0xC568, 0xC56F, 0xC7FF, 0xC808, 0xC90F, 0xC918, 0xD11F, 0xD128, 0xD34F, 0xD358,
+      0xD41F, 0xD430, 0xD44F, 0xD458, 0xD7FF, 0xD808, 0x8728, 0x0000, 0xFFFF,
     ] {
       assert_eq!(nuvoton_hm_profile(raw_id), None, "0x{raw_id:04X}");
     }
@@ -497,10 +891,62 @@ mod tests {
       decode_filtered_nuvoton_temperature_byte(0x00, NuvotonTemperatureFilter::None),
       Some(0.0)
     );
+    // 0x80 (-128 C) is outside the plausibility window on every row.
     assert_eq!(
       decode_filtered_nuvoton_temperature_byte(0x80, NuvotonTemperatureFilter::None),
-      Some(-128.0)
+      None
     );
+  }
+
+  #[test]
+  fn nuvoton_temperature_plausibility_accepts_the_datasheet_window_inclusive() {
+    // S1 Table 8-1 raw examples: 0x7D = +125, 0x00 = 0, 0xC9 = -55.
+    for (raw, expected) in [(0x7D, 125.0), (0x00, 0.0), (0xC9, -55.0), (0x19, 25.0)] {
+      let temperature = decode_nuvoton_temperature_byte(raw);
+      assert_eq!(temperature, expected, "0x{raw:02X}");
+      assert!(is_plausible_nuvoton_temperature(temperature), "0x{raw:02X}");
+      assert_eq!(
+        decode_filtered_nuvoton_temperature_byte(raw, NuvotonTemperatureFilter::None),
+        Some(expected),
+        "0x{raw:02X}"
+      );
+    }
+  }
+
+  #[test]
+  fn nuvoton_temperature_plausibility_rejects_bytes_just_outside_the_window() {
+    // 0x7E = +126 and 0xC8 = -56 bound the rejected raw range 0x7E-0xC8.
+    for (raw, decoded) in [(0x7E, 126.0), (0xC8, -56.0), (0x7F, 127.0), (0x80, -128.0)] {
+      let temperature = decode_nuvoton_temperature_byte(raw);
+      assert_eq!(temperature, decoded, "0x{raw:02X}");
+      assert!(
+        !is_plausible_nuvoton_temperature(temperature),
+        "0x{raw:02X}"
+      );
+      for filter in [
+        NuvotonTemperatureFilter::None,
+        NuvotonTemperatureFilter::Nct6701dInvalidBytes,
+      ] {
+        assert_eq!(
+          decode_filtered_nuvoton_temperature_byte(raw, filter),
+          None,
+          "0x{raw:02X} {filter:?}"
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn nuvoton_plausibility_matches_the_raw_byte_ranges_of_the_spec() {
+    for raw in 0x00..=0xFF_u8 {
+      let accepted = matches!(raw, 0x00..=0x7D | 0xC9..=0xFF);
+      assert_eq!(
+        decode_filtered_nuvoton_temperature_byte(raw, NuvotonTemperatureFilter::None)
+          .is_some(),
+        accepted,
+        "0x{raw:02X}"
+      );
+    }
   }
 
   #[test]

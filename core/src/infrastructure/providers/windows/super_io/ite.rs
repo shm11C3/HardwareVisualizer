@@ -5,6 +5,8 @@
 //!
 //! No other external sensor source was used.
 
+use super::is_plausible_super_io_temperature;
+
 /// Decode an IT8728F Environment Controller temperature byte as signed
 /// degrees C.
 ///
@@ -17,7 +19,7 @@ pub const fn decode_ite_temperature_byte(raw: u8) -> f32 {
 /// Whether an IT8728F temperature is inside the revision 2 plausibility
 /// range. Zero is a valid reading for an enabled physical input.
 pub const fn is_plausible_ite_temperature(temperature: f32) -> bool {
-  temperature >= -55.0 && temperature <= 125.0
+  is_plausible_super_io_temperature(temperature)
 }
 
 /// Whether one IT8728F TMPIN is an enabled physical temperature input.
