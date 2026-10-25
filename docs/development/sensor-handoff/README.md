@@ -10,7 +10,7 @@ small and scoped so clean-room boundaries and PR scope stay clean.
 - ✅ **Phase 2** — Super I/O chip-id diagnostic via PawnIO `LpcIO`. **Merged.**
   - PR [#1732](https://github.com/shm11C3/HardwareVisualizer/pull/1732) merged into `develop` (commit `d8bb4bb8`).
   - Spec gate resolved by [#1734](https://github.com/shm11C3/HardwareVisualizer/pull/1734) (`a8c167b1`); `docs/specs/sensors/superio-access.md` is `Implementation-ready (rev 4)`; the rev 3 ready scope remains the **Phase 2 raw chip-id diagnostic scope**, with the slot-1 ITE exit-withhold rule added in rev 4.
-  - Code: `core/src/infrastructure/providers/windows/super_io_diagnostics.rs` (chip-id `0x20`/`0x21` only), routed through the `SuperIoPlatform` trait + `PlatformFactory` (post-review refactor). Pure helpers in `core/src/utils/super_io.rs`.
+  - Code: `core/src/infrastructure/providers/windows/super_io/diagnostics.rs` (chip-id `0x20`/`0x21` only), routed through the `SuperIoPlatform` trait + `PlatformFactory` (post-review refactor). Pure helpers in `core/src/infrastructure/providers/windows/super_io/access.rs`.
   - Command: `get_super_io_chip_id_diagnostics` / TS `commands.getSuperIoChipIdDiagnostics()`.
   - Hardware validation follow-ups remain useful for ITE graduation,
     PawnIO-absent behavior, and concurrent-monitor behavior, but do not
@@ -35,8 +35,8 @@ small and scoped so clean-room boundaries and PR scope stay clean.
 
 The `superio-access.md` rev 4 exit withhold is unblocked for a separate
 clean-room implementation session covering
-`core/src/infrastructure/providers/windows/super_io_diagnostics.rs` and
-the ITE slot handling in `super_io_motherboard.rs`, plus the skipped-exit
+`core/src/infrastructure/providers/windows/super_io/diagnostics.rs` and
+the ITE slot handling in `super_io/motherboard.rs`, plus the skipped-exit
 state in the diagnostic model. It should land before further ITE chip
 scopes widen the number of Gigabyte two-chip boards that run the slot-1
 ITE probe.
