@@ -196,11 +196,15 @@ listed above, and the Experimental unrecognized-version range profiles;
 the lead-only rows and range profiles rest on copyleft leads tagged
 `lead-only (copyleft)` under ADR 0023 and can graduate to Verified when a
 primary source or a maintainer-accepted independent hardware dump confirms
-every fact each row depends on. Rev 8 applied ADR 0011 to reads that
-rev 7 kept disabled only because they were unverified, and its
-plausibility filter changes Verified `0xD802` output only by hiding
-out-of-bounds temperatures; rev 9 adds the S1-backed `CR28` lock gate to
-the exact `0xD421` profile. The ITE Phase 4
+every fact each row depends on. Rev 8 applied
+[ADR 0011](../../adr/0011-experimental-sensor-enablement.md) to reads
+that rev 7 kept disabled only because they were unverified, and its
+plausibility filter (bounds -55 to 125 °C from the NCT6796D datasheet
+§8.6.3 p. 60, matching the ITE spec's existing plausibility policy;
+maintainer decision of 2026-10-25) changes Verified `0xD802` output only
+by hiding out-of-bounds temperatures; rev 9 adds the `CR28` bit 4 lock
+gate, defined by the NCT6796D datasheet (S1) p. 376, to the exact
+`0xD421` profile. The ITE Phase 4
 document is implementation-ready only for the exact `0x8728` Experimental
 temperature path; it does not make the broader IT86xx/IT87xx family or any
 ITE fan path ready. The current `superio-access.md` readiness remains
