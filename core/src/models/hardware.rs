@@ -161,6 +161,8 @@ pub struct SuperIoChipIdAttempt {
   pub absent: bool,
   pub error: Option<String>,
   pub exit_error: Option<String>,
+  /// True when the configuration-mode exit write was intentionally not issued (slot-1 ITE exit withhold, `superio-access.md` revision 4); distinct from exit success and `exit_error`.
+  pub exit_skipped: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
