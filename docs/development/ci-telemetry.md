@@ -138,14 +138,15 @@ one that runs.
 
 ## Add telemetry to a job
 
-Add the step immediately after checkout. The action is local, so checkout must
-come first, and registering it early makes its post step run after the other
-post steps (sccache report, rust-cache save) so the sampling window covers
+Add the step early in the job, before any step that has a post action. The
+`$/` reference resolves at the running commit, so no checkout is needed
+first, and registering it early makes its post step run after the other post
+steps (sccache report, rust-cache save) so the sampling window covers
 them.
 
 ```yaml
 - name: Start CI telemetry
-  uses: ./.github/actions/ci-telemetry
+  uses: $/.github/actions/ci-telemetry
 ```
 
 Do not add it to `ubuntu-slim` jobs. Those are single-vCPU containers where

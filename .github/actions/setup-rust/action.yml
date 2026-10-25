@@ -37,20 +37,9 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Read pinned Rust toolchain
-      id: rust-toolchain
-      shell: bash
-      run: |
-        toolchain="$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml | head -n 1)"
-        if [ -z "$toolchain" ]; then
-          echo "Unable to read the pinned channel from rust-toolchain.toml" >&2
-          exit 1
-        fi
-        echo "toolchain=$toolchain" >> "$GITHUB_OUTPUT"
-
-    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+    - name: Setup Rust toolchain
+      uses: $/.github/actions/setup-rust-toolchain
       with:
-        toolchain: ${{ steps.rust-toolchain.outputs.toolchain }}
         targets: ${{ inputs.targets }}
 
     # .cargo/config.toml moves intermediate artifacts to
@@ -74,7 +63,7 @@ runs:
 
     - name: Restore Rust cache
       id: rust-cache
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      uses: Swatinem/rust-cache@v2.9.2
       with:
         # src-tauri is a member of the root workspace, so it has no target/ of its own.
         workspaces: |

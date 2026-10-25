@@ -14,9 +14,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
-      - uses: shm11C3/tauri-check-release-version@356c695b2cddb9ec65f8a0534901eedeef862840 # v1.0.4
+      - uses: shm11C3/tauri-check-release-version@v1.0.4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           owner: shm11C3

@@ -69,7 +69,7 @@ test("native acceleration keeps the existing driver cache and credential trust g
   assert.match(native, /cache-key: tauri-driver\n {10}cache-targets: "false"/);
   assert.match(
     native,
-    /if: env\.R2_CACHE_ALLOWED == 'true'\n {8}uses: \.\/\.github\/actions\/cache-sccache/,
+    /if: env\.R2_CACHE_ALLOWED == 'true'\n {8}uses: \$\/\.github\/actions\/cache-sccache/,
   );
   assert.match(native, /expect-cpp: "true"/);
   assert.match(native, /xvfb-run npm run test:e2e:native/);

@@ -22,7 +22,7 @@ concurrency:
 jobs:
   scan-default-branch:
     name: Scan default branch
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.7.0
     permissions:
       actions: read
       contents: read
@@ -75,13 +75,13 @@ jobs:
       contents: read
     steps:
       - name: Checkout default branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
 
       - name: Upload OSV scan assets
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: default-branch-osv-scan-assets
           path: |
@@ -104,19 +104,19 @@ jobs:
       contents: read
     steps:
       - name: Checkout release tag
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.resolve-release-tag.outputs.release-tag }}
 
       - name: Download default branch OSV scan assets
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        uses: actions/download-artifact@v8.0.2
         with:
           name: default-branch-osv-scan-assets
           path: ./
 
       - name: Run OSV scanner
-        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
         continue-on-error: true
         with:
           scan-args: |-
@@ -126,7 +126,7 @@ jobs:
 
       - name: Generate OSV SARIF report
         id: osv-reporter
-        uses: google/osv-scanner-action/osv-reporter-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        uses: google/osv-scanner-action/osv-reporter-action@v2.7.0
         with:
           scan-args: |-
             --output=release-osv-results.sarif
@@ -159,7 +159,7 @@ jobs:
             > cisa-kev-metadata.json
 
       - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
 
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload release OSV evaluation artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-osv-evaluation
           path: |

@@ -37,10 +37,10 @@ jobs:
       WINGET_CREATE_SHA256: 8bd738851b524885410112678e3771b341c5c716de60fbbecb88ab0a363ed85d
     steps:
       - name: Checkout workflow scripts
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
         with:
           install-deps: "false"
           setup-safe-chain: "false"
@@ -107,7 +107,7 @@ jobs:
           "installer-url=$installerUrl" >> $env:GITHUB_OUTPUT
 
       - name: Install .NET 6 runtime
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 6.0.x
 
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload generated manifests
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: winget-${{ steps.release.outputs.version }}
           path: manifests/
