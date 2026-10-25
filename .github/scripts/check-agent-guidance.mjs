@@ -304,10 +304,9 @@ async function checkRules() {
     "core/src/infrastructure/providers/windows/pawn_io.rs",
     "core/src/infrastructure/providers/windows/cpu_temperature.rs",
     "core/src/infrastructure/providers/windows/cpu_temperature_decode.rs",
-    "core/src/infrastructure/providers/windows/super_io*.rs",
+    "core/src/infrastructure/providers/windows/super_io/**",
     "core/src/platform/windows/motherboard.rs",
     "core/src/platform/windows/sensors.rs",
-    "core/src/utils/super_io.rs",
   ]) {
     if (!cleanRoomScope.split(",").includes(requiredPath)) {
       fail(`clean-room scope is missing: ${requiredPath}`);
