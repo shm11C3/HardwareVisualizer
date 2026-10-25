@@ -195,7 +195,7 @@ After launching the app:
 | Tray widget                       | ✅ Flyout                         | ✅ Tray title       | ✅ Menu bar                               |
 
 1. NVIDIA GPUs are listed on Linux, but their readings are not available yet. Intel GPU usage requires `intel_gpu_top`.
-2. Requires PawnIO and administrator access. Motherboard sensors support Nuvoton NCT6799D. Nuvoton NCT6779D, NCT6791D, NCT6792D, NCT6793D, NCT6795D, NCT6796D, NCT6796D-S, NCT6797D, NCT6798D, NCT6796D-R / NCT5585D, and NCT6701D, and ITE IT8728F (temperatures only) are experimental.
+2. Requires PawnIO and administrator access. Motherboard sensors support Nuvoton NCT6799D. Nuvoton NCT6779D, NCT6791D, NCT6792D, NCT6793D, NCT6795D, NCT6796D, NCT6796D-S, NCT6797D, NCT6798D, NCT6796D-R / NCT5585D, and NCT6701D, unrecognized versions of those Nuvoton chip families, and ITE IT8728F (temperatures only) are experimental.
 3. Requires smartmontools.
 4. Requires CPU temperature. Power, fan, and ambient lanes appear when those sensors are available.
 

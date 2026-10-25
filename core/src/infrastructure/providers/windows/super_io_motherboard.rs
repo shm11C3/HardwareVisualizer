@@ -30,6 +30,9 @@ pub(crate) const ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
 const NUVOTON_EXPERIMENTAL_FAILURE_LEAD: &str = "Experimental";
 const NUVOTON_EXPERIMENTAL_FAILURE_TAIL: &str = "motherboard sensor path failed";
 const NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "Nuvoton config exit failed";
+/// A failed Experimental sub-scope read on an otherwise successful sample.
+const NUVOTON_EXPERIMENTAL_SUB_SCOPE_FAILURE_CONTEXT: &str =
+  "experimental sub-scope read failed";
 const ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "configuration exit failed";
 const ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT: &str =
   "EC port authorization probe failed";
@@ -79,7 +82,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// Implemented from:
 /// - docs/specs/sensors/pawnio-interface.md revision 6
 /// - docs/specs/sensors/superio-access.md revision 3
-/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 7
+/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 8
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
 ///
 /// No other external sensor implementation source was used.
@@ -235,6 +238,21 @@ struct ActiveNuvotonMotherboardSensors<C: LpcIoOps> {
   slot: u8,
   hm_base: u16,
   profile: &'static NuvotonHmProfile,
+  /// Whether the current run of partial-sample diagnostics (an Experimental
+  /// sub-scope read failure or a plausibility rejection) was already logged.
+  partial_failure_logged: bool,
+}
+
+impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
+  fn new(client: C, detected: DetectedSlot) -> Self {
+    Self {
+      client,
+      slot: detected.slot,
+      hm_base: detected.hm_base,
+      profile: detected.profile,
+      partial_failure_logged: false,
+    }
+  }
 }
 
 struct ActiveIteMotherboardSensors<C: LpcIoOps> {
@@ -263,12 +281,9 @@ impl ActiveMotherboardSensors<PawnIoClient> {
     for slot in [0_u8, 1] {
       match ActiveNuvotonMotherboardSensors::discover_slot(&client, slot) {
         Ok(Some(discovered)) => {
-          return Ok(Self::Nuvoton(ActiveNuvotonMotherboardSensors {
-            client,
-            slot: discovered.slot,
-            hm_base: discovered.hm_base,
-            profile: discovered.profile,
-          }));
+          return Ok(Self::Nuvoton(ActiveNuvotonMotherboardSensors::new(
+            client, discovered,
+          )));
         }
         Ok(None) => {}
         Err(reason) => {
@@ -359,18 +374,51 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
     }
   }
 
-  fn sample(&self) -> Result<MotherboardSensorSample, String> {
+  fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
-    self.sample_unlocked()
+    self.sample_unlocked_logged()
   }
 
+  /// Collect one sample and log its partial-sample diagnostics once per run
+  /// of consecutive partial samples.
+  fn sample_unlocked_logged(&mut self) -> Result<MotherboardSensorSample, String> {
+    let (sample, partial_failures) = self.collect_sample_unlocked()?;
+
+    if partial_failures.is_empty() {
+      self.partial_failure_logged = false;
+    } else if !self.partial_failure_logged {
+      self.partial_failure_logged = true;
+      log_warn!(
+        "nuvoton_motherboard_sensor_partial_sample",
+        "windows::super_io_motherboard::ActiveNuvotonMotherboardSensors::sample",
+        Some(partial_failures.join("; "))
+      );
+    }
+
+    Ok(sample)
+  }
+
+  #[cfg(test)]
   fn sample_unlocked(&self) -> Result<MotherboardSensorSample, String> {
     self
-      .sample_unlocked_raw()
+      .collect_sample_unlocked()
+      .map(|(sample, _partial_failures)| sample)
+  }
+
+  /// Collect one sample. The `Vec<String>` carries diagnostics for inputs that
+  /// are unavailable in this sample without failing it: plausibility
+  /// rejections and a failed Experimental sub-scope read.
+  fn collect_sample_unlocked(
+    &self,
+  ) -> Result<(MotherboardSensorSample, Vec<String>), String> {
+    self
+      .collect_sample_unlocked_raw()
       .map_err(|reason| self.surface_sample_failure(reason))
   }
 
-  fn sample_unlocked_raw(&self) -> Result<MotherboardSensorSample, String> {
+  fn collect_sample_unlocked_raw(
+    &self,
+  ) -> Result<(MotherboardSensorSample, Vec<String>), String> {
     // `ioctl_find_bars` authorizes normal-HM ports for this loaded LpcIO
     // handle during discovery. Re-running `ioctl_select_slot` here can clear
     // that BAR authorization, which makes the subsequent HM index/data port
@@ -378,41 +426,106 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
     self.write_hm_byte(HM_BANK_SELECT_REGISTER, NUVOTON_BANK_4)?;
 
     let profile = self.profile;
-    let mut temperatures = Vec::with_capacity(profile.temperature_registers.len());
+    let mut partial_failures = Vec::new();
+
+    // The row's own register set first: any failed read aborts the sample.
+    let mut temperatures = Vec::with_capacity(
+      profile.temperature_registers.len()
+        + profile.experimental_temperature_registers.len(),
+    );
     for (name, register) in profile.temperature_registers {
       let raw = self.read_hm_byte(*register)?;
-      // A filtered raw byte leaves that input unavailable for this sample.
-      if let Some(temperature) =
-        decode_filtered_nuvoton_temperature_byte(raw, profile.temperature_filter)
-      {
-        temperatures.push(MotherboardTemperature {
-          name: (*name).to_string(),
-          temperature,
-          source: profile.source_label.to_string(),
-        });
-      }
+      self.push_temperature(&mut temperatures, &mut partial_failures, name, raw);
     }
 
-    let fan_speeds = profile
-      .direct_rpm_registers()
-      .iter()
-      .map(|(name, high_register, low_register)| {
-        let high = self.read_hm_byte(*high_register)?;
-        let low = self.read_hm_byte(*low_register)?;
-        let rpm = decode_nuvoton_direct_rpm(high, low);
-        Ok(MotherboardFanSpeed {
-          name: (*name).to_string(),
-          rpm: Some(rpm),
-          status: fan_speed_status_from_rpm(rpm),
-          source: profile.source_label.to_string(),
-        })
-      })
-      .collect::<Result<Vec<_>, String>>()?;
+    let mut fan_speeds =
+      Vec::with_capacity(profile.fan_inputs + profile.experimental_fan_inputs);
+    for (name, high_register, low_register) in profile.direct_rpm_registers() {
+      let high = self.read_hm_byte(*high_register)?;
+      let low = self.read_hm_byte(*low_register)?;
+      fan_speeds.push(self.fan_speed(name, high, low));
+    }
 
-    Ok(MotherboardSensorSample {
-      temperatures,
-      fan_speeds,
-    })
+    // Then the Experimental sub-scope registers (spec procedure step 10): a
+    // failed read stops further sub-scope reads, keeps the values already
+    // read, and is reported as experimental in the diagnostic detail.
+    if let Err(reason) = self.read_experimental_sub_scope(
+      &mut temperatures,
+      &mut fan_speeds,
+      &mut partial_failures,
+    ) {
+      partial_failures.push(nuvoton_experimental_failure(
+        profile.chip_label,
+        format!("{NUVOTON_EXPERIMENTAL_SUB_SCOPE_FAILURE_CONTEXT}: {reason}"),
+      ));
+    }
+
+    Ok((
+      MotherboardSensorSample {
+        temperatures,
+        fan_speeds,
+      },
+      partial_failures,
+    ))
+  }
+
+  fn read_experimental_sub_scope(
+    &self,
+    temperatures: &mut Vec<MotherboardTemperature>,
+    fan_speeds: &mut Vec<MotherboardFanSpeed>,
+    partial_failures: &mut Vec<String>,
+  ) -> Result<(), String> {
+    let profile = self.profile;
+    for (name, high_register, low_register) in profile.experimental_direct_rpm_registers()
+    {
+      let high = self
+        .read_hm_byte(*high_register)
+        .map_err(|reason| format!("{name} read failed: {reason}"))?;
+      let low = self
+        .read_hm_byte(*low_register)
+        .map_err(|reason| format!("{name} read failed: {reason}"))?;
+      fan_speeds.push(self.fan_speed(name, high, low));
+    }
+    for (name, register) in profile.experimental_temperature_registers {
+      let raw = self
+        .read_hm_byte(*register)
+        .map_err(|reason| format!("{name} read failed: {reason}"))?;
+      self.push_temperature(temperatures, partial_failures, name, raw);
+    }
+    Ok(())
+  }
+
+  /// Decode one bank 4 temperature byte through the profile's invalid-byte and
+  /// plausibility filters. A filtered byte leaves that input unavailable for
+  /// this sample and records the raw byte for diagnostics.
+  fn push_temperature(
+    &self,
+    temperatures: &mut Vec<MotherboardTemperature>,
+    partial_failures: &mut Vec<String>,
+    name: &str,
+    raw: u8,
+  ) {
+    let profile = self.profile;
+    match decode_filtered_nuvoton_temperature_byte(raw, profile.temperature_filter) {
+      Some(temperature) => temperatures.push(MotherboardTemperature {
+        name: name.to_string(),
+        temperature,
+        source: profile.source_label.to_string(),
+      }),
+      None => partial_failures.push(format!(
+        "{name} returned a filtered raw value 0x{raw:02X} and is unavailable"
+      )),
+    }
+  }
+
+  fn fan_speed(&self, name: &str, high: u8, low: u8) -> MotherboardFanSpeed {
+    let rpm = decode_nuvoton_direct_rpm(high, low);
+    MotherboardFanSpeed {
+      name: name.to_string(),
+      rpm: Some(rpm),
+      status: fan_speed_status_from_rpm(rpm),
+      source: self.profile.source_label.to_string(),
+    }
   }
 
   fn surface_sample_failure(&self, reason: String) -> String {
@@ -874,6 +987,8 @@ mod tests {
     hm_io_space_lock: Cell<u8>,
     hm_base: Cell<(u8, u8)>,
     temperature_override: Cell<Option<(u8, u8)>>,
+    /// A bank 4 register whose data read fails (after the index write).
+    failed_hm_register: Cell<Option<u8>>,
     superio_reads: RefCell<Vec<u8>>,
     superio_writes: RefCell<Vec<(u8, u8)>>,
   }
@@ -896,6 +1011,7 @@ mod tests {
         hm_io_space_lock: Cell::new(0x00),
         hm_base: Cell::new((0x02, 0x90)),
         temperature_override: Cell::new(None),
+        failed_hm_register: Cell::new(None),
         superio_reads: RefCell::new(Vec::new()),
         superio_writes: RefCell::new(Vec::new()),
       }
@@ -932,7 +1048,7 @@ mod tests {
         return raw;
       }
       match register {
-        0x90..=0x95 => 32,
+        0x90..=0x96 => 32,
         0xC0 | 0xC2 | 0xC4 | 0xC6 | 0xC8 | 0xCA | 0xCE => 0x03,
         0xC1 | 0xC3 | 0xC5 | 0xC7 | 0xC9 | 0xCB | 0xCF => 0x20,
         _ => 0,
@@ -976,6 +1092,9 @@ mod tests {
         .get()
         .ok_or_else(|| "HM index register was not selected".to_string())?;
       self.read_registers.borrow_mut().push(register);
+      if self.failed_hm_register.get() == Some(register) {
+        return Err(format!("simulated HM register 0x{register:02X} failure"));
+      }
       Ok(self.read_value_for(register))
     }
 
@@ -1039,9 +1158,42 @@ mod tests {
     0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7,
     0xC8, 0xC9, 0xCA, 0xCB,
   ];
+  const SEVEN_PAIR_READS: [u8; 20] = [
+    0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7,
+    0xC8, 0xC9, 0xCA, 0xCB, 0xCE, 0xCF,
+  ];
+  const SEVEN_TEMPERATURE_SEVEN_PAIR_READS: [u8; 21] = [
+    0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6,
+    0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCE, 0xCF,
+  ];
+  /// `0xD802`: the Verified set first, then the Experimental sub-scope
+  /// registers `0xCE`/`0xCF` and `0x96`.
+  const D802_READS: [u8; 21] = [
+    0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7,
+    0xC8, 0xC9, 0xCA, 0xCB, 0xCE, 0xCF, 0x96,
+  ];
+  const SIX_TEMPERATURE_NAMES: [&str; 6] = [
+    "SYSTIN", "CPUTIN", "AUXTIN0", "AUXTIN1", "AUXTIN2", "AUXTIN3",
+  ];
+  const SEVEN_FAN_NAMES: [&str; 7] = [
+    "Fan 1", "Fan 2", "Fan 3", "Fan 4", "Fan 5", "Fan 6", "Fan 7",
+  ];
 
   fn d802_profile() -> &'static NuvotonHmProfile {
     nuvoton_hm_profile(D802_CHIP_ID).unwrap()
+  }
+
+  fn authorized_active(
+    profile: &'static NuvotonHmProfile,
+  ) -> ActiveNuvotonMotherboardSensors<FakeLpcIo> {
+    ActiveNuvotonMotherboardSensors::new(
+      FakeLpcIo::with_authorized_hm_bars(),
+      DetectedSlot {
+        slot: 0,
+        hm_base: 0x0290,
+        profile,
+      },
+    )
   }
 
   /// Discover slot 0 with `client` and hand the client to an active path.
@@ -1049,12 +1201,23 @@ mod tests {
     let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
       .unwrap()
       .unwrap();
-    ActiveNuvotonMotherboardSensors {
-      client,
-      slot: detected.slot,
-      hm_base: detected.hm_base,
-      profile: detected.profile,
-    }
+    ActiveNuvotonMotherboardSensors::new(client, detected)
+  }
+
+  fn temperature_names(sample: &MotherboardSensorSample) -> Vec<&str> {
+    sample
+      .temperatures
+      .iter()
+      .map(|temperature| temperature.name.as_str())
+      .collect()
+  }
+
+  fn fan_names(sample: &MotherboardSensorSample) -> Vec<&str> {
+    sample
+      .fan_speeds
+      .iter()
+      .map(|fan| fan.name.as_str())
+      .collect()
   }
 
   struct FakeIteLpcIo {
@@ -1255,8 +1418,8 @@ mod tests {
   }
 
   #[test]
-  fn discover_slot_rejects_another_nuvoton_id() {
-    for raw_id in [0xD422, 0xC568, 0xC800, 0xD428, 0xD800, 0xD807] {
+  fn discover_slot_rejects_an_id_outside_every_range() {
+    for raw_id in [0xC568, 0xC56F, 0xC7FF, 0xD41F, 0xD430, 0xD808] {
       let client = FakeLpcIo::with_chip_id(raw_id);
 
       let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap();
@@ -1293,7 +1456,7 @@ mod tests {
   }
 
   #[test]
-  fn d421_uses_the_scoped_bank4_temperature_and_direct_rpm_path() {
+  fn d421_uses_the_scoped_bank4_temperature_and_seven_pair_direct_rpm_path() {
     let active = discovered_active(FakeLpcIo::with_chip_id(D421_CHIP_ID));
 
     let sample = active.sample_unlocked().unwrap();
@@ -1304,10 +1467,25 @@ mod tests {
     assert_eq!(sample.fan_speeds[0].source, "Nuvoton / Super I/O");
     assert!(!sample.temperatures[0].source.contains("Experimental"));
     assert!(!sample.fan_speeds[0].source.contains("Experimental"));
+    assert_eq!(temperature_names(&sample), SIX_TEMPERATURE_NAMES);
+    assert_eq!(fan_names(&sample), SEVEN_FAN_NAMES);
     assert_eq!(
       active.client.read_registers.borrow().as_slice(),
-      &SIX_PAIR_READS
+      &SEVEN_PAIR_READS
     );
+  }
+
+  #[test]
+  fn d421_seventh_pair_failure_aborts_the_sample_as_experimental() {
+    // Outside 0xD802 the seventh pair is part of the row's own set.
+    let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
+    client.failed_hm_register.set(Some(0xCE));
+    let active = discovered_active(client);
+
+    let error = active.sample_unlocked().unwrap_err();
+
+    assert!(error.starts_with(D421_FAILURE_PREFIX), "{error}");
+    assert!(error.contains("0xCE"));
   }
 
   #[test]
@@ -1345,43 +1523,154 @@ mod tests {
 
   #[test]
   fn sample_preserves_discovered_hm_bar_authorization() {
-    let active = ActiveNuvotonMotherboardSensors {
-      client: FakeLpcIo::with_authorized_hm_bars(),
-      slot: 0,
-      hm_base: 0x0290,
-      profile: d802_profile(),
-    };
+    let active = authorized_active(d802_profile());
 
     let sample = active.sample_unlocked().unwrap();
 
     assert_eq!(active.client.selected_slot_calls.get(), 0);
-    assert_eq!(sample.temperatures.len(), 6);
-    assert_eq!(sample.fan_speeds.len(), 6);
+    assert_eq!(sample.temperatures.len(), 7);
+    assert_eq!(sample.fan_speeds.len(), 7);
     assert_eq!(sample.temperatures[0].source, "NCT6799D / Super I/O");
     assert_eq!(
       active.client.read_registers.borrow().as_slice(),
-      &SIX_PAIR_READS
+      &D802_READS
     );
   }
 
   #[test]
-  fn seven_input_rows_read_the_seventh_direct_rpm_pair() {
-    for raw_id in [0xD429, 0xD42B, 0xD451, 0xD801, 0xD806] {
+  fn d802_output_order_appends_rev8_inputs_after_the_rev7_inputs() {
+    let active = authorized_active(d802_profile());
+
+    let (sample, partial_failures) = active.collect_sample_unlocked().unwrap();
+
+    assert_eq!(
+      temperature_names(&sample),
+      [
+        "SYSTIN",
+        "CPUTIN",
+        "AUXTIN0",
+        "AUXTIN1",
+        "AUXTIN2",
+        "AUXTIN3",
+        "Temperature 7"
+      ]
+    );
+    assert_eq!(fan_names(&sample), SEVEN_FAN_NAMES);
+    // Sub-scope successes carry the ordinary source label (ADR 0011).
+    assert_eq!(sample.temperatures[6].temperature, 32.0);
+    assert_eq!(sample.temperatures[6].source, "NCT6799D / Super I/O");
+    assert_eq!(sample.fan_speeds[6].rpm, Some(0x0320));
+    assert_eq!(sample.fan_speeds[6].source, "NCT6799D / Super I/O");
+    assert!(partial_failures.is_empty());
+    assert_eq!(
+      active.client.read_registers.borrow().as_slice(),
+      &D802_READS
+    );
+  }
+
+  #[test]
+  fn d802_seventh_pair_failure_keeps_the_verified_values_and_reports_experimental() {
+    let active = authorized_active(d802_profile());
+    active.client.failed_hm_register.set(Some(0xCE));
+
+    let (sample, partial_failures) = active.collect_sample_unlocked().unwrap();
+
+    assert_eq!(temperature_names(&sample), SIX_TEMPERATURE_NAMES);
+    assert_eq!(fan_names(&sample), &SEVEN_FAN_NAMES[..6]);
+    assert_eq!(partial_failures.len(), 1);
+    assert!(
+      partial_failures[0]
+        .starts_with("Experimental NCT6799D motherboard sensor path failed: "),
+      "{}",
+      partial_failures[0]
+    );
+    assert!(partial_failures[0].contains(NUVOTON_EXPERIMENTAL_SUB_SCOPE_FAILURE_CONTEXT));
+    assert!(partial_failures[0].contains("Fan 7 read failed"));
+    // Further sub-scope registers (0xCF, 0x96) are not read in this sample.
+    assert_eq!(
+      active.client.read_registers.borrow().as_slice(),
+      &D802_READS[..19]
+    );
+  }
+
+  #[test]
+  fn d802_0x96_failure_keeps_fan_7_and_the_verified_values() {
+    let active = authorized_active(d802_profile());
+    active.client.failed_hm_register.set(Some(0x96));
+
+    let (sample, partial_failures) = active.collect_sample_unlocked().unwrap();
+
+    assert_eq!(temperature_names(&sample), SIX_TEMPERATURE_NAMES);
+    assert_eq!(fan_names(&sample), SEVEN_FAN_NAMES);
+    assert_eq!(partial_failures.len(), 1);
+    assert!(partial_failures[0].contains("Temperature 7 read failed"));
+    assert!(partial_failures[0].starts_with("Experimental NCT6799D"));
+  }
+
+  #[test]
+  fn d802_verified_read_failure_still_fails_the_sample_with_a_plain_reason() {
+    let active = authorized_active(d802_profile());
+    active.client.failed_hm_register.set(Some(0xC0));
+
+    let error = active.sample_unlocked().unwrap_err();
+
+    assert_eq!(error, "simulated HM register 0xC0 failure");
+  }
+
+  #[test]
+  fn d802_sample_logs_sub_scope_failures_once_and_still_returns_the_sample() {
+    let mut active = authorized_active(d802_profile());
+    active.client.failed_hm_register.set(Some(0xCE));
+
+    let sample = active.sample_unlocked_logged().unwrap();
+    assert_eq!(sample.fan_speeds.len(), 6);
+    assert!(active.partial_failure_logged);
+
+    // A later clean sample resets the once-per-run logging state.
+    active.client.failed_hm_register.set(None);
+    let sample = active.sample_unlocked_logged().unwrap();
+    assert_eq!(sample.fan_speeds.len(), 7);
+    assert!(!active.partial_failure_logged);
+  }
+
+  #[test]
+  fn seven_temperature_rows_read_bank4_0x96_as_temperature_7() {
+    for raw_id in [0xD429, 0xD42B, 0xD801] {
       let active = discovered_active(FakeLpcIo::with_chip_id(raw_id));
 
       let sample = active.sample_unlocked().unwrap();
 
-      assert_eq!(sample.temperatures.len(), 6, "0x{raw_id:04X}");
-      assert_eq!(sample.fan_speeds.len(), 7, "0x{raw_id:04X}");
-      assert_eq!(sample.fan_speeds[6].name, "Fan 7");
+      assert_eq!(sample.temperatures.len(), 7, "0x{raw_id:04X}");
+      assert_eq!(sample.temperatures[6].name, "Temperature 7");
+      assert_eq!(sample.temperatures[6].temperature, 32.0);
+      assert_eq!(sample.temperatures[6].source, "Nuvoton / Super I/O");
+      assert_eq!(fan_names(&sample), SEVEN_FAN_NAMES, "0x{raw_id:04X}");
       assert_eq!(sample.fan_speeds[6].rpm, Some(0x0320));
-      assert_eq!(sample.fan_speeds[6].source, "Nuvoton / Super I/O");
       assert_eq!(
         active.client.read_registers.borrow().as_slice(),
-        &[
-          0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6,
-          0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCE, 0xCF
-        ],
+        &SEVEN_TEMPERATURE_SEVEN_PAIR_READS,
+        "0x{raw_id:04X}"
+      );
+    }
+  }
+
+  #[test]
+  fn seven_input_rows_without_0x96_read_six_temperatures_and_seven_pairs() {
+    for raw_id in [0xD423, 0xD451, 0xD806] {
+      let active = discovered_active(FakeLpcIo::with_chip_id(raw_id));
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(
+        temperature_names(&sample),
+        SIX_TEMPERATURE_NAMES,
+        "0x{raw_id:04X}"
+      );
+      assert_eq!(fan_names(&sample), SEVEN_FAN_NAMES, "0x{raw_id:04X}");
+      assert!(!active.client.read_registers.borrow().contains(&0x96));
+      assert_eq!(
+        active.client.read_registers.borrow().as_slice(),
+        &SEVEN_PAIR_READS,
         "0x{raw_id:04X}"
       );
     }
@@ -1389,7 +1678,7 @@ mod tests {
 
   #[test]
   fn six_input_lead_only_rows_do_not_read_the_seventh_pair() {
-    for raw_id in [0xC803, 0xC911, 0xC913, 0xD121, 0xD352, 0xD423] {
+    for raw_id in [0xC803, 0xC911, 0xC913, 0xD121, 0xD352] {
       let active = discovered_active(FakeLpcIo::with_chip_id(raw_id));
 
       let sample = active.sample_unlocked().unwrap();
@@ -1430,27 +1719,174 @@ mod tests {
   }
 
   #[test]
-  fn d42a_reads_only_auxtin1_and_auxtin3() {
+  fn d42a_keeps_auxtin1_and_auxtin3_first_and_appends_the_rev8_temperatures() {
     let active = discovered_active(FakeLpcIo::with_chip_id(0xD42A));
 
     let sample = active.sample_unlocked().unwrap();
 
     assert_eq!(
-      sample
-        .temperatures
-        .iter()
-        .map(|temperature| temperature.name.as_str())
-        .collect::<Vec<_>>(),
-      ["AUXTIN1", "AUXTIN3"]
+      temperature_names(&sample),
+      [
+        "AUXTIN1",
+        "AUXTIN3",
+        "SYSTIN",
+        "CPUTIN",
+        "AUXTIN0",
+        "AUXTIN2",
+        "Temperature 7"
+      ]
     );
-    assert_eq!(sample.fan_speeds.len(), 7);
+    assert_eq!(fan_names(&sample), SEVEN_FAN_NAMES);
     assert_eq!(
       active.client.read_registers.borrow().as_slice(),
       &[
-        0x93, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA,
-        0xCB, 0xCE, 0xCF
+        0x93, 0x95, 0x90, 0x91, 0x92, 0x94, 0x96, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5,
+        0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCE, 0xCF
       ]
     );
+  }
+
+  #[test]
+  fn unrecognized_versions_discover_with_the_family_label_and_lock_gate() {
+    // (unnamed raw id, family label, fan count, temperature count)
+    for (raw_id, label, fans, temperatures) in [
+      (0xC800, "NCT6791D family (unrecognized version)", 6, 6),
+      (0xC805, "NCT6791D family (unrecognized version)", 6, 6),
+      (0xC912, "NCT6792D family (unrecognized version)", 6, 6),
+      (0xD120, "NCT6793D family (unrecognized version)", 6, 6),
+      (0xD350, "NCT6795D family (unrecognized version)", 6, 6),
+      (0xD427, "NCT6796D family (unrecognized version)", 7, 6),
+      (0xD42F, "NCT6798D family (unrecognized version)", 7, 7),
+      (0xD450, "NCT6797D family (unrecognized version)", 7, 6),
+      (0xD800, "NCT6799D family (unrecognized version)", 7, 6),
+      (0xD807, "NCT6799D family (unrecognized version)", 7, 6),
+    ] {
+      let active = discovered_active(FakeLpcIo::with_chip_id(raw_id));
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(active.profile.chip_label, label, "0x{raw_id:04X}");
+      assert!(active.profile.is_experimental());
+      assert!(
+        active
+          .client
+          .superio_reads
+          .borrow()
+          .contains(&NUVOTON_HM_IO_SPACE_LOCK_REGISTER),
+        "0x{raw_id:04X}"
+      );
+      assert_eq!(sample.fan_speeds.len(), fans, "0x{raw_id:04X}");
+      assert_eq!(sample.temperatures.len(), temperatures, "0x{raw_id:04X}");
+      assert_eq!(
+        active.client.read_registers.borrow().contains(&0x96),
+        temperatures == 7,
+        "0x{raw_id:04X}"
+      );
+    }
+  }
+
+  #[test]
+  fn unrecognized_version_lock_bit_stops_with_the_family_label() {
+    let client = FakeLpcIo::with_chip_id(0xD422);
+    client.hm_io_space_lock.set(0x10);
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(
+      error.starts_with(
+        "Experimental NCT6796D family (unrecognized version) motherboard sensor path failed: "
+      ),
+      "{error}"
+    );
+    assert!(error.contains("CR28=0x10"));
+    assert_eq!(client.selected_ldn.get(), None);
+  }
+
+  #[test]
+  fn unrecognized_d800_versions_inherit_the_nct6701d_quirks() {
+    for invalid in [0x00, 0xA0] {
+      let client = FakeLpcIo::with_chip_id(0xD803);
+      client.temperature_override.set(Some((0x90, invalid)));
+      let active = discovered_active(client);
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(
+        temperature_names(&sample),
+        &SIX_TEMPERATURE_NAMES[1..],
+        "0x{invalid:02X}"
+      );
+    }
+
+    let client = FakeLpcIo::with_chip_id(0xD803);
+    client.hm_base.set((0x00, 0x90));
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    assert!(
+      error.contains("invalid Nuvoton hardware-monitor base"),
+      "{error}"
+    );
+    assert!(!client.superio_reads.borrow().contains(&0x64));
+  }
+
+  #[test]
+  fn implausible_temperature_bytes_are_unavailable_on_every_row() {
+    // 0x7E (+126 C) and 0xC8 (-56 C) bound the rejected range; Verified
+    // 0xD802 is filtered as well.
+    for raw_id in [D802_CHIP_ID, D421_CHIP_ID, 0xD42B, 0xD800] {
+      for raw in [0x7E, 0xC8, 0x80] {
+        let client = FakeLpcIo::with_chip_id(raw_id);
+        client.temperature_override.set(Some((0x91, raw)));
+        let active = discovered_active(client);
+
+        let (sample, partial_failures) = active.collect_sample_unlocked().unwrap();
+
+        assert!(
+          !temperature_names(&sample).contains(&"CPUTIN"),
+          "0x{raw_id:04X} 0x{raw:02X}"
+        );
+        assert!(
+          sample
+            .temperatures
+            .iter()
+            .all(|temperature| temperature.temperature != 0.0
+              && (-55.0..=125.0).contains(&temperature.temperature)),
+          "0x{raw_id:04X} 0x{raw:02X}"
+        );
+        assert_eq!(sample.temperatures[0].name, "SYSTIN");
+        assert_eq!(partial_failures.len(), 1, "0x{raw_id:04X} 0x{raw:02X}");
+        assert!(partial_failures[0].contains("CPUTIN"));
+        assert!(partial_failures[0].contains(&format!("0x{raw:02X}")));
+        assert!(!partial_failures[0].contains("Experimental"));
+      }
+    }
+  }
+
+  #[test]
+  fn plausibility_bounds_are_inclusive_on_the_verified_row() {
+    for (raw, expected) in [(0x7D, 125.0), (0xC9, -55.0), (0x00, 0.0)] {
+      let client = FakeLpcIo::new();
+      client.temperature_override.set(Some((0x91, raw)));
+      let active = discovered_active(client);
+
+      let sample = active.sample_unlocked().unwrap();
+
+      assert_eq!(sample.temperatures[1].name, "CPUTIN");
+      assert_eq!(sample.temperatures[1].temperature, expected, "0x{raw:02X}");
+    }
+  }
+
+  #[test]
+  fn implausible_experimental_sub_scope_byte_is_unavailable_without_a_failure() {
+    let active = authorized_active(d802_profile());
+    active.client.temperature_override.set(Some((0x96, 0x7F)));
+
+    let (sample, partial_failures) = active.collect_sample_unlocked().unwrap();
+
+    assert_eq!(temperature_names(&sample), SIX_TEMPERATURE_NAMES);
+    assert_eq!(fan_names(&sample), SEVEN_FAN_NAMES);
+    assert_eq!(partial_failures.len(), 1);
+    assert!(partial_failures[0].contains("Temperature 7"));
+    assert!(!partial_failures[0].contains("Experimental"));
   }
 
   #[test]
@@ -1536,7 +1972,7 @@ mod tests {
 
     let sample = active.sample_unlocked().unwrap();
 
-    assert_eq!(sample.temperatures.len(), 6);
+    assert_eq!(sample.temperatures.len(), 7);
     assert_eq!(sample.temperatures[1].temperature, 0.0);
   }
 
@@ -1605,12 +2041,7 @@ mod tests {
 
   #[test]
   fn fan_support_follows_the_selected_provider_path() {
-    let nuvoton = ActiveMotherboardSensors::Nuvoton(ActiveNuvotonMotherboardSensors {
-      client: FakeLpcIo::with_authorized_hm_bars(),
-      slot: 0,
-      hm_base: 0x0290,
-      profile: d802_profile(),
-    });
+    let nuvoton = ActiveMotherboardSensors::Nuvoton(authorized_active(d802_profile()));
     let ite = ActiveMotherboardSensors::Ite(ActiveIteMotherboardSensors {
       client: FakeIteLpcIo::new(),
       slot: 0,
