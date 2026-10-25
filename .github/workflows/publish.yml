@@ -93,11 +93,11 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
         with:
           extra-packages: "libfuse2 libappindicator3-dev patchelf"
 
@@ -112,12 +112,12 @@ jobs:
           unset LD_LIBRARY_PATH
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
         with:
           setup-safe-chain: false
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           targets: ${{ matrix.rust-targets || '' }}
@@ -205,7 +205,7 @@ jobs:
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp duckdb-archive
 
-      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+      - uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ES_USERNAME: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.ES_USERNAME || '' }}
@@ -247,7 +247,7 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Download release assets
         env:
@@ -324,6 +324,6 @@ jobs:
         run: gh release upload "${{ github.ref_name }}" dist/SHA256SUMS.txt --clobber
 
       - name: Generate build provenance attestations
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        uses: actions/attest-build-provenance@v4.2.2
         with:
           subject-path: dist/*

@@ -32,7 +32,7 @@ jobs:
       - name: Fetch Dependabot metadata
         if: github.event.pull_request.user.login == 'dependabot[bot]'
         id: metadata
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
+        uses: dependabot/fetch-metadata@v3.1.0
         with:
           github-token: ${{ github.token }}
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Generate GitHub App token
         id: generate-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@v3.3.0
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

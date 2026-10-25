@@ -145,7 +145,7 @@ them.
 
 ```yaml
 - name: Start CI telemetry
-  uses: ./.github/actions/ci-telemetry
+  uses: $/.github/actions/ci-telemetry
 ```
 
 Do not add it to `ubuntu-slim` jobs. Those are single-vCPU containers where

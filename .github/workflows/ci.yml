@@ -41,7 +41,7 @@ jobs:
       unclassified-changed: ${{ steps.unclassified.outputs.unclassified }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 2
 
@@ -50,7 +50,7 @@ jobs:
         shell: bash
 
       - name: Check changed files
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        uses: dorny/paths-filter@v4.0.3
         id: changes
         background: true
         with:
@@ -141,7 +141,7 @@ jobs:
       # mirror a newly added pattern is the safe direction: the file simply
       # falls through to unclassified and over-runs CI rather than skipping it.
       - name: Check unclassified changed files
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        uses: dorny/paths-filter@v4.0.3
         id: unclassified
         background: true
         with:
@@ -168,7 +168,7 @@ jobs:
               - '!.github/workflows/**'
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
         with:
           install-deps: "false"
           setup-safe-chain: "false"
@@ -224,7 +224,7 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Download actionlint
         id: get_actionlint
@@ -233,6 +233,29 @@ jobs:
 
       - name: Run actionlint
         run: ${{ steps.get_actionlint.outputs.executable }} -color
+        shell: bash
+
+  # Workflows reference actions by semver tag; the commits that actually run
+  # are recorded in .github/workflows/actions.lock. Fail when a `uses:` change
+  # was not relocked or a locked commit no longer verifies upstream.
+  verify-actions-lock:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.actions-changed == 'true'
+    runs-on: ubuntu-slim
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install gh-actions-lock
+        run: gh extension install github/gh-actions-lock --pin v0.4.0
+        shell: bash
+
+      - name: Verify actions.lock
+        run: gh actions-lock --verify
         shell: bash
 
   #
@@ -244,26 +267,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       # Step name is a contract: the CI telemetry aggregator workflow only
       # downloads logs of jobs that have a step named exactly this.
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       # Formatting needs no registry/target cache or compilation environment.
-      - name: Read pinned Rust toolchain
-        id: rust-toolchain
-        shell: bash
-        run: |
-          toolchain="$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml | head -n 1)"
-          test -n "$toolchain"
-          echo "toolchain=$toolchain" >> "$GITHUB_OUTPUT"
-
       - name: Setup rustfmt
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        uses: $/.github/actions/setup-rust-toolchain
         with:
-          toolchain: ${{ steps.rust-toolchain.outputs.toolchain }}
           components: rustfmt
 
       - name: Check Rust formatting
@@ -282,23 +296,23 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           cache-key: core-lint
 
       - name: Cache DuckDB build
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           expect-cpp: "true"
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -328,24 +342,24 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           cache-key: core-test
 
       - name: Cache DuckDB build
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           expect-cpp: "true"
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -354,7 +368,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        uses: taiki-e/install-action@v2.87.26
         with:
           tool: cargo-nextest
 
@@ -379,23 +393,23 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           cache-key: tauri-lint
 
       - name: Cache DuckDB build
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           expect-cpp: "true"
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -428,24 +442,24 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           cache-key: tauri-test
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           # duckdb-archive is a default feature, so this job now compiles the
           # bundled DuckDB C++ build like the other feature jobs.
@@ -457,7 +471,7 @@ jobs:
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
-        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        uses: taiki-e/install-action@v2.87.26
         with:
           tool: cargo-llvm-cov
 
@@ -490,7 +504,7 @@ jobs:
 
       - name: Report Rust coverage
         if: matrix.platform == 'ubuntu-22.04' && github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: rust-coverage
           message: |
@@ -514,16 +528,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           # PR-only job, so it never saves; reuse the closest saved check-mode entry.
@@ -531,7 +545,7 @@ jobs:
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           # duckdb-archive is a default feature, so this build compiles the
           # bundled DuckDB C++ sources.
@@ -561,23 +575,23 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           cache-key: tauri-bindings
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           # duckdb-archive is a default feature, so this build compiles the
           # bundled DuckDB C++ sources.
@@ -613,27 +627,27 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies (source-only PR)
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' && matrix.platform == 'ubuntu-22.04' }}
         background: true
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Linux dependencies (Tauri CLI build)
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
         background: true
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
         with:
           extra-packages: "libfuse2 libappindicator3-dev patchelf"
 
       - name: Cache AppRun binary
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Linux' }}
         background: true
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/tauri/AppRun-x86_64
           key: tauri-apprun-x86_64
@@ -641,7 +655,7 @@ jobs:
       - name: Cache WiX binary
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Windows' }}
         background: true
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~\AppData\Local\tauri\WixTools
           key: tauri-wix-314
@@ -689,11 +703,11 @@ jobs:
       - name: Setup Node.js
         if: ${{ github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true' }}
         background: true
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Setup Rust
         background: true
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           cache-key: tauri-build
@@ -703,7 +717,7 @@ jobs:
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
@@ -727,7 +741,7 @@ jobs:
 
       - name: Build with Tauri (version consistency for Tauri dependency PR)
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed == 'true' }}
-        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -735,7 +749,7 @@ jobs:
 
       - name: Build with Tauri (Release profile for push)
         if: github.event_name != 'pull_request'
-        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -750,25 +764,25 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Cache WiX binary
         background: true
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~\AppData\Local\tauri\WixTools
           key: tauri-wix-314
 
       - name: Setup Node.js
         background: true
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Setup Rust
         background: true
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           cache-key: tauri-build
@@ -778,7 +792,7 @@ jobs:
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
@@ -822,15 +836,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Frontend lint
         run: npm run lint:ci
@@ -847,13 +861,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       # Tests and the build share one installation but write separate outputs.
       - name: Run frontend tests with coverage
@@ -868,7 +882,7 @@ jobs:
         wait: frontend-tests
 
       - name: Report coverage
-        uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2.13.0
+        uses: davelosert/vitest-coverage-report-action@v2.13.0
         with:
           json-summary-path: coverage/coverage-summary.json
 
@@ -884,13 +898,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
@@ -901,7 +915,7 @@ jobs:
       # Keep evidence captures even when the suite fails after launch.
       - name: Upload capture artifacts
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: e2e-captures
           path: test-results/captures/
@@ -909,7 +923,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: e2e-report
           path: |
@@ -937,15 +951,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
@@ -955,7 +969,7 @@ jobs:
 
       - name: Upload render performance results
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: render-perf-results
           path: test-results/render-perf/
@@ -977,15 +991,15 @@ jobs:
       RENDER_MEMORY_STREAM_INTERVAL_MS: "1000"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
@@ -995,7 +1009,7 @@ jobs:
 
       - name: Upload render memory performance results
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: render-memory-perf-results
           path: test-results/render-memory/
@@ -1010,26 +1024,26 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Typecheck native E2E runner
         run: npm run typecheck:e2e:native
 
       - name: Setup Linux dependencies
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
         with:
           extra-packages: webkit2gtk-driver xvfb libayatana-appindicator3-dev
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           # Keep the existing driver/registry cache. App compilation uses the
@@ -1042,7 +1056,7 @@ jobs:
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
+        uses: $/.github/actions/cache-sccache
         with:
           # The app's default features compile bundled DuckDB C++ sources.
           expect-cpp: "true"
@@ -1056,7 +1070,7 @@ jobs:
 
       - name: Upload native capture artifacts
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: e2e-native-captures
           path: test-results/captures/
@@ -1071,13 +1085,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Generate licenses.json
         run: npm run license-checker
@@ -1098,17 +1112,17 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
 
       - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
+        uses: $/.github/actions/ci-telemetry
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
-        uses: ./.github/actions/setup-linux-deps
+        uses: $/.github/actions/setup-linux-deps
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: ""
           cache-key: cargo-deny
@@ -1134,6 +1148,7 @@ jobs:
     needs:
       - change-detection
       - lint-actions
+      - verify-actions-lock
       - rust-format
       - lint-core
       - test-core
@@ -1150,8 +1165,8 @@ jobs:
       - license-check-npm
       - license-check-cargo
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
 

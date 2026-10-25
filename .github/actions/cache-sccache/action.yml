@@ -128,7 +128,7 @@ runs:
         ${{ inputs.bucket-name != '' && inputs.endpoint != '' &&
             inputs.aws-access-key-id != '' &&
             inputs.aws-secret-access-key != '' }}
-      uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+      uses: mozilla-actions/sccache-action@v0.0.11
       with:
         version: "v0.17.0"
 
@@ -138,7 +138,7 @@ runs:
             inputs.aws-access-key-id != '' &&
             inputs.aws-secret-access-key != '' &&
             runner.os == 'Windows' && inputs.expect-cpp == 'true' }}
-      uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+      uses: ilammy/msvc-dev-cmd@v1.13.0
 
     - name: Point sccache at the R2 bucket
       if: >-
@@ -167,7 +167,7 @@ runs:
         ${{ inputs.bucket-name != '' && inputs.endpoint != '' &&
             inputs.aws-access-key-id != '' &&
             inputs.aws-secret-access-key != '' }}
-      uses: ./.github/actions/cache-sccache/report
+      uses: $/.github/actions/cache-sccache/report
 
     - name: Skip sccache because R2 is not configured
       if: >-

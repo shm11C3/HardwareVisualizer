@@ -1,0 +1,75 @@
+name: "Setup Rust Toolchain"
+description: "Install the toolchain pinned in rust-toolchain.toml with rustup"
+outputs:
+  toolchain:
+    description: "Toolchain channel read from rust-toolchain.toml"
+    value: ${{ steps.rust-toolchain.outputs.toolchain }}
+inputs:
+  components:
+    description: "Components to install with the toolchain (space or comma separated)"
+    required: false
+    default: ""
+  targets:
+    description: "Targets to install with the toolchain (space or comma separated)"
+    required: false
+    default: ""
+
+# Replaces dtolnay/rust-toolchain, which publishes no semver tags: its only
+# tag (v1) moves with master, so the workflow lockfile would freeze it and
+# Dependabot would never propose an update. Every hosted runner already ships
+# rustup, so this keeps only the steps that apply to our pinned stable channel.
+runs:
+  using: "composite"
+  steps:
+    - name: Read pinned Rust toolchain
+      id: rust-toolchain
+      shell: bash
+      run: |
+        toolchain="$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml | head -n 1)"
+        if [ -z "$toolchain" ]; then
+          echo "Unable to read the pinned channel from rust-toolchain.toml" >&2
+          exit 1
+        fi
+        echo "toolchain=$toolchain" >> "$GITHUB_OUTPUT"
+
+    - name: Install Rust toolchain
+      shell: bash
+      env:
+        TOOLCHAIN: ${{ steps.rust-toolchain.outputs.toolchain }}
+        COMPONENTS: ${{ inputs.components }}
+        TARGETS: ${{ inputs.targets }}
+        RUSTUP_PERMIT_COPY_RENAME: 1
+      run: |
+        set -f # split on commas and whitespace without glob expansion
+        set -o pipefail # the install status must not be masked by tee
+        flags=()
+        for t in ${TARGETS//,/ }; do flags+=(--target "$t"); done
+        for c in ${COMPONENTS//,/ }; do flags+=(--component "$c"); done
+        log=$(mktemp)
+        trap 'rm -f "$log"' EXIT
+        # static.rust-lang.org briefly serves mismatched checksums while a
+        # release is being published; retry only that failure.
+        for attempt in 1 2 3 4 5; do
+          if rustup toolchain install "$TOOLCHAIN" "${flags[@]}" --profile minimal --no-self-update 2>&1 | tee "$log"; then
+            break
+          else
+            status=$?
+          fi
+          if [[ $attempt == 5 ]] || ! grep -Fq 'checksum failed for ' "$log"; then
+            exit "$status"
+          fi
+          echo "Retrying rustup toolchain install in 30 seconds (retry $attempt of 4)" >&2
+          sleep 30
+        done
+        rustup default "$TOOLCHAIN"
+        rustc --version --verbose
+
+    - name: Configure Cargo for CI
+      shell: bash
+      run: |
+        if [ -z "${CARGO_INCREMENTAL+set}" ]; then
+          echo CARGO_INCREMENTAL=0 >> "$GITHUB_ENV"
+        fi
+        if [ -z "${CARGO_TERM_COLOR+set}" ]; then
+          echo CARGO_TERM_COLOR=always >> "$GITHUB_ENV"
+        fi

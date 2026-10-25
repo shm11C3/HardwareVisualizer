@@ -24,12 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ env.BASE_SHA }}
 
       - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+        uses: $/.github/actions/setup-rust
         with:
           components: rustfmt
           cache-key: format
@@ -43,22 +43,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ env.HEAD_SHA }}
 
-      - name: Read pinned Rust toolchain
-        id: rust-toolchain
-        shell: bash
-        run: |
-          toolchain="$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml | head -n 1)"
-          test -n "$toolchain"
-          echo "toolchain=$toolchain" >> "$GITHUB_OUTPUT"
-
       - name: Setup rustfmt
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        uses: $/.github/actions/setup-rust-toolchain
         with:
-          toolchain: ${{ steps.rust-toolchain.outputs.toolchain }}
           components: rustfmt
 
       - name: Check Rust formatting
@@ -69,13 +60,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ env.BASE_SHA }}
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       # The old check-frontend job started lint and coverage tests together.
       # Keep the overlap in one ordinary shell step so this benchmark remains
@@ -103,13 +94,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ env.BASE_SHA }}
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Run frontend build
         run: /usr/bin/time -p npm run build
@@ -119,13 +110,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ env.HEAD_SHA }}
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Frontend lint
         run: /usr/bin/time -p npm run lint:ci
@@ -135,13 +126,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ env.HEAD_SHA }}
 
       - name: Setup Node.js
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       # The new check-frontend job runs tests while the build uses the same
       # installed dependencies. Keep both processes in one conventional step.
