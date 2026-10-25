@@ -29,6 +29,13 @@ pub(crate) const ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
 /// `Experimental <chip label> motherboard sensor path failed: <reason>`.
 const NUVOTON_EXPERIMENTAL_FAILURE_LEAD: &str = "Experimental";
 const NUVOTON_EXPERIMENTAL_FAILURE_TAIL: &str = "motherboard sensor path failed";
+/// Experimental Nuvoton failures caused by firmware/hardware state that PawnIO
+/// already read successfully (a set `CR28` HM I/O-space lock, or the NCT6701D
+/// inactive-LDN / unusable-base quirks). These read
+/// `<prefix> (<chip label>): <reason>` and must not produce PawnIO
+/// install/permission guidance.
+pub(crate) const NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
+  "Experimental Nuvoton motherboard sensor path failed: hardware state";
 const NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "Nuvoton config exit failed";
 const ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "configuration exit failed";
 const ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT: &str =
@@ -634,34 +641,54 @@ fn discover_nuvoton_hm_base(
     return Ok(None);
   };
 
+  // The NCT6701D row documents an inactive LDN B and an unusable CR60/61 base
+  // as known firmware states; other rows treat them as ordinary failures.
+  let firmware_quirks = profile.hm_base_check == NuvotonHmBaseCheck::Nct6701dUsableBase;
+
   let result = (|| {
     // The lock gate is a read of global CR28 while still in configuration
     // mode, before LDN selection. CR28 is never written.
     if profile.lock_gate {
-      let lock_state = client.superio_inb(NUVOTON_HM_IO_SPACE_LOCK_REGISTER)?;
+      let lock_state = client
+        .superio_inb(NUVOTON_HM_IO_SPACE_LOCK_REGISTER)
+        .map_err(NuvotonDiscoveryFailure::Transport)?;
       if is_nuvoton_hm_io_space_locked(lock_state) {
-        return Err(format!(
+        return Err(NuvotonDiscoveryFailure::HardwareState(format!(
           "Nuvoton hardware-monitor I/O space is locked (CR28=0x{lock_state:02X}, bit 4 set)"
-        ));
+        )));
       }
     }
 
-    client.superio_outb(LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN)?;
-    let activation = client.superio_inb(LDN_ACTIVATION_REGISTER)?;
+    client
+      .superio_outb(LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
+    let activation = client
+      .superio_inb(LDN_ACTIVATION_REGISTER)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
     if (activation & 0x01) == 0 {
-      return Err("Nuvoton hardware monitor logical device is inactive".to_string());
-    }
-
-    let base_high = client.superio_inb(HM_BASE_HIGH_REGISTER)?;
-    let base_low = client.superio_inb(HM_BASE_LOW_REGISTER)?;
-    let hm_base = ((base_high as u16) << 8) | base_low as u16;
-    if !is_valid_nuvoton_hm_base(profile.hm_base_check, hm_base) {
-      return Err(format!(
-        "invalid Nuvoton hardware-monitor base 0x{hm_base:04X}"
+      return Err(NuvotonDiscoveryFailure::firmware(
+        firmware_quirks,
+        "Nuvoton hardware monitor logical device is inactive".to_string(),
       ));
     }
 
-    client.find_lpc_bars()?;
+    let base_high = client
+      .superio_inb(HM_BASE_HIGH_REGISTER)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
+    let base_low = client
+      .superio_inb(HM_BASE_LOW_REGISTER)
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
+    let hm_base = ((base_high as u16) << 8) | base_low as u16;
+    if !is_valid_nuvoton_hm_base(profile.hm_base_check, hm_base) {
+      return Err(NuvotonDiscoveryFailure::firmware(
+        firmware_quirks,
+        format!("invalid Nuvoton hardware-monitor base 0x{hm_base:04X}"),
+      ));
+    }
+
+    client
+      .find_lpc_bars()
+      .map_err(NuvotonDiscoveryFailure::Transport)?;
 
     Ok(DetectedSlot {
       slot,
@@ -670,9 +697,32 @@ fn discover_nuvoton_hm_base(
     })
   })();
 
-  result
-    .map(Some)
-    .map_err(|reason| surface_nuvoton_failure(profile, reason))
+  result.map(Some).map_err(|failure| match failure {
+    NuvotonDiscoveryFailure::Transport(reason) => {
+      surface_nuvoton_failure(profile, reason)
+    }
+    NuvotonDiscoveryFailure::HardwareState(reason) => {
+      surface_nuvoton_hardware_state_failure(profile, reason)
+    }
+  })
+}
+
+/// Discovery failure classification used to pick the surfaced wording.
+enum NuvotonDiscoveryFailure {
+  /// PawnIO/transport or unexpected register failures; guidance may apply.
+  Transport(String),
+  /// Firmware/hardware state read successfully through PawnIO; no guidance.
+  HardwareState(String),
+}
+
+impl NuvotonDiscoveryFailure {
+  fn firmware(is_documented_quirk: bool, reason: String) -> Self {
+    if is_documented_quirk {
+      Self::HardwareState(reason)
+    } else {
+      Self::Transport(reason)
+    }
+  }
 }
 
 fn discover_ite_ec_base(
@@ -826,6 +876,30 @@ fn nuvoton_experimental_failure(chip_label: &str, reason: impl AsRef<str>) -> St
 fn surface_nuvoton_failure(profile: &NuvotonHmProfile, reason: String) -> String {
   if profile.is_experimental() {
     nuvoton_experimental_failure(profile.chip_label, reason)
+  } else {
+    reason
+  }
+}
+
+fn nuvoton_experimental_hardware_state_failure(
+  chip_label: &str,
+  reason: impl AsRef<str>,
+) -> String {
+  format!(
+    "{NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({chip_label}): {}",
+    reason.as_ref()
+  )
+}
+
+/// Hardware-state failures of Experimental profiles carry the non-component
+/// prefix so no PawnIO guidance is produced; Verified failures keep their
+/// plain reason.
+fn surface_nuvoton_hardware_state_failure(
+  profile: &NuvotonHmProfile,
+  reason: String,
+) -> String {
+  if profile.is_experimental() {
+    nuvoton_experimental_hardware_state_failure(profile.chip_label, reason)
   } else {
     reason
   }
@@ -1484,14 +1558,55 @@ mod tests {
 
     let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
 
-    assert!(error.starts_with("Experimental NCT6798D motherboard sensor path failed: "));
-    assert!(error.contains("CR28=0x10"));
+    assert_eq!(
+      error,
+      "Experimental Nuvoton motherboard sensor path failed: hardware state (NCT6798D): \
+       Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)"
+    );
+    assert!(error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
     assert!(!is_retryable_init_error(&error));
     assert_eq!(client.selected_ldn.get(), None);
     assert!(client.superio_writes.borrow().is_empty());
     assert!(!client.hm_base_high_read.get());
     assert_eq!(client.find_bars_calls.get(), 0);
     assert!(client.read_registers.borrow().is_empty());
+  }
+
+  #[test]
+  fn lock_gate_transport_failures_keep_the_component_failure_wording() {
+    // A failed CR28 read is a PawnIO/transport problem, not a hardware state.
+    struct FailingCr28(FakeLpcIo);
+    impl LpcIoOps for FailingCr28 {
+      fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+        self.0.select_lpc_slot(slot)
+      }
+      fn find_lpc_bars(&self) -> Result<(), String> {
+        self.0.find_lpc_bars()
+      }
+      fn pio_inb(&self, port: u16) -> Result<u8, String> {
+        self.0.pio_inb(port)
+      }
+      fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+        self.0.pio_outb(port, value)
+      }
+      fn superio_inb(&self, register: u8) -> Result<u8, String> {
+        if register == NUVOTON_HM_IO_SPACE_LOCK_REGISTER {
+          return Err("pawnio_execute ioctl_superio_inb failed".to_string());
+        }
+        self.0.superio_inb(register)
+      }
+      fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+        self.0.superio_outb(register, value)
+      }
+    }
+
+    let client = FailingCr28(FakeLpcIo::with_chip_id(0xD42B));
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(error.starts_with("Experimental NCT6798D motherboard sensor path failed: "));
+    assert!(!error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
+    assert!(error.contains("ioctl_superio_inb failed"));
   }
 
   #[test]
@@ -1547,8 +1662,12 @@ mod tests {
 
     let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
 
-    assert!(error.starts_with("Experimental NCT6701D motherboard sensor path failed: "));
-    assert!(error.contains("logical device is inactive"));
+    assert_eq!(
+      error,
+      "Experimental Nuvoton motherboard sensor path failed: hardware state (NCT6701D): \
+       Nuvoton hardware monitor logical device is inactive"
+    );
+    assert!(error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
     assert_eq!(
       client.superio_writes.borrow().as_slice(),
       &[(LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN)]
@@ -1565,7 +1684,9 @@ mod tests {
       let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
 
       assert!(
-        error.starts_with("Experimental NCT6701D motherboard sensor path failed: "),
+        error.starts_with(
+          "Experimental Nuvoton motherboard sensor path failed: hardware state (NCT6701D): "
+        ),
         "{error}"
       );
       assert!(error.contains("invalid Nuvoton hardware-monitor base"));
@@ -1573,6 +1694,21 @@ mod tests {
       assert!(!client.superio_reads.borrow().contains(&0x65));
       assert_eq!(client.find_bars_calls.get(), 0);
     }
+  }
+
+  #[test]
+  fn other_experimental_rows_keep_inactive_ldn_as_a_component_failure() {
+    // Only the NCT6701D row documents an inactive LDN B as a firmware state.
+    let client = FakeLpcIo::with_chip_id(0xD801);
+    client.activation.set(0x00);
+
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(
+      error.starts_with("Experimental NCT6796D-S motherboard sensor path failed: ")
+    );
+    assert!(!error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
+    assert!(error.contains("logical device is inactive"));
   }
 
   #[test]
