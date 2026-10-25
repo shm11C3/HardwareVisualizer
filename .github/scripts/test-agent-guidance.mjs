@@ -190,9 +190,9 @@ expectFailure(
   {
     ".agents/rules/clean-room-sensors.md": read(
       ".agents/rules/clean-room-sensors.md",
-    ).replace(",core/src/infrastructure/providers/windows/super_io*.rs", ""),
+    ).replace(",core/src/infrastructure/providers/windows/super_io/**", ""),
   },
-  "clean-room scope is missing: core/src/infrastructure/providers/windows/super_io*.rs",
+  "clean-room scope is missing: core/src/infrastructure/providers/windows/super_io/**",
 );
 
 expectFailure(
