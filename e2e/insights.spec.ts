@@ -55,8 +55,15 @@ test.describe("insights captures", () => {
       /History older than 30 days is deleted/,
     );
     await expect(page.getByRole("combobox").nth(1)).toHaveText("1 year");
-    await expect(page.locator(".recharts-area").first()).toBeVisible();
-    await page.waitForTimeout(1_000);
+    // Charts remount on a period change and start empty, so wait for the
+    // 1-year data itself: axis labels only exist once a series arrived, and
+    // with the clock pinned to 2026-01-15 only a year-long window reaches 2025.
+    await expect(
+      page
+        .locator(".recharts-cartesian-axis-tick-value")
+        .filter({ hasText: "2025" })
+        .first(),
+    ).toBeVisible();
 
     await saveCapture(page, "insights-main-1y");
   });
