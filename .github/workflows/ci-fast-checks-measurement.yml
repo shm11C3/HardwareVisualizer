@@ -15,6 +15,8 @@ permissions:
 
 env:
   # Keep both variants on the same pinned base while the PoC is measured.
+  # Local `$/` actions resolve at the running commit, so both variants run the
+  # current setup actions; only the checked-out source differs.
   BASE_SHA: b0cda32c0f4eaf32bc7559557df4d9c6976405a8
   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 

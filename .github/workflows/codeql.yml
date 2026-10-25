@@ -128,14 +128,16 @@ jobs:
 
           # perf-monitor is deliberately absent: it is excluded from the analysis
           # by paths-ignore in the init step, so changing it cannot change the
-          # result. The workflow file and the two local actions the full path runs
+          # result. The workflow file and the local actions the full path runs
+          # (setup-rust, the setup-rust-toolchain it calls, and cache-sccache)
           # are listed because they define how the analysis is produced; a pull
           # request that changes them must exercise that path, not skip it.
           if ! git fetch --depth=1 origin "$sha"; then
             decision="full analysis (the analysed commit could not be fetched)"
             reuse=false
           elif git diff --quiet "$sha" HEAD -- core src-tauri Cargo.toml Cargo.lock rust-toolchain.toml .cargo \
-              .github/workflows/codeql.yml .github/actions/setup-rust .github/actions/cache-sccache; then
+              .github/workflows/codeql.yml .github/actions/setup-rust .github/actions/setup-rust-toolchain \
+              .github/actions/cache-sccache; then
             decision="reuse the base analysis (Rust inputs are identical)"
             reuse=true
           else
