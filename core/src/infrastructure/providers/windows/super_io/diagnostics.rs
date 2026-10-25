@@ -1,15 +1,13 @@
 use std::time::Duration;
 
-use super::pawn_io::{
+use super::super::pawn_io::{
   ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoDiscovery, PawnIoModule,
 };
-use super::super_io_motherboard::LpcIoOps;
+use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
+use super::motherboard::LpcIoOps;
 use crate::models::hardware::{
   PawnIoRuntimeDiagnostics, SuperIoChipIdAttempt, SuperIoChipIdDiagnostics,
   SuperIoChipIdSlotProbe, SuperIoVendor,
-};
-use crate::utils::super_io::{
-  chip_id, is_absent_id, should_withhold_ite_exit, slot_ports,
 };
 
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
