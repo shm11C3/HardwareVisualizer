@@ -20,9 +20,9 @@ small and scoped so clean-room boundaries and PR scope stay clean.
   the current motherboard-sensor provider and presentation pipeline.
 - ✅ **Phase 4 spec** — exact `0x8728` / IT8728F/EX generic
   `TMPIN1`-`TMPIN3` is **Implementation-ready (rev 2)** as an
-  Experimental read-only scope. Its implementation is the next separate
-  clean-room task. ITE fans and every other IT86xx/IT87xx ID remain
-  disabled or Unsupported.
+  Experimental read-only scope. Its implementation is a separate
+  clean-room task that follows the rev 4 exit-withhold work. ITE fans
+  and every other IT86xx/IT87xx ID remain disabled or Unsupported.
 - ⚠️ **Phase 2 safety amendment** — `superio-access.md` rev 4 adds the
   "Slot-1 ITE exit withhold rule": on slot 1 (`0x4E`/`0x4F`) the ITE
   configuration-mode exit write must not be issued for raw IDs `0x8733`,
@@ -123,8 +123,10 @@ Recommended order from here:
 現在のrepoでは Nuvoton mapping/base/decode、motherboard metrics/UI、
 External Component Guidance は実装済み。
 
-次の ITE 作業は別ブランチ・別PRの clean-room implementation とし、
-ready rev 2 の exact `0x8728` TMPIN1-3 だけを既存pipelineへ追加する。
-ITE fan RPM、その他 IT86xx/IT87xx ID、成功値へのExperimental badge、
-新しいtelemetry/guidance pathは追加しない。
+次の clean-room implementation は別ブランチ・別PRとし、まず
+`superio-access.md` rev 4 の slot-1 ITE exit-withhold rule を診断・
+motherboard provider・診断 model に適用する。その後、ready rev 2 の
+exact `0x8728` TMPIN1-3 だけを既存 pipeline へ追加する。ITE fan RPM、
+その他 IT86xx/IT87xx ID、成功値への Experimental badge、新しい
+telemetry/guidance path は追加しない。
 ```
