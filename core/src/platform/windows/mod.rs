@@ -85,7 +85,7 @@ impl MotherboardPlatform for WindowsPlatform {
 
 impl SuperIoPlatform for WindowsPlatform {
   fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
-    crate::infrastructure::providers::windows::super_io_diagnostics::read_super_io_chip_id_diagnostics()
+    crate::infrastructure::providers::windows::super_io::diagnostics::read_super_io_chip_id_diagnostics()
   }
 }
 
