@@ -209,7 +209,7 @@ and `0xD802`) by these rules (S18):
 | `0xC910`-`0xC917` | `0xC911`, `0xC913` (each 6 pairs, `0x90`-`0x95`, lock) | 6 (`0xC0`-`0xCB`) | `0x90`-`0x95` | Yes | No | NCT6792D family (unrecognized version) | Lead-only: range (S11, S15); member profiles (S12, S14); S1 p. 362. | Experimental |
 | `0xD120`-`0xD127` | `0xD121` (6 pairs, `0x90`-`0x95`, lock) | 6 (`0xC0`-`0xCB`) | `0x90`-`0x95` | Yes | No | NCT6793D family (unrecognized version) | Lead-only: range (S11, S15); member profile (S12, S14); S1 p. 362. | Experimental |
 | `0xD350`-`0xD357` | `0xD352` (6 pairs, `0x90`-`0x95`, lock) | 6 (`0xC0`-`0xCB`) | `0x90`-`0x95` | Yes | No | NCT6795D family (unrecognized version) | Lead-only: range (S11, S15); member profile (S12, S14); S1 p. 362. | Experimental |
-| `0xD420`-`0xD427` | `0xD421` (7 pairs, `0x90`-`0x95`, no lock gate), `0xD423` (7 pairs, `0x90`-`0x95`, lock) | 7 (`0xC0`-`0xCB`, `0xCE`/`0xCF`) | `0x90`-`0x95` | Yes (from `0xD423`) | No | NCT6796D family (unrecognized version) | Lead-only: range (S11, S15); lock applicability (S11, S14); layout S1 pp. 66, 176; S1 p. 362. | Experimental |
+| `0xD420`-`0xD427` | `0xD421` (7 pairs, `0x90`-`0x95`, lock), `0xD423` (7 pairs, `0x90`-`0x95`, lock) | 7 (`0xC0`-`0xCB`, `0xCE`/`0xCF`) | `0x90`-`0x95` | Yes | No | NCT6796D family (unrecognized version) | Lead-only: range (S11, S15); lock applicability (S11, S14); layout S1 pp. 66, 176; S1 p. 362. | Experimental |
 | `0xD428`-`0xD42F` | `0xD429`, `0xD42A`, `0xD42B` (each 7 pairs, `0x90`-`0x96`, lock) | 7 (`0xC0`-`0xCB`, `0xCE`/`0xCF`) | `0x90`-`0x96` | Yes | No | NCT6798D family (unrecognized version) | Lead-only: range and NCT6798D/NCT5585D kind (S11, S15); member profiles (S12, S14); `0x96` for the kind (S12); S1 p. 362. | Experimental |
 | `0xD450`-`0xD457` | `0xD451` (7 pairs, `0x90`-`0x95`, lock) | 7 (`0xC0`-`0xCB`, `0xCE`/`0xCF`) | `0x90`-`0x95` | Yes | No | NCT6797D family (unrecognized version) | Lead-only: range (S11, S15); member profile (S12, S14); S1 p. 362. | Experimental |
 | `0xD800`-`0xD807` | `0xD801` (7 pairs, `0x90`-`0x96`, lock), `0xD802` (Verified; 7 pairs with the seventh Experimental, `0x90`-`0x96` with `0x96` Experimental, no lock gate), `0xD806` (7 pairs, `0x90`-`0x95`, lock, invalid-byte filter) | 7 (`0xC0`-`0xCB`, `0xCE`/`0xCF`) | `0x90`-`0x95` (`0xD806` does not read `0x96`) | Yes (from `0xD801`, `0xD806`) | Yes | NCT6799D family (unrecognized version) | Lead-only: range and NCT6796D-S/NCT6799D-R kind (S11, S15); member profiles (S12, S14); NCT6701D filter (S14); S1 p. 362. The Verified `0xD802` facts are not extended to these IDs. | Experimental |
@@ -234,7 +234,7 @@ diagnostics.
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | Nuvoton responder detection using Phase 2 raw chip-id bytes | Ready through `superio-access.md` rev 3; this document references the diagnostic result but does not change the Phase 2 scope. | Existing diagnostic may remain enabled. |
-| NCT6796D/NCT6796D-E chip-id mapping (`0xD421`) | **Experimental**: exact identity and the read-only profile (normal HM, bank 4 `0x90`-`0x95`, seven direct RPM pairs) are pinned by S1, but no matching hardware dump is available. No behavior is inferred from the `0xD802` identity. | Enabled as Experimental for the scoped normal-HM reads. |
+| NCT6796D/NCT6796D-E chip-id mapping (`0xD421`) | **Experimental**: exact identity, the read-only profile (normal HM, bank 4 `0x90`-`0x95`, seven direct RPM pairs), and the `CR28` bit 4 lock bit are pinned by S1 (p. 376 for the lock bit), but no matching hardware dump is available. No behavior is inferred from the `0xD802` identity. | Enabled as Experimental for the scoped normal-HM reads, behind the read-only `CR28` bit 4 lock gate. |
 | `0xD802` / `NCT6799D` chip-id mapping | **Verified** for chip identity, normal-HM discovery, bank 4 `0x90`-`0x95`, and direct RPM pairs `0xC0`-`0xCB`. S7 proves the local raw ID; S9 independently maps `D802h` to `NCT6799D`. The seventh pair `0xCE`/`0xCF` and bank 4 `0x96` on this ID are **Experimental** sub-scopes (rows below); they do not change the Verified status of the rest of the row. | Enabled as Verified for the scoped Phase 3 normal-HM reads, with the two Experimental sub-scopes enabled as Experimental. A failure of only an Experimental sub-scope read is reported as experimental and leaves the Verified values of that sample intact. |
 | Normal HM logical-device selection and base discovery | Ready for both S1-backed IDs where S1 defines the NCT6796D register semantics: select LDN B, read `CR30`, read `CR60/61`, validate the discovered normal HM base, then use base+`0x05`/base+`0x06`. S7/S9 additionally validate the sequence on `0xD802`. For the lead-only rows and unrecognized versions the same sequence is lead-only: LDN B and `CR60/61` (S11, S14, S15), `CR30` bit 0 (S11; S14 for NCT6701D), index/data offsets and bank select (S11, S14). | Enabled for `0xD421` as Experimental, `0xD802` as Verified, and the lead-only rows and unrecognized versions as Experimental. |
 | Read-only HM base (`CR64/65`) | Board-variable in evidence: local S7 is `0x0000`, S9 is `0x0A00`. The ready scope does not need it. S14's NCT6701D fallback to it conflicts with S1's definition (see Open questions). | Disabled for every ID, including `0xD806` and unrecognized `0xD800`-`0xD807` versions. |
@@ -243,7 +243,7 @@ diagnostics.
 | Direct 16-bit fan RPM reads `0xC0`-`0xCB` | S1 directly defines these six NCT6796D direct high/low pairs; S7 and S9 independently validate the same six pairs on `0xD802` / NCT6799D. For the lead-only rows and unrecognized versions the register positions are lead-only (S12) and the number of populated pairs is lead-only (S12, S14). | Enabled with generic fan labels for `0xD421` as Experimental, `0xD802` as Verified, and the lead-only rows and unrecognized versions as Experimental for the populated pairs listed per row. |
 | Seventh direct RPM pair `0xCE`/`0xCF` (AUXFANIN4) | S1 p. 66 lists this pair as the AUXFANIN4 16-bit RPM reading for NCT6796D; S12 lists the same register as the seventh RPM register for every NCT6779D-and-later kind; S9 captured `0x15`/`0x59` (5465 RPM) and S7 captured `0x00`/`0x00` there on `0xD802`. For `0xD421` the position is S1-backed; for `0xD802` it rests on S1 family semantics plus the S9/S7 observations; which other chips populate the input is lead-only (S12, S14). | Enabled as **Experimental** (generic label `Fan 7`) for `0xD802` (sub-scope of the Verified row), `0xD421`, `0xD423`, the seven-input lead-only rows, and unrecognized versions of the `0xD420`, `0xD428`, `0xD450`, and `0xD800` ranges. Not read for six- or five-input rows. |
 | Count-based fan reads `0xB0`-`0xBB`, `0xCC`/`0xCD` | Captured by S7/S9 but unnecessary while direct RPM registers are available. | Disabled. |
-| HM I/O-space lock detection (global `CR28` bit 4) | S1 p. 376 defines the bit for NCT6796D. Applicability to NCT6791D and later and the read-only consequence are lead-only (S11, S14). Detection is a read; clearing the lock is a write and is out of scope. | Enabled as a read-only availability gate for the NCT6791D-and-later lead-only rows and for every unrecognized-version range member. Not applied to `0xD802`, `0xD421`, or NCT6779D. |
+| HM I/O-space lock detection (global `CR28` bit 4) | S1 p. 376 defines the bit for NCT6796D, so for the exact `0xD421` profile the gate is primary-source-backed and adds only a read and a stop. Applicability to NCT6791D and later and the read-only consequence are lead-only (S11, S14). Detection is a read; clearing the lock is a write and is out of scope. | Enabled as a read-only availability gate for the exact `0xD421` Experimental profile, the NCT6791D-and-later lead-only rows, and every unrecognized-version range member. Not applied to `0xD802` (the S7/S9 dumps show its normal-HM reads working without the gate) or NCT6779D (no lead applies the lock to it). |
 | Byte-temperature plausibility filter | Bounds from S1 Table 8-1 p. 60 (+125 to -55 degrees C), identical to the project's existing Super I/O plausibility bounds (S17); applies the ADR 0011 plausibility guardrail (S10, S18). Not lead-only. | Enabled for every enabled byte temperature on every row, including Verified `0xD802`. |
 
 #### Lead-only Experimental chip rows
@@ -441,8 +441,10 @@ register for all rows and revisions. Requirements (S18):
   in register order, wherever a consumer depends on list position.
 - An input that is unavailable in a sample (plausibility rejection,
   invalid NCT6701D byte, or a failed Experimental sub-scope read) keeps
-  its identity; it is omitted or reported unavailable for that sample and
-  does not shift the positions of other inputs.
+  its identity. A consumer that keys inputs by label may omit it for
+  that sample. A consumer that depends on list position must report it
+  as an explicit unavailable slot at its position, so later inputs keep
+  their positions.
 
 ### D421 layout boundary
 
@@ -452,9 +454,12 @@ offsets, bank 4 selection, temperature registers `0x90`-`0x95`, and the
 seven direct RPM pairs `0xC0`-`0xCB` and `0xCE`/`0xCF` of the S1 p. 66
 table. S1 does not identify `0xD802`, so the `0xD421` profile does not
 assume that every register observed on a `0xD802` board has the same
-meaning: bank 4 `0x96` is not read for `0xD421`. Read-only HM,
-count-based RPM, the `CR28` lock gate, and any other D802-only or
-board-specific extension remain disabled for `0xD421`. (S1, S7, S9)
+meaning: bank 4 `0x96` is not read for `0xD421`. The `0xD421` profile
+also applies the read-only `CR28` bit 4 lock gate, because S1 p. 376
+defines that bit for NCT6796D itself; the gate is a read and a stop, not
+a layout extension. Read-only HM, count-based RPM, and any other
+D802-only or board-specific extension remain disabled for `0xD421`.
+(S1, S7, S9)
 
 ### Lead-only row layout boundary
 
@@ -490,11 +495,15 @@ invalid-byte filter (S14).
    attempt is limited to the layout boundary stated for its row, and its
    failures are reported as experimental. (S1, S7, S9, S18; S11, S12,
    S14, S15 lead-only)
-4. For profiles whose Lock gate is "Yes" (NCT6791D-and-later lead-only
-   rows and every unrecognized-version range member), read global `CR28`
-   while still in configuration mode. If bit 4 is set, stop and report
-   the chip as unavailable with an experimental diagnostic; do not write
-   `CR28`. (S1 p. 376; S11, S14 lead-only)
+4. For profiles whose Lock gate is "Yes" (the exact `0xD421`
+   Experimental profile, NCT6791D-and-later lead-only rows, and every
+   unrecognized-version range member), read global `CR28` while still in
+   configuration mode. If bit 4 is set, stop and report the chip as
+   unavailable with an experimental diagnostic; do not write `CR28`. For
+   `0xD421` the bit definition is S1 p. 376; for the other profiles its
+   applicability is lead-only. `0xD802` skips this step because S7/S9
+   show its normal-HM reads working without it. (S1 p. 376; S7, S9; S11,
+   S14 lead-only)
 5. Select LDN `0x0B`, read `CR30`, and require bit 0 to be set. Do not
    write `CR30`. For `0xD806` and unrecognized `0xD800`-`0xD807`
    versions, an inactive LDN B is a known firmware state and is reported
@@ -585,9 +594,10 @@ invalid-byte filter (S14).
 - Read-only HM base availability is board-variable in current evidence:
   S7 observed `0x0000`, S9 observed `0x0A00`. Rev 8 does not use the
   read-only HM path. (S7, S9)
-- HM I/O-space lock (lead-only applicability): global `CR28` bit 4 is
-  defined by S1 for NCT6796D as "HM IO space lock enable". The leads
-  apply it to NCT6791D and every later chip in the lead-only rows and
+- HM I/O-space lock: global `CR28` bit 4 is defined by S1 for NCT6796D
+  as "HM IO space lock enable", which is why the exact `0xD421` profile
+  applies the gate on primary-source grounds. The leads (lead-only
+  applicability) apply it to NCT6791D and every later chip in the lead-only rows and
   describe its effect as the hardware-monitor logical-device mapping
   being disabled, so HM port reads return nothing meaningful (one lead
   tests this by whether the vendor-ID word can be read). Both leads clear
@@ -775,4 +785,4 @@ No other external sensor documentation was used.
 | 5 | 2026-06-28 | Added independent AIDA64 dump evidence mapping `0xD802` to `NCT6799D`, scoped support to normal HM bank 4 temperatures and direct RPM pairs, disabled unresolved suffix/read-only/AUXFANIN4 scopes, and flipped status to Implementation-ready. |
 | 6 | 2026-09-13 | Added exact raw `0xD421` / NCT6796D / NCT6796D-E as an Experimental read-only scope using only the S1-confirmed normal-HM, bank 4 temperature, and six direct RPM-pair layouts; explicitly kept D802-only seventh-fan observations and other unverified extensions out of scope. Status remains Implementation-ready. |
 | 7 | 2026-10-25 | Added lead-only (ADR 0023) Experimental rows for NCT6779D (`0xC560`-`0xC567`), NCT6791D `0xC803`, NCT6792D `0xC911`/`0xC913`, NCT6793D `0xD121`, NCT6795D `0xD352`, NCT6796D `0xD423`, NCT6798D `0xD429`/`0xD42B`, `0xD42A` (NCT6796D-R / NCT5585D), NCT6797D `0xD451`, NCT6796D-S `0xD801`, and NCT6701D `0xD806` with per-row fan counts, a seventh direct RPM pair `0xCE`/`0xCF` for seven-input rows, a read-only `CR28` bit 4 HM I/O-space-lock gate, and NCT6701D read-only quirks; added S1 pins for the 8.8.1 seven-input table (p. 66), the CR21 version note (p. 362), and CR28 bit 4 (p. 376); recorded S7/S9 `0xCC`-`0xCF` bytes as evidence; added copyleft lead sources S11-S15 tagged lead-only and ADR 0023 as S16; recorded the `0xD802` / NCT6796D-S labelling conflict, `0xD42A` dual identity, range-matching policy, and NCT6701D alternate-base conflict as non-blocking open questions. `0xD802` Verified and `0xD421` Experimental rows unchanged in substance. Status remains Implementation-ready. |
-| 8 | 2026-10-25 | Applied ADR 0011 per the maintainer decision of 2026-10-25 (S18) to four reads rev 7 kept disabled only for lack of verification, all as Experimental: the seventh direct RPM pair `0xCE`/`0xCF` on `0xD802` (sub-scope of the Verified row), `0xD421`, and `0xD423`; unrecognized versions of the eight masked lead family ranges with a per-range conservative profile and family label (NCT6779D row unchanged at `0xC560`-`0xC567`); all six bank 4 temperatures on `0xD42A`; and bank 4 `0x96` (generic `Temperature 7`) on `0xD802`, `0xD429`, `0xD42A`, `0xD42B`, `0xD801`, and unrecognized `0xD428`-`0xD42F` versions. Added a byte-temperature plausibility filter (-55 to +125 degrees C, S1 Table 8-1 p. 60; consistent with S17) for every row including Verified `0xD802`; added the D802 sub-scope failure rule and an input identity/ordering stability requirement; recorded the S9 `0x96` byte (`0x19`), the S14 per-table `0x96` coverage, and S17/S18 as sources; updated the seventh-pair, `0xD42A`, `0xD423` fan-count, range-matching, and `0x96` open questions and added a plausibility-bounds open question. Lock-gate stop, no `CR64/65` fallback, disabled count registers, and disabled read-only HM unchanged. Status remains Implementation-ready. |
+| 8 | 2026-10-25 | Applied ADR 0011 per the maintainer decision of 2026-10-25 (S18) to four reads rev 7 kept disabled only for lack of verification, all as Experimental: the seventh direct RPM pair `0xCE`/`0xCF` on `0xD802` (sub-scope of the Verified row), `0xD421`, and `0xD423`; unrecognized versions of the eight masked lead family ranges with a per-range conservative profile and family label (NCT6779D row unchanged at `0xC560`-`0xC567`); all six bank 4 temperatures on `0xD42A`; and bank 4 `0x96` (generic `Temperature 7`) on `0xD802`, `0xD429`, `0xD42A`, `0xD42B`, `0xD801`, and unrecognized `0xD428`-`0xD42F` versions. Added a byte-temperature plausibility filter (-55 to +125 degrees C, S1 Table 8-1 p. 60; consistent with S17) for every row including Verified `0xD802`; added the D802 sub-scope failure rule and an input identity/ordering stability requirement; recorded the S9 `0x96` byte (`0x19`), the S14 per-table `0x96` coverage, and S17/S18 as sources; updated the seventh-pair, `0xD42A`, `0xD423` fan-count, range-matching, and `0x96` open questions and added a plausibility-bounds open question. Lock-gate stop, no `CR64/65` fallback, disabled count registers, and disabled read-only HM unchanged. Review amendments before merge (same revision, PR #2464): the read-only `CR28` bit 4 lock gate now also applies to the exact `0xD421` profile on S1 p. 376 alone (`0xD802` stays ungated because S7/S9 show its HM reads working), and the ordering-stability rule now requires position-keyed consumers to emit an explicit unavailable slot for an unavailable input. Status remains Implementation-ready. |
