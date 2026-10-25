@@ -23,7 +23,13 @@ export const useArchivePeriodOptions = <P extends ArchivePeriod>(
     () =>
       periods.map((period) => {
         const { count, unit } = describeArchivePeriod(period);
-        return { label: `${count} ${t(`shared.time.${unit}`)}`, value: period };
+        // The only year period is exactly one, and English needs "1 year";
+        // the existing unit keys are plural ("years").
+        const unitLabel =
+          unit === "years" && count === 1
+            ? t("shared.time.year")
+            : t(`shared.time.${unit}`);
+        return { label: `${count} ${unitLabel}`, value: period };
       }),
     [periods, t],
   );

@@ -34,6 +34,49 @@ test.describe("insights captures", () => {
     await saveCapture(page, "insights-main");
   });
 
+  test("insights main tab offers 1 year and names the Retention Period", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await navigateTo(page, "insights");
+
+    await expect(page.getByRole("tab", { name: "CPU / Memory" })).toBeVisible({
+      timeout: BOOTSTRAP_TIMEOUT,
+    });
+    // The settings fixture keeps 30 days, so the default 1-hour charts need
+    // no explanation.
+    await expect(page.getByTestId("insight-retention-note")).toHaveCount(0);
+
+    // The first period select is the tab-wide one that sets every chart.
+    await page.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "1 year" }).click();
+
+    await expect(page.getByTestId("insight-retention-note")).toHaveText(
+      /History older than 30 days is deleted/,
+    );
+    await expect(page.getByRole("combobox").nth(1)).toHaveText("1 year");
+    await expect(page.locator(".recharts-area").first()).toBeVisible();
+    await page.waitForTimeout(1_000);
+
+    await saveCapture(page, "insights-main-1y");
+  });
+
+  test("process insight keeps its periods at 30 days or shorter", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await navigateTo(page, "insights");
+
+    const processTab = page.getByRole("tab", { name: "Process" });
+    await expect(processTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await processTab.click();
+
+    await page.getByRole("combobox").first().click();
+    await expect(page.getByRole("option", { name: "30 days" })).toBeVisible();
+    await expect(page.getByRole("option", { name: "1 year" })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "90 days" })).toHaveCount(0);
+  });
+
   test("insights cooling tab renders the new layout with default period", async ({
     page,
   }) => {

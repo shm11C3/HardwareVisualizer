@@ -21,6 +21,11 @@ describe("describeArchivePeriod", () => {
     expect(describeArchivePeriod(43200)).toEqual({ count: 30, unit: "days" });
   });
 
+  it("describes the long periods in days and years", () => {
+    expect(describeArchivePeriod(129600)).toEqual({ count: 90, unit: "days" });
+    expect(describeArchivePeriod(525600)).toEqual({ count: 1, unit: "years" });
+  });
+
   it("describes every selectable period with a whole count", () => {
     for (const period of archivePeriods) {
       const { count } = describeArchivePeriod(period);

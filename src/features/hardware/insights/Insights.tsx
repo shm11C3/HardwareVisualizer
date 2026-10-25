@@ -24,6 +24,7 @@ import type { DataStats } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import type { GpuDataType } from "@/types/chart";
+import { RetentionNote } from "./components/RetentionNote";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { CoolingInsightView } from "./cooling/CoolingInsightView";
 import { SnapshotIcon } from "./icons/SnapshotIcon";
@@ -138,6 +139,7 @@ const MainInsights = () => {
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
       </div>
+      <RetentionNote periods={selections} />
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         {chartData.map((data) => {
@@ -280,6 +282,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
       </div>
+      <RetentionNote periods={selections} />
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         {chartData.map((data) => (

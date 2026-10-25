@@ -1,7 +1,8 @@
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
+const MINUTES_PER_YEAR = 365 * MINUTES_PER_DAY;
 
-export type ArchivePeriodUnit = "minutes" | "hours" | "days";
+export type ArchivePeriodUnit = "minutes" | "hours" | "days" | "years";
 
 export type ArchivePeriodDescription = {
   count: number;
@@ -16,6 +17,9 @@ export type ArchivePeriodDescription = {
 export const describeArchivePeriod = (
   minutes: number,
 ): ArchivePeriodDescription => {
+  if (minutes % MINUTES_PER_YEAR === 0) {
+    return { count: minutes / MINUTES_PER_YEAR, unit: "years" };
+  }
   if (minutes % MINUTES_PER_DAY === 0) {
     return { count: minutes / MINUTES_PER_DAY, unit: "days" };
   }
