@@ -109,6 +109,7 @@ shared enforcement surface.
 - [Keep shared rules agent-neutral](keep-shared-rules-agent-neutral.md)
 - [Make navigation levels explicit](make-navigation-levels-explicit.md)
 - [Separate release integrity from vulnerability exposure](separate-release-integrity-from-vulnerability-exposure.md)
+- [Use UTC dates in release assessments](release-assessment-utc-dates.md)
 - [Deliver pull requests through review](deliver-pull-requests-through-review.md)
 - [Keep required CodeQL configurations present on pull requests](keep-required-codeql-configurations-on-pull-requests.md)
 - [Keep shared system refresh ownership explicit](keep-shared-system-refresh-ownership-explicit.md)
