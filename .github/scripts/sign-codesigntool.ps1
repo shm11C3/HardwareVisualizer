@@ -36,41 +36,60 @@ if (-not $env:ES_TOTP_SECRET) { throw "ES_TOTP_SECRET is not set" }
 $absInput = (Resolve-Path -LiteralPath $FilePath).Path
 
 $tempBase = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
-$outDir = Join-Path $tempBase ("codesign-" + [System.Guid]::NewGuid().ToString("N"))
-New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-
-$signArgs = @(
-  "sign",
-  "-username=$($env:ES_USERNAME)",
-  "-password=$($env:ES_PASSWORD)",
-  "-input_file_path=$absInput",
-  "-output_dir_path=$outDir"
-)
-$signArgs += "-totp_secret=$($env:ES_TOTP_SECRET)"
-# credential_id is only required when the eSigner account has more than one certificate.
-if ($env:CREDENTIAL_ID) { $signArgs += "-credential_id=$($env:CREDENTIAL_ID)" }
-
-Write-Host "Signing with CodeSignTool: $absInput"
-
-# CodeSignTool.bat can only run from inside its own directory.
-Push-Location $toolDir
+$tempBase = [System.IO.Path]::GetFullPath($tempBase)
+$workDir = Join-Path $tempBase ("codesign-" + [System.Guid]::NewGuid().ToString("N"))
+$outDir = Join-Path $workDir "signed"
 try {
-  & ".\CodeSignTool.bat" @signArgs
-  $code = $LASTEXITCODE
+  New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+  $signInput = $absInput
+  if ([System.IO.Path]::GetExtension($absInput) -eq ".tmp") {
+    # NSIS !uninstfinalize supplies a PE uninstaller named nst*.tmp, but
+    # CodeSignTool rejects that extension. Sign a copy as .exe, then restore
+    # the signed bytes to NSIS's original path. Keep input outside the output
+    # directory so an exit-0 signing error cannot pass the artifact check.
+    $inputDir = Join-Path $workDir "input"
+    New-Item -ItemType Directory -Path $inputDir | Out-Null
+    $signInput = Join-Path $inputDir ([System.IO.Path]::ChangeExtension([System.IO.Path]::GetFileName($absInput), ".exe"))
+    Copy-Item -LiteralPath $absInput -Destination $signInput
+  }
+
+  $signArgs = @(
+    "sign",
+    "-username=$($env:ES_USERNAME)",
+    "-password=$($env:ES_PASSWORD)",
+    "-input_file_path=$signInput",
+    "-output_dir_path=$outDir"
+  )
+  $signArgs += "-totp_secret=$($env:ES_TOTP_SECRET)"
+  # credential_id is only required when the eSigner account has more than one certificate.
+  if ($env:CREDENTIAL_ID) { $signArgs += "-credential_id=$($env:CREDENTIAL_ID)" }
+
+  Write-Host "Signing with CodeSignTool: $absInput"
+
+  # CodeSignTool.bat can only run from inside its own directory.
+  Push-Location $toolDir
+  try {
+    & ".\CodeSignTool.bat" @signArgs
+    $code = $LASTEXITCODE
+  }
+  finally {
+    Pop-Location
+  }
+
+  $signedFile = Join-Path $outDir ([System.IO.Path]::GetFileName($signInput))
+
+  # CodeSignTool sometimes exits 0 while printing an error and producing no output,
+  # so verify the signed artifact actually exists before trusting the result.
+  if ($code -ne 0 -or -not (Test-Path -LiteralPath $signedFile -PathType Leaf)) {
+    throw "CodeSignTool failed (exit code $code) for: $absInput"
+  }
+
+  Move-Item -LiteralPath $signedFile -Destination $absInput -Force
+  Write-Host "Signed: $absInput"
 }
 finally {
-  Pop-Location
+  if ([System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath($workDir)).TrimEnd('\', '/') -ne $tempBase.TrimEnd('\', '/')) {
+    throw "Refusing to remove a signing workspace outside its temporary directory"
+  }
+  Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
 }
-
-$signedFile = Join-Path $outDir ([System.IO.Path]::GetFileName($absInput))
-
-# CodeSignTool sometimes exits 0 while printing an error and producing no output,
-# so verify the signed artifact actually exists before trusting the result.
-if ($code -ne 0 -or -not (Test-Path -LiteralPath $signedFile)) {
-  Remove-Item -Recurse -Force $outDir -ErrorAction SilentlyContinue
-  throw "CodeSignTool failed (exit code $code) for: $absInput"
-}
-
-Move-Item -LiteralPath $signedFile -Destination $absInput -Force
-Remove-Item -Recurse -Force $outDir -ErrorAction SilentlyContinue
-Write-Host "Signed: $absInput"
