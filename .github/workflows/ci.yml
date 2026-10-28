@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - develop
+      - 1.11.x
 
 # Only superseded PR runs share a group. Push/scheduled runs keep warming caches.
 concurrency:

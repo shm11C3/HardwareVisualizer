@@ -42,6 +42,7 @@ documentation.
 - [CI telemetry](development/ci-telemetry.md)
 - [Download verification](download-verification.md)
 - [Release vulnerability response](security/release-vulnerability-response.md)
+- [v1.11.3 release preparation](release/v1.11.3.md)
 - [Documentation guide](documentation-guide.md)
 - [Shared agent rules](../.agents/rules/README.md)
 - [AI learning records](agents/lessons/)
