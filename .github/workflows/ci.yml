@@ -50,10 +50,11 @@ jobs:
         run: echo "is_push=${{ github.event_name == 'push' }}" >> "$GITHUB_OUTPUT"
         shell: bash
 
+      # On push, paths-filter fetches refs into this checkout. These two
+      # invocations must not compete for .git/shallow.lock.
       - name: Check changed files
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: changes
-        background: true
         with:
           filters: |
             frontend:
@@ -144,7 +145,6 @@ jobs:
       - name: Check unclassified changed files
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: unclassified
-        background: true
         with:
           predicate-quantifier: "some-with-excludes"
           filters: |
@@ -689,18 +689,15 @@ jobs:
 
       - name: Setup Node.js
         if: ${{ github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true' }}
-        background: true
         uses: ./.github/actions/setup-node
 
+      # Parallel composite setup actions can race while the Windows runner
+      # rewrites its shared event.json. Complete each setup before the next.
       - name: Setup Rust
-        background: true
         uses: ./.github/actions/setup-rust
         with:
           components: ""
           cache-key: tauri-build
-
-      - name: Wait for toolchain setup
-        wait-all: true
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
@@ -757,25 +754,19 @@ jobs:
         uses: ./.github/actions/ci-telemetry
 
       - name: Cache WiX binary
-        background: true
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~\AppData\Local\tauri\WixTools
           key: tauri-wix-314
 
       - name: Setup Node.js
-        background: true
         uses: ./.github/actions/setup-node
 
       - name: Setup Rust
-        background: true
         uses: ./.github/actions/setup-rust
         with:
           components: ""
           cache-key: tauri-build
-
-      - name: Wait for toolchain setup
-        wait-all: true
 
       - name: Cache sccache (R2)
         if: env.R2_CACHE_ALLOWED == 'true'
