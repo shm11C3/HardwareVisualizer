@@ -97,3 +97,8 @@ finally {
   }
   if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
 }
+
+# GitHub Actions propagates LASTEXITCODE after invoking a PowerShell script.
+# Negative cases intentionally leave it nonzero; report success only after
+# every assertion and cleanup above has completed without throwing.
+exit 0
