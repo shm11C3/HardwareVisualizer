@@ -61,7 +61,7 @@ workflows:
         - 'marocchino/sticky-pull-request-comment@v3.0.5'
         - 'mozilla-actions/sccache-action@v0.0.11'
         - 'swatinem/rust-cache@v2.9.3'
-        - 'taiki-e/install-action@v2.87.29'
+        - 'taiki-e/install-action@v2.87.32'
         - 'tauri-apps/tauri-action@v1.0.0'
     '.github/workflows/claude.yml':
         - 'actions/checkout@v7.0.1'
@@ -244,9 +244,9 @@ dependencies:
         commit: 'sha1-d1527c8f67ef9af357290475d4af4b0fab8f12e0'
         owner_id: 580492
         repo_id: 298565987
-    'taiki-e/install-action@v2.87.29':
-        ref: 'v2.87.29'
-        commit: 'sha1-8cca0918f8471c33515202b73f56ab27f2bed283'
+    'taiki-e/install-action@v2.87.32':
+        ref: 'v2.87.32'
+        commit: 'sha1-5488ac5a951645ce95062214902ac4b6bc1a1037'
         owner_id: 43724913
         repo_id: 442947557
     'tauri-apps/tauri-action@v1.0.0':
