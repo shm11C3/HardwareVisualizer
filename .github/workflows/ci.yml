@@ -119,6 +119,8 @@ jobs:
             windows-installer:
               - 'src-tauri/windows/**'
               - 'src-tauri/tauri.conf.json'
+              - '.github/scripts/sign-codesigntool.ps1'
+              - '.github/scripts/test-sign-codesigntool.ps1'
               - '.github/workflows/ci.yml'
             actions:
               - '.github/workflows/**'
@@ -768,6 +770,10 @@ jobs:
 
       - name: Start CI telemetry
         uses: $/.github/actions/ci-telemetry
+
+      - name: Test CodeSignTool wrapper
+        shell: pwsh
+        run: ./.github/scripts/test-sign-codesigntool.ps1
 
       - name: Cache WiX binary
         background: true

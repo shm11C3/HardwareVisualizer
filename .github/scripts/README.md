@@ -42,6 +42,7 @@ directory is the owner.
 | `generate-release-checksums.sh` | `publish.yml` |
 | `merge-gate.ts` | `ci.yml` merge gate |
 | `sign-codesigntool.ps1` | `publish.yml` (Tauri `signCommand`) |
+| `test-sign-codesigntool.ps1` | `ci.yml` Windows installer validation |
 | `tauri-updater.sh` | `auto-update-tauri.yml` |
 | `update-tauri-config.ts` | `publish.yml` |
 | `update-winget-license.mjs` | `winget.yml` |
