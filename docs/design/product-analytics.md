@@ -437,33 +437,37 @@ waits for an upload. The command boundary:
   command, runtime change and settings write together, runs under one
   consent lock held by the analytics service, so two transitions never
   interleave: a grant that arrives during a decline waits until the decline
-  has persisted, then runs in full, and the last transition to complete is
-  both the persisted decision and the one that controls flush admission.
-  The flush loop and `record_product_event` do not take this lock; they read
-  the generation and snapshot under the shorter service lock that guards
-  counters and the queue. Within a command, the order of persistence and
-  runtime change
-  depends on the direction, so that either step failing leaves the
-  installation sending nothing. A decline is
-  effective in the runtime first: before any persistence operation can
-  yield, the analytics service atomically invalidates flush admission by
-  advancing a consent generation under the service lock, aborts any
-  in-flight request the same way shutdown does, then clears counters and the
-  queue. Only then does the settings service persist the transition. If that
-  write fails, the runtime stays declined for the rest of the process, the
-  command returns the error like any other settings write, and the Settings
-  surface reflects the persisted state so the user can retry. A grant or
-  renew persists first and reloads the runtime snapshot second, so nothing is
-  ever sent for a consent that is not on disk. A flush seals its batch and
-  reads the generation under the same
-  lock, and re-checks that generation immediately before starting transport;
-  if it changed, the flush ends without a request. A flush that already
-  completed its request re-checks the generation again before touching
-  service state, so a stale completion cannot repopulate a cleared queue or
-  the reported day and month. Bytes already delivered cannot be recalled: a
-  request that completed before the abort is counted by the service for its
-  period, and the notice says so. Grant and renew schedule the immediate
-  flush.
+  has finished, then runs in full. After a transition that completes
+  successfully, the persisted decision and the decision that controls flush
+  admission are the same one, and the last successful transition wins. A
+  transition whose settings write fails is not such a transition: it fails
+  closed for the current process, as described below, and leaves the
+  persisted decision unchanged. The flush loop and `record_product_event`
+  do not take the consent lock; they read the generation and snapshot under
+  the shorter service lock that guards counters and the queue.
+
+  Within a command, the order of persistence and runtime change depends on
+  the direction, so that either step failing leaves the installation sending
+  nothing. A decline is effective in the runtime first: before any
+  persistence operation can yield, the analytics service atomically
+  invalidates flush admission by advancing a consent generation under the
+  service lock, aborts any in-flight request the same way shutdown does, then
+  clears counters and the queue. Only then does the settings service persist
+  the transition. If that write fails, flush admission stays closed for the
+  rest of the process, the persisted decision stays `granted`, the command
+  returns the error like any other settings write, and the Settings surface
+  reflects the persisted state so the user can retry. A grant or renew
+  persists first and reloads the runtime snapshot second, so nothing is ever
+  sent for a consent that is not on disk.
+
+  A flush seals its batch and reads the generation under the service lock,
+  and re-checks that generation immediately before starting transport; if it
+  changed, the flush ends without a request. A flush that already completed
+  its request re-checks the generation again before touching service state,
+  so a stale completion cannot repopulate a cleared queue or the reported day
+  and month. Bytes already delivered cannot be recalled: a request that
+  completed before the abort is counted by the service for its period, and
+  the notice says so. Grant and renew schedule the immediate flush.
 
 Commands stay thin: enforcement lives in the service, and the backend checks
 consent on every event even though the frontend hook also checks it.
@@ -659,7 +663,7 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 | --- | --- |
 | Default is disabled for new and upgraded installations | Settings service test: absent key and legacy files parse to `undecided`; invalid section recovers to `undecided` |
 | Unknown keys survive | Existing `serialize_preserving_unknown_settings` test extended with the new section, plus a Core-owned key beside it |
-| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call; a decline during an in-flight request aborts it and the double sees no completion; a flush that read `granted` before a decline and reaches transport admission after it makes no call (the test holds the flush between sealing and admission with an injected gate, then declines); a completion that lands after a decline leaves the queue and `reportedDay`/`reportedMonth` untouched; with a settings-write double that blocks, a decline followed by a flush attempting admission makes no call while the write is still pending, and a failing write leaves the runtime declined; a grant or renew started while a decline is in progress completes after it, and overlapping decline/grant and decline/renew pairs in both orders end with the persisted decision and flush admission agreeing. Plus one manual network trace on a release build, recorded in the PR |
+| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call; a decline during an in-flight request aborts it and the double sees no completion; a flush that read `granted` before a decline and reaches transport admission after it makes no call (the test holds the flush between sealing and admission with an injected gate, then declines); a completion that lands after a decline leaves the queue and `reportedDay`/`reportedMonth` untouched; with a settings-write double that blocks, a decline followed by a flush attempting admission makes no call while the write is still pending, a decline whose settings write fails leaves flush admission closed (the next flush makes no call) and the persisted decision unchanged at `granted`; a grant or renew started while a decline is in progress completes after it, and overlapping decline/grant and decline/renew pairs in both orders, with every write succeeding, end with the persisted decision and flush admission agreeing. Plus one manual network trace on a release build, recorded in the PR |
 | Sealed-batch retry policy | Unit test: network error, timeout, `429`, and `5xx` keep the head batch; `400` and `413` drop it and the next batch is sent; a batch older than the Worker window is dropped unsent |
 | Month token once per month | Unit test: with a persisted `reportedMonth`, the second batch of a month omits the month token; a new month seals it again |
 | Version bump requires renewed consent | Service test: `granted` at version 1 with `CURRENT = 2` records nothing and the DTO reports the dialog condition |
