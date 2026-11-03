@@ -75,7 +75,15 @@ test.describe("settings captures", () => {
     await toggle.scrollIntoViewIfNeeded();
     await expect(toggle).toBeEnabled();
     await expect(page.getByText(/Saved as on, but not applied/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Install" })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Install missing files", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", {
+        name: "Install or repair service",
+        exact: true,
+      }),
+    ).toBeDisabled();
     await page.waitForTimeout(400);
 
     await saveCapture(page, "settings-elevation-unprotected");
