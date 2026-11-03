@@ -1073,8 +1073,8 @@ describe("useHardwareEventListener", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
-          const [id] = useAtom(selectedGpuIdAtom);
-          return id;
+          const [selection] = useAtom(selectedGpuIdAtom);
+          return selection;
         },
         { wrapper: Provider },
       );
@@ -1090,15 +1090,16 @@ describe("useHardwareEventListener", () => {
         ),
       );
 
-      expect(result.current).toBe("nvapi:0");
+      // The stream minted this id, so the auto-selection is live, not intent.
+      expect(result.current).toEqual({ kind: "live", id: "nvapi:0" });
     });
 
     it("does not change selectedGpuIdAtom once set", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
-          const [id] = useAtom(selectedGpuIdAtom);
-          return id;
+          const [selection] = useAtom(selectedGpuIdAtom);
+          return selection;
         },
         { wrapper: Provider },
       );
@@ -1108,7 +1109,7 @@ describe("useHardwareEventListener", () => {
         emit(makePayload({ gpus: [makeGpu({ gpuId: "nvapi:1" })] }));
       });
 
-      expect(result.current).toBe("nvapi:0");
+      expect(result.current?.id).toBe("nvapi:0");
     });
 
     it("graphicUsageHistoryAtom resolves to selected GPU history", () => {
@@ -1401,7 +1402,8 @@ describe("useHardwareEventListener", () => {
           useHardwareEventListener();
           const [histories] = useAtom(gpuUsageHistoriesAtom);
           const [names] = useAtom(gpuNamesAtom);
-          const [selectedGpuId] = useAtom(selectedGpuIdAtom);
+          const [selection] = useAtom(selectedGpuIdAtom);
+          const selectedGpuId = selection?.id ?? null;
           const [effectiveHistory] = useAtom(graphicUsageHistoryAtom);
           return { histories, names, selectedGpuId, effectiveHistory };
         },

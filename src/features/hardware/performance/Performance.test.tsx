@@ -2,7 +2,11 @@ import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
+import {
+  asLiveGpuId,
+  type LiveGpuId,
+  liveGpuSelection,
+} from "@/features/hardware/gpuIdentity";
 import {
   gpuDedicatedMemoryKbMapAtom,
   gpuNamesAtom,
@@ -513,7 +517,7 @@ describe("Performance", () => {
 
   it("shows the temperature for the GPU selected by the usage history", () => {
     const store = createStore();
-    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("gpu-2")));
     store.set(
       gpuUsageHistoriesAtom,
       liveMap({
@@ -559,7 +563,7 @@ describe("Performance", () => {
     const store = createStore();
     // A selection left over from an adapter that is no longer detected: it
     // appears in no live map and in no detected list, so it cannot be honored.
-    store.set(selectedGpuIdAtom, asLiveGpuId("removed-gpu"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("removed-gpu")));
     store.set(
       gpuUsageHistoriesAtom,
       liveMap({
@@ -688,7 +692,7 @@ describe("Performance", () => {
       screen.getByRole("button", { name: "Intel UHD Graphics 770" }).click();
     });
 
-    expect(store.get(selectedGpuIdAtom)).toBe("gpu-2");
+    expect(store.get(selectedGpuIdAtom)?.id).toBe("gpu-2");
     expect(gpuMetric).toHaveTextContent("50%");
     expect(gpuMetric).toHaveTextContent("67°C");
     expect(gpuMetric).not.toHaveTextContent("45°C");
@@ -703,7 +707,7 @@ describe("Performance", () => {
       gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
-    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("gpu-2")));
     // gpu-2 named itself in the stream but reported no values at all.
     store.set(
       gpuNamesAtom,
@@ -753,7 +757,7 @@ describe("Performance", () => {
   it("says why a Compact row is dashed when its adapter is silent", () => {
     const store = createStore();
     state.view = "compact";
-    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("gpu-2")));
     store.set(
       gpuNamesAtom,
       liveMap({
@@ -782,7 +786,7 @@ describe("Performance", () => {
       gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
-    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("gpu-2")));
     store.set(
       gpuNamesAtom,
       liveMap({
