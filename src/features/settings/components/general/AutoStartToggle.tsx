@@ -1,39 +1,71 @@
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useOptimistic,
+  useState,
+  useTransition,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { ActionFailure } from "@/components/ActionFailure";
+import { LoadFailure } from "@/components/LoadFailure";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 
 export const AutoStartToggle = () => {
   const { t } = useTranslation();
-  const [autoStartEnabled, setAutoStartEnabled] = useState<boolean | null>(
-    null,
-  );
+  // The last value read from or written to the OS. The switch shows it
+  // through `useOptimistic`, so a write that fails needs no rollback code:
+  // the optimistic value falls away when the transition ends.
+  const [confirmed, setConfirmed] = useState<boolean | null>(null);
+  const [readFailed, setReadFailed] = useState(false);
   const [toggleFailed, setToggleFailed] = useState(false);
+  const [shown, showOptimistically] = useOptimistic(
+    confirmed,
+    (_current, next: boolean) => next,
+  );
+  const [isPending, startTransition] = useTransition();
 
-  const toggleAutoStart = async (value: boolean) => {
-    setAutoStartEnabled(value);
+  const readAutoStart = useCallback(async () => {
+    try {
+      setConfirmed(await isEnabled());
+      setReadFailed(false);
+    } catch (err) {
+      console.error("Failed to read autostart:", err);
+      setReadFailed(true);
+    }
+  }, []);
+
+  const retryRead = () => {
+    setReadFailed(false);
+    void readAutoStart();
+  };
+
+  const toggleAutoStart = (value: boolean) => {
     setToggleFailed(false);
 
-    try {
-      value ? await enable() : await disable();
-    } catch (err) {
-      console.error("Failed to set autostart:", err);
-      setToggleFailed(true);
-      setAutoStartEnabled(!value);
-    }
+    startTransition(async () => {
+      showOptimistically(value);
+
+      try {
+        value ? await enable() : await disable();
+        // Updates after an `await` leave the action's transition, so the
+        // confirmed value is committed together with the optimistic one
+        // falling away.
+        startTransition(() => {
+          setConfirmed(value);
+        });
+      } catch (err) {
+        console.error("Failed to set autostart:", err);
+        setToggleFailed(true);
+      }
+    });
   };
 
   useEffect(() => {
-    const checkAutoStart = async () => {
-      const enabled = await isEnabled();
-      setAutoStartEnabled(enabled);
-    };
-
-    checkAutoStart();
-  }, []);
+    void readAutoStart();
+  }, [readAutoStart]);
 
   return (
     <div className="w-full py-6 xl:w-1/3">
@@ -44,9 +76,19 @@ export const AutoStartToggle = () => {
           </Label>
         </div>
 
-        {autoStartEnabled != null ? (
+        {readFailed ? (
+          <LoadFailure
+            message={t("shared.loadFailed")}
+            onRetry={retryRead}
+            className="h-auto w-auto items-end"
+          />
+        ) : shown != null ? (
+          // A write in flight blocks further toggles: two overlapping OS
+          // writes could finish in either order and leave the switch showing
+          // a value the OS does not have.
           <Switch
-            checked={autoStartEnabled}
+            checked={shown}
+            disabled={isPending}
             onCheckedChange={toggleAutoStart}
           />
         ) : (
