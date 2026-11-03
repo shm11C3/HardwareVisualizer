@@ -16,6 +16,7 @@ import { isOk } from "@/types/result";
  * in the tray for days, so a startup-only check would leave it on an old
  * version until the next launch. Only the startup check opens the update
  * dialog; a later one updates the side menu entry so it does not interrupt.
+ * A failed install reopens it so the error stays visible.
  */
 export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
@@ -155,6 +156,8 @@ export function useUpdater() {
       setInstallError(failure);
 
       if (failure.kind === "before-shutdown") {
+        // The modal shows this error, so a dismissed dialog reopens for it.
+        setUpdateDialogOpen(true);
         markInstallStarted(false);
         // install_update consumes PendingUpdate before downloading. Recheck
         // after a download failure so the update button can retry with a new
@@ -175,6 +178,9 @@ export function useUpdater() {
       setInstalling(false);
       setIsFinished(false);
       setInstallError({ kind, message });
+      // Only the modal shows a before-shutdown error; restart-required has its
+      // own non-dismissible dialog.
+      if (kind === "before-shutdown") setUpdateDialogOpen(true);
     }
   };
 

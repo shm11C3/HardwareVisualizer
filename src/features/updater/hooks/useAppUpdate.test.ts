@@ -172,6 +172,37 @@ describe("useUpdater", () => {
     expect(result.current.meta?.version).toBe("2.0.0");
   });
 
+  it("install: reopens a dismissed dialog so a failed install stays visible", async () => {
+    (commands.installUpdate as Mock).mockResolvedValue({
+      status: "error",
+      error: { Updater: "network failure" },
+    });
+
+    const { result } = renderUpdater();
+    expect(store.get(updateDialogOpenAtom)).toBe(false);
+
+    await act(async () => {
+      await result.current.install();
+    });
+
+    expect(store.get(updateDialogOpenAtom)).toBe(true);
+  });
+
+  it("install: leaves the dialog closed for a restart-required failure", async () => {
+    (commands.installUpdate as Mock).mockResolvedValue({
+      status: "error",
+      error: { RestartRequired: "installer handoff failed" },
+    });
+
+    const { result } = renderUpdater();
+
+    await act(async () => {
+      await result.current.install();
+    });
+
+    expect(store.get(updateDialogOpenAtom)).toBe(false);
+  });
+
   it("install: requires an explicit restart after a post-shutdown failure", async () => {
     (commands.installUpdate as Mock).mockResolvedValue({
       status: "error",

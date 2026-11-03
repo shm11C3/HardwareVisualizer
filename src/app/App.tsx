@@ -1,4 +1,10 @@
-import { Suspense, useCallback, useEffect, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useState,
+} from "react";
 import {
   ChartTemplate,
   CpuUsages,
@@ -123,7 +129,6 @@ const AppContent = () => {
   const [opacity, setOpacity] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsSettled, setSettingsSettled] = useState(false);
-  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [performanceContext, setPerformanceContext] =
     useState<PerformanceGuidanceContext>({
       settled: false,
@@ -161,6 +166,13 @@ const AppContent = () => {
     return () => clearTimeout(fadeOutTimeout);
   }, [nextImage]);
 
+  // Settings that cannot be read are an app-level failure (the screens run on
+  // defaults), so this stays a dialog. Reported once per failed load. An Effect
+  // Event reads the latest `error`/`t` without re-running the load below.
+  const reportSettingsLoadFailed = useEffectEvent(() => {
+    void error(t("shared.settingsLoadFailed"));
+  });
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -175,7 +187,7 @@ const AppContent = () => {
           didLoadSettings.status === "fulfilled" && didLoadSettings.value;
         setSettingsLoaded(loaded);
         setSettingsSettled(true);
-        setSettingsLoadFailed(!loaded);
+        if (!loaded) reportSettingsLoadFailed();
       }
 
       if (backgroundResult.status === "rejected") {
@@ -189,14 +201,6 @@ const AppContent = () => {
       isCancelled = true;
     };
   }, [loadSettings, initBackgroundImage]);
-
-  // Settings that cannot be read are an app-level failure (the screens run on
-  // defaults), so this stays a dialog. Reported once per failed load.
-  useEffect(() => {
-    if (!settingsLoadFailed) return;
-    setSettingsLoadFailed(false);
-    void error(t("shared.settingsLoadFailed"));
-  }, [settingsLoadFailed, error, t]);
 
   const displayTarget = useAtomValue(displayTargetAtom);
 

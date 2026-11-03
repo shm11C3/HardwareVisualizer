@@ -72,16 +72,21 @@ export const useSnapshot = () => {
 
   const [memoryRange, setMemoryRange] = useState<UsageRange>({
     type: "memory",
-    value: [0, 32768], // Default 0MB - 32GB range
+    value: [0, selectedMemoryMaxMB],
   });
 
-  // Update memoryRange max value when memory max selection changes
-  useEffect(() => {
-    setMemoryRange((prev) => ({
-      ...prev,
-      value: [prev.value[0], selectedMemoryMaxMB],
-    }));
-  }, [selectedMemoryMaxMB]);
+  // The range max follows the selected max (a user choice, or the device total
+  // arriving later) but stays user-adjustable in between, so it is state rather
+  // than derived. Adjusting it during render avoids an extra effect pass.
+  const [syncedMemoryMaxMB, setSyncedMemoryMaxMB] =
+    useState(selectedMemoryMaxMB);
+  if (syncedMemoryMaxMB !== selectedMemoryMaxMB) {
+    setSyncedMemoryMaxMB(selectedMemoryMaxMB);
+    setMemoryRange({
+      ...memoryRange,
+      value: [memoryRange.value[0], selectedMemoryMaxMB],
+    });
+  }
 
   /** Maximum number of data points to display in the chart. */
   const BUCKET_COUNT = 100;

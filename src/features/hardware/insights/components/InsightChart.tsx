@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import { LoadFailure } from "@/components/LoadFailure";
@@ -140,19 +140,17 @@ export const GpuInsightChart = ({
   dataStats,
   offset,
   gpuName,
-  onDataAvailabilityChange,
 }: {
   dataType: GpuDataType;
   period: (typeof archivePeriods)[number];
   dataStats: DataStats;
   offset: number;
   gpuName: string;
-  onDataAvailabilityChange?: (hasData: boolean) => void;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
-  const { labels, chartData, hasData, hasError, retry } = useInsightChart({
+  const { labels, chartData, hasError, retry } = useInsightChart({
     hardwareType: "gpu",
     dataStats,
     dataType,
@@ -160,10 +158,6 @@ export const GpuInsightChart = ({
     offset,
     gpuName,
   });
-
-  useEffect(() => {
-    onDataAvailabilityChange?.(hasData);
-  }, [hasData, onDataAvailabilityChange]);
 
   const chartConfig: Record<GpuDataType, { label: string; color: string }> = {
     usage: {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeedRestart } from "@/components/NeedRestart";
 import {
@@ -77,14 +77,6 @@ function AppUpdateModal({
   const { t } = useTranslation();
   const { isUpdateDialogOpen: open, setUpdateDialogOpen: setOpen } =
     useUpdateDialog();
-
-  // The updater opens the dialog for the startup check and the side menu for
-  // a later one; a failed install reopens it so the error stays visible.
-  useEffect(() => {
-    if (errorMessage) {
-      setOpen(true);
-    }
-  }, [errorMessage, setOpen]);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>

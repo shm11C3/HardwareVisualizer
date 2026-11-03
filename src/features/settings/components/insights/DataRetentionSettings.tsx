@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
@@ -41,9 +41,15 @@ export const DataRetentionSettings = () => {
   const [storageHealthRetentionInput, setStorageHealthRetentionInput] =
     useState(() => String(storageHealthRetentionDays));
 
-  useEffect(() => {
+  // Reset the draft when the stored value changes (e.g. a save was normalized
+  // or rolled back). Adjusting state during render avoids an extra effect pass.
+  const [syncedRetentionDays, setSyncedRetentionDays] = useState(
+    storageHealthRetentionDays,
+  );
+  if (syncedRetentionDays !== storageHealthRetentionDays) {
+    setSyncedRetentionDays(storageHealthRetentionDays);
     setStorageHealthRetentionInput(String(storageHealthRetentionDays));
-  }, [storageHealthRetentionDays]);
+  }
 
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRetentionDays(value);

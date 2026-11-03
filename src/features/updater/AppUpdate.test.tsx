@@ -194,7 +194,7 @@ describe("AppUpdate", () => {
       installError: { kind: "before-shutdown", message: "network failure" },
     });
 
-    renderAppUpdate();
+    renderAppUpdate({ dialogOpen: true });
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Update failed: network failure",

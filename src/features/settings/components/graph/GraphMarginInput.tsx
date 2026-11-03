@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Input } from "@/components/ui/input";
@@ -18,9 +18,13 @@ export const GraphMarginInput = () => {
     String(settings.graphMarginPx),
   );
 
-  useEffect(() => {
+  // Reset the draft when the stored value changes (e.g. a save was normalized
+  // or rolled back). Adjusting state during render avoids an extra effect pass.
+  const [syncedMarginPx, setSyncedMarginPx] = useState(settings.graphMarginPx);
+  if (syncedMarginPx !== settings.graphMarginPx) {
+    setSyncedMarginPx(settings.graphMarginPx);
     setMarginInput(String(settings.graphMarginPx));
-  }, [settings.graphMarginPx]);
+  }
 
   const parseMarginPx = (value: string) => {
     const trimmed = value.trim();
