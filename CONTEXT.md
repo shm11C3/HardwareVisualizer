@@ -261,7 +261,7 @@ For a Consent Cohort and a later month, the month's Active Installations that ca
 _Avoid_: retention rate, user retention, install retention, churn rate, continuation rate
 
 **Flag Census**:
-The number of accepted batches that carried a State Flag set for a UTC day and OS family, which is one per reporting installation. It is the only denominator for State Flag rates.
+The number of accepted batches that carried a State Flag set for a UTC day and OS family. The client sends at most one such batch per installation per day, but the service counts batches and cannot verify that. It is the only denominator for State Flag rates.
 _Avoid_: active installations (as a flag denominator), flag total, sample size
 
 **Hardware Compatibility Report**:

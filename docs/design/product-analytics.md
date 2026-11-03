@@ -101,7 +101,8 @@ continuation rate
 
 **Flag Census**:
 The number of accepted batches that carried a State Flag set for a UTC day
-and OS family, which is one per reporting installation. It is the only
+and OS family. The client sends at most one such batch per installation per
+day, but the service counts batches and cannot verify that. It is the only
 denominator for State Flag rates.
 _Avoid_: active installations (as a flag denominator), flag total, sample size
 
@@ -710,7 +711,7 @@ case instead of correcting for it silently.
 | Missing | Opt-in only; sessions shorter than the first flush; blocked or offline networks; queue overflow; terminal `4xx`; batches outside the day window; clocks skewed beyond it; counters lost at shutdown; flags or month token lost with their batch | Undercount; short sessions and restricted networks are under-represented | Not corrected. Census coverage and rejection counters are published; reading rules apply |
 | Repeated batch | A lost response retried with the same id | None | Batch ids are kept 7 days and the day window is 2 days, so every retry the Worker accepts falls inside deduplication |
 | Repeated token | Several batches in one period | None | Token rows are unique per period |
-| Repeated flags | A restart, or a clock set backwards | None | The client seals flags only for a day later than `reportedDay` |
+| Repeated flags | A restart, or a clock set backwards | None while the client rule holds. If it fails, the census and that installation's flag totals grow together, so the installation is over-weighted in that day's rates | The client seals flags only for a day later than `reportedDay`; the service cannot detect a repeat |
 | Split installation | Re-grant, settings reset, reinstall | One machine counts twice in that period and appears to leave its cohort | Accepted; undetectable without a persistent identifier |
 | Merged installation | A settings file restored or cloned onto another machine | Two machines count once | Accepted |
 | Fabricated batch | The endpoint is unauthenticated; anyone can post schema-valid batches with random tokens, versions, and flags | Inflates any count, rate, or cohort | Bounded, not prevented: edge rate limiting; strict schema, exclusive-group, OS, and count checks reject malformed batches; rejection counters show refused volume; an anomaly review can mark a period suspect |

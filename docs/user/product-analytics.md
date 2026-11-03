@@ -19,7 +19,8 @@ includes it earlier than 30 days after this notice was merged.
 ## What product analytics is
 
 Aggregate counts that help the maintainer see how many installations are
-active, how many of one month's new installations are still active later,
+active, how many of the installations that opted in during one month are
+still active later,
 which screens and features are used or left switched off, and on which
 hardware vendor classes and sensor providers the app runs.
 
