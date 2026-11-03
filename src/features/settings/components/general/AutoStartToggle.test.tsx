@@ -6,6 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@/lib/i18n";
 import { AutoStartToggle } from "@/features/settings/components/general/AutoStartToggle";
@@ -118,5 +119,40 @@ describe("AutoStartToggle", () => {
     await waitFor(() => expect(screen.getByRole("switch")).toBeChecked());
     await waitFor(() => expect(screen.getByRole("switch")).toBeEnabled());
     expect(screen.queryByTestId("action-failure")).toBeNull();
+  });
+
+  // Protects: StrictMode runs the mount read twice; a superseded read that
+  // rejects after the newer one succeeded must not replace the switch with
+  // the failure state.
+  it("ignores a superseded read that rejects after a newer read succeeded", async () => {
+    let rejectFirst: (reason: Error) => void = () => {};
+    let resolveSecond: (value: boolean) => void = () => {};
+    mocks.isEnabled
+      .mockReturnValueOnce(
+        new Promise<boolean>((_resolve, reject) => {
+          rejectFirst = reject;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+          resolveSecond = resolve;
+        }),
+      );
+
+    render(
+      <StrictMode>
+        <AutoStartToggle />
+      </StrictMode>,
+    );
+    await waitFor(() => expect(mocks.isEnabled).toHaveBeenCalledTimes(2));
+
+    resolveSecond(true);
+    expect(await screen.findByRole("switch")).toBeChecked();
+
+    rejectFirst(new Error("stale failure"));
+    await waitFor(() => expect(console.error).toHaveBeenCalled());
+
+    expect(screen.getByRole("switch")).toBeChecked();
+    expect(screen.queryByTestId("load-failure")).toBeNull();
   });
 });

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useOptimistic,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -26,14 +27,24 @@ export const AutoStartToggle = () => {
     (_current, next: boolean) => next,
   );
   const [isPending, startTransition] = useTransition();
+  const readIdRef = useRef(0);
 
   const readAutoStart = useCallback(async () => {
+    const readId = readIdRef.current + 1;
+    readIdRef.current = readId;
+
     try {
-      setConfirmed(await isEnabled());
-      setReadFailed(false);
+      const enabled = await isEnabled();
+      if (readIdRef.current === readId) {
+        setConfirmed(enabled);
+        setReadFailed(false);
+      }
     } catch (err) {
       console.error("Failed to read autostart:", err);
-      setReadFailed(true);
+      // A superseded read must not flip the state.
+      if (readIdRef.current === readId) {
+        setReadFailed(true);
+      }
     }
   }, []);
 
@@ -65,6 +76,10 @@ export const AutoStartToggle = () => {
 
   useEffect(() => {
     void readAutoStart();
+
+    return () => {
+      readIdRef.current += 1;
+    };
   }, [readAutoStart]);
 
   return (
