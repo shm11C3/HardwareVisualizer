@@ -41,7 +41,7 @@ export const ElevatedStartupModeToggle = () => {
     <div className="w-full py-6 xl:w-1/2">
       <div className="flex w-full items-center justify-between gap-4">
         <div className="flex items-start gap-3">
-          <ShieldIcon className="mt-1 size-5 shrink-0 text-muted-foreground" />
+          <ShieldIcon className="text-muted-foreground mt-1 size-5 shrink-0" />
           <div className="space-y-1">
             <Label htmlFor="elevatedStartupMode" className="text-lg">
               {t("pages.settings.advanced.elevatedStartupMode.name")}
@@ -50,7 +50,7 @@ export const ElevatedStartupModeToggle = () => {
               {t("pages.settings.advanced.elevatedStartupMode.description")}
             </p>
             {note && (
-              <p className="text-amber-600 text-sm dark:text-amber-400">
+              <p className="text-sm text-amber-600 dark:text-amber-400">
                 {note}
               </p>
             )}

@@ -69,7 +69,7 @@ const graphVariants = tv({
 const chartAreaVariants = tv({
   variants: {
     border: {
-      true: "border-2 rounded-xl border-slate-400 dark:border-zinc-600 py-6",
+      true: "rounded-xl border-2 border-slate-400 py-6 dark:border-zinc-600",
     },
   },
 });

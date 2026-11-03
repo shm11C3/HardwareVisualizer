@@ -297,7 +297,7 @@ export const ExternalComponentGuidanceDialog = ({
 
   return (
     <AlertDialog open>
-      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto text-foreground">
+      <AlertDialogContent className="text-foreground max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <AlertDialogHeader>
           <AlertDialogTitle>
             {t("externalComponentGuidance.title")}
@@ -371,7 +371,7 @@ export const ExternalComponentGuidanceDialog = ({
 
 const GuidanceRow = ({ label, value }: { label: string; value: string }) => (
   <div className="space-y-1">
-    <div className="font-medium text-foreground text-sm">{label}</div>
+    <div className="text-foreground text-sm font-medium">{label}</div>
     <div className="text-muted-foreground text-sm leading-relaxed">{value}</div>
   </div>
 );

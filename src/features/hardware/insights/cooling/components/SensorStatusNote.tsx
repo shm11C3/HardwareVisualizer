@@ -19,7 +19,7 @@ export const SensorStatusNote = () => {
 
   return (
     <div
-      className="space-y-1 px-1 text-muted-foreground text-xs"
+      className="text-muted-foreground space-y-1 px-1 text-xs"
       data-testid="cooling-sensor-status-note"
     >
       {groups.map(({ notice, scope }) => (

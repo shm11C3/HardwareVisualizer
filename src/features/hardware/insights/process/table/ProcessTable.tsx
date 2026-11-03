@@ -129,7 +129,7 @@ export const ProcessTable = ({
 
   return (
     <div
-      className="rounded-md bg-card-non-transparent p-4 text-foreground shadow-md"
+      className="bg-card-non-transparent text-foreground rounded-md p-4 shadow-md"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -177,7 +177,7 @@ export const ProcessTable = ({
             </Button>
             <select
               aria-label={t("pages.insights.process.pagination.page")}
-              className="h-9 rounded-md border border-border bg-background px-2 text-foreground"
+              className="border-border bg-background text-foreground h-9 rounded-md border px-2"
               value={page}
               onChange={(event) =>
                 setPageState({ period, page: Number(event.target.value) })
@@ -231,9 +231,9 @@ const InfoTable = ({
   return (
     <>
       <div ref={sentinelRef} className="h-1" />
-      <table className="w-full whitespace-nowrap text-left">
-        <thead className="sticky top-[-1px] bg-card-non-transparent">
-          <tr className="border-gray-700 border-b">
+      <table className="w-full text-left whitespace-nowrap">
+        <thead className="bg-card-non-transparent sticky top-[-1px]">
+          <tr className="border-b border-gray-700">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("pid")}
@@ -324,7 +324,7 @@ const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
           // Archive identity is (pid, process_name); a PID can be reused.
           <tr
             key={JSON.stringify([process.pid, process.process_name])}
-            className="border-gray-700 border-b"
+            className="border-b border-gray-700"
           >
             <td className="py-2 pr-4">{process.pid}</td>
             <td className="py-2 pr-4">{process.process_name}</td>
@@ -354,8 +354,8 @@ const tableHeaderVariants = tv({
   base: "flex transition-all duration-300",
   variants: {
     isStuck: {
-      true: "items-end h-20 mb-2",
-      false: "items-center h-14",
+      true: "mb-2 h-20 items-end",
+      false: "h-14 items-center",
     },
   },
 });

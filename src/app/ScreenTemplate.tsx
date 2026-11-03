@@ -29,7 +29,7 @@ export const ScreenTemplate: React.FC<ScreenTemplateProps> = ({
         <div className="flex items-center">
           {icon != null && icon}
           {title && (
-            <h2 className="py-3 pl-2 font-bold text-3xl text-foreground">
+            <h2 className="text-foreground py-3 pl-2 text-3xl font-bold">
               {title}
             </h2>
           )}

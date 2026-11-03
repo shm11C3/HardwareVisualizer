@@ -40,10 +40,10 @@ const CoverageStripBody = ({ days }: { days: 90 | 365 }) => {
 
   return (
     <section
-      className="rounded-2xl bg-card p-4"
+      className="bg-card rounded-2xl p-4"
       data-testid="cooling-coverage-strip"
     >
-      <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+      <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-[0.18em] uppercase">
         {t("pages.insights.cooling.coverage.title")}
       </h3>
       {trend.kind === "failed" ? (

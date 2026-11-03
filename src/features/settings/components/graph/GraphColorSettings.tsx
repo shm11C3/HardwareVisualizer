@@ -7,7 +7,7 @@ export const GraphColorSettings = () => {
 
   return (
     <div className="py-6">
-      <h4 className="font-bold text-xl">
+      <h4 className="text-xl font-bold">
         {t("pages.settings.customTheme.lineColor")}
       </h4>
       <div className="py-6 md:flex lg:block">

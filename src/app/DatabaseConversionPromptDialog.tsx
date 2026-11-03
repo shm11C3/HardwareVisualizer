@@ -177,7 +177,7 @@ export const DatabaseConversionPromptDialog = ({
 
   return (
     <AlertDialog open={open}>
-      <AlertDialogContent className="max-h-[85vh] overflow-y-auto text-foreground">
+      <AlertDialogContent className="text-foreground max-h-[85vh] overflow-y-auto">
         <AlertDialogHeader>
           <AlertDialogTitle>
             {t("databaseConversionPrompt.title")}

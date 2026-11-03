@@ -171,7 +171,7 @@ export const TrayWidgetSettings = () => {
     DEFAULT_TRAY_WIDGET_SETTINGS.visibleMetrics;
 
   return (
-    <div className="space-y-4 border-[var(--border)] border-t py-6 xl:w-1/2">
+    <div className="space-y-4 border-t border-[var(--border)] py-6 xl:w-1/2">
       <div className="flex w-full items-center justify-between gap-4">
         <div className="space-y-1">
           <Label htmlFor="trayWidgetEnabled" className="text-lg">
@@ -306,7 +306,7 @@ const SortableMetricRow = ({
           aria-label={t("pages.settings.general.trayWidget.dragMetric", {
             metric: metricName,
           })}
-          className="flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] disabled:cursor-default disabled:opacity-50"
+          className="text-muted-foreground flex size-8 cursor-grab items-center justify-center rounded-md transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] disabled:cursor-default disabled:opacity-50"
           disabled={disabled}
           type="button"
         >

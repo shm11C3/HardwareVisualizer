@@ -27,7 +27,7 @@ export const BurnInShiftModeRadio = ({
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="jump" id={radioBurnInShiftJump} />
           <Label
-            className="flex items-center space-x-2 text-md"
+            className="text-md flex items-center space-x-2"
             htmlFor={radioBurnInShiftJump}
           >
             <span>{t("pages.settings.general.burnInShift.mode.jump")}</span>
@@ -36,7 +36,7 @@ export const BurnInShiftModeRadio = ({
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="drift" id={radioBurnInShiftDrift} />
           <Label
-            className="flex items-center space-x-2 text-md"
+            className="text-md flex items-center space-x-2"
             htmlFor={radioBurnInShiftDrift}
           >
             <span>{t("pages.settings.general.burnInShift.mode.drift")}</span>

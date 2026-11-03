@@ -73,7 +73,7 @@ export const TransparentUiSettings = () => {
               <Label htmlFor={transparentUiId} className="text-lg">
                 {t("pages.settings.general.transparentUi.name")}
               </Label>
-              <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs">
+              <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
                 {t("pages.settings.general.transparentUi.experimentalBadge")}
               </span>
             </div>
@@ -103,7 +103,7 @@ export const TransparentUiSettings = () => {
               <Label id={windowOpacityLabelId} className="text-lg">
                 {t("pages.settings.general.transparentUi.opacity")}
               </Label>
-              <span className="font-medium text-muted-foreground text-sm tabular-nums">
+              <span className="text-muted-foreground text-sm font-medium tabular-nums">
                 {settings.windowOpacity}%
               </span>
             </div>
@@ -125,7 +125,7 @@ export const TransparentUiSettings = () => {
               <Label id={glassBlurLabelId} className="text-lg">
                 {t("pages.settings.general.transparentUi.blur")}
               </Label>
-              <span className="font-medium text-muted-foreground text-sm tabular-nums">
+              <span className="text-muted-foreground text-sm font-medium tabular-nums">
                 {isMacOS ? macFrostLevelLabel() : `${settings.glassBlur}px`}
               </span>
             </div>

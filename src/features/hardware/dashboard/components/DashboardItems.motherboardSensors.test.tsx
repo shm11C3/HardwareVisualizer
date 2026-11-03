@@ -52,33 +52,32 @@ vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   }),
 }));
 
-const renderMotherboard = () => {
-  const HydrateAtoms = ({ children }: { children: ReactNode }) => {
-    const temperatures: MotherboardTemperatureValues = [
-      { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
-    ];
-    const fanSpeeds: MotherboardFanSpeedValues = [
-      {
-        name: "SYSFANIN",
-        rpm: 0,
-        status: "inactive",
-        source: "NCT6799D / Super I/O",
-      },
-    ];
+const temperatures: MotherboardTemperatureValues = [
+  { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
+];
+const fanSpeeds: MotherboardFanSpeedValues = [
+  {
+    name: "SYSFANIN",
+    rpm: 0,
+    status: "inactive",
+    source: "NCT6799D / Super I/O",
+  },
+];
 
-    useHydrateAtoms([[motherboardTempsAtom, temperatures]]);
-    useHydrateAtoms([[motherboardFanSpeedsAtom, fanSpeeds]]);
-    return <>{children}</>;
-  };
+const HydrateAtoms = ({ children }: { children: ReactNode }) => {
+  useHydrateAtoms([[motherboardTempsAtom, temperatures]]);
+  useHydrateAtoms([[motherboardFanSpeedsAtom, fanSpeeds]]);
+  return <>{children}</>;
+};
 
-  return render(
+const renderMotherboard = () =>
+  render(
     <Provider>
       <HydrateAtoms>
         <MotherboardDataInfo />
       </HydrateAtoms>
     </Provider>,
   );
-};
 
 describe("MotherboardDataInfo sensor display", () => {
   beforeEach(() => {

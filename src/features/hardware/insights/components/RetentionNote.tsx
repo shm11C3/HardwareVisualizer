@@ -27,7 +27,7 @@ export const RetentionNote = ({
 
   return (
     <p
-      className="mt-2 text-right text-muted-foreground text-xs"
+      className="text-muted-foreground mt-2 text-right text-xs"
       data-testid="insight-retention-note"
     >
       {t("pages.insights.retentionNote", {

@@ -33,7 +33,7 @@ import { Snapshot } from "./snapshot/Snapshot";
 import type { InsightType } from "./types/insight";
 
 const arrowButtonVariants = tv({
-  base: "text-zinc-500 dark:text-zinc-400 cursor-pointer disabled:opacity-50 disabled:pointer-events-none h-40",
+  base: "h-40 cursor-pointer text-zinc-500 disabled:pointer-events-none disabled:opacity-50 dark:text-zinc-400",
 });
 
 const Border = ({ children }: { children: React.ReactNode }) => {
@@ -350,7 +350,7 @@ const ChartArea = (data: {
     periodData && (
       <Border key={`${data.type}-${data.stats}`}>
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center py-3 font-bold text-2xl">
+          <h3 className="flex items-center py-3 text-2xl font-bold">
             {
               {
                 cpu: <CpuIcon className="pr-1" />,
@@ -458,7 +458,7 @@ const GpuChartArea = (data: {
     periodData && (
       <Border>
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center py-3 font-bold text-2xl">
+          <h3 className="flex items-center py-3 text-2xl font-bold">
             <GraphicsCardIcon className="pr-1" />
             {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)})
           </h3>

@@ -105,11 +105,11 @@ export const DataRetentionSettings = () => {
 
   return (
     <div className="py-4">
-      <h4 className="font-bold text-xl">
+      <h4 className="text-xl font-bold">
         {t("pages.settings.insights.scheduledDataDeletion")}
       </h4>
 
-      <p className="mt-2 whitespace-pre-wrap text-sm">
+      <p className="mt-2 text-sm whitespace-pre-wrap">
         {t("pages.settings.insights.holdingPeriod.description")}
       </p>
 
@@ -160,7 +160,7 @@ export const DataRetentionSettings = () => {
         <Label className="my-4 text-lg" htmlFor={storageHealthRetentionId}>
           {t("pages.settings.insights.storageHealth.retention.title")}
         </Label>
-        <p className="mt-2 whitespace-pre-wrap text-sm">
+        <p className="mt-2 text-sm whitespace-pre-wrap">
           {t("pages.settings.insights.storageHealth.retention.description")}
         </p>
         <div className="mt-2 flex items-center">

@@ -67,7 +67,7 @@ export const LoadTemperatureScatterChart = ({
 
   return (
     <div data-testid="cooling-explorer-scatter">
-      <div className="mb-2 flex flex-wrap items-center gap-4 text-muted-foreground text-xs">
+      <div className="text-muted-foreground mb-2 flex flex-wrap items-center gap-4 text-xs">
         <span className="flex items-center gap-1.5">
           <span
             aria-hidden

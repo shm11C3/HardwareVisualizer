@@ -50,7 +50,7 @@ export const ObservationStrip = () => {
 
   return (
     <section
-      className="space-y-2 rounded-2xl bg-card p-4"
+      className="bg-card space-y-2 rounded-2xl p-4"
       data-testid="cooling-observation-strip"
     >
       {hasError && (
@@ -264,11 +264,11 @@ const EstablishedObservation = ({
       {showChecklist && (
         <Accordion type="single" collapsible>
           <AccordionItem value="checklist" className="border-none">
-            <AccordionTrigger className="py-1 text-muted-foreground text-xs hover:no-underline [&>svg]:h-4 [&>svg]:w-4">
+            <AccordionTrigger className="text-muted-foreground py-1 text-xs hover:no-underline [&>svg]:h-4 [&>svg]:w-4">
               {t("pages.insights.cooling.observationStrip.checklist.trigger")}
             </AccordionTrigger>
             <AccordionContent className="pb-1">
-              <ul className="list-disc space-y-1 pl-4 text-muted-foreground text-xs">
+              <ul className="text-muted-foreground list-disc space-y-1 pl-4 text-xs">
                 <li>
                   {t(
                     "pages.insights.cooling.observationStrip.checklist.items.dust",
@@ -290,7 +290,7 @@ const EstablishedObservation = ({
                   )}
                 </li>
               </ul>
-              <p className="mt-2 text-muted-foreground text-xs">
+              <p className="text-muted-foreground mt-2 text-xs">
                 {t(
                   "pages.insights.cooling.observationStrip.checklist.footnote",
                 )}

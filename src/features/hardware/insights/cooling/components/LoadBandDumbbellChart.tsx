@@ -53,13 +53,13 @@ export const LoadBandDumbbellChart = ({
 
   return (
     <div className="space-y-3" data-testid={testId}>
-      <div className="flex items-center gap-4 text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex items-center gap-4 text-xs">
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full border-2 border-background bg-muted-foreground" />
+          <span className="border-background bg-muted-foreground h-2.5 w-2.5 rounded-full border-2" />
           {t("pages.insights.cooling.loadBandComparison.legend.baseline")}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full border-2 border-background bg-primary" />
+          <span className="border-background bg-primary h-2.5 w-2.5 rounded-full border-2" />
           {t("pages.insights.cooling.loadBandComparison.legend.recent")}
         </span>
       </div>
@@ -73,9 +73,9 @@ export const LoadBandDumbbellChart = ({
             {t(`pages.insights.cooling.loadBands.${row.band}`)}
           </span>
           {row.comparable && domain != null ? (
-            <div className="relative h-2 rounded-full bg-muted">
+            <div className="bg-muted relative h-2 rounded-full">
               <div
-                className="absolute inset-y-0 rounded-full bg-primary/30"
+                className="bg-primary/30 absolute inset-y-0 rounded-full"
                 style={{
                   left: `${Math.min(
                     positionPercent(row.baseline, domain),
@@ -88,12 +88,12 @@ export const LoadBandDumbbellChart = ({
                 }}
               />
               <span
-                className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-muted-foreground"
+                className="border-background bg-muted-foreground absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
                 style={{ left: `${positionPercent(row.baseline, domain)}%` }}
                 title={`${t("pages.insights.cooling.loadBandComparison.legend.baseline")}: ${row.baseline.toFixed(1)}${unitSuffix}`}
               />
               <span
-                className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary"
+                className="border-background bg-primary absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
                 style={{ left: `${positionPercent(row.recent, domain)}%` }}
                 title={`${t("pages.insights.cooling.loadBandComparison.legend.recent")}: ${row.recent.toFixed(1)}${unitSuffix}`}
               />

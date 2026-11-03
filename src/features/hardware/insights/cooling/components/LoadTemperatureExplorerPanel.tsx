@@ -59,7 +59,7 @@ export const LoadTemperatureExplorerPanel = () => {
 
   return (
     <section
-      className="rounded-2xl bg-card px-4"
+      className="bg-card rounded-2xl px-4"
       data-testid="cooling-explorer-panel"
     >
       <Accordion
@@ -70,7 +70,7 @@ export const LoadTemperatureExplorerPanel = () => {
       >
         <AccordionItem value={ACCORDION_VALUE} className="border-none">
           <AccordionTrigger
-            className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em] hover:no-underline"
+            className="text-muted-foreground text-xs font-semibold tracking-[0.18em] uppercase hover:no-underline"
             data-testid="cooling-explorer-trigger"
           >
             {t("pages.insights.cooling.explorer.title")}
@@ -238,7 +238,7 @@ const EstablishedExplorer = ({
             <dd className="flex items-center gap-3">
               {row.comparable ? (
                 <>
-                  <span className="font-mono text-muted-foreground tabular-nums">
+                  <span className="text-muted-foreground font-mono tabular-nums">
                     {row.baseline.toFixed(1)}
                     {unitSuffix} → {row.recent.toFixed(1)}
                     {unitSuffix}

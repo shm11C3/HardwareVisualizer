@@ -85,7 +85,7 @@ export const ProcessHistoryTable = ({
 
   return (
     <div
-      className="rounded-md bg-card-non-transparent p-4 text-foreground shadow-md"
+      className="bg-card-non-transparent text-foreground rounded-md p-4 shadow-md"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -97,7 +97,7 @@ export const ProcessHistoryTable = ({
       }}
     >
       <div className="mb-4">
-        <h3 className="font-semibold text-lg">
+        <h3 className="text-lg font-semibold">
           {t("shared.processHistory")} (
           {t("shared.processHistoryCount", { count: sortedProcesses.length })})
         </h3>
@@ -137,8 +137,8 @@ const InfoTable = memo(function InfoTable({
     <div className={className}>
       <div ref={sentinelRef} className="h-1" />
       <table className="w-full text-left">
-        <thead className="sticky top-[-1px] bg-card-non-transparent">
-          <tr className="border-gray-700 border-b">
+        <thead className="bg-card-non-transparent sticky top-[-1px]">
+          <tr className="border-b border-gray-700">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("pid")}
@@ -216,7 +216,7 @@ const InfoTable = memo(function InfoTable({
         <TableBody processes={processes} />
       </table>
       {processes.length === 0 && (
-        <div className="py-8 text-center text-muted-foreground">
+        <div className="text-muted-foreground py-8 text-center">
           {t("shared.noProcessDataFound")}
         </div>
       )}
@@ -231,7 +231,7 @@ const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
     <tbody>
       {processes.map((process) => {
         return (
-          <tr key={process.pid} className="border-gray-700 border-b">
+          <tr key={process.pid} className="border-b border-gray-700">
             <td className="py-2">{process.pid}</td>
             <td className="max-w-48 truncate py-2" title={process.process_name}>
               {process.process_name}
@@ -266,8 +266,8 @@ const tableHeaderVariants = tv({
   base: "flex transition-all duration-300",
   variants: {
     isStuck: {
-      true: "items-end h-20 mb-2",
-      false: "items-center h-14",
+      true: "mb-2 h-20 items-end",
+      false: "h-14 items-center",
     },
   },
 });

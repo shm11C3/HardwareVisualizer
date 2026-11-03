@@ -312,8 +312,8 @@ export const DatabaseConversionStateBody = ({
                 },
               )}
             </p>
-            <details className="mt-2 text-muted-foreground text-xs">
-              <summary className="cursor-pointer font-medium text-foreground">
+            <details className="text-muted-foreground mt-2 text-xs">
+              <summary className="text-foreground cursor-pointer font-medium">
                 {t(
                   "pages.settings.insights.databaseConversion.actionRequired.details",
                 )}
@@ -329,7 +329,7 @@ export const DatabaseConversionStateBody = ({
           </div>
         )}
 
-        {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
+        {error && <p className="text-destructive mt-2 text-sm">{error}</p>}
       </div>
 
       {showNotice && (

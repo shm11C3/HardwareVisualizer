@@ -19,10 +19,10 @@ export const AboutSection = ({
 
   return (
     <div className="px-4 py-2">
-      <p className="text-gray-500 text-sm">
+      <p className="text-sm text-gray-500">
         {t("pages.settings.about.version", { version })}
       </p>
-      <p className="text-gray-500 text-sm">
+      <p className="text-sm text-gray-500">
         {t("pages.settings.about.author", { author: "shm11C3" })}
       </p>
       <div className="flex items-center space-x-4 py-4">

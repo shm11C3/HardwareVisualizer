@@ -1,5 +1,3 @@
-
-
 name: Auto update npm lockfile
 
 on:

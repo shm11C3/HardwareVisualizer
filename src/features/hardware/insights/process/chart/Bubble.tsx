@@ -114,7 +114,7 @@ export const ProcessBubbleChart = ({
         </ResponsiveContainer>
       </section>
       {omittedCount > 0 && (
-        <p className="px-5 pb-3 text-muted-foreground text-sm">
+        <p className="text-muted-foreground px-5 pb-3 text-sm">
           {t("pages.insights.process.chartSummary", {
             displayed: data.length,
             omitted: omittedCount,

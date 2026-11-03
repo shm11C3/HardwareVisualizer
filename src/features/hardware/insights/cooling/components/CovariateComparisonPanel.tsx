@@ -86,10 +86,10 @@ export const CovariateComparisonPanel = () => {
 
   return (
     <section
-      className="space-y-3 rounded-2xl bg-card p-4"
+      className="bg-card space-y-3 rounded-2xl p-4"
       data-testid="cooling-covariate-panel"
     >
-      <h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+      <h3 className="text-muted-foreground text-xs font-semibold tracking-[0.18em] uppercase">
         {t("pages.insights.cooling.covariateComparison.title")}
       </h3>
       {hasError && (
@@ -203,7 +203,7 @@ const EstablishedComparison = ({
             two sensors, not two windows. */}
         {chart != null && (
           <div className="space-y-2">
-            <p className="font-medium text-xs">
+            <p className="text-xs font-medium">
               {t("pages.insights.cooling.covariateComparison.chart.title", {
                 band: bandLabel,
                 unit: temperatureUnitSuffix(temperatureUnit),
@@ -343,7 +343,7 @@ const FactorTable = ({
     <div className="overflow-x-auto">
       <table className="w-full text-xs" data-testid="cooling-covariate-table">
         <thead>
-          <tr className="text-left text-muted-foreground">
+          <tr className="text-muted-foreground text-left">
             <th className="pb-1.5 font-normal">
               {t("pages.insights.cooling.covariateComparison.columns.factor")}
             </th>
@@ -391,7 +391,7 @@ const FactorTable = ({
               </td>
               <td className="py-1.5 pl-3">
                 <span
-                  className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] leading-4 ${TAG_CLASSES[row.tag]}`}
+                  className={`inline-block rounded-full border px-2 py-0.5 text-[10px] leading-4 whitespace-nowrap ${TAG_CLASSES[row.tag]}`}
                 >
                   {t(
                     `pages.insights.cooling.covariateComparison.tags.${row.tag}`,

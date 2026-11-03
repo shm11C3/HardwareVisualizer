@@ -75,8 +75,8 @@ export const LoadBandComparisonPanel = () => {
       className="grid grid-cols-1 gap-4 xl:grid-cols-2"
       data-testid="cooling-load-band-panel"
     >
-      <div className="rounded-2xl bg-card p-4">
-        <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+      <div className="bg-card rounded-2xl p-4">
+        <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-[0.18em] uppercase">
           {t("pages.insights.cooling.loadBandComparison.title")}
         </h3>
         {hasError && (
@@ -110,8 +110,8 @@ export const LoadBandComparisonPanel = () => {
             />
           ))}
       </div>
-      <div className="rounded-2xl bg-card p-4">
-        <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+      <div className="bg-card rounded-2xl p-4">
+        <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-[0.18em] uppercase">
           {t("pages.insights.cooling.dataState.title")}
         </h3>
         {hasError && (
@@ -209,7 +209,7 @@ const ComparisonVariants = ({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <p className="font-medium text-xs">
+        <p className="text-xs font-medium">
           {t("pages.insights.cooling.loadBandComparison.absoluteTitle")}
         </p>
         <p className="text-muted-foreground text-xs">
@@ -224,7 +224,7 @@ const ComparisonVariants = ({
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <p className="font-medium text-xs">
+        <p className="text-xs font-medium">
           {t("pages.insights.cooling.loadBandComparison.ambientAdjustedTitle")}
         </p>
         <p className="text-muted-foreground text-xs">

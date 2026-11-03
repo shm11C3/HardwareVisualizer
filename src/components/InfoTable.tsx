@@ -29,7 +29,7 @@ export const InfoTable = ({
     >
       {Object.keys(data).map((key) => (
         <div key={key}>
-          <p className="text-slate-900 text-xs md:text-sm dark:text-slate-400">
+          <p className="text-xs text-slate-900 md:text-sm dark:text-slate-400">
             {key}
           </p>
           <p>{data[key]}</p>

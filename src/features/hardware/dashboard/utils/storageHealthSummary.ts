@@ -78,6 +78,7 @@ export const buildStorageHealthSummary = (
   }
 
   const latestDate = records.reduce(
+    // biome-ignore lint/complexity/useMathMinMax: Compares date strings; Math.max would return NaN.
     (latest, record) => (record.date > latest ? record.date : latest),
     records[0].date,
   );
@@ -86,6 +87,7 @@ export const buildStorageHealthSummary = (
   );
   const lastCollectedAt = recordsForDisplay.reduce(
     (latest, record) =>
+      // biome-ignore lint/complexity/useMathMinMax: Compares timestamp strings; Math.max would return NaN.
       record.collectedAt > latest ? record.collectedAt : latest,
     recordsForDisplay[0].collectedAt,
   );

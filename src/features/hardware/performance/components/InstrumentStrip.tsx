@@ -85,16 +85,16 @@ const MetricInstrument = memo(
     staggered?: boolean;
   }) => (
     <article
-      className="relative min-w-0 overflow-hidden rounded-2xl bg-card p-4 pb-3"
+      className="bg-card relative min-w-0 overflow-hidden rounded-2xl p-4 pb-3"
       data-testid={`performance-metric-${metricId}`}
     >
       <div className="flex min-w-0 items-center gap-2">
         {icon}
-        <p className="shrink-0 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+        <p className="text-muted-foreground shrink-0 text-xs font-semibold tracking-[0.18em] uppercase">
           {label}
         </p>
         {badge != null && (
-          <p className="ml-auto rounded-full bg-muted px-2 py-0.5 font-mono text-xs tabular-nums">
+          <p className="bg-muted ml-auto rounded-full px-2 py-0.5 font-mono text-xs tabular-nums">
             {badge}
           </p>
         )}
@@ -110,11 +110,11 @@ const MetricInstrument = memo(
       >
         {gauges}
       </div>
-      <div className="mt-2 text-muted-foreground">
+      <div className="text-muted-foreground mt-2">
         <Sparkline values={history} color={color} />
       </div>
       {substats.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
+        <div className="text-muted-foreground mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] tabular-nums">
           {substats.map((substat) => (
             <span key={substat.key}>{substat.text}</span>
           ))}
@@ -123,7 +123,7 @@ const MetricInstrument = memo(
       {/* Additive, never a replacement: the note says what is missing, so it
           must not take the place of whatever the device did report. */}
       {note != null && (
-        <p className="mt-1.5 text-[11px] text-muted-foreground">{note}</p>
+        <p className="text-muted-foreground mt-1.5 text-[11px]">{note}</p>
       )}
     </article>
   ),

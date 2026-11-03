@@ -374,7 +374,7 @@ const ComponentCard = ({
   const blocked = status !== null && status.setupBlocker !== null;
 
   return (
-    <div className="rounded-md border border-border p-4">
+    <div className="border-border rounded-md border p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <p className="font-semibold">{componentName}</p>
@@ -458,7 +458,7 @@ const ComponentCard = ({
       </div>
 
       {running && (
-        <p className="pt-3 text-muted-foreground text-sm" role="status">
+        <p className="text-muted-foreground pt-3 text-sm" role="status">
           {t("pages.settings.advanced.externalComponentSetup.running")}
         </p>
       )}

@@ -44,20 +44,20 @@ export const DatabaseConversionCompleteNotice = ({
 
   return (
     <section
-      className="mt-4 rounded-md border border-primary/40 bg-primary/5 p-4"
+      className="border-primary/40 bg-primary/5 mt-4 rounded-md border p-4"
       aria-labelledby="database-conversion-complete-heading"
     >
       <h5
         id="database-conversion-complete-heading"
         className="flex items-center gap-2 font-semibold"
       >
-        <CheckCircleIcon className="size-5 shrink-0 text-primary" />
+        <CheckCircleIcon className="text-primary size-5 shrink-0" />
         {t("pages.settings.insights.databaseConversion.notice.heading")}
       </h5>
-      <p className="mt-3 font-medium text-sm">
+      <p className="mt-3 text-sm font-medium">
         {t("pages.settings.insights.databaseConversion.notice.title")}
       </p>
-      <p className="mt-1 whitespace-pre-wrap text-sm">
+      <p className="mt-1 text-sm whitespace-pre-wrap">
         {t("pages.settings.insights.databaseConversion.notice.description", {
           days: retentionDays,
         })}
@@ -71,7 +71,7 @@ export const DatabaseConversionCompleteNotice = ({
         </Button>
       </div>
       <SettingWriteFailure actions="hardwareArchive.conversionNotice" />
-      <p className="mt-3 text-muted-foreground text-xs">
+      <p className="text-muted-foreground mt-3 text-xs">
         {t("pages.settings.insights.databaseConversion.notice.footnote")}
       </p>
     </section>

@@ -29,7 +29,7 @@ export const BurnInShiftPresetRadio = ({
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="gentle" id={radioBurnInShiftGentle} />
           <Label
-            className="flex items-center space-x-2 text-md"
+            className="text-md flex items-center space-x-2"
             htmlFor={radioBurnInShiftGentle}
           >
             <span>{t("pages.settings.general.burnInShift.preset.gentle")}</span>
@@ -38,7 +38,7 @@ export const BurnInShiftPresetRadio = ({
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="balanced" id={radioBurnInShiftBalanced} />
           <Label
-            className="flex items-center space-x-2 text-md"
+            className="text-md flex items-center space-x-2"
             htmlFor={radioBurnInShiftBalanced}
           >
             <span>
@@ -49,7 +49,7 @@ export const BurnInShiftPresetRadio = ({
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="aggressive" id={radioBurnInShiftAggressive} />
           <Label
-            className="flex items-center space-x-2 text-md"
+            className="text-md flex items-center space-x-2"
             htmlFor={radioBurnInShiftAggressive}
           >
             <span>

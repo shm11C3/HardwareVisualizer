@@ -87,7 +87,7 @@ export const SystemSpecifications = () => {
     <div data-testid="system-specifications-sheet">
       <ExportHardwareInfo includeRuntimeStats={false} />
 
-      <div className="divide-y divide-border px-1">
+      <div className="divide-border divide-y px-1">
         <SpecSection
           icon={
             <CpuIcon size={22} color={`rgb(${settings.lineGraphColor.cpu})`} />

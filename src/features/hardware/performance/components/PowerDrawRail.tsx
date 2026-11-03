@@ -37,13 +37,13 @@ export const PowerDrawRail = () => {
 
   return (
     <section
-      className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-card px-4 py-2.5"
+      className="bg-card flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 rounded-xl px-4 py-2.5"
       aria-label={t("pages.performance.panels.power")}
       data-testid="performance-monitor-power-rail"
     >
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2">
         {railIcon}
-        <h3 className="font-mono font-semibold text-[11px] uppercase tracking-[0.18em]">
+        <h3 className="font-mono text-[11px] font-semibold tracking-[0.18em] uppercase">
           {t("pages.performance.panels.power")}
         </h3>
       </div>
@@ -54,7 +54,7 @@ export const PowerDrawRail = () => {
             <div
               key={target}
               className={cn(
-                "flex items-baseline justify-between gap-3 border-border/60 border-l pl-3 text-sm",
+                "border-border/60 flex items-baseline justify-between gap-3 border-l pl-3 text-sm",
                 target === "package" && "text-amber-400",
               )}
             >

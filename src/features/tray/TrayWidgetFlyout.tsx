@@ -57,12 +57,12 @@ export const TrayWidgetFlyout = () => {
 
   return (
     <main className="flex h-screen w-screen flex-col overflow-hidden border border-zinc-700/80 bg-zinc-950 px-3 py-2 text-zinc-100 shadow-2xl">
-      <header className="flex h-8 shrink-0 items-center justify-between gap-2 border-zinc-800 border-b">
+      <header className="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-zinc-800">
         <div className="flex min-w-0 items-center gap-2">
           <span
             className={`size-2 rounded-full ${stateDotClass[worstState]}`}
           />
-          <h1 className="truncate font-medium text-[13px] leading-none">
+          <h1 className="truncate text-[13px] leading-none font-medium">
             HardwareVisualizer
           </h1>
         </div>
@@ -112,7 +112,7 @@ const MetricRow = ({ item }: { item: TrayWidgetFlyoutItem }) => {
         {t(`trayWidgetFlyout.metric.${item.metric}`)}
       </span>
       <strong
-        className={`font-semibold text-base tabular-nums leading-none ${stateTextClass[item.state]}`}
+        className={`text-base leading-none font-semibold tabular-nums ${stateTextClass[item.state]}`}
       >
         {item.value}
       </strong>

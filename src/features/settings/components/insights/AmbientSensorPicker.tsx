@@ -86,7 +86,7 @@ export const AmbientSensorPicker = ({
             />
             <Label
               htmlFor={`ambient-${candidate.deviceId}`}
-              className="font-normal text-sm"
+              className="text-sm font-normal"
             >
               {t("pages.settings.insights.ambientSensor.picker.device", {
                 shortId: candidate.shortId,

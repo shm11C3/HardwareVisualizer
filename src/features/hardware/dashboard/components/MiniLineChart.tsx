@@ -11,7 +11,7 @@ const miniLineChartVariant = tv({
   base: "xl:w-[300px]",
   variants: {
     isBackground: {
-      true: "w-5/6 top-40 absolute opacity-50",
+      true: "absolute top-40 w-5/6 opacity-50",
       false: "w-[200px]",
     },
   },

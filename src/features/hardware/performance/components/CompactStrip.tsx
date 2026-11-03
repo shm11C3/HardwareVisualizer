@@ -49,7 +49,7 @@ const CompactRow = memo(
     return (
       <div
         className={cn(
-          "grid items-center border-border/60 border-b last:border-b-0",
+          "border-border/60 grid items-center border-b last:border-b-0",
           // The mini monitor is meant for a small corner window, so the
           // flexible tracks must be able to shrink (minmax(0,...)) instead of
           // forcing a ~600px row that burnin-root would clip.
@@ -62,7 +62,7 @@ const CompactRow = memo(
       >
         <span
           className={cn(
-            "font-mono font-semibold text-muted-foreground uppercase tracking-[0.1em]",
+            "text-muted-foreground font-mono font-semibold tracking-[0.1em] uppercase",
             expanded ? "text-sm sm:text-base" : "text-[11px]",
           )}
         >
@@ -70,7 +70,7 @@ const CompactRow = memo(
         </span>
         <span
           className={cn(
-            "overflow-hidden rounded-full bg-muted",
+            "bg-muted overflow-hidden rounded-full",
             expanded ? "h-2.5" : "h-1.5",
           )}
           aria-hidden="true"
@@ -86,14 +86,14 @@ const CompactRow = memo(
         <span
           className={cn(
             "text-right font-mono tabular-nums",
-            expanded ? "font-semibold text-xl sm:text-2xl" : "text-sm",
+            expanded ? "text-xl font-semibold sm:text-2xl" : "text-sm",
           )}
         >
           {currentValue == null ? "—" : `${Math.round(currentValue)}%`}
         </span>
         <span
           className={cn(
-            "text-right font-mono text-muted-foreground tabular-nums",
+            "text-muted-foreground text-right font-mono tabular-nums",
             expanded ? "text-xs sm:text-sm" : "text-[11px]",
           )}
         >
@@ -212,7 +212,7 @@ export const CompactStrip = ({
       className={cn(
         fillViewport
           ? "flex h-full w-full flex-col px-2"
-          : "mx-auto w-full max-w-3xl rounded-2xl bg-card px-4 py-1.5",
+          : "bg-card mx-auto w-full max-w-3xl rounded-2xl px-4 py-1.5",
         className,
       )}
       aria-label={t("pages.performance.views.compact")}
@@ -222,7 +222,7 @@ export const CompactStrip = ({
         <CompactRow key={row.id} row={row} expanded={fillViewport} />
       ))}
       {footerItems.length > 0 && (
-        <div className="flex gap-4 border-border/60 border-t py-2 font-mono text-[11px] text-muted-foreground tabular-nums">
+        <div className="border-border/60 text-muted-foreground flex gap-4 border-t py-2 font-mono text-[11px] tabular-nums">
           {footerItems.map((item) => (
             <span key={item.id} title={item.fullText ?? item.text}>
               {item.fullText == null || item.fullText === item.text ? (

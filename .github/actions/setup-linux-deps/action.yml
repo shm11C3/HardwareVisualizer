@@ -1,13 +1,13 @@
-name: 'Setup Linux Dependencies'
-description: 'Install Linux build dependencies for Tauri'
+name: "Setup Linux Dependencies"
+description: "Install Linux build dependencies for Tauri"
 inputs:
   extra-packages:
-    description: 'Additional packages to install'
+    description: "Additional packages to install"
     required: false
-    default: ''
+    default: ""
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install Linux build dependencies
       run: |
@@ -20,4 +20,3 @@ runs:
           libsoup-3.0-dev \
           ${{ inputs.extra-packages }}
       shell: bash
-

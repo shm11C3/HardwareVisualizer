@@ -15,7 +15,7 @@ export const GeneralSettings = () => {
 
   return (
     <div className="mt-8 p-4">
-      <h3 className="py-3 font-bold text-2xl">
+      <h3 className="py-3 text-2xl font-bold">
         {t("pages.settings.general.name")}
       </h3>
       <div className="px-4">

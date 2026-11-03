@@ -155,7 +155,7 @@ export const DoughnutChart = ({
           cx={center}
           cy={center}
           r={layout.outerDisc}
-          className="fill-zinc-100 dark:fill-muted"
+          className="dark:fill-muted fill-zinc-100"
           style={{ opacity: discOpacity }}
         />
         <circle
@@ -208,7 +208,7 @@ export const DoughnutChart = ({
           y={center}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-foreground font-bold text-lg xl:text-2xl"
+          className="fill-foreground text-lg font-bold xl:text-2xl"
         >
           {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
         </text>
