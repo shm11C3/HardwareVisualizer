@@ -274,14 +274,15 @@ fn protected_acl(handle: HANDLE) -> Result<(), String> {
       let mut ace = std::ptr::null_mut();
       GetAce(dacl, i as u32, &mut ace).map_err(|e| e.to_string())?;
 
-      let header = &*ace.cast::<ACE_HEADER>();
+      let ace = std::ptr::NonNull::new(ace).ok_or("Missing ACL entry")?;
+      let header = ace.cast::<ACE_HEADER>().as_ref();
 
       if header.AceFlags & 0x08 != 0 {
         continue;
       }
 
       if header.AceType == 0 {
-        let allowed = &*ace.cast::<ACCESS_ALLOWED_ACE>();
+        let allowed = ace.cast::<ACCESS_ALLOWED_ACE>().as_ref();
         let writes = 0x10000000 | 0x40000000 | 0x000d0156;
         let sid = PSID((&allowed.SidStart as *const u32).cast_mut().cast());
 

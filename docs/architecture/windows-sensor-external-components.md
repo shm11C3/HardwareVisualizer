@@ -60,8 +60,8 @@ unavailable reason instead of publishing a CPU temperature. Example reasons
 include:
 
 - `PawnIOLib.dll not found`.
-- `IntelMSR.bin or IntelMSR.amx not found`.
-- `RyzenSMU.bin or RyzenSMU.amx not found`.
+- `The sensor service requires signed .bin modules`.
+- `Unrecognized PawnIO module: use a compatible signed release; the existing file was kept`.
 - `pawnio_open failed: ...`.
 - `pawnio_load failed: ...`.
 

@@ -964,6 +964,7 @@
     "ru": "Russian"
   },
   "sensorService": {
+    "loadFailed": "Failed to check the sensor service.",
     "title": "Windows sensor service",
     "description": "Optionally install a SYSTEM service for PawnIO temperature, power and motherboard readings. The app can then stay resident with normal permissions. Setup or repair requires administrator approval.",
     "connected": "Service connected",

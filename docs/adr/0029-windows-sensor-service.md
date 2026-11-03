@@ -103,5 +103,6 @@ its lifecycle and security cost by serving that startup requirement.
 - Security review and real Windows installation/token/sensor evidence are
   release requirements. Unit tests cannot prove that no UAC appears at logon.
 - Ownership, transport decisions, migration and validation are developed in
-  the [Design Doc](../design/windows-sensor-service.md). Existing shipped
-  architecture remains documented separately until implementation lands.
+  the [Design Doc](../design/windows-sensor-service.md). Current ownership is
+  documented in [backend architecture](../architecture/backend.md); Windows
+  logon qualification and signed-artifact verification remain release gates.

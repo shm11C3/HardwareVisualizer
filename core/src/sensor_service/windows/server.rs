@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde::{Serialize, de::DeserializeOwned};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::windows::named_pipe::NamedPipeServer;
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use super::{providers::Providers, security};
 use crate::sensor_service::protocol::*;
@@ -64,22 +64,24 @@ pub(super) async fn serve(stop: &'static AtomicBool) -> Result<(), String> {
       connected = pipe.connect() => {
         connected.map_err(|e| e.to_string())?;
 
+        let Some(permit) = admit_client(&mut pipe, &clients) else {
+          continue;
+        };
+
         // Keep an instance alive while creating the next one so a caller
         // cannot squat the name between connections.
         let next = security::server_pipe(false)?;
         let connected = std::mem::replace(&mut pipe, next);
 
-        if let Ok(permit) = Arc::clone(&clients).try_acquire_owned() {
-          let providers = Arc::clone(&providers);
-          let users = Arc::clone(&users);
-          tokio::spawn(async move {
-            let _permit = permit;
+        let providers = Arc::clone(&providers);
+        let users = Arc::clone(&users);
+        tokio::spawn(async move {
+          let _permit = permit;
 
-            if let Err(error) = connection(connected, generation, providers, users).await {
-              crate::log_debug!("sensor_service_client_disconnected", "sensor_service::serve", Some(error));
-            }
-          });
-        }
+          if let Err(error) = connection(connected, generation, providers, users).await {
+            crate::log_debug!("sensor_service_client_disconnected", "sensor_service::serve", Some(error));
+          }
+        });
       }
 
       _ = housekeeping.tick() => {
@@ -89,6 +91,21 @@ pub(super) async fn serve(stop: &'static AtomicBool) -> Result<(), String> {
   }
 
   Ok(())
+}
+
+fn admit_client(
+  pipe: &mut NamedPipeServer,
+  clients: &Arc<Semaphore>,
+) -> Option<OwnedSemaphorePermit> {
+  match Arc::clone(clients).try_acquire_owned() {
+    Ok(permit) => Some(permit),
+    Err(_) => {
+      // Reuse the listening instance at capacity instead of creating an
+      // eighteenth instance or releasing ownership of the endpoint name.
+      let _ = pipe.disconnect();
+      None
+    }
+  }
 }
 
 struct UserLease {
@@ -199,6 +216,44 @@ async fn connection(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[tokio::test]
+  async fn excess_clients_leave_the_listener_available_and_its_name_owned() {
+    use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};
+
+    let name = format!(r"\\.\pipe\Hardviz.CapacityTest.{}", std::process::id());
+    let mut listener = ServerOptions::new()
+      .first_pipe_instance(true)
+      .max_instances(1)
+      .create(&name)
+      .unwrap();
+    let clients = Arc::new(Semaphore::new(1));
+    let held = Arc::clone(&clients).acquire_owned().await.unwrap();
+
+    for _ in 0..3 {
+      let (connected, client) = tokio::join!(listener.connect(), async {
+        tokio::task::yield_now().await;
+        ClientOptions::new().open(&name).unwrap()
+      });
+      connected.unwrap();
+      assert!(admit_client(&mut listener, &clients).is_none());
+      assert!(
+        ServerOptions::new()
+          .first_pipe_instance(true)
+          .create(&name)
+          .is_err()
+      );
+      drop(client);
+    }
+
+    drop(held);
+    let (connected, _client) = tokio::join!(listener.connect(), async {
+      tokio::task::yield_now().await;
+      ClientOptions::new().open(&name).unwrap()
+    });
+    connected.unwrap();
+    assert!(admit_client(&mut listener, &clients).is_some());
+  }
 
   #[tokio::test]
   async fn framing_rejects_length_before_payload_allocation() {

@@ -2,6 +2,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActionFailure } from "@/components/ActionFailure";
+import { LoadFailure } from "@/components/LoadFailure";
 import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,24 +11,30 @@ import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands, type SensorServiceStatus } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
+type StatusRead =
+  | { state: "loading" }
+  | { state: "ready"; data: SensorServiceStatus }
+  | { state: "failed" };
+
 export const SensorServiceSection = () => {
   const { t } = useTranslation();
   const { settings, updateSettingAtom } = useSettingsAtom();
   const elevated = useProcessElevated();
   const windows = platform() === "windows";
-  const [status, setStatus] = useState<SensorServiceStatus | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [read, setRead] = useState<StatusRead>({ state: "loading" });
+  const [setupFailed, setSetupFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const status = read.state === "ready" ? read.data : null;
 
   const load = useCallback(async () => {
-    setFailed(false);
+    setRead({ state: "loading" });
     try {
       const result = await commands.getSensorServiceStatus();
       if (isError(result)) throw new Error(result.error);
-      setStatus(result.data);
+      setRead({ state: "ready", data: result.data });
     } catch (error) {
       console.error("Sensor service status failed:", error);
-      setFailed(true);
+      setRead({ state: "failed" });
     }
   }, []);
 
@@ -37,14 +44,14 @@ export const SensorServiceSection = () => {
 
   const configure = async () => {
     setBusy(true);
-    setFailed(false);
+    setSetupFailed(false);
     try {
       const result = await commands.configureSensorService();
       if (isError(result)) throw new Error(result.error);
       await load();
     } catch (error) {
       console.error("Sensor service setup failed:", error);
-      setFailed(true);
+      setSetupFailed(true);
     } finally {
       setBusy(false);
     }
@@ -63,15 +70,22 @@ export const SensorServiceSection = () => {
       <p className="text-sm text-muted-foreground">
         {t("sensorService.description")}
       </p>
-      <p role="status" className="text-sm">
-        {t(
-          status
-            ? status.connected
-              ? "sensorService.connected"
-              : "sensorService.unavailable"
-            : "sensorService.loading",
-        )}
-      </p>
+      {read.state === "failed" ? (
+        <LoadFailure
+          message={t("sensorService.loadFailed")}
+          onRetry={() => void load()}
+        />
+      ) : (
+        <p role="status" className="text-sm">
+          {t(
+            status
+              ? status.connected
+                ? "sensorService.connected"
+                : "sensorService.unavailable"
+              : "sensorService.loading",
+          )}
+        </p>
+      )}
       {status?.connected && !status.hasReadings && (
         <p className="text-sm text-muted-foreground">
           {t("sensorService.noReadings")}
@@ -94,13 +108,13 @@ export const SensorServiceSection = () => {
         <Button
           type="button"
           variant="outline"
-          disabled={busy}
+          disabled={busy || read.state === "loading"}
           onClick={() => void load()}
         >
           {t("sensorService.refresh")}
         </Button>
       </div>
-      {failed && <ActionFailure message={t("sensorService.failed")} />}
+      {setupFailed && <ActionFailure message={t("sensorService.failed")} />}
       {settings.elevatedStartupMode && (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">

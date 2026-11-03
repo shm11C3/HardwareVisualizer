@@ -162,7 +162,7 @@ For PawnIO-backed motherboard sensors, the machine needs:
 - a working PawnIO driver/runtime installation;
 - `PawnIOLib.dll`, which is provided by the PawnIO runtime installation;
 - signed `LpcIO.bin` from a compatible PawnIO.Modules release;
-- enough Windows privileges for the app process to open the PawnIO driver.
+- a connected Windows sensor service, which opens the PawnIO driver for the app.
 
 If PawnIO is installed but motherboard readings remain unavailable, check or
 repair the Windows sensor service and its compatible signed LpcIO module.

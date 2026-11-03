@@ -24,6 +24,7 @@ pub(super) struct Providers {
   last_request_ms: u64,
   temperature_opened_ms: u64,
   power_opened_ms: u64,
+  motherboard_opened_ms: u64,
 }
 
 impl Providers {
@@ -38,6 +39,7 @@ impl Providers {
       last_request_ms: uptime_ms(),
       temperature_opened_ms: 0,
       power_opened_ms: 0,
+      motherboard_opened_ms: 0,
     }
   }
 
@@ -121,11 +123,24 @@ impl Providers {
     }
 
     if families & MOTHERBOARD != 0 && due(&self.snapshot.motherboard, now, 1_600) {
+      if self.motherboard.is_none() {
+        self.motherboard_opened_ms = now;
+      }
+
       let sampler = self
         .motherboard
         .get_or_insert_with(MotherboardSensorSampler::new);
 
       let value = motherboard_collection_from_readout(sampler.readout());
+
+      if matches!(
+        value.availability,
+        crate::models::SensorAvailability::Unavailable { .. }
+      ) && now.saturating_sub(self.motherboard_opened_ms) >= 30_000
+      {
+        self.motherboard = None;
+      }
+
       self.sequence += 1;
       self.snapshot.motherboard = Some(Reading {
         acquired_at_ms: uptime_ms(),

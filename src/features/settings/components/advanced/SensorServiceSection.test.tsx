@@ -104,4 +104,56 @@ describe("SensorServiceSection", () => {
     expect(mocks.update).not.toHaveBeenCalled();
     error.mockRestore();
   });
+
+  it.each(["rejected", "error result"])(
+    "offers retry after an initial status read failure (%s)",
+    async (failure) => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      if (failure === "rejected") {
+        mocks.status.mockRejectedValueOnce(new Error("read failed"));
+      } else {
+        mocks.status.mockResolvedValueOnce({
+          status: "error",
+          error: "read failed",
+        });
+      }
+
+      const user = userEvent.setup();
+      render(<SensorServiceSection />);
+
+      expect(await screen.findByTestId("load-failure")).toHaveTextContent(
+        "Failed to check the sensor service.",
+      );
+      expect(
+        screen.queryByText("Checking the sensor service…"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/The operation failed or was cancelled/),
+      ).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+      await screen.findByText("Service connected");
+      expect(screen.queryByTestId("load-failure")).not.toBeInTheDocument();
+      expect(mocks.configure).not.toHaveBeenCalled();
+      error.mockRestore();
+    },
+  );
+
+  it("clears the previous connected state when a refresh fails", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<SensorServiceSection />);
+    await screen.findByText("Service connected");
+
+    mocks.status.mockRejectedValueOnce(new Error("refresh failed"));
+    await user.click(screen.getByRole("button", { name: "Check again" }));
+
+    await screen.findByTestId("load-failure");
+    expect(screen.queryByText("Service connected")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Install or repair service" }),
+    ).toBeDisabled();
+    error.mockRestore();
+  });
 });
