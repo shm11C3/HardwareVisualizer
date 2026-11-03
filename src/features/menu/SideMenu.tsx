@@ -45,7 +45,7 @@ const buttonClasses = tv({
 });
 
 const sideMenuClasses = tv({
-  base: "bg-accent text-foreground fixed top-0 left-0 h-full w-64 transform transition-transform duration-300 ease-in-out",
+  base: "fixed top-0 left-0 h-full w-64 transform bg-accent text-foreground transition-transform duration-300 ease-in-out",
   variants: {
     open: {
       true: "translate-x-0",
@@ -55,7 +55,7 @@ const sideMenuClasses = tv({
 });
 
 const closedSideMenuClasses = tv({
-  base: "bg-accent text-foreground fixed top-0 left-0 h-full w-16 transform transition-transform duration-300 ease-in-out",
+  base: "fixed top-0 left-0 h-full w-16 transform bg-accent text-foreground transition-transform duration-300 ease-in-out",
   variants: {
     open: {
       true: "-translate-x-full",
@@ -217,7 +217,7 @@ const UpdateAvailableItem = ({ compact }: { compact: boolean }) => {
         <button
           type="button"
           className={cn(
-            "bg-primary/5 text-primary hover:bg-primary/30 flex w-full cursor-pointer items-center rounded-lg p-2 text-left transition-colors",
+            "flex w-full cursor-pointer items-center rounded-lg bg-primary/5 p-2 text-left text-primary transition-colors hover:bg-primary/30",
             compact && "justify-center",
           )}
           onClick={openUpdateDialog}

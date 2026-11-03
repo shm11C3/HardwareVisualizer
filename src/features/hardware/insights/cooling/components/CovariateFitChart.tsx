@@ -98,7 +98,7 @@ export const CovariateFitChart = ({
         </LineChart>
       </ResponsiveContainer>
 
-      <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-4 text-xs">
+      <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
         {chart.baselineSlope != null && (
           <span className="flex items-center gap-1.5">
             <span

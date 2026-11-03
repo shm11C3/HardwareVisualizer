@@ -82,7 +82,7 @@ export const Sparkline = ({
     >
       {showScale && (
         <div
-          className="text-muted-foreground relative w-6 shrink-0 text-[10px] tabular-nums"
+          className="relative w-6 shrink-0 text-[10px] text-muted-foreground tabular-nums"
           aria-hidden
         >
           {ticks.map((tick) => (
@@ -135,9 +135,9 @@ export const Sparkline = ({
         </svg>
 
         {tooltip && hoveredValue != null && (
-          <div className="border-border/50 bg-background/90 pointer-events-none absolute top-1 right-1 rounded-md border px-2 py-1 text-xs shadow-xl">
+          <div className="pointer-events-none absolute top-1 right-1 rounded-md border border-border/50 bg-background/90 px-2 py-1 text-xs shadow-xl">
             <span className="text-muted-foreground">{tooltip.label}</span>{" "}
-            <span className="text-foreground font-mono font-medium">
+            <span className="font-mono font-medium text-foreground">
               {tooltip.format(hoveredValue)}
             </span>
           </div>

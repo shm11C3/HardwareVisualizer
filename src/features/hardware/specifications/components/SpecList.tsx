@@ -28,9 +28,9 @@ export const SpecList = ({ rows }: { rows: SpecListRow[] }) => {
       {rows.map((row) => (
         <div
           key={row.label}
-          className="border-border/60 flex items-baseline justify-between gap-6 border-b py-1.5 text-sm"
+          className="flex items-baseline justify-between gap-6 border-b border-border/60 py-1.5 text-sm"
         >
-          <span className="text-muted-foreground shrink-0">{row.label}</span>
+          <span className="shrink-0 text-muted-foreground">{row.label}</span>
           {/* min-w-0 lets break-words apply: a flex item's automatic minimum
               size is min-content, so a long serial would otherwise widen the
               row instead of wrapping. */}

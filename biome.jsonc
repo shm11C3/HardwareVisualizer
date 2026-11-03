@@ -156,6 +156,8 @@
       "!docs/licenses/**/THIRD_PARTY_NOTICES.md"
     ]
   },
+  // Lets the Tailwind rules read the theme, utilities, and variants.
+  "tailwind": { "stylesheet": "./src/index.css" },
   "css": {
     "parser": {
       "tailwindDirectives": true

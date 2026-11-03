@@ -322,7 +322,7 @@ const AppContent = () => {
     >
       <div
         className={cn(
-          "bg-background text-foreground min-h-screen bg-cover duration-300 ease-in-out",
+          "min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out",
           settings.transparentUi && "transparent-ui",
           settings.transparentUi && isMacOS && "native-vibrancy",
         )}
@@ -335,7 +335,7 @@ const AppContent = () => {
         }
       >
         <div
-          className="transparent-theme-backdrop bg-background fixed inset-0 bg-cover transition-opacity duration-300"
+          className="transparent-theme-backdrop fixed inset-0 bg-background bg-cover transition-opacity duration-300"
           style={{
             backgroundImage: "var(--background-gradient)",
             opacity: windowOpacityRatio,
@@ -368,7 +368,7 @@ const AppContent = () => {
             {displayTarget ? (
               displayTargets[displayTarget]
             ) : (
-              <div className="text-foreground min-h-screen" />
+              <div className="min-h-screen text-foreground" />
             )}
           </Suspense>
           <AppUpdate />

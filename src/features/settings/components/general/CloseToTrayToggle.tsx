@@ -49,7 +49,7 @@ export const CloseToTrayToggle = () => {
           <Label htmlFor="closeToTray" className="text-lg">
             {t("pages.settings.general.closeToTray.name")}
           </Label>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             {t("pages.settings.general.closeToTray.description")}
           </p>
         </div>

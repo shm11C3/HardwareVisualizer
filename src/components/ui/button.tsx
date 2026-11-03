@@ -14,7 +14,7 @@ const buttonVariants = cva(
         destructive:
           "bg-red-500 text-neutral-50 hover:bg-red-500/90 dark:bg-red-900 dark:text-neutral-50 dark:hover:bg-red-900/90",
         outline:
-          "bg-background hover:bg-muted border border-[var(--border)] hover:text-[var(--foreground)]",
+          "border border-[var(--border)] bg-background hover:bg-muted hover:text-[var(--foreground)]",
         secondary:
           "bg-secondary text-[var(--secondary-foreground)] hover:bg-[color-mix(in_oklab,var(--secondary)_80%,black_20%)]",
         ghost: "hover:bg-muted hover:text-[var(--foreground)]",

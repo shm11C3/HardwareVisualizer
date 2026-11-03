@@ -129,7 +129,7 @@ export const ProcessTable = ({
 
   return (
     <div
-      className="bg-card-non-transparent text-foreground rounded-md p-4 shadow-md"
+      className="rounded-md bg-card-non-transparent p-4 text-foreground shadow-md"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -177,7 +177,7 @@ export const ProcessTable = ({
             </Button>
             <select
               aria-label={t("pages.insights.process.pagination.page")}
-              className="border-border bg-background text-foreground h-9 rounded-md border px-2"
+              className="h-9 rounded-md border border-border bg-background px-2 text-foreground"
               value={page}
               onChange={(event) =>
                 setPageState({ period, page: Number(event.target.value) })
@@ -232,7 +232,7 @@ const InfoTable = ({
     <>
       <div ref={sentinelRef} className="h-1" />
       <table className="w-full text-left whitespace-nowrap">
-        <thead className="bg-card-non-transparent sticky top-[-1px]">
+        <thead className="sticky top-[-1px] bg-card-non-transparent">
           <tr className="border-b border-gray-700">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"

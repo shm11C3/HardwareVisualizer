@@ -108,7 +108,7 @@ export const PowerDrawChart = ({
         )}
       >
         {showHeading ? (
-          <div className="text-muted-foreground flex items-center gap-2">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <LightningIcon size={18} className="text-amber-400" />
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.18em] uppercase">
               {t("pages.performance.panels.power")}
@@ -131,7 +131,7 @@ export const PowerDrawChart = ({
             return (
               <span
                 key={target}
-                className="text-muted-foreground flex items-center gap-1.5 font-mono text-[11px] tabular-nums"
+                className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground tabular-nums"
               >
                 <i
                   className="size-2 rounded-sm"

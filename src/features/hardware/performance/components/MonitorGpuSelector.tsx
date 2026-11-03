@@ -28,7 +28,7 @@ export const MonitorGpuSelector = () => {
           user gets. Say why it is blank rather than letting it read as idle. */}
       {hasNoReadings && (
         <p
-          className="text-muted-foreground min-w-0 truncate text-xs"
+          className="min-w-0 truncate text-xs text-muted-foreground"
           data-testid="performance-monitor-gpu-unavailable"
         >
           {t("pages.performance.gpuNoLiveReadings")}

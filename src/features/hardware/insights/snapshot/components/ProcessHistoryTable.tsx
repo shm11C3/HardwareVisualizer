@@ -85,7 +85,7 @@ export const ProcessHistoryTable = ({
 
   return (
     <div
-      className="bg-card-non-transparent text-foreground rounded-md p-4 shadow-md"
+      className="rounded-md bg-card-non-transparent p-4 text-foreground shadow-md"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -137,7 +137,7 @@ const InfoTable = memo(function InfoTable({
     <div className={className}>
       <div ref={sentinelRef} className="h-1" />
       <table className="w-full text-left">
-        <thead className="bg-card-non-transparent sticky top-[-1px]">
+        <thead className="sticky top-[-1px] bg-card-non-transparent">
           <tr className="border-b border-gray-700">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
@@ -216,7 +216,7 @@ const InfoTable = memo(function InfoTable({
         <TableBody processes={processes} />
       </table>
       {processes.length === 0 && (
-        <div className="text-muted-foreground py-8 text-center">
+        <div className="py-8 text-center text-muted-foreground">
           {t("shared.noProcessDataFound")}
         </div>
       )}

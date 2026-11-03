@@ -17,7 +17,7 @@ export const ActionFailure = ({
   <p
     role="alert"
     data-testid="action-failure"
-    className={cn("text-destructive text-sm", className)}
+    className={cn("text-sm text-destructive", className)}
   >
     {message}
   </p>

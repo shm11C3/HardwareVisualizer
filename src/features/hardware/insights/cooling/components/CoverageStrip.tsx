@@ -40,10 +40,10 @@ const CoverageStripBody = ({ days }: { days: 90 | 365 }) => {
 
   return (
     <section
-      className="bg-card rounded-2xl p-4"
+      className="rounded-2xl bg-card p-4"
       data-testid="cooling-coverage-strip"
     >
-      <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-[0.18em] uppercase">
+      <h3 className="mb-2 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
         {t("pages.insights.cooling.coverage.title")}
       </h3>
       {trend.kind === "failed" ? (
@@ -83,7 +83,7 @@ const CoverageStripBody = ({ days }: { days: 90 | 365 }) => {
           ))}
         </svg>
       ) : (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {t("pages.insights.noDataForPeriod")}
         </p>
       )}

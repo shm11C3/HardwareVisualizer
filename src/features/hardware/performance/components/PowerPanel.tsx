@@ -25,7 +25,7 @@ export const PowerPanel = () => {
       {readings.map(([component, watts]) => (
         <div
           key={component}
-          className="border-border/60 flex items-baseline justify-between gap-4 border-b py-1.5 text-sm"
+          className="flex items-baseline justify-between gap-4 border-b border-border/60 py-1.5 text-sm"
         >
           <span className="text-muted-foreground">
             {t(`pages.performance.power.${component}`)}

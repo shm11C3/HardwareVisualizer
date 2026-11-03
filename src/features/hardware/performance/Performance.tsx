@@ -145,7 +145,7 @@ export const Performance = ({
         {showTitle && (
           <div className="flex min-w-0 items-center gap-2">
             <GaugeIcon size={32} />
-            <h2 className="text-foreground text-3xl font-bold">
+            <h2 className="text-3xl font-bold text-foreground">
               {t("navigation.performance")}
             </h2>
           </div>
@@ -164,7 +164,7 @@ export const Performance = ({
             <button
               type="button"
               onClick={() => void setCompactExpanded(true)}
-              className="border-border text-muted-foreground hover:bg-muted hover:text-foreground flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-sm"
+              className="flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
               data-testid="performance-compact-expand"
             >
               <ArrowsOutSimpleIcon size={15} />
@@ -201,7 +201,7 @@ export const Performance = ({
                   : undefined
               }
               className={cn(
-                "border-border flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-sm whitespace-nowrap",
+                "flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm whitespace-nowrap",
                 editing
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -218,7 +218,7 @@ export const Performance = ({
                 : t("pages.performance.editPanels")}
               {!editing && undiscoveredCount > 0 && (
                 <span
-                  className="bg-primary text-primary-foreground flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-4 font-semibold tabular-nums"
+                  className="flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums"
                   aria-hidden="true"
                   data-testid="performance-edit-badge"
                 >
@@ -263,7 +263,7 @@ export const Performance = ({
         // foreground color has to be restated here rather than inherited.
         // Burn-in Shift must be re-established too: a mini monitor shows
         // sustained static content, which is exactly what the shift protects.
-        className="bg-background text-foreground fixed inset-0 z-70 [&>.burnin-root]:h-full [&>.burnin-root>.burnin-shift]:h-full [&>.burnin-root>.burnin-shift>div]:h-full"
+        className="fixed inset-0 z-70 bg-background text-foreground [&>.burnin-root]:h-full [&>.burnin-root>.burnin-shift]:h-full [&>.burnin-root>.burnin-shift>div]:h-full"
         data-testid="performance-compact-fullscreen"
       >
         <BurnInShift enabled paddingOverride={12}>
@@ -271,7 +271,7 @@ export const Performance = ({
             <button
               type="button"
               onClick={() => void setCompactExpanded(false)}
-              className="border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground absolute top-0 right-0 z-10 flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm"
+              className="absolute top-0 right-0 z-10 flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
               data-testid="performance-compact-collapse"
             >
               <ArrowsInSimpleIcon size={15} />

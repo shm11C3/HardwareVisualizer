@@ -21,7 +21,7 @@ export const PerCorePanel = () => {
     // An empty history means no hardware-monitor sample has arrived yet;
     // absence is only a fact once a sample exists without per-core data.
     return processorsUsageHistory.length > 0 ? (
-      <p className="text-muted-foreground px-4 pb-4 text-sm">
+      <p className="px-4 pb-4 text-sm text-muted-foreground">
         {t("pages.performance.perCoreUnavailable")}
       </p>
     ) : (
@@ -48,11 +48,11 @@ export const PerCorePanel = () => {
           key={index}
           className="grid grid-cols-[2.4rem_1fr_2.8rem] items-center gap-2"
         >
-          <span className="text-muted-foreground font-mono text-[11px] tabular-nums">
+          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
             P{index}
           </span>
           <span
-            className="bg-muted h-1.5 overflow-hidden rounded-full"
+            className="h-1.5 overflow-hidden rounded-full bg-muted"
             aria-hidden="true"
           >
             {/* scaleX keeps per-core updates compositor-only; width would

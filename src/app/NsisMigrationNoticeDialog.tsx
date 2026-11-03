@@ -111,14 +111,14 @@ export const NsisMigrationNoticeDialog = ({
     <AlertDialog open>
       {/* Scroll inside the dialog so the actions stay reachable in compact
           windows. */}
-      <AlertDialogContent className="text-foreground max-h-[calc(100dvh-2rem)] overflow-y-auto">
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto text-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle>{t("nsisMigrationNotice.title")}</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="text-muted-foreground space-y-3 text-left text-sm leading-relaxed">
+            <div className="space-y-3 text-left text-sm leading-relaxed text-muted-foreground">
               <p>{t("nsisMigrationNotice.why")}</p>
               <div className="space-y-1">
-                <div className="text-foreground font-medium">
+                <div className="font-medium text-foreground">
                   {t("nsisMigrationNotice.stepsTitle")}
                 </div>
                 <ol className="list-decimal space-y-1 pl-5">

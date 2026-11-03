@@ -115,7 +115,7 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
       );
     }
     return (
-      <pre className="text-foreground font-mono text-sm leading-relaxed whitespace-pre-wrap">
+      <pre className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-foreground">
         {content}
       </pre>
     );
@@ -148,7 +148,7 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
           </TabsList>
 
           <TabsContent value="license" className="mt-6 flex-1">
-            <div className="bg-card h-full rounded-lg border">
+            <div className="h-full rounded-lg border bg-card">
               <div className="flex items-center justify-between border-b p-4">
                 <h3 className="font-semibold">
                   {t("pages.settings.license.applicationLicense")}
@@ -176,7 +176,7 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
           </TabsContent>
 
           <TabsContent value="third-party" className="mt-6 flex-1">
-            <div className="bg-card h-full rounded-lg border">
+            <div className="h-full rounded-lg border bg-card">
               <div className="flex items-center justify-between border-b p-4">
                 <h3 className="font-semibold">
                   {t("pages.settings.license.thirdPartyLicenses")}

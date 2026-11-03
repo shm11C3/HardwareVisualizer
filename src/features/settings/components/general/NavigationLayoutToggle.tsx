@@ -30,7 +30,7 @@ export const NavigationLayoutToggle = () => {
           <Label htmlFor="classicNavigation" className="text-lg">
             {t("pages.settings.general.navigationLayout.name")}
           </Label>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             {t("pages.settings.general.navigationLayout.description")}
           </p>
         </div>

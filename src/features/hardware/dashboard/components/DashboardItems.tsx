@@ -229,10 +229,10 @@ export const GPUInfo = () => {
                       aria-label={gpu.name}
                       onClick={() => selectInventoryGpu(gpu)}
                       className={cn(
-                        "focus-visible:ring-ring/50 min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                        "min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                         isSelected
                           ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border text-muted-foreground hover:bg-muted bg-transparent",
+                          : "border-border bg-transparent text-muted-foreground hover:bg-muted",
                       )}
                     >
                       #{i + 1}
@@ -369,7 +369,7 @@ const GpuLiveReadings = ({
         )}
       </div>
       {showGpuUsageSource && gpuUsageSource && (
-        <span className="bg-muted/80 text-muted-foreground absolute top-0 right-0 rounded-sm px-1.5 py-0.5 font-mono text-[10px]">
+        <span className="absolute top-0 right-0 rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
           {gpuUsageSource}
         </span>
       )}
@@ -598,7 +598,7 @@ export const FetchDetailButton = () => {
         <span
           role="alert"
           data-testid="memory-detail-load-failure"
-          className="text-destructive text-sm"
+          className="text-sm text-destructive"
         >
           {t("shared.loadFailed")}
         </span>
@@ -914,7 +914,7 @@ const StorageHealthOverview = ({
   return (
     <div
       className={cn(
-        "border-border/60 mb-3 space-y-2 border-b pb-3",
+        "mb-3 space-y-2 border-b border-border/60 pb-3",
         summary.isStale && "opacity-70",
       )}
     >
@@ -925,14 +925,14 @@ const StorageHealthOverview = ({
             {t("pages.dashboard.storageHealth.title")}
           </span>
           {summary.isStale && (
-            <span className="bg-muted text-muted-foreground rounded-sm px-1.5 py-0.5 text-[10px]">
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {t("pages.dashboard.storageHealth.stale")}
             </span>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {summary.latestDate && (
-            <span className="text-muted-foreground text-[10px]">
+            <span className="text-[10px] text-muted-foreground">
               {t("pages.dashboard.storageHealth.lastRecorded", {
                 date: summary.latestDate,
               })}
@@ -986,7 +986,7 @@ const StorageHealthOverview = ({
         <p
           role="alert"
           data-testid="storage-health-refresh-error"
-          className="text-destructive truncate text-xs"
+          className="truncate text-xs text-destructive"
           title={refreshError}
         >
           {refreshError}
@@ -998,9 +998,9 @@ const StorageHealthOverview = ({
           {summary.metrics.map((metric) => (
             <div
               key={metric.type}
-              className="bg-muted/40 min-w-0 rounded-sm px-2 py-1"
+              className="min-w-0 rounded-sm bg-muted/40 px-2 py-1"
             >
-              <div className="text-muted-foreground truncate text-[10px]">
+              <div className="truncate text-[10px] text-muted-foreground">
                 {t(storageHealthMetricLabelKeys[metric.type])}
               </div>
               <StorageHealthMetricValue metric={metric} />
@@ -1043,7 +1043,7 @@ const StorageHealthMetricValue = ({
 
   return (
     <Tooltip>
-      <TooltipTrigger className="focus-visible:ring-ring block max-w-full truncate border-0 bg-transparent p-0 text-left font-mono text-xs text-inherit outline-none focus-visible:ring-1">
+      <TooltipTrigger className="block max-w-full truncate border-0 bg-transparent p-0 text-left font-mono text-xs text-inherit outline-none focus-visible:ring-1 focus-visible:ring-ring">
         {value}
       </TooltipTrigger>
       <TooltipContent>{tooltip}</TooltipContent>
@@ -1094,7 +1094,7 @@ const StorageDeviceHealthOverview = ({
               onClick={() => onSelect?.(device.deviceId)}
               title={tabTitle}
               className={cn(
-                "focus-visible:ring-ring/50 grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1 text-left transition-colors focus-visible:ring-1 focus-visible:outline-none",
+                "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1 text-left transition-colors focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:outline-none",
                 usesCompactTabs
                   ? "h-6 w-44 shrink-0"
                   : "min-h-6 min-w-0 py-0.5",
@@ -1122,7 +1122,7 @@ const StorageDeviceHealthOverview = ({
       </div>
       {usesCompactTabs && selectedDevice && (
         <div
-          className="text-muted-foreground flex min-w-0 items-center gap-1.5 px-1 text-xs"
+          className="flex min-w-0 items-center gap-1.5 px-1 text-xs text-muted-foreground"
           title={formatStorageDeviceTabTitle(selectedDevice)}
         >
           <span className="min-w-0 leading-4 break-all">
@@ -1155,7 +1155,7 @@ const StorageDeviceProtocolBadge = ({
   return (
     <span
       className={cn(
-        "border-border/60 bg-background/70 text-muted-foreground truncate rounded-[2px] border px-1 font-mono text-[9px] leading-4",
+        "truncate rounded-[2px] border border-border/60 bg-background/70 px-1 font-mono text-[9px] leading-4 text-muted-foreground",
         className,
       )}
       title={protocolLabel}
@@ -1229,7 +1229,7 @@ const MotherboardLiveSensors = ({
           {t("pages.dashboard.motherboardSensors.title")}
         </h4>
         {sensorSource && (
-          <span className="bg-muted/80 text-muted-foreground rounded-sm px-1.5 py-0.5 font-mono text-[10px]">
+          <span className="rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
             {sensorSource}
           </span>
         )}
@@ -1237,7 +1237,7 @@ const MotherboardLiveSensors = ({
 
       {motherboardTemps.length > 0 && (
         <div className="ml-2">
-          <h5 className="text-muted-foreground mb-1 text-xs font-medium">
+          <h5 className="mb-1 text-xs font-medium text-muted-foreground">
             {t("pages.dashboard.motherboardSensors.temperatures")}
           </h5>
           <InfoTable
@@ -1253,7 +1253,7 @@ const MotherboardLiveSensors = ({
 
       {motherboardFanSpeeds.length > 0 && (
         <div className="ml-2">
-          <h5 className="text-muted-foreground mb-1 text-xs font-medium">
+          <h5 className="mb-1 text-xs font-medium text-muted-foreground">
             {t("pages.dashboard.motherboardSensors.fanSpeeds")}
           </h5>
           <InfoTable
@@ -1320,7 +1320,7 @@ export const NetworkInfo = ({
 
   if (showUnavailableState && networkInfo.length === 0) {
     return (
-      <p className="text-muted-foreground px-4 pb-4 text-sm">
+      <p className="px-4 pb-4 text-sm text-muted-foreground">
         {t("pages.dashboard.systemSpecifications.networkUnavailable")}
       </p>
     );
@@ -1332,7 +1332,7 @@ export const NetworkInfo = ({
         return (
           <div
             key={network.macAddress}
-            className="bg-card text-foreground mt-4 mb-2 rounded-md px-4 pt-2 pb-2 shadow-md"
+            className="mt-4 mb-2 rounded-md bg-card px-4 pt-2 pb-2 text-foreground shadow-md"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null

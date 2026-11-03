@@ -55,9 +55,9 @@ export const SnapshotChart = ({
     return (
       <div className="flex h-[400px] items-center justify-center">
         <div className="space-y-2 text-center">
-          <DatabaseIcon className="text-muted-foreground mx-auto h-12 w-12" />
+          <DatabaseIcon className="mx-auto h-12 w-12 text-muted-foreground" />
           <p className="font-medium">No data available</p>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Try adjusting your time range or filters
           </p>
         </div>

@@ -22,7 +22,7 @@ export function UpdateTopBar({ percent, transferredBytes, totalBytes }: Props) {
           <div className="truncate text-sm font-medium">
             Downloading update…
           </div>
-          <div className="text-muted-foreground text-right text-xs tabular-nums">
+          <div className="text-right text-xs text-muted-foreground tabular-nums">
             {Math.round(p)}%
           </div>
         </div>
@@ -32,7 +32,7 @@ export function UpdateTopBar({ percent, transferredBytes, totalBytes }: Props) {
         </div>
 
         {sizeText && (
-          <div className="text-muted-foreground w-full text-center text-xs">
+          <div className="w-full text-center text-xs text-muted-foreground">
             {sizeText}
           </div>
         )}

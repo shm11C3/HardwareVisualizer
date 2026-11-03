@@ -155,7 +155,7 @@ export const DoughnutChart = ({
           cx={center}
           cy={center}
           r={layout.outerDisc}
-          className="dark:fill-muted fill-zinc-100"
+          className="fill-zinc-100 dark:fill-muted"
           style={{ opacity: discOpacity }}
         />
         <circle

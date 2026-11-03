@@ -46,7 +46,7 @@ export const AdvancedSettings = () => {
             <Label htmlFor="showGpuUsageSource" className="text-lg">
               {t("pages.settings.advanced.showGpuUsageSource")}
             </Label>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("pages.settings.advanced.showGpuUsageSourceDescription")}
             </p>
           </div>
@@ -68,7 +68,7 @@ export const AdvancedSettings = () => {
               <Label className="text-lg">
                 {t("pages.settings.advanced.externalComponents")}
               </Label>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-sm text-muted-foreground">
                 {t("pages.settings.advanced.externalComponentsDescription")}
               </p>
             </div>

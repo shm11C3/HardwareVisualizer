@@ -81,8 +81,8 @@ const RangeControl = ({
         <Label className="font-medium">{title}</Label>
       </div>
 
-      <div className="bg-muted/50 rounded-lg px-3 py-2">
-        <div className="text-muted-foreground mb-2 flex justify-between text-sm">
+      <div className="rounded-lg bg-muted/50 px-3 py-2">
+        <div className="mb-2 flex justify-between text-sm text-muted-foreground">
           <span>{formatVal(range.value[0])}</span>
           <span>{formatVal(range.value[1])}</span>
         </div>
@@ -107,7 +107,7 @@ const RangeControl = ({
           to {formatVal(range.value[1])}
         </div>
 
-        <div className="text-muted-foreground mt-1 flex justify-between text-xs">
+        <div className="mt-1 flex justify-between text-xs text-muted-foreground">
           <span>{formatVal(0)}</span>
           <span>{formatVal(Math.floor(max / 2))}</span>
           <span>{formatVal(max)}</span>
@@ -128,7 +128,7 @@ const DataTypeOption = ({
   label: string;
   color: string;
 }) => (
-  <Label className="hover:border-border hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border border-transparent p-3 transition-colors">
+  <Label className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent p-3 transition-colors hover:border-border hover:bg-muted/50">
     <RadioGroupItem
       value={value}
       className="h-4 w-4"
@@ -271,7 +271,7 @@ export const SnapshotControls = ({
                 {t("shared.snapshot.filtersSectionTitle")}
               </Label>
             </div>
-            <p className="text-muted-foreground mb-4 text-sm">
+            <p className="mb-4 text-sm text-muted-foreground">
               {t("shared.snapshot.filtersSectionDescription")}
             </p>
           </div>

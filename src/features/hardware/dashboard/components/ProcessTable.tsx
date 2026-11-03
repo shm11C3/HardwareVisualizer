@@ -114,13 +114,13 @@ export const ProcessesTable = ({
         {isPanelHeading ? (
           <div className="mb-2 flex min-h-9 items-center gap-2">
             <GearIcon size={18} color="var(--color-process)" />
-            <h4 className="text-muted-foreground font-mono text-[11px] font-semibold tracking-[0.18em] uppercase">
+            <h4 className="font-mono text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
               {t("shared.process")}
             </h4>
             <DialogTrigger
               type="button"
               aria-label={t("shared.expandProcessTable")}
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 ml-auto flex cursor-pointer items-center justify-center rounded-md focus:outline-hidden focus-visible:ring-2"
+              className="ml-auto flex cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <ArrowsOutIcon size={20} />
             </DialogTrigger>
@@ -162,7 +162,7 @@ export const ProcessesTable = ({
           </div>
         )}
 
-        <DialogContent className="bg-card-non-transparent text-foreground m-8 rounded-md border p-4 shadow-md 2xl:max-w-[800px]">
+        <DialogContent className="m-8 rounded-md border bg-card-non-transparent p-4 text-foreground shadow-md 2xl:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>{t("shared.process")}</DialogTitle>
             <DialogDescription>
@@ -214,7 +214,7 @@ const InfoTable = ({
   return (
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
-        <thead className="bg-card-non-transparent sticky top-[-1px] h-14">
+        <thead className="sticky top-[-1px] h-14 bg-card-non-transparent">
           <tr className="border-b border-gray-700 text-sm xl:text-base">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"

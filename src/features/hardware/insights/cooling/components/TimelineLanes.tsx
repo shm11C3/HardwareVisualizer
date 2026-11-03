@@ -139,7 +139,7 @@ const LegendSwatch = ({
   color: string;
   variant?: "line" | "band" | "bar" | "dashed";
 }) => (
-  <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
     <span
       data-testid="cooling-legend-swatch"
       data-variant={variant}
@@ -750,7 +750,7 @@ export const TimelineLanes = ({
     <div className="space-y-2" data-testid="cooling-timeline-lanes">
       {domain == null ? (
         <p
-          className="text-muted-foreground text-sm"
+          className="text-sm text-muted-foreground"
           data-testid="cooling-temperature-lane-unavailable"
         >
           {/* Pointing at the load lane is only true when it has something
@@ -809,7 +809,7 @@ export const TimelineLanes = ({
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="text-muted-foreground text-xs font-medium">
+        <span className="text-xs font-medium text-muted-foreground">
           {t(
             loadMode === "usage"
               ? "pages.insights.cooling.timeline.loadLaneUsage"
@@ -907,7 +907,7 @@ export const TimelineLanes = ({
       {showsPowerLane && (
         <>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="text-muted-foreground text-xs font-medium">
+            <span className="text-xs font-medium text-muted-foreground">
               {t("pages.insights.cooling.timeline.powerLane")}
             </span>
             <LegendSwatch
@@ -931,7 +931,7 @@ export const TimelineLanes = ({
       {showsFanLane && (
         <>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="text-muted-foreground text-xs font-medium">
+            <span className="text-xs font-medium text-muted-foreground">
               {t("pages.insights.cooling.timeline.fanLane")}
             </span>
             {fanSeries.map((fan, index) => (
@@ -954,7 +954,7 @@ export const TimelineLanes = ({
       {showsAmbientLane && (
         <>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="text-muted-foreground text-xs font-medium">
+            <span className="text-xs font-medium text-muted-foreground">
               {t("pages.insights.cooling.timeline.ambientLane", {
                 unit: unitSuffix,
               })}

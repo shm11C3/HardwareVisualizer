@@ -34,15 +34,15 @@ export const GraphSettings = () => {
               <h4 className="text-xl font-bold">
                 {t("pages.settings.general.displayTargets")}
               </h4>
-              <div className="divide-border/60 divide-y">
+              <div className="divide-y divide-border/60">
                 <section className="pb-4">
-                  <h5 className="text-muted-foreground text-sm font-semibold">
+                  <h5 className="text-sm font-semibold text-muted-foreground">
                     {t("pages.settings.general.usageGraphDisplayTargets")}
                   </h5>
                   <GraphTypeSelector />
                 </section>
                 <section className="pt-4">
-                  <h5 className="text-muted-foreground text-sm font-semibold">
+                  <h5 className="text-sm font-semibold text-muted-foreground">
                     {t("pages.settings.general.powerDisplayTargets")}
                   </h5>
                   <PowerDisplayTargetSelector />

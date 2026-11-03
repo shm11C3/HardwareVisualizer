@@ -126,7 +126,7 @@ export const CloseToTrayFirstRunDialog = ({
       <AlertDialogContent className="text-foreground">
         <Button
           aria-label={t("closeToTray.firstRunDialog.quitApp")}
-          className="hover:bg-muted absolute top-4 right-4 h-8 w-8 border-0 bg-transparent p-0 opacity-70 hover:opacity-100"
+          className="absolute top-4 right-4 h-8 w-8 border-0 bg-transparent p-0 opacity-70 hover:bg-muted hover:opacity-100"
           disabled={saving}
           onClick={() => void rejectCloseToTray()}
           type="button"

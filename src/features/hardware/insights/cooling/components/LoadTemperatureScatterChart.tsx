@@ -59,7 +59,7 @@ export const LoadTemperatureScatterChart = ({
 
   if (domain == null) {
     return (
-      <p className="text-muted-foreground text-sm">
+      <p className="text-sm text-muted-foreground">
         {t("pages.insights.noDataForPeriod")}
       </p>
     );
@@ -67,7 +67,7 @@ export const LoadTemperatureScatterChart = ({
 
   return (
     <div data-testid="cooling-explorer-scatter">
-      <div className="text-muted-foreground mb-2 flex flex-wrap items-center gap-4 text-xs">
+      <div className="mb-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span
             aria-hidden

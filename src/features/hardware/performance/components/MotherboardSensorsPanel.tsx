@@ -27,7 +27,7 @@ export const MotherboardSensorsPanel = () => {
 
   if (motherboardTemps.length === 0 && motherboardFanSpeeds.length === 0) {
     return hasSample ? (
-      <p className="text-muted-foreground px-4 pb-4 text-sm">
+      <p className="px-4 pb-4 text-sm text-muted-foreground">
         {t("pages.performance.motherboardSensorsUnavailable")}
       </p>
     ) : (
@@ -56,7 +56,7 @@ export const MotherboardSensorsPanel = () => {
   return (
     <div className="space-y-3 p-4 pt-2">
       {sensorSource != null && (
-        <span className="bg-muted/80 text-muted-foreground inline-block rounded-sm px-1.5 py-0.5 font-mono text-[10px]">
+        <span className="inline-block rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
           {sensorSource}
         </span>
       )}
@@ -66,7 +66,7 @@ export const MotherboardSensorsPanel = () => {
         {motherboardTemps.map((sensor) => (
           <div
             key={sensor.name}
-            className="border-border/60 flex items-baseline justify-between gap-4 border-b py-1.5 text-sm"
+            className="flex items-baseline justify-between gap-4 border-b border-border/60 py-1.5 text-sm"
           >
             <span className="text-muted-foreground">{sensor.name}</span>
             <span className="font-mono tabular-nums">
@@ -77,7 +77,7 @@ export const MotherboardSensorsPanel = () => {
         {motherboardFanSpeeds.map((fan) => (
           <div
             key={fan.name}
-            className="border-border/60 flex items-baseline justify-between gap-4 border-b py-1.5 text-sm"
+            className="flex items-baseline justify-between gap-4 border-b border-border/60 py-1.5 text-sm"
           >
             <span className="text-muted-foreground">{fan.name}</span>
             <span className="font-mono tabular-nums">

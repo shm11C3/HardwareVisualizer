@@ -224,10 +224,10 @@ export const ThermalTimelineLane = () => {
 
   return (
     <section
-      className="bg-card rounded-2xl p-4"
+      className="rounded-2xl bg-card p-4"
       data-testid="cooling-thermal-timeline-lane"
     >
-      <h3 className="text-muted-foreground mb-3 text-xs font-semibold tracking-[0.18em] uppercase">
+      <h3 className="mb-3 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
         {t("pages.insights.cooling.timeline.title")}
       </h3>
       {route.kind === "archive" && archiveState.kind === "failed" ? (
@@ -250,7 +250,7 @@ export const ThermalTimelineLane = () => {
           data-testid="cooling-timeline-loading"
         />
       ) : domain == null && !hasLoadData && ambientDomain == null ? (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {t("pages.insights.noDataForPeriod")}
         </p>
       ) : (

@@ -177,7 +177,7 @@ export const TrayWidgetSettings = () => {
           <Label htmlFor="trayWidgetEnabled" className="text-lg">
             {t("pages.settings.general.trayWidget.name")}
           </Label>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             {t("pages.settings.general.trayWidget.description")}
           </p>
         </div>
@@ -306,7 +306,7 @@ const SortableMetricRow = ({
           aria-label={t("pages.settings.general.trayWidget.dragMetric", {
             metric: metricName,
           })}
-          className="text-muted-foreground flex size-8 cursor-grab items-center justify-center rounded-md transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] disabled:cursor-default disabled:opacity-50"
+          className="flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] disabled:cursor-default disabled:opacity-50"
           disabled={disabled}
           type="button"
         >

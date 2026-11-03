@@ -48,14 +48,14 @@ const Notice = ({ onDismiss }: { onDismiss: () => void }) => {
 
   return (
     <aside
-      className="border-border bg-background/95 fixed right-4 bottom-4 z-50 flex max-w-md items-start gap-3 rounded-xl border p-4 shadow-lg backdrop-blur-sm"
+      className="fixed right-4 bottom-4 z-50 flex max-w-md items-start gap-3 rounded-xl border border-border bg-background/95 p-4 shadow-lg backdrop-blur-sm"
       aria-label={t("elevationUnavailable.startupNotice.title")}
     >
       <div className="min-w-0 flex-1">
         <p className="font-semibold">
           {t("elevationUnavailable.startupNotice.title")}
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <p className="mt-1 text-sm text-muted-foreground">
           {t("elevationUnavailable.startupNotice.description")}
         </p>
         <Button

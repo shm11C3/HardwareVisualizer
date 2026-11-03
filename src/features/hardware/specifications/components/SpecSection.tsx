@@ -26,7 +26,7 @@ export const SpecSection = ({
 );
 
 export const SpecBadge = ({ children }: { children: ReactNode }) => (
-  <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-mono text-xs">
+  <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
     {children}
   </span>
 );
