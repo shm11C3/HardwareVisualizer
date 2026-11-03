@@ -5,7 +5,7 @@ import {
   EyeOffIcon,
   ShieldIcon,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -59,6 +59,27 @@ type ExternalComponentGuidanceDialogProps = {
   onPendingChange?: (pending: boolean) => void;
 };
 
+// Allow the initial collector/service connection to settle, without opening
+// installation dialogs later during normal use or after restoring the window.
+const SENSOR_STARTUP_WINDOW_MS = 10_000;
+
+const sensorCandidateIsVisible = (
+  item: ExternalComponentGuidanceCandidate,
+  view: ExternalComponentGuidanceView | null,
+  context?: PerformanceGuidanceContext,
+) => {
+  if (item.component !== "pawnio") return false;
+  if (view === "dashboard") return true;
+  if (view === "cpuDetail") return item.usage === "cpuPackageTemperature";
+  if (view !== "performance" || !context?.settled || context.expanded)
+    return false;
+
+  return (
+    (item.usage === "cpuPackageTemperature" && context.cpuTemperatureVisible) ||
+    (item.usage === "motherboardSensors" && context.motherboardSensorsVisible)
+  );
+};
+
 export const ExternalComponentGuidanceDialog = ({
   displayTarget,
   settingsLoaded = true,
@@ -75,6 +96,16 @@ export const ExternalComponentGuidanceDialog = ({
   const [candidates, setCandidates] = useState<
     ExternalComponentGuidanceCandidate[]
   >([]);
+  const [startupSensor, setStartupSensor] = useState<{
+    view: ExternalComponentGuidanceView;
+    candidate: ExternalComponentGuidanceCandidate;
+  } | null>(null);
+  const sensorStartup = useRef<{
+    view: ExternalComponentGuidanceView | null;
+    deadline: number;
+  } | null>(null);
+  const sensorOffered = useRef(false);
+  const sensorPresented = useRef(false);
   const [isEnablingElevatedStartupMode, setIsEnablingElevatedStartupMode] =
     useState(false);
   // The view whose first candidate lookup has completed. Derived per render
@@ -94,12 +125,53 @@ export const ExternalComponentGuidanceDialog = ({
   useEffect(() => {
     if (!settingsLoaded || !screenKnown || !view) {
       setCandidates([]);
+      setStartupSensor(null);
+      if (settingsLoaded && screenKnown) {
+        sensorStartup.current = { view, deadline: 0 };
+      }
       return;
     }
 
+    sensorStartup.current ??= {
+      view,
+      deadline: Date.now() + SENSOR_STARTUP_WINDOW_MS,
+    };
+    if (sensorStartup.current.view !== view) sensorStartup.current.deadline = 0;
+    setStartupSensor((current) =>
+      current &&
+      (current.view !== view ||
+        !sensorCandidateIsVisible(current.candidate, view, performanceContext))
+        ? null
+        : current,
+    );
+
     let isCancelled = false;
+    let startupRetry: ReturnType<typeof setTimeout> | undefined;
+    const startupExpiry = setTimeout(
+      () => {
+        // A prompt already being read remains under the user's control. A
+        // queued prompt must not interrupt normal use after another flow ends.
+        if (!sensorPresented.current) setStartupSensor(null);
+      },
+      Math.max(0, sensorStartup.current.deadline - Date.now()),
+    );
+    const startupCheckOpen = () =>
+      platform() === "windows" &&
+      !document.hidden &&
+      !sensorOffered.current &&
+      sensorStartup.current?.view === view &&
+      Date.now() < sensorStartup.current.deadline;
 
     const loadCandidates = async () => {
+      if (isCancelled) return;
+
+      // Only Dashboard has unrelated storage guidance that still needs live
+      // polling. CPU/Performance sensor guidance ends with the startup window.
+      if (view !== "dashboard" && !startupCheckOpen()) {
+        setLoadedView(view);
+        return;
+      }
+
       try {
         const result =
           await commands.getExternalComponentGuidanceCandidates(view);
@@ -113,48 +185,62 @@ export const ExternalComponentGuidanceDialog = ({
           return;
         }
 
-        setCandidates(result.data);
+        setCandidates(
+          view === "dashboard"
+            ? result.data.filter((item) => item.component !== "pawnio")
+            : [],
+        );
+
+        if (startupCheckOpen()) {
+          const sensor = result.data.find((item) =>
+            sensorCandidateIsVisible(item, view, performanceContext),
+          );
+
+          if (sensor) {
+            sensorOffered.current = true;
+            setStartupSensor({ view, candidate: sensor });
+          }
+        }
       } catch (err) {
         if (isCancelled) return;
         console.error("Failed to fetch external component guidance:", err);
       } finally {
         if (!isCancelled) {
           setLoadedView(view);
+          if (startupCheckOpen()) {
+            clearTimeout(startupRetry);
+            startupRetry = setTimeout(() => void loadCandidates(), 1_000);
+          }
         }
       }
     };
 
-    const stopPolling = startVisiblePolling(() => {
+    let stopPolling = () => {};
+    if (view === "dashboard") {
+      stopPolling = startVisiblePolling(() => void loadCandidates(), 60_000);
+    } else {
       void loadCandidates();
-    }, 60_000);
+    }
 
     return () => {
       isCancelled = true;
+      clearTimeout(startupRetry);
+      clearTimeout(startupExpiry);
       stopPolling();
     };
-  }, [settingsLoaded, screenKnown, view]);
+  }, [settingsLoaded, screenKnown, view, performanceContext]);
 
   const processElevated = useProcessElevated();
   const isPerformance = view === "performance";
   const performanceReady =
     !isPerformance || Boolean(performanceContext?.settled);
   const candidate =
-    (loadedView === view ? candidates : []).find((item) => {
-      if (!isPerformance) return true;
-      if (
-        platform() !== "windows" ||
-        !performanceReady ||
-        performanceContext?.expanded
-      )
-        return false;
-      if (item.component !== "pawnio") return false;
-      return (
-        (item.usage === "cpuPackageTemperature" &&
-          performanceContext?.cpuTemperatureVisible) ||
-        (item.usage === "motherboardSensors" &&
-          performanceContext?.motherboardSensorsVisible)
-      );
-    }) ?? null;
+    (startupSensor?.view === view &&
+    sensorCandidateIsVisible(startupSensor.candidate, view, performanceContext)
+      ? startupSensor.candidate
+      : null) ??
+    (loadedView === view ? candidates[0] : null) ??
+    null;
   const copyKey = candidate
     ? externalComponentGuidanceCopyKey(candidate)
     : null;
@@ -180,6 +266,9 @@ export const ExternalComponentGuidanceDialog = ({
 
   const removeCandidate = (key: string) => {
     setCandidates((current) => current.filter((item) => item.key !== key));
+    setStartupSensor((current) =>
+      current?.candidate.key === key ? null : current,
+    );
   };
 
   const handleNeverShowAgain = async () => {
@@ -265,8 +354,10 @@ export const ExternalComponentGuidanceDialog = ({
 
   // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
+    if (isOpen && candidate?.component === "pawnio")
+      sensorPresented.current = true;
     onOpenChange?.(isOpen);
-  }, [isOpen, onOpenChange]);
+  }, [isOpen, candidate?.component, onOpenChange]);
   useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [pending, onPendingChange]);

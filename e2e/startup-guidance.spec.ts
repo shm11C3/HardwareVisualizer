@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import type { ExternalComponentGuidanceCandidate } from "../src/rspc/bindings";
-import { capturePath, gotoApp } from "./helpers";
+import { capturePath, gotoApp, navigateTo } from "./helpers";
 
 const CPU_PERMISSION: ExternalComponentGuidanceCandidate = {
   key: "pawnio:cpu-package-temperature:v1",
@@ -31,8 +31,8 @@ const publishCandidates = async (
     (items) => window.__E2E__?.setGuidanceCandidates(items),
     candidates,
   );
-  // Exercise the unchanged visible polling cadence without a real minute's wait.
-  await page.clock.fastForward(60_000);
+  // Allow the bounded initial sensor evaluation to observe the attempted read.
+  await page.clock.fastForward(1_000);
 };
 
 const hideGuidance = async (page: Page, permanently = false) => {
@@ -127,7 +127,7 @@ test("Performance ignores unrelated components", async ({ page }) => {
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });
 
-test("motherboard guidance follows the enabled panel and Monitor has no temperature guidance", async ({
+test("startup guidance follows the enabled panel and is not repeated for another sensor", async ({
   page,
 }) => {
   await gotoApp(page, { path: "/?legacyPerformanceLayout=1" });
@@ -146,7 +146,38 @@ test("motherboard guidance follows the enabled panel and Monitor has no temperat
   await publishCandidates(page, [CPU_PERMISSION]);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.getByRole("tab", { name: "Panels", exact: true }).click();
-  await expect(page.getByRole("button", { name: CTA })).toBeVisible();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+});
+
+test("late sensor failures, restored visibility and screen changes do not reopen setup guidance", async ({
+  page,
+}) => {
+  await gotoApp(page);
+  await page.clock.fastForward(11_000);
+  const checks = await page.evaluate(() =>
+    window.__E2E__?.getInvokeCount(
+      "get_external_component_guidance_candidates",
+    ),
+  );
+  await page.evaluate(
+    (item) => window.__E2E__?.setGuidanceCandidates([item]),
+    CPU_PERMISSION,
+  );
+  await page.clock.fastForward(60_000);
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("visibilitychange")),
+  );
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await navigateTo(page, "systemSpecifications");
+  await navigateTo(page, "performance");
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      window.__E2E__?.getInvokeCount(
+        "get_external_component_guidance_candidates",
+      ),
+    ),
+  ).toBe(checks);
 });
 
 test("expanded Compact waits until its normal view is restored", async ({
@@ -253,7 +284,8 @@ test("deferral lasts for the session and acknowledgement survives reload", async
   await publishCandidates(page, [CPU_PERMISSION]);
   await expect(page.getByRole("button", { name: CTA })).toBeVisible();
   await hideGuidance(page);
-  await publishCandidates(page, [CPU_PERMISSION]);
+  await publishCandidates(page, [CPU_PERMISSION, MOTHERBOARD_PERMISSION]);
+  await page.clock.fastForward(60_000);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.reload();
   await expect(page.getByTestId("performance-screen")).toBeVisible();

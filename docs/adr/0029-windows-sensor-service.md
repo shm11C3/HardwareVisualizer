@@ -76,6 +76,12 @@ its lifecycle and security cost by serving that startup requirement.
    Missing-service guidance follows an attempted visible sensor collection and
    insufficient fallback, including elevated clients upgrading from direct
    PawnIO collection. It opens the existing service section in Settings.
+   Automatic sensor setup dialogs are limited to one per launch, during the
+   initial screen's first ten seconds after settings/navigation become ready.
+   This bounded evaluation lets the first sensor attempt settle; later failures,
+   screen changes and window restoration never reopen sensor setup guidance.
+   A queued dialog expires with this window; an already visible dialog remains
+   until the user acts. Ongoing setup/status checks remain available in Settings.
    Once the service supplies readings, a dismissible notice makes the explicit
    normal-startup switch discoverable to elevated-startup users. Neither notice
    installs anything or changes the saved startup preference automatically.

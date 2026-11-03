@@ -130,6 +130,7 @@ describe("ExternalComponentGuidanceDialog", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
 
   it("retains the elevated startup action for storage permission guidance", async () => {
@@ -339,6 +340,61 @@ describe("ExternalComponentGuidanceDialog", () => {
     expect(mocks.updateSettingAtom).not.toHaveBeenCalled();
     expect(mocks.setElevatedStartupMode).not.toHaveBeenCalled();
   });
+  it.each([true, false])(
+    "expires deferred startup guidance but keeps an already open prompt (deferred=%s)",
+    async (deferred) => {
+      vi.useFakeTimers();
+      mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+        status: "ok",
+        data: [candidate()],
+      });
+      const context = {
+        settled: true,
+        cpuTemperatureVisible: true,
+        motherboardSensorsVisible: false,
+        expanded: false,
+      };
+      const { rerender } = render(
+        <ExternalComponentGuidanceDialog
+          displayTarget="performance"
+          performanceContext={context}
+          deferred={deferred}
+        />,
+      );
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      await act(() => vi.advanceTimersByTimeAsync(11_000));
+      rerender(
+        <ExternalComponentGuidanceDialog
+          displayTarget="performance"
+          performanceContext={context}
+          deferred={false}
+        />,
+      );
+      expect(screen.queryByRole("alertdialog") !== null).toBe(!deferred);
+    },
+  );
+
+  it("keeps unrelated Dashboard storage guidance live after the sensor startup window", async () => {
+    vi.useFakeTimers();
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+    await act(() => vi.advanceTimersByTimeAsync(11_000));
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [candidate(), storageCandidate()],
+    });
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    expect(
+      screen.getByText(/SMART health, temperature, wear/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open sensor settings" }),
+    ).toBeNull();
+  });
+
   it.each([true, null])(
     "does not offer elevation when process status is %s",
     async (elevated) => {
@@ -353,7 +409,7 @@ describe("ExternalComponentGuidanceDialog", () => {
     },
   );
 
-  it("filters Performance candidates before selecting the first relevant reading", async () => {
+  it("selects one visible startup sensor and does not replace it with another panel", async () => {
     mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
       status: "ok",
       data: [
@@ -402,12 +458,95 @@ describe("ExternalComponentGuidanceDialog", () => {
         }}
       />,
     );
-    await screen.findByText(/Motherboard temperature sensors and fan speeds/);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     rerender(
       <ExternalComponentGuidanceDialog
         displayTarget="performance"
         performanceContext={{ ...context, cpuTemperatureVisible: false }}
       />,
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("ends startup sensor checks and does not prompt for later failures or restored visibility", async () => {
+    vi.useFakeTimers();
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
+    const context = {
+      settled: true,
+      cpuTemperatureVisible: true,
+      motherboardSensorsVisible: false,
+      expanded: false,
+    };
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={context}
+      />,
+    );
+
+    await act(() => vi.advanceTimersByTimeAsync(11_000));
+    const checks =
+      mocks.getExternalComponentGuidanceCandidates.mock.calls.length;
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [candidate()],
+    });
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    rerender(<ExternalComponentGuidanceDialog displayTarget="cpuDetail" />);
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={context}
+      />,
+    );
+
+    expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalledTimes(
+      checks,
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("ends the startup opportunity when the user leaves the initial screen", async () => {
+    vi.useFakeTimers();
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
+    const context = {
+      settled: true,
+      cpuTemperatureVisible: true,
+      motherboardSensorsVisible: false,
+      expanded: false,
+    };
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={context}
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    const checks =
+      mocks.getExternalComponentGuidanceCandidates.mock.calls.length;
+
+    rerender(<ExternalComponentGuidanceDialog displayTarget="settings" />);
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [candidate()],
+    });
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="performance"
+        performanceContext={context}
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+
+    expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalledTimes(
+      checks,
     );
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });

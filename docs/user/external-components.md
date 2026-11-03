@@ -57,6 +57,12 @@ does not add the service automatically. If sensor readings remain unavailable
 after fallback collection, **Open sensor settings** takes you to the service
 setup section. Existing guidance dismissals are respected.
 
+Automatic sensor setup guidance is shown at most once per launch, during the
+initial screen's first ten seconds after settings/navigation are ready. Later
+sensor failures, switching screens or restoring the window do not open another
+setup dialog. If another startup dialog occupies that period, pending sensor
+guidance expires. You can always check or repair the service in Settings.
+
 If **Run as administrator on startup** was enabled, use the separate **Use
 normal permissions on next startup** action after the service connects, then
 exit and launch normally. The existing process retains its token. Other
