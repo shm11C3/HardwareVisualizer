@@ -23,8 +23,9 @@ active, how many of one month's new installations are still active later,
 which screens and features are used or left switched off, and on which
 hardware vendor classes and sensor providers the app runs.
 
-It is not crash reporting, not diagnostics, not a record of what you do in the
-app, and it never contains your hardware readings.
+It is not crash reporting, not diagnostics, and not a detailed or time-ordered
+record of what you do in the app: it sends only daily totals per screen or
+capability. It never contains your hardware readings.
 
 ## Your choice
 
@@ -35,9 +36,11 @@ app, and it never contains your hardware readings.
   counts as "Don't share".
 - You can turn it on or off at any time in **Settings → Advanced → Product
   analytics**.
-- Turning it off stops sending immediately, discards anything queued, and
-  deletes the local random seed described below. Turning it on again later
-  creates a new seed, so your installation counts as a new one.
+- Turning it off cancels any upload in progress, sends nothing further,
+  discards anything queued, and deletes the local random seed described
+  below. A batch that was already delivered stays in that day's and month's
+  totals. Turning it on again later creates a new seed, so your installation
+  counts as a new one.
 - If a future version wants to send more than this page lists, the contract
   version increases and the app asks you again before sending anything new.
   If you declined, you are not asked again.
@@ -55,10 +58,10 @@ every six hours while the app runs, and once right after you turn analytics on.
 | OS family | `windows`, `macos`, `linux` | Platform split |
 | CPU architecture | `x86_64`, `aarch64` | Platform split |
 | Consent month | `2026-11` | The month you turned analytics on; used to compute how many installations from that month are still active later |
-| Day token and month token | 32 hex characters each | Counts your installation once per UTC day and once per UTC month; see below |
+| Day token and month token | 32 hex characters each | The day token is in every batch; the month token only in the first batch of each month. Together they count your installation once per UTC day and once per UTC month; see below |
 | Batch id | random UUID | Lets the service ignore a batch it already received if the response was lost |
 | Product Event counters | `screen_view.performance: 12` | How often each screen or capability was used, per UTC day |
-| State Flags | `feature_on.tray_widget` | Which features were on, which layout and view were in use, CPU and GPU vendor class, and whether a sensor provider was available, once per UTC day |
+| State Flags | `feature_on.tray_widget` | Which features were on, which layout and view were in use, CPU and GPU vendor class, and whether a sensor provider was available, in the first batch of each UTC day |
 
 ### Product Events
 
@@ -89,9 +92,10 @@ Only flags that are true are sent, at most once per installation per UTC day:
   detected GPU vendor)
 - `provider_available.pawnio_cpu`, `provider_available.superio`
 
-The service stores each flag's daily total on its own. It never stores which
-flags one installation had together, so the data cannot say, for example,
-"installations with the archive off and the tray widget on".
+The service adds each flag to its own daily total as it receives the batch
+and keeps no record per installation, so nothing stored says which flags
+arrived together, and the data cannot say, for example, "installations with
+the archive off and the tray widget on".
 
 ## What is never sent
 
@@ -116,10 +120,13 @@ Hardware Compatibility Report that you post yourself
 
 When you turn analytics on, the app generates 32 random bytes and stores them
 in your settings file. The seed never leaves your computer. From it, the app
-derives a different token for each UTC day and each UTC month. Tokens from
-different days or months cannot be linked to each other or back to the seed.
-The service counts distinct tokens per period and then deletes the token rows
-a few days after the period ends.
+derives a different token for each UTC day and each UTC month. No token can
+be turned back into the seed, and no token can be computed from another one.
+Within a day, every batch carries the same day token; that is how the
+service counts you once that day. The month token is sent only in the first
+batch of each month, so it travels next to exactly one day token; the service
+counts each of them and does not keep the pair. Token rows are deleted a few
+days after their period ends.
 
 There is no permanent installation identifier. The consent month is a group
 label shared by every installation that opted in that month; it lets the

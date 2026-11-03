@@ -9,9 +9,10 @@ Hardware depth is handled separately by the Hardware Compatibility Report,
 
 This record is the public decision and advance notice the RFC asks for. The
 merge date of the pull request that added this file is **T0**; the git history
-of this file is the record of that date. No stable HardwareVisualizer release
-that can send product analytics is published before T0 + 30 days. The first
-stable version that carries the client is recorded here when it ships.
+of this file is the record of that date. No HardwareVisualizer release that
+can send product analytics is published before T0 + 30 days; the project
+publishes no pre-releases, so the rule has no second case. The first version
+that carries the client is recorded here when it ships.
 
 ## Context
 
@@ -29,9 +30,11 @@ publicly reviewed exception rather than an implementation detail.
 
 1. **Product Analytics is an opt-in exception to DP-01.** It is off by default
    for new and upgraded installations. No analytics request is made before the
-   user grants Analytics Consent, and opting out stops transmission at once,
-   clears any queued batch, and deletes the local seed. The application works
-   identically whether analytics is on, off, or unreachable.
+   user grants Analytics Consent. Opting out aborts any upload in progress,
+   sends nothing further, clears any queued batch, and deletes the local seed;
+   a batch delivered before that stays in its period's totals. The
+   application works identically whether analytics is on, off, or
+   unreachable.
 2. **Consent is a versioned, App-owned Application Preference.** It is
    persisted in `settings.json` through typed Rust IPC. Grant and decline have
    equal visual weight, and closing the consent dialog without choosing counts
@@ -50,9 +53,13 @@ publicly reviewed exception rather than an implementation detail.
    process or window names, paths, logs, stack traces, free-form text, raw
    hardware readings, exact timestamps, locale, or location. Tokens derive
    from a random local seed generated at grant; the seed never leaves the
-   machine, and there is no persistent installation identifier. Retention is
-   derived per Consent Cohort from monthly counts, never by linking one
-   installation across periods. State Flags are never stored in combination.
+   machine, no token can be turned back into it or computed from another
+   token, and there is no persistent installation identifier. The month token
+   is sent in one batch per month, and the service does not persist which
+   day token it arrived with. Retention is derived per Consent Cohort from
+   monthly counts, never by linking one installation across periods. State
+   Flags are sent once per day, added to per-flag totals at ingest, and never
+   stored per installation or in combination.
 4. **The boundary is auditable.** The frontend records only typed, enumerated
    Product Events through generated Tauri commands; the App crate enforces
    consent on every event, owns aggregation, batching, transport, timeouts,

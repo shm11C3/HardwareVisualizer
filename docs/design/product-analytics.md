@@ -114,7 +114,9 @@ one atomic write:
   "consent": "undecided",
   "consentVersion": 0,
   "seed": null,
-  "cohortMonth": null
+  "cohortMonth": null,
+  "reportedDay": null,
+  "reportedMonth": null
 }
 ```
 
@@ -127,14 +129,19 @@ one atomic write:
   to App) as lowercase hex, present only while `consent` is `granted`.
 - `cohortMonth` is the UTC month (`YYYY-MM`) of the grant, present only while
   `consent` is `granted`. It is the Consent Cohort every batch carries.
+- `reportedDay` is the UTC day whose State Flags were last sealed into a
+  batch, and `reportedMonth` the UTC month whose month token was last sealed.
+  They make "once per day" and "once per month" survive a restart without any
+  per-installation row on the service. Both are `null` unless `granted`.
 
 Transitions, all through the settings service:
 
 | From | Action | Result |
 | --- | --- | --- |
-| any | grant | `granted`, `consentVersion = CURRENT`, new seed, `cohortMonth` = current UTC month |
-| any | decline | `declined`, `consentVersion = CURRENT`, `seed = null`, `cohortMonth = null`; runtime clears its queue and stops |
-| `granted` with `consentVersion < CURRENT` | app start | treated as not granted: no upload, and the consent dialog asks again |
+| `undecided` or `declined` | grant | `granted`, `consentVersion = CURRENT`, new seed, `cohortMonth` = current UTC month, `reportedDay = reportedMonth = null` |
+| `granted` with `consentVersion < CURRENT` | renew | `granted`, `consentVersion = CURRENT`; seed, `cohortMonth`, `reportedDay`, and `reportedMonth` are kept |
+| any | decline | `declined`, `consentVersion = CURRENT`, `seed`, `cohortMonth`, `reportedDay`, `reportedMonth` all `null`; runtime aborts any in-flight upload, clears its queue, and stops |
+| `granted` with `consentVersion < CURRENT` | app start | treated as not granted: no upload, and the consent dialog asks again (its grant is the renew transition) |
 | `declined` with `consentVersion < CURRENT` | app start | stays declined and is not asked again |
 
 A declined installation is never re-prompted. A contract expansion widens what
@@ -166,8 +173,9 @@ buttons have the same visual weight and no default emphasis. The description
 names in plain words what is sent (screen and capability counts, which
 features are switched on, CPU and GPU vendor class, whether a sensor provider
 works, app version, OS family, CPU architecture, the month consent was given,
-a rotating per-day token) and what is never sent (hardware readings, device
-model names, serial numbers, identifiers, error text), and links to the contract,
+rotating per-day and per-month tokens) and what is never sent (hardware
+readings, device model names, serial numbers, persistent device or user
+identifiers, error text), and links to the contract,
 the privacy notice, the client source directory, and the service repository.
 Links open in the system browser through the existing `openURL` path.
 
@@ -189,8 +197,10 @@ linked document carries a changelog per version.
 
 ### Contract v1: Product Events and State Flags
 
-Two Rust enums are the only allowlist. Every variant is a unit variant: a
-Product Event or State Flag carries no properties, text, or timestamp.
+Two Rust enums are the only allowlist. Every leaf variant is a unit variant,
+and a non-leaf variant carries nothing but a closed enum: a Product Event or
+State Flag has no properties, text, number, or timestamp anywhere in its
+shape.
 
 Product Events are counted; State Flags are sampled. The difference matters
 for what a reader can learn: an event count says how often something was done,
@@ -248,21 +258,26 @@ Flag rules:
 - Flags are sampled by the App service when a batch is sealed, from the
   settings service and the App-side hardware DTOs and provider availability
   state. Core is not changed; App classifies facts Core already exposes.
-- A flag is reported at most once per installation per UTC day. The client
-  reports what it sampled; the service enforces once-per-day through the day
-  token (see the service section), so a restart in the same day does not
-  inflate a flag.
+- A flag is reported at most once per installation per UTC day, and the
+  client is the only enforcer: flags go into the first batch sealed for a UTC
+  day, and sealing it writes `reportedDay` to `settings.json` before the batch
+  is queued. A restart in the same day reads the persisted day and seals no
+  flags. If that batch is later dropped, the day's flags are lost rather than
+  re-sent; an undercount is accepted, an inflation is not.
 - Only `true` is reported. An absent flag means "not on", "not that layout",
   or "not available", which the service reads as the complement of the day's
   Active Installation count. Each `GpuVendor` present on the machine is its
   own flag, so a machine with an integrated and a discrete GPU reports two.
 - `Other` absorbs every vendor the mapping does not name. A raw vendor string
   never reaches the wire.
-- **Flags are never stored in combination.** The service keeps a per-flag
-  daily total by OS family and nothing that joins two flags, or a flag with
-  an app version, for one installation. A cross such as "Archive off and Tray
-  Widget on" is not answerable, by design; the question v1 answers is which
-  features are unused, not which users combine them.
+- **Flags are never stored in combination.** The service adds each flag to
+  its per-flag daily total by OS family at ingest and keeps no
+  per-installation flag row at all, so nothing persisted joins two flags, or
+  a flag with an app version, for one installation. The request body is the
+  only place an installation's flags sit side by side, and it is neither
+  logged nor stored. A cross such as "Archive off and Tray Widget on" is not
+  answerable, by design; the question v1 answers is which features are
+  unused, not which users combine them.
 - `ProviderAvailable` reports that a provider was attempted and answered, the
   same fact External Component Guidance already derives. It says nothing about
   which chip or which failure; that depth belongs to the compatibility report.
@@ -287,6 +302,13 @@ month_token = hex(HMAC(seed, "hardviz-analytics/v1/month/" + "2026-11"))[..32]
 The two labels make the tokens independent: holding every day token of a month
 reveals nothing about the month token or about any other day, and nothing
 about the seed. The seed is never transmitted and never logged.
+
+That is a statement about derivation, not about what travels together. The
+day token is in every batch, so within a day the service sees one token
+repeatedly, which is what "once per day" means. The month token is sealed
+into one batch per month (the first one sealed after `reportedMonth` changes),
+so it travels beside exactly one day token in transit; the service counts both
+and does not persist the pair. The notice says exactly this, and no more.
 
 Clock skew is tolerated by the service, not the client: the Worker accepts
 `day` within two days of its own UTC date and rejects the rest. A machine with
@@ -313,14 +335,18 @@ Flush points:
 
 No flush runs at shutdown. The queue is in memory, so counters that are not
 yet flushed when the process exits are lost. This under-counts capability use
-in short sessions and is accepted: the daily token is sent at the first flush
-of every day the app runs, so Active Installation counts are not affected,
-and the RFC explicitly declines a durable retry queue until measured need.
+in short sessions and is accepted, and so is the smaller bias on Active
+Installations: a session that ends before the first flush sends nothing, so
+an installation that only ever runs for under a minute on a given day is not
+counted for that day. The RFC explicitly declines a durable retry queue until
+measured need.
 
-Every batch carries today's day token, this month's month token, the Consent
-Cohort, and the day's State Flags, whether or not any counter is non-zero. A
-batch with no counters is still an Active Installation heartbeat and a flag
-sample.
+Every batch carries today's day token and the Consent Cohort, whether or not
+any counter is non-zero; a batch with no counters is still an Active
+Installation heartbeat. The first batch sealed in a UTC month also carries the
+month token, and the first batch sealed in a UTC day also carries the State
+Flags; `reportedMonth` and `reportedDay` are written when those batches are
+sealed. A sealed batch that is retried keeps whatever it carried.
 
 Payload (contract v1):
 
@@ -353,9 +379,11 @@ Payload (contract v1):
 }
 ```
 
-`flags` describes `installation.day` only; a sealed batch that is retried on
-a later day still carries the day it was sealed for, so its flags land on that
-day. `cohortMonth` is never later than `installation.month`.
+`installation.monthToken` and `flags` are present only in the first batch
+sealed for that month and that day; other batches omit them. `flags`
+describes `installation.day` only; a sealed batch that is retried on a later
+day still carries the day it was sealed for, so its flags land on that day.
+`cohortMonth` is never later than `installation.month`.
 
 `appVersion` is `CARGO_PKG_VERSION` as built; `osFamily` is
 `windows | macos | linux` and `cpuArch` is `x86_64 | aarch64`, both from
@@ -372,8 +400,14 @@ Worker validates every one against the same enums and rejects unknown keys.
   the way `external_component_setup::download_client` does it (reqwest is
   compiled with `rustls-no-provider`; the updater installs its own provider
   only when used, so this boundary installs one too).
-- No retry inside a flush. A failed or timed-out upload is logged at debug
-  level without the payload and waits for the next flush point.
+- No retry inside a flush. A network error, timeout, `429`, or `5xx` is
+  logged at debug level without the payload, and the sealed batch waits for
+  the next flush point. Any other `4xx` is terminal: the Worker rejected the
+  batch's shape or its day, nothing in a retry changes that, so the batch is
+  dropped and the queue advances. A batch whose `installation.day` is already
+  outside the Worker's two-day window when a flush starts is dropped without
+  being sent, for the same reason; this is what happens after a long suspend
+  or outage.
 - Debug builds never upload: the transport is a no-op that logs the sealed
   batch, mirroring `fetch_update`, which skips the updater in debug builds.
   Development data would otherwise pollute the dataset, and the contract
@@ -401,8 +435,11 @@ waits for an upload. The command boundary:
   is on.
 - `set_product_analytics_consent(decision: Granted | Declined)`: the settings
   service persists the transition, then the analytics service reloads its
-  consent snapshot, and on decline clears counters and the queue. Grant
-  schedules the immediate flush.
+  consent snapshot. On decline it aborts any in-flight request the same way
+  shutdown does, then clears counters and the queue. Bytes already delivered
+  cannot be recalled: a request that completed before the abort is counted by
+  the service for its period, and the notice says so. Grant and renew
+  schedule the immediate flush.
 
 Commands stay thin: enforcement lives in the service, and the backend checks
 consent on every event even though the frontend hook also checks it.
@@ -440,15 +477,13 @@ client and the public contract depend on.
   `429` rate limited. No request body or header is logged.
 - Deduplication: `batch_id` is kept for 7 days; a repeated id is acknowledged
   with `202` and not counted again. `(period_kind, period, token)` rows are
-  unique, so a repeated token in a period does not inflate counts. Flags are
-  deduplicated through `(day, day_token, name)` rows that live beside the day
-  token rows, so a flag is counted once per installation per day however many
-  batches that day carried it.
-- Retention: day-token rows, and the flag rows keyed by them, are deleted
-  three days after their day; month-token rows three days after their month
-  ends. The flag rows are the only place one installation's flags exist side
-  by side, for at most three days, and they are never aggregated jointly.
-  Finalized Active Installation counts per
+  unique, so a repeated token in a period does not inflate counts. Flags need
+  no service-side deduplication: the client sends them once per day, and the
+  service adds them to per-flag totals at ingest. There is no per-installation
+  flag row and no table that pairs a day token with a month token.
+- Retention: day-token rows are deleted three days after their day;
+  month-token rows three days after their month ends. Finalized Active
+  Installation counts per
   `(period, cohort_month, os_family, cpu_arch, app_version)`, flag totals per
   `(day, name, os_family)`, and event counters per `(day, name, os_family)`
   are kept as aggregate time series without tokens.
@@ -498,11 +533,10 @@ The governance slice is documentation only and lands first:
   #2014; ADR 0028 records the amended contract.
 
 There is no build-time feature flag. The shipped binary is the reviewed binary;
-the gate is a release checklist line in the ADR: no stable tag that contains
-the client slices before T0 + 30 days. The ADR records the first stable
-version that carries analytics once it ships. Pre-releases during the notice
-period may contain the client only if the governance documents are already
-published, since a pre-release user is still owed the notice.
+the gate is a release checklist line in the ADR: no release tag that contains
+the client slices before T0 + 30 days. The project publishes no pre-releases,
+so the rule has no second case. The ADR records the first version that
+carries analytics once it ships.
 
 ## Relationship to the compatibility report
 
@@ -530,9 +564,13 @@ which chips those are. Neither needs the other to ship.
   one installation.
 - **State Flags as tokenless daily counts.** "Which features are unused" needs
   a daily census, not a per-installation profile. Reporting only `true`
-  flags, deduplicating through the day token, and storing per-flag totals
-  keeps the census exact while making the combination unobservable after
-  three days.
+  flags once per day, with the client remembering the day it reported, lets
+  the service store per-flag totals and nothing else: the census is exact and
+  the combination is never persisted anywhere.
+- **Month token once per month.** Sending it in every batch would pair it
+  with every day token of the month in transit. Sending it once pairs it with
+  one, and the same persisted "last reported" mechanism the flags need makes
+  that free.
 - **App-only, Core untouched.** Analytics has no hardware fact in it, and the
   RFC requires Core to stay unchanged. Placing even the token derivation in
   Core would give Core a network-facing concept it has no reason to know.
@@ -578,6 +616,11 @@ which chips those are. Neither needs the other to ship.
   RFC's prohibited list, and public suppression at `k = 20` would hide the
   rare configurations that matter most. The compatibility report carries
   them in the open instead.
+- **Service-side flag deduplication through the day token.** Rejected. It
+  needs `(day, day_token, name)` rows, and those rows hold one installation's
+  flag combination for as long as they live, which contradicts the notice.
+  Per-flag tokens would avoid the join but add derivations for a problem the
+  client's persisted `reportedDay` removes outright.
 - **Weekly retention.** Deferred. It needs a week token and a cohort week;
   monthly answers the current question, and adding week granularity later is
   a contract expansion with renewed consent.
@@ -592,12 +635,15 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 | --- | --- |
 | Default is disabled for new and upgraded installations | Settings service test: absent key and legacy files parse to `undecided`; invalid section recovers to `undecided` |
 | Unknown keys survive | Existing `serialize_preserving_unknown_settings` test extended with the new section, plus a Core-owned key beside it |
-| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call. Plus one manual network trace on a release build, recorded in the PR |
+| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call; a decline during an in-flight request aborts it and the double sees no completion. Plus one manual network trace on a release build, recorded in the PR |
+| Sealed-batch retry policy | Unit test: network error, timeout, `429`, and `5xx` keep the head batch; `400` and `413` drop it and the next batch is sent; a batch older than the Worker window is dropped unsent |
+| Month token once per month | Unit test: with a persisted `reportedMonth`, the second batch of a month omits the month token; a new month seals it again |
 | Version bump requires renewed consent | Service test: `granted` at version 1 with `CURRENT = 2` records nothing and the DTO reports the dialog condition |
 | Opt-out clears queue, seed, and cohort | Service test asserts queue length 0, `seed = null`, and `cohortMonth = null` after decline; re-grant yields a different seed and the current month; a version-renewal grant keeps both |
 | Only allowlisted events | Compile-time: the command takes the enum; a frontend test checks the generated binding type has no string variant |
 | Flags carry no raw strings | Unit test: every vendor string fixture maps to a named variant or `Other`; the wire serializer has no string path |
-| Flags once per day, never combined | Service-repository tests: a second batch for the same day token and flag does not add; the aggregate schema has no column or table that holds two flags of one installation past the token retention |
+| Flags once per day | Unit test: with a persisted `reportedDay`, a simulated restart in the same UTC day seals a batch without flags; the next UTC day seals them again |
+| Flags never combined | Service-repository test: the schema has no table with a per-installation flag row, and ingesting a batch leaves only per-flag totals |
 | Retention derived without linking | Service-repository test: two cohorts across three months produce the expected matrix from tokens that differ every month |
 | Sealed batch retry is idempotent | Unit test: failed flush retries the same id and counters; new events land in a second batch |
 | UTC day bucketing | Unit test with an injected clock crossing midnight |
@@ -615,8 +661,8 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
    retention derivation, rollup and retention jobs, public endpoints, JSON
    Schema and examples, tests. Public before any client release.
 3. **Consent persistence** (`feat/`, Rust): `productAnalytics` section with
-   seed and Consent Cohort, service transitions, DTO, commands, regenerated
-   bindings, tests.
+   seed, Consent Cohort, and the reported day/month, service transitions
+   including renew, DTO, commands, regenerated bindings, tests.
 4. **Analytics runtime** (`feat/`, Rust): event and flag enums, counters,
    flag sampling and vendor mapping, tokens, sealed batches, transport trait
    and reqwest implementation, worker registration, tests with the transport
@@ -645,8 +691,6 @@ proceed in parallel with slice 1 once the contract text is agreed.
   `hardviz-analytics` are placeholders.
 - Whether `k = 20` is the final suppression threshold, and whether month
   totals below `k` should be shown as "fewer than 20" rather than the number.
-- Whether a pre-release during the notice period may carry the client at all,
-  or whether the first analytics-capable pre-release also waits for T0 + 30.
 - Whether a declined installation should be told, in Settings, when the
   contract version changes. The current answer is no: nothing about their
   situation changed.

@@ -26,7 +26,8 @@ capabilities.
 Product Analytics is the one deliberate exception, governed by
 [ADR 0028](adr/0028-opt-in-product-analytics.md): aggregated, enumerated usage
 counts sent only after explicit, versioned opt-in. It never carries hardware
-readings, device names, or identifiers, it does not change the default (a new
+readings, device model names, or persistent identifiers, it does not change
+the default (a new
 or upgraded installation sends nothing), and widening what it sends requires
 renewed consent. Any further outbound data use needs its own ADR, not a wider
 reading of this one.

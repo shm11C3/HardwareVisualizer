@@ -242,7 +242,7 @@ Checks whether CPU temperature is rising above its own baseline under similar lo
 | Linux polkit (`pkexec`)        | Detailed memory information through `dmidecode`                    |
 | Linux sudo                     | `smartctl` for Storage Health, `intel_gpu_top` for Intel GPU usage |
 
-Your hardware data stays on your computer. A future release adds opt-in product analytics: aggregate counts of which screens and features are used, with no hardware readings, device names, or identifiers. It is off by default, and nothing is sent unless you turn it on; what it contains and how to turn it off are documented in [Product analytics and privacy](docs/user/product-analytics.md). Apart from that opt-in, the app connects to the internet only to check GitHub Releases for updates and, when you choose to set it up, to download PawnIO from its official GitHub releases.
+Your hardware data stays on your computer. A future release adds opt-in product analytics: aggregate counts of which screens and features are used, with no hardware readings, device model names, or persistent identifiers. It is off by default, and nothing is sent unless you turn it on; what it contains and how to turn it off are documented in [Product analytics and privacy](docs/user/product-analytics.md). Apart from that opt-in, the app connects to the internet only to check GitHub Releases for updates and, when you choose to set it up, to download PawnIO from its official GitHub releases.
 
 ## Roadmap
 
