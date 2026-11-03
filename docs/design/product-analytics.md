@@ -435,11 +435,18 @@ waits for an upload. The command boundary:
   is on.
 - `set_product_analytics_consent(decision: Granted | Declined)`: the settings
   service persists the transition, then the analytics service reloads its
-  consent snapshot. On decline it aborts any in-flight request the same way
-  shutdown does, then clears counters and the queue. Bytes already delivered
-  cannot be recalled: a request that completed before the abort is counted by
-  the service for its period, and the notice says so. Grant and renew
-  schedule the immediate flush.
+  consent snapshot. On decline it atomically invalidates flush admission by
+  advancing a consent generation under the service lock, aborts any
+  in-flight request the same way shutdown does, then clears counters and the
+  queue. A flush seals its batch and reads the generation under the same
+  lock, and re-checks that generation immediately before starting transport;
+  if it changed, the flush ends without a request. A flush that already
+  completed its request re-checks the generation again before touching
+  service state, so a stale completion cannot repopulate a cleared queue or
+  the reported day and month. Bytes already delivered cannot be recalled: a
+  request that completed before the abort is counted by the service for its
+  period, and the notice says so. Grant and renew schedule the immediate
+  flush.
 
 Commands stay thin: enforcement lives in the service, and the backend checks
 consent on every event even though the frontend hook also checks it.
@@ -635,7 +642,7 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 | --- | --- |
 | Default is disabled for new and upgraded installations | Settings service test: absent key and legacy files parse to `undecided`; invalid section recovers to `undecided` |
 | Unknown keys survive | Existing `serialize_preserving_unknown_settings` test extended with the new section, plus a Core-owned key beside it |
-| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call; a decline during an in-flight request aborts it and the double sees no completion. Plus one manual network trace on a release build, recorded in the PR |
+| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call; a decline during an in-flight request aborts it and the double sees no completion; a flush that read `granted` before a decline and reaches transport admission after it makes no call (the test holds the flush between sealing and admission with an injected gate, then declines); a completion that lands after a decline leaves the queue and `reportedDay`/`reportedMonth` untouched. Plus one manual network trace on a release build, recorded in the PR |
 | Sealed-batch retry policy | Unit test: network error, timeout, `429`, and `5xx` keep the head batch; `400` and `413` drop it and the next batch is sent; a batch older than the Worker window is dropped unsent |
 | Month token once per month | Unit test: with a persisted `reportedMonth`, the second batch of a month omits the month token; a new month seals it again |
 | Version bump requires renewed consent | Service test: `granted` at version 1 with `CURRENT = 2` records nothing and the DTO reports the dialog condition |
