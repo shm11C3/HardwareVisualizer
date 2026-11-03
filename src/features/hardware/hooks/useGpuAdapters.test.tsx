@@ -2,7 +2,11 @@ import { act, renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
+import {
+  asLiveGpuId,
+  liveGpuRecord,
+  liveGpuSelection,
+} from "@/features/hardware/gpuIdentity";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import {
   gpuNamesAtom,
@@ -55,7 +59,7 @@ describe("useGpuAdapters", () => {
 
     act(() => hook.result.current.selectGpu(intel));
 
-    expect(hook.result.current.selectedGpuId).toBe(intel);
+    expect(hook.result.current.selection).toEqual(liveGpuSelection(intel));
     expect(hook.result.current.effectiveGpuId).toBe(intel);
     expect(hook.result.current.hasNoReadings).toBe(true);
   });

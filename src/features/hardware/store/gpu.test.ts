@@ -1,6 +1,10 @@
 import { createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
+import {
+  asLiveGpuId,
+  type LiveGpuId,
+  liveGpuSelection,
+} from "@/features/hardware/gpuIdentity";
 import {
   effectiveGpuAdapterAtom,
   effectiveGpuIdAtom,
@@ -33,7 +37,7 @@ describe("derived GPU atoms", () => {
 
   const withSelection = (selected: string) => {
     const store = createStore();
-    store.set(selectedGpuIdAtom, asLiveGpuId(selected));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId(selected)));
     store.set(
       gpuNamesAtom,
       liveMap({
@@ -98,7 +102,7 @@ describe("GPU identity atoms stay stable between samples", () => {
 
   const seeded = () => {
     const store = createStore();
-    store.set(selectedGpuIdAtom, asLiveGpuId("nvapi:1"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("nvapi:1")));
     store.set(
       gpuNamesAtom,
       liveMap({
@@ -202,7 +206,7 @@ describe("GPU identity atoms stay stable between samples", () => {
     const store = seeded();
     expect(store.get(gpuHasNoReadingsAtom)).toBe(false);
 
-    store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("pci:0:2:0")));
     expect(store.get(effectiveGpuIdAtom)).toBe("pci:0:2:0");
     expect(store.get(gpuHasNoReadingsAtom)).toBe(true);
   });
@@ -225,14 +229,14 @@ describe("GPU identity atoms stay stable between samples", () => {
     expect(store.get(gpuTemperatureValueAtom)).toBe(60);
     expect(store.get(gpuFanSpeedValueAtom)).toBe(42);
 
-    store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("pci:0:2:0")));
     expect(store.get(gpuTemperatureValueAtom)).toBeNull();
     expect(store.get(gpuFanSpeedValueAtom)).toBeNull();
   });
 
   it("returns one shared empty history, not a new array per sample", () => {
     const store = seeded();
-    store.set(selectedGpuIdAtom, asLiveGpuId("pci:0:2:0"));
+    store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("pci:0:2:0")));
     const empty = store.get(graphicUsageHistoryAtom);
 
     store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70, 71] }));

@@ -12,13 +12,38 @@ declare const liveGpuIdBrand: unique symbol;
 export type LiveGpuId = string & { readonly [liveGpuIdBrand]: true };
 
 /**
- * Mint a `LiveGpuId`. Only namespace boundaries may call this: the monitor
- * payload (`useHardwareEventListener`), the persisted selection
- * (`useSelectedGpuPersistence`), test seeds, and the joins in this module.
- * Casting an inventory id defeats the type — resolve through `toLiveGpuId`
- * instead.
+ * Mint a `LiveGpuId`. Only the monitor payload (`useHardwareEventListener`)
+ * and test seeds may call this. An id that is not known to come from the
+ * stream (an inventory id, a stored id) is an `unresolved` selection instead;
+ * resolve it by lookup through `findLiveGpuId` or `findNamedLiveGpuId`.
  */
 export const asLiveGpuId = (id: string): LiveGpuId => id as LiveGpuId;
+
+/**
+ * The shared GPU selection: either an adapter the live stream names, or an
+ * intent that no live map can resolve yet.
+ *
+ * An intent is unresolved when it comes from outside the stream: the classic
+ * card clicked before the first sample or when its name join is ambiguous,
+ * and a stored id restored at startup (shipped versions wrote inventory ids
+ * there). Keeping it out of `LiveGpuId` means the compiler rejects indexing a
+ * live map with it. Only `getEffectiveGpuId`, `findInventoryGpu`, and the
+ * persistence migration read the `unresolved` arm; the migration promotes it
+ * to `live` once the stream names the adapter.
+ */
+export type GpuSelection =
+  | { kind: "live"; id: LiveGpuId }
+  | { kind: "unresolved"; id: string };
+
+export const liveGpuSelection = (id: LiveGpuId): GpuSelection => ({
+  kind: "live",
+  id,
+});
+
+export const unresolvedGpuSelection = (id: string): GpuSelection => ({
+  kind: "unresolved",
+  id,
+});
 
 /**
  * Build a live-keyed map from entries whose keys are already minted.
@@ -229,6 +254,19 @@ export const listGpuAdapters = (
 };
 
 /**
+ * The live id the stream named under exactly this raw id, if any.
+ *
+ * A lookup rather than a cast: the value returned is the key the stream
+ * minted, so resolving a stored id never manufactures a live id the stream
+ * did not report. A stored id written from a live selection resolves this way
+ * on the first sample after a restart.
+ */
+export const findNamedLiveGpuId = (
+  rawId: string,
+  gpuNames: Record<LiveGpuId, string>,
+): LiveGpuId | undefined => liveKeys(gpuNames).find((id) => id === rawId);
+
+/**
  * The inventory entry a selection describes.
  *
  * `selectedGpuIdAtom` is shared by every GPU surface, but the inventory and
@@ -238,24 +276,27 @@ export const listGpuAdapters = (
  * on the name both sources report is what keeps the classic card from pairing
  * one adapter's name with another adapter's readings.
  *
+ * An unresolved selection can only match an inventory id directly: it names
+ * no live adapter, so there is no live name to join on.
+ *
  * The join is refused when the name picks out more than one entry; the caller
  * then falls back rather than guessing.
  */
 export const findInventoryGpu = <T extends { id: string; name: string }>(
   gpus: readonly T[],
   gpuNames: Record<LiveGpuId, string>,
-  selectedGpuId: LiveGpuId | null,
+  selection: GpuSelection | null,
 ): T | undefined => {
-  if (selectedGpuId == null) {
+  if (selection == null) {
     return undefined;
   }
 
-  const byId = gpus.find((gpu) => gpu.id === selectedGpuId);
-  if (byId != null) {
+  const byId = gpus.find((gpu) => gpu.id === selection.id);
+  if (byId != null || selection.kind === "unresolved") {
     return byId;
   }
 
-  const liveName = gpuNames[selectedGpuId];
+  const liveName = gpuNames[selection.id];
   if (liveName == null) {
     return undefined;
   }
@@ -265,20 +306,34 @@ export const findInventoryGpu = <T extends { id: string; name: string }>(
 };
 
 /**
- * The live id that names the same adapter as an inventory entry, so a surface
- * holding inventory entries can write the shared selection in the namespace
- * every reading is keyed by. Falls back to the inventory id when no live
- * adapter reports that name, or when more than one does.
+ * The live id that names the same adapter as an inventory entry, joined on
+ * the name both sources report. `undefined` when no live adapter reports that
+ * name, or when more than one does: the name cannot pick one of them.
  */
-export const toLiveGpuId = (
+export const findLiveGpuId = (
   gpu: { id: string; name: string },
   gpuNames: Record<LiveGpuId, string>,
-): LiveGpuId => {
+): LiveGpuId | undefined => {
   const matches = liveEntries(gpuNames).filter(([, name]) => name === gpu.name);
-  // The fallback deliberately mints the inventory id as intent: it addresses
-  // no readings yet, but the app-level migration re-resolves it once the
-  // stream names the adapter, and discarding the click would be worse.
-  return matches.length === 1 ? matches[0][0] : asLiveGpuId(gpu.id);
+  return matches.length === 1 ? matches[0][0] : undefined;
+};
+
+/**
+ * The selection a surface holding inventory entries writes for one of them,
+ * in the namespace every reading is keyed by.
+ *
+ * When the join fails, the click is kept as unresolved intent rather than
+ * discarded: the persistence migration resolves it once the stream names the
+ * adapter.
+ */
+export const selectionForInventoryGpu = (
+  gpu: { id: string; name: string },
+  gpuNames: Record<LiveGpuId, string>,
+): GpuSelection => {
+  const liveId = findLiveGpuId(gpu, gpuNames);
+  return liveId != null
+    ? liveGpuSelection(liveId)
+    : unresolvedGpuSelection(gpu.id);
 };
 
 const CURRENT_PDH_GPU_ID = /^pdh:(?:instance:.+|-?\d+:\d+)$/;
@@ -305,24 +360,50 @@ export const migrateLegacyPdhGpuId = (
 };
 
 /**
+ * The live id the stream currently reports for a selection, found by lookup
+ * among the detected ids and the live map keys. An unresolved selection
+ * resolves here only when the stream reports that exact id, so the value
+ * returned is always one the stream minted.
+ */
+const findReportedLiveId = (
+  selection: GpuSelection,
+  live: GpuLiveMaps,
+  detectedGpuIds: readonly LiveGpuId[],
+): LiveGpuId | undefined => {
+  const isSelected = (id: LiveGpuId) => id === selection.id;
+  const detected = detectedGpuIds.find(isSelected);
+  if (detected != null) {
+    return detected;
+  }
+  for (const map of liveMapsInOrder(live)) {
+    const keyed = liveKeys(map).find(isSelected);
+    if (keyed != null) {
+      return keyed;
+    }
+  }
+  return undefined;
+};
+
+/**
  * The GPU both Performance views agree on.
  *
  * An explicit selection wins while the adapter is still detected, even when it
  * reports nothing: the honest answer there is "this adapter has no readings",
  * not another adapter's numbers. Only a selection pointing at an adapter that
- * no longer exists falls back to the first GPU that reports anything.
+ * no longer exists, or an unresolved intent the stream does not report under
+ * that id, falls back to the first GPU that reports anything.
  */
 export const getEffectiveGpuId = (
-  selectedGpuId: LiveGpuId | null,
+  selection: GpuSelection | null,
   live: GpuLiveMaps,
   detectedGpuIds: readonly LiveGpuId[] = [],
 ): LiveGpuId | undefined => {
-  if (
-    selectedGpuId != null &&
-    (detectedGpuIds.includes(selectedGpuId) ||
-      liveMapsInOrder(live).some((map) => Object.hasOwn(map, selectedGpuId)))
-  ) {
-    return selectedGpuId;
+  const selected =
+    selection != null
+      ? findReportedLiveId(selection, live, detectedGpuIds)
+      : undefined;
+  if (selected != null) {
+    return selected;
   }
 
   for (const map of liveMapsInOrder(live)) {

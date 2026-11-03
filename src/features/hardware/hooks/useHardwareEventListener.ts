@@ -5,6 +5,7 @@ import {
   asLiveGpuId,
   type LiveGpuId,
   liveGpuRecord,
+  liveGpuSelection,
 } from "@/features/hardware/gpuIdentity";
 import {
   gpuDedicatedMemoryKbMapAtom,
@@ -256,9 +257,8 @@ export const useHardwareEventListener = () => {
         }
         for (const gpu of gpus) {
           // The monitor-payload boundary: ids from the stream are branded
-          // here. The other minting sites are the restored stored intent in
-          // `useSelectedGpuPersistence` and the unresolved fallback in
-          // `toLiveGpuId`; nothing else may mint.
+          // here and nowhere else. Stored or inventory-shaped intent stays an
+          // `unresolved` selection until a lookup finds its live id.
           const gpuId = asLiveGpuId(gpu.gpuId);
           const history = next[gpuId];
           if (gpu.gpuUsage != null || history != null) {
@@ -358,8 +358,8 @@ export const useHardwareEventListener = () => {
       setSelectedGpuId((prev) =>
         prev != null
           ? prev
-          : gpus.length > 0
-            ? asLiveGpuId(gpus[0].gpuId)
+          : currentGpuIds.length > 0
+            ? liveGpuSelection(currentGpuIds[0])
             : null,
       );
 

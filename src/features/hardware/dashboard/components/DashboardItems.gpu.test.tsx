@@ -1,8 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { PropsWithChildren } from "react";
-import { expect, it, vi } from "vitest";
-import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
+import { afterEach, expect, it, vi } from "vitest";
+import {
+  asLiveGpuId,
+  liveGpuRecord,
+  liveGpuSelection,
+} from "@/features/hardware/gpuIdentity";
 import {
   gpuNamesAtom,
   gpuUsageHistoriesAtom,
@@ -78,9 +82,11 @@ vi.mock("@/hooks/window/useWindowSize", () => ({
   }),
 }));
 
+afterEach(cleanup);
+
 it("shows the effective live fallback while preserving a retired selection", () => {
   const store = createStore();
-  store.set(selectedGpuIdAtom, asLiveGpuId("nvapi:0"));
+  store.set(selectedGpuIdAtom, liveGpuSelection(asLiveGpuId("nvapi:0")));
   store.set(gpuNamesAtom, liveGpuRecord([[asLiveGpuId("nvapi:1"), "GPU B"]]));
   store.set(
     gpuUsageHistoriesAtom,
@@ -101,5 +107,49 @@ it("shows the effective live fallback while preserving a retired selection", () 
     "aria-selected",
     "true",
   );
-  expect(store.get(selectedGpuIdAtom)).toBe("nvapi:0");
+  expect(store.get(selectedGpuIdAtom)?.id).toBe("nvapi:0");
+});
+
+it("keeps a click before the first sample as unresolved intent", () => {
+  // No live adapter is named yet, so the inventory id addresses no readings.
+  // It must not enter the selection as a live id.
+  const store = createStore();
+
+  render(
+    <Provider store={store}>
+      <GPUInfo />
+    </Provider>,
+  );
+  fireEvent.click(screen.getByRole("tab", { name: "GPU B" }));
+
+  expect(store.get(selectedGpuIdAtom)).toEqual({
+    kind: "unresolved",
+    id: "inventory-b",
+  });
+  expect(screen.getByRole("tab", { name: "GPU B" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
+it("writes a live selection when the name picks out one live adapter", () => {
+  const store = createStore();
+  store.set(
+    gpuNamesAtom,
+    liveGpuRecord([
+      [asLiveGpuId("nvapi:0"), "GPU A"],
+      [asLiveGpuId("nvapi:1"), "GPU B"],
+    ]),
+  );
+
+  render(
+    <Provider store={store}>
+      <GPUInfo />
+    </Provider>,
+  );
+  fireEvent.click(screen.getByRole("tab", { name: "GPU B" }));
+
+  expect(store.get(selectedGpuIdAtom)).toEqual(
+    liveGpuSelection(asLiveGpuId("nvapi:1")),
+  );
 });

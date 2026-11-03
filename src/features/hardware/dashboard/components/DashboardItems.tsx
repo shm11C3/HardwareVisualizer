@@ -33,7 +33,11 @@ import {
   type StorageHealthMetric,
   type StorageHealthSummaryViewModel,
 } from "@/features/hardware/dashboard/utils/storageHealthSummary";
-import { findInventoryGpu, toLiveGpuId } from "@/features/hardware/gpuIdentity";
+import {
+  findInventoryGpu,
+  findLiveGpuId,
+  liveGpuSelection,
+} from "@/features/hardware/gpuIdentity";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
@@ -181,7 +185,7 @@ const CpuThermalSensors = () => {
 
 export const GPUInfo = () => {
   const { t } = useTranslation();
-  const { effectiveGpuId, selectedGpuId, selectGpu } = useGpuAdapters();
+  const { effectiveGpuId, selection, selectInventoryGpu } = useGpuAdapters();
   const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
   // Stable between samples: it changes only when an adapter appears,
   // disappears or is renamed.
@@ -192,15 +196,16 @@ export const GPUInfo = () => {
   // stored selection remains untouched, while this surface follows the same
   // effective adapter as the readings it renders.
   //
-  // Before the first live sample, an inventory id restored from an older
-  // version can still resolve directly. Ambiguous name joins continue to
-  // refuse identity rather than labelling one adapter with another's values.
+  // Before the first live sample, an unresolved inventory id (restored from
+  // an older version, or clicked here) can still resolve directly. Ambiguous
+  // name joins continue to refuse identity rather than labelling one adapter
+  // with another's values.
+  const target =
+    effectiveGpuId != null ? liveGpuSelection(effectiveGpuId) : selection;
   const targetGpu =
-    effectiveGpuId != null
-      ? (findInventoryGpu(gpus, gpuNames, effectiveGpuId) ?? null)
-      : selectedGpuId != null
-        ? (findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? null)
-        : (gpus[0] ?? null);
+    target != null
+      ? (findInventoryGpu(gpus, gpuNames, target) ?? null)
+      : (gpus[0] ?? null);
   const hasMultipleGpus = gpus.length > 1;
 
   return (
@@ -222,7 +227,7 @@ export const GPUInfo = () => {
                       role="tab"
                       aria-selected={isSelected}
                       aria-label={gpu.name}
-                      onClick={() => selectGpu(toLiveGpuId(gpu, gpuNames))}
+                      onClick={() => selectInventoryGpu(gpu)}
                       className={cn(
                         "min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                         isSelected
@@ -271,7 +276,7 @@ export const GPUInfo = () => {
             {gpu.memorySize === "N/A" ? (
               <SharedMemoryGpuSpecifications
                 gpu={gpu}
-                // The name join has to be unique on BOTH sides. `toLiveGpuId`
+                // The name join has to be unique on BOTH sides. `findLiveGpuId`
                 // only checks the live side, so two identically named
                 // inventory rows would each resolve to the one reporting
                 // adapter and show its usage twice (ADR 0016).
@@ -442,9 +447,12 @@ const SharedMemoryGpuSpecifications = ({
   // gpu.id is an inventory id; the map is keyed by live ids. The branded
   // types surfaced this: the old direct index could never match, so this row
   // always showed the total without usage.
+  const liveId = findLiveGpuId(gpu, gpuNames);
   const dedicatedMemoryKb = inventoryTwin
     ? null
-    : (gpuDedicatedMemoryKbMap[toLiveGpuId(gpu, gpuNames)] ?? null);
+    : liveId != null
+      ? (gpuDedicatedMemoryKbMap[liveId] ?? null)
+      : null;
 
   return <GpuSpecifications gpu={gpu} dedicatedMemoryKb={dedicatedMemoryKb} />;
 };

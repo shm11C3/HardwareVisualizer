@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   asLiveGpuId,
   findInventoryGpu,
+  findLiveGpuId,
+  findNamedLiveGpuId,
   type GpuLiveMaps,
   getEffectiveGpuId,
   hasNoLiveGpuReadings,
   type LiveGpuId,
   listGpuAdapters,
+  liveGpuSelection,
   migrateLegacyPdhGpuId,
-  toLiveGpuId,
+  selectionForInventoryGpu,
+  unresolvedGpuSelection,
 } from "./gpuIdentity";
 
 const inventory = [
@@ -24,6 +28,9 @@ const names = (...pairs: [string, string][]) =>
 
 /** Test seeds mint ids the way the event listener does. */
 const id = asLiveGpuId;
+
+/** A selection of an adapter the stream named. */
+const selected = (raw: string) => liveGpuSelection(id(raw));
 
 /**
  * Seeds take plain string keys and mint them here, the same way the event
@@ -200,7 +207,7 @@ describe("getEffectiveGpuId", () => {
   it("keeps an explicit selection that reports nothing yet", () => {
     expect(
       getEffectiveGpuId(
-        id("gpu-2"),
+        selected("gpu-2"),
         live({ usageHistories: { "gpu-1": [20] } }),
         [id("gpu-1"), id("gpu-2")],
       ),
@@ -210,7 +217,7 @@ describe("getEffectiveGpuId", () => {
   it("drops a selection whose adapter is gone instead of showing nothing", () => {
     expect(
       getEffectiveGpuId(
-        id("removed"),
+        selected("removed"),
         live({ usageHistories: { "gpu-1": [20] } }),
         [id("gpu-1")],
       ),
@@ -220,7 +227,7 @@ describe("getEffectiveGpuId", () => {
   it("skips a gapped adapter when falling back to a current reading", () => {
     expect(
       getEffectiveGpuId(
-        id("removed"),
+        selected("removed"),
         live({
           usageHistories: {
             "gpu-1": [40, null],
@@ -243,6 +250,27 @@ describe("getEffectiveGpuId", () => {
 
   it("has no effective GPU before anything reports", () => {
     expect(getEffectiveGpuId(null, live())).toBeUndefined();
+  });
+
+  it("resolves an unresolved intent the stream reports under the same id", () => {
+    // A stored id written from a live selection, restored before the
+    // persistence migration has promoted it.
+    const effective = getEffectiveGpuId(
+      unresolvedGpuSelection("gpu-2"),
+      live({ usageHistories: { "gpu-1": [20] } }),
+      [id("gpu-1"), id("gpu-2")],
+    );
+    expect(effective).toBe("gpu-2");
+  });
+
+  it("falls back from an unresolved inventory id instead of indexing with it", () => {
+    expect(
+      getEffectiveGpuId(
+        unresolvedGpuSelection("67890"),
+        live({ usageHistories: { "pci:0:2:0": [20] } }),
+        [id("pci:0:2:0")],
+      ),
+    ).toBe("pci:0:2:0");
   });
 });
 
@@ -334,13 +362,27 @@ describe("findInventoryGpu", () => {
       findInventoryGpu(
         inventory,
         names(["pci:0:2:0", "Intel UHD Graphics 770"]),
-        id("pci:0:2:0"),
+        selected("pci:0:2:0"),
       ),
     ).toEqual(inventory[1]);
   });
 
-  it("still accepts an id the inventory itself uses", () => {
-    expect(findInventoryGpu(inventory, {}, id("67890"))).toEqual(inventory[1]);
+  it("matches an unresolved inventory id directly", () => {
+    // A stored id from a shipped version, before the first sample.
+    expect(
+      findInventoryGpu(inventory, {}, unresolvedGpuSelection("67890")),
+    ).toEqual(inventory[1]);
+  });
+
+  it("does not join an unresolved id on a live name", () => {
+    // An unresolved id is not a live key, so its live name is not evidence.
+    expect(
+      findInventoryGpu(
+        inventory,
+        names(["pci:0:2:0", "Intel UHD Graphics 770"]),
+        unresolvedGpuSelection("pci:0:2:0"),
+      ),
+    ).toBeUndefined();
   });
 
   it("refuses the join when the name picks out more than one entry", () => {
@@ -353,7 +395,7 @@ describe("findInventoryGpu", () => {
       findInventoryGpu(
         twins,
         names(["nvapi:1", "NVIDIA GeForce RTX 4090"]),
-        id("nvapi:1"),
+        selected("nvapi:1"),
       ),
     ).toBeUndefined();
   });
@@ -373,7 +415,7 @@ describe("findInventoryGpu", () => {
           ["nvapi:1", "NVIDIA GeForce RTX 4090"],
           ["nvapi:2", "NVIDIA GeForce RTX 4090"],
         ),
-        id("nvapi:2"),
+        selected("nvapi:2"),
       ),
     ).toBeUndefined();
   });
@@ -383,34 +425,76 @@ describe("findInventoryGpu", () => {
   });
 });
 
-describe("toLiveGpuId", () => {
-  it("writes the shared selection in the namespace readings are keyed by", () => {
+describe("findLiveGpuId", () => {
+  it("finds the live id that reports the inventory entry's name", () => {
     expect(
-      toLiveGpuId(inventory[1], names(["pci:0:2:0", "Intel UHD Graphics 770"])),
+      findLiveGpuId(
+        inventory[1],
+        names(["pci:0:2:0", "Intel UHD Graphics 770"]),
+      ),
     ).toBe("pci:0:2:0");
   });
 
-  it("keeps the inventory id when no live adapter reports that name", () => {
-    expect(toLiveGpuId(inventory[1], {})).toBe("67890");
+  it("finds nothing before any sample names an adapter", () => {
+    expect(findLiveGpuId(inventory[1], {})).toBeUndefined();
   });
 
-  it("keeps the inventory id before any sample names an adapter", () => {
-    // The classic card is available before the first monitor sample. The id
-    // it returns here cannot address readings, so the card reconciles it once
-    // the stream names the adapter.
-    expect(toLiveGpuId(inventory[1], {})).toBe("67890");
-  });
-
-  it("keeps the inventory id when the name is ambiguous", () => {
+  it("finds nothing when the name is ambiguous", () => {
     expect(
-      toLiveGpuId(
+      findLiveGpuId(
         { id: "a", name: "NVIDIA GeForce RTX 4090" },
         names(
           ["nvapi:1", "NVIDIA GeForce RTX 4090"],
           ["nvapi:2", "NVIDIA GeForce RTX 4090"],
         ),
       ),
-    ).toBe("a");
+    ).toBeUndefined();
+  });
+});
+
+describe("selectionForInventoryGpu", () => {
+  it("writes the shared selection in the namespace readings are keyed by", () => {
+    expect(
+      selectionForInventoryGpu(
+        inventory[1],
+        names(["pci:0:2:0", "Intel UHD Graphics 770"]),
+      ),
+    ).toEqual(selected("pci:0:2:0"));
+  });
+
+  it("keeps the click as unresolved intent before any sample names an adapter", () => {
+    // The classic card is available before the first monitor sample. The
+    // intent cannot address readings yet, so it stays out of `LiveGpuId`
+    // until the persistence migration resolves it.
+    expect(selectionForInventoryGpu(inventory[1], {})).toEqual(
+      unresolvedGpuSelection("67890"),
+    );
+  });
+
+  it("keeps the click as unresolved intent when the name is ambiguous", () => {
+    expect(
+      selectionForInventoryGpu(
+        { id: "a", name: "NVIDIA GeForce RTX 4090" },
+        names(
+          ["nvapi:1", "NVIDIA GeForce RTX 4090"],
+          ["nvapi:2", "NVIDIA GeForce RTX 4090"],
+        ),
+      ),
+    ).toEqual(unresolvedGpuSelection("a"));
+  });
+});
+
+describe("findNamedLiveGpuId", () => {
+  it("finds a raw id the stream reports under the same id", () => {
+    expect(
+      findNamedLiveGpuId("nvapi:0", names(["nvapi:0", "NVIDIA GeForce"])),
+    ).toBe("nvapi:0");
+  });
+
+  it("finds nothing for an id the stream does not report", () => {
+    expect(
+      findNamedLiveGpuId("12345", names(["nvapi:0", "NVIDIA GeForce"])),
+    ).toBeUndefined();
   });
 });
 
