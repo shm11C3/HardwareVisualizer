@@ -275,6 +275,32 @@ describe("useSnapshot - Branch Coverage", () => {
     expect(result.current.totalMemoryMB).toBe(32768);
   });
 
+  it("moves the memory range max with the selected max and keeps its lower bound", () => {
+    const { result } = renderHook(() => useSnapshot());
+
+    act(() => {
+      result.current.setMemoryRange({ type: "memory", value: [10, 5000] });
+    });
+    expect(result.current.memoryRange.value).toEqual([10, 5000]);
+
+    act(() => {
+      result.current.setMemoryMaxOption("2GB");
+    });
+
+    expect(result.current.memoryRange.value).toEqual([10, 2048]);
+  });
+
+  it("follows the device memory total when it arrives after the first render", () => {
+    mockMemorySize = undefined;
+    const { result, rerender } = renderHook(() => useSnapshot());
+    expect(result.current.memoryRange.value).toEqual([0, 32768]);
+
+    mockMemorySize = "8192 MB";
+    rerender();
+
+    expect(result.current.memoryRange.value).toEqual([0, 8192]);
+  });
+
   it("reports a failed read as hasError, clears stale data, and refetches on retry", async () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")

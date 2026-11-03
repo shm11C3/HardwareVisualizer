@@ -56,4 +56,18 @@ describe("GraphMarginInput", () => {
       expect(mockUpdateSettingAtom).toHaveBeenCalledWith("graphMarginPx", 200);
     });
   });
+
+  it("replaces an unsaved draft when the stored margin changes", () => {
+    mockSettings.graphFitToWindow = true;
+    const { rerender } = render(<GraphMarginInput />);
+
+    const input = screen.getByRole("spinbutton");
+    fireEvent.change(input, { target: { value: "250" } });
+    expect(input).toHaveValue(250);
+
+    mockSettings.graphMarginPx = 200;
+    rerender(<GraphMarginInput />);
+
+    expect(screen.getByRole("spinbutton")).toHaveValue(200);
+  });
 });

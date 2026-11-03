@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -100,9 +100,16 @@ export const DatabaseConversionPromptDialog = ({
     onRequestChange?.(Boolean(open || (wouldOpen && !everOffered)));
   }, [open, wouldOpen, everOffered, onRequestChange]);
 
+  // Opens once, in the same render that first finds it eligible, so there is
+  // no commit where a dialog that yields to this one sees it as not pending
+  // and not yet open.
+  if (!everOffered && eligible) {
+    setOpen(true);
+    setEverOffered(true);
+  }
+
   // Pending until the state and the dismissal flag are known, and also while
-  // this prompt is going to open but has not yet (the open lands in a passive
-  // effect, so a dialog that yields to this one must not slip in before it).
+  // this prompt will open once it is no longer deferred.
   const pending =
     !conversion.settled ||
     dismissedPending ||
@@ -110,13 +117,6 @@ export const DatabaseConversionPromptDialog = ({
   useLayoutEffect(() => {
     onPendingChange?.(pending);
   }, [pending, onPendingChange]);
-
-  useEffect(() => {
-    if (!everOffered && eligible) {
-      setOpen(true);
-      setEverOffered(true);
-    }
-  }, [everOffered, eligible]);
 
   const dismissForGood = () => {
     void setDismissed(true);
