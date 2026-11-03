@@ -9,7 +9,6 @@ import { useBackgroundImage } from "@/hooks/appearance/useBgImage";
 export const useUploadImage = () => {
   const { t } = useTranslation();
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
-  const [fileName, setFilename] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { saveBackgroundImage, failures } = useBackgroundImage();
 
@@ -48,14 +47,21 @@ export const useUploadImage = () => {
     name: "picture",
   });
 
+  const fileName = picture?.name ?? "";
+
+  // The object URL holds the file in memory until it is revoked, so the Effect
+  // that creates it also releases it when the picture changes or unmounts.
   useEffect(() => {
-    if (picture) {
-      setFilename(picture.name);
-      setDisplayUrl(URL.createObjectURL(picture));
-    } else {
-      setFilename("");
+    if (!picture) {
       setDisplayUrl(null);
+      return;
     }
+
+    const url = URL.createObjectURL(picture);
+    setDisplayUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
   }, [picture]);
 
   return {

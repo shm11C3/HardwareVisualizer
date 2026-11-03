@@ -5,6 +5,9 @@ import { useUploadImage } from "@/features/settings/hooks/useUploadImageForm";
 if (!URL.createObjectURL) {
   URL.createObjectURL = () => "blob:testurl";
 }
+if (!URL.revokeObjectURL) {
+  URL.revokeObjectURL = () => {};
+}
 
 // --- Dependency module mock setup ---
 // react-i18next
@@ -33,6 +36,9 @@ vi.mock("@/hooks/appearance/useBgImage", () => ({
 const createObjectURLSpy = vi
   .spyOn(URL, "createObjectURL")
   .mockReturnValue("blob:testurl");
+const revokeObjectURLSpy = vi
+  .spyOn(URL, "revokeObjectURL")
+  .mockImplementation(() => {});
 
 describe("useUploadImage", () => {
   beforeEach(() => {
@@ -69,6 +75,62 @@ describe("useUploadImage", () => {
     // Also verify correct file was passed to URL.createObjectURL (mock return value "blob:testurl")
     expect(result.current.displayUrl).toBe("blob:testurl");
     expect(createObjectURLSpy).toHaveBeenCalledWith(fakeFile);
+  });
+
+  it("revokes the previous preview URL when the picture changes, so replaced files are not kept in memory", () => {
+    const first = new File(["a"], "first.png", { type: "image/png" });
+    const second = new File(["b"], "second.png", { type: "image/png" });
+    createObjectURLSpy
+      .mockReturnValueOnce("blob:first")
+      .mockReturnValueOnce("blob:second");
+    const { result } = renderHook(() => useUploadImage());
+
+    act(() => {
+      result.current.form.setValue("picture", first);
+    });
+    expect(result.current.displayUrl).toBe("blob:first");
+    expect(revokeObjectURLSpy).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.form.setValue("picture", second);
+    });
+
+    expect(revokeObjectURLSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:first");
+    expect(result.current.displayUrl).toBe("blob:second");
+  });
+
+  it("revokes the preview URL and clears it when the picture is reset after a save", async () => {
+    const fakeFile = new File(["a"], "saved.png", { type: "image/png" });
+    createObjectURLSpy.mockReturnValueOnce("blob:saved");
+    saveBackgroundImageMock.mockResolvedValue(true);
+    const { result } = renderHook(() => useUploadImage());
+
+    act(() => {
+      result.current.form.setValue("picture", fakeFile);
+    });
+    await act(async () => {
+      await result.current.onSubmit({ picture: fakeFile });
+    });
+
+    expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:saved");
+    expect(result.current.displayUrl).toBeNull();
+    expect(result.current.fileName).toBe("");
+  });
+
+  it("revokes the current preview URL on unmount", () => {
+    const fakeFile = new File(["a"], "mounted.png", { type: "image/png" });
+    createObjectURLSpy.mockReturnValueOnce("blob:mounted");
+    const { result, unmount } = renderHook(() => useUploadImage());
+
+    act(() => {
+      result.current.form.setValue("picture", fakeFile);
+    });
+    expect(revokeObjectURLSpy).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mounted");
   });
 
   it("Image is saved successfully on onSubmit call and form is reset", async () => {
