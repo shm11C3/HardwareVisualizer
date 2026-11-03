@@ -17,8 +17,10 @@ the issue and move into the public contract when the governance slice lands.
 
 A user who explicitly opts in lets HardwareVisualizer send a small, enumerated,
 locally aggregated usage summary to a public Cloudflare service, so the
-maintainer can see Active Installation trends, how many of one month's new
-installations are still active in later months, which screens and capabilities
+maintainer can see Active Installation trends, how many of the installations
+that opted in during one month still run in later months (Consent Cohort
+Retention, which is not installation retention; see
+[Metric definitions](#metric-definitions)), which screens and capabilities
 are used and which features stay switched off, and on which hardware classes
 and sensor providers the app actually runs. Nothing is sent before opt-in,
 nothing is sent after opt-out, and the application behaves identically whether
@@ -57,10 +59,13 @@ implied by another acknowledgement.
 _Avoid_: announcement acknowledgement, terms acceptance, privacy setting
 
 **Active Installation**:
-One installation of HardwareVisualizer that sent a Product Analytics batch in a
-UTC day or month. One person on two machines is two installations; a reset or
-reinstall may become a new one.
-_Avoid_: active user, DAU, MAU, device, account
+One opted-in installation of HardwareVisualizer whose Product Analytics batch
+for a UTC day or month was accepted by the service. It means the app ran with
+Analytics Consent long enough to upload, not that a person used it, and it
+counts only installations that opted in. One person on two machines is two
+installations; a reset, reinstall, or re-grant after a decline may become a
+new one. See [Metric definitions](#metric-definitions).
+_Avoid_: active user, user count, DAU, MAU, device, account, install base
 
 **Installation Token**:
 A rotating per-UTC-day or per-UTC-month value derived locally from a random
@@ -84,6 +89,21 @@ The UTC month in which an installation granted Analytics Consent. It lets the
 service count how many of that month's installations are still active in a
 later month without linking any installation across months.
 _Avoid_: install date, sign-up date, user cohort, retention ID, installation age
+
+**Consent Cohort Retention**:
+For a Consent Cohort and a later month, the month's Active Installations that
+carry that cohort divided by the cohort's Active Installations in its own
+month. It starts at consent, not at installation, and it ends at anything
+that stops an upload, including opt-out, so it is neither user retention nor
+installation retention.
+_Avoid_: retention rate, user retention, install retention, churn rate,
+continuation rate
+
+**Flag Census**:
+The number of accepted batches that carried a State Flag set for a UTC day
+and OS family, which is one per reporting installation. It is the only
+denominator for State Flag rates.
+_Avoid_: active installations (as a flag denominator), flag total, sample size
 
 ## Chosen approach
 
@@ -260,14 +280,37 @@ Flag rules:
   state. Core is not changed; App classifies facts Core already exposes.
 - A flag is reported at most once per installation per UTC day, and the
   client is the only enforcer: flags go into the first batch sealed for a UTC
-  day, and sealing it writes `reportedDay` to `settings.json` before the batch
-  is queued. A restart in the same day reads the persisted day and seals no
+  day whose flag sources are settled, and only when that day is later than
+  `reportedDay`, so a clock set backwards never re-sends a day. Sealing it
+  writes `reportedDay` to `settings.json` before the batch is queued; if that
+  write fails, the batch is sealed without flags instead. A restart in the
+  same day reads the persisted day and seals no
   flags. If that batch is later dropped, the day's flags are lost rather than
   re-sent; an undercount is accepted, an inflation is not.
-- Only `true` is reported. An absent flag means "not on", "not that layout",
-  or "not available", which the service reads as the complement of the day's
-  Active Installation count. Each `GpuVendor` present on the machine is its
-  own flag, so a machine with an integrated and a discrete GPU reports two.
+- A flag set is complete or absent, never partial. The client seals flags
+  only when every source has a determined value: settings are loaded, the
+  CPU and GPU DTOs exist, and every provider that exists on this OS family
+  has reported the outcome of its attempt in a hardware snapshot. If any
+  source is still undetermined when a batch is sealed, that batch carries no
+  `flags` field, `reportedDay` is not written, and the next sealed batch of
+  the day tries again. A session that ends before its sources settle sends no
+  flag set for the day; it is missing from the Flag Census rather than
+  counted as "off".
+- Only `true` is reported, inside a complete set. Within a complete set an
+  absent `FeatureOn` flag means "not on" and an absent `ProviderAvailable`
+  flag means "attempted and did not answer". `Navigation`, `PerformanceView`,
+  and `CpuVendor` are exclusive groups: a complete set carries exactly one
+  variant of each. `GpuVendor` is a multi-valued group: each vendor present
+  on the machine is its own flag, so a machine with an integrated and a
+  discrete GPU reports two, and a machine with no enumerated GPU reports
+  none. `ProviderAvailable` is sampled only on the OS family where the
+  provider exists, which is Windows for both v1 providers.
+- The `flags` field is present exactly when the batch carries the day's
+  complete set, which is never empty because the exclusive groups always
+  contribute one variant each. The service counts its presence as
+  one Flag Census entry; absent flags are read against that census, never
+  against Active Installations. See
+  [State Flag rates](#state-flag-rates).
 - `Other` absorbs every vendor the mapping does not name. A raw vendor string
   never reaches the wire.
 - **Flags are never stored in combination.** The service adds each flag to
@@ -344,8 +387,9 @@ measured need.
 Every batch carries today's day token and the Consent Cohort, whether or not
 any counter is non-zero; a batch with no counters is still an Active
 Installation heartbeat. The first batch sealed in a UTC month also carries the
-month token, and the first batch sealed in a UTC day also carries the State
-Flags; `reportedMonth` and `reportedDay` are written when those batches are
+month token, and the first batch sealed in a UTC day with settled flag sources
+also carries the State Flags; `reportedMonth` and `reportedDay` are written
+when those batches are
 sealed. A sealed batch that is retried keeps whatever it carried.
 
 Payload (contract v1):
@@ -379,8 +423,9 @@ Payload (contract v1):
 }
 ```
 
-`installation.monthToken` and `flags` are present only in the first batch
-sealed for that month and that day; other batches omit them. `flags`
+`installation.monthToken` is present only in the first batch sealed for that
+month, and `flags` only in the batch that carries the day's complete flag set
+(normally the first batch of the day); other batches omit them. `flags`
 describes `installation.day` only; a sealed batch that is retried on a later
 day still carries the day it was sealed for, so its flags land on that day.
 `cohortMonth` is never later than `installation.month`.
@@ -501,8 +546,11 @@ client and the public contract depend on.
   strict JSON schema, unknown fields rejected, enums checked against the
   published list, `day` within two days of the Worker's UTC date,
   `cohortMonth` not after `installation.month` and not before the service
-  went live. Responses are `202` accepted, `400` invalid, `413` too large,
-  `429` rate limited. No request body or header is logged.
+  went live. A `flags` array must hold exactly one variant of each exclusive
+  group, and `provider_available.*` is valid only with
+  `osFamily = windows`. Every counter `count` is between 1 and a
+  published per-batch maximum. Responses are `202` accepted, `400` invalid,
+  `413` too large, `429` rate limited. No request body or header is logged.
 - Deduplication: `batch_id` is kept for 7 days; a repeated id is acknowledged
   with `202` and not counted again. `(period_kind, period, token)` rows are
   unique, so a repeated token in a period does not inflate counts. Flags need
@@ -513,17 +561,32 @@ client and the public contract depend on.
   month-token rows three days after their month ends. Finalized Active
   Installation counts per
   `(period, cohort_month, os_family, cpu_arch, app_version)`, flag totals per
-  `(day, name, os_family)`, and event counters per `(day, name, os_family)`
-  are kept as aggregate time series without tokens.
-- Retention of installations is derived, not stored: month `M` of cohort `C`
+  `(day, name, os_family)`, the Flag Census per `(day, os_family)`, and event
+  counters per `(day, name, os_family)` are kept as aggregate time series
+  without tokens. An Active Installation's dimensions are those of its first
+  accepted batch in the period, so the breakdown by any dimension sums to the
+  period total.
+- Consent Cohort Retention is derived, not stored: month `M` of cohort `C`
   divided by month `C` of cohort `C`. The service never links an installation
   from one month to the next; the cohort is a group label the client repeats.
+  See [Metric definitions](#metric-definitions).
+- Quality counters per day, aggregate and tokenless: accepted batches,
+  repeated batch ids, and rejected requests by reason (invalid, too large,
+  rate limited, outside the day window). They are published beside the
+  metrics so a reader can see how much traffic was refused and why.
+- A period can be marked suspect by the maintainer after an anomaly review.
+  The mark and its reason are published with the period's rows; the rows are
+  neither deleted nor rewritten, because no per-installation data exists to
+  clean them with. See [Data quality](#data-quality).
 - Edge rate limiting keys on the connection, not on anything persisted in D1.
 - `GET /v1/public/active-installations`, `GET /v1/public/retention`,
   `GET /v1/public/feature-usage`, and `GET /v1/public/state-flags` return
   aggregate rows only. Any dimension breakdown whose cohort is below `k = 20`
   is suppressed; period totals are published regardless of size, because a
-  total of "fewer than 20 installations" identifies nobody. Raw events,
+  total of "fewer than 20 installations" identifies nobody. A retention row
+  is published only when its cohort's own-month size is at least `k`, and a
+  State Flag rate only when its Flag Census is at least `k`; below that the
+  ratio is too noisy to read and is withheld, not shown as zero. Raw events,
   tokens, batch ids, request metadata, flag combinations, and rare
   combinations are never exposed.
 - The repository ships the JSON Schema for contract v1 and example payloads;
@@ -535,6 +598,136 @@ Cloudflare Workers with D1 and cron triggers) is the stack precedent, not the
 home: it ingests GitHub API data on the project's behalf, while this service
 ingests data that users chose to send. Keeping them separate keeps the
 "what does the app send" question answerable by one repository.
+
+### Metric definitions
+
+These definitions are part of the public contract. The service computes each
+metric exactly this way, and every published table names it with the term
+below and carries its "is not" line.
+
+| Metric | Definition | Is not |
+| --- | --- | --- |
+| Daily Active Installations, day `d` | Distinct day tokens accepted for `d` | Daily active users, or all installations that ran on `d` |
+| Monthly Active Installations, month `m` | Distinct month tokens accepted for `m` | Monthly active users, or the sum or maximum of the month's daily counts |
+| Consent Cohort size, cohort `C` | Monthly Active Installations in month `C` that carry cohort `C` | Installations, downloads, or new users in month `C` |
+| Consent Cohort Retention, cohort `C` at month `M > C` | Monthly Active Installations in `M` that carry `C`, divided by the size of `C` | Installation retention or user retention |
+
+**What "active" measures.** An installation is active in a period when a
+process with Analytics Consent at the current version stayed up until its
+first flush, reached the service, and had a batch accepted.
+HardwareVisualizer can start with the operating system and stay in the tray,
+so an active installation may not have shown a window that day. Active
+Installations measure that the app ran. How much it was used is answered only
+by Product Event totals, which are not per installation; dividing them by
+Active Installations gives an indicative mean that is biased low, because
+counters not yet flushed at shutdown are lost.
+
+**Why the count is not a user count.** The definition counts some machines
+more than once and some not at all, and neither can be corrected without the
+persistent identifier ADR 0028 rejects:
+
+- More than one per person or machine: one person on several machines; a
+  settings reset or reinstall that loses the seed; a decline followed by a
+  re-grant, which creates a new seed, so the machine counts twice in that day
+  and month and moves to the new cohort.
+- Fewer than actually ran: only opted-in installations; sessions that end
+  before the first flush; networks that block the service; batches dropped by
+  the transport rules; a settings file restored or cloned onto a second
+  machine, which shares the seed so both machines count once. A dropped first
+  batch of a month loses that month's token, so a monthly count is not
+  guaranteed to be at least the month's largest daily count.
+- Never scaled: Active Installations are never divided by downloads or used
+  to estimate the installed base. The opted-in population is self-selected
+  and its share of all installations is unknown, so no "opt-in rate" is
+  derived either.
+
+**Why Consent Cohort Retention is not installation retention.**
+
+- Entry is consent, not installation. When analytics first ships, existing
+  installations that opt in join that month's cohort, so the launch cohort
+  consists mostly of installations that had already stayed. Its curve is
+  expected to sit above later cohorts' and is labeled the launch cohort in
+  every published table. Cohort comparisons use later cohorts.
+- Exit is anything that stops accepted uploads: uninstalling, not running in
+  the month, opting out, a settings reset, a re-grant (which moves the
+  installation to a new cohort), a blocked network, or a replaced machine.
+- A contract version change pauses every installation until it renews, and
+  installations that never renew leave their cohort. Months with a version
+  change are labeled in the retention table.
+- The own month is partial, from the grant day; later months are whole.
+- The ratio is not clamped. A cohort whose own-month batch was lost can be
+  counted later, so a value above 1 is possible in a small cohort and is
+  read as a data-quality signal, not as growth.
+
+**Reading rules.** The maintainer uses these numbers as product evidence
+under three rules: compare trends and ratios inside the opted-in population,
+never absolute counts against other sources; compare cohorts with cohorts,
+excluding the launch cohort and noting version-change months; and treat a
+change as evidence only when it holds across several periods none of which
+is marked suspect.
+
+### State Flag rates
+
+A State Flag rate is computed per `(day, os_family)` against the Flag Census
+of that day and OS family, and only from the per-flag totals the service
+stores.
+
+| Group | Rate | Complement |
+| --- | --- | --- |
+| `FeatureOn` (independent) | Flag total / census | Off rate is `1 - rate` |
+| `Navigation`, `PerformanceView`, `CpuVendor` (exclusive) | Variant total / census; the shares sum to 1 | None; every census entry has exactly one variant |
+| `GpuVendor` (multi-valued) | Installations with at least one GPU of that vendor / census | `1 - rate` is "no GPU of that vendor"; the shares can sum to more than 1, and no "no GPU" share is derived |
+| `ProviderAvailable` (independent, Windows only) | Flag total / Windows census | `1 - rate` is "attempted and did not answer"; no rate exists for other OS families |
+
+Active Installations are never the denominator. A day's count includes
+installations whose complete flag set never arrived: a session that ended
+before its sources settled, a dropped flag batch, or a failed `reportedDay`
+write. Dividing by it would read each of those as "off" or "unavailable".
+It also carries dimensions that flag totals do not have.
+
+Further rules:
+
+- A rate over several days is the sum of flag totals over the sum of census
+  entries. It is a share of installation-days and is labeled as such, never
+  as a share of installations, because flags are not deduplicated across
+  days.
+- No rate exists for a flag crossed with another flag, an app version, or a
+  cohort; those totals are not stored.
+- Census coverage, the Flag Census divided by Daily Active Installations for
+  the same day and OS family, is published beside the rates. Low coverage
+  means short sessions are under-represented in the rates. Coverage above 1
+  is a data-quality signal.
+- A rate whose census is below `k` is withheld.
+
+### Data quality
+
+Every published number is indicative. The design accepts that the dataset is
+incomplete, duplicated in known ways, and open to fabrication, and names each
+case instead of correcting for it silently.
+
+| Case | Source | Effect | Handling |
+| --- | --- | --- | --- |
+| Missing | Opt-in only; sessions shorter than the first flush; blocked or offline networks; queue overflow; terminal `4xx`; batches outside the day window; clocks skewed beyond it; counters lost at shutdown; flags or month token lost with their batch | Undercount; short sessions and restricted networks are under-represented | Not corrected. Census coverage and rejection counters are published; reading rules apply |
+| Repeated batch | A lost response retried with the same id | None | Batch ids are kept 7 days and the day window is 2 days, so every retry the Worker accepts falls inside deduplication |
+| Repeated token | Several batches in one period | None | Token rows are unique per period |
+| Repeated flags | A restart, or a clock set backwards | None | The client seals flags only for a day later than `reportedDay` |
+| Split installation | Re-grant, settings reset, reinstall | One machine counts twice in that period and appears to leave its cohort | Accepted; undetectable without a persistent identifier |
+| Merged installation | A settings file restored or cloned onto another machine | Two machines count once | Accepted |
+| Fabricated batch | The endpoint is unauthenticated; anyone can post schema-valid batches with random tokens, versions, and flags | Inflates any count, rate, or cohort | Bounded, not prevented: edge rate limiting; strict schema, exclusive-group, OS, and count checks reject malformed batches; rejection counters show refused volume; an anomaly review can mark a period suspect |
+| Modified client or fork | A build that keeps the endpoint | Indistinguishable from the official client | Accepted |
+
+Fabrication cannot be removed after the fact. Telling a fabricated batch
+from a real one would need per-installation history, which is the persistent
+identifier ADR 0028 rejects, and a public desktop client cannot hold a
+secret that would prove it is genuine. The privacy guarantee and the
+inability to clean the data are the same property, and the published pages
+say so.
+
+The service repository defines the anomaly review: which signals open one
+(for example a jump in one dimension's daily count, a spike in rejected
+requests, census coverage above 1, or retention above 1), the thresholds,
+which are set after the first weeks of data, and how a suspect mark is
+recorded and published.
 
 ### Governance and release gate
 
@@ -649,6 +842,19 @@ which chips those are. Neither needs the other to ship.
   flag combination for as long as they live, which contradicts the notice.
   Per-flag tokens would avoid the join but add derivations for a problem the
   client's persisted `reportedDay` removes outright.
+- **A fresh-install marker on the Consent Cohort.** Rejected for v1. It would
+  separate new installations from existing ones that opt in later, but it is
+  an installation-age attribute stored jointly with the cohort, and consent
+  timing would still confound it. Labeling the launch cohort and comparing
+  later cohorts answers the retention question without it.
+- **Active Installations as the State Flag denominator.** Rejected. Any
+  installation whose flag set did not arrive would be read as "off", and the
+  error grows exactly where sessions are short. The Flag Census costs no new
+  wire value: it is the presence of the `flags` field.
+- **An `Unknown` variant in each flag group.** Rejected. A complete-or-absent
+  flag set gives the same information with one rule, and an unsettled source
+  then shrinks the census instead of adding a value every reader must
+  exclude.
 - **Weekly retention.** Deferred. It needs a week token and a cohort week;
   monthly answers the current question, and adding week granularity later is
   a contract expansion with renewed consent.
@@ -670,7 +876,10 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 | Opt-out clears queue, seed, and cohort | Service test asserts queue length 0, `seed = null`, and `cohortMonth = null` after decline; re-grant yields a different seed and the current month; a version-renewal grant keeps both |
 | Only allowlisted events | Compile-time: the command takes the enum; a frontend test checks the generated binding type has no string variant |
 | Flags carry no raw strings | Unit test: every vendor string fixture maps to a named variant or `Other`; the wire serializer has no string path |
-| Flags once per day | Unit test: with a persisted `reportedDay`, a simulated restart in the same UTC day seals a batch without flags; the next UTC day seals them again |
+| Flags once per day | Unit test: with a persisted `reportedDay`, a simulated restart in the same UTC day seals a batch without flags; the next UTC day seals them again; a clock earlier than `reportedDay` seals no flags; a failed `reportedDay` write seals the batch without flags |
+| Flag set complete or absent | Unit test: while a Windows provider has not reported its attempt outcome, a sealed batch has no `flags` field and `reportedDay` is unchanged; once it reports, the next batch carries exactly one variant of each exclusive group; on macOS and Linux no `provider_available` flag is ever sealed |
+| Flag rates use the Flag Census | Service-repository test: a batch with `flags` increments the census once for its day and OS family, a batch without it does not; a rate is flag total over census; a `flags` array missing an exclusive group, or a provider flag from a non-Windows batch, is rejected with `400`; a rate below `k` is withheld |
+| Metric definitions | Service-repository test: per-dimension Active Installation rows sum to the period total; a cohort below `k` publishes no retention row; a retention value above 1 is published unclamped; quality counters record accepted batches, repeated ids, and each rejection reason |
 | Flags never combined | Service-repository test: the schema has no table with a per-installation flag row, and ingesting a batch leaves only per-flag totals |
 | Retention derived without linking | Service-repository test: two cohorts across three months produce the expected matrix from tokens that differ every month |
 | Sealed batch retry is idempotent | Unit test: failed flush retries the same id and counters; new events land in a second batch |

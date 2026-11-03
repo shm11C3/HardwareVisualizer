@@ -237,8 +237,8 @@ The explicit, versioned Application Preference that enables Product Analytics fo
 _Avoid_: announcement acknowledgement, terms acceptance, privacy setting
 
 **Active Installation**:
-One installation of HardwareVisualizer that sent a Product Analytics batch in a UTC day or month. One person on two machines is two installations; a reset or reinstall may become a new one.
-_Avoid_: active user, DAU, MAU, device, account
+One opted-in installation of HardwareVisualizer whose Product Analytics batch for a UTC day or month was accepted by the service. It means the app ran with Analytics Consent long enough to upload, not that a person used it, and it counts only installations that opted in. One person on two machines is two installations; a reset, reinstall, or re-grant after a decline may become a new one.
+_Avoid_: active user, user count, DAU, MAU, device, account, install base
 
 **Installation Token**:
 A rotating per-UTC-day or per-UTC-month value derived locally from a random seed, used only to count an installation once per period.
@@ -255,6 +255,14 @@ _Avoid_: setting value, property, dimension, fingerprint, hardware profile
 **Consent Cohort**:
 The UTC month in which an installation granted Analytics Consent. It lets the service count how many of that month's installations are still active in a later month without linking any installation across months.
 _Avoid_: install date, sign-up date, user cohort, retention ID, installation age
+
+**Consent Cohort Retention**:
+For a Consent Cohort and a later month, the month's Active Installations that carry that cohort divided by the cohort's Active Installations in its own month. It starts at consent, not at installation, and it ends at anything that stops an upload, including opt-out, so it is neither user retention nor installation retention.
+_Avoid_: retention rate, user retention, install retention, churn rate, continuation rate
+
+**Flag Census**:
+The number of accepted batches that carried a State Flag set for a UTC day and OS family, which is one per reporting installation. It is the only denominator for State Flag rates.
+_Avoid_: active installations (as a flag denominator), flag total, sample size
 
 **Hardware Compatibility Report**:
 A user-initiated export of hardware identification and sensor-provider availability that the user reads in full and posts publicly themselves. HardwareVisualizer never uploads it. See #2500.

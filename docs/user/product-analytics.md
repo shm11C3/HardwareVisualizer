@@ -78,7 +78,10 @@ something happened.
 
 ### State Flags
 
-Only flags that are true are sent, at most once per installation per UTC day:
+Only flags that are true are sent, as one complete set at most once per
+installation per UTC day. If the app has not finished detecting your
+hardware and sensor providers before an upload, the set waits for a later
+upload that day instead of being sent incomplete:
 
 - `feature_on.hardware_archive`, `feature_on.storage_health`,
   `feature_on.tray_widget`, `feature_on.close_to_tray`,
@@ -130,8 +133,43 @@ days after their period ends.
 
 There is no permanent installation identifier. The consent month is a group
 label shared by every installation that opted in that month; it lets the
-service compute "how many of November's installations were active in
-February" from monthly totals without following any single installation.
+service compute "how many of the installations that opted in during November
+were active in February" from monthly totals without following any single
+installation.
+
+## How to read the published numbers
+
+The published numbers describe installations that chose to send analytics,
+not people and not every copy of the app. The project reads them as trends,
+never as a count of its users.
+
+- **Active Installations** count opted-in installations whose upload for a
+  day or month was accepted. An installation counts if the app ran long
+  enough to upload, even if it only sat in the tray. One person on two
+  computers counts twice; turning analytics off and on again, resetting
+  settings, or reinstalling can make the same computer count as a new
+  installation; a computer that is offline, blocks the service, or runs the
+  app for less than a minute is not counted. The numbers are not compared
+  with download counts.
+- **Consent Cohort Retention** is the share of the installations that opted
+  in during one month that are still counted in a later month. It starts when
+  you opt in, not when you install, and it ends when uploads stop for any
+  reason, including turning analytics off. The first month after release
+  mostly contains installations that were already in use, so it is labeled
+  separately.
+- **State Flag percentages** are computed per day and operating system
+  against the number of installations that sent a complete set of flags that
+  day, not against all Active Installations, so an installation whose flags
+  did not arrive is never counted as "off". A percentage over several days is
+  a share of installation-days. Percentages based on fewer than 20
+  installations are not shown.
+- **Data quality.** The service cannot verify that an upload came from a real
+  copy of the app, so anyone can send fabricated data, and some real data is
+  always missing. The service rejects malformed uploads and limits request
+  rates, publishes how many uploads it refused and why, and marks a period as
+  suspect when it looks manipulated. Because it keeps no per-installation
+  record, it cannot remove fabricated data afterwards; that is the same
+  property that keeps your installation from being followed.
 
 ## How the service handles data
 
