@@ -2,7 +2,11 @@ import { act, renderHook } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
+import {
+  asLiveGpuId,
+  type LiveGpuId,
+  liveGpuSelection,
+} from "@/features/hardware/gpuIdentity";
 import { gpuNamesAtom } from "@/features/hardware/store/gpu";
 import { selectedGpuIdAtom } from "@/features/hardware/store/selection";
 import { useSelectedGpuPersistence } from "./useSelectedGpuPersistence";
@@ -42,9 +46,14 @@ const liveMap = (map: Record<string, string>) =>
 
 const useHarness = () => {
   useSelectedGpuPersistence();
-  const [selected, setSelected] = useAtom(selectedGpuIdAtom);
+  const [selection, setSelection] = useAtom(selectedGpuIdAtom);
   const [, setNames] = useAtom(gpuNamesAtom);
-  return { selected, setSelected, setNames };
+  return {
+    selected: selection?.id ?? null,
+    kind: selection?.kind ?? null,
+    setSelected: (id: LiveGpuId) => setSelection(liveGpuSelection(id)),
+    setNames,
+  };
 };
 
 describe("useSelectedGpuPersistence", () => {
@@ -77,6 +86,25 @@ describe("useSelectedGpuPersistence", () => {
     const { result } = renderHook(() => useHarness(), { wrapper });
 
     expect(result.current.selected).toBe("nvapi:12345");
+    // Nothing has proved the stored id is live yet, so it must not be usable
+    // as a live map key.
+    expect(result.current.kind).toBe("unresolved");
+  });
+
+  it("promotes a restored id to live once the stream reports it, without a write", () => {
+    mocks.storeValue = "nvapi:12345";
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() =>
+      result.current.setNames(
+        liveMap({ "nvapi:12345": "NVIDIA GeForce RTX 4080" }),
+      ),
+    );
+
+    expect(result.current.selected).toBe("nvapi:12345");
+    expect(result.current.kind).toBe("live");
+    expect(mocks.setStored).not.toHaveBeenCalled();
+    expect(mocks.init).not.toHaveBeenCalled();
   });
 
   it("does not write the pre-hydration value back over the restored one", () => {
@@ -108,6 +136,7 @@ describe("useSelectedGpuPersistence", () => {
     const { result } = renderHook(() => useHarness(), { wrapper });
 
     expect(result.current.selected).toBe("nvapi:absent");
+    expect(result.current.kind).toBe("unresolved");
     expect(mocks.setStored).not.toHaveBeenCalled();
   });
 
@@ -134,7 +163,30 @@ describe("useSelectedGpuPersistence", () => {
     );
 
     expect(result.current.selected).toBe("pci:0:2:0");
+    expect(result.current.kind).toBe("live");
     expect(mocks.setStored).toHaveBeenLastCalledWith("pci:0:2:0");
+  });
+
+  it("keeps an inventory id whose name is ambiguous unresolved", () => {
+    mocks.storeValue = "a";
+    mocks.gpus = [
+      { id: "a", name: "NVIDIA GeForce RTX 4090" },
+      { id: "b", name: "NVIDIA GeForce RTX 4090" },
+    ];
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() =>
+      result.current.setNames(
+        liveMap({
+          "nvapi:1": "NVIDIA GeForce RTX 4090",
+          "nvapi:2": "NVIDIA GeForce RTX 4090",
+        }),
+      ),
+    );
+
+    expect(result.current.selected).toBe("a");
+    expect(result.current.kind).toBe("unresolved");
+    expect(mocks.setStored).not.toHaveBeenCalled();
   });
 
   it("leaves a live id that is simply absent this session alone", () => {
@@ -149,6 +201,7 @@ describe("useSelectedGpuPersistence", () => {
     );
 
     expect(result.current.selected).toBe("nvapi:absent");
+    expect(result.current.kind).toBe("unresolved");
     expect(mocks.setStored).not.toHaveBeenCalled();
   });
 
@@ -163,6 +216,7 @@ describe("useSelectedGpuPersistence", () => {
     );
 
     expect(result.current.selected).toBe("pdh:1:2");
+    expect(result.current.kind).toBe("live");
     expect(mocks.setStored).toHaveBeenLastCalledWith("pdh:1:2");
     expect(mocks.init).not.toHaveBeenCalled();
   });
@@ -181,6 +235,7 @@ describe("useSelectedGpuPersistence", () => {
     );
 
     expect(result.current.selected).toBe("pdh:Intel(R) UHD Graphics 770");
+    expect(result.current.kind).toBe("unresolved");
     expect(mocks.setStored).not.toHaveBeenCalled();
     expect(mocks.init).not.toHaveBeenCalled();
   });
@@ -212,6 +267,26 @@ describe("useSelectedGpuPersistence", () => {
       ),
     );
 
+    expect(result.current.kind).toBe("live");
+    expect(mocks.init).not.toHaveBeenCalled();
+  });
+
+  it("does not fetch the inventory for a live selection whose adapter left", () => {
+    // A live id is already in the stream's namespace: the inventory cannot
+    // translate it, so its absence is left to `getEffectiveGpuId`.
+    mocks.storeValue = null;
+    mocks.gpus = null;
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() => result.current.setSelected(asLiveGpuId("nvapi:gone")));
+    act(() =>
+      result.current.setNames(
+        liveMap({ "nvapi:1": "NVIDIA GeForce RTX 4080" }),
+      ),
+    );
+
+    expect(result.current.selected).toBe("nvapi:gone");
+    expect(result.current.kind).toBe("live");
     expect(mocks.init).not.toHaveBeenCalled();
   });
 

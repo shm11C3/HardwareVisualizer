@@ -76,6 +76,9 @@ Rust workspace split into a Tauri-independent Core and a Tauri App boundary.
 Apply these defaults:
 
 - Keep hardware data locally owned and do not introduce outbound telemetry.
+  Opt-in Product Analytics is the one recorded exception
+  ([ADR 0028](docs/adr/0028-opt-in-product-analytics.md)); it never carries
+  hardware readings, model names, or persistent identifiers.
 - Preserve useful partial results and represent unavailable or unsupported data
   honestly; do not turn missing readings into zero, healthy, or whole-response
   failure without evidence.

@@ -48,3 +48,4 @@ ADR status describes decision maturity, not implementation or release status.
 - [0025 Retire the SQLite Conversion Path in v2.0.0](0025-retire-sqlite-conversion-path-in-v2.md)
 - [0026 Refresh Outdated External Component Files](0026-refresh-outdated-external-component-files.md)
 - [0027 Frontend Layer Boundaries and State Ownership](0027-frontend-layer-boundaries-and-state-ownership.md)
+- [0028 Opt-in Product Analytics](0028-opt-in-product-analytics.md)

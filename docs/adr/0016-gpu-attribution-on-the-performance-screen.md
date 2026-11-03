@@ -49,12 +49,14 @@ cannot; macOS pairs
 `0x<registry_id>` with `iokit:<name>`; Linux pairs `card<n>` with the PCI BDF.
 The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
 across. The frontend enforces this at compile time: live ids carry the branded
-`LiveGpuId` type, minted only where samples enter (`useHardwareEventListener`)
-and where stored intent is restored, so writing an inventory id into the
-shared selection or indexing a live map with one is a type error rather than a
-review finding. The minting
-sites are the monitor payload, the restored stored intent, and the classic
-card's `toLiveGpuId` write. Live maps are built through `liveGpuRecord`, because
+`LiveGpuId` type, minted only where samples enter (`useHardwareEventListener`),
+so indexing a live map with an inventory id is a type error rather than a
+review finding. The shared selection is a `GpuSelection` union: a `live` arm
+holding a `LiveGpuId`, and an `unresolved` arm holding a plain string for
+intent no live map can resolve yet. Ids from outside the stream (a restored
+stored id, a classic card click the name join cannot resolve) enter as
+`unresolved` and become `live` only by lookup against ids the stream reported,
+never by a cast. Live maps are built through `liveGpuRecord`, because
 `Object.fromEntries` returns a `string`-indexed object that TypeScript accepts
 for a branded record — indexing is checked by the brand alone, construction
 needed the gate. Two tests back the types up deterministically: the e2e fixture
@@ -74,16 +76,19 @@ Where the two sides do have to meet, they meet on the name, which both sources
 report — and only while that name picks out exactly one entry on each side.
 There are two such places: the VRAM total that labels a live VRAM reading, and
 the classic Hardware Dashboard, which holds inventory entries but shares
-`selectedGpuIdAtom` with Performance. `findInventoryGpu` and `toLiveGpuId` are
+`selectedGpuIdAtom` with Performance. `findInventoryGpu` and `findLiveGpuId` are
 that join, so the shared selection is written in the live namespace by every
-surface and read back through the name by the one surface that needs the
-inventory.
+surface that can resolve it and read back through the name by the one surface
+that needs the inventory.
 
 The classic card is reachable before the first sample, when no live id exists
-yet, so a selection made there starts as an inventory id. So do the selections
-already on disk from shipped versions, whose classic card wrote inventory ids
-into the same store key. Both are translated to the live id as soon as the
-stream names that adapter, and the translation lives in
+yet, so a selection made there starts as an unresolved inventory id. So does
+every stored selection on restore: some were written by shipped versions,
+whose classic card wrote inventory ids into the same store key, and none is
+known to be live until the stream reports it. Only `getEffectiveGpuId`,
+`findInventoryGpu`, and the persistence migration read the `unresolved` arm.
+Each unresolved id is promoted to `live` as soon as the stream names that
+adapter, and the promotion lives in
 `useSelectedGpuPersistence` — mounted for the whole app — rather than in a GPU
 screen, because grouped navigation never mounts the classic card and the
 stored choice would stay inert forever. The migration fetches the inventory

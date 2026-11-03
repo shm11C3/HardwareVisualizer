@@ -15,13 +15,22 @@ is confirmed.
 
 HardwareVisualizer observes a local machine for the person using that machine.
 Settings, history, and hardware identity data stay local by default, and the app
-does not send outbound telemetry. Persist only the identifying material needed
-for a product capability and avoid turning local identifiers into portable user
-or device identities.
+sends no hardware data off the machine. Persist only the identifying material
+needed for a product capability and avoid turning local identifiers into
+portable user or device identities.
 
 This is local data ownership, not a promise that the application never uses the
 network. Release updates and user-initiated links are separate product
 capabilities.
+
+Product Analytics is the one deliberate exception, governed by
+[ADR 0028](adr/0028-opt-in-product-analytics.md): aggregated, enumerated usage
+counts sent only after explicit, versioned opt-in. It never carries hardware
+readings, device model names, or persistent identifiers, it does not change
+the default (a new
+or upgraded installation sends nothing), and widening what it sends requires
+renewed consent. Any further outbound data use needs its own ADR, not a wider
+reading of this one.
 
 See [README](../README.md#permissions--security-notes) and the proposed
 [ADR 0003](adr/0003-storage-health-device-identity.md).
