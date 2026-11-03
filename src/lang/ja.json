@@ -196,13 +196,13 @@
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
-        "missing": "PawnIO",
+        "missing": "Windowsセンサーサービス / PawnIO",
         "impact": "CPU パッケージ温度",
         "action": "設定の詳細設定からWindowsセンサーサービスを導入・修復し、PawnIOと対応する署名済みモジュールを確認してください。本体を管理者権限で起動する必要はありません。",
         "permissionAction": "設定の詳細設定からWindowsセンサーサービスを導入・修復し、PawnIOと対応する署名済みモジュールを確認してください。本体を管理者権限で起動する必要はありません。"
       },
       "pawnioMotherboardSensors": {
-        "missing": "PawnIO LpcIO",
+        "missing": "Windowsセンサーサービス / PawnIO LpcIO",
         "impact": "マザーボード温度センサーとファン回転数",
         "action": "設定の詳細設定からWindowsセンサーサービスを導入・修復し、PawnIOと対応する署名済みモジュールを確認してください。本体を管理者権限で起動する必要はありません。",
         "permissionAction": "設定の詳細設定からWindowsセンサーサービスを導入・修復し、PawnIOと対応する署名済みモジュールを確認してください。本体を管理者権限で起動する必要はありません。"
@@ -964,6 +964,13 @@
     "ru": "ロシア語"
   },
   "sensorService": {
+    "openSettings": "センサー設定を開く",
+    "setupSteps": "下の「{{section}}」でPawnIOとモジュールをセットアップし、このサービスをインストールしてください。更新前からPawnIOを使用している場合も、サービスの追加が必要です。セットアップには管理者の承認が必要ですが、導入後は一般権限でセンサーを取得できます。",
+    "startupNotice": {
+      "title": "一般権限でセンサーを取得できます",
+      "description": "センサーサービスから値を取得できています。「起動時に管理者として実行」は引き続き有効です。センサー設定で切り替えた後、アプリを終了して通常起動してください。切り替えを選ぶまでは設定を維持します。",
+      "dismiss": "このセッションでは起動案内を非表示"
+    },
     "loadFailed": "センサーサービスの状態を確認できませんでした。",
     "title": "Windowsセンサーサービス",
     "description": "PawnIOの温度・電力・マザーボード情報を取得するSYSTEMサービスを任意で導入できます。本体は一般権限で常駐できます。導入・修復には管理者の承認が必要です。",

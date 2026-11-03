@@ -6,6 +6,7 @@ import { LoadFailure } from "@/components/LoadFailure";
 import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useSensorServiceSettingsFocus } from "@/hooks/navigation/useSensorServiceSettings";
 import { useProcessElevated } from "@/hooks/settings/useElevationAvailability";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands, type SensorServiceStatus } from "@/rspc/bindings";
@@ -25,6 +26,7 @@ export const SensorServiceSection = () => {
   const [setupFailed, setSetupFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const status = read.state === "ready" ? read.data : null;
+  const sectionRef = useSensorServiceSettingsFocus(windows);
 
   const load = useCallback(async () => {
     setRead({ state: "loading" });
@@ -61,7 +63,9 @@ export const SensorServiceSection = () => {
 
   return (
     <section
-      className="w-full space-y-3 py-6 xl:w-1/2"
+      ref={sectionRef}
+      tabIndex={-1}
+      className="w-full scroll-mt-6 space-y-3 py-6 xl:w-1/2"
       aria-labelledby="sensor-service-title"
     >
       <Label id="sensor-service-title" className="text-lg">
@@ -69,6 +73,11 @@ export const SensorServiceSection = () => {
       </Label>
       <p className="text-sm text-muted-foreground">
         {t("sensorService.description")}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {t("sensorService.setupSteps", {
+          section: t("pages.settings.advanced.externalComponentSetup.title"),
+        })}
       </p>
       {read.state === "failed" ? (
         <LoadFailure

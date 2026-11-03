@@ -22,6 +22,21 @@ struct State {
 
 static CLIENT: OnceLock<Arc<Mutex<State>>> = OnceLock::new();
 
+#[derive(Debug)]
+pub enum SampleError {
+  Connecting,
+  Unavailable(String),
+}
+
+impl std::fmt::Display for SampleError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Connecting => f.write_str("Connecting to the Windows sensor service"),
+      Self::Unavailable(reason) => f.write_str(reason),
+    }
+  }
+}
+
 fn client() -> &'static Arc<Mutex<State>> {
   CLIENT.get_or_init(|| {
     let state = Arc::new(Mutex::new(State::default()));
@@ -51,11 +66,11 @@ fn client() -> &'static Arc<Mutex<State>> {
 fn sample<T: Clone>(
   family: u8,
   select: impl FnOnce(&Snapshot) -> &Option<Reading<T>>,
-) -> Result<T, String> {
+) -> Result<T, SampleError> {
   let now = uptime_ms();
   let mut state = client()
     .lock()
-    .map_err(|_| "Sensor service client unavailable")?;
+    .map_err(|_| SampleError::Unavailable("Sensor service client unavailable".into()))?;
   state.demand[family.trailing_zeros() as usize] = now;
 
   select(&state.snapshot)
@@ -66,19 +81,20 @@ fn sample<T: Clone>(
       state
         .error
         .clone()
-        .unwrap_or_else(|| "Connecting to the Windows sensor service".into())
+        .map(SampleError::Unavailable)
+        .unwrap_or(SampleError::Connecting)
     })
 }
 
-pub fn temperature() -> Result<TemperatureSample, String> {
+pub fn temperature() -> Result<TemperatureSample, SampleError> {
   sample(TEMPERATURE, |v| &v.temperature)
 }
 
-pub fn power() -> Result<CpuPower, String> {
+pub fn power() -> Result<CpuPower, SampleError> {
   sample(POWER, |v| &v.power)
 }
 
-pub fn motherboard() -> Result<MotherboardSensorCollection, String> {
+pub fn motherboard() -> Result<MotherboardSensorCollection, SampleError> {
   sample(MOTHERBOARD, |v| &v.motherboard)
 }
 

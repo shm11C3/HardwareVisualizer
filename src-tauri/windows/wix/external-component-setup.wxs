@@ -168,7 +168,7 @@
           <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
           <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
         </Control>
-        <Control Id="SensorServiceDescription" Type="Text" X="38" Y="190" Width="312" Height="35" NoPrefix="yes" Text="Runs as SYSTEM so the app can read PawnIO sensors without startup UAC. Removed with HardwareVisualizer. Requires PawnIO for readings.">
+        <Control Id="SensorServiceDescription" Type="Text" X="38" Y="190" Width="312" Height="42" NoPrefix="yes" Text="For CPU and motherboard sensors, select both PawnIO above and this service, or use existing PawnIO. Runs as SYSTEM to avoid app startup UAC. Optional; removed with HardwareVisualizer. Can be added later in Settings, Advanced.">
           <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
           <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
         </Control>

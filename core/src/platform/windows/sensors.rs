@@ -9,12 +9,35 @@ use crate::models::{
   ExternalComponentGuidanceCandidate, MotherboardSensorCollection, PowerDraw,
   SensorAvailability, SensorSupport, SensorTemperature, TemperatureSample,
 };
+use crate::sensor_service::windows::SampleError;
 
 static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
 
 pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
   crate::sensor_service::windows::motherboard()
-    .unwrap_or_else(MotherboardSensorCollection::unavailable)
+    .unwrap_or_else(motherboard_service_failure)
+}
+
+fn motherboard_service_failure(error: SampleError) -> MotherboardSensorCollection {
+  let mut sample = MotherboardSensorCollection::unavailable(error.to_string());
+
+  if let SampleError::Unavailable(reason) = error {
+    sample.guidance_candidates =
+      vec![ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(reason)];
+  }
+
+  sample
+}
+
+fn temperature_service_failure(error: SampleError) -> TemperatureSample {
+  let mut sample = TemperatureSample::unavailable(error.to_string());
+
+  if let SampleError::Unavailable(reason) = error {
+    sample.guidance_candidates =
+      vec![ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(reason)];
+  }
+
+  sample
 }
 
 /// Convert a provider readout without deriving support from its current rows.
@@ -93,7 +116,7 @@ pub fn sample_temperatures() -> TemperatureSample {
   thermal_zone::init_thermal_zone_sampler();
   let sensor_temperatures = thermal_zone::read_thermal_zones_cached();
   let service = crate::sensor_service::windows::temperature()
-    .unwrap_or_else(TemperatureSample::unavailable);
+    .unwrap_or_else(temperature_service_failure);
   merge_service_and_acpi(service, sensor_temperatures)
 }
 
@@ -228,6 +251,41 @@ fn cpu_package_sensor_name(sample: &CpuPackageTemperature) -> &'static str {
 mod tests {
   use super::*;
   use crate::models::CpuPackageThermalStatus;
+
+  #[test]
+  fn service_guidance_waits_for_a_failed_attempt_and_respects_acpi_fallback() {
+    assert!(
+      temperature_service_failure(SampleError::Connecting)
+        .guidance_candidates
+        .is_empty()
+    );
+    assert!(
+      motherboard_service_failure(SampleError::Connecting)
+        .guidance_candidates
+        .is_empty()
+    );
+
+    let failed = || SampleError::Unavailable("Sensor service not installed".into());
+    let temperature =
+      merge_service_and_acpi(temperature_service_failure(failed()), vec![]);
+    assert_eq!(temperature.guidance_candidates.len(), 1);
+    assert_eq!(
+      motherboard_service_failure(failed())
+        .guidance_candidates
+        .len(),
+      1
+    );
+
+    let fallback = merge_service_and_acpi(
+      temperature_service_failure(failed()),
+      vec![SensorTemperature {
+        name: "CPU".into(),
+        temperature: 45.0,
+      }],
+    );
+    assert_eq!(fallback.cpu_temperature, Some(45.0));
+    assert!(fallback.guidance_candidates.is_empty());
+  }
 
   #[test]
   fn power_draw_maps_only_cpu_watts() {

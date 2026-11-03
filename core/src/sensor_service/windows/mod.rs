@@ -5,7 +5,7 @@ mod providers;
 pub(crate) mod security;
 mod server;
 
-pub use client::{diagnostics, motherboard, power, temperature};
+pub use client::{SampleError, diagnostics, motherboard, power, temperature};
 pub use host::run;
 pub use maintenance::{configure, status};
 

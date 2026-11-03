@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSensorServiceSettings } from "@/hooks/navigation/useSensorServiceSettings";
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
@@ -70,6 +71,7 @@ export const ExternalComponentGuidanceDialog = ({
   const { t, i18n } = useTranslation();
   const { error } = useTauriDialog();
   const { updateSettingAtom } = useSettingsAtom();
+  const openSensorServiceSettings = useSensorServiceSettings();
   const [candidates, setCandidates] = useState<
     ExternalComponentGuidanceCandidate[]
   >([]);
@@ -141,13 +143,11 @@ export const ExternalComponentGuidanceDialog = ({
       if (!isPerformance) return true;
       if (
         platform() !== "windows" ||
-        processElevated !== false ||
         !performanceReady ||
         performanceContext?.expanded
       )
         return false;
-      if (item.component !== "pawnio" || item.reasonKind !== "permission")
-        return false;
+      if (item.component !== "pawnio") return false;
       return (
         (item.usage === "cpuPackageTemperature" &&
           performanceContext?.cpuTemperatureVisible) ||
@@ -332,7 +332,11 @@ export const ExternalComponentGuidanceDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2">
-          {shouldShowElevatedStartupAction ? (
+          {candidate.component === "pawnio" && platform() === "windows" ? (
+            <Button onClick={openSensorServiceSettings} type="button">
+              {t("sensorService.openSettings")}
+            </Button>
+          ) : shouldShowElevatedStartupAction ? (
             <Button
               disabled={isEnablingElevatedStartupMode}
               onClick={() => void handleEnableElevatedStartupMode()}

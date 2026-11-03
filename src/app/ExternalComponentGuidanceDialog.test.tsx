@@ -16,6 +16,11 @@ const mocks = vi.hoisted(() => ({
   updateSettingAtom: vi.fn(),
   useElevationAvailability: vi.fn((): string | null => "available"),
   useProcessElevated: vi.fn((): boolean | null => false),
+  openSensorSettings: vi.fn(),
+}));
+
+vi.mock("@/hooks/navigation/useSensorServiceSettings", () => ({
+  useSensorServiceSettings: () => mocks.openSensorSettings,
 }));
 
 vi.mock("@/hooks/settings/useSettingsAtom", () => ({
@@ -90,7 +95,12 @@ describe("ExternalComponentGuidanceDialog", () => {
       data: [candidate()],
     });
     render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
-    await screen.findByRole("button", { name: "Open details" });
+    const open = await screen.findByRole("button", {
+      name: "Open sensor settings",
+    });
+    await userEvent.click(open);
+    expect(mocks.openSensorSettings).toHaveBeenCalledOnce();
+    expect(mocks.openURL).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", {
         name: "Enable Run as administrator on startup",
@@ -403,9 +413,13 @@ describe("ExternalComponentGuidanceDialog", () => {
   });
 
   it.each([true, null])(
-    "keeps Performance guidance hidden with elevated status %s",
+    "offers service setup even with elevated status %s",
     async (elevated) => {
       mocks.useProcessElevated.mockReturnValue(elevated);
+      mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+        status: "ok",
+        data: [candidate({ reasonKind: "missing" })],
+      });
       const onPendingChange = vi.fn();
       render(
         <ExternalComponentGuidanceDialog
@@ -422,7 +436,10 @@ describe("ExternalComponentGuidanceDialog", () => {
       await waitFor(() =>
         expect(onPendingChange).toHaveBeenLastCalledWith(false),
       );
-      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(
+        await screen.findByRole("button", { name: "Open sensor settings" }),
+      ).toBeInTheDocument();
+      expect(mocks.updateSettingAtom).not.toHaveBeenCalled();
     },
   );
 

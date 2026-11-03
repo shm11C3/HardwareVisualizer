@@ -96,6 +96,8 @@ shared enforcement surface.
 
 ## Records
 
+- [Guide optional service migration](guide-optional-service-migration.md)
+
 - [Evidence before conclusions](evidence-before-conclusions.md)
 - [Keep agent guidance aligned with canonical architecture](guidance-follows-canonical-architecture.md)
 - [Persist application preferences through settings](persist-application-preferences-through-settings.md)

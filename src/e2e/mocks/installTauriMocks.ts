@@ -96,6 +96,7 @@ type FixtureOverrides = {
   storageDeviceCount: number | null;
   showNavigationNotice: boolean;
   processElevated: boolean;
+  sensorServiceMissing: boolean;
   firstClose: boolean;
   settingsReadFailure: boolean;
   /** `?elevation=unprotected` reports an install outside Program Files with
@@ -271,6 +272,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
     processElevated:
       new URLSearchParams(window.location.search).get("processElevated") ===
       "1",
+    sensorServiceMissing:
+      new URLSearchParams(window.location.search).get("sensorService") ===
+      "missing",
     firstClose:
       new URLSearchParams(window.location.search).get("firstClose") === "1",
     settingsReadFailure:
@@ -563,7 +567,6 @@ const buildInvokeHandlers = (
             candidate.usage === "cpuPackageTemperature") ||
           (view === "performance" &&
             candidate.component === "pawnio" &&
-            candidate.reasonKind === "permission" &&
             ["cpuPackageTemperature", "motherboardSensors"].includes(
               candidate.usage,
             ))),
@@ -587,8 +590,12 @@ const buildInvokeHandlers = (
   // installed and one module file still missing, so the Settings capture
   // shows the install action.
   get_sensor_service_status: () => ({
-    connected: !fixtureOverrides.elevationUnprotected,
-    hasReadings: !fixtureOverrides.elevationUnprotected,
+    connected:
+      !fixtureOverrides.elevationUnprotected &&
+      !fixtureOverrides.sensorServiceMissing,
+    hasReadings:
+      !fixtureOverrides.elevationUnprotected &&
+      !fixtureOverrides.sensorServiceMissing,
     canConfigure: !fixtureOverrides.elevationUnprotected,
     detail: null,
   }),

@@ -26,7 +26,7 @@ pub async fn get_external_component_guidance_candidates(
     .as_ref()
     .map(|adapter| adapter.latest_external_component_guidance_candidates())
     .unwrap_or_default();
-  guidance_state.record_candidates(latest_snapshot_candidates);
+  guidance_state.replace_sensor_candidates(latest_snapshot_candidates);
 
   let acknowledged_keys = state
     .settings

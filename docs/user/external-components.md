@@ -47,11 +47,24 @@ not need to elevate the app. Silent MSI installs can opt in with
 `INSTALL_SENSOR_SERVICE=1` (and `EXTERNAL_COMPONENT_PAWNIO=1` if PawnIO setup
 is also wanted).
 
+For a **new installation**, CPU and motherboard sensors need both PawnIO (with
+its modules) and the service. Select both optional components in the MSI, or
+set up PawnIO under **Settings → Advanced → Optional component setup** and then add
+the service. Leaving the service unchecked keeps ordinary monitoring available.
+
+For an **upgrade from direct PawnIO collection**, an existing PawnIO installation
+does not add the service automatically. If sensor readings remain unavailable
+after fallback collection, **Open sensor settings** takes you to the service
+setup section. Existing guidance dismissals are respected.
+
 If **Run as administrator on startup** was enabled, use the separate **Use
 normal permissions on next startup** action after the service connects, then
 exit and launch normally. The existing process retains its token. Other
 privileged providers may expose less data. User-created highest-privilege
 scheduled tasks or compatibility settings must be changed by their owner.
+When the service supplies readings and elevated startup remains enabled, a
+dismissible notice links to this switch; the saved choice is kept until you
+change it.
 
 Without the service, ordinary monitoring and available ACPI fallback continue.
 The NSIS/portable app may use a compatible installed service; first-time setup

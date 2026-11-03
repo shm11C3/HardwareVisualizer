@@ -196,13 +196,13 @@
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
-        "missing": "PawnIO",
+        "missing": "Windows sensor service / PawnIO",
         "impact": "CPU package temperature",
         "action": "Install or repair the Windows sensor service in Advanced settings and check PawnIO and its signed modules. The resident app does not need administrator permissions.",
         "permissionAction": "Install or repair the Windows sensor service in Advanced settings and check PawnIO and its signed modules. The resident app does not need administrator permissions."
       },
       "pawnioMotherboardSensors": {
-        "missing": "PawnIO LpcIO",
+        "missing": "Windows sensor service / PawnIO LpcIO",
         "impact": "Motherboard temperature sensors and fan speeds",
         "action": "Install or repair the Windows sensor service in Advanced settings and check PawnIO and its signed modules. The resident app does not need administrator permissions.",
         "permissionAction": "Install or repair the Windows sensor service in Advanced settings and check PawnIO and its signed modules. The resident app does not need administrator permissions."
@@ -964,6 +964,13 @@
     "ru": "Russian"
   },
   "sensorService": {
+    "openSettings": "Open sensor settings",
+    "setupSteps": "Set up PawnIO and its modules under {{section}} below, then install this service. Upgrading users who already have PawnIO also need the service. Setup requires administrator approval; afterwards these sensors can be read with normal permissions.",
+    "startupNotice": {
+      "title": "Sensors can use normal permissions",
+      "description": "The sensor service is providing readings. Run as administrator on startup is still enabled. Open sensor settings to switch it off, then exit and launch normally. Your preference stays unchanged until you choose to switch.",
+      "dismiss": "Hide startup guidance for this session"
+    },
     "loadFailed": "Failed to check the sensor service.",
     "title": "Windows sensor service",
     "description": "Optionally install a SYSTEM service for PawnIO temperature, power and motherboard readings. The app can then stay resident with normal permissions. Setup or repair requires administrator approval.",

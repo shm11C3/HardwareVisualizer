@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import type { ExternalComponentGuidanceCandidate } from "../src/rspc/bindings";
-import { capturePath, gotoApp, navigateTo } from "./helpers";
+import { capturePath, gotoApp } from "./helpers";
 
 const CPU_PERMISSION: ExternalComponentGuidanceCandidate = {
   key: "pawnio:cpu-package-temperature:v1",
@@ -17,7 +17,7 @@ const MOTHERBOARD_PERMISSION: ExternalComponentGuidanceCandidate = {
   usage: "motherboardSensors",
   missingSignals: ["motherboard-temperature", "motherboard-fan-speed"],
 };
-const CTA = "Open details";
+const CTA = "Open sensor settings";
 
 test.beforeEach(async ({ page }) => {
   await page.clock.install();
@@ -48,7 +48,9 @@ const hideGuidance = async (page: Page, permanently = false) => {
 test("fresh startup offers sensor service guidance without elevating the app", async ({
   page,
 }) => {
-  await gotoApp(page, { path: "/?firstClose=1&showNavigationNotice=1" });
+  await gotoApp(page, {
+    path: "/?firstClose=1&showNavigationNotice=1&sensorService=missing",
+  });
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -59,7 +61,7 @@ test("fresh startup offers sensor service guidance without elevating the app", a
     )
     .toBeGreaterThan(0);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await publishCandidates(page, [CPU_PERMISSION]);
+  await publishCandidates(page, [{ ...CPU_PERMISSION, reasonKind: "missing" }]);
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toBeVisible();
   await expect(
@@ -84,25 +86,37 @@ test("fresh startup offers sensor service guidance without elevating the app", a
     await page.evaluate(() =>
       window.__E2E__?.getInvokeCount("plugin:shell|open"),
     ),
-  ).toBe(1);
+  ).toBe(0);
   expect(
     await page.evaluate(() =>
       window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
     ),
   ).toBe(0);
-  await hideGuidance(page);
-  await navigateTo(page, "settings");
+  const section = page.getByRole("region", {
+    name: "Windows sensor service",
+    exact: true,
+  });
+  await expect(section).toBeFocused();
+  await expect(
+    section.getByText(
+      /Set up PawnIO and its modules under Optional component setup/,
+    ),
+  ).toBeVisible();
+  await expect(
+    section.getByRole("button", { name: "Install or repair service" }),
+  ).toBeEnabled();
+  await page.screenshot({
+    path: capturePath("sensor-service-setup-narrow"),
+    animations: "disabled",
+  });
   await expect(
     page.getByRole("switch", { name: "Run as administrator on startup" }),
   ).not.toBeChecked();
 });
 
-test("Performance ignores unrelated components and non-permission candidates", async ({
-  page,
-}) => {
+test("Performance ignores unrelated components", async ({ page }) => {
   await gotoApp(page);
   await publishCandidates(page, [
-    { ...CPU_PERMISSION, reasonKind: "missing" },
     {
       ...CPU_PERMISSION,
       key: "smartctl:storage-health:v1",
@@ -152,12 +166,67 @@ test("expanded Compact waits until its normal view is restored", async ({
   });
 });
 
-test("elevated processes have no Performance elevation offer", async ({
+test("upgraded elevated users are guided to add the service without changing their preference", async ({
   page,
 }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("e2e:elevatedStartupMode", "true"),
+  );
+  await gotoApp(page, { path: "/?processElevated=1&sensorService=missing" });
+  await publishCandidates(page, [{ ...CPU_PERMISSION, reasonKind: "missing" }]);
+  await page.getByRole("button", { name: CTA }).click();
+  await expect(
+    page.getByRole("region", { name: "Windows sensor service", exact: true }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("switch", { name: "Run as administrator on startup" }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("button", {
+      name: "Use normal permissions on next startup",
+    }),
+  ).toBeDisabled();
+  expect(
+    await page.evaluate(() =>
+      window.__E2E__?.getInvokeCount("configure_sensor_service"),
+    ),
+  ).toBe(0);
+});
+
+test("service-ready upgraded users can explicitly switch to normal startup", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("e2e:elevatedStartupMode", "true"),
+  );
   await gotoApp(page, { path: "/?processElevated=1" });
-  await publishCandidates(page, [CPU_PERMISSION]);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  const notice = page.getByRole("complementary", {
+    name: "Sensors can use normal permissions",
+  });
+  await expect(notice).toBeVisible();
+  await page.screenshot({
+    path: capturePath("sensor-service-startup-notice"),
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 520, height: 800 });
+  await page.screenshot({
+    path: capturePath("sensor-service-startup-notice-narrow"),
+    animations: "disabled",
+  });
+  await notice.getByRole("button", { name: CTA }).click();
+  await expect(
+    page.getByRole("region", { name: "Windows sensor service", exact: true }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("switch", { name: "Run as administrator on startup" }),
+  ).toBeChecked();
+  await page
+    .getByRole("button", { name: "Use normal permissions on next startup" })
+    .click();
+  await expect(
+    page.getByRole("switch", { name: "Run as administrator on startup" }),
+  ).not.toBeChecked();
+  await expect(page.getByText(/This process is still elevated/)).toBeVisible();
 });
 
 test("unprotected installs offer service details without suggesting app elevation", async ({
@@ -169,9 +238,7 @@ test("unprotected installs offer service details without suggesting app elevatio
   await expect(
     dialog.getByText(/Install or repair the Windows sensor service/),
   ).toBeVisible();
-  await expect(
-    dialog.getByRole("button", { name: "Open details" }),
-  ).toBeVisible();
+  await expect(dialog.getByRole("button", { name: CTA })).toBeVisible();
   await expect(
     dialog.getByRole("button", {
       name: "Enable Run as administrator on startup",

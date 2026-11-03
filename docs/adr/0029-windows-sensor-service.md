@@ -73,6 +73,12 @@ its lifecycle and security cost by serving that startup requirement.
    change `elevatedStartupMode`. Offer existing users an explicit switch to
    normal startup after service readiness is verified, without changing their
    autostart/Close to Tray preferences or user-created scheduled tasks.
+   Missing-service guidance follows an attempted visible sensor collection and
+   insufficient fallback, including elevated clients upgrading from direct
+   PawnIO collection. It opens the existing service section in Settings.
+   Once the service supplies readings, a dismissible notice makes the explicit
+   normal-startup switch discoverable to elevated-startup users. Neither notice
+   installs anything or changes the saved startup preference automatically.
 
 ## Alternatives Considered
 
