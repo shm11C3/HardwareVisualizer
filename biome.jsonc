@@ -134,8 +134,10 @@
       }
     },
     {
-      // Biome 2.6.4's Tailwind parser rejects `%` in tailwindcss-animate
-      // arbitrary values such as `slide-out-to-top-[48%]`.
+      // Biome (2.6.2+) fails to parse utilities it doesn't know that have a
+      // dashed name and an arbitrary value, such as tailwindcss-animate's
+      // `slide-out-to-top-[48%]`. Remove once this is fixed:
+      // https://github.com/biomejs/biome/issues/12882
       "includes": ["src/components/ui/dialog.tsx"],
       "linter": {
         "rules": { "nursery": { "useTailwindSortedClasses": "off" } }
