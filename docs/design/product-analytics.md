@@ -433,9 +433,18 @@ waits for an upload. The command boundary:
   consent is granted at the current version; otherwise returns `Ok(())` and
   does nothing. It never fails the caller and never reports whether analytics
   is on.
-- `set_product_analytics_consent(decision: Granted | Declined)`: the order
-  of persistence and runtime change depends on the direction, so that either
-  step failing leaves the installation sending nothing. A decline is
+- `set_product_analytics_consent(decision: Granted | Declined)`: the whole
+  command, runtime change and settings write together, runs under one
+  consent lock held by the analytics service, so two transitions never
+  interleave: a grant that arrives during a decline waits until the decline
+  has persisted, then runs in full, and the last transition to complete is
+  both the persisted decision and the one that controls flush admission.
+  The flush loop and `record_product_event` do not take this lock; they read
+  the generation and snapshot under the shorter service lock that guards
+  counters and the queue. Within a command, the order of persistence and
+  runtime change
+  depends on the direction, so that either step failing leaves the
+  installation sending nothing. A decline is
   effective in the runtime first: before any persistence operation can
   yield, the analytics service atomically invalidates flush admission by
   advancing a consent generation under the service lock, aborts any
@@ -650,7 +659,7 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 | --- | --- |
 | Default is disabled for new and upgraded installations | Settings service test: absent key and legacy files parse to `undecided`; invalid section recovers to `undecided` |
 | Unknown keys survive | Existing `serialize_preserving_unknown_settings` test extended with the new section, plus a Core-owned key beside it |
-| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call; a decline during an in-flight request aborts it and the double sees no completion; a flush that read `granted` before a decline and reaches transport admission after it makes no call (the test holds the flush between sealing and admission with an injected gate, then declines); a completion that lands after a decline leaves the queue and `reportedDay`/`reportedMonth` untouched; with a settings-write double that blocks, a decline followed by a flush attempting admission makes no call while the write is still pending, and a failing write leaves the runtime declined. Plus one manual network trace on a release build, recorded in the PR |
+| No request before opt-in, none after opt-out | Rust test with the recording transport double: events recorded while undecided/declined produce zero transport calls; grant then decline leaves the queue empty and the next flush makes no call; a decline during an in-flight request aborts it and the double sees no completion; a flush that read `granted` before a decline and reaches transport admission after it makes no call (the test holds the flush between sealing and admission with an injected gate, then declines); a completion that lands after a decline leaves the queue and `reportedDay`/`reportedMonth` untouched; with a settings-write double that blocks, a decline followed by a flush attempting admission makes no call while the write is still pending, and a failing write leaves the runtime declined; a grant or renew started while a decline is in progress completes after it, and overlapping decline/grant and decline/renew pairs in both orders end with the persisted decision and flush admission agreeing. Plus one manual network trace on a release build, recorded in the PR |
 | Sealed-batch retry policy | Unit test: network error, timeout, `429`, and `5xx` keep the head batch; `400` and `413` drop it and the next batch is sent; a batch older than the Worker window is dropped unsent |
 | Month token once per month | Unit test: with a persisted `reportedMonth`, the second batch of a month omits the month token; a new month seals it again |
 | Version bump requires renewed consent | Service test: `granted` at version 1 with `CURRENT = 2` records nothing and the DTO reports the dialog condition |
