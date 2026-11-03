@@ -75,7 +75,33 @@ const candidate = (
   ...overrides,
 });
 
+const storageCandidate = () =>
+  candidate({
+    key: "smartctl:storage-health:v1",
+    component: "smartctl",
+    usage: "storageHealth",
+    missingSignals: ["smart-overall-health"],
+  });
+
 describe("ExternalComponentGuidanceDialog", () => {
+  it("routes PawnIO permission failures to service guidance without whole-app elevation", async () => {
+    mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
+      status: "ok",
+      data: [candidate()],
+    });
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+    await screen.findByRole("button", { name: "Open details" });
+    expect(
+      screen.queryByRole("button", {
+        name: "Enable Run as administrator on startup",
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/Install or repair the Windows sensor service/),
+    ).toBeInTheDocument();
+    expect(mocks.updateSettingAtom).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("windows");
@@ -83,7 +109,7 @@ describe("ExternalComponentGuidanceDialog", () => {
     mocks.useProcessElevated.mockReturnValue(false);
     mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
       status: "ok",
-      data: [candidate()],
+      data: [storageCandidate()],
     });
     mocks.setElevatedStartupMode.mockResolvedValue({
       status: "ok",
@@ -96,7 +122,7 @@ describe("ExternalComponentGuidanceDialog", () => {
     cleanup();
   });
 
-  it("shows the elevated startup action instead of details for Windows permission guidance", async () => {
+  it("retains the elevated startup action for storage permission guidance", async () => {
     const user = userEvent.setup();
 
     render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
@@ -217,7 +243,7 @@ describe("ExternalComponentGuidanceDialog", () => {
     // The candidate arrives while still deferred: not shown, and still
     // reported pending, since it opens as soon as the blocker closes.
     await act(async () => {
-      resolveCandidates({ status: "ok", data: [candidate()] });
+      resolveCandidates({ status: "ok", data: [storageCandidate()] });
     });
     expect(onPendingChange).toHaveBeenLastCalledWith(true);
     expect(screen.queryByRole("alertdialog")).toBeNull();

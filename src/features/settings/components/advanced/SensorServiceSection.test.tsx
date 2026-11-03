@@ -1,0 +1,107 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "@/lib/i18n";
+import { SensorServiceSection } from "./SensorServiceSection";
+
+const mocks = vi.hoisted(() => ({
+  status: vi.fn(),
+  configure: vi.fn(),
+  update: vi.fn(),
+  settings: { elevatedStartupMode: true },
+}));
+vi.mock("@tauri-apps/plugin-os", () => ({ platform: () => "windows" }));
+vi.mock("@/rspc/bindings", () => ({
+  commands: {
+    getSensorServiceStatus: mocks.status,
+    configureSensorService: mocks.configure,
+  },
+}));
+vi.mock("@/hooks/settings/useSettingsAtom", () => ({
+  useSettingsAtom: () => ({
+    settings: mocks.settings,
+    updateSettingAtom: mocks.update,
+  }),
+}));
+vi.mock("@/hooks/settings/useElevationAvailability", () => ({
+  useProcessElevated: () => true,
+}));
+
+describe("SensorServiceSection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.status.mockResolvedValue({
+      status: "ok",
+      data: {
+        connected: true,
+        hasReadings: true,
+        canConfigure: true,
+        detail: null,
+      },
+    });
+    mocks.configure.mockResolvedValue({ status: "ok", data: null });
+    mocks.update.mockResolvedValue(true);
+  });
+  afterEach(cleanup);
+
+  it("keeps installation and changing elevated startup as separate explicit choices", async () => {
+    const user = userEvent.setup();
+    render(<SensorServiceSection />);
+    await screen.findByText("Service connected");
+    expect(mocks.configure).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Install or repair service" }),
+    );
+    expect(mocks.configure).toHaveBeenCalledOnce();
+    expect(mocks.update).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", {
+        name: "Use normal permissions on next startup",
+      }),
+    );
+    expect(mocks.update).toHaveBeenCalledWith("elevatedStartupMode", false);
+    expect(
+      screen.getByText(/This process is still elevated/),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer writable-install setup or migrate intent when the service is absent", async () => {
+    mocks.status.mockResolvedValue({
+      status: "ok",
+      data: {
+        connected: false,
+        hasReadings: false,
+        canConfigure: false,
+        detail: "missing",
+      },
+    });
+    render(<SensorServiceSection />);
+    await screen.findByText("Service unavailable; other monitoring continues.");
+    expect(
+      screen.getByRole("button", { name: "Install or repair service" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Use normal permissions on next startup",
+      }),
+    ).toBeDisabled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("shows cancellation as an action failure and preserves the preference", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.configure.mockResolvedValue({ status: "error", error: "cancelled" });
+    const user = userEvent.setup();
+    render(<SensorServiceSection />);
+    await screen.findByText("Service connected");
+    await user.click(
+      screen.getByRole("button", { name: "Install or repair service" }),
+    );
+    expect(
+      await screen.findByText(/The operation failed or was cancelled/),
+    ).toBeInTheDocument();
+    expect(mocks.update).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+});

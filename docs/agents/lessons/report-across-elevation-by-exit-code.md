@@ -10,7 +10,7 @@ guardrail: ADR 0024 decision 3 and the module docs of core/src/external_componen
 canonical_refs: docs/adr/0024-external-component-setup.md, core/src/external_component_setup/mod.rs, core/src/external_component_setup/windows.rs
 verification: cargo test -p hardviz-core external_component_setup (exit-code round trip, unknown-state blocking) and the Windows CI compile of the staging and registry paths
 evidence: "PR #2120 review threads by Codex and CodeRabbit on the result file and staging directory, and the correction commits on that PR"
-revalidate_when: a second elevated helper or service is introduced, or the setup child needs to return more than an outcome and stage
+revalidate_when: the service authorization or installer trust boundary changes, or the setup child needs more than an outcome and stage
 ---
 
 # Report Across The Elevation Boundary By Exit Code
@@ -34,3 +34,10 @@ thread panicked and the child exited with 101 on the maintainer's machine.
 Install the provider at the boundary that builds the client, and prove such
 boundaries with a test that builds the real client in-process without sending
 a request.
+
+A long-lived service is a distinct boundary (ADR 0029): an installer-owned
+protected executable can return typed readings through an authenticated local
+pipe. This is not permission for a one-shot elevated setup child to trust
+caller-selected result files. Likewise, a service installation directory must
+be validated from the MSI embedded executable before installing code there,
+not by running an installed copy from the still-untrusted target.

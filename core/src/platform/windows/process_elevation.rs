@@ -65,7 +65,14 @@ pub fn elevation_availability() -> ElevationAvailability {
 fn protected_executable_path() -> Result<Option<PathBuf>, String> {
   let exe_path = std::env::current_exe()
     .map_err(|e| format!("Failed to obtain executable file path: {e}"))?;
-  let resolved = PathBuf::from(final_path(&exe_path)?);
+  protected_file_path(&exe_path)
+}
+
+/// Resolve a privileged runtime input using the same machine installation
+/// boundary as elevated launch. Callers still validate its ACL and hold it
+/// against replacement when it will be loaded as executable code.
+pub(crate) fn protected_file_path(path: &Path) -> Result<Option<PathBuf>, String> {
+  let resolved = PathBuf::from(final_path(path)?);
   let resolved_dir = resolved
     .parent()
     .ok_or_else(|| "The executable path has no parent folder".to_string())?

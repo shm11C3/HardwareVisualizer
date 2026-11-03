@@ -93,6 +93,14 @@ process-local owner may hold the native file open at a time. See
 [`docs/architecture/backend.md`](../docs/architecture/backend.md) for the
 dispatch boundary and lifecycle detail.
 
+## Windows Sensor Service
+
+Core owns the versioned local IPC client and privileged provider implementation
+under `sensor_service/`. The separate [`sensor-service`](../sensor-service/README.md)
+executable hosts only privileged Windows sampling. The ordinary Core collector
+keeps fallback, EventBus and persistence in the app; a service disconnect never
+starts an app-local PawnIO provider or a second archive owner.
+
 ## Provider inventory
 
 `core/src/infrastructure/providers/` contains lower-level data access helpers

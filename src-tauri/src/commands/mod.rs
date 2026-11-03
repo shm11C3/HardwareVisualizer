@@ -5,6 +5,7 @@ pub mod database_conversion;
 pub mod external_component_guidance;
 pub mod external_component_setup;
 pub mod hardware;
+pub mod sensor_service;
 pub mod settings;
 pub mod system;
 pub mod ui;

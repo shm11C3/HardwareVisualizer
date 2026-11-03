@@ -17,7 +17,7 @@ const MOTHERBOARD_PERMISSION: ExternalComponentGuidanceCandidate = {
   usage: "motherboardSensors",
   missingSignals: ["motherboard-temperature", "motherboard-fan-speed"],
 };
-const CTA = "Enable Run as administrator on startup";
+const CTA = "Open details";
 
 test.beforeEach(async ({ page }) => {
   await page.clock.install();
@@ -45,7 +45,7 @@ const hideGuidance = async (page: Page, permanently = false) => {
     .click();
 };
 
-test("fresh startup waits for a relevant reading and the explicit CTA saves the setting", async ({
+test("fresh startup offers sensor service guidance without elevating the app", async ({
   page,
 }) => {
   await gotoApp(page, { path: "/?firstClose=1&showNavigationNotice=1" });
@@ -65,7 +65,9 @@ test("fresh startup waits for a relevant reading and the explicit CTA saves the 
   await expect(
     dialog.getByText("CPU package temperature", { exact: true }),
   ).toBeVisible();
-  await expect(dialog.getByText(/requests Windows approval/)).toBeVisible();
+  await expect(
+    dialog.getByText(/Install or repair the Windows sensor service/),
+  ).toBeVisible();
   await page.screenshot({
     path: capturePath("performance-permission-guidance"),
     fullPage: true,
@@ -80,14 +82,19 @@ test("fresh startup waits for a relevant reading and the explicit CTA saves the 
   await dialog.getByRole("button", { name: CTA }).click();
   expect(
     await page.evaluate(() =>
-      window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
+      window.__E2E__?.getInvokeCount("plugin:shell|open"),
     ),
   ).toBe(1);
+  expect(
+    await page.evaluate(() =>
+      window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
+    ),
+  ).toBe(0);
   await hideGuidance(page);
   await navigateTo(page, "settings");
   await expect(
     page.getByRole("switch", { name: "Run as administrator on startup" }),
-  ).toBeChecked();
+  ).not.toBeChecked();
 });
 
 test("Performance ignores unrelated components and non-permission candidates", async ({
@@ -153,19 +160,23 @@ test("elevated processes have no Performance elevation offer", async ({
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });
 
-test("unprotected installs explain the refusal and keep a details action", async ({
+test("unprotected installs offer service details without suggesting app elevation", async ({
   page,
 }) => {
   await gotoApp(page, { path: "/?elevation=unprotected" });
   await publishCandidates(page, [CPU_PERMISSION]);
   const dialog = page.getByRole("alertdialog");
   await expect(
-    dialog.getByText(/not installed under Program Files/),
+    dialog.getByText(/Install or repair the Windows sensor service/),
   ).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "Open details" }),
   ).toBeVisible();
-  await expect(dialog.getByRole("button", { name: CTA })).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", {
+      name: "Enable Run as administrator on startup",
+    }),
+  ).toHaveCount(0);
 });
 
 test("deferral lasts for the session and acknowledgement survives reload", async ({

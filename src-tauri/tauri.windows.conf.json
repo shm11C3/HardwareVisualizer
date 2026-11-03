@@ -1,0 +1,5 @@
+{
+  "build": {
+    "beforeBuildCommand": "pwsh -NoProfile -ExecutionPolicy Bypass -File sensor-service/build-bundle.ps1 && npm run build"
+  }
+}

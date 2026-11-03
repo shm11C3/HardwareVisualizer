@@ -81,7 +81,7 @@ For checksum and provenance checks, see the
 3. Follow the installation wizard
 4. Launch **HardwareVisualizer** from Start Menu or Desktop shortcut
 
-The `.msi` installer is recommended. It installs HardwareVisualizer under Program Files, which **Run as administrator on startup** requires.
+The `.msi` installer is recommended. It installs HardwareVisualizer under Program Files, which the optional Windows sensor service requires.
 
 The `.msi` installer offers to set up [PawnIO](https://pawnio.eu/), which enables CPU temperature and power and motherboard sensors. The option is selected by default and you can deselect it. When selected, the installer downloads the pinned PawnIO release, verifies it, and installs only what is missing. The option is available when HardwareVisualizer is installed under Program Files (the default location). PawnIO is not removed when you uninstall HardwareVisualizer. With the `.exe` installer, or at any later time, set it up from **Settings → Advanced**.
 
@@ -103,10 +103,11 @@ winget install shm11C3.HardwareVisualizer
 Winget installs do not set up PawnIO; use **Settings → Advanced** after installation.
 
 > [!NOTE]
-> Basic monitoring does not require administrator rights. Sensors read through
-> PawnIO (CPU temperature and power, motherboard temperatures and fans) need
-> administrator access. Turn on **Settings → Advanced → Run as administrator on
-> startup** to use them.
+> Basic monitoring runs without administrator rights. For PawnIO readings,
+> explicitly install the optional **Windows sensor service** from the protected
+> MSI or **Settings → Advanced**. Setup needs administrator approval; routine
+> monitoring can then run with normal permissions. Existing users can explicitly
+> turn off **Run as administrator on startup** and launch normally again.
 
 ### macOS Installation
 
@@ -195,7 +196,7 @@ After launching the app:
 | Tray widget                       | ✅ Flyout                         | ✅ Tray title       | ✅ Menu bar                               |
 
 1. NVIDIA GPUs are listed on Linux, but their readings are not available yet. Intel GPU usage requires `intel_gpu_top`.
-2. Requires PawnIO and administrator access. Motherboard sensors support Nuvoton NCT6799D. Nuvoton NCT6779D, NCT6791D, NCT6792D, NCT6793D, NCT6795D, NCT6796D, NCT6796D-S, NCT6797D, NCT6798D, NCT6796D-R / NCT5585D, and NCT6701D, unrecognized versions of those Nuvoton chip families, and ITE IT8728F (temperatures only) are experimental.
+2. Requires PawnIO and the optional Windows sensor service; setup requires administrator approval. Motherboard sensors support Nuvoton NCT6799D. Nuvoton NCT6779D, NCT6791D, NCT6792D, NCT6793D, NCT6795D, NCT6796D, NCT6796D-S, NCT6797D, NCT6798D, NCT6796D-R / NCT5585D, and NCT6701D, unrecognized versions of those Nuvoton chip families, and ITE IT8728F (temperatures only) are experimental.
 3. Requires smartmontools.
 4. Requires CPU temperature. Power, fan, and ambient lanes appear when those sensors are available.
 
@@ -237,7 +238,7 @@ Checks whether CPU temperature is rising above its own baseline under similar lo
 | ------------------------------ | ------------------------------------------------------------------ |
 | Windows WMI                    | Memory, system, and storage details, ACPI thermal zones            |
 | Windows PDH                    | GPU engine utilization                                             |
-| Windows administrator (PawnIO) | CPU temperature and power, motherboard temperatures and fans       |
+| Windows sensor service (SYSTEM, optional) | CPU temperature and power, motherboard temperatures and fans       |
 | Windows Bluetooth              | SwitchBot Meter readings, only when turned on in Settings          |
 | Linux polkit (`pkexec`)        | Detailed memory information through `dmidecode`                    |
 | Linux sudo                     | `smartctl` for Storage Health, `intel_gpu_top` for Intel GPU usage |

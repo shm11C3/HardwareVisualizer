@@ -221,8 +221,8 @@ enum ActivePowerSource {
   },
 }
 
-struct CpuPowerSampler {
-  diagnostics: CpuPowerDiagnostics,
+pub(crate) struct CpuPowerSampler {
+  pub(crate) diagnostics: CpuPowerDiagnostics,
   active: Option<ActivePowerSource>,
   inactive_reason: Option<String>,
   sample_failure_logged: bool,
@@ -285,7 +285,7 @@ pub fn cpu_power_diagnostics() -> CpuPowerDiagnostics {
 }
 
 impl CpuPowerSampler {
-  fn new() -> Self {
+  pub(crate) fn new() -> Self {
     let cpu = detect_cpu_identity();
     let amd_rapl_supported = (cpu.vendor == CpuVendor::Amd)
       .then(detect_amd_rapl_support)
@@ -345,7 +345,7 @@ impl CpuPowerSampler {
     }
   }
 
-  fn sample(&mut self) -> Result<Option<f64>, String> {
+  pub(crate) fn sample(&mut self) -> Result<Option<f64>, String> {
     let Some(active) = self.active.as_mut() else {
       return Err(
         self

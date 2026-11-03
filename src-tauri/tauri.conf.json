@@ -27,8 +27,12 @@
         "type": "downloadBootstrapper"
       },
       "wix": {
-        "fragmentPaths": ["windows/wix/external-component-setup.wxs"],
-        "componentGroupRefs": ["ExternalComponentSetup"]
+        "fragmentPaths": [
+          "windows/wix/external-component-setup.wxs",
+          "windows/wix/sensor-service.wxs"
+        ],
+        "componentGroupRefs": ["ExternalComponentSetup"],
+        "featureRefs": ["WindowsSensorService"]
       },
       "nsis": {
         "installerHooks": "windows/nsis/hooks.nsh"

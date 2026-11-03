@@ -25,4 +25,7 @@ pub mod models;
 /// External Component Setup: pinned catalog and setup execution.
 pub mod external_component_setup;
 
+/// Local, authenticated Windows sensor-service boundary (ADR 0029).
+pub mod sensor_service;
+
 pub mod utils;

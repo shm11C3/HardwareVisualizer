@@ -2,6 +2,47 @@ import { expect, test } from "@playwright/test";
 import { BOOTSTRAP_TIMEOUT, gotoApp, navigateTo, saveCapture } from "./helpers";
 
 test.describe("settings captures", () => {
+  test("sensor service setup and normal startup are separate choices", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      window.localStorage.setItem("e2e:elevatedStartupMode", "true"),
+    );
+    await gotoApp(page, { path: "/?processElevated=1" });
+    await navigateTo(page, "settings");
+    const section = page.getByRole("region", {
+      name: "Windows sensor service",
+    });
+    await expect(section.getByText("Service connected")).toBeVisible();
+    await section.scrollIntoViewIfNeeded();
+    await saveCapture(page, "settings-sensor-service");
+    await page.setViewportSize({ width: 520, height: 800 });
+    await section.scrollIntoViewIfNeeded();
+    await saveCapture(page, "settings-sensor-service-narrow");
+    await section
+      .getByRole("button", { name: "Install or repair service" })
+      .click();
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("configure_sensor_service"),
+      ),
+    ).toBe(1);
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
+      ),
+    ).toBe(0);
+    await section
+      .getByRole("button", { name: "Use normal permissions on next startup" })
+      .click();
+    await expect(
+      page.getByRole("switch", { name: "Run as administrator on startup" }),
+    ).not.toBeChecked();
+    await expect(
+      section.getByText(/This process is still elevated/),
+    ).toBeVisible();
+  });
+
   test("settings sections render", async ({ page }) => {
     await gotoApp(page);
 

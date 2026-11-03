@@ -586,6 +586,14 @@ const buildInvokeHandlers = (
   // External Component Setup (ADR 0024): a machine with the PawnIO runtime
   // installed and one module file still missing, so the Settings capture
   // shows the install action.
+  get_sensor_service_status: () => ({
+    connected: !fixtureOverrides.elevationUnprotected,
+    hasReadings: !fixtureOverrides.elevationUnprotected,
+    canConfigure: !fixtureOverrides.elevationUnprotected,
+    detail: null,
+  }),
+  configure_sensor_service: () => null,
+  "plugin:shell|open": () => null,
   is_process_elevated: () => fixtureOverrides.processElevated,
   set_elevated_startup_mode: (args) => {
     const { newValue } = args as { newValue: boolean };

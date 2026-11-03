@@ -27,21 +27,21 @@ PawnIO.Modules release; users who set up PawnIO by hand download a release
 asset from <https://github.com/namazso/PawnIO.Modules/releases>, extract the
 module blob, and place the required file under `C:\Program Files\PawnIO`.
 
-Production setup should use the signed `.bin` module files. An `.amx` file is
-only an optional fallback for an unrestricted PawnIO driver in Windows
-test-signing mode; it is not a normal end-user setup path. The module extension
-does not change the CPU register decode path.
+Production uses known signed `.bin` module releases through the optional
+LocalSystem Windows sensor service. The normal app authenticates that service
+and receives typed readings over local IPC; it does not open PawnIO itself.
+Initial service setup and repair require administrator consent through the
+protected MSI feature. See [ADR 0029](../adr/0029-windows-sensor-service.md)
+and the [service owner guide](../../sensor-service/README.md).
 
-The process that opens PawnIO must have enough Windows privileges to access the
-driver. On the local Phase 1 validation machine, the `PawnIO` kernel driver
-service was installed and running, but a non-elevated process still failed at
-`pawnio_open` with `0x80070005`. Running the same probe elevated allowed the
-driver open, module load, and CPU package temperature sample to succeed. Until
-HardwareVisualizer has an elevated helper or service, users who want
-PawnIO-backed CPU package temperature collection across launches should enable
-Elevated Startup Mode so the whole app process starts as administrator.
+Installing PawnIO alone does not remove its access restriction: the original
+Phase 1 probe returned `0x80070005` without elevation even with the driver
+running. The service is the privileged caller now. An explicitly saved
+Elevated Startup Mode remains until the user switches it off; service setup
+never silently changes that preference.
 
-The current collector searches these locations:
+The service provider discovers candidates in these locations, then validates
+the final files and directory ACLs before loading them:
 
 - `InstallLocation` under
   `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO`.
@@ -78,11 +78,10 @@ Required module blobs are:
 - AMD package temperature: signed `RyzenSMU.bin`.
 - AMD package power: signed `AMDFamily17.bin`.
 
-The signed `.bin` files are the normal production setup. An `.amx` file may be
-used only with the unrestricted PawnIO driver and Windows test-signing mode;
-HardwareVisualizer does not install, bundle, or enable either form. Missing or
-unusable power data remains unavailable and does not populate the derived
-`package_watts` total.
+The service loads only known signed `.bin` release hashes from protected
+directories. Unknown files and unsigned `.amx` test modules are not loaded;
+unknown files are never overwritten. Missing or unusable power remains
+unavailable and does not populate derived `package_watts`.
 
 ## Scope Boundaries
 
@@ -100,11 +99,10 @@ The current implementation uses read-only CPU package temperature paths:
 
 The motherboard sensor implementation also uses a read-only PawnIO LpcIO path
 for the scoped Nuvoton NCT6799D Super I/O bank-4 temperature and direct RPM
-registers. It requires `LpcIO.bin` or `LpcIO.amx` and the same process-level
-ability to open the PawnIO driver. A non-elevated process can fail at
-`pawnio_open` with `0x80070005`; in that case the Dashboard surfaces
-`pawnio:motherboard-sensors:v1` guidance and offers the existing elevated
-startup action.
+registers. It requires a compatible signed `LpcIO.bin` and the service's
+ability to open the driver. Service/transport failure leaves explicit
+unavailability while other monitoring continues. Component guidance points to
+service/module repair instead of elevating the resident app.
 
 The following are not covered by this runtime checklist:
 

@@ -85,11 +85,19 @@ impl MotherboardPlatform for WindowsPlatform {
 
 impl SuperIoPlatform for WindowsPlatform {
   fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
-    crate::infrastructure::providers::windows::super_io::diagnostics::read_super_io_chip_id_diagnostics()
+    crate::sensor_service::windows::diagnostics()
   }
 }
 
 impl SensorPlatform for WindowsPlatform {
+  fn sensor_service_status(&self) -> crate::sensor_service::protocol::ServiceStatus {
+    crate::sensor_service::windows::status()
+  }
+
+  fn configure_sensor_service(&self) -> Result<(), String> {
+    crate::sensor_service::windows::configure()
+  }
+
   fn sample_temperatures(&self) -> crate::models::TemperatureSample {
     sensors::sample_temperatures()
   }

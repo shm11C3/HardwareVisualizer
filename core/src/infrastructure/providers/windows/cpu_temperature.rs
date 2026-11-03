@@ -179,7 +179,7 @@ enum ActiveCpuTemperatureSource {
   },
 }
 
-struct CpuTemperatureSampler {
+pub(crate) struct CpuTemperatureSampler {
   diagnostics: CpuTemperatureDiagnostics,
   active: Option<ActiveCpuTemperatureSource>,
   inactive_error: Option<CpuPackageTemperatureError>,
@@ -242,7 +242,7 @@ impl CpuTemperatureDiagnostics {
 }
 
 impl CpuTemperatureSampler {
-  fn new() -> Self {
+  pub(crate) fn new() -> Self {
     let cpu = detect_cpu_identity();
     let intel_capabilities = (cpu.vendor == CpuVendor::Intel)
       .then(detect_intel_thermal_capabilities)
@@ -315,7 +315,9 @@ impl CpuTemperatureSampler {
     }
   }
 
-  fn sample(&mut self) -> Result<CpuPackageTemperature, CpuPackageTemperatureError> {
+  pub(crate) fn sample(
+    &mut self,
+  ) -> Result<CpuPackageTemperature, CpuPackageTemperatureError> {
     let enablement = self
       .active
       .as_ref()

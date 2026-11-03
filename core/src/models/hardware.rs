@@ -105,7 +105,7 @@ pub struct MotherboardInfo {
   pub bios_release_date: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SuperIoChipIdDiagnostics {
   pub platform_supported: bool,
   pub pawnio: Option<PawnIoRuntimeDiagnostics>,
@@ -130,7 +130,7 @@ impl SuperIoChipIdDiagnostics {
   }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PawnIoRuntimeDiagnostics {
   pub install_location: Option<String>,
   pub dll_path: Option<String>,
@@ -143,7 +143,7 @@ pub struct PawnIoRuntimeDiagnostics {
   pub fallback_reason: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SuperIoChipIdSlotProbe {
   pub slot: u8,
   pub index_port: u16,
@@ -152,7 +152,7 @@ pub struct SuperIoChipIdSlotProbe {
   pub error: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SuperIoChipIdAttempt {
   pub vendor: SuperIoVendor,
   pub id_high: Option<u8>,
@@ -165,7 +165,7 @@ pub struct SuperIoChipIdAttempt {
   pub exit_skipped: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SuperIoVendor {
   Nuvoton,
   Ite,

@@ -1,0 +1,16 @@
+[package]
+name = "hardviz-sensor-service"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "Privileged Windows sensor service for HardwareVisualizer"
+
+[[bin]]
+name = "hardware-visualizer-sensors"
+path = "src/main.rs"
+
+[dependencies]
+hardviz-core = { path = "../core", default-features = false }
+
+[build-dependencies]
+tauri-winres = "0.3.6"

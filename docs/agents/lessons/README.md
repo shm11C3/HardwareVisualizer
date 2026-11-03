@@ -123,6 +123,8 @@ shared enforcement surface.
 - [Report across the elevation boundary by exit code](report-across-elevation-by-exit-code.md)
 - [Render untrusted text through GitHub's Markdown API](render-untrusted-text-through-github-markdown-api.md)
 - [Place scripts with their owner](place-scripts-with-their-owner.md)
+- [Prefer PowerShell for Windows packaging](prefer-powershell-for-windows-packaging.md)
+- [Authenticate the sensor service through SCM](authenticate-sensor-service-through-scm.md)
 - [Keep tray flyout geometry transient](keep-tray-flyout-geometry-transient.md)
 - [Claim Windows Open before database startup](claim-windows-open-before-database.md)
 - [Prove Biome boundary config with canaries](prove-biome-boundary-config-with-canaries.md)

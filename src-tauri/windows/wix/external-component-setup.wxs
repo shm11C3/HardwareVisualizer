@@ -164,12 +164,23 @@
           <Condition Action="show">NOT $(var.ProtectedInstallDir)</Condition>
         </Control>
 
+        <Control Id="SensorServiceCheckBox" Type="CheckBox" X="20" Y="168" Width="330" Height="18" Property="INSTALL_SENSOR_SERVICE" CheckBoxValue="1" Text="Install the Windows sensor service (optional)">
+          <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
+          <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
+        </Control>
+        <Control Id="SensorServiceDescription" Type="Text" X="38" Y="190" Width="312" Height="35" NoPrefix="yes" Text="Runs as SYSTEM so the app can read PawnIO sensors without startup UAC. Removed with HardwareVisualizer. Requires PawnIO for readings.">
+          <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
+          <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
+        </Control>
+
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">
           <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>
         </Control>
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)">
-          <Publish Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+          <Publish Event="AddLocal" Value="WindowsSensorService" Order="1">INSTALL_SENSOR_SERVICE = "1" AND $(var.ProtectedInstallDir)</Publish>
+          <Publish Event="Remove" Value="WindowsSensorService" Order="2">INSTALL_SENSOR_SERVICE &lt;&gt; "1" OR NOT $(var.ProtectedInstallDir)</Publish>
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" Order="3">1</Publish>
         </Control>
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
           <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>

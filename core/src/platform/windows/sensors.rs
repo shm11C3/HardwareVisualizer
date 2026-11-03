@@ -13,13 +13,12 @@ use crate::models::{
 static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
 
 pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
-  let readout =
-    crate::infrastructure::providers::windows::super_io::motherboard::sample_motherboard_sensors();
-  motherboard_collection_from_readout(readout)
+  crate::sensor_service::windows::motherboard()
+    .unwrap_or_else(MotherboardSensorCollection::unavailable)
 }
 
 /// Convert a provider readout without deriving support from its current rows.
-fn motherboard_collection_from_readout(
+pub(crate) fn motherboard_collection_from_readout(
   readout: MotherboardSensorReadout,
 ) -> MotherboardSensorCollection {
   let fan_support = readout.fan_support;
@@ -89,14 +88,28 @@ fn motherboard_guidance_candidates_for_reason(
 /// ACPI is available, the headline CPU value picks a CPU-named zone when one
 /// exists, otherwise the hottest zone.
 pub fn sample_temperatures() -> TemperatureSample {
-  use crate::infrastructure::providers::windows::{cpu_temperature, thermal_zone};
+  use crate::infrastructure::providers::windows::thermal_zone;
 
   thermal_zone::init_thermal_zone_sampler();
   let sensor_temperatures = thermal_zone::read_thermal_zones_cached();
-  build_temperature_sample(
-    cpu_temperature::sample_cpu_package_temperature(),
-    sensor_temperatures,
-  )
+  let service = crate::sensor_service::windows::temperature()
+    .unwrap_or_else(TemperatureSample::unavailable);
+  merge_service_and_acpi(service, sensor_temperatures)
+}
+
+fn merge_service_and_acpi(
+  mut sample: TemperatureSample,
+  acpi: Vec<SensorTemperature>,
+) -> TemperatureSample {
+  if sample.cpu_temperature.is_none() {
+    sample.cpu_temperature = crate::utils::thermal::select_cpu_temperature(&acpi);
+    if sample.cpu_temperature.is_some() {
+      sample.availability = SensorAvailability::Available;
+      sample.guidance_candidates.clear();
+    }
+  }
+  sample.sensor_temperatures.extend(acpi);
+  sample
 }
 
 /// Read the Windows CPU package power path while leaving non-CPU fields
@@ -105,7 +118,9 @@ pub fn sample_temperatures() -> TemperatureSample {
 /// this CPU-only source.
 pub fn sample_power_draw() -> PowerDraw {
   build_power_draw(
-    crate::infrastructure::providers::windows::cpu_power::sample_cpu_package_power(),
+    crate::sensor_service::windows::power()
+      .ok()
+      .and_then(|value| value.watts),
   )
 }
 
@@ -113,13 +128,9 @@ pub fn sample_power_draw() -> PowerDraw {
 /// the current sample produced watts (the first delta sample intentionally
 /// does not).
 pub fn cpu_power_support() -> SensorSupport {
-  let diagnostics =
-    crate::infrastructure::providers::windows::cpu_power::cpu_power_diagnostics();
-  if diagnostics.selected_enablement.is_some() {
-    SensorSupport::Supported
-  } else {
-    SensorSupport::Unsupported
-  }
+  crate::sensor_service::windows::power()
+    .map(|value| value.support)
+    .unwrap_or(SensorSupport::Unknown)
 }
 
 fn build_power_draw(cpu_watts: Option<f32>) -> PowerDraw {
@@ -129,7 +140,7 @@ fn build_power_draw(cpu_watts: Option<f32>) -> PowerDraw {
   }
 }
 
-fn build_temperature_sample(
+pub(crate) fn build_temperature_sample(
   pawnio_cpu_temperature: Result<CpuPackageTemperature, CpuPackageTemperatureError>,
   mut sensor_temperatures: Vec<SensorTemperature>,
 ) -> TemperatureSample {

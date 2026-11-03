@@ -165,7 +165,9 @@ export const ExternalComponentGuidanceDialog = ({
   // Outside Program Files the app refuses to elevate (#2216), so offer the
   // details page instead of a restart that would fail.
   const isWindowsPermissionGuidance =
-    candidate?.reasonKind === "permission" && platform() === "windows";
+    candidate?.reasonKind === "permission" &&
+    candidate.component !== "pawnio" &&
+    platform() === "windows";
   const shouldShowElevatedStartupAction =
     isWindowsPermissionGuidance &&
     processElevated === false &&

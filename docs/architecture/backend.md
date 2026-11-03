@@ -106,11 +106,21 @@ are different lifecycle events. Code that starts, stops, flushes, or cleans up
 workers must key off the process/App shutdown path when it needs finalization,
 not merely the window-close path.
 
-Elevated Startup Mode is also App-owned lifecycle behavior. It restarts the
-whole Tauri process with Windows administrator privileges when enabled and the
-current process is not already elevated. Core cannot be elevated independently
-because it is linked into the App process; a Core-only elevation model would
-require a separate helper or service process and IPC boundary.
+On Windows, the normal app obtains PawnIO readings through the optional
+LocalSystem sensor service. A Core Windows client authenticates a local named
+pipe against the running SCM service; Core providers in that service own only
+privileged sensor sampling. The app retains ordinary collection, ACPI fallback,
+EventBus, settings and the sole archive database owner. Service loss preserves
+partial monitoring and never automatically elevates the app. See
+[ADR 0029](../adr/0029-windows-sensor-service.md) and the
+[Design Doc](../design/windows-sensor-service.md).
+
+Elevated Startup Mode remains an explicit App-owned preference for existing
+users and other privileged capabilities. When enabled, it restarts the whole
+Tauri process elevated. Installing the sensor service does not change it;
+Settings offers an explicit switch to normal startup, applied on the next
+normal launch. Core is a library, so it cannot change a process token merely
+by moving work onto a thread.
 
 On Windows, process startup claims a same-user, session-local Open event before
 reading settings or opening a database. Another launch signals that event and

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <?define ProtectedSensorDir = ((INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder) AND NOT (INSTALLDIR >< "..")) ?>
+  <Fragment>
+    <!-- Validate from the trusted embedded copy before INSTALLDIR can supply
+         any executable. The installed file cannot validate its own origin. -->
+    <Binary Id="SensorServiceValidator" SourceFile="$(sys.SOURCEFILEDIR)generated\hardware-visualizer-sensors.exe" />
+    <CustomAction Id="ValidateSensorServiceDirectory" BinaryKey="SensorServiceValidator" ExeCommand="--validate-install-dir &quot;[INSTALLDIR].&quot;" Execute="deferred" Impersonate="no" Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="ValidateSensorServiceDirectory" After="CreateFolders">&amp;WindowsSensorService = 3 AND NOT REMOVE</Custom>
+    </InstallExecuteSequence>
+    <Property Id="INSTALL_SENSOR_SERVICE" Secure="yes" />
+    <Property Id="HV_SENSOR_SERVICE_SELECTED">
+      <RegistrySearch Id="SensorServiceFeatureSearch" Root="HKLM" Key="Software\HardwareVisualizer\SensorService" Name="Selected" Type="raw" Win64="yes" />
+    </Property>
+    <!-- A previously selected feature survives major upgrades. A PawnIO-only
+         installation never implies consent to add a SYSTEM service. -->
+    <SetProperty Id="INSTALL_SENSOR_SERVICE" Value="1" Before="CostFinalize" Sequence="both">HV_SENSOR_SERVICE_SELECTED AND NOT INSTALL_SENSOR_SERVICE</SetProperty>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="WindowsSensorServiceComponent" Guid="456BBCE7-98E8-40EA-8DC2-C4A64CF603EC" Win64="yes">
+        <CreateFolder />
+        <File Id="WindowsSensorServiceExe" Source="$(sys.SOURCEFILEDIR)generated\hardware-visualizer-sensors.exe" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\HardwareVisualizer\SensorService" Name="Selected" Type="integer" Value="1" />
+        <ServiceInstall Id="InstallWindowsSensorService" Name="HardwareVisualizerSensors" DisplayName="HardwareVisualizer Sensors" Description="Provides local read-only hardware sensor readings to HardwareVisualizer." Type="ownProcess" Start="auto" Account="LocalSystem" ErrorControl="normal" Vital="yes" />
+        <ServiceControl Id="ControlWindowsSensorService" Name="HardwareVisualizerSensors" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+    </DirectoryRef>
+    <Feature Id="WindowsSensorService" Title="Windows sensor service" Description="Collect PawnIO readings without elevating the resident application." Level="2" AllowAdvertise="no" Display="hidden">
+      <Condition Level="1">INSTALL_SENSOR_SERVICE = "1"</Condition>
+      <Condition Level="0">NOT $(var.ProtectedSensorDir)</Condition>
+      <ComponentRef Id="WindowsSensorServiceComponent" />
+    </Feature>
+  </Fragment>
+</Wix>

@@ -1,9 +1,10 @@
 use std::ffi::{CString, c_char};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use libloading::Library;
 use windows::Win32::Foundation::{
@@ -176,7 +177,7 @@ impl PawnIoClient {
     }
     discovery.driver_openable = true;
 
-    let blob = match fs::read(&module_path) {
+    let blob = match read_protected_module(&module_path) {
       Ok(blob) => blob,
       Err(e) => {
         let _ = unsafe { (library.close)(handle) };
@@ -301,17 +302,37 @@ impl PawnIoClient {
 type SharedIntelMsr =
   Result<(Arc<Mutex<PawnIoClient>>, PawnIoDiscovery), PawnIoInitError>;
 
-static SHARED_INTEL_MSR: OnceLock<SharedIntelMsr> = OnceLock::new();
+static SHARED_INTEL_MSR: Mutex<Option<(Instant, SharedIntelMsr)>> = Mutex::new(None);
 
 /// Open the IntelMSR module once and share its executor handle across CPU
 /// temperature and power providers.
 pub(crate) fn open_shared_intel_msr() -> SharedIntelMsr {
-  SHARED_INTEL_MSR
-    .get_or_init(|| {
-      PawnIoClient::open(PawnIoModule::IntelMsr)
-        .map(|(client, discovery)| (Arc::new(Mutex::new(client)), discovery))
+  let mut shared = SHARED_INTEL_MSR.lock().unwrap_or_else(|p| p.into_inner());
+
+  if shared
+    .as_ref()
+    .is_some_and(|(at, value)| value.is_err() && at.elapsed() >= Duration::from_secs(30))
+  {
+    *shared = None;
+  }
+
+  shared
+    .get_or_insert_with(|| {
+      (
+        Instant::now(),
+        PawnIoClient::open(PawnIoModule::IntelMsr)
+          .map(|(client, discovery)| (Arc::new(Mutex::new(client)), discovery)),
+      )
     })
+    .1
     .clone()
+}
+
+/// Called only after the service's temperature/power owners have been dropped.
+/// A later demand must reprobe repaired components rather than cache a failure
+/// or retain an executor forever while no application needs readings.
+pub(crate) fn release_shared_intel_msr() {
+  *SHARED_INTEL_MSR.lock().unwrap_or_else(|p| p.into_inner()) = None;
 }
 
 impl Drop for PawnIoClient {
@@ -343,6 +364,7 @@ type PawnIoClose = unsafe extern "system" fn(HANDLE) -> i32;
 
 struct PawnIoLibrary {
   _library: Library,
+  _file: std::fs::File,
   version: PawnIoVersion,
   open: PawnIoOpen,
   load: PawnIoLoad,
@@ -352,8 +374,13 @@ struct PawnIoLibrary {
 
 impl PawnIoLibrary {
   fn load(path: &Path) -> Result<Self, String> {
-    let library = unsafe { Library::new(path) }
-      .map_err(|e| format!("failed to load {}: {e}", path.display()))?;
+    let file = crate::sensor_service::windows::security::protected_file(path)?;
+
+    let library: Library = unsafe {
+      libloading::os::windows::Library::load_with_flags(path, 0x00000100 | 0x00000800)
+    }
+    .map(Into::into)
+    .map_err(|e| format!("failed to load {}: {e}", path.display()))?;
     let version = *unsafe { library.get::<PawnIoVersion>(b"pawnio_version") }
       .map_err(|e| format!("missing pawnio_version: {e}"))?;
     let open = *unsafe { library.get::<PawnIoOpen>(b"pawnio_open") }
@@ -367,6 +394,7 @@ impl PawnIoLibrary {
 
     Ok(Self {
       _library: library,
+      _file: file,
       version,
       open,
       load,
@@ -374,6 +402,53 @@ impl PawnIoLibrary {
       close,
     })
   }
+}
+
+fn read_protected_module(path: &Path) -> Result<Vec<u8>, String> {
+  if path.extension().and_then(|v| v.to_str()) != Some("bin") {
+    return Err("The sensor service requires signed .bin modules".into());
+  }
+
+  let mut file = crate::sensor_service::windows::security::protected_file(path)?;
+
+  if file.metadata().map_err(|e| e.to_string())?.len() > 1_048_576 {
+    return Err("PawnIO module exceeds size limit".into());
+  }
+
+  let mut blob = Vec::new();
+  file.read_to_end(&mut blob).map_err(|e| e.to_string())?;
+
+  // An unrestricted driver would accept an unsigned blob renamed to .bin.
+  // Only known signed release bytes may enter this SYSTEM process, even when
+  // another application selected that unrestricted driver. Unknown user files
+  // are retained, never replaced by a collection or repair attempt.
+  let plan =
+    crate::external_component_setup::setup_plan(crate::models::ExternalComponent::Pawnio)
+      .ok_or("PawnIO release catalog unavailable")?;
+
+  let name = path
+    .file_name()
+    .and_then(|v| v.to_str())
+    .ok_or("Invalid PawnIO module name")?;
+
+  let known = plan
+    .file_bundle
+    .files
+    .iter()
+    .find(|file| file.file_name.eq_ignore_ascii_case(name))
+    .ok_or("Unknown PawnIO module")?;
+
+  if known.classify(&blob)
+    == crate::external_component_setup::ModuleFileCondition::Unrecognized
+  {
+    return Err(
+      "Unrecognized PawnIO module: use a compatible signed release; \
+       the existing file was kept"
+        .into(),
+    );
+  }
+
+  Ok(blob)
 }
 
 pub(crate) struct NamedMutex {

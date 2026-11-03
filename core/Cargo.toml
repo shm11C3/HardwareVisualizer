@@ -25,6 +25,8 @@ tokio = { version = "1.52.3", features = [
     "sync",
     "time",
     "fs",
+    "net",
+    "io-util",
 ] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
@@ -91,6 +93,10 @@ windows = { version = "0.62.2", features = [
     "Win32_System_Ioctl",
     "Win32_System_Performance",
     "Win32_System_Registry",
+    "Win32_System_Pipes",
+    "Win32_System_Services",
+    "Win32_System_ApplicationInstallationAndServicing",
+    "Win32_System_SystemInformation",
     "Win32_System_Threading",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
