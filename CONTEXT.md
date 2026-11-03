@@ -225,3 +225,37 @@ _Avoid_: Auto-install, bundled driver, dependency bootstrap, silent install, fir
 **External Component Refresh**:
 The maintenance step that replaces files of an already installed external component that match an older upstream release with the pinned release, and changes nothing else. See ADR 0026 for when it runs.
 _Avoid_: Auto-update, driver update, silent setup, module sync
+
+### Product Analytics
+
+**Product Analytics**:
+Aggregated counts of which screens and capabilities an installation used, which features it has switched on, and which hardware vendor classes and sensor providers it runs with, sent only after Analytics Consent to a public service owned by the project. See ADR 0028.
+_Avoid_: telemetry, tracking, usage statistics, crash reporting, diagnostics
+
+**Analytics Consent**:
+The explicit, versioned Application Preference that enables Product Analytics for one installation. It is granted or declined with equal weight and is never implied by another acknowledgement.
+_Avoid_: announcement acknowledgement, terms acceptance, privacy setting
+
+**Active Installation**:
+One installation of HardwareVisualizer that sent a Product Analytics batch in a UTC day or month. One person on two machines is two installations; a reset or reinstall may become a new one.
+_Avoid_: active user, DAU, MAU, device, account
+
+**Installation Token**:
+A rotating per-UTC-day or per-UTC-month value derived locally from a random seed, used only to count an installation once per period.
+_Avoid_: installation ID, device ID, user ID, fingerprint, seed
+
+**Product Event**:
+One enumerated screen view or capability use that increments a local counter. It carries no payload beyond its name.
+_Avoid_: log, event log, metric, telemetry event
+
+**State Flag**:
+An enumerated true-or-false fact about an installation on one UTC day, such as a feature being switched on, a navigation layout being in use, a CPU vendor class, or a sensor provider being available. It is reported once per day as a count of one and is never stored together with other flags.
+_Avoid_: setting value, property, dimension, fingerprint, hardware profile
+
+**Consent Cohort**:
+The UTC month in which an installation granted Analytics Consent. It lets the service count how many of that month's installations are still active in a later month without linking any installation across months.
+_Avoid_: install date, sign-up date, user cohort, retention ID, installation age
+
+**Hardware Compatibility Report**:
+A user-initiated export of hardware identification and sensor-provider availability that the user reads in full and posts publicly themselves. HardwareVisualizer never uploads it. See #2500.
+_Avoid_: Hardware Report, telemetry, crash report, hardware dump, diagnostics upload
