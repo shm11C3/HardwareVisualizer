@@ -28,7 +28,7 @@ export const ExplorerWindowMinimap = ({
 
   return (
     <div className="space-y-1" data-testid="cooling-explorer-minimap">
-      <p className="text-muted-foreground text-xs">
+      <p className="text-xs text-muted-foreground">
         {t("pages.insights.cooling.explorer.minimap.title")}
       </p>
       <div className="relative h-3 w-full rounded-full bg-muted">
@@ -49,7 +49,7 @@ export const ExplorerWindowMinimap = ({
           />
         ))}
       </div>
-      <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground text-xs">
+      <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
         {segments.map((segment) => (
           <div key={segment.kind} className="flex items-center gap-1.5">
             <span

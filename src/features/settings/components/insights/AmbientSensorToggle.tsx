@@ -52,10 +52,10 @@ export const AmbientSensorToggle = () => {
             <Label htmlFor="switchbotMeter" className="text-lg">
               {t("pages.settings.insights.ambientSensor.name")}
             </Label>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("pages.settings.insights.ambientSensor.description")}
             </p>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("pages.settings.insights.ambientSensor.placement")}
             </p>
             {/*
@@ -64,10 +64,10 @@ export const AmbientSensorToggle = () => {
               (no Bluetooth), and how to point the app at a different
               meter once it has bound to one.
             */}
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("pages.settings.insights.ambientSensor.requirements")}
             </p>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("pages.settings.insights.ambientSensor.rebind")}
             </p>
 
@@ -94,7 +94,7 @@ export const AmbientSensorToggle = () => {
                   <SettingWriteFailure actions="environmentalSensors.device" />
                 </div>
               ) : (
-                <p className="pt-2 text-muted-foreground text-sm">
+                <p className="pt-2 text-sm text-muted-foreground">
                   {t(
                     "pages.settings.insights.ambientSensor.picker.needsArchive",
                   )}

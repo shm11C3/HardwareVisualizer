@@ -23,7 +23,7 @@ export const Settings = () => {
       <AdvancedSettings />
 
       <div className="p-4">
-        <h3 className="py-3 font-bold text-2xl">
+        <h3 className="py-3 text-2xl font-bold">
           {t("pages.settings.about.name")}
         </h3>
         <AboutSection onShowLicense={() => setShowLicensePage(true)} />

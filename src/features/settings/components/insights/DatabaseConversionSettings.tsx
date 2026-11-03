@@ -48,12 +48,12 @@ export const DatabaseConversionSettings = () => {
 
   return (
     <div className="py-4">
-      <h4 className="font-bold text-xl">
+      <h4 className="text-xl font-bold">
         {t("pages.settings.insights.databaseConversion.title")}
       </h4>
       {/* The description offers the conversion, so it goes once it is done. */}
       {!converted && (
-        <p className="mt-2 whitespace-pre-wrap text-sm">
+        <p className="mt-2 text-sm whitespace-pre-wrap">
           {t("pages.settings.insights.databaseConversion.description")}
         </p>
       )}

@@ -168,7 +168,7 @@ const CpuThermalSensors = () => {
 
   return (
     <div className="mt-2 ml-2">
-      <h4 className="font-bold text-sm md:text-md">
+      <h4 className="md:text-md text-sm font-bold">
         {t("shared.thermalSensors")}
       </h4>
       <InfoTable
@@ -229,7 +229,7 @@ export const GPUInfo = () => {
                       aria-label={gpu.name}
                       onClick={() => selectInventoryGpu(gpu)}
                       className={cn(
-                        "min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                        "min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                         isSelected
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-transparent text-muted-foreground hover:bg-muted",
@@ -598,7 +598,7 @@ export const FetchDetailButton = () => {
         <span
           role="alert"
           data-testid="memory-detail-load-failure"
-          className="text-destructive text-sm"
+          className="text-sm text-destructive"
         >
           {t("shared.loadFailed")}
         </span>
@@ -818,9 +818,9 @@ export const StorageDataInfo = () => {
             sortedStorage.map((storage) => {
               return (
                 <div key={storage.name} className="mt-4 ml-2">
-                  <h4 className="font-bold text-sm md:text-md">
+                  <h4 className="md:text-md text-sm font-bold">
                     {storage.name}
-                    <span className="ml-2 font-normal text-gray-500 text-xs md:text-sm dark:text-gray-400">
+                    <span className="ml-2 text-xs font-normal text-gray-500 md:text-sm dark:text-gray-400">
                       ({storage.size} {storage.sizeUnit})
                     </span>
                   </h4>
@@ -914,14 +914,14 @@ const StorageHealthOverview = ({
   return (
     <div
       className={cn(
-        "mb-3 space-y-2 border-border/60 border-b pb-3",
+        "mb-3 space-y-2 border-b border-border/60 pb-3",
         summary.isStale && "opacity-70",
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <StorageHealthStatusIcon status={summary.status} size={17} />
-          <span className="shrink-0 font-medium text-sm">
+          <span className="shrink-0 text-sm font-medium">
             {t("pages.dashboard.storageHealth.title")}
           </span>
           {summary.isStale && (
@@ -986,7 +986,7 @@ const StorageHealthOverview = ({
         <p
           role="alert"
           data-testid="storage-health-refresh-error"
-          className="truncate text-destructive text-xs"
+          className="truncate text-xs text-destructive"
           title={refreshError}
         >
           {refreshError}
@@ -1010,7 +1010,7 @@ const StorageHealthOverview = ({
       )}
 
       {summary.reasons.length > 0 && (
-        <ul className="space-y-0.5 text-amber-600 text-xs dark:text-amber-400">
+        <ul className="space-y-0.5 text-xs text-amber-600 dark:text-amber-400">
           {summary.reasons.map((reason) => (
             <li key={reason} className="truncate" title={reason}>
               {reason}
@@ -1043,7 +1043,7 @@ const StorageHealthMetricValue = ({
 
   return (
     <Tooltip>
-      <TooltipTrigger className="block max-w-full truncate border-0 bg-transparent p-0 text-left font-mono text-inherit text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring">
+      <TooltipTrigger className="block max-w-full truncate border-0 bg-transparent p-0 text-left font-mono text-xs text-inherit outline-none focus-visible:ring-1 focus-visible:ring-ring">
         {value}
       </TooltipTrigger>
       <TooltipContent>{tooltip}</TooltipContent>
@@ -1094,7 +1094,7 @@ const StorageDeviceHealthOverview = ({
               onClick={() => onSelect?.(device.deviceId)}
               title={tabTitle}
               className={cn(
-                "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
+                "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1 text-left transition-colors focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:outline-none",
                 usesCompactTabs
                   ? "h-6 w-44 shrink-0"
                   : "min-h-6 min-w-0 py-0.5",
@@ -1122,10 +1122,10 @@ const StorageDeviceHealthOverview = ({
       </div>
       {usesCompactTabs && selectedDevice && (
         <div
-          className="flex min-w-0 items-center gap-1.5 px-1 text-muted-foreground text-xs"
+          className="flex min-w-0 items-center gap-1.5 px-1 text-xs text-muted-foreground"
           title={formatStorageDeviceTabTitle(selectedDevice)}
         >
-          <span className="min-w-0 break-all leading-4">
+          <span className="min-w-0 leading-4 break-all">
             {selectedDevice.label}
           </span>
           <StorageDeviceProtocolBadge
@@ -1155,7 +1155,7 @@ const StorageDeviceProtocolBadge = ({
   return (
     <span
       className={cn(
-        "truncate rounded-[2px] border border-border/60 bg-background/70 px-1 font-mono text-[9px] text-muted-foreground leading-4",
+        "truncate rounded-[2px] border border-border/60 bg-background/70 px-1 font-mono text-[9px] leading-4 text-muted-foreground",
         className,
       )}
       title={protocolLabel}
@@ -1225,7 +1225,7 @@ const MotherboardLiveSensors = ({
   return (
     <div className={cn("space-y-3", hasInventory && "mt-3")}>
       <div className="ml-2 flex items-center gap-2">
-        <h4 className="font-bold text-sm md:text-md">
+        <h4 className="md:text-md text-sm font-bold">
           {t("pages.dashboard.motherboardSensors.title")}
         </h4>
         {sensorSource && (
@@ -1237,7 +1237,7 @@ const MotherboardLiveSensors = ({
 
       {motherboardTemps.length > 0 && (
         <div className="ml-2">
-          <h5 className="mb-1 font-medium text-muted-foreground text-xs">
+          <h5 className="mb-1 text-xs font-medium text-muted-foreground">
             {t("pages.dashboard.motherboardSensors.temperatures")}
           </h5>
           <InfoTable
@@ -1253,7 +1253,7 @@ const MotherboardLiveSensors = ({
 
       {motherboardFanSpeeds.length > 0 && (
         <div className="ml-2">
-          <h5 className="mb-1 font-medium text-muted-foreground text-xs">
+          <h5 className="mb-1 text-xs font-medium text-muted-foreground">
             {t("pages.dashboard.motherboardSensors.fanSpeeds")}
           </h5>
           <InfoTable
@@ -1320,7 +1320,7 @@ export const NetworkInfo = ({
 
   if (showUnavailableState && networkInfo.length === 0) {
     return (
-      <p className="px-4 pb-4 text-muted-foreground text-sm">
+      <p className="px-4 pb-4 text-sm text-muted-foreground">
         {t("pages.dashboard.systemSpecifications.networkUnavailable")}
       </p>
     );
@@ -1351,7 +1351,7 @@ export const NetworkInfo = ({
                       {network.description ?? "No description"}
                     </p>
                     {/**  Display network usage in this section */}
-                    <p className="mr-2 w-24 text-left text-gray-500 text-xs lg:text-sm dark:text-gray-400">
+                    <p className="mr-2 w-24 text-left text-xs text-gray-500 lg:text-sm dark:text-gray-400">
                       {network.ipv4[0] ?? "No IP Address"}
                     </p>
                   </div>

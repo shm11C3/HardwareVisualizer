@@ -55,7 +55,7 @@ const Notice = ({ onDismiss }: { onDismiss: () => void }) => {
         <p className="font-semibold">
           {t("elevationUnavailable.startupNotice.title")}
         </p>
-        <p className="mt-1 text-muted-foreground text-sm">
+        <p className="mt-1 text-sm text-muted-foreground">
           {t("elevationUnavailable.startupNotice.description")}
         </p>
         <Button

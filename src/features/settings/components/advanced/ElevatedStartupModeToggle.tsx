@@ -46,11 +46,11 @@ export const ElevatedStartupModeToggle = () => {
             <Label htmlFor="elevatedStartupMode" className="text-lg">
               {t("pages.settings.advanced.elevatedStartupMode.name")}
             </Label>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("pages.settings.advanced.elevatedStartupMode.description")}
             </p>
             {note && (
-              <p className="text-amber-600 text-sm dark:text-amber-400">
+              <p className="text-sm text-amber-600 dark:text-amber-400">
                 {note}
               </p>
             )}

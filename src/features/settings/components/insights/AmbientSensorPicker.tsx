@@ -63,7 +63,7 @@ export const AmbientSensorPicker = ({
   // the user's side they are the same situation — nothing to choose yet.
   if (!candidates?.length) {
     return (
-      <p className="text-muted-foreground text-sm">
+      <p className="text-sm text-muted-foreground">
         {t("pages.settings.insights.ambientSensor.picker.searching")}
       </p>
     );
@@ -86,7 +86,7 @@ export const AmbientSensorPicker = ({
             />
             <Label
               htmlFor={`ambient-${candidate.deviceId}`}
-              className="font-normal text-sm"
+              className="text-sm font-normal"
             >
               {t("pages.settings.insights.ambientSensor.picker.device", {
                 shortId: candidate.shortId,

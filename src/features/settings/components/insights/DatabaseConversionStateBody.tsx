@@ -302,7 +302,7 @@ export const DatabaseConversionStateBody = ({
 
         {state.kind === "actionRequired" && (
           <div>
-            <p className="text-destructive text-sm">
+            <p className="text-sm text-destructive">
               {t(
                 `pages.settings.insights.databaseConversion.actionRequired.${state.reason}`,
                 {
@@ -312,7 +312,7 @@ export const DatabaseConversionStateBody = ({
                 },
               )}
             </p>
-            <details className="mt-2 text-muted-foreground text-xs">
+            <details className="mt-2 text-xs text-muted-foreground">
               <summary className="cursor-pointer font-medium text-foreground">
                 {t(
                   "pages.settings.insights.databaseConversion.actionRequired.details",
@@ -329,7 +329,7 @@ export const DatabaseConversionStateBody = ({
           </div>
         )}
 
-        {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
+        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
       </div>
 
       {showNotice && (

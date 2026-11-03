@@ -371,7 +371,7 @@ export const ExternalComponentGuidanceDialog = ({
 
 const GuidanceRow = ({ label, value }: { label: string; value: string }) => (
   <div className="space-y-1">
-    <div className="font-medium text-foreground text-sm">{label}</div>
-    <div className="text-muted-foreground text-sm leading-relaxed">{value}</div>
+    <div className="text-sm font-medium text-foreground">{label}</div>
+    <div className="text-sm leading-relaxed text-muted-foreground">{value}</div>
   </div>
 );

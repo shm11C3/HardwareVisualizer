@@ -27,7 +27,7 @@ export const LoadFailure = ({
         className,
       )}
     >
-      <span className="text-destructive text-sm">{message}</span>
+      <span className="text-sm text-destructive">{message}</span>
       {onRetry ? (
         <Button type="button" variant="outline" size="sm" onClick={onRetry}>
           {t("shared.retry")}

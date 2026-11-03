@@ -7,7 +7,7 @@ export const formatBytes = (
   if (!Number.isFinite(bytes) || bytes <= 0) return [0, "B"];
 
   const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
+  const dm = Math.max(decimals, 0);
   const sizes: SizeUnit[] = ["B", "KB", "MB", "GB"];
 
   const i = Math.min(

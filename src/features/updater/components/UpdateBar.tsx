@@ -19,10 +19,10 @@ export function UpdateTopBar({ percent, transferredBytes, totalBytes }: Props) {
     <div className="fixed top-0 right-0 left-0 z-50 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-2 px-4 py-3">
         <div className="flex w-full items-center justify-between gap-3">
-          <div className="truncate font-medium text-sm">
+          <div className="truncate text-sm font-medium">
             Downloading update…
           </div>
-          <div className="text-right text-muted-foreground text-xs tabular-nums">
+          <div className="text-right text-xs text-muted-foreground tabular-nums">
             {Math.round(p)}%
           </div>
         </div>
@@ -32,7 +32,7 @@ export function UpdateTopBar({ percent, transferredBytes, totalBytes }: Props) {
         </div>
 
         {sizeText && (
-          <div className="w-full text-center text-muted-foreground text-xs">
+          <div className="w-full text-center text-xs text-muted-foreground">
             {sizeText}
           </div>
         )}

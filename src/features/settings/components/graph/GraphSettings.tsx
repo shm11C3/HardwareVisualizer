@@ -17,13 +17,13 @@ export const GraphSettings = () => {
 
   return (
     <div className="mt-8 p-4">
-      <h3 className="py-3 font-bold text-2xl">
+      <h3 className="py-3 text-2xl font-bold">
         {t("pages.settings.customTheme.name")}
       </h3>
       <div className="items-start gap-x-12 gap-y-4 p-4 xl:grid xl:grid-cols-6">
         <div className="col-span-3 gap-x-12 py-2 xl:grid xl:grid-cols-3">
           <div className="col-span-2">
-            <h4 className="font-bold text-xl">
+            <h4 className="text-xl font-bold">
               {t("pages.settings.customTheme.graphStyle.name")}
             </h4>
             <GraphStyleSettings />
@@ -31,18 +31,18 @@ export const GraphSettings = () => {
           <div className="col-span-1">
             <GraphColorSettings />
             <div className="py-6">
-              <h4 className="font-bold text-xl">
+              <h4 className="text-xl font-bold">
                 {t("pages.settings.general.displayTargets")}
               </h4>
               <div className="divide-y divide-border/60">
                 <section className="pb-4">
-                  <h5 className="font-semibold text-muted-foreground text-sm">
+                  <h5 className="text-sm font-semibold text-muted-foreground">
                     {t("pages.settings.general.usageGraphDisplayTargets")}
                   </h5>
                   <GraphTypeSelector />
                 </section>
                 <section className="pt-4">
-                  <h5 className="font-semibold text-muted-foreground text-sm">
+                  <h5 className="text-sm font-semibold text-muted-foreground">
                     {t("pages.settings.general.powerDisplayTargets")}
                   </h5>
                   <PowerDisplayTargetSelector />
@@ -55,7 +55,7 @@ export const GraphSettings = () => {
           </div>
         </div>
         <div className="col-span-3 ml-10 py-2">
-          <h4 className="font-bold text-xl">
+          <h4 className="text-xl font-bold">
             {t("pages.settings.customTheme.preview")}
           </h4>
           <BurnInShift enabled={settings.burnInShift}>
@@ -63,7 +63,7 @@ export const GraphSettings = () => {
           </BurnInShift>
         </div>
         <div className="order-2 col-span-3 xl:order-none">
-          <h4 className="py-3 font-bold text-xl">
+          <h4 className="py-3 text-xl font-bold">
             {t("pages.settings.backgroundImage.name")}
           </h4>
           <div className="p-1">

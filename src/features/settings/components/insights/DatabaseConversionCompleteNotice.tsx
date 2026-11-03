@@ -54,10 +54,10 @@ export const DatabaseConversionCompleteNotice = ({
         <CheckCircleIcon className="size-5 shrink-0 text-primary" />
         {t("pages.settings.insights.databaseConversion.notice.heading")}
       </h5>
-      <p className="mt-3 font-medium text-sm">
+      <p className="mt-3 text-sm font-medium">
         {t("pages.settings.insights.databaseConversion.notice.title")}
       </p>
-      <p className="mt-1 whitespace-pre-wrap text-sm">
+      <p className="mt-1 text-sm whitespace-pre-wrap">
         {t("pages.settings.insights.databaseConversion.notice.description", {
           days: retentionDays,
         })}
@@ -71,7 +71,7 @@ export const DatabaseConversionCompleteNotice = ({
         </Button>
       </div>
       <SettingWriteFailure actions="hardwareArchive.conversionNotice" />
-      <p className="mt-3 text-muted-foreground text-xs">
+      <p className="mt-3 text-xs text-muted-foreground">
         {t("pages.settings.insights.databaseConversion.notice.footnote")}
       </p>
     </section>

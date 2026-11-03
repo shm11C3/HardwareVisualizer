@@ -71,7 +71,7 @@ export const ObservationStrip = () => {
         </div>
       )}
       {lifecycle.kind === "establishing" && (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {t("pages.insights.cooling.observationStrip.establishing", {
             qualifyingDays: lifecycle.qualifyingDays,
             requiredDays: lifecycle.requiredDays,
@@ -137,7 +137,7 @@ const AmbientAdjustedObservation = ({
       data-testid="cooling-ambient-adjusted-observation"
     >
       {display.kind === "establishing" ? (
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           {t(
             "pages.insights.cooling.observationStrip.ambientAdjusted.establishing",
             {
@@ -156,7 +156,7 @@ const AmbientAdjustedObservation = ({
               },
             )}
           </p>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             {t(
               "pages.insights.cooling.observationStrip.ambientAdjusted.window",
               {
@@ -246,7 +246,7 @@ const EstablishedObservation = ({
       {/* A comparison claim would contradict the not-comparable message
           right above it - the windows were NOT compared in that state. */}
       {display.kind !== "notComparable" && (
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           {t("pages.insights.cooling.observationStrip.comparisonWindow", {
             days: daysInclusive(recent.windowStartDate, recent.windowEndDate),
             startDate: baseline.windowStartDate,
@@ -256,7 +256,7 @@ const EstablishedObservation = ({
       )}
 
       {showDisclaimer && (
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           {t("pages.insights.cooling.observationStrip.disclaimer")}
         </p>
       )}
@@ -264,11 +264,11 @@ const EstablishedObservation = ({
       {showChecklist && (
         <Accordion type="single" collapsible>
           <AccordionItem value="checklist" className="border-none">
-            <AccordionTrigger className="py-1 text-muted-foreground text-xs hover:no-underline [&>svg]:h-4 [&>svg]:w-4">
+            <AccordionTrigger className="py-1 text-xs text-muted-foreground hover:no-underline [&>svg]:h-4 [&>svg]:w-4">
               {t("pages.insights.cooling.observationStrip.checklist.trigger")}
             </AccordionTrigger>
             <AccordionContent className="pb-1">
-              <ul className="list-disc space-y-1 pl-4 text-muted-foreground text-xs">
+              <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
                 <li>
                   {t(
                     "pages.insights.cooling.observationStrip.checklist.items.dust",
@@ -290,7 +290,7 @@ const EstablishedObservation = ({
                   )}
                 </li>
               </ul>
-              <p className="mt-2 text-muted-foreground text-xs">
+              <p className="mt-2 text-xs text-muted-foreground">
                 {t(
                   "pages.insights.cooling.observationStrip.checklist.footnote",
                 )}

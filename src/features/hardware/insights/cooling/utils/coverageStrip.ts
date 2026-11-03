@@ -41,6 +41,7 @@ export const buildCoverageCells = (
   );
   // "YYYY-MM-DD" sorts lexicographically the same as chronologically.
   const latestDate = points.reduce(
+    // biome-ignore lint/complexity/useMathMinMax: Compares date strings; Math.max would return NaN.
     (max, point) => (point.date > max ? point.date : max),
     points[0].date,
   );

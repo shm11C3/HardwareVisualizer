@@ -103,7 +103,7 @@ function AppUpdateModal({
           )}
         </AlertDialogHeader>
         <p
-          className="text-neutral-700 text-sm dark:text-neutral-200"
+          className="text-sm text-neutral-700 dark:text-neutral-200"
           style={{ wordBreak: "auto-phrase" }}
         >
           {t("pages.updater.releaseNotesDescription", {
@@ -112,12 +112,12 @@ function AppUpdateModal({
           })}
         </p>
         <div>
-          <p className="text-neutral-700 text-sm dark:text-neutral-200">
+          <p className="text-sm text-neutral-700 dark:text-neutral-200">
             {t("pages.updater.currentVersion", {
               currentVersion: meta?.currentVersion,
             })}
           </p>
-          <p className="text-neutral-700 text-sm dark:text-neutral-200">
+          <p className="text-sm text-neutral-700 dark:text-neutral-200">
             {t("pages.updater.newVersion", {
               newVersion: meta?.version,
             })}

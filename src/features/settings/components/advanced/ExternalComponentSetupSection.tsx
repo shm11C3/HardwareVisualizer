@@ -159,7 +159,7 @@ export const ExternalComponentSetupSection = () => {
         <Label className="text-lg">
           {t("pages.settings.advanced.externalComponentSetup.title")}
         </Label>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {t("pages.settings.advanced.externalComponentSetup.description")}
         </p>
       </div>
@@ -167,7 +167,7 @@ export const ExternalComponentSetupSection = () => {
       {entries === null ? (
         <Skeleton className="h-24 w-full rounded-md" />
       ) : loadFailed ? (
-        <p className="text-destructive text-sm">
+        <p className="text-sm text-destructive">
           {t("pages.settings.advanced.externalComponentSetup.statusError")}
         </p>
       ) : (
@@ -379,12 +379,12 @@ const ComponentCard = ({
         <div className="space-y-1">
           <p className="font-semibold">{componentName}</p>
           {copy && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t(copy.description)}
             </p>
           )}
           {status === null ? (
-            <p className="text-destructive text-sm">
+            <p className="text-sm text-destructive">
               {t("pages.settings.advanced.externalComponentSetup.statusError")}
             </p>
           ) : (
@@ -458,7 +458,7 @@ const ComponentCard = ({
       </div>
 
       {running && (
-        <p className="pt-3 text-muted-foreground text-sm" role="status">
+        <p className="pt-3 text-sm text-muted-foreground" role="status">
           {t("pages.settings.advanced.externalComponentSetup.running")}
         </p>
       )}

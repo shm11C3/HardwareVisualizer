@@ -70,14 +70,14 @@ export const LoadTemperatureExplorerPanel = () => {
       >
         <AccordionItem value={ACCORDION_VALUE} className="border-none">
           <AccordionTrigger
-            className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em] hover:no-underline"
+            className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase hover:no-underline"
             data-testid="cooling-explorer-trigger"
           >
             {t("pages.insights.cooling.explorer.title")}
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pb-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 {t("pages.insights.cooling.explorer.description")}
               </p>
               <Select
@@ -157,7 +157,7 @@ const ExplorerBody = ({
 
   if (lifecycle.kind === "establishing") {
     return (
-      <p className="text-muted-foreground text-sm">
+      <p className="text-sm text-muted-foreground">
         {t("pages.insights.cooling.dataState.establishing", {
           qualifyingDays: lifecycle.qualifyingDays,
           requiredDays: lifecycle.requiredDays,
@@ -260,7 +260,7 @@ const EstablishedExplorer = ({
         ))}
       </dl>
 
-      <p className="text-muted-foreground text-xs">
+      <p className="text-xs text-muted-foreground">
         {t("pages.insights.cooling.explorer.footnote")}
       </p>
     </div>

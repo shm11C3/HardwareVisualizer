@@ -115,7 +115,7 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
       );
     }
     return (
-      <pre className="whitespace-pre-wrap font-mono text-foreground text-sm leading-relaxed">
+      <pre className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-foreground">
         {content}
       </pre>
     );
@@ -129,7 +129,7 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
           <Button variant="ghost" size="sm" onClick={onBack} className="gap-2">
             <ArrowLeft size={24} />
           </Button>
-          <h1 className="font-bold text-2xl">
+          <h1 className="text-2xl font-bold">
             {t("pages.settings.about.license")}
           </h1>
         </div>

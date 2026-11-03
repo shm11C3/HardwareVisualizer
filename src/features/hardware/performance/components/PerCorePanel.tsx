@@ -21,7 +21,7 @@ export const PerCorePanel = () => {
     // An empty history means no hardware-monitor sample has arrived yet;
     // absence is only a fact once a sample exists without per-core data.
     return processorsUsageHistory.length > 0 ? (
-      <p className="px-4 pb-4 text-muted-foreground text-sm">
+      <p className="px-4 pb-4 text-sm text-muted-foreground">
         {t("pages.performance.perCoreUnavailable")}
       </p>
     ) : (

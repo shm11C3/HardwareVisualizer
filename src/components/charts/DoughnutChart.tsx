@@ -208,7 +208,7 @@ export const DoughnutChart = ({
           y={center}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-foreground font-bold text-lg xl:text-2xl"
+          className="fill-foreground text-lg font-bold xl:text-2xl"
         >
           {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
         </text>

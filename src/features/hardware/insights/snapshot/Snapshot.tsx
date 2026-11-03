@@ -107,7 +107,7 @@ export const Snapshot = () => {
           <p className="text-muted-foreground">
             {t("shared.snapshot.noDataMessage")}
           </p>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             {t("shared.snapshot.adjustFiltersHint")}
           </p>
         </div>

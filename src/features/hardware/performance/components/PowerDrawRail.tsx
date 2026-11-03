@@ -43,7 +43,7 @@ export const PowerDrawRail = () => {
     >
       <div className="flex items-center gap-2 text-muted-foreground">
         {railIcon}
-        <h3 className="font-mono font-semibold text-[11px] uppercase tracking-[0.18em]">
+        <h3 className="font-mono text-[11px] font-semibold tracking-[0.18em] uppercase">
           {t("pages.performance.panels.power")}
         </h3>
       </div>
@@ -54,11 +54,11 @@ export const PowerDrawRail = () => {
             <div
               key={target}
               className={cn(
-                "flex items-baseline justify-between gap-3 border-border/60 border-l pl-3 text-sm",
+                "flex items-baseline justify-between gap-3 border-l border-border/60 pl-3 text-sm",
                 target === "package" && "text-amber-400",
               )}
             >
-              <span className="text-muted-foreground text-xs">
+              <span className="text-xs text-muted-foreground">
                 {t(`pages.performance.power.${target}`)}
               </span>
               <strong className="font-mono font-semibold tabular-nums">

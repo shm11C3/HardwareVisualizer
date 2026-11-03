@@ -90,7 +90,7 @@ const MetricInstrument = memo(
     >
       <div className="flex min-w-0 items-center gap-2">
         {icon}
-        <p className="shrink-0 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+        <p className="shrink-0 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
           {label}
         </p>
         {badge != null && (

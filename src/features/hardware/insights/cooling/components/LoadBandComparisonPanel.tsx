@@ -76,7 +76,7 @@ export const LoadBandComparisonPanel = () => {
       data-testid="cooling-load-band-panel"
     >
       <div className="rounded-2xl bg-card p-4">
-        <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+        <h3 className="mb-2 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
           {t("pages.insights.cooling.loadBandComparison.title")}
         </h3>
         {hasError && (
@@ -88,7 +88,7 @@ export const LoadBandComparisonPanel = () => {
         )}
         {!hasError && lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
         {lifecycle.kind === "establishing" && (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             {t("pages.insights.cooling.dataState.establishing", {
               qualifyingDays: lifecycle.qualifyingDays,
               requiredDays: lifecycle.requiredDays,
@@ -111,7 +111,7 @@ export const LoadBandComparisonPanel = () => {
           ))}
       </div>
       <div className="rounded-2xl bg-card p-4">
-        <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+        <h3 className="mb-2 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
           {t("pages.insights.cooling.dataState.title")}
         </h3>
         {hasError && (
@@ -123,7 +123,7 @@ export const LoadBandComparisonPanel = () => {
         )}
         {!hasError && lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
         {lifecycle.kind === "establishing" && (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             {t("pages.insights.cooling.dataState.establishing", {
               qualifyingDays: lifecycle.qualifyingDays,
               requiredDays: lifecycle.requiredDays,
@@ -209,10 +209,10 @@ const ComparisonVariants = ({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <p className="font-medium text-xs">
+        <p className="text-xs font-medium">
           {t("pages.insights.cooling.loadBandComparison.absoluteTitle")}
         </p>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           {t("pages.insights.cooling.loadBandComparison.window", {
             baselineStart: bandComparison.baselineWindowStartDate,
             baselineEnd: bandComparison.baselineWindowEndDate,
@@ -224,10 +224,10 @@ const ComparisonVariants = ({
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <p className="font-medium text-xs">
+        <p className="text-xs font-medium">
           {t("pages.insights.cooling.loadBandComparison.ambientAdjustedTitle")}
         </p>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           {/* The ΔT baseline's own window, never the absolute one's - and
               its establishing progress when it has none yet, rather than a
               window borrowed from the chart above. */}
@@ -246,7 +246,7 @@ const ComparisonVariants = ({
         {extendedAmbientWindows.map(({ band, startDate, endDate }) => (
           <p
             key={band}
-            className="text-muted-foreground text-xs"
+            className="text-xs text-muted-foreground"
             data-testid="cooling-load-band-ambient-extended-window"
           >
             {t(

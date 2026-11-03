@@ -8,8 +8,8 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
       <div className="max-w-xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-lg">
-        <h2 className="font-semibold text-xl">{t("errorBoundary.title")}</h2>
-        <p className="text-muted-foreground text-sm">
+        <h2 className="text-xl font-semibold">{t("errorBoundary.title")}</h2>
+        <p className="text-sm text-muted-foreground">
           {t("errorBoundary.description")}
         </p>
         <div className="flex flex-wrap gap-3">
@@ -26,10 +26,10 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
             </a>
           </Button>
         </div>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           {t("errorBoundary.settingsJsonHint")}
         </p>
-        <details className="text-muted-foreground text-xs">
+        <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer font-medium text-foreground">
             {t("errorBoundary.settingsJsonLocations.title")}
           </summary>
@@ -39,7 +39,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
             <li>{t("errorBoundary.settingsJsonLocations.linux")}</li>
           </ul>
         </details>
-        <div className="rounded-md bg-muted p-3 text-muted-foreground text-xs">
+        <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
           <p className="mb-2 font-medium text-foreground">
             {t("errorBoundary.errorDetails")}
           </p>

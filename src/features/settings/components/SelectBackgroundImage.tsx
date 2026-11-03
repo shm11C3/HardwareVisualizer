@@ -18,7 +18,7 @@ export const BackgroundImageList = () => {
   const { t } = useTranslation();
 
   const selectImageVariants = tv({
-    base: "relative w-20 h-20 mx-2 rounded-2xl",
+    base: "relative mx-2 h-20 w-20 rounded-2xl",
     variants: {
       selected: {
         true: "border-2 border-white",
@@ -48,7 +48,7 @@ export const BackgroundImageList = () => {
           {backgroundImageList.map((image) => (
             <div key={image.fileId} className="relative">
               <button
-                className="absolute top-[-6px] right-[-4px] z-20 cursor-pointer rounded-full bg-gray-500 bg-opacity-80 p-1 text-white"
+                className="bg-opacity-80 absolute top-[-6px] right-[-4px] z-20 cursor-pointer rounded-full bg-gray-500 p-1 text-white"
                 type="button"
                 onClick={() => deleteBackgroundImage(image.fileId)}
               >

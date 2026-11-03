@@ -82,7 +82,7 @@ const RangeControl = ({
       </div>
 
       <div className="rounded-lg bg-muted/50 px-3 py-2">
-        <div className="mb-2 flex justify-between text-muted-foreground text-sm">
+        <div className="mb-2 flex justify-between text-sm text-muted-foreground">
           <span>{formatVal(range.value[0])}</span>
           <span>{formatVal(range.value[1])}</span>
         </div>
@@ -107,7 +107,7 @@ const RangeControl = ({
           to {formatVal(range.value[1])}
         </div>
 
-        <div className="mt-1 flex justify-between text-muted-foreground text-xs">
+        <div className="mt-1 flex justify-between text-xs text-muted-foreground">
           <span>{formatVal(0)}</span>
           <span>{formatVal(Math.floor(max / 2))}</span>
           <span>{formatVal(max)}</span>
@@ -209,7 +209,7 @@ export const SnapshotControls = ({
       {/* Period Selection */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex-1">
-          <Label className="mb-2 block font-medium text-sm">
+          <Label className="mb-2 block text-sm font-medium">
             {t("shared.snapshot.timeRange")}
           </Label>
           <div className="flex items-center gap-2">
@@ -267,11 +267,11 @@ export const SnapshotControls = ({
         <div className="flex items-center justify-between border-t pt-4">
           <div className="">
             <div className="mb-3 flex items-center gap-2">
-              <Label className="font-medium text-sm">
+              <Label className="text-sm font-medium">
                 {t("shared.snapshot.filtersSectionTitle")}
               </Label>
             </div>
-            <p className="mb-4 text-muted-foreground text-sm">
+            <p className="mb-4 text-sm text-muted-foreground">
               {t("shared.snapshot.filtersSectionDescription")}
             </p>
           </div>
@@ -309,7 +309,7 @@ export const SnapshotControls = ({
 
       {/* Data Type Selection */}
       <div className="border-t pt-4">
-        <Label className="mb-3 block font-medium text-sm">
+        <Label className="mb-3 block text-sm font-medium">
           {t("shared.snapshot.dataType")}
         </Label>
         <RadioGroup

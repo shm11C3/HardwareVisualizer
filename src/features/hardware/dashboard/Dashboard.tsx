@@ -206,7 +206,7 @@ const DataArea = ({
           <div className="flex items-center pt-4 pb-2 pl-10">
             {icon && <div className="mr-2 mb-0.5">{icon}</div>}
             {title && (
-              <h3 className="align-middle font-bold text-md lg:text-xl">
+              <h3 className="text-md align-middle font-bold lg:text-xl">
                 {title}
               </h3>
             )}

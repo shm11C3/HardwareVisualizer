@@ -171,13 +171,13 @@ export const TrayWidgetSettings = () => {
     DEFAULT_TRAY_WIDGET_SETTINGS.visibleMetrics;
 
   return (
-    <div className="space-y-4 border-[var(--border)] border-t py-6 xl:w-1/2">
+    <div className="space-y-4 border-t border-[var(--border)] py-6 xl:w-1/2">
       <div className="flex w-full items-center justify-between gap-4">
         <div className="space-y-1">
           <Label htmlFor="trayWidgetEnabled" className="text-lg">
             {t("pages.settings.general.trayWidget.name")}
           </Label>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             {t("pages.settings.general.trayWidget.description")}
           </p>
         </div>

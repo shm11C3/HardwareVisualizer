@@ -27,7 +27,7 @@ export const MotherboardSensorsPanel = () => {
 
   if (motherboardTemps.length === 0 && motherboardFanSpeeds.length === 0) {
     return hasSample ? (
-      <p className="px-4 pb-4 text-muted-foreground text-sm">
+      <p className="px-4 pb-4 text-sm text-muted-foreground">
         {t("pages.performance.motherboardSensorsUnavailable")}
       </p>
     ) : (
@@ -66,7 +66,7 @@ export const MotherboardSensorsPanel = () => {
         {motherboardTemps.map((sensor) => (
           <div
             key={sensor.name}
-            className="flex items-baseline justify-between gap-4 border-border/60 border-b py-1.5 text-sm"
+            className="flex items-baseline justify-between gap-4 border-b border-border/60 py-1.5 text-sm"
           >
             <span className="text-muted-foreground">{sensor.name}</span>
             <span className="font-mono tabular-nums">
@@ -77,7 +77,7 @@ export const MotherboardSensorsPanel = () => {
         {motherboardFanSpeeds.map((fan) => (
           <div
             key={fan.name}
-            className="flex items-baseline justify-between gap-4 border-border/60 border-b py-1.5 text-sm"
+            className="flex items-baseline justify-between gap-4 border-b border-border/60 py-1.5 text-sm"
           >
             <span className="text-muted-foreground">{fan.name}</span>
             <span className="font-mono tabular-nums">

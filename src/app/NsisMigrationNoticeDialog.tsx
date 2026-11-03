@@ -115,7 +115,7 @@ export const NsisMigrationNoticeDialog = ({
         <AlertDialogHeader>
           <AlertDialogTitle>{t("nsisMigrationNotice.title")}</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="space-y-3 text-left text-muted-foreground text-sm leading-relaxed">
+            <div className="space-y-3 text-left text-sm leading-relaxed text-muted-foreground">
               <p>{t("nsisMigrationNotice.why")}</p>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">

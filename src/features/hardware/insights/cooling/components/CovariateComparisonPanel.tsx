@@ -89,7 +89,7 @@ export const CovariateComparisonPanel = () => {
       className="space-y-3 rounded-2xl bg-card p-4"
       data-testid="cooling-covariate-panel"
     >
-      <h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+      <h3 className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
         {t("pages.insights.cooling.covariateComparison.title")}
       </h3>
       {hasError && (
@@ -110,7 +110,7 @@ export const CovariateComparisonPanel = () => {
         </div>
       )}
       {lifecycle.kind === "establishing" && (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {t("pages.insights.cooling.dataState.establishing", {
             qualifyingDays: lifecycle.qualifyingDays,
             requiredDays: lifecycle.requiredDays,
@@ -159,7 +159,7 @@ const EstablishedComparison = ({
 
   return (
     <>
-      <p className="text-muted-foreground text-xs">
+      <p className="text-xs text-muted-foreground">
         {t("pages.insights.cooling.covariateComparison.subtitle", {
           band: bandLabel,
           baselineStart: comparison.baselineWindowStartDate,
@@ -180,7 +180,7 @@ const EstablishedComparison = ({
       ) : (
         notComparableKey != null && (
           <p
-            className="text-muted-foreground text-sm"
+            className="text-sm text-muted-foreground"
             data-testid="cooling-covariate-not-comparable"
           >
             {t(notComparableKey, {
@@ -194,7 +194,7 @@ const EstablishedComparison = ({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="space-y-3">
           <FactorTable rows={rows} bandLabel={bandLabel} />
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             {t("pages.insights.cooling.covariateComparison.footnote")}
           </p>
         </div>
@@ -203,7 +203,7 @@ const EstablishedComparison = ({
             two sensors, not two windows. */}
         {chart != null && (
           <div className="space-y-2">
-            <p className="font-medium text-xs">
+            <p className="text-xs font-medium">
               {t("pages.insights.cooling.covariateComparison.chart.title", {
                 band: bandLabel,
                 unit: temperatureUnitSuffix(temperatureUnit),
@@ -213,7 +213,7 @@ const EstablishedComparison = ({
               chart={chart}
               temperatureUnit={temperatureUnit}
             />
-            <p className="text-muted-foreground text-xs">
+            <p className="text-xs text-muted-foreground">
               {t("pages.insights.cooling.covariateComparison.chart.caption", {
                 baseline: comparison.baselinePairedMinutes,
                 recent: comparison.recentPairedMinutes,
@@ -391,7 +391,7 @@ const FactorTable = ({
               </td>
               <td className="py-1.5 pl-3">
                 <span
-                  className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] leading-4 ${TAG_CLASSES[row.tag]}`}
+                  className={`inline-block rounded-full border px-2 py-0.5 text-[10px] leading-4 whitespace-nowrap ${TAG_CLASSES[row.tag]}`}
                 >
                   {t(
                     `pages.insights.cooling.covariateComparison.tags.${row.tag}`,

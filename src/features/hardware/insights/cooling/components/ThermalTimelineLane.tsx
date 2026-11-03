@@ -147,6 +147,7 @@ export const ThermalTimelineLane = () => {
     // and appending a false empty one), and further across timezone
     // boundaries. "YYYY-MM-DD" sorts lexicographically as chronologically.
     const latestDate = points.reduce(
+      // biome-ignore lint/complexity/useMathMinMax: Compares date strings; Math.max would return NaN.
       (max, point) => (point.date > max ? point.date : max),
       points[0].date,
     );
@@ -226,7 +227,7 @@ export const ThermalTimelineLane = () => {
       className="rounded-2xl bg-card p-4"
       data-testid="cooling-thermal-timeline-lane"
     >
-      <h3 className="mb-3 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+      <h3 className="mb-3 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
         {t("pages.insights.cooling.timeline.title")}
       </h3>
       {route.kind === "archive" && archiveState.kind === "failed" ? (
@@ -249,7 +250,7 @@ export const ThermalTimelineLane = () => {
           data-testid="cooling-timeline-loading"
         />
       ) : domain == null && !hasLoadData && ambientDomain == null ? (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {t("pages.insights.noDataForPeriod")}
         </p>
       ) : (

@@ -18,7 +18,7 @@ export const SpecSection = ({
   <section className="py-5 first:pt-2">
     <div className="mb-2 flex items-center gap-2.5">
       {icon}
-      <h3 className="font-bold text-base">{title}</h3>
+      <h3 className="text-base font-bold">{title}</h3>
       {badge}
     </div>
     {children}
@@ -26,7 +26,7 @@ export const SpecSection = ({
 );
 
 export const SpecBadge = ({ children }: { children: ReactNode }) => (
-  <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-muted-foreground text-xs">
+  <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
     {children}
   </span>
 );

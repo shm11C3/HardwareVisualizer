@@ -342,7 +342,7 @@ const AppContent = () => {
           }}
         />
         <div
-          className="fixed inset-0 bg-center bg-cover transition-opacity duration-500"
+          className="fixed inset-0 bg-cover bg-center transition-opacity duration-500"
           style={{
             backgroundImage: `url(${currentImage})`,
             backgroundAttachment: "fixed",

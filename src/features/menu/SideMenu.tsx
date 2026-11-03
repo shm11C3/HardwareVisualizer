@@ -33,19 +33,19 @@ const groupedMenuTypes = [
 ] as const;
 
 const buttonClasses = tv({
-  base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 cursor-pointer z-20",
+  base: "fixed top-0 z-20 cursor-pointer rounded-xl p-2 hover:bg-zinc-300 dark:hover:bg-gray-700",
   variants: {
     status: {
       open: "left-64 transition-all",
       close: "left-16 transition-all",
       fullScreenClose:
-        "left-0 opacity-0 hover:opacity-100 transition-opacity duration-300",
+        "left-0 opacity-0 transition-opacity duration-300 hover:opacity-100",
     },
   },
 });
 
 const sideMenuClasses = tv({
-  base: "fixed top-0 left-0 h-full bg-accent text-foreground w-64 transform transition-transform duration-300 ease-in-out",
+  base: "fixed top-0 left-0 h-full w-64 transform bg-accent text-foreground transition-transform duration-300 ease-in-out",
   variants: {
     open: {
       true: "translate-x-0",
@@ -55,7 +55,7 @@ const sideMenuClasses = tv({
 });
 
 const closedSideMenuClasses = tv({
-  base: "fixed top-0 left-0 h-full bg-accent text-foreground w-16 transform transition-transform duration-300 ease-in-out",
+  base: "fixed top-0 left-0 h-full w-16 transform bg-accent text-foreground transition-transform duration-300 ease-in-out",
   variants: {
     open: {
       true: "-translate-x-full",
@@ -68,9 +68,9 @@ const menuItemClasses = tv({
   base: "rounded-lg transition-colors",
   variants: {
     selected: {
-      true: "dark:text-white font-bold",
+      true: "font-bold dark:text-white",
       false:
-        "text-neutral-700 dark:text-slate-400 hover:text-slate-400 dark:hover:text-neutral-200",
+        "text-neutral-700 hover:text-slate-400 dark:text-slate-400 dark:hover:text-neutral-200",
     },
     isBottom: {
       true: "h-full",
@@ -283,7 +283,7 @@ export const SideMenu = memo(
                   {/* bottom space for settings */}
                   <li className="mb-4">
                     {isOpen && (
-                      <h2 className="font-bold text-xl">HardwareVisualizer</h2>
+                      <h2 className="text-xl font-bold">HardwareVisualizer</h2>
                     )}
                   </li>
                   {(navigationLayout === "grouped"
@@ -300,7 +300,7 @@ export const SideMenu = memo(
                   ))}
                 </ul>
                 <UpdateAvailableItem compact={false} />
-                <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
+                <ul className="dark:border-zinc-60 absolute bottom-0 h-14 w-full border-t-1 border-slate-200 p-3">
                   <MenuItem
                     type="settings"
                     handleMenuClick={handleMenuClick}
@@ -329,7 +329,7 @@ export const SideMenu = memo(
                     ))}
                   </ul>
                   <UpdateAvailableItem compact />
-                  <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
+                  <ul className="dark:border-zinc-60 absolute bottom-0 h-14 w-full border-t-1 border-slate-200 p-3">
                     <ClosedSideMenu
                       type="settings"
                       selected={displayTarget === "settings"}

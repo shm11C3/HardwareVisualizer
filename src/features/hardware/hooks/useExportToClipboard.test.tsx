@@ -119,19 +119,26 @@ const makeStorageItem = (
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const HydrateAtoms = ({
+  processorHistory,
+  children,
+}: {
+  processorHistory: number[][];
+  children: ReactNode;
+}) => {
+  useHydrateAtoms([[processorsUsageHistoryAtom, processorHistory]]);
+  return <>{children}</>;
+};
+
 const makeWrapper =
   (processorHistory: number[][] = []) =>
-  ({ children }: { children: ReactNode }) => {
-    const HydrateAtoms = ({ children }: { children: ReactNode }) => {
-      useHydrateAtoms([[processorsUsageHistoryAtom, processorHistory]]);
-      return <>{children}</>;
-    };
-    return (
-      <Provider>
-        <HydrateAtoms>{children}</HydrateAtoms>
-      </Provider>
-    );
-  };
+  ({ children }: { children: ReactNode }) => (
+    <Provider>
+      <HydrateAtoms processorHistory={processorHistory}>
+        {children}
+      </HydrateAtoms>
+    </Provider>
+  );
 
 const getWrittenContent = () =>
   (writeText as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;

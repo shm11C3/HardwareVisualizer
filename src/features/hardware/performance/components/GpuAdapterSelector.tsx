@@ -46,7 +46,7 @@ export const GpuAdapterSelector = memo(
       return (
         <p
           className={cn(
-            "min-w-0 truncate text-muted-foreground text-xs",
+            "min-w-0 truncate text-xs text-muted-foreground",
             className,
           )}
           title={accessibleName(adapter)}
@@ -89,7 +89,7 @@ export const GpuAdapterSelector = memo(
               title={accessibleName(adapter)}
               onClick={() => onSelect(adapter.id)}
               className={cn(
-                "min-w-0 max-w-28 truncate rounded-md border px-1.5 py-0.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                "max-w-28 min-w-0 truncate rounded-md border px-1.5 py-0.5 text-[11px] transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                 isSelected
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border/70 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",

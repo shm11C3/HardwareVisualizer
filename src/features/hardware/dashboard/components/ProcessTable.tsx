@@ -114,7 +114,7 @@ export const ProcessesTable = ({
         {isPanelHeading ? (
           <div className="mb-2 flex min-h-9 items-center gap-2">
             <GearIcon size={18} color="var(--color-process)" />
-            <h4 className="font-mono font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+            <h4 className="font-mono text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
               {t("shared.process")}
             </h4>
             <DialogTrigger
@@ -131,7 +131,7 @@ export const ProcessesTable = ({
               <div className="mr-2 mb-0.5 ml-6">
                 <GearIcon size={24} color="var(--color-process)" />
               </div>
-              <h4 className="font-bold text-xl">{t("shared.process")}</h4>
+              <h4 className="text-xl font-bold">{t("shared.process")}</h4>
             </div>
 
             <div className="ml-auto">
@@ -215,7 +215,7 @@ const InfoTable = ({
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
         <thead className="sticky top-[-1px] h-14 bg-card-non-transparent">
-          <tr className="border-gray-700 border-b text-sm xl:text-base">
+          <tr className="border-b border-gray-700 text-sm xl:text-base">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("pid")}
@@ -270,7 +270,7 @@ const InfoTable = ({
           {processes.map((process) => (
             <tr
               key={process.pid}
-              className="border-gray-700 border-b text-sm xl:text-base"
+              className="border-b border-gray-700 text-sm xl:text-base"
             >
               <td className="py-2">{process.pid}</td>
               <td

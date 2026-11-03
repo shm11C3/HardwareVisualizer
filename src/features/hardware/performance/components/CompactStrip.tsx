@@ -49,7 +49,7 @@ const CompactRow = memo(
     return (
       <div
         className={cn(
-          "grid items-center border-border/60 border-b last:border-b-0",
+          "grid items-center border-b border-border/60 last:border-b-0",
           // The mini monitor is meant for a small corner window, so the
           // flexible tracks must be able to shrink (minmax(0,...)) instead of
           // forcing a ~600px row that burnin-root would clip.
@@ -62,7 +62,7 @@ const CompactRow = memo(
       >
         <span
           className={cn(
-            "font-mono font-semibold text-muted-foreground uppercase tracking-[0.1em]",
+            "font-mono font-semibold tracking-[0.1em] text-muted-foreground uppercase",
             expanded ? "text-sm sm:text-base" : "text-[11px]",
           )}
         >
@@ -86,7 +86,7 @@ const CompactRow = memo(
         <span
           className={cn(
             "text-right font-mono tabular-nums",
-            expanded ? "font-semibold text-xl sm:text-2xl" : "text-sm",
+            expanded ? "text-xl font-semibold sm:text-2xl" : "text-sm",
           )}
         >
           {currentValue == null ? "—" : `${Math.round(currentValue)}%`}
@@ -222,7 +222,7 @@ export const CompactStrip = ({
         <CompactRow key={row.id} row={row} expanded={fillViewport} />
       ))}
       {footerItems.length > 0 && (
-        <div className="flex gap-4 border-border/60 border-t py-2 font-mono text-[11px] text-muted-foreground tabular-nums">
+        <div className="flex gap-4 border-t border-border/60 py-2 font-mono text-[11px] text-muted-foreground tabular-nums">
           {footerItems.map((item) => (
             <span key={item.id} title={item.fullText ?? item.text}>
               {item.fullText == null || item.fullText === item.text ? (

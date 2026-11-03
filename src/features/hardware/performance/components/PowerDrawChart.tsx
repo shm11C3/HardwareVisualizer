@@ -110,7 +110,7 @@ export const PowerDrawChart = ({
         {showHeading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
             <LightningIcon size={18} className="text-amber-400" />
-            <h3 className="font-mono font-semibold text-[11px] uppercase tracking-[0.18em]">
+            <h3 className="font-mono text-[11px] font-semibold tracking-[0.18em] uppercase">
               {t("pages.performance.panels.power")}
             </h3>
             <span className="text-[10px]">
@@ -187,7 +187,7 @@ export const PowerDrawChart = ({
                       <span className="text-muted-foreground">
                         {config[name ?? ""]?.label ?? name}
                       </span>
-                      <span className="font-medium font-mono tabular-nums">
+                      <span className="font-mono font-medium tabular-nums">
                         {typeof value === "number"
                           ? `${value.toFixed(1)} W`
                           : "—"}

@@ -134,7 +134,7 @@ const SortablePanel = ({
         {!chromeless && (
           <>
             {panelIcons[panel]}
-            <h3 className="font-mono font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+            <h3 className="font-mono text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
               {label}
             </h3>
             {panel === "power" && (
@@ -152,7 +152,7 @@ const SortablePanel = ({
             <button
               type="button"
               onClick={() => onHide(panel)}
-              className="ml-auto flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="ml-auto flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
               aria-label={t("pages.performance.hidePanel", { panel: label })}
             >
               <EyeSlashIcon size={15} />
@@ -161,7 +161,7 @@ const SortablePanel = ({
               {...attributes}
               {...listeners}
               type="button"
-              className="flex size-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="flex size-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
               aria-label={t("pages.performance.reorderPanel", { panel: label })}
             >
               <GripVerticalIcon className="size-4" />
@@ -247,7 +247,7 @@ export const PanelGrid = ({
 
       {editing && hiddenPanels.length > 0 && (
         <div
-          className="flex flex-wrap items-center gap-2 rounded-xl border border-border border-dashed px-4 py-2.5 text-muted-foreground text-xs"
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-xs text-muted-foreground"
           data-testid="performance-hidden-panels"
         >
           <span>{t("pages.performance.hiddenPanels")}</span>
@@ -258,7 +258,7 @@ export const PanelGrid = ({
                 key={panel}
                 type="button"
                 onClick={() => void onPanelToggle(panel)}
-                className="flex items-center gap-1 rounded-full border border-border bg-card/80 px-3 py-1 text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="flex items-center gap-1 rounded-full border border-border bg-card/80 px-3 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
                 aria-label={t("pages.performance.showPanel", { panel: label })}
               >
                 <PlusIcon size={12} />

@@ -53,7 +53,7 @@ export const LoadBandDumbbellChart = ({
 
   return (
     <div className="space-y-3" data-testid={testId}>
-      <div className="flex items-center gap-4 text-muted-foreground text-xs">
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full border-2 border-background bg-muted-foreground" />
           {t("pages.insights.cooling.loadBandComparison.legend.baseline")}
@@ -141,7 +141,7 @@ const WithheldReason = ({ reason }: { reason: LoadBandWithheldReason }) => {
     ].filter((detail): detail is string => detail != null);
 
     return (
-      <span className="text-muted-foreground text-xs">
+      <span className="text-xs text-muted-foreground">
         <span className="italic">
           {t(`${NOT_COMPARABLE_KEY}.tooFewSampleMinutes`)}
         </span>
@@ -158,7 +158,7 @@ const WithheldReason = ({ reason }: { reason: LoadBandWithheldReason }) => {
   }
 
   return (
-    <span className="text-muted-foreground text-xs italic">
+    <span className="text-xs text-muted-foreground italic">
       {t(`${NOT_COMPARABLE_KEY}.${reason.kind}`)}
     </span>
   );

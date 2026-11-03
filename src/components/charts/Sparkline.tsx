@@ -137,7 +137,7 @@ export const Sparkline = ({
         {tooltip && hoveredValue != null && (
           <div className="pointer-events-none absolute top-1 right-1 rounded-md border border-border/50 bg-background/90 px-2 py-1 text-xs shadow-xl">
             <span className="text-muted-foreground">{tooltip.label}</span>{" "}
-            <span className="font-medium font-mono text-foreground">
+            <span className="font-mono font-medium text-foreground">
               {tooltip.format(hoveredValue)}
             </span>
           </div>
