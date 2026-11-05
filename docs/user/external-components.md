@@ -61,9 +61,10 @@ setup section. Existing guidance dismissals are respected.
 Sensor guidance appears as a nonmodal notice when actual collection failures
 leave readings on the current screen unavailable. It follows the normal sensor
 updates and disappears on recovery; there is no setup dialog, startup deadline
-or separate periodic sensor-guidance check. Closing it hides sensor guidance
-for this launch. **Never show again** remembers the currently shown collection
-gaps. Settings always remains available for checking or repairing the service.
+or separate periodic sensor-guidance check. Both closing it and **Never show
+again** keep sensor guidance quiet for this launch. **Never show again** also
+remembers only the currently shown collection gaps for later launches. Settings
+always remains available for checking or repairing the service.
 
 If **Run as administrator on startup** was enabled, the update keeps that choice.
 To use normal permissions, turn that existing setting off, then exit and launch

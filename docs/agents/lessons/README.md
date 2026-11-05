@@ -97,6 +97,7 @@ shared enforcement surface.
 ## Records
 
 - [Guide optional service migration](guide-optional-service-migration.md)
+- [Validate future privileged file ACLs](validate-future-privileged-file-acls.md)
 
 - [Evidence before conclusions](evidence-before-conclusions.md)
 - [Keep agent guidance aligned with canonical architecture](guidance-follows-canonical-architecture.md)

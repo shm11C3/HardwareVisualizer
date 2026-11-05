@@ -278,8 +278,12 @@ Implementation slices and acceptance checkboxes live in the tracking issue.
 The Windows-only packaging hook is PowerShell, alongside the existing signer
 and MSI checks; the frontend remains a Node build. The MSI embeds a validation
 copy of the signed service executable and validates the target directory and
-its ACL ancestry before placing or starting the installed copy. Production
-module loads require known signed-release hashes; unknown files remain intact
+its ACL ancestry before placing or starting the installed copy. The check
+also rejects untrusted write permissions that the installation directory
+would pass to the new executable. Ancestors are checked for effective access;
+the target directory owns the new-file inheritance check, including the normal
+trusted-creator template used by Windows.
+Production module loads require known signed-release hashes; unknown files remain intact
 and are reported as incompatible rather than overwritten.
 
 Exact SCM/pipe permissions under separate Windows accounts, installer

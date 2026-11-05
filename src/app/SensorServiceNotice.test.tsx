@@ -131,6 +131,21 @@ describe("SensorServiceNotice", () => {
     expect(mocks.defer).not.toHaveBeenCalled();
   });
 
+  it("keeps this launch quiet after permanent dismissal even if a different gap appears", async () => {
+    mocks.diagnostics = [cpu];
+    const { rerender } = render(<SensorServiceNotice {...props} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Never show again" }),
+    );
+    expect(mocks.acknowledge).toHaveBeenCalledExactlyOnceWith(cpu.key);
+
+    mocks.diagnostics = [board];
+    rerender(<SensorServiceNotice {...props} />);
+
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(mocks.acknowledge).not.toHaveBeenCalledWith(board.key);
+  });
+
   it("does not duplicate the service section on Settings", () => {
     mocks.diagnostics = [cpu];
     mocks.elevated = true;

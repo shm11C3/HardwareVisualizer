@@ -83,9 +83,9 @@ its lifecycle and security cost by serving that startup requirement.
    on the current screen and disappears on recovery; no dedicated guidance
    polling, startup deadline, dialog queue or automatic service-status query is
    needed. The App filters acknowledged and session-deferred keys before
-   emission; the frontend owns screen relevance. Closing the notice hides all
-   sensor guidance for this launch. The existing per-key permanent suppression
-   remains available for collection gaps.
+   emission; the frontend owns screen relevance. Both dismissal actions hide
+   all sensor guidance for this launch; permanent dismissal additionally saves
+   only the currently displayed keys for suppression in later launches.
    Explain the new ordinary-permission capability in release notes and the
    elevated-startup setting. Do not show a migration CTA just because that
    saved preference is enabled or the process is elevated. Settings owns

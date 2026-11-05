@@ -8,8 +8,8 @@ use windows::Win32::Security::Authorization::{
   SDDL_REVISION_1,
 };
 use windows::Win32::Security::{
-  GetTokenInformation, PSECURITY_DESCRIPTOR, RevertToSelf, SECURITY_ATTRIBUTES,
-  TOKEN_QUERY, TOKEN_USER, TokenUser,
+  ACL, GetTokenInformation, PSECURITY_DESCRIPTOR, PSID, RevertToSelf,
+  SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER, TokenUser,
 };
 use windows::Win32::Storage::FileSystem::{
   CreateFileW, FILE_FLAG_OVERLAPPED, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_NONE,
@@ -192,7 +192,14 @@ pub(crate) fn validate_install_directory(path: &std::path::Path) -> Result<(), S
       .custom_flags(0x02000000)
       .open(directory)
       .map_err(|e| e.to_string())?;
-    protected_acl(HANDLE(handle.as_raw_handle()))?;
+    let check = if directory == resolved.as_path() {
+      AclCheck::NewFileParent
+    } else {
+      // Existing descendants already reflect inheritance or block it. Only
+      // effective ancestor permissions can allow replacement of this path.
+      AclCheck::Effective
+    };
+    protected_acl(HANDLE(handle.as_raw_handle()), check)?;
 
     if last {
       break;
@@ -231,19 +238,21 @@ pub(crate) fn protected_file(path: &std::path::Path) -> Result<std::fs::File, St
     .share_mode(1)
     .open(&resolved)
     .map_err(|e| e.to_string())?;
-  protected_acl(HANDLE(file.as_raw_handle()))?;
+  protected_acl(HANDLE(file.as_raw_handle()), AclCheck::Effective)?;
   validate_install_directory(resolved.parent().ok_or("Sensor input has no parent")?)?;
 
   Ok(file)
 }
 
-fn protected_acl(handle: HANDLE) -> Result<(), String> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AclCheck {
+  Effective,
+  NewFileParent,
+}
+
+fn protected_acl(handle: HANDLE, check: AclCheck) -> Result<(), String> {
   use windows::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
-  use windows::Win32::Security::GetAce;
-  use windows::Win32::Security::{
-    ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, DACL_SECURITY_INFORMATION,
-    OWNER_SECURITY_INFORMATION, PSID,
-  };
+  use windows::Win32::Security::{DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION};
 
   unsafe {
     let mut owner = PSID::default();
@@ -263,7 +272,22 @@ fn protected_acl(handle: HANDLE) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     let _allocation = LocalAllocation(descriptor.0);
+    validate_acl(owner, dacl, check)
+  }
+}
 
+/// The owner and ACL must remain valid in the same security descriptor for
+/// the entire check; callers retain its Windows allocation until this returns.
+unsafe fn validate_acl(
+  owner: PSID,
+  dacl: *mut ACL,
+  check: AclCheck,
+) -> Result<(), String> {
+  use windows::Win32::Security::{
+    ACCESS_ALLOWED_ACE, ACE_HEADER, GetAce, IsWellKnownSid, WinCreatorOwnerSid,
+  };
+
+  unsafe {
     if !trusted_sid(owner)? || dacl.is_null() {
       return Err(
         "Privileged sensor input has an untrusted owner or unrestricted ACL".into(),
@@ -277,7 +301,8 @@ fn protected_acl(handle: HANDLE) -> Result<(), String> {
       let ace = std::ptr::NonNull::new(ace).ok_or("Missing ACL entry")?;
       let header = ace.cast::<ACE_HEADER>().as_ref();
 
-      if header.AceFlags & 0x08 != 0 {
+      let inherit_only = header.AceFlags & 0x08 != 0;
+      if inherit_only && (check == AclCheck::Effective || header.AceFlags & 0x01 == 0) {
         continue;
       }
 
@@ -286,7 +311,13 @@ fn protected_acl(handle: HANDLE) -> Result<(), String> {
         let writes = 0x10000000 | 0x40000000 | 0x000d0156;
         let sid = PSID((&allowed.SidStart as *const u32).cast_mut().cast());
 
-        if allowed.Mask & writes != 0 && !trusted_sid(sid)? {
+        // A trusted installer creates the new file, so CREATOR OWNER resolves
+        // to its trusted SID. Effective write grants are checked independently;
+        // other users cannot create files here. Normal Program Files uses this
+        // template and must not be rejected as an untrusted named principal.
+        let trusted_creator =
+          inherit_only && IsWellKnownSid(sid, WinCreatorOwnerSid).as_bool();
+        if allowed.Mask & writes != 0 && !trusted_sid(sid)? && !trusted_creator {
           return Err(
             "Privileged sensor input is writable by an unelevated principal".into(),
           );
@@ -414,6 +445,60 @@ fn registered_system_service(kind: ENUM_SERVICE_TYPE, account: &str) -> bool {
 mod tests {
   use super::*;
   use tokio::net::windows::named_pipe::ClientOptions;
+
+  fn check_sddl(sddl: &str, check: AclCheck) -> Result<(), String> {
+    use windows::Win32::Security::{
+      GetSecurityDescriptorDacl, GetSecurityDescriptorOwner,
+    };
+    use windows::core::BOOL;
+
+    let sddl = sddl.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
+
+    unsafe {
+      let mut descriptor = PSECURITY_DESCRIPTOR::default();
+      ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        PCWSTR(sddl.as_ptr()),
+        SDDL_REVISION_1,
+        &mut descriptor,
+        None,
+      )
+      .unwrap();
+      let _allocation = LocalAllocation(descriptor.0);
+      let mut owner = PSID::default();
+      let mut defaulted = BOOL::default();
+      GetSecurityDescriptorOwner(descriptor, &mut owner, &mut defaulted).unwrap();
+      let mut dacl = std::ptr::null_mut();
+      let mut present = BOOL::default();
+      GetSecurityDescriptorDacl(descriptor, &mut present, &mut dacl, &mut defaulted)
+        .unwrap();
+      assert!(present.as_bool());
+      validate_acl(owner, dacl, check)
+    }
+  }
+
+  #[test]
+  fn future_file_writes_are_checked_before_installation() {
+    let inherited_write = "O:SYG:SYD:P(A;;FA;;;SY)(A;OIIO;GW;;;BU)";
+    assert!(check_sddl(inherited_write, AclCheck::Effective).is_ok());
+    assert!(check_sddl(inherited_write, AclCheck::NewFileParent).is_err());
+
+    let effective_write = "O:SYG:SYD:P(A;;FA;;;SY)(A;;GW;;;BU)";
+    assert!(check_sddl(effective_write, AclCheck::Effective).is_err());
+    assert!(check_sddl(effective_write, AclCheck::NewFileParent).is_err());
+  }
+
+  #[test]
+  fn normal_creator_owner_templates_and_program_files_ancestry_remain_supported() {
+    assert!(
+      check_sddl(
+        "O:SYG:SYD:P(A;;FA;;;SY)(A;OICIIO;GA;;;CO)",
+        AclCheck::NewFileParent,
+      )
+      .is_ok()
+    );
+    let common_files = std::env::var_os("CommonProgramFiles").unwrap();
+    validate_install_directory(std::path::Path::new(&common_files)).unwrap();
+  }
 
   #[test]
   fn server_registration_requires_a_dedicated_system_service() {
