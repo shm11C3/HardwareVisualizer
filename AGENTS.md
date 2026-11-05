@@ -41,6 +41,11 @@ Apply YAGNI to every change. Do not add functionality, conditional branches,
 fallbacks, configuration, dependencies, or abstractions that the current
 requirement does not need. Low implementation cost is not evidence of need.
 
+At planning, implementation and review, apply
+[DP-12](docs/design-principles.md#dp-12-simplify-the-specification-before-absorbing-its-complexity):
+question the specification and workflow themselves before accepting their
+complexity as an implementation requirement.
+
 Preserve non-obvious decisions at the smallest durable owner where a future
 maintainer will need them. Let code show how, focused tests state what must hold,
 commit or PR context explain a change-local why, and code comments explain why

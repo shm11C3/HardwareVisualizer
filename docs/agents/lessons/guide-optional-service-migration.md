@@ -5,22 +5,29 @@ cause_status: confirmed
 scope: Windows sensor service migration and External Component Guidance
 trigger: changing optional service setup or replacing an elevated in-process provider
 failure_signature: users could miss required service setup guidance or be interrupted later by recurring automatic setup dialogs
-root_cause: missing diagnostics hid setup needs; a separate automatic guidance query and modal policy then required startup timers, queuing, and a second service-status poll
-guardrail: preserve optional setup and startup intent; carry collection diagnostics on the existing monitor stream and use one nonmodal sensor notice with explicit actions in Settings
-canonical_refs: docs/adr/0029-windows-sensor-service.md, docs/architecture/backend.md, core/src/platform/windows/sensors.rs, src/app/SensorServiceNotice.tsx
-verification: sensor adapter tests and e2e/startup-guidance.spec.ts cover failed attempts, nonmodal late failures and recovery, explicit migration, and user dismissals
-evidence: maintainer correction on PR 2509 and the transport, candidate filtering, and rendered setup flow
-revalidate_when: sensor service consent, provider fallback, guidance suppression, or startup preference ownership changes
+root_cause: the selected opt-in and modal workflows were treated as fixed requirements; local cleanup retained unnecessary steps, timers, queuing, and a separate diagnostic/status query
+guardrail: apply DP-12 to challenge workflow assumptions before simplifying implementation; preserve explicit user intent and concrete platform or security constraints
+canonical_refs: docs/design-principles.md, AGENTS.md, .agents/skills/hardwarevisualizer-design-review/SKILL.md, docs/adr/0029-windows-sensor-service.md, docs/architecture/backend.md
+verification: monitor-event and browser tests prove the nonmodal simplification; agent-guidance validation checks canonical references, while specification trade-offs require design review
+evidence: maintainer corrections on PR 2509 requesting specification-level simplification and questioning service opt-in; 0dd341dd replaces startup timers and dedicated queries with the normal monitor stream
+revalidate_when: sensor installation policy, provider fallback, guidance suppression, startup preference ownership, or the design-review workflow changes
 ---
 
 # Guide Optional Service Migration
 
-Replacing direct PawnIO collection with an optional service does not justify
-silently installing that service or disabling an existing elevated-startup
-preference. The missing piece is an actionable route for both installation
-cohorts: guide failed visible sensor attempts to setup, then make the explicit
-normal-startup preference discoverable without claiming service readiness.
-Settings verifies readiness before offering the explicit switch.
+ADR 0029 currently makes service installation optional and keeps an existing
+elevated-startup preference explicit. Under that policy, guide failed visible
+sensor attempts to setup and make the normal-startup preference discoverable
+without claiming service readiness. Settings verifies readiness before offering
+the explicit switch.
+
+The maintainer also questioned whether this separate service opt-in was needed.
+Do not elevate the current installation policy into a universal consent rule:
+an app-owned service and an external driver have different ownership. Evaluate
+whether normal application installation can include the service and remove a
+later CTA/setup step, while preserving the external driver's consent and the
+user's saved startup choice. That policy revision remains a separate product
+decision; the monitor-driven guidance change did not implement it.
 
 Initial connection wait is not a failed setup. A successful ACPI fallback
 suppresses CPU setup guidance, and unsupported hardware keeps its own meaning.
