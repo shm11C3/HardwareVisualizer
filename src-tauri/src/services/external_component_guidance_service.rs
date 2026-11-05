@@ -5,11 +5,7 @@ use hardviz_core::models::external_component_guidance::{
   PAWNIO_CPU_PACKAGE_TEMPERATURE_KEY, PAWNIO_MOTHERBOARD_SENSORS_KEY,
   SMARTCTL_STORAGE_HEALTH_KEY,
 };
-use hardviz_core::models::{
-  ExternalComponent, ExternalComponentGuidanceCandidate, ExternalComponentUsage,
-};
-use serde::Deserialize;
-use specta::Type;
+use hardviz_core::models::{ExternalComponent, ExternalComponentGuidanceCandidate};
 
 /// Every guidance key a component can produce. Core forms the keys as
 /// `<component>:<usage>:v1`; the mapping stays here because only the App
@@ -22,15 +18,6 @@ pub(crate) fn guidance_keys_for(component: ExternalComponent) -> &'static [&'sta
     ],
     ExternalComponent::Smartctl => &[SMARTCTL_STORAGE_HEALTH_KEY],
   }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub enum ExternalComponentGuidanceView {
-  Dashboard,
-  Performance,
-  CpuDetail,
-  StorageHealth,
 }
 
 pub(crate) fn normalize_external_component_guidance_key(
@@ -51,20 +38,6 @@ pub struct ExternalComponentGuidanceState {
 }
 
 impl ExternalComponentGuidanceState {
-  /// Sensor guidance describes the latest attempted collection, not a past
-  /// connection failure that installing the service may already have repaired.
-  pub fn replace_sensor_candidates(
-    &self,
-    candidates: Vec<ExternalComponentGuidanceCandidate>,
-  ) {
-    if let Ok(mut pending) = self.pending.lock() {
-      pending.retain(|_, candidate| candidate.component != ExternalComponent::Pawnio);
-      for candidate in candidates {
-        pending.insert(candidate.key.clone(), candidate);
-      }
-    }
-  }
-
   pub fn record_candidates(
     &self,
     candidates: impl IntoIterator<Item = ExternalComponentGuidanceCandidate>,
@@ -83,7 +56,18 @@ impl ExternalComponentGuidanceState {
 
   pub fn pending_candidates(
     &self,
-    view: ExternalComponentGuidanceView,
+    acknowledged_keys: &[String],
+  ) -> Vec<ExternalComponentGuidanceCandidate> {
+    let candidates = match self.pending.lock() {
+      Ok(pending) => pending.values().cloned().collect(),
+      Err(_) => return Vec::new(),
+    };
+    self.unsuppressed_candidates(candidates, acknowledged_keys)
+  }
+
+  pub fn unsuppressed_candidates(
+    &self,
+    candidates: Vec<ExternalComponentGuidanceCandidate>,
     acknowledged_keys: &[String],
   ) -> Vec<ExternalComponentGuidanceCandidate> {
     let acknowledged: BTreeSet<&str> =
@@ -93,16 +77,10 @@ impl ExternalComponentGuidanceState {
       .lock()
       .map(|keys| keys.clone())
       .unwrap_or_default();
-    let Ok(pending) = self.pending.lock() else {
-      return Vec::new();
-    };
-
-    pending
-      .values()
+    candidates
+      .into_iter()
       .filter(|candidate| !acknowledged.contains(candidate.key.as_str()))
       .filter(|candidate| !deferred.contains(candidate.key.as_str()))
-      .filter(|candidate| is_relevant_to_view(candidate, view))
-      .cloned()
       .collect()
   }
 
@@ -132,200 +110,74 @@ impl ExternalComponentGuidanceState {
   }
 }
 
-fn is_relevant_to_view(
-  candidate: &ExternalComponentGuidanceCandidate,
-  view: ExternalComponentGuidanceView,
-) -> bool {
-  match view {
-    ExternalComponentGuidanceView::Dashboard => true,
-    ExternalComponentGuidanceView::Performance => {
-      candidate.component == ExternalComponent::Pawnio
-        && matches!(
-          candidate.usage,
-          ExternalComponentUsage::CpuPackageTemperature
-            | ExternalComponentUsage::MotherboardSensors
-        )
-    }
-    ExternalComponentGuidanceView::CpuDetail => {
-      candidate.component == ExternalComponent::Pawnio
-        && candidate.usage == ExternalComponentUsage::CpuPackageTemperature
-    }
-    ExternalComponentGuidanceView::StorageHealth => {
-      candidate.component == ExternalComponent::Smartctl
-        && candidate.usage == ExternalComponentUsage::StorageHealth
-    }
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
-  use hardviz_core::models::ExternalComponentReasonKind;
 
-  #[test]
-  fn current_sensor_results_clear_repaired_guidance_without_resetting_user_choices() {
-    let state = ExternalComponentGuidanceState::default();
-    let cpu = pawnio_candidate();
-    let board = ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+  fn cpu() -> ExternalComponentGuidanceCandidate {
+    ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
       "Service unavailable".into(),
-    );
-    state.record_candidates(vec![cpu, board.clone(), smartctl_candidate()]);
-    state.defer_for_session(&board.key);
-    state.replace_sensor_candidates(vec![]);
-    let pending = state.pending_candidates(ExternalComponentGuidanceView::Dashboard, &[]);
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0].component, ExternalComponent::Smartctl);
-    state.replace_sensor_candidates(vec![board]);
-    assert!(
-      state
-        .pending_candidates(ExternalComponentGuidanceView::Performance, &[])
-        .is_empty()
-    );
-  }
-
-  fn pawnio_candidate() -> hardviz_core::models::ExternalComponentGuidanceCandidate {
-    hardviz_core::models::ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
-      "PawnIOLib.dll not found".to_string(),
     )
   }
 
-  fn smartctl_candidate() -> hardviz_core::models::ExternalComponentGuidanceCandidate {
-    hardviz_core::models::ExternalComponentGuidanceCandidate::smartctl_storage_health(
-      vec!["temperature".to_string()],
+  fn board() -> ExternalComponentGuidanceCandidate {
+    ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+      "Service unavailable".into(),
+    )
+  }
+
+  fn storage() -> ExternalComponentGuidanceCandidate {
+    ExternalComponentGuidanceCandidate::smartctl_storage_health(
+      vec!["temperature".into()],
       Some(1),
-      "smartctl is not installed".to_string(),
+      "smartctl not installed".into(),
     )
   }
 
   #[test]
-  fn pending_candidates_filter_acknowledged_keys() {
+  fn pending_and_streamed_candidates_share_the_same_user_suppression() {
     let state = ExternalComponentGuidanceState::default();
-    state.record_candidates(vec![pawnio_candidate(), smartctl_candidate()]);
-
-    let pending = state.pending_candidates(
-      ExternalComponentGuidanceView::Dashboard,
-      &["pawnio:cpu-package-temperature:v1".to_string()],
-    );
-
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0].key, "smartctl:storage-health:v1");
-  }
-
-  #[test]
-  fn defer_for_session_hides_key_until_process_restart() {
-    let state = ExternalComponentGuidanceState::default();
-    state.record_candidates(vec![pawnio_candidate()]);
-
-    state.defer_for_session("pawnio:cpu-package-temperature:v1");
-
-    let pending = state.pending_candidates(ExternalComponentGuidanceView::Dashboard, &[]);
-    assert!(pending.is_empty());
-  }
-
-  #[test]
-  fn defer_component_for_session_hides_every_key_of_that_component_only() {
-    let state = ExternalComponentGuidanceState::default();
-    state.record_candidates(vec![
-      pawnio_candidate(),
-      hardviz_core::models::ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
-        "PawnIOLib.dll not found".to_string(),
-      ),
-      smartctl_candidate(),
-    ]);
-
-    state.defer_component_for_session(ExternalComponent::Pawnio);
-
-    let pending = state.pending_candidates(ExternalComponentGuidanceView::Dashboard, &[]);
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0].key, "smartctl:storage-health:v1");
-  }
-
-  #[test]
-  fn pending_candidates_are_filtered_by_view() {
-    let state = ExternalComponentGuidanceState::default();
-    state.record_candidates(vec![pawnio_candidate(), smartctl_candidate()]);
-
-    let pending = state.pending_candidates(ExternalComponentGuidanceView::CpuDetail, &[]);
-
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0].key, "pawnio:cpu-package-temperature:v1");
-  }
-
-  #[test]
-  fn pending_candidates_filter_storage_health_view() {
-    let state = ExternalComponentGuidanceState::default();
-    state.record_candidates(vec![pawnio_candidate(), smartctl_candidate()]);
-
-    let pending =
-      state.pending_candidates(ExternalComponentGuidanceView::StorageHealth, &[]);
-
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0].key, "smartctl:storage-health:v1");
-  }
-
-  #[test]
-  fn performance_offers_sensor_setup_for_all_failure_kinds() {
-    let state = ExternalComponentGuidanceState::default();
-    let cpu = ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
-      "Access denied".to_string(),
-    );
-    let motherboard = ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
-      "Access denied".to_string(),
-    );
-    state.record_candidates(vec![cpu.clone(), motherboard.clone(), smartctl_candidate()]);
-    let pending =
-      state.pending_candidates(ExternalComponentGuidanceView::Performance, &[]);
-    assert_eq!(pending, vec![cpu.clone(), motherboard.clone()]);
-
-    state.defer_for_session(&cpu.key);
+    let candidates = vec![cpu(), storage()];
+    state.record_candidates(candidates.clone());
+    state.defer_for_session(&cpu().key);
+    assert_eq!(state.pending_candidates(&[]), vec![storage()]);
     assert_eq!(
-      state.pending_candidates(ExternalComponentGuidanceView::Performance, &[]),
-      vec![motherboard.clone()]
+      state.unsuppressed_candidates(candidates.clone(), &[]),
+      vec![storage()]
     );
     assert!(
       state
-        .pending_candidates(
-          ExternalComponentGuidanceView::Performance,
-          &[motherboard.key]
-        )
+        .unsuppressed_candidates(candidates, &[storage().key])
         .is_empty()
     );
-
-    for reason in [
-      ExternalComponentReasonKind::Missing,
-      ExternalComponentReasonKind::Misconfigured,
-      ExternalComponentReasonKind::Failed,
-    ] {
-      let mut candidate = cpu.clone();
-      candidate.reason_kind = reason;
-      assert!(is_relevant_to_view(
-        &candidate,
-        ExternalComponentGuidanceView::Performance
-      ));
-      assert!(is_relevant_to_view(
-        &candidate,
-        ExternalComponentGuidanceView::Dashboard
-      ));
-    }
-    let mut storage = smartctl_candidate();
-    storage.reason_kind = ExternalComponentReasonKind::Permission;
-    assert!(!is_relevant_to_view(
-      &storage,
-      ExternalComponentGuidanceView::Performance
-    ));
+    assert!(state.unsuppressed_candidates(vec![], &[]).is_empty());
   }
 
   #[test]
-  fn normalize_external_component_guidance_key_trims_valid_keys() {
+  fn component_setup_defers_both_sensor_keys_without_hiding_storage() {
+    let state = ExternalComponentGuidanceState::default();
+    state.defer_component_for_session(ExternalComponent::Pawnio);
+    assert_eq!(
+      state.unsuppressed_candidates(vec![cpu(), board(), storage()], &[]),
+      vec![storage()]
+    );
+  }
+
+  #[test]
+  fn acknowledgement_removes_queued_guidance() {
+    let state = ExternalComponentGuidanceState::default();
+    state.record_candidates(vec![storage()]);
+    state.remove_key(&storage().key);
+    assert!(state.pending_candidates(&[]).is_empty());
+  }
+
+  #[test]
+  fn guidance_keys_are_normalized_without_changing_the_core_namespace() {
     assert_eq!(
       normalize_external_component_guidance_key(" pawnio:cpu-package-temperature:v1 ")
         .unwrap(),
-      "pawnio:cpu-package-temperature:v1"
+      cpu().key
     );
-  }
-
-  #[test]
-  fn normalize_external_component_guidance_key_rejects_empty_keys() {
-    assert!(normalize_external_component_guidance_key(" \t").is_err());
+    assert!(normalize_external_component_guidance_key(" ").is_err());
   }
 }

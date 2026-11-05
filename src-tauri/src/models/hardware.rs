@@ -40,6 +40,9 @@ pub struct HardwareMonitorUpdate {
   /// Motherboard fan speeds in RPM.
   pub motherboard_fan_speeds: Vec<MotherboardFanSpeedValue>,
   pub motherboard_fan_support: SensorSupport,
+  /// Collection diagnostics, with the Core-produced guidance keys unchanged.
+  pub external_component_guidance_candidates:
+    Vec<super::external_component_guidance::ExternalComponentGuidanceCandidate>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Type)]
@@ -200,6 +203,7 @@ mod tests {
       package_power_watts: None,
       cpu_power_support: SensorSupport::Unknown,
       motherboard_fan_support: SensorSupport::Unknown,
+      external_component_guidance_candidates: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
@@ -224,6 +228,7 @@ mod tests {
       package_power_watts: None,
       cpu_power_support: SensorSupport::Unknown,
       motherboard_fan_support: SensorSupport::Unknown,
+      external_component_guidance_candidates: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
@@ -250,6 +255,7 @@ mod tests {
       package_power_watts: None,
       cpu_power_support: SensorSupport::Unknown,
       motherboard_fan_support: SensorSupport::Unknown,
+      external_component_guidance_candidates: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
@@ -275,6 +281,7 @@ mod tests {
       package_power_watts: None,
       cpu_power_support: SensorSupport::Unknown,
       motherboard_fan_support: SensorSupport::Unknown,
+      external_component_guidance_candidates: vec![],
       cpu_temperature: Some(48.0),
       sensor_temperatures: vec![
         NameValue {
@@ -311,6 +318,7 @@ mod tests {
       package_power_watts: Some(12.6),
       cpu_power_support: SensorSupport::Supported,
       motherboard_fan_support: SensorSupport::Supported,
+      external_component_guidance_candidates: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![MotherboardTemperatureValue {

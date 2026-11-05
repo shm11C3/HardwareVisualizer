@@ -5,7 +5,6 @@ import {
   externalComponentGuidanceCopyKey,
   externalComponentGuidanceDocsBaseUrl,
   externalComponentGuidanceDocsUrl,
-  externalComponentGuidanceViewForDisplayTarget,
 } from "./externalComponentGuidance";
 
 const candidate = (
@@ -23,21 +22,6 @@ const candidate = (
 });
 
 describe("externalComponentGuidance", () => {
-  it("maps visible app screens to guidance views", () => {
-    expect(externalComponentGuidanceViewForDisplayTarget("dashboard")).toBe(
-      "dashboard",
-    );
-    expect(externalComponentGuidanceViewForDisplayTarget("performance")).toBe(
-      "performance",
-    );
-    expect(externalComponentGuidanceViewForDisplayTarget("cpuDetail")).toBe(
-      "cpuDetail",
-    );
-    expect(
-      externalComponentGuidanceViewForDisplayTarget("settings"),
-    ).toBeNull();
-  });
-
   it("maps stable candidate keys to copy keys and docs URLs", () => {
     const pawnio = candidate("pawnio:cpu-package-temperature:v1");
     const smartctl = candidate("smartctl:storage-health:v1", {
@@ -64,16 +48,44 @@ describe("externalComponentGuidance", () => {
     );
   });
 
-  it("uses permission action copy for permission failures", () => {
-    const missing = candidate("pawnio:cpu-package-temperature:v1");
-    const permission = candidate("pawnio:cpu-package-temperature:v1", {
-      reasonKind: "permission",
+  it("keeps the storage permission instructions distinct from missing setup", () => {
+    const missing = candidate("smartctl:storage-health:v1", {
+      component: "smartctl",
+      usage: "storageHealth",
     });
+    const permission = { ...missing, reasonKind: "permission" } as const;
 
-    expect(externalComponentGuidanceActionKey(missing)).toBe("action");
-    expect(externalComponentGuidanceActionKey(permission)).toBe(
-      "permissionAction",
+    expect(externalComponentGuidanceActionKey(missing)).toBe(
+      "externalComponentGuidance.candidates.smartctlStorageHealth.action",
     );
+    expect(externalComponentGuidanceActionKey(permission)).toBe(
+      "externalComponentGuidance.candidates.smartctlStorageHealth.permissionAction",
+    );
+  });
+
+  it("shares sensor service instructions across PawnIO usages and failure kinds", () => {
+    for (const usage of [
+      "cpuPackageTemperature",
+      "motherboardSensors",
+    ] as const) {
+      for (const reasonKind of [
+        "missing",
+        "permission",
+        "misconfigured",
+        "failed",
+      ] as const) {
+        expect(
+          externalComponentGuidanceActionKey(
+            candidate(
+              usage === "cpuPackageTemperature"
+                ? "pawnio:cpu-package-temperature:v1"
+                : "pawnio:motherboard-sensors:v1",
+              { usage, reasonKind },
+            ),
+          ),
+        ).toBe("sensorService.setupGuidance");
+      }
+    }
   });
 
   it("uses Japanese docs URLs for Japanese UI languages", () => {

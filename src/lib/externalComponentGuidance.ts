@@ -1,8 +1,4 @@
-import type {
-  ExternalComponentGuidanceCandidate,
-  ExternalComponentGuidanceView,
-} from "@/rspc/bindings";
-import type { SelectedDisplayType } from "@/types/ui";
+import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
 
 export const EXTERNAL_COMPONENT_DOCS_BASE_URL =
   "https://github.com/shm11C3/HardwareVisualizer/blob/develop/docs/user/external-components.md";
@@ -22,8 +18,6 @@ type ExternalComponentGuidanceCopyKey =
   | "smartctlStorageHealth"
   | "generic";
 
-type ExternalComponentGuidanceActionKey = "action" | "permissionAction";
-
 const EXTERNAL_COMPONENT_COPY_KEYS: Record<
   string,
   ExternalComponentGuidanceCopyKey
@@ -41,30 +35,22 @@ export type PerformanceGuidanceContext = {
   expanded: boolean;
 };
 
-export const externalComponentGuidanceViewForDisplayTarget = (
-  displayTarget: SelectedDisplayType | null,
-): ExternalComponentGuidanceView | null => {
-  switch (displayTarget) {
-    case "dashboard":
-      return "dashboard";
-    case "performance":
-      return "performance";
-    case "cpuDetail":
-      return "cpuDetail";
-    default:
-      return null;
-  }
-};
-
 export const externalComponentGuidanceCopyKey = (
-  candidate: ExternalComponentGuidanceCandidate,
+  candidate: Pick<ExternalComponentGuidanceCandidate, "key">,
 ): ExternalComponentGuidanceCopyKey =>
   EXTERNAL_COMPONENT_COPY_KEYS[candidate.key] ?? "generic";
 
 export const externalComponentGuidanceActionKey = (
   candidate: ExternalComponentGuidanceCandidate,
-): ExternalComponentGuidanceActionKey =>
-  candidate.reasonKind === "permission" ? "permissionAction" : "action";
+) => {
+  if (candidate.component === "pawnio") return "sensorService.setupGuidance";
+
+  const action =
+    candidate.reasonKind === "permission" ? "permissionAction" : "action";
+  const copyKey = externalComponentGuidanceCopyKey(candidate);
+  const actionCopy = copyKey === "smartctlStorageHealth" ? copyKey : "generic";
+  return `externalComponentGuidance.candidates.${actionCopy}.${action}` as const;
+};
 
 export const externalComponentGuidanceDocsBaseUrl = (
   language?: string | null,

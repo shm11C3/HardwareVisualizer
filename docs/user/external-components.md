@@ -57,20 +57,23 @@ does not add the service automatically. If sensor readings remain unavailable
 after fallback collection, **Open sensor settings** takes you to the service
 setup section. Existing guidance dismissals are respected.
 
-Automatic sensor setup guidance is shown at most once per launch, during the
-initial screen's first ten seconds after settings/navigation are ready. Later
-sensor failures, switching screens or restoring the window do not open another
-setup dialog. If another startup dialog occupies that period, pending sensor
-guidance expires. You can always check or repair the service in Settings.
+Sensor guidance appears as a nonmodal notice when actual collection failures
+leave readings on the current screen unavailable. It follows the normal sensor
+updates and disappears on recovery; there is no setup dialog, startup deadline
+or separate periodic sensor-guidance check. Closing it hides sensor guidance
+for this launch. **Never show again** remembers the currently shown collection
+gaps. Settings always remains available for checking or repairing the service.
 
 If **Run as administrator on startup** was enabled, use the separate **Use
 normal permissions on next startup** action after the service connects, then
 exit and launch normally. The existing process retains its token. Other
 privileged providers may expose less data. User-created highest-privilege
 scheduled tasks or compatibility settings must be changed by their owner.
-When the service supplies readings and elevated startup remains enabled, a
-dismissible notice links to this switch; the saved choice is kept until you
-change it.
+When elevated startup remains enabled and the current process is elevated,
+the same notice links to Settings to check setup and the startup preference.
+This information does not assert that the service is ready. Settings checks
+readiness before offering the switch; the saved choice is kept until you
+change it. The notice is not shown on the Settings screen.
 
 Without the service, ordinary monitoring and available ACPI fallback continue.
 The NSIS/portable app may use a compatible installed service; first-time setup

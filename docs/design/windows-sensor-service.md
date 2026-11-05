@@ -227,6 +227,15 @@ owned by the other crate. Explain that other privileged providers may expose
 less data after switching. Do not automatically fall back to whole-app
 elevation when the service later becomes unavailable.
 
+Automatic sensor guidance is one nonmodal notice. It uses failed-attempt
+diagnostics carried by the existing hardware monitor event and relevant to
+visible readings, or neutral information about a saved elevated-startup
+preference while the process is elevated. It does not query service status or
+infer readiness from missing or present temperatures. Closing it silences the
+notice for this launch; existing per-key permanent suppressions are retained.
+Settings owns status reads and explicit setup, repair and startup changes.
+There is no separate sensor-guidance timer, startup deadline or modal queue.
+
 The current process cannot discard elevation in place. Apply the preference
 to the next normal user launch; never relaunch from the elevated parent and
 claim the child is unelevated without token evidence. Preserve autostart and

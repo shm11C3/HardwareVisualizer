@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import type { ExternalComponentGuidanceCandidate } from "../src/rspc/bindings";
-import { capturePath, gotoApp, navigateTo } from "./helpers";
+import { capturePath, gotoApp } from "./helpers";
 
 const CPU_PERMISSION: ExternalComponentGuidanceCandidate = {
   key: "pawnio:cpu-package-temperature:v1",
@@ -18,11 +18,10 @@ const MOTHERBOARD_PERMISSION: ExternalComponentGuidanceCandidate = {
   missingSignals: ["motherboard-temperature", "motherboard-fan-speed"],
 };
 const CTA = "Open sensor settings";
-
-test.beforeEach(async ({ page }) => {
-  await page.clock.install();
-});
-
+const setupNotice = (page: Page) =>
+  page.getByRole("complementary", {
+    name: "Some sensor readings are unavailable",
+  });
 const publishCandidates = async (
   page: Page,
   candidates: ExternalComponentGuidanceCandidate[],
@@ -31,200 +30,113 @@ const publishCandidates = async (
     (items) => window.__E2E__?.setGuidanceCandidates(items),
     candidates,
   );
-  // Allow the bounded initial sensor evaluation to observe the attempted read.
-  await page.clock.fastForward(1_000);
 };
+test.beforeEach(async ({ page }) => {
+  await page.clock.install();
+});
 
-const hideGuidance = async (page: Page, permanently = false) => {
-  await page.getByRole("button", { name: "Hide", exact: true }).click();
-  await page
-    .getByRole("menuitem", {
-      name: permanently ? "Never show again" : "Hide for this session",
-      exact: true,
-    })
-    .click();
-};
-
-test("fresh startup offers sensor service guidance without elevating the app", async ({
+test("failed sensor collection offers settings without a modal or a status query", async ({
   page,
 }) => {
-  await gotoApp(page, {
-    path: "/?firstClose=1&showNavigationNotice=1&sensorService=missing",
-  });
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        window.__E2E__?.getInvokeCount(
-          "get_external_component_guidance_candidates",
-        ),
-      ),
-    )
-    .toBeGreaterThan(0);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await gotoApp(page, { path: "/?sensorService=missing" });
   await publishCandidates(page, [{ ...CPU_PERMISSION, reasonKind: "missing" }]);
-  const dialog = page.getByRole("alertdialog");
-  await expect(dialog).toBeVisible();
+  await expect(setupNotice(page)).toBeVisible();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await expect(
-    dialog.getByText("CPU package temperature", { exact: true }),
+    setupNotice(page).getByText(/Install or repair the Windows sensor service/),
   ).toBeVisible();
-  await expect(
-    dialog.getByText(/Install or repair the Windows sensor service/),
-  ).toBeVisible();
-  await page.screenshot({
-    path: capturePath("performance-permission-guidance"),
-    fullPage: true,
-    animations: "disabled",
-  });
-  await page.setViewportSize({ width: 520, height: 800 });
-  await page.screenshot({
-    path: capturePath("performance-permission-guidance-narrow"),
-    fullPage: true,
-    animations: "disabled",
-  });
-  await dialog.getByRole("button", { name: CTA }).click();
   expect(
     await page.evaluate(() =>
-      window.__E2E__?.getInvokeCount("plugin:shell|open"),
+      window.__E2E__?.getInvokeCount("get_sensor_service_status"),
     ),
   ).toBe(0);
-  expect(
-    await page.evaluate(() =>
-      window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
-    ),
-  ).toBe(0);
-  const section = page.getByRole("region", {
-    name: "Windows sensor service",
-    exact: true,
-  });
-  await expect(section).toBeFocused();
-  await expect(
-    section.getByText(
-      /Set up PawnIO and its modules under Optional component setup/,
-    ),
-  ).toBeVisible();
-  await expect(
-    section.getByRole("button", { name: "Install or repair service" }),
-  ).toBeEnabled();
-  await page.screenshot({
-    path: capturePath("sensor-service-setup-narrow"),
-    animations: "disabled",
-  });
-  await expect(
-    page.getByRole("switch", { name: "Run as administrator on startup" }),
-  ).not.toBeChecked();
-});
-
-test("Performance ignores unrelated components", async ({ page }) => {
-  await gotoApp(page);
-  await publishCandidates(page, [
-    {
-      ...CPU_PERMISSION,
-      key: "smartctl:storage-health:v1",
-      component: "smartctl",
-      usage: "storageHealth",
-    },
-  ]);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-});
-
-test("startup guidance follows the enabled panel and is not repeated for another sensor", async ({
-  page,
-}) => {
-  await gotoApp(page, { path: "/?legacyPerformanceLayout=1" });
-  await publishCandidates(page, [MOTHERBOARD_PERMISSION]);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await page.getByTestId("performance-edit-toggle").click();
-  await page.getByRole("button", { name: "Show Motherboard sensors" }).click();
-  await expect(page.getByRole("alertdialog")).toBeVisible();
-  await expect(
-    page.getByText("Motherboard temperature sensors and fan speeds", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await hideGuidance(page);
-  await page.getByRole("tab", { name: "Monitor", exact: true }).click();
-  await publishCandidates(page, [CPU_PERMISSION]);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await page.getByRole("tab", { name: "Panels", exact: true }).click();
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-});
-
-test("late sensor failures, restored visibility and screen changes do not reopen setup guidance", async ({
-  page,
-}) => {
-  await gotoApp(page);
-  await page.clock.fastForward(11_000);
-  const checks = await page.evaluate(() =>
-    window.__E2E__?.getInvokeCount(
-      "get_external_component_guidance_candidates",
-    ),
-  );
-  await page.evaluate(
-    (item) => window.__E2E__?.setGuidanceCandidates([item]),
-    CPU_PERMISSION,
-  );
-  await page.clock.fastForward(60_000);
-  await page.evaluate(() =>
-    document.dispatchEvent(new Event("visibilitychange")),
-  );
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await navigateTo(page, "systemSpecifications");
-  await navigateTo(page, "performance");
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect(
     await page.evaluate(() =>
       window.__E2E__?.getInvokeCount(
         "get_external_component_guidance_candidates",
       ),
     ),
-  ).toBe(checks);
+  ).toBe(0);
+  await page.screenshot({
+    path: capturePath("sensor-service-setup-notice"),
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 520, height: 800 });
+  await page.screenshot({
+    path: capturePath("sensor-service-setup-notice-narrow"),
+    animations: "disabled",
+  });
+  await setupNotice(page).getByRole("button", { name: CTA }).click();
+  const section = page.getByRole("region", {
+    name: "Windows sensor service",
+    exact: true,
+  });
+  await expect(section).toBeFocused();
+  await expect(
+    section.getByText(/Set up PawnIO and its modules/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("switch", { name: "Run as administrator on startup" }),
+  ).not.toBeChecked();
 });
 
-test("expanded Compact waits until its normal view is restored", async ({
+test("late failures and recovery follow the data without interrupting the current screen", async ({
   page,
 }) => {
   await gotoApp(page);
-  await page.getByRole("tab", { name: "Compact", exact: true }).click();
-  await page.getByTestId("performance-compact-expand").click();
+  await page.clock.fastForward(60_000);
   await publishCandidates(page, [CPU_PERMISSION]);
+  await expect(setupNotice(page)).toBeVisible();
+  await expect(page.getByTestId("performance-screen")).toBeVisible();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await page.getByTestId("performance-compact-collapse").click();
-  await expect(page.getByRole("button", { name: CTA })).toBeVisible();
-  await page.screenshot({
-    path: capturePath("performance-compact-permission-guidance"),
-    fullPage: true,
-    animations: "disabled",
-  });
-});
-
-test("upgraded elevated users are guided to add the service without changing their preference", async ({
-  page,
-}) => {
-  await page.addInitScript(() =>
-    localStorage.setItem("e2e:elevatedStartupMode", "true"),
-  );
-  await gotoApp(page, { path: "/?processElevated=1&sensorService=missing" });
-  await publishCandidates(page, [{ ...CPU_PERMISSION, reasonKind: "missing" }]);
-  await page.getByRole("button", { name: CTA }).click();
-  await expect(
-    page.getByRole("region", { name: "Windows sensor service", exact: true }),
-  ).toBeFocused();
-  await expect(
-    page.getByRole("switch", { name: "Run as administrator on startup" }),
-  ).toBeChecked();
-  await expect(
-    page.getByRole("button", {
-      name: "Use normal permissions on next startup",
-    }),
-  ).toBeDisabled();
+  await publishCandidates(page, []);
+  await expect(setupNotice(page)).toHaveCount(0);
   expect(
     await page.evaluate(() =>
-      window.__E2E__?.getInvokeCount("configure_sensor_service"),
+      window.__E2E__?.getInvokeCount("get_sensor_service_status"),
     ),
   ).toBe(0);
 });
 
-test("service-ready upgraded users can explicitly switch to normal startup", async ({
+test("sensor guidance follows visible panels and does not appear in Monitor", async ({
+  page,
+}) => {
+  await gotoApp(page, { path: "/?legacyPerformanceLayout=1" });
+  await publishCandidates(page, [MOTHERBOARD_PERMISSION]);
+  await expect(setupNotice(page)).toHaveCount(0);
+  await page.getByTestId("performance-edit-toggle").click();
+  await page.getByRole("button", { name: "Show Motherboard sensors" }).click();
+  await expect(setupNotice(page)).toBeVisible();
+  await page.getByRole("tab", { name: "Monitor", exact: true }).click();
+  await expect(setupNotice(page)).toHaveCount(0);
+  await page.getByRole("tab", { name: "Panels", exact: true }).click();
+  await expect(setupNotice(page)).toBeVisible();
+});
+
+test("dismissal stays quiet for the launch and permanent suppression survives reload", async ({
+  page,
+}) => {
+  await gotoApp(page);
+  await publishCandidates(page, [CPU_PERMISSION]);
+  await setupNotice(page)
+    .getByRole("button", { name: "Hide sensor guidance for this session" })
+    .click();
+  await publishCandidates(page, [MOTHERBOARD_PERMISSION, CPU_PERMISSION]);
+  await page.clock.fastForward(60_000);
+  await expect(setupNotice(page)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("performance-screen")).toBeVisible();
+  await publishCandidates(page, [CPU_PERMISSION]);
+  await setupNotice(page)
+    .getByRole("button", { name: "Never show again" })
+    .click();
+  await page.reload();
+  await expect(page.getByTestId("performance-screen")).toBeVisible();
+  await publishCandidates(page, [CPU_PERMISSION]);
+  await expect(setupNotice(page)).toHaveCount(0);
+});
+
+test("elevated users review setup and explicitly choose normal startup in Settings", async ({
   page,
 }) => {
   await page.addInitScript(() =>
@@ -232,22 +144,39 @@ test("service-ready upgraded users can explicitly switch to normal startup", asy
   );
   await gotoApp(page, { path: "/?processElevated=1" });
   const notice = page.getByRole("complementary", {
-    name: "Sensors can use normal permissions",
+    name: "Run as administrator on startup is enabled",
   });
   await expect(notice).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      window.__E2E__?.getInvokeCount("get_sensor_service_status"),
+    ),
+  ).toBe(0);
   await page.screenshot({
-    path: capturePath("sensor-service-startup-notice"),
+    path: capturePath("sensor-service-permissions-notice"),
     animations: "disabled",
   });
   await page.setViewportSize({ width: 520, height: 800 });
   await page.screenshot({
-    path: capturePath("sensor-service-startup-notice-narrow"),
+    path: capturePath("sensor-service-permissions-notice-narrow"),
     animations: "disabled",
   });
   await notice.getByRole("button", { name: CTA }).click();
   await expect(
     page.getByRole("region", { name: "Windows sensor service", exact: true }),
   ).toBeFocused();
+  await expect(
+    page.getByText("Service connected", { exact: true }),
+  ).toBeVisible();
+  const reads = await page.evaluate(() =>
+    window.__E2E__?.getInvokeCount("get_sensor_service_status"),
+  );
+  await page.clock.fastForward(60_000);
+  expect(
+    await page.evaluate(() =>
+      window.__E2E__?.getInvokeCount("get_sensor_service_status"),
+    ),
+  ).toBe(reads);
   await expect(
     page.getByRole("switch", { name: "Run as administrator on startup" }),
   ).toBeChecked();
@@ -260,47 +189,32 @@ test("service-ready upgraded users can explicitly switch to normal startup", asy
   await expect(page.getByText(/This process is still elevated/)).toBeVisible();
 });
 
-test("unprotected installs offer service details without suggesting app elevation", async ({
+test("unprotected installations keep MSI guidance and never offer silent elevation", async ({
   page,
 }) => {
   await gotoApp(page, { path: "/?elevation=unprotected" });
   await publishCandidates(page, [CPU_PERMISSION]);
-  const dialog = page.getByRole("alertdialog");
+  await expect(setupNotice(page)).toBeVisible();
+  await page.screenshot({
+    path: capturePath("sensor-service-unprotected-notices"),
+    animations: "disabled",
+  });
+  await setupNotice(page).getByRole("button", { name: CTA }).click();
   await expect(
-    dialog.getByText(/Install or repair the Windows sensor service/),
+    page.getByRole("button", { name: "Install or repair service" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText(
+      /Use the HardwareVisualizer MSI installed under Program Files/,
+    ),
   ).toBeVisible();
-  await expect(dialog.getByRole("button", { name: CTA })).toBeVisible();
-  await expect(
-    dialog.getByRole("button", {
-      name: "Enable Run as administrator on startup",
-    }),
-  ).toHaveCount(0);
-});
-
-test("deferral lasts for the session and acknowledgement survives reload", async ({
-  page,
-}) => {
-  await gotoApp(page);
-  await publishCandidates(page, [CPU_PERMISSION]);
-  await expect(page.getByRole("button", { name: CTA })).toBeVisible();
-  await hideGuidance(page);
-  await publishCandidates(page, [CPU_PERMISSION, MOTHERBOARD_PERMISSION]);
-  await page.clock.fastForward(60_000);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await page.reload();
-  await expect(page.getByTestId("performance-screen")).toBeVisible();
-  await publishCandidates(page, [CPU_PERMISSION]);
-  await expect(page.getByRole("button", { name: CTA })).toBeVisible();
-  await hideGuidance(page, true);
-  await page.reload();
-  await expect(page.getByTestId("performance-screen")).toBeVisible();
-  await publishCandidates(page, [CPU_PERMISSION]);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });
 
 for (const choice of ["Continue in background", "Quit app"]) {
   test(`first close still offers and saves ${choice}`, async ({ page }) => {
     await gotoApp(page, { path: "/?firstClose=1" });
+    await publishCandidates(page, [CPU_PERMISSION]);
+    await expect(setupNotice(page)).toBeVisible();
     await expect
       .poll(() =>
         page.evaluate(() =>
@@ -337,40 +251,6 @@ for (const choice of ["Continue in background", "Quit app"]) {
     ).toBe(1);
   });
 }
-
-test("late guidance and a close request wait behind an active conversion", async ({
-  page,
-}) => {
-  await gotoApp(page, {
-    path: "/?databaseConversion=sqliteAuthoritative&nsisMigrationNotice=1&firstClose=1",
-  });
-  const conversion = page.getByRole("alertdialog", {
-    name: "A more efficient database is available",
-  });
-  await expect(conversion).toBeVisible();
-  await publishCandidates(page, [CPU_PERMISSION]);
-  await page.evaluate(() => window.__E2E__?.requestFirstClose());
-  await expect(page.getByRole("alertdialog")).toHaveCount(1);
-  await expect(conversion).toBeVisible();
-  await conversion.getByRole("button", { name: "Later", exact: true }).click();
-  await expect(
-    page.getByRole("alertdialog", { name: "Keep HardwareVisualizer running?" }),
-  ).toBeVisible();
-  await expect(page.getByRole("alertdialog")).toHaveCount(1);
-  await page
-    .getByRole("button", { name: "Continue in background", exact: true })
-    .click();
-  await expect(page.getByRole("button", { name: CTA })).toBeVisible();
-  await expect(page.getByRole("alertdialog")).toHaveCount(1);
-  await hideGuidance(page);
-  await expect(page.getByRole("alertdialog")).toHaveCount(1);
-  await expect(
-    page
-      .getByRole("alertdialog")
-      .getByText(/MSI installer/)
-      .first(),
-  ).toBeVisible();
-});
 
 test("a failed settings load still permits the first-close Quit action", async ({
   page,

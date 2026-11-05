@@ -4,7 +4,10 @@ import type {
   MotherboardTemperatureValues,
   NameValues,
 } from "@/features/hardware/types/hardwareDataType";
-import type { SensorSupport } from "@/rspc/bindings";
+import type {
+  ExternalComponentGuidanceCandidate,
+  SensorSupport,
+} from "@/rspc/bindings";
 
 export const cpuTempAtom = atom<NameValues>([]);
 export const cpuFanSpeedAtom = atom<NameValues>([]);
@@ -20,6 +23,13 @@ export const motherboardFanSpeedsAtom = atom<MotherboardFanSpeedValues>([]);
 
 /** Hardware support for motherboard fan-speed collection. */
 export const motherboardFanSupportAtom = atom<SensorSupport>("unknown");
+
+/** The notice needs the Core key/usage, not the diagnostic detail on every sample. */
+export type SensorGuidance = Pick<
+  ExternalComponentGuidanceCandidate,
+  "key" | "component" | "usage"
+>;
+export const sensorGuidanceAtom = atom<SensorGuidance[]>([]);
 
 /**
  * Whether any Super I/O reading is present. A flag, so the card that decides

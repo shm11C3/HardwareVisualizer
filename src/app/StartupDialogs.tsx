@@ -1,5 +1,4 @@
 import { useLayoutEffect, useState } from "react";
-import type { PerformanceGuidanceContext } from "@/lib/externalComponentGuidance";
 import type { SelectedDisplayType } from "@/types/ui";
 import { CloseToTrayFirstRunDialog } from "./CloseToTrayFirstRunDialog";
 import { DatabaseConversionPromptDialog } from "./DatabaseConversionPromptDialog";
@@ -13,13 +12,11 @@ export const StartupDialogs = ({
   settingsLoaded,
   settingsSettled,
   displayTarget,
-  performanceContext,
   nsisMigrationNoticeDismissed,
 }: {
   settingsLoaded: boolean;
   settingsSettled: boolean;
   displayTarget: SelectedDisplayType | null;
-  performanceContext: PerformanceGuidanceContext;
   nsisMigrationNoticeDismissed: boolean;
 }) => {
   const [active, setActive] = useState<Dialog | null>(null);
@@ -70,7 +67,6 @@ export const StartupDialogs = ({
       <ExternalComponentGuidanceDialog
         settingsLoaded={settingsLoaded}
         displayTarget={displayTarget}
-        performanceContext={performanceContext}
         deferred={active !== "guidance"}
         onRequestChange={setGuidanceRequested}
         onPendingChange={setGuidancePending}

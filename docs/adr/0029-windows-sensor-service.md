@@ -76,15 +76,20 @@ its lifecycle and security cost by serving that startup requirement.
    Missing-service guidance follows an attempted visible sensor collection and
    insufficient fallback, including elevated clients upgrading from direct
    PawnIO collection. It opens the existing service section in Settings.
-   Automatic sensor setup dialogs are limited to one per launch, during the
-   initial screen's first ten seconds after settings/navigation become ready.
-   This bounded evaluation lets the first sensor attempt settle; later failures,
-   screen changes and window restoration never reopen sensor setup guidance.
-   A queued dialog expires with this window; an already visible dialog remains
-   until the user acts. Ongoing setup/status checks remain available in Settings.
-   Once the service supplies readings, a dismissible notice makes the explicit
-   normal-startup switch discoverable to elevated-startup users. Neither notice
-   installs anything or changes the saved startup preference automatically.
+   Use one nonmodal sensor notice, driven by diagnostics in the existing
+   hardware monitor event. It reflects failed collection for readings visible
+   on the current screen and disappears on recovery; no dedicated guidance
+   polling, startup deadline, dialog queue or automatic service-status query is
+   needed. The App filters acknowledged and session-deferred keys before
+   emission; the frontend owns screen relevance. Closing the notice hides all
+   sensor guidance for this launch. The existing per-key permanent suppression
+   remains available for collection gaps.
+   When no relevant collection gap is shown, an enabled elevated-startup
+   preference and an actually elevated process produce neutral information
+   linking to Settings. This describes the preference, not service readiness.
+   Settings owns explicit status reads, repair and the readiness-gated switch
+   to normal startup. The notice is excluded there. Neither mode installs
+   anything or changes the saved startup preference automatically.
 
 ## Alternatives Considered
 

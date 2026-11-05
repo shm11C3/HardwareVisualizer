@@ -35,6 +35,7 @@ import {
   motherboardFanSpeedsAtom,
   motherboardFanSupportAtom,
   motherboardTempsAtom,
+  sensorGuidanceAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/sensors";
 import type { GpuMonitorData, HardwareMonitorUpdate } from "@/rspc/bindings";
@@ -104,6 +105,7 @@ const makePayload = (
     motherboardTemperatures: [],
     motherboardFanSpeeds: [],
     motherboardFanSupport: "supported",
+    externalComponentGuidanceCandidates: [],
     ...rest,
   };
 };
@@ -488,6 +490,7 @@ describe("useHardwareEventListener", () => {
         makePayload({
           cpuPowerSupport: "unsupported",
           motherboardFanSupport: "supported",
+          externalComponentGuidanceCandidates: [],
         }),
       ),
     );
@@ -907,6 +910,48 @@ describe("useHardwareEventListener", () => {
   // ── Reference stability (subscription granularity, #1638) ──
 
   describe("reference stability", () => {
+    it("does not notify sensor guidance readers when only diagnostic detail changes", () => {
+      const store = createStore();
+      renderHook(() => useHardwareEventListener(), {
+        wrapper: ({ children }) => createElement(Provider, { store }, children),
+      });
+      const candidate: HardwareMonitorUpdate["externalComponentGuidanceCandidates"][number] =
+        {
+          key: "pawnio:cpu-package-temperature:v1",
+          component: "pawnio",
+          usage: "cpuPackageTemperature",
+          reasonKind: "missing",
+          missingSignals: ["cpu-temperature"],
+          affectedDeviceCount: null,
+          diagnosticDetail: "Service unavailable",
+        };
+      act(() =>
+        emit(makePayload({ externalComponentGuidanceCandidates: [candidate] })),
+      );
+      const previous = store.get(sensorGuidanceAtom);
+      const onGuidance = vi.fn();
+      const unsubscribe = store.sub(sensorGuidanceAtom, onGuidance);
+
+      act(() =>
+        emit(
+          makePayload({
+            cpuUsage: 51,
+            externalComponentGuidanceCandidates: [
+              { ...candidate, diagnosticDetail: "Connection retry" },
+            ],
+          }),
+        ),
+      );
+
+      expect(store.get(sensorGuidanceAtom)).toBe(previous);
+      expect(onGuidance).not.toHaveBeenCalled();
+
+      act(() => emit(makePayload()));
+      expect(store.get(sensorGuidanceAtom)).toEqual([]);
+      expect(onGuidance).toHaveBeenCalledTimes(1);
+      unsubscribe();
+    });
+
     const richGpu = () =>
       makeGpu({
         gpuDedicatedMemoryUsageKb: 2048,
