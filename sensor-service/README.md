@@ -23,7 +23,7 @@ The hook resolves Cargo's actual target directory, passes the Tauri version
 into the executable's version resource, stages the executable under the WiX
 owner's ignored `generated/` directory and signs it when
 `ENABLE_WINDOWS_SIGNING=true`. Both the MSI File and embedded directory
-validator use those same bytes. The service is an optional MSI feature, not a
+validator use those same bytes. The service is a standard MSI feature, not a
 sidecar the app can accidentally execute from a writable installation.
 
 `--validate-install-dir <directory>` performs read-only path/ACL validation
@@ -32,3 +32,9 @@ the executable is started only by the Windows Service Control Manager.
 
 Setup and repair use the registered MSI feature; no runtime IPC operation can
 install, download, load a client-specified module or execute a command.
+
+New and upgraded protected MSI installations include it without an opt-in or
+prior-selection registry marker. Its feature follows the required application
+parent and exists as a repair boundary. `check-msi.ps1` verifies the compiled
+tables and costs fresh/full-UI, silent, upgrade-property and unprotected plans
+without executing installation. PawnIO driver setup remains a separate choice.

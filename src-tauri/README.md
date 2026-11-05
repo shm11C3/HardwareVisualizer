@@ -10,9 +10,9 @@ lives here; everything else belongs in `hardviz-core`.
 
 [issue-1402]: https://github.com/shm11C3/HardwareVisualizer/issues/1402
 
-The optional Windows sensor service is a separate executable. This crate owns
+The MSI-bundled Windows sensor service is a separate executable. This crate owns
 its MSI feature, setup/status commands and deliberate elevated-startup
-migration UI; Core owns authenticated IPC and providers. See the
+setting; Core owns authenticated IPC and providers. See the
 [service owner guide](../sensor-service/README.md).
 
 ## Responsibilities

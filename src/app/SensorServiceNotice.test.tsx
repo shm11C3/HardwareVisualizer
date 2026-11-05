@@ -122,21 +122,13 @@ describe("SensorServiceNotice", () => {
     },
   );
 
-  it("explains the elevated startup preference without claiming service readiness", async () => {
+  it("does not offer a migration CTA solely because elevated startup is enabled", () => {
     mocks.elevated = true;
     mocks.settings.elevatedStartupMode = true;
     render(<SensorServiceNotice {...props} />);
-    expect(
-      screen.getByText("Run as administrator on startup is enabled"),
-    ).toBeInTheDocument();
-    expect(mocks.status).not.toHaveBeenCalled();
-    await userEvent.click(
-      screen.getByRole("button", {
-        name: "Hide sensor guidance for this session",
-      }),
-    );
-    expect(mocks.defer).not.toHaveBeenCalled();
     expect(screen.queryByRole("complementary")).toBeNull();
+    expect(mocks.status).not.toHaveBeenCalled();
+    expect(mocks.defer).not.toHaveBeenCalled();
   });
 
   it("does not duplicate the service section on Settings", () => {

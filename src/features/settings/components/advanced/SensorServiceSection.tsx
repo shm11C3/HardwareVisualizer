@@ -3,12 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActionFailure } from "@/components/ActionFailure";
 import { LoadFailure } from "@/components/LoadFailure";
-import { SettingWriteFailure } from "@/components/SettingWriteFailure";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useSensorServiceSettingsFocus } from "@/hooks/navigation/useSensorServiceSettings";
-import { useProcessElevated } from "@/hooks/settings/useElevationAvailability";
-import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { commands, type SensorServiceStatus } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
@@ -19,8 +16,6 @@ type StatusRead =
 
 export const SensorServiceSection = () => {
   const { t } = useTranslation();
-  const { settings, updateSettingAtom } = useSettingsAtom();
-  const elevated = useProcessElevated();
   const windows = platform() === "windows";
   const [read, setRead] = useState<StatusRead>({ state: "loading" });
   const [setupFailed, setSetupFailed] = useState(false);
@@ -124,27 +119,6 @@ export const SensorServiceSection = () => {
         </Button>
       </div>
       {setupFailed && <ActionFailure message={t("sensorService.failed")} />}
-      {settings.elevatedStartupMode && (
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            {t("sensorService.switchDescription")}
-          </p>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={!status?.connected || busy}
-            onClick={() => void updateSettingAtom("elevatedStartupMode", false)}
-          >
-            {t("sensorService.switchToNormal")}
-          </Button>
-          <SettingWriteFailure actions="elevatedStartupMode" />
-        </div>
-      )}
-      {elevated === true && (
-        <p className="text-sm text-muted-foreground">
-          {t("sensorService.currentProcessElevated")}
-        </p>
-      )}
     </section>
   );
 };

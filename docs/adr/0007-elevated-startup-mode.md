@@ -3,7 +3,7 @@
 Status: accepted
 
 Amended by [ADR 0029](0029-windows-sensor-service.md): PawnIO collection now
-uses an optional Windows service so the resident app can run unelevated. This
+uses an MSI-bundled Windows service so the resident app can run unelevated. This
 record still governs explicitly selected Elevated Startup Mode and activation
 compatibility with older elevated residents.
 

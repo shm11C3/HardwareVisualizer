@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { BOOTSTRAP_TIMEOUT, gotoApp, navigateTo, saveCapture } from "./helpers";
 
 test.describe("settings captures", () => {
-  test("sensor service setup and normal startup are separate choices", async ({
+  test("service repair preserves startup intent and settings explains normal permissions", async ({
     page,
   }) => {
     await page.addInitScript(() =>
@@ -19,9 +19,7 @@ test.describe("settings captures", () => {
     await page.setViewportSize({ width: 520, height: 800 });
     await section.scrollIntoViewIfNeeded();
     await saveCapture(page, "settings-sensor-service-narrow");
-    await section
-      .getByRole("button", { name: "Install or repair service" })
-      .click();
+    await section.getByRole("button", { name: "Repair service" }).click();
     expect(
       await page.evaluate(() =>
         window.__E2E__?.getInvokeCount("configure_sensor_service"),
@@ -32,14 +30,17 @@ test.describe("settings captures", () => {
         window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
       ),
     ).toBe(0);
-    await section
-      .getByRole("button", { name: "Use normal permissions on next startup" })
+    await expect(
+      page.getByText(/MSI installs and updates include the sensor service/),
+    ).toBeVisible();
+    await page
+      .getByRole("switch", { name: "Run as administrator on startup" })
       .click();
     await expect(
       page.getByRole("switch", { name: "Run as administrator on startup" }),
     ).not.toBeChecked();
     await expect(
-      section.getByText(/This process is still elevated/),
+      page.getByText(/This process is still elevated/),
     ).toBeVisible();
   });
 
@@ -80,7 +81,7 @@ test.describe("settings captures", () => {
     ).toBeDisabled();
     await expect(
       page.getByRole("button", {
-        name: "Install or repair service",
+        name: "Repair service",
         exact: true,
       }),
     ).toBeDisabled();

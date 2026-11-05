@@ -4,7 +4,7 @@ Status: accepted
 
 Tracking issue: [#2508](https://github.com/shm11C3/HardwareVisualizer/issues/2508).
 
-Implementation status: service, authenticated IPC, app integration and optional
+Implementation status: service, authenticated IPC, app integration and standard
 MSI setup are implemented in this change. Windows hardware/logon qualification
 and signed release-artifact verification remain release gates. This amends the
 service deferral in ADRs 0007 and 0024; existing explicit elevated-startup
@@ -59,19 +59,21 @@ its lifecycle and security cost by serving that startup requirement.
    unrelated monitoring and existing fallbacks. Never silently elevate or
    present stale readings as current; service restarts invalidate acquisition
    generations and power-delta baselines.
-5. **Make installation a separate, explicit choice.** The service is an
-   optional, machine-wide feature of the protected MSI installation. Initial
-   install, repair and maintenance use an explicitly elevated installer path.
-   Existing PawnIO installation does not authorize adding a service on upgrade.
-   Previously selected service features can be maintained on upgrade. Routine
+5. **Ship the service as part of the protected MSI application.** New installs
+   and upgrades include the machine-wide service without a separate opt-in,
+   including unattended updates. It is an app-owned implementation boundary,
+   not an external driver. The installer explains its purpose and uses the
+   normal installation elevation context. PawnIO and its modules retain their
+   existing explicit setup policy; bundling the service neither downloads nor
+   installs that driver. Service absence does not prevent app startup. Routine
    startup, reconnect and tray activation request no elevation. NSIS/portable
    clients can use a compatible installed service but do not install one from
    their user-writable executable; otherwise partial monitoring remains.
 6. **Preserve installation and user ownership.** The owning MSI upgrades,
    rolls back and removes the app-owned service; full uninstall keeps shared
    PawnIO and modules, as ADRs 0024/0026 require. Service installation does not
-   change `elevatedStartupMode`. Offer existing users an explicit switch to
-   normal startup after service readiness is verified, without changing their
+   change `elevatedStartupMode`. Keep the existing startup-settings toggle as
+   the sole control for choosing normal startup, without changing users'
    autostart/Close to Tray preferences or user-created scheduled tasks.
    Missing-service guidance follows an attempted visible sensor collection and
    insufficient fallback, including elevated clients upgrading from direct
@@ -84,15 +86,21 @@ its lifecycle and security cost by serving that startup requirement.
    emission; the frontend owns screen relevance. Closing the notice hides all
    sensor guidance for this launch. The existing per-key permanent suppression
    remains available for collection gaps.
-   When no relevant collection gap is shown, an enabled elevated-startup
-   preference and an actually elevated process produce neutral information
-   linking to Settings. This describes the preference, not service readiness.
-   Settings owns explicit status reads, repair and the readiness-gated switch
-   to normal startup. The notice is excluded there. Neither mode installs
-   anything or changes the saved startup preference automatically.
+   Explain the new ordinary-permission capability in release notes and the
+   elevated-startup setting. Do not show a migration CTA just because that
+   saved preference is enabled or the process is elevated. Settings owns
+   explicit status reads and repair; the startup setting explains sensor
+   privilege requirements and the next-launch behavior. The failure notice is
+   excluded there and never changes preferences or installs components automatically.
 
 ## Alternatives Considered
 
+- **Require a second opt-in for the app-owned service.** This was the initial
+  policy. It leaves upgraded users without their previous sensor coverage until
+  they discover and complete another setup step. Standard protected MSI setup
+  can own that internal migration while retaining separate driver consent and
+  explicit startup preferences. Release notes and contextual settings copy
+  explain the change without turning successful upgrades into CTA workflows.
 - **Keep whole-app elevation or create a highest-privilege scheduled task.**
   The latter hides recurring UAC but leaves the desktop application elevated.
 - **Launch an elevated helper at every app start.** This separates the WebView

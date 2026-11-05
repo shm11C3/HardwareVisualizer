@@ -6,8 +6,8 @@ qualification remain release gates. Tracks [#2508](https://github.com/shm11C3/Ha
 
 ## Product Claim and Scope
 
-After explicit service setup, HardwareVisualizer can start at logon and remain
-in the tray at normal user integrity while retaining its currently supported
+After protected MSI installation or upgrade, HardwareVisualizer can start at
+logon and remain in the tray at normal user integrity while retaining its currently supported
 PawnIO readings. Routine launch, reconnect and reopening require no UAC.
 Installation, repair and updates remain privileged operations. Existing users
 who selected Elevated Startup Mode must explicitly switch that preference.
@@ -185,29 +185,28 @@ samples enter history.
 
 ## Setup, Maintenance and Migration
 
-The first implementation supports an optional machine-wide service feature in
+The implementation includes a standard machine-wide service feature in
 the MSI under an administrator-controlled Program Files installation. The
 service is this application's component, not a shared PawnIO component. Use
 normal Windows Installer service ownership and transactional upgrade/rollback;
 do not use a user-writable result file, current executable or startup task as
 the privileged installation authority.
 
-- Interactive setup explains the background service and offers an explicit
-  selection distinct from installing PawnIO. Silent installs require explicit
-  feature selection. An existing driver/module installation alone never
-  authorizes adding the service during upgrade.
-- Settings shows readiness and an explicit setup/repair action routed to the
-  protected MSI feature. An already installed app can add that feature using
+- Interactive setup explains the app-owned background service. New installs and
+  upgrades include it at every UI level, without a separate feature choice.
+  PawnIO driver setup retains its existing explicit consent policy.
+- Settings shows readiness and an explicit repair action routed to the
+  protected MSI feature. An already installed app can restore that feature using
   its trusted matching MSI package. A standard user may supply administrator
   credentials without transferring their profile/settings ownership to that
   account. Cancelled consent keeps the app running with partial capability.
-- Register the selected service for automatic startup. It can run idle before
+- Register the bundled service for automatic startup. It can run idle before
   logon, but does not poll hardware until client demand arrives. Missing driver
   or modules does not create a service restart loop or install them silently.
-- Maintain an already selected feature during product updates using the
+- Include and maintain the service during product updates using the
   installer's existing elevation context. Stop the sampler and close handles
   before replacement; restart and require a new handshake. Rollback restores
-  the previous executable, registration and selected-feature/start state. A
+  the previous executable, registration and feature/start state. A
   restart failure leaves explicit unavailable data, never app elevation.
 - Define and test an app/service compatibility pair for each release.
   Incompatible older/newer clients degrade without attempting a binary
@@ -220,21 +219,26 @@ the privileged installation authority.
   leave an orphan SYSTEM service pointing to a removed executable.
 
 Keep `elevatedStartupMode=false` for new/default settings. For an existing true
-value, preserve it until the user accepts a dedicated action to switch to
-normal startup after service compatibility and available capabilities have
-been checked. Save through typed Rust IPC in `settings.json`, preserving keys
+value, preserve it until the user turns off the existing elevated-startup
+setting. That single control owns startup intent; the service panel owns status
+and repair. Save through typed Rust IPC in `settings.json`, preserving keys
 owned by the other crate. Explain that other privileged providers may expose
 less data after switching. Do not automatically fall back to whole-app
 elevation when the service later becomes unavailable.
 
 Automatic sensor guidance is one nonmodal notice. It uses failed-attempt
 diagnostics carried by the existing hardware monitor event and relevant to
-visible readings, or neutral information about a saved elevated-startup
-preference while the process is elevated. It does not query service status or
-infer readiness from missing or present temperatures. Closing it silences the
+visible readings. It does not query service status or infer readiness from
+missing or present temperatures. Closing it silences the
 notice for this launch; existing per-key permanent suppressions are retained.
-Settings owns status reads and explicit setup, repair and startup changes.
+Settings owns status reads, explicit repair and the existing startup toggle.
 There is no separate sensor-guidance timer, startup deadline or modal queue.
+Successful upgrades get no migration CTA. Release notes explain the new
+capability; the elevated-startup setting explains that CPU and motherboard
+readings need no whole-app elevation, that existing choices are preserved and
+that changing the preference requires exiting and launching normally. The
+service may still be unavailable on a portable/unprotected installation;
+failure guidance remains relevant there after collection and fallbacks fail.
 
 The current process cannot discard elevation in place. Apply the preference
 to the next normal user launch; never relaunch from the elevated parent and

@@ -33,7 +33,11 @@ vi.mock("react-i18next", () => ({
         "pages.settings.advanced.elevatedStartupMode.name":
           "Run as administrator on startup",
         "pages.settings.advanced.elevatedStartupMode.description":
-          "Restart as administrator.",
+          "CPU and motherboard readings do not require this setting.",
+        "pages.settings.advanced.elevatedStartupMode.migrationNote":
+          "MSI updates include the sensor service. Turn this off to use normal permissions.",
+        "pages.settings.advanced.elevatedStartupMode.currentProcessElevated":
+          "This process is still elevated. Exit and launch normally.",
         "elevationUnavailable.reason": "Not under Program Files.",
         "elevationUnavailable.unknown": "Could not verify.",
         "elevationUnavailable.elevatedStartupModeNotApplied":
@@ -67,6 +71,36 @@ describe("ElevatedStartupModeToggle", () => {
 
     expect(
       screen.getByText("Run as administrator on startup"),
+    ).toBeInTheDocument();
+  });
+
+  it("explains sensor privileges at the setting and preserves the saved choice", async () => {
+    mocks.settings.elevatedStartupMode = true;
+    mocks.useProcessElevated.mockReturnValue(true);
+    const { rerender } = render(<ElevatedStartupModeToggle />);
+
+    expect(
+      screen.getByText(/CPU and motherboard readings do not require/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/MSI updates include the sensor service/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("switch")).toBeChecked();
+    expect(mocks.updateSettingAtom).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("switch"));
+    expect(mocks.updateSettingAtom).toHaveBeenCalledWith(
+      "elevatedStartupMode",
+      false,
+    );
+    mocks.settings.elevatedStartupMode = false;
+    rerender(<ElevatedStartupModeToggle />);
+
+    expect(
+      screen.queryByText(/MSI updates include the sensor service/),
+    ).toBeNull();
+    expect(
+      screen.getByText(/This process is still elevated/),
     ).toBeInTheDocument();
   });
 

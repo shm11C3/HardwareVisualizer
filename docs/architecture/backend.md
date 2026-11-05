@@ -106,7 +106,7 @@ are different lifecycle events. Code that starts, stops, flushes, or cleans up
 workers must key off the process/App shutdown path when it needs finalization,
 not merely the window-close path.
 
-On Windows, the normal app obtains PawnIO readings through the optional
+On Windows, the normal app obtains PawnIO readings through the MSI-bundled
 LocalSystem sensor service. A Core Windows client authenticates a local named
 pipe against the running SCM service; Core providers in that service own only
 privileged sensor sampling. The app retains ordinary collection, ACPI fallback,
@@ -118,7 +118,7 @@ partial monitoring and never automatically elevates the app. See
 Elevated Startup Mode remains an explicit App-owned preference for existing
 users and other privileged capabilities. When enabled, it restarts the whole
 Tauri process elevated. Installing the sensor service does not change it;
-Settings offers an explicit switch to normal startup, applied on the next
+The existing Settings startup toggle controls normal startup, applied on the next
 normal launch. Core is a library, so it cannot change a process token merely
 by moving work onto a thread.
 
@@ -829,8 +829,9 @@ without changing Core-produced keys. The frontend retains only the stable key,
 component and usage used by a single nonmodal sensor notice. Recovery sends an
 empty candidate list, clearing the collection-gap notice. There is no separate
 sensor-guidance query, service-status poll or startup display state machine.
-Settings owns explicit service status and repair. See ADR 0029 for the neutral
-elevated-startup preference information in the same notice.
+Settings owns explicit service status and repair. Release notes and the existing
+elevated-startup setting explain the privilege change; an enabled preference
+alone does not produce a sensor migration notice. See ADR 0029.
 
 Storage Health candidates remain session-held by stable key because collection
 is infrequent. Repeated detections replace the candidate rather than growing a

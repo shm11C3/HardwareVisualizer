@@ -49,6 +49,18 @@ export const ElevatedStartupModeToggle = () => {
             <p className="text-sm text-muted-foreground">
               {t("pages.settings.advanced.elevatedStartupMode.description")}
             </p>
+            {settings.elevatedStartupMode && (
+              <p className="text-sm text-muted-foreground">
+                {t("pages.settings.advanced.elevatedStartupMode.migrationNote")}
+              </p>
+            )}
+            {processElevated === true && (
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  "pages.settings.advanced.elevatedStartupMode.currentProcessElevated",
+                )}
+              </p>
+            )}
             {note && (
               <p className="text-sm text-amber-600 dark:text-amber-400">
                 {note}

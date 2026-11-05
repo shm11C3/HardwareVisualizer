@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import type { ExternalComponentGuidanceCandidate } from "../src/rspc/bindings";
-import { capturePath, gotoApp } from "./helpers";
+import { capturePath, gotoApp, navigateTo } from "./helpers";
 
 const CPU_PERMISSION: ExternalComponentGuidanceCandidate = {
   key: "pawnio:cpu-package-temperature:v1",
@@ -43,7 +43,7 @@ test("failed sensor collection offers settings without a modal or a status query
   await expect(setupNotice(page)).toBeVisible();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await expect(
-    setupNotice(page).getByText(/Install or repair the Windows sensor service/),
+    setupNotice(page).getByText(/Check PawnIO and its signed modules/),
   ).toBeVisible();
   expect(
     await page.evaluate(() =>
@@ -136,35 +136,22 @@ test("dismissal stays quiet for the launch and permanent suppression survives re
   await expect(setupNotice(page)).toHaveCount(0);
 });
 
-test("elevated users review setup and explicitly choose normal startup in Settings", async ({
+test("successful elevated upgrades use contextual settings guidance without a migration CTA", async ({
   page,
 }) => {
   await page.addInitScript(() =>
     localStorage.setItem("e2e:elevatedStartupMode", "true"),
   );
   await gotoApp(page, { path: "/?processElevated=1" });
-  const notice = page.getByRole("complementary", {
-    name: "Run as administrator on startup is enabled",
-  });
-  await expect(notice).toBeVisible();
+  await expect(page.getByRole("complementary")).toHaveCount(0);
+  await page.clock.fastForward(60_000);
+  await expect(page.getByRole("complementary")).toHaveCount(0);
   expect(
     await page.evaluate(() =>
       window.__E2E__?.getInvokeCount("get_sensor_service_status"),
     ),
   ).toBe(0);
-  await page.screenshot({
-    path: capturePath("sensor-service-permissions-notice"),
-    animations: "disabled",
-  });
-  await page.setViewportSize({ width: 520, height: 800 });
-  await page.screenshot({
-    path: capturePath("sensor-service-permissions-notice-narrow"),
-    animations: "disabled",
-  });
-  await notice.getByRole("button", { name: CTA }).click();
-  await expect(
-    page.getByRole("region", { name: "Windows sensor service", exact: true }),
-  ).toBeFocused();
+  await navigateTo(page, "settings");
   await expect(
     page.getByText("Service connected", { exact: true }),
   ).toBeVisible();
@@ -180,8 +167,29 @@ test("elevated users review setup and explicitly choose normal startup in Settin
   await expect(
     page.getByRole("switch", { name: "Run as administrator on startup" }),
   ).toBeChecked();
+  await expect(
+    page.getByText(/CPU temperature, power and motherboard readings/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/MSI installs and updates include the sensor service/),
+  ).toBeVisible();
   await page
-    .getByRole("button", { name: "Use normal permissions on next startup" })
+    .getByRole("switch", { name: "Run as administrator on startup" })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: capturePath("sensor-permissions-settings"),
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 520, height: 800 });
+  await page
+    .getByRole("switch", { name: "Run as administrator on startup" })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: capturePath("sensor-permissions-settings-narrow"),
+    animations: "disabled",
+  });
+  await page
+    .getByRole("switch", { name: "Run as administrator on startup" })
     .click();
   await expect(
     page.getByRole("switch", { name: "Run as administrator on startup" }),
@@ -201,7 +209,7 @@ test("unprotected installations keep MSI guidance and never offer silent elevati
   });
   await setupNotice(page).getByRole("button", { name: CTA }).click();
   await expect(
-    page.getByRole("button", { name: "Install or repair service" }),
+    page.getByRole("button", { name: "Repair service" }),
   ).toBeDisabled();
   await expect(
     page.getByText(

@@ -39,21 +39,22 @@ available fallback data.
 
 ## Windows Sensor Service
 
-Install the optional **Windows sensor service** using the MSI under Program
-Files or **Settings → Advanced → Windows sensor service → Install or repair
-service**. This is a separate choice from installing PawnIO. The installer asks
-for administrator approval; ordinary launch, tray residence and reconnect do
-not need to elevate the app. Silent MSI installs can opt in with
-`INSTALL_SENSOR_SERVICE=1` (and `EXTERNAL_COMPONENT_PAWNIO=1` if PawnIO setup
-is also wanted).
+The MSI includes the **Windows sensor service** when installed under Program
+Files. Fresh installs and updates, including silent installs, need no separate
+service selection. Installation and repair ask for administrator approval;
+ordinary launch, tray residence and reconnect do not need to elevate the app.
+**Settings → Advanced → Windows sensor service → Repair service** restores the
+bundled service if needed.
 
 For a **new installation**, CPU and motherboard sensors need both PawnIO (with
-its modules) and the service. Select both optional components in the MSI, or
-set up PawnIO under **Settings → Advanced → Optional component setup** and then add
-the service. Leaving the service unchecked keeps ordinary monitoring available.
+its modules) and the bundled service. PawnIO remains a separate optional driver:
+select PawnIO in the interactive MSI, or use **Settings → Advanced → Optional
+component setup**. Silent MSI driver setup still requires
+`EXTERNAL_COMPONENT_PAWNIO=1`. Without PawnIO, other monitoring continues.
 
 For an **upgrade from direct PawnIO collection**, an existing PawnIO installation
-does not add the service automatically. If sensor readings remain unavailable
+is maintained and the MSI adds the service during the normal update. If sensor
+readings remain unavailable
 after fallback collection, **Open sensor settings** takes you to the service
 setup section. Existing guidance dismissals are respected.
 
@@ -64,16 +65,14 @@ or separate periodic sensor-guidance check. Closing it hides sensor guidance
 for this launch. **Never show again** remembers the currently shown collection
 gaps. Settings always remains available for checking or repairing the service.
 
-If **Run as administrator on startup** was enabled, use the separate **Use
-normal permissions on next startup** action after the service connects, then
-exit and launch normally. The existing process retains its token. Other
-privileged providers may expose less data. User-created highest-privilege
+If **Run as administrator on startup** was enabled, the update keeps that choice.
+To use normal permissions, turn that existing setting off, then exit and launch
+normally. CPU temperature/power and motherboard readings do not require the
+setting; other privileged providers may expose less data. User-created highest-privilege
 scheduled tasks or compatibility settings must be changed by their owner.
-When elevated startup remains enabled and the current process is elevated,
-the same notice links to Settings to check setup and the startup preference.
-This information does not assert that the service is ready. Settings checks
-readiness before offering the switch; the saved choice is kept until you
-change it. The notice is not shown on the Settings screen.
+Release notes and the startup setting explain the change. A successful update
+does not show a migration CTA merely because elevated startup remains enabled.
+The sensor failure notice is not shown on the Settings screen.
 
 Without the service, ordinary monitoring and available ACPI fallback continue.
 The NSIS/portable app may use a compatible installed service; first-time setup

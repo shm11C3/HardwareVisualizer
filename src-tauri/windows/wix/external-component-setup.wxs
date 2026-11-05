@@ -164,11 +164,7 @@
           <Condition Action="show">NOT $(var.ProtectedInstallDir)</Condition>
         </Control>
 
-        <Control Id="SensorServiceCheckBox" Type="CheckBox" X="20" Y="168" Width="330" Height="18" Property="INSTALL_SENSOR_SERVICE" CheckBoxValue="1" Text="Install the Windows sensor service (optional)">
-          <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
-          <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
-        </Control>
-        <Control Id="SensorServiceDescription" Type="Text" X="38" Y="190" Width="312" Height="42" NoPrefix="yes" Text="For CPU and motherboard sensors, select both PawnIO above and this service, or use existing PawnIO. Runs as SYSTEM to avoid app startup UAC. Optional; removed with HardwareVisualizer. Can be added later in Settings, Advanced.">
+        <Control Id="SensorServiceDescription" Type="Text" X="20" Y="168" Width="330" Height="64" NoPrefix="yes" Text="The app includes the Windows sensor service when installed under Program Files. It runs as SYSTEM so CPU and motherboard readings do not require app startup UAC. PawnIO above is a separate, optional driver setup. The service is removed with HardwareVisualizer.">
           <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
           <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
         </Control>
@@ -178,9 +174,7 @@
           <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>
         </Control>
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)">
-          <Publish Event="AddLocal" Value="WindowsSensorService" Order="1">INSTALL_SENSOR_SERVICE = "1" AND $(var.ProtectedInstallDir)</Publish>
-          <Publish Event="Remove" Value="WindowsSensorService" Order="2">INSTALL_SENSOR_SERVICE &lt;&gt; "1" OR NOT $(var.ProtectedInstallDir)</Publish>
-          <Publish Event="NewDialog" Value="VerifyReadyDlg" Order="3">1</Publish>
+          <Publish Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
         </Control>
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
           <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>

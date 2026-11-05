@@ -7,8 +7,6 @@ import { ActionFailure } from "@/components/ActionFailure";
 import { Button } from "@/components/ui/button";
 import { sensorGuidanceAtom } from "@/features/hardware/store/sensors";
 import { useSensorServiceSettings } from "@/hooks/navigation/useSensorServiceSettings";
-import { useProcessElevated } from "@/hooks/settings/useElevationAvailability";
-import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import {
   externalComponentGuidanceCopyKey,
   type PerformanceGuidanceContext,
@@ -27,8 +25,6 @@ export const SensorServiceNotice = ({
   performanceContext: PerformanceGuidanceContext;
 }) => {
   const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
-  const elevated = useProcessElevated();
   const diagnostics = useAtomValue(sensorGuidanceAtom);
   const openSettings = useSensorServiceSettings();
   const [dismissed, setDismissed] = useState(false);
@@ -52,14 +48,11 @@ export const SensorServiceNotice = ({
         performanceContext.motherboardSensorsVisible)
     );
   });
-  const needsSetup = candidates.length > 0;
   const visible =
     settingsLoaded &&
     platform() === "windows" &&
-    displayTarget !== null &&
-    displayTarget !== "settings" &&
     !dismissed &&
-    (needsSetup || (settings.elevatedStartupMode && elevated === true));
+    candidates.length > 0;
 
   const dismiss = async (permanently: boolean) => {
     setBusy(true);
@@ -86,52 +79,36 @@ export const SensorServiceNotice = ({
       {visible && (
         <aside
           className="flex items-start gap-3 rounded-xl border border-border bg-background/95 p-4 shadow-lg backdrop-blur-sm"
-          aria-label={t(
-            needsSetup
-              ? "sensorService.notice.setupTitle"
-              : "sensorService.notice.permissionsTitle",
-          )}
+          aria-label={t("sensorService.notice.setupTitle")}
         >
           <div className="min-w-0 flex-1 space-y-2">
             <p className="font-semibold">
-              {t(
-                needsSetup
-                  ? "sensorService.notice.setupTitle"
-                  : "sensorService.notice.permissionsTitle",
-              )}
+              {t("sensorService.notice.setupTitle")}
             </p>
-            {needsSetup && (
-              <p className="text-sm">
-                {candidates
-                  .map((item) =>
-                    t(
-                      `externalComponentGuidance.candidates.${externalComponentGuidanceCopyKey(item)}.impact`,
-                    ),
-                  )
-                  .join(" / ")}
-              </p>
-            )}
+            <p className="text-sm">
+              {candidates
+                .map((item) =>
+                  t(
+                    `externalComponentGuidance.candidates.${externalComponentGuidanceCopyKey(item)}.impact`,
+                  ),
+                )
+                .join(" / ")}
+            </p>
             <p className="text-sm text-muted-foreground">
-              {t(
-                needsSetup
-                  ? "sensorService.setupGuidance"
-                  : "sensorService.notice.permissionsDescription",
-              )}
+              {t("sensorService.setupGuidance")}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="secondary" onClick={openSettings}>
                 {t("sensorService.openSettings")}
               </Button>
-              {needsSetup && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => void dismiss(true)}
-                >
-                  {t("externalComponentGuidance.actions.neverShowAgain")}
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void dismiss(true)}
+              >
+                {t("externalComponentGuidance.actions.neverShowAgain")}
+              </Button>
             </div>
             {failure && (
               <ActionFailure

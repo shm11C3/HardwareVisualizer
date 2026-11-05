@@ -15,19 +15,19 @@ revalidate_when: sensor installation policy, provider fallback, guidance suppres
 
 # Guide Optional Service Migration
 
-ADR 0029 currently makes service installation optional and keeps an existing
-elevated-startup preference explicit. Under that policy, guide failed visible
-sensor attempts to setup and make the normal-startup preference discoverable
-without claiming service readiness. Settings verifies readiness before offering
-the explicit switch.
+ADR 0029 now includes the app-owned service in protected MSI installation and
+updates. PawnIO remains an optional external driver, and existing elevated
+startup preferences remain explicit. Release notes and the existing startup
+setting explain the privilege change. Successful upgrades need no migration
+CTA; failed visible collections still have actionable repair guidance.
 
 The maintainer also questioned whether this separate service opt-in was needed.
 Do not elevate the current installation policy into a universal consent rule:
 an app-owned service and an external driver have different ownership. Evaluate
 whether normal application installation can include the service and remove a
 later CTA/setup step, while preserving the external driver's consent and the
-user's saved startup choice. That policy revision remains a separate product
-decision; the monitor-driven guidance change did not implement it.
+user's saved startup choice. The revised ADR makes that distinction, and the
+existing startup toggle remains the single owner of that preference.
 
 Initial connection wait is not a failed setup. A successful ACPI fallback
 suppresses CPU setup guidance, and unsupported hardware keeps its own meaning.
