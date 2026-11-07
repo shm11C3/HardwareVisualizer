@@ -25,6 +25,9 @@ pub struct WorkersState {
   /// rather than let a boot's cleanup keep deleting rows after either has
   /// otherwise quiesced every writer.
   pub scheduled_cleanup: Mutex<Option<tokio::task::JoinHandle<()>>>,
+  /// The Product Analytics flush loop (ADR 0028). Aborted at shutdown, which
+  /// also aborts an in-flight upload: shutdown never waits for one.
+  pub analytics_flush: Mutex<Option<tokio::task::JoinHandle<()>>>,
   /// SwitchBot Meter advertisement scan (#2044). `None` unless the user
   /// turned the ambient source on, which is the default. Held here so
   /// the radio is released on quit rather than at process teardown.
@@ -76,6 +79,7 @@ struct ShutdownWorkers {
   cooling_rollup: Option<hardviz_core::persistence::CoolingRollupController>,
   storage_health: Option<hardviz_core::persistence::StorageHealthController>,
   scheduled_cleanup: Option<tokio::task::JoinHandle<()>>,
+  analytics_flush: Option<tokio::task::JoinHandle<()>>,
   #[cfg(target_os = "windows")]
   switchbot_scan: Option<
     hardviz_core::infrastructure::providers::switchbot_meter::SwitchBotScanController,
@@ -93,6 +97,7 @@ impl Default for WorkersState {
       cooling_rollup: Mutex::new(None),
       storage_health: Mutex::new(None),
       scheduled_cleanup: Mutex::new(None),
+      analytics_flush: Mutex::new(None),
       #[cfg(target_os = "windows")]
       switchbot_scan: Mutex::new(None),
       #[cfg(target_os = "windows")]
@@ -151,6 +156,7 @@ impl WorkersState {
       cooling_rollup: self.cooling_rollup.lock().unwrap().take(),
       storage_health: self.storage_health.lock().unwrap().take(),
       scheduled_cleanup: self.scheduled_cleanup.lock().unwrap().take(),
+      analytics_flush: self.analytics_flush.lock().unwrap().take(),
       #[cfg(target_os = "windows")]
       switchbot_scan: self.switchbot_scan.lock().unwrap().take(),
       tray: self.tray.lock().unwrap().take(),
@@ -166,6 +172,13 @@ where
   Close: FnOnce() -> CloseFuture,
   CloseFuture: Future<Output = Result<(), String>>,
 {
+  // Product Analytics first: it only uploads, and shutdown aborts rather
+  // than waits for it.
+  if let Some(analytics_flush) = workers.analytics_flush.take() {
+    analytics_flush.abort();
+    let _ = analytics_flush.await;
+  }
+
   // Stop the source first so no further realtime snapshots are produced, then
   // drain the adapter, then shut down the archive worker.
   if let Some(monitor) = workers.monitor.take() {

@@ -60,6 +60,18 @@ tauri-plugin-os = "2.4.0"
 tauri-plugin-clipboard-manager = "2.5.0"
 tauri-plugin-opener = "2.7.2"
 tauri-plugin-single-instance = "2.5.4"
+# Product Analytics uploads (ADR 0028). The TLS stack is the rustls + ring one
+# tauri-plugin-updater already compiles in; with `rustls-no-provider` the
+# transport installs the ring provider itself (see analytics::transport).
+reqwest = { version = "0.13.3", default-features = false, features = [
+    "rustls-no-provider",
+    "system-proxy",
+] }
+rustls = { version = "0.23", default-features = false, features = [
+    "ring",
+    "std",
+    "tls12",
+] }
 
 [dependencies.uuid]
 version = "1.23.2"
@@ -156,6 +168,8 @@ name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dev-dependencies]
+# Paused-clock tests for the Product Analytics flush cadence.
+tokio = { version = "1.52.3", features = ["test-util"] }
 tauri = { version = "2.12.5", features = ["test"] }
 mockall = "0.15"
 

@@ -955,21 +955,19 @@ pub mod commands {
     Ok(())
   }
 
-  /// Grant, renew, or decline Analytics Consent (ADR 0028).
+  /// Grant, renew, or decline Analytics Consent (ADR 0028). The runtime
+  /// change and the settings write run as one transition under the
+  /// analytics service's consent lock.
   #[tauri::command]
   #[specta::specta]
   pub async fn set_product_analytics_consent(
-    state: tauri::State<'_, AppState>,
+    analytics: tauri::State<'_, Arc<crate::analytics::AnalyticsService>>,
     decision: models::settings::ProductAnalyticsDecision,
   ) -> Result<(), String> {
     // No `error_event`: a failed write keeps the previous decision, so it is
     // a user-action failure the consent surface reports under its control,
     // not an app-cannot-continue dialog.
-    state
-      .settings
-      .lock()
-      .unwrap()
-      .set_product_analytics_consent(decision)
+    analytics.set_consent(decision).await
   }
 
   #[tauri::command]
