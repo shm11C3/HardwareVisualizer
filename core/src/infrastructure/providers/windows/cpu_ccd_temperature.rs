@@ -140,7 +140,7 @@ fn validate_single_package_record(bytes: &[u8]) -> Option<()> {
   }
 
   let mut seen = HashSet::with_capacity(group_count);
-  for group in groups.chunks_exact(size_of::<GROUP_AFFINITY>()) {
+  for group in groups.as_chunks::<{ size_of::<GROUP_AFFINITY>() }>().0 {
     // GROUP_AFFINITY contains only integer fields and the chunk covers the
     // entire record. The source buffer may be unaligned at this offset.
     let affinity = unsafe { group.as_ptr().cast::<GROUP_AFFINITY>().read_unaligned() };
@@ -212,10 +212,11 @@ mod tests {
     bytes[count_offset..count_offset + 2]
       .copy_from_slice(&(group_masks.len() as u16).to_ne_bytes());
 
-    for (&(group, mask), record) in group_masks
-      .iter()
-      .zip(bytes[masks_offset..].chunks_exact_mut(size_of::<GROUP_AFFINITY>()))
-    {
+    for (&(group, mask), record) in group_masks.iter().zip(
+      bytes[masks_offset..]
+        .as_chunks_mut::<{ size_of::<GROUP_AFFINITY>() }>()
+        .0,
+    ) {
       let mask_offset = std::mem::offset_of!(GROUP_AFFINITY, Mask);
       record[mask_offset..mask_offset + size_of::<usize>()]
         .copy_from_slice(&mask.to_ne_bytes());

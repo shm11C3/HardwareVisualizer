@@ -81,11 +81,11 @@ pub(crate) fn cpu_brand_bytes() -> Option<[u8; 48]> {
   }
 
   let mut bytes = [0; 48];
-  for (leaf, chunk) in (0x8000_0002..=0x8000_0004).zip(bytes.chunks_exact_mut(16)) {
+  for (leaf, chunk) in (0x8000_0002..=0x8000_0004).zip(bytes.as_chunks_mut::<16>().0) {
     let result = cpuid_leaf_unchecked(leaf);
     for (value, word) in [result.eax, result.ebx, result.ecx, result.edx]
       .into_iter()
-      .zip(chunk.chunks_exact_mut(4))
+      .zip(chunk.as_chunks_mut::<4>().0)
     {
       word.copy_from_slice(&value.to_le_bytes());
     }
