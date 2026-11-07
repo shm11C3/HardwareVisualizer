@@ -25,14 +25,15 @@ impl std::fmt::Debug for Seed {
 impl Seed {
   /// Parses the settings representation: 32 bytes as lowercase hex.
   pub(crate) fn from_hex(value: &str) -> Option<Self> {
-    if value.len() != SEED_BYTES * 2 {
+    let (pairs, rest) = value.as_bytes().as_chunks::<2>();
+    if !rest.is_empty() {
       return None;
     }
-    let mut bytes = [0u8; SEED_BYTES];
-    for (byte, pair) in bytes.iter_mut().zip(value.as_bytes().as_chunks::<2>().0) {
-      *byte = (hex_digit(pair[0])? << 4) | hex_digit(pair[1])?;
-    }
-    Some(Self(bytes))
+    let bytes = pairs
+      .iter()
+      .map(|&[high, low]| Some((hex_digit(high)? << 4) | hex_digit(low)?))
+      .collect::<Option<Vec<u8>>>()?;
+    Some(Self(bytes.try_into().ok()?))
   }
 
   pub(crate) fn day_token(&self, day: chrono::NaiveDate) -> String {
