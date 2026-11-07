@@ -15,7 +15,7 @@
 | S2 | 3mdeb, [MSI OEM hardware capture](https://paste.dasharo.com/?ba0b5d09afbacfc1#6vRmb9aVC4cG4LVfGVEpD3KV6a5wKVCrui8wveLru5gT) linked in the [pinned article](https://github.com/3mdeb/news-and-ideas/blob/df347e0fd731df6832c19abaeb5dcc594e3b4dc7/blog/content/post/2026-02-09-msi_pro_b850p_part1.md), Super I/O initialization | Independent same-board capture of raw ID, base, firmware identity, assignments and sample values. |
 | S3 | [First-hand Linux report](https://lkml.iu.edu/2610.0/07033.html), October 4, 2026 | The tester reports MSI PRO B850-P WIFI (MS-7E56), BIOS 2.A93, EC 0.0 build 2025-04-18, and in-kernel NCT6683-family monitoring on Linux 7.3-rc5 with patches for fan control. The separate fan control behavior is outside this scope. |
 | S4 | Linux [hwmon sysfs interface, v7.3-rc5](https://github.com/torvalds/linux/blob/v7.3-rc5/Documentation/hwmon/sysfs-interface.rst) and [NCT6683 driver documentation, v7.3-rc5](https://github.com/torvalds/linux/blob/v7.3-rc5/Documentation/hwmon/nct6683.rst) | Primary for the public Linux ABI and units. The driver guide retains an older statement about Intel-only default support. The later driver source and exact MSI observation establish the applicable binding. |
-| S5 | Linux [NCT6683 driver, v7.3-rc5](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/hwmon/nct6683.c), Git blob `e1c36c95affb201c9edee3e0eeb27a2ddc41f3cd`, and [platform device implementation at the same tag](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/base/platform.c) | **lead-only (copyleft)** for chip-name and base association, matching firmware customer, assigned-channel indexing, cached readings, I/O region ownership and module override visibility. |
+| S5 | Linux [NCT6683 driver, v7.3-rc5](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/hwmon/nct6683.c), Git blob `e1c36c95affb201c9edee3e0eeb27a2ddc41f3cd`, [platform device implementation at the same tag](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/base/platform.c), [hwmon core](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/hwmon/hwmon.c), and [device core](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/base/core.c) | **lead-only (copyleft)** for chip-name and base association, sysfs child and parent links, matching firmware customer, assigned-channel indexing, cached readings, I/O region ownership and module override visibility. |
 | S6 | [Windows SMBIOS board identity observation](https://xmrig.com/benchmark/5hgiH1) and MSI [B850 GAMING PLUS WIFI user guide](https://download.msi.com/archive/mnu_exe/mb/B850GAMINGPLUSWIFI_German.pdf), Regulatory Notices | Independent manufacturer and full product strings. MSI also uses MS-7E56 for another model. |
 
 ## Detection
@@ -40,10 +40,11 @@
   `/sys/devices/platform/nct6683.2592`. Its `subsystem` must resolve
   to `/sys/bus/platform` and `driver` to
   `/sys/bus/platform/drivers/nct6683`. The device identifier uses the
-  decimal EC base `2592`. Resolve the hwmon class link and its
-  `device` association to the same parent. Reject a name-only match,
-  another parent, an unbound node, duplicate distinct children or
-  a changed binding. The `hwmonN` number is a session enumeration
+  decimal EC base `2592`. Resolve `/sys/class/hwmon/hwmonN` to the
+  canonical child `/sys/devices/platform/nct6683.2592/hwmon/hwmonN`.
+  Separately resolve the child's `device` link to the platform parent.
+  Reject a name-only match, mismatched ancestry, an unbound node,
+  duplicate distinct children or a changed binding. The `hwmonN` number is a session enumeration
   detail, so a new number alone does not change channel identity.
   (S4, S5)
 - A driver can accept unknown customer IDs when explicitly forced
@@ -107,7 +108,8 @@ fixtures are synthetic.
 | Case | Expected result |
 | --- | --- |
 | Exact DMI and bound node, expected temperature metadata, inputs 26000/22000/26000 and 518/0 | Three temperatures in °C, fan input 1 active at 518 RPM, fan input 2 unavailable. |
-| Same MS-7E56 on a different product, wrong BIOS, wrong hwmon name/base/driver, wrong subsystem, duplicate canonical children, a symlink outside the expected parent | Unsupported for known out-of-profile identity or unavailable for absent/ambiguous binding. No input reads on a mismatched endpoint. |
+| Same MS-7E56 on a different product, wrong BIOS, wrong hwmon name/base/driver, wrong subsystem, duplicate canonical children | Unsupported for known out-of-profile identity or unavailable for absent/ambiguous binding. No input reads on a mismatched endpoint. |
+| The class link resolves to the platform parent or another device's hwmon child, or the correct child's `device` link resolves elsewhere | Reject the endpoint before reading inputs. |
 | Missing node, missing DMI or driver, unreadable channel, missing type, bad label, malformed or overflowing integer | Unavailable at the affected scope. Keep independently valid readings. |
 | Temperature −55000, 125000, −55001 and 125001; fan −1, 0, 1, 65534 and 65535 | Accept only the stated inclusive bounds. Negative or invalid fan values never become zero RPM. |
 | Transient hwmon enumeration index change or endpoint replacement | Identity uses the validated platform parent and channel. A read from a replaced endpoint is discarded until it independently qualifies. |
