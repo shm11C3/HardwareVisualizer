@@ -1,5 +1,6 @@
 import { ClipboardTextIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
+import { HardwareCompatibilityReport } from "@/components/HardwareCompatibilityReport";
 import { useExportToClipboard } from "@/features/hardware/dashboard/hooks/useExportToClipboard";
 
 export const ExportHardwareInfo = ({
@@ -20,6 +21,7 @@ export const ExportHardwareInfo = ({
       >
         <ClipboardTextIcon size={32} />
       </button>
+      <HardwareCompatibilityReport icon />
     </div>
   );
 };

@@ -180,6 +180,20 @@
     "close": "閉じる",
     "done": "完了"
   },
+  "hardwareCompatibilityReport": {
+    "title": "ハードウェア互換性レポート",
+    "description": "保存や共有の前に、レポートの全文を確認してください。GitHub の投稿は公開されます。アプリはレポートをコピーしてフォームを開きます。投稿はご自身で行ってください。",
+    "preview": "Markdown レポートの全文",
+    "save": "Markdown を保存",
+    "post": "コピーして GitHub フォームを開く",
+    "errors": {
+      "generate": "互換性レポートを作成できませんでした。もう一度お試しください。",
+      "save": "互換性レポートを保存できませんでした。",
+      "post": "レポートをコピーするか、GitHub フォームを開くことができませんでした。",
+      "openGuide": "ハードウェア互換性ガイドを開けませんでした。"
+    },
+    "guide": "ハードウェア互換性と検証協力の募集"
+  },
   "externalComponentGuidance": {
     "title": "任意の追加コンポーネントで表示できる項目があります",
     "labels": {
