@@ -221,3 +221,13 @@ intentionally limited to the Phase 2 raw chip-id diagnostic scope.
   [`pawnio-interface.md`](pawnio-interface.md).
 - When PawnIO is not installed, the application degrades gracefully to
   the ACPI thermal-zone path introduced by PR #1633.
+
+## Draft expansion specifications
+
+These drafts record exact candidates and the evidence still needed for safe
+enablement. Their revisions remain outside the implementation gate.
+
+| Document | Candidate scope | Issue |
+| --- | --- | --- |
+| [`superio-ite-gigabyte-secondary.md`](superio-ite-gigabyte-secondary.md) | Gigabyte X470 AORUS ULTRA GAMING rev. 1.0 secondary LPC evidence and separate ECIO and ISA bridge transport limits | #2519 |
+| [`superio-nuvoton-nct668x.md`](superio-nuvoton-nct668x.md) | MSI PRO B850-P WIFI OEM capture for raw ID `0xD592` and exact EC firmware, with remaining safe-access and fan-validity gaps | #2520 |
