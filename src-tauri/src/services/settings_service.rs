@@ -746,6 +746,62 @@ impl models::settings::Settings {
 
     Ok(())
   }
+
+  /// Records the UTC day whose State Flags and the UTC month whose month
+  /// token a sealed batch carries. `None` keeps the persisted value; a month
+  /// is given as any day in it.
+  #[expect(
+    dead_code,
+    reason = "the analytics runtime calls it from a stacked follow-up PR"
+  )]
+  pub fn set_product_analytics_reported_periods(
+    &mut self,
+    day: Option<chrono::NaiveDate>,
+    month: Option<chrono::NaiveDate>,
+  ) -> Result<(), String> {
+    self.set_product_analytics_reported_periods_with(day, month, |settings| {
+      settings.write_file()
+    })
+  }
+
+  /// Like [`Self::set_product_analytics_consent_with`], the in-memory
+  /// section changes only after the write succeeds. Reported periods exist
+  /// only while consent is granted, so a write without a grant is refused.
+  #[cfg_attr(
+    not(test),
+    expect(
+      dead_code,
+      reason = "the analytics runtime calls it from a stacked follow-up PR"
+    )
+  )]
+  fn set_product_analytics_reported_periods_with<F>(
+    &mut self,
+    day: Option<chrono::NaiveDate>,
+    month: Option<chrono::NaiveDate>,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    if self.product_analytics.consent
+      != models::settings::ProductAnalyticsConsent::Granted
+    {
+      return Err("Product analytics consent is not granted".to_string());
+    }
+
+    let mut next = self.clone();
+    if let Some(day) = day {
+      next.product_analytics.reported_day = Some(day.format(UTC_DAY_FORMAT).to_string());
+    }
+    if let Some(month) = month {
+      next.product_analytics.reported_month =
+        Some(month.format(UTC_MONTH_FORMAT).to_string());
+    }
+    write_file(&next)?;
+    *self = next;
+
+    Ok(())
+  }
 }
 
 /// The section a decision leads to, or `None` when it changes nothing.
@@ -1534,6 +1590,93 @@ mod tests {
         settings.product_analytics,
         ProductAnalyticsSettings::default()
       );
+    }
+
+    #[test]
+    fn reported_periods_are_written_into_a_granted_section() {
+      let mut section = granted(SEED_A);
+      section.reported_day = None;
+      section.reported_month = None;
+      let mut settings = settings_with(section.clone());
+      let mut written = None;
+
+      settings
+        .set_product_analytics_reported_periods_with(
+          Some(day("2026-11-07")),
+          Some(day("2026-11-01")),
+          |next| {
+            written = Some(next.product_analytics.clone());
+            Ok(())
+          },
+        )
+        .unwrap();
+
+      let expected = ProductAnalyticsSettings {
+        reported_day: Some("2026-11-07".to_string()),
+        reported_month: Some("2026-11".to_string()),
+        ..section
+      };
+      assert_eq!(written, Some(expected.clone()));
+      assert_eq!(settings.product_analytics, expected);
+    }
+
+    #[test]
+    fn an_absent_reported_period_keeps_the_persisted_one() {
+      let mut settings = settings_with(granted(SEED_A));
+
+      settings
+        .set_product_analytics_reported_periods_with(
+          None,
+          Some(day("2026-12-01")),
+          |_| Ok(()),
+        )
+        .unwrap();
+
+      assert_eq!(
+        settings.product_analytics.reported_day.as_deref(),
+        Some("2026-11-03")
+      );
+      assert_eq!(
+        settings.product_analytics.reported_month.as_deref(),
+        Some("2026-12")
+      );
+    }
+
+    #[test]
+    fn a_failed_reported_period_write_leaves_the_section_unchanged() {
+      let mut settings = settings_with(granted(SEED_A));
+
+      let result = settings.set_product_analytics_reported_periods_with(
+        Some(day("2026-11-07")),
+        None,
+        |_| Err("write failed".to_string()),
+      );
+
+      assert_eq!(result, Err("write failed".to_string()));
+      assert_eq!(settings.product_analytics, granted(SEED_A));
+    }
+
+    #[test]
+    fn reported_periods_are_refused_without_a_grant() {
+      for section in [
+        ProductAnalyticsSettings::default(),
+        ProductAnalyticsSettings {
+          consent: Consent::Declined,
+          consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+          ..ProductAnalyticsSettings::default()
+        },
+      ] {
+        let mut settings = settings_with(section.clone());
+
+        let result = settings.set_product_analytics_reported_periods_with(
+          Some(day("2026-11-07")),
+          Some(day("2026-11-01")),
+          |_| panic!("a section without a grant has no reported periods"),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(settings.product_analytics, section);
+      }
     }
 
     #[test]

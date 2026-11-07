@@ -36,6 +36,8 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
 ] }
 chrono = "0.4.44"
 getrandom = "0.4.2"
+hmac = "0.13.0"
+sha2 = "0.11.1"
 tauri-plugin-dialog = "2.8.3"
 tauri-plugin-store = "2.5.0"
 base64 = "0.23"
@@ -62,6 +64,7 @@ tauri-plugin-single-instance = "2.5.4"
 [dependencies.uuid]
 version = "1.23.2"
 features = [
+    "v4",                # Product Analytics batch ids (random UUIDs)
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
