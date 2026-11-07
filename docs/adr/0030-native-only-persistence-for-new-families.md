@@ -41,26 +41,44 @@ Two facts limit who an engine-specific feature reaches:
    whether a new table, projection or user-entered record, is implemented only
    on the native database. It gets no SQLite migration, writer or query, and no
    differential test.
-2. **The consumer decides.** Data that only a native-only feature reads is
-   native-only, even when it extends an existing family. Data that an existing
-   feature reads keeps both engines until v2.0.0, as ADR 0025 requires.
+2. **The consumer decides, and native-only data gets its own tables.** Data
+   that only a native-only feature reads is native-only. Data that an existing
+   feature reads keeps both engines until v2.0.0, as ADR 0025 requires. Before
+   v2.0.0, existing tables gain no native-only columns: when native-only data
+   extends an existing family, it goes in its own native-only table. Conversion
+   plans every native column from the SQLite candidate (`plan_columns`, used by
+   both finalization and reconciliation), so a column without a SQLite source
+   would make every conversion fail.
 3. **Unavailable is its own state.** While SQLite is authoritative, a
    native-only feature reports that it needs the native database. This state is
    distinct from empty data, from a read failure and from
    `DispatchError::NativeUnavailable` (DP-02). The UI may point to the existing
    Settings conversion action, but it never starts a conversion (DP-06).
-4. **Conversion does not change.** A native-only family has no SQLite source to
-   convert. The native schema creates its tables on a fresh database and on a
-   converted one alike. A projection derived from the Hardware Archive backfills
-   after conversion, up to the archive's Retention Period; a user-entered family
-   starts empty.
+4. **Conversion learns which tables have no SQLite source.** Finalization and
+   reconciliation walk every table in `NativeSchemaDefinition.tables` and refuse
+   a candidate that lacks one. The native schema definition therefore marks
+   native-only tables. Conversion creates them empty and leaves them out of the
+   copy and the reconciliation, and it still refuses a candidate that lacks any
+   table that does have a SQLite source. After conversion, a projection derived
+   from the Hardware Archive backfills up to the archive's Retention Period, and
+   a user-entered family starts empty. This change lands with the first
+   native-only table or before it.
 5. **Builds without the `duckdb-archive` feature** report the same unavailable
    state for native-only features.
+6. **Existing native databases need a schema upgrade first.** The native schema
+   is at version 1, and opening a database at any other version fails with
+   `IncompatibleSchema`; there is no upgrade step. The first new table therefore
+   needs a versioned native schema upgrade for databases already at version 1.
+   Any new table needs this, native-only or not, but native-only tables are the
+   first ones that will.
 
 ## Consequences
 
 - New persistence work is written once. The work v2.0.0 has to remove does not
   grow.
+- The first native-only feature carries two one-time prerequisites: the native
+  schema upgrade (decision 6) and the conversion change (decision 4). Later
+  native-only tables reuse both.
 - Existing installs that have not converted do not get native-only features
   until their user converts. Because conversion only starts from a Settings
   action, this may be most installs that upgraded from v1.10 or earlier. The
