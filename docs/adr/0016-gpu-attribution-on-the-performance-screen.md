@@ -64,6 +64,11 @@ must keep its inventory and live ids distinct the way every platform does, and
 `selectedGpuIdAtom` may only be reached by an allowlisted set of resolution
 owners — by named or namespace import alike.
 
+Linux live keys keep the existing domainless `pci:<bus>:<device>.<function>`
+format or the `drm:card<n>` fallback. NVML queries use the full PCI address,
+including the domain. The provider skips readings when a domainless live key
+is shared by multiple DRM cards in the current sample.
+
 The adapter list is therefore built from the live side alone: every id the
 stream reported, named by the `gpuName` each sample carries, plus any id that
 only a value map knows about. Unioning with the inventory would render one

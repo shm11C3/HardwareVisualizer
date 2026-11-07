@@ -136,36 +136,51 @@ pub fn detect_gpu_vendor(card_id: u8) -> GpuVendor {
 ///
 /// Returns e.g. `"03:00.0"`.
 pub fn get_card_bdf(card_id: u8) -> Option<String> {
-  let link = fs::read_link(format!("/sys/class/drm/card{card_id}/device")).ok()?;
-  let target = link.to_string_lossy().to_string();
-  parse_bdf_from_device_link(&target)
+  let address = get_card_pci_address(card_id)?;
+  Some(domainless_bdf(&address).to_string())
 }
 
-/// Pure parsing function: extract the BDF portion (e.g. `"03:00.0"`) from a
-/// sysfs device symlink target like `"../../0000:03:00.0"` or an absolute path
-/// like `"/sys/devices/pci0000:00/0000:00:08.1/0000:0a:00.0"`.
-#[cfg(any(target_os = "linux", test))]
-pub fn parse_bdf_from_device_link(symlink_target: &str) -> Option<String> {
-  // PCI address format: DDDD:BB:DD.F (e.g. "0000:03:00.0")
-  // Extract the last path segment, then strip the domain prefix.
-  let segment = symlink_target.rsplit('/').next().unwrap_or(symlink_target);
+/// Read a DRM card's full PCI address for joining against a vendor API.
+pub(crate) fn get_card_pci_address(card_id: u8) -> Option<String> {
+  let link = fs::read_link(format!("/sys/class/drm/card{card_id}/device")).ok()?;
+  parse_pci_address_from_device_link(link.to_str()?).map(str::to_ascii_lowercase)
+}
 
-  // Expect "DDDD:BB:DD.F" — split on first ':' to remove domain
-  let (_, bdf) = segment.split_once(':')?;
+pub(crate) fn domainless_bdf(address: &str) -> &str {
+  // Callers hold an address already validated by get_card_pci_address.
+  address.split_once(':').map_or(address, |(_, bdf)| bdf)
+}
 
-  // Validate BDF looks like "XX:XX.X"
-  if !bdf.contains(':') || !bdf.contains('.') {
+fn parse_pci_address_from_device_link(symlink_target: &str) -> Option<&str> {
+  let segment = symlink_target.rsplit('/').next()?;
+  let (domain, bdf) = segment.split_once(':')?;
+  let (bus, devfn) = bdf.split_once(':')?;
+  let (device, function) = devfn.split_once('.')?;
+  if !(4..=8).contains(&domain.len())
+    || bus.len() != 2
+    || device.len() != 2
+    || function.len() != 1
+    || ![domain, bus, device, function]
+      .iter()
+      .all(|field| field.bytes().all(|byte| byte.is_ascii_hexdigit()))
+    || u8::from_str_radix(device, 16).ok()? > 31
+    || u8::from_str_radix(function, 16).ok()? > 7
+  {
     return None;
   }
 
-  Some(bdf.to_string())
+  Some(segment)
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
 
-  // ── parse_bdf_from_device_link ──
+  fn parse_bdf_from_device_link(symlink_target: &str) -> Option<String> {
+    parse_pci_address_from_device_link(symlink_target)
+      .map(domainless_bdf)
+      .map(str::to_string)
+  }
 
   #[test]
   fn parse_bdf_standard_pci_address() {
@@ -207,5 +222,29 @@ mod tests {
   #[test]
   fn parse_bdf_invalid_format() {
     assert!(parse_bdf_from_device_link("../../invalid").is_none());
+  }
+
+  #[test]
+  fn vendor_lookup_keeps_domain_and_function_and_checks_slot_bounds() {
+    assert_eq!(
+      parse_pci_address_from_device_link("../../ffff:ff:1f.7"),
+      Some("ffff:ff:1f.7")
+    );
+    assert_eq!(
+      parse_pci_address_from_device_link("../../0001:03:00.1"),
+      Some("0001:03:00.1")
+    );
+    for link in [
+      "../../0000:01:20.0",
+      "../../0000:01:00.8",
+      "../../0000:gg:00.0",
+      "../../01:00.0",
+      "../../+000:01:00.0",
+      "../../000000000:01:00.0",
+      "../../0000:01:00.00",
+      "../../0000:01:00.0:other",
+    ] {
+      assert_eq!(parse_pci_address_from_device_link(link), None, "{link}");
+    }
   }
 }

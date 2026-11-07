@@ -177,69 +177,76 @@ pub async fn get_gpu_temperature()
 
 /// Collect GPU metrics on Linux for every DRM card.
 ///
-/// AMD (sysfs/hwmon) and Intel (intel_gpu_top) have reading providers;
-/// NVIDIA and unrecognized vendors have none here, so their samples carry
-/// a name and no values. They are emitted anyway because a card absent
-/// from the sample stream has no name, no readings, and no entry in the
-/// GPU switcher: it reads as nonexistent rather than unavailable. DRM
-/// detection decides presence; what a provider can read only decides
-/// which fields are filled.
+/// DRM detection decides presence. AMD (sysfs/hwmon), Intel (intel_gpu_top),
+/// and NVIDIA (NVML) providers only decide which readings are available.
 pub async fn sample_gpus() -> Vec<models::GpuSample> {
-  use crate::infrastructure::providers::drm_sys::GpuVendor;
+  use drm_sys::GpuVendor;
+  use infrastructure::providers::{drm_sys, hwmon, lspci, nvml_provider};
 
   let mut metrics: Vec<models::GpuSample> = Vec::new();
-  let card_ids = infrastructure::providers::drm_sys::get_all_card_ids();
-  let card_vendors = card_ids
+  let cards: Vec<_> = drm_sys::get_all_card_ids()
     .into_iter()
-    .map(|card_id| {
-      (
-        card_id,
-        infrastructure::providers::drm_sys::detect_gpu_vendor(card_id),
-      )
+    .map(|id| DrmCard {
+      id,
+      vendor: drm_sys::detect_gpu_vendor(id),
+      pci_address: drm_sys::get_card_pci_address(id),
     })
-    .collect::<Vec<_>>();
+    .collect();
 
   // lspci is the name source for every vendor except Intel, whose live
   // name is fixed — an Intel-only machine never touches the cache.
-  let lspci_output = if card_vendors
-    .iter()
-    .any(|(_, vendor)| *vendor != GpuVendor::Intel)
-  {
+  let lspci_output = if cards.iter().any(|card| card.vendor != GpuVendor::Intel) {
     lspci_output_cached().await
   } else {
     None
   };
+  let mut nvidia_samples = nvml_provider::sample(nvml_pci_addresses(&cards)).await;
 
-  for (card_id, vendor) in card_vendors {
-    let bdf = infrastructure::providers::drm_sys::get_card_bdf(card_id);
-    let lspci_name = bdf.as_deref().and_then(|bdf| {
-      lspci_output
-        .and_then(|out| infrastructure::providers::lspci::parse_gpu_name_by_bdf(out, bdf))
+  for card in cards {
+    let DrmCard {
+      id: card_id,
+      vendor,
+      pci_address,
+    } = card;
+    let bdf = pci_address.as_deref().map(drm_sys::domainless_bdf);
+    let lspci_name = bdf.and_then(|bdf| {
+      lspci_output.and_then(|out| lspci::parse_gpu_name_by_bdf(out, bdf))
     });
     let identity = resolve_card_identity(vendor, card_id, lspci_name.as_deref());
+    let mut source = identity.live_source;
+    let mut dedicated_memory_kb = None;
 
     let (usage, temperature) = match vendor {
       GpuVendor::Amd => {
-        let usage = infrastructure::providers::drm_sys::get_amd_gpu_usage(card_id as u32)
+        let usage = drm_sys::get_amd_gpu_usage(u32::from(card_id))
           .await
           .map(|u| (u * 100.0) as f32)
           .ok();
-        let temperature =
-          infrastructure::providers::hwmon::read_hwmon_temperatures(card_id)
-            .ok()
-            .and_then(|temps| temps.first().map(|t| t.value as f32));
+        let temperature = hwmon::read_hwmon_temperatures(card_id)
+          .ok()
+          .and_then(|temps| temps.first().map(|t| t.value as f32));
         (usage, temperature)
       }
       GpuVendor::Intel => {
-        let usage = infrastructure::providers::drm_sys::get_intel_gpu_usage()
+        let usage = drm_sys::get_intel_gpu_usage()
           .await
           .map(|u| (u * 100.0) as f32)
           .ok();
         (usage, None)
       }
-      // No reading provider — the sample still names the card so the
-      // switcher can list it in its "no live readings" state.
-      GpuVendor::Nvidia | GpuVendor::Unknown => (None, None),
+      GpuVendor::Nvidia => {
+        if let Some(readings) = pci_address
+          .as_deref()
+          .and_then(|address| nvidia_samples.remove(address))
+        {
+          source = "NVML";
+          dedicated_memory_kb = readings.dedicated_memory_kb;
+          (readings.usage, readings.temperature)
+        } else {
+          (None, None)
+        }
+      }
+      GpuVendor::Unknown => (None, None),
     };
 
     let gpu_id = bdf
@@ -251,13 +258,39 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
       name: identity.name,
       usage,
       temperature,
-      dedicated_memory_kb: None,
+      dedicated_memory_kb,
       cooler_level: None,
-      source: identity.live_source.to_string(),
+      source: source.to_string(),
     });
   }
 
   metrics
+}
+
+struct DrmCard {
+  id: u8,
+  vendor: infrastructure::providers::drm_sys::GpuVendor,
+  pci_address: Option<String>,
+}
+
+fn nvml_pci_addresses(cards: &[DrmCard]) -> Vec<String> {
+  use infrastructure::providers::drm_sys::{GpuVendor, domainless_bdf};
+
+  // NVML can distinguish domains, but the shipped live pci:<BDF> keys
+  // omit the domain. Decline measurements when that key is ambiguous.
+  cards
+    .iter()
+    .filter(|card| card.vendor == GpuVendor::Nvidia)
+    .filter_map(|card| {
+      let address = card.pci_address.as_ref()?;
+      let bdf = domainless_bdf(address);
+      let has_sibling = cards.iter().any(|sibling| {
+        sibling.id != card.id
+          && sibling.pci_address.as_deref().map(domainless_bdf) == Some(bdf)
+      });
+      (!has_sibling).then(|| address.clone())
+    })
+    .collect()
 }
 
 /// The `lspci -nn` output, fetched once and cached for the process
@@ -358,6 +391,25 @@ mod tests {
 
   const AMD_LSPCI_LINE: &str = "06:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 31 [Radeon RX 7900 XTX] [1002:744c]";
   const NVIDIA_LSPCI_LINE: &str = "01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD107 [GeForce RTX 4060] [10de:2882]";
+
+  #[test]
+  fn only_unambiguous_nvidia_drm_slots_reach_nvml() {
+    let card = |id, vendor, address: Option<&str>| DrmCard {
+      id,
+      vendor,
+      pci_address: address.map(str::to_string),
+    };
+    let cards = [
+      card(0, GpuVendor::Nvidia, Some("0000:01:00.0")),
+      card(1, GpuVendor::Nvidia, Some("0003:04:00.1")),
+      card(2, GpuVendor::Amd, Some("0001:01:00.0")),
+      card(3, GpuVendor::Nvidia, None),
+      card(4, GpuVendor::Intel, Some("0000:00:02.0")),
+      card(5, GpuVendor::Nvidia, Some("0000:02:00.0")),
+    ];
+
+    assert_eq!(nvml_pci_addresses(&cards), ["0003:04:00.1", "0000:02:00.0"]);
+  }
 
   #[test]
   fn amd_card_is_named_from_lspci() {
