@@ -7,6 +7,9 @@
 pub use hardviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
 
 mod adapters;
+// The runtime that uses these pieces lands in the stacked follow-up PRs.
+#[cfg_attr(not(test), allow(dead_code))]
+mod analytics;
 // `pub` so `src-tauri/tests/*.rs` integration test binaries - linking
 // against this crate's `rlib` target (see `Cargo.toml`'s `crate-type`) -
 // can reach the lifecycle owner, the conversion driver and `WorkersState`
