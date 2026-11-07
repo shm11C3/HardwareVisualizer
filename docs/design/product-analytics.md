@@ -193,7 +193,11 @@ only what it shares.
 **Startup dialog.** One more entry in the `StartupDialogs` arbitration, lowest
 priority: it shows only when no Close to Tray, External Component Guidance,
 database conversion, or NSIS notice flow is pending, and only when the
-effective state is not granted-at-current-version and not declined. Whether
+effective state is not granted-at-current-version and not declined. The NSIS
+notice does not report a pending state today: it requests the slot only
+after `getBundleType()` resolves. So the consent slice makes it report one
+through `onPendingChange`, as the guidance and conversion dialogs do, and
+"free" means no requested and no pending flow. Whether
 it opens is decided once per launch, when the arbitration first becomes
 free: it opens then unless the main window is on Settings, in which case it
 is offered again at the next start and nothing is recorded. That moment is
