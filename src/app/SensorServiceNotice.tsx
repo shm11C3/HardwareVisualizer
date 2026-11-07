@@ -4,6 +4,7 @@ import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActionFailure } from "@/components/ActionFailure";
+import { HardwareCompatibilityGuideLink } from "@/components/HardwareCompatibilityGuideLink";
 import { Button } from "@/components/ui/button";
 import { sensorGuidanceAtom } from "@/features/hardware/store/sensors";
 import { useSensorServiceSettings } from "@/hooks/navigation/useSensorServiceSettings";
@@ -110,6 +111,7 @@ export const SensorServiceNotice = ({
                 {t("externalComponentGuidance.actions.neverShowAgain")}
               </Button>
             </div>
+            <HardwareCompatibilityGuideLink />
             {failure && (
               <ActionFailure
                 message={t(`externalComponentGuidance.errors.${failure}`)}

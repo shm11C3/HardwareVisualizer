@@ -265,5 +265,5 @@ The number of accepted batches that carried a State Flag set for a UTC day and O
 _Avoid_: active installations (as a flag denominator), flag total, sample size
 
 **Hardware Compatibility Report**:
-A user-initiated export of hardware identification and sensor-provider availability that the user reads in full and posts publicly themselves. HardwareVisualizer never uploads it. See #2500.
+A user-initiated export of hardware identification and sensor-provider availability that the user reads in full and posts publicly themselves. It reuses inventory and readings already acquired through the Hardware Report and normal monitoring. HardwareVisualizer never uploads it. See #2500.
 _Avoid_: Hardware Report, telemetry, crash report, hardware dump, diagnostics upload

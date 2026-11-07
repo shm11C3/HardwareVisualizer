@@ -37,6 +37,9 @@ The dialog tells you:
 The dialog is informational. Hardware monitoring continues with the best
 available fallback data.
 
+To share the available readings and provider outcomes for your hardware, see
+[Hardware Compatibility Reports](hardware-compatibility.md).
+
 ## Windows Sensor Service
 
 The MSI includes the **Windows sensor service** when installed under Program

@@ -180,6 +180,20 @@
     "close": "Close",
     "done": "Done"
   },
+  "hardwareCompatibilityReport": {
+    "title": "Hardware Compatibility Report",
+    "description": "Review the full report before saving or sharing. GitHub posts are public. The app opens the form and copies the report so you can post it yourself.",
+    "preview": "Full Markdown report",
+    "save": "Save Markdown",
+    "post": "Copy and open GitHub form",
+    "errors": {
+      "generate": "Could not prepare the compatibility report. Try again.",
+      "save": "Could not save the compatibility report.",
+      "post": "Could not copy the report or open the GitHub form.",
+      "openGuide": "Could not open the hardware compatibility guide."
+    },
+    "guide": "Hardware compatibility and wanted hardware"
+  },
   "externalComponentGuidance": {
     "title": "Optional components can enable more data",
     "labels": {

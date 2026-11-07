@@ -12,6 +12,7 @@ documentation.
 - [Backend architecture](architecture/backend.md)
 - [External components](user/external-components.md) /
   [Japanese](user/external-components.ja.md)
+- [Hardware Compatibility Reports](user/hardware-compatibility.md)
 - [Windows sensor external components](architecture/windows-sensor-external-components.md)
 - [Architecture decision records](adr/)
 - [Lossless chunked Hardware Archive decision](adr/0019-lossless-chunked-hardware-archive.md)
