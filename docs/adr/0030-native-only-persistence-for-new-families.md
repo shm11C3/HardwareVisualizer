@@ -46,7 +46,10 @@ Two facts limit who an engine-specific feature reaches:
    covers only the families that already exist: a change to an existing table
    is made on both engines until v2.0.0. When an existing feature starts using
    a new family, that new behavior is native-only, and on SQLite the feature
-   keeps its existing behavior without it.
+   keeps its existing behavior without it. The missing behavior is never
+   silent: the native-only feature that supplies the new data shows the
+   unavailable state (decision 4), and the existing feature also shows it
+   wherever it offers an entry point to the new behavior.
 3. **Native-only data gets its own tables.** Before v2.0.0, existing tables gain
    no native-only columns; data that extends an existing family goes in its own
    native-only table. Conversion plans every native column from the SQLite
