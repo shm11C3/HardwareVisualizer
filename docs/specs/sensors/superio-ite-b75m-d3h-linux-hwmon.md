@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
+| Revision | 2 |
 | Status | Draft — not implementation-ready |
 | Scope | Linux OS-reported RPM for two observed fan inputs on the exact Gigabyte GA-B75M-D3H and its already bound `it87` hwmon endpoint |
 | Issue phase | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), Linux OS API candidate |
@@ -65,19 +65,24 @@ attribute is in scope (S3).
 2. Read only the two fixed attributes on the identified class child.
    The kernel reports whole-number RPM. No userspace register decode, scaling
    or channel-role mapping is required (S3, S5, S7).
-3. Accept a single ASCII decimal integer from 1 through 675000 RPM, inclusive,
-   optionally followed by a single newline. The upper endpoint is the v6.18
-   IT8728 fan output bound (S7). Zero provides no positive evidence that a
-   fan is connected or rotating. Omit a zero, the negative invalid sentinel,
-   any other negative value, out-of-range value, malformed text, absent
-   attribute, permission or I/O error, or an attribute that disappears. The
-   other valid input remains usable (candidate output policy based on S3, S5
-   and S7).
+3. Parse a single ASCII decimal integer, optionally followed by a single
+   newline. The exact v6.18 IT8728 profile converts counts using the same
+   integer formula used by the [Windows board specification](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md#read-procedure-and-decode).
+   Its conservative active-count interval `0x0040`–`0xFFFE` gives
+   the draft Linux policy an inclusive output interval of 10–10546 RPM.
+   A present attribute reporting 0 means no measurable rotation.
+   The v6.18 driver reports 0 at counter saturation, which can occur
+   with a stopped fan or without a tachometer signal. Classify that input
+   as Inactive at 0 RPM. Omit negative or otherwise out-of-range values,
+   malformed text, absent attributes, permission or I/O errors, and
+   disappearing attributes. A valid sibling remains usable (S5, S7
+   lead-only for the conversion and saturation).
 4. Keep the physical fan indices. If only FAN2 survives, return the existing
-   motherboard fan model as Fan 2. Valid readings are Active and carry the
-   kernel RPM. Empty, invalid and unavailable data never synthesize a numeric
-   zero or overwrite an available sibling. A sample with no usable channel
-   supplies no Linux motherboard fan readings (candidate output policy).
+   motherboard fan model as Fan 2. Eligible positive readings are Active and
+   carry the kernel RPM. Empty, invalid and unavailable data never
+   synthesize a numeric zero or overwrite an available sibling. A sample
+   with no usable channel supplies no Linux motherboard fan readings
+   (candidate output policy).
 
 ## Quirks
 
@@ -134,9 +139,10 @@ attribute is in scope (S3).
 | Exact stock v6.18 default endpoint with clear-on-read status refresh | Disabled pending disposition of the default kernel hardware read effect. Neither fan attribute is opened. |
 | Otherwise exact with effective `update_vbat` on or unknown and stock parameter attributes absent | The option safety prerequisite is unresolved. Neither fan attribute is opened. |
 | Board mismatch, absent DMI, wrong platform instance, wrong parent driver, wrong class path or device link, name mismatch, or duplicate coherent class children | Unsupported or unavailable as appropriate. Neither fan attribute is opened. |
-| Identity matches and safety prerequisite is met. FAN2 is valid and FAN1 is missing, denied, invalid or zero. | Only Fan 2 with its original physical index. |
-| Safety prerequisite met with `1` and `675000\n` | Both numeric endpoints accepted. |
-| Safety prerequisite met with values `0`, `-1`, `675001`, integer overflow, empty, multiple lines, or nondecimal text | No reading from the affected input. A valid sibling survives. |
+| Identity matches and safety prerequisite is met. FAN2 is valid and FAN1 is missing, denied or invalid. | Only Fan 2 with its original physical index. |
+| Safety prerequisite met and a present FAN1 attribute returns `0\n` | Fan 1 is Inactive at 0 RPM. The result indicates no measurable rotation and leaves physical attachment unknown. |
+| Safety prerequisite met with `10` and `10546\n` | Both active numeric endpoints accepted. |
+| Safety prerequisite met with values `-1`, `9`, `10547`, `675000`, integer overflow, empty, multiple lines, or nondecimal text | No reading from the affected input. A valid sibling survives. |
 | Safety prerequisite met, FAN3 has positive RPM, and FAN1–2 have no usable data | No fan readings. FAN3 is never opened. |
 | Device links change or endpoint disappears during sampling | Do not carry the old identity into a replacement. A failed individual file read does not hide a sibling still on the identified device. |
 
@@ -156,13 +162,13 @@ attribute is in scope (S3).
 - **Windows raw IT8728 fan counters.**
   Non-blocking for the Linux OS API candidate: Linux receives already converted RPM from the bound driver.
   The ITE E-version document maps DX and EX to the same revision nibble.
-  The GA-B75M-D3H drawings support investigation of an exact-board EX
-  profile, but the Linux observation does not establish Windows LPC/EC
-  authorization or a directly observed raw counter transaction (S2–S4,
-  S11). This remains deferred under #2518.
+  The separate [Windows board specification](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md)
+  defines the exact-board EX scope and its own authorization. Broader
+  Windows IT8728 fan support remains deferred under #2518 (S2–S4, S11).
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-08 | Record exact GA-B75M-D3H OS endpoint, two observed Linux RPM channels, and the kernel status-read and option safety gates. |
+| 2 | 2026-11-08 | Constrain candidate active RPM to the existing board plausibility interval and preserve 0 RPM as Inactive for a present input. The kernel safety gates keep this profile disabled. |

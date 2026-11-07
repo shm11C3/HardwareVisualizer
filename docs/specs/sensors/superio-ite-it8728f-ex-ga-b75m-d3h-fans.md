@@ -11,9 +11,9 @@ This status is a proposal. The specification can be pinned for clean-room
 implementation after the maintainer approves the readiness PR and accepts
 the [factory-board discriminator](#factory-board-discriminator) under the
 [specification gate](README.md#status-transition-draft--implementation-ready).
-The status applies only to the row below. The Windows IT8728 temperature
-specification revision 2 and primary LPC expansion revision 3 retain their
-own scopes.
+The status applies only to the row below. This document owns the board's
+IT8728F/EX fan scope. S9 owns the existing IT8728 temperature scope, and
+S11 owns the general primary LPC expansion.
 
 ## Sources
 
@@ -29,7 +29,7 @@ own scopes.
 | S8 | LibreHardwareMonitor [ITE LPC Environment Controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT87XX.cs) at `2808d80564b6761e1b01f42fabfd966ed695fcbc`, Git blob `cc3dfd301e46cca5a92801890c512e0af422f8e1`, 16-bit fan reading | lead-only (copyleft). Corroborates low-then-high count order, the fixed divisor and full-count handling. Supports the existing conservative small-count cutoff in S11. The source does not distinguish DX from EX. |
 | S9 | [IT8728 Windows temperature specification revision 2](superio-ite-it86xx-it87xx.md), detection, base validity and PawnIO authorization, read procedure, cadence and safety notes | Repository reference for the existing IT8728 path. The authority to use EC I/O follows a successful post-exit proof. |
 | S10 | [Super I/O configuration access revision 4](superio-access.md), ITE MB PnP and slot safety, and [PawnIO interface revision 7](pawnio-interface.md#lpcio), signed module and ISA mutex contract | Repository transport references. Existing installed and accepted PawnIO runtime and `LpcIO` module, restricted PIO, slot-specific authorization and caller-held ISA mutex. |
-| S11 | [Primary LPC expansion revision 3](superio-ite-primary-lpc-expansion.md#read-procedure-and-decode), fan plausibility and repeated count procedure, and [ADR 0011](../../adr/0011-experimental-sensor-enablement.md) | Existing project guards, result contract and Experimental policy. The new row does not inherit another chip's register fields. |
+| S11 | [Primary LPC expansion revision 4](superio-ite-primary-lpc-expansion.md#read-procedure-and-decode), shared fan plausibility and repeated count procedure, and [ADR 0011](../../adr/0011-experimental-sensor-enablement.md) | Shared project guards, result contract and Experimental policy. This document supplies the board's fan register fields and qualification. |
 | S12 | PawnIO.Modules [`LpcIO` upstream IOCTL interface at `52a7e536dff3e53c96917a28caac5e0fa6510696`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p), pinned by S9/S10 | Public interface definition. BAR discovery scans logical devices and may leave a different selection. Slot selection invalidates the previous BAR allow-list. Success from BAR discovery alone does not prove a usable EC window. |
 
 ## Detection
