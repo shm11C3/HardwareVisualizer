@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
-| Scope | Experimental, read-only sampling through an already bound Linux `it87` hwmon device for the IT87952E secondary LPC controller on Gigabyte TRX50 AI TOP. |
+| Revision | 2 |
+| Status | Draft |
+| Scope | Candidate Experimental, read-only sampling through an already bound Linux `it87` hwmon device for the IT87952E secondary LPC controller on Gigabyte TRX50 AI TOP. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
 
 ## Sources
@@ -15,14 +15,14 @@
 | S2 | [Board owner's report](https://github.com/frankcrawford/it87/issues/73) and [same owner's positive readings](https://github.com/frankcrawford/it87/issues/73#issuecomment-3592587595), November 2025 | Independent observations of exact DMI identity, a boot where secondary pre-key identity was absent, and another boot with both primary and secondary sensors. This system used Linux 6.14.0-29-generic and the external DKMS driver's reported build `v1.0-204-g60d9def.20251006`. |
 | S3 | [Second owner of the same board, raw ID report](https://github.com/frankcrawford/it87/issues/73#issuecomment-5202206494), August 6, 2026 | Independent observation of primary raw `0x8689` and secondary raw `0x8695` at `0x4E` before a mode-entry key. The later dump operations are outside this scope. |
 | S4 | Linux [hwmon sysfs interface](https://www.kernel.org/doc/html/v6.18/hwmon/sysfs-interface.html) and [IT87 documentation, v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/it87.html) | Primary for the kernel hwmon units, sensor types, and IT87952E having up to three fans with 16-bit readback. |
-| S5 | Linux [IT87 driver, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, [platform device implementation at the same tag](https://github.com/torvalds/linux/blob/v6.18/drivers/base/platform.c), [hwmon core](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/hwmon.c), [device core](https://github.com/torvalds/linux/blob/v6.18/drivers/base/core.c) and [observed DKMS driver at `60d9def`](https://github.com/frankcrawford/it87/blob/60d9def/it87.c), Git blob `f74edf51cbb854cb002fc763291345d7df0e424777` | **lead-only (copyleft)** for mainline device naming, sysfs child and parent links, exact raw ID association, I/O resource ownership, forced-ID visibility and unavailable fan values. The mainline driver publishes this same device name and input ABI, and is separate from the DKMS build in S2. |
+| S5 | Linux [IT87 driver, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, [platform device implementation at the same tag](https://github.com/torvalds/linux/blob/v6.18/drivers/base/platform.c), [hwmon core](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/hwmon.c), [device core](https://github.com/torvalds/linux/blob/v6.18/drivers/base/core.c) and [observed DKMS driver at `60d9def`](https://github.com/frankcrawford/it87/blob/60d9def/it87.c), Git blob `f74edf51cbb854cb002fc763291345d7df0e424777` | **lead-only (copyleft)** for mainline device naming, sysfs child and parent links, exact raw ID association, I/O resource ownership, forced-ID visibility, unavailable fan values and cache-refresh alarm-status reads. The mainline driver publishes this same device name and input ABI, and is separate from the DKMS build in S2. |
 | S6 | [Super I/O access rev. 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [Gigabyte secondary ITE draft](superio-ite-gigabyte-secondary.md) | Project's slot-1 safety rule and restrictions for the Windows direct LPC, ECIO and ISA bridge routes. |
 
 ## Detection
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Gigabyte TRX50 AI TOP and already bound platform device `it87.2656` with hwmon name `it87952` | S1/S2 pin the board, S2 observes the live secondary device and channels, and S3 observes its exact raw ID. Lead-only S5 associates the name with raw `0x8695` and defines platform identity, the hwmon class link to the canonical child, the child's `device` link to the platform parent, and input representation and visibility. S4 supplies the public Linux ABI. | Experimental for matching Linux endpoints. |
+| Gigabyte TRX50 AI TOP and already bound platform device `it87.2656` with hwmon name `it87952` | S1/S2 pin the board, S2 observes the live secondary device and channels, and S3 observes its exact raw ID. Lead-only S5 associates the name with raw `0x8695` and defines platform identity, the hwmon class link to the canonical child, the child's `device` link to the platform parent, and input representation and visibility. S4 supplies the public Linux ABI. Lead-only S5 establishes the alarm-status reads during cache refresh. | Disabled pending exact IT87952E alarm-status read semantics. |
 | Other Gigabyte boards, alternate chip IDs, direct Windows LPC, ECIO or ISA bridge paths | See [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) and S6. | Unsupported by this revision. |
 
 - Require `/sys/class/dmi/id/board_vendor` equal to
@@ -82,6 +82,15 @@ unresolved, so use generic secondary channel labels.
 
 ## Collection and safety
 
+An empty or expired cache causes a temperature or fan input read to
+read EC alarm-status bytes `0x01`, `0x02` and `0x03` in the pinned
+[mainline driver](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L951-L954)
+and the [observed DKMS driver](https://github.com/frankcrawford/it87/blob/60d9def/it87.c#L1333-L1336)
+even with default module settings (S5, lead-only). S4 lists no public
+IT87952E data sheet, and the exact-board reports in S2 and S3 leave
+the effects of reading those bytes unresolved. The candidate stays
+disabled.
+
 - Read only the scoped kernel-owned input and source metadata files
   during requested motherboard collection. No raw I/O, port
   configuration keys, module loading, module binding, or conflict
@@ -99,6 +108,9 @@ unresolved, so use generic secondary channel labels.
 
 ## Synthetic fixture acceptance
 
+These cases describe a future approved path. The current Draft
+requires the secondary collector to remain disabled.
+
 | Case | Expected result |
 | --- | --- |
 | Exact board and canonical secondary endpoint, thermistor types, input values 46000/34000 and 1406/1486/2766 | Temperatures 46/34 °C and the three fan readings, all attributed to the secondary controller. |
@@ -110,6 +122,12 @@ unresolved, so use generic secondary channel labels.
 | `hwmonN` renumbering or node replacement | Preserve identity if the same qualified parent and channel still exist. Discard data from a replaced node until independently qualified. |
 
 ## Open questions
+
+- Blocking for the Linux hwmon slice: establish the exact IT87952E
+  read semantics of EC alarm-status bytes `0x01`–`0x03`, including
+  whether reading clears a latched alarm, or establish an eligible
+  kernel read path that avoids those bytes. Selecting only input
+  attributes still reaches the shared cache refresh.
 
 - Non-blocking for the Linux hwmon slice: S2 demonstrates the endpoint with DKMS and S4/S5 independently document the same mainline ABI.
   The first candidate reads only compatible already bound endpoints.
@@ -124,3 +142,4 @@ unresolved, so use generic secondary channel labels.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-08 | Propose exact Experimental Linux sysfs coverage for the secondary controller evidenced on TRX50 AI TOP. |
+| 2 | 2026-11-08 | Document alarm-status reads in both pinned drivers and return the profile to Draft pending exact chip semantics. |

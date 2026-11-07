@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental, read-only temperature and fan sampling through an already bound Linux NCT6683-family hwmon driver on MSI PRO B850-P WIFI with the exact OEM profile below. |
 | Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520) |
 
@@ -17,12 +17,13 @@
 | S4 | Linux [hwmon sysfs interface, v7.3-rc5](https://github.com/torvalds/linux/blob/v7.3-rc5/Documentation/hwmon/sysfs-interface.rst) and [NCT6683 driver documentation, v7.3-rc5](https://github.com/torvalds/linux/blob/v7.3-rc5/Documentation/hwmon/nct6683.rst) | Primary for the public Linux ABI and units. The driver guide retains an older statement about Intel-only default support. The later driver source and exact MSI observation establish the applicable binding. |
 | S5 | Linux [NCT6683 driver, v7.3-rc5](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/hwmon/nct6683.c), Git blob `e1c36c95affb201c9edee3e0eeb27a2ddc41f3cd`, [platform device implementation at the same tag](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/base/platform.c), [hwmon core](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/hwmon/hwmon.c), and [device core](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/base/core.c) | **lead-only (copyleft)** for chip-name and base association, sysfs child and parent links, matching firmware customer, assigned-channel indexing, cached readings, I/O region ownership and module override visibility. |
 | S6 | [Windows SMBIOS board identity observation](https://xmrig.com/benchmark/5hgiH1) and MSI [B850 GAMING PLUS WIFI user guide](https://download.msi.com/archive/mnu_exe/mb/B850GAMINGPLUSWIFI_German.pdf), Regulatory Notices | Independent manufacturer and full product strings. MSI also uses MS-7E56 for another model. |
+| S7 | Dasharo [NCT6687D register map at `713a0b76`](https://github.com/Dasharo/coreboot/blob/713a0b76/src/superio/nuvoton/nct6687d/nct6687d_hwm.h#L20-L42) | **lead-only (copyleft)** corroboration of the exact chip monitor and fan status/error addresses from alternative firmware. |
 
 ## Detection
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| MSI PRO B850-P WIFI (MS-7E56), BIOS 2.A93, already bound `nct6683.2592` with hwmon name `nct6687` | S1/S2/S3/S6 establish the named board and observed OEM firmware/controller tuple. Lead-only S5 establishes kernel device and driver names, the hwmon class link to the canonical child, the child's `device` link to the platform parent, resource ownership, firmware-customer acceptance and channel mapping. Public ABI is S4. | Experimental for matching Linux endpoints. |
+| MSI PRO B850-P WIFI (MS-7E56), BIOS 2.A93, already bound `nct6683.2592` with hwmon name `nct6687` | S1/S2/S3/S6 establish the named board and observed OEM firmware/controller tuple. Lead-only S5 establishes kernel device and driver names, the hwmon class link to the canonical child, the child's `device` link to the platform parent, resource ownership, firmware-customer acceptance, channel mapping and the cache refresh read set. Lead-only S7 corroborates the status addresses outside that set. Public ABI is S4. | Experimental for matching Linux endpoints. |
 | Other boards, firmware versions, NCT6686D/NCT6683D and direct Windows access | Require separate exact evidence in [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520). See [direct-access draft](superio-nuvoton-nct668x.md). | Unsupported by this revision. |
 
 - Require DMI baseboard vendor `Micro-Star International Co., Ltd.`,
@@ -96,6 +97,13 @@ fixtures are synthetic.
   Linux ABI. A kernel that declines to bind or cannot provide a value
   yields an unavailable result. The Windows selector protocol remains
   outside this Linux path.
+- For firmware customer `0x020D`, the pinned [input cache refresh](https://github.com/torvalds/linux/blob/v7.3-rc5/drivers/hwmon/nct6683.c#L603-L655)
+  reads sensor values, fan RPM, PWM readback and configured limits
+  within `0x0100`–`0x0167` and `0x0330`–`0x03D7`. Its read set
+  excludes monitor and fan status/error addresses within
+  `0x0170`–`0x017F` (S5, S7). The refresh writes the page and index
+  selectors for those reads and leaves EC data and host-event
+  registers unwritten (S5).
 - Preserve successful sibling attributes and provider results. A
   missing or denied exact endpoint on an admitted board is unavailable.
   A known different board or firmware is unsupported. Reuse the
@@ -129,3 +137,4 @@ fixtures are synthetic.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-08 | Propose exact Experimental Linux sysfs coverage, separate from direct Windows access. |
+| 2 | 2026-11-08 | Record the pinned MSI input-cache read set and selector-only writes during refresh. |
