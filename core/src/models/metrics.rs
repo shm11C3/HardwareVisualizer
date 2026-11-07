@@ -263,4 +263,30 @@ pub struct MetricsSnapshot {
   /// Diagnostic side data for optional runtime components that were
   /// attempted but unavailable while user-visible data remains missing.
   pub external_component_guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+  /// Latest attempt outcome of each optional native sensor provider, taken
+  /// before any fallback fills the same readings.
+  pub optional_sensor_providers: OptionalSensorProviderOutcomes,
+}
+
+/// Outcome of an optional sensor provider's latest attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderAttemptOutcome {
+  /// No attempt has finished yet, for example while the service connects.
+  Pending,
+  /// The attempt returned readings.
+  Answered,
+  /// The attempt finished without readings: a missing or incompatible
+  /// component, or unsupported hardware.
+  NotAnswered,
+}
+
+/// Attempt outcomes of the optional native sensor providers. `None` means
+/// the platform has no such provider; unlike guidance candidates, an
+/// outcome is neither cleared by a fallback nor suppressed by the user.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct OptionalSensorProviderOutcomes {
+  /// PawnIO CPU package temperature.
+  pub cpu_package_temperature: Option<ProviderAttemptOutcome>,
+  /// Super I/O motherboard temperatures and fans.
+  pub motherboard_sensors: Option<ProviderAttemptOutcome>,
 }

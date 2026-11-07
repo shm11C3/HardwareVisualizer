@@ -10,8 +10,8 @@
 use crate::collector::HistoryStore;
 use crate::models::{
   ExternalComponentGuidanceCandidate, GpuMetric, GpuSample, MetricsSnapshot,
-  MotherboardSensorCollection, PowerDraw, ProcessSample, SensorTemperature,
-  TemperatureSample,
+  MotherboardSensorCollection, OptionalSensorProviderOutcomes, PowerDraw, ProcessSample,
+  SensorTemperature, TemperatureSample,
 };
 use crate::platform::factory::PlatformHandle;
 use crate::platform::traits::Platform;
@@ -42,6 +42,7 @@ pub async fn collect_snapshot(
     cpu_power_support,
     temperature_sample,
     motherboard_collection,
+    optional_sensor_providers,
   ) = match platform {
     Ok(platform) => (
       sample_gpu(store, platform.as_ref()).await,
@@ -49,6 +50,7 @@ pub async fn collect_snapshot(
       platform.cpu_power_support(),
       platform.sample_temperatures(),
       platform.sample_motherboard_sensors(),
+      platform.optional_sensor_provider_outcomes(),
     ),
     Err(error) => (
       Vec::new(),
@@ -56,10 +58,11 @@ pub async fn collect_snapshot(
       crate::models::SensorSupport::Unknown,
       TemperatureSample::unavailable(error.to_string()),
       MotherboardSensorCollection::unavailable(error.to_string()),
+      OptionalSensorProviderOutcomes::default(),
     ),
   };
 
-  Some(build_metrics_snapshot(
+  let mut snapshot = build_metrics_snapshot(
     &system_sample,
     &gpu_samples,
     power_draw,
@@ -67,7 +70,9 @@ pub async fn collect_snapshot(
     &temperature_sample,
     &motherboard_collection,
     &motherboard_collection.guidance_candidates,
-  ))
+  );
+  snapshot.optional_sensor_providers = optional_sensor_providers;
+  Some(snapshot)
 }
 
 /// Run one CPU / memory / process refresh and append samples to the
@@ -222,6 +227,7 @@ pub fn build_metrics_snapshot(
       .chain(motherboard_guidance_candidates.iter())
       .cloned()
       .collect(),
+    optional_sensor_providers: OptionalSensorProviderOutcomes::default(),
   }
 }
 
@@ -302,6 +308,13 @@ mod tests {
 
     fn cpu_power_support(&self) -> crate::models::SensorSupport {
       crate::models::SensorSupport::Supported
+    }
+
+    fn optional_sensor_provider_outcomes(&self) -> OptionalSensorProviderOutcomes {
+      OptionalSensorProviderOutcomes {
+        cpu_package_temperature: Some(crate::models::ProviderAttemptOutcome::Answered),
+        motherboard_sensors: Some(crate::models::ProviderAttemptOutcome::NotAnswered),
+      }
     }
   }
 
@@ -428,6 +441,13 @@ mod tests {
       snapshot.motherboard_fan_support,
       crate::models::SensorSupport::Unsupported
     );
+    assert_eq!(
+      snapshot.optional_sensor_providers,
+      OptionalSensorProviderOutcomes {
+        cpu_package_temperature: Some(crate::models::ProviderAttemptOutcome::Answered),
+        motherboard_sensors: Some(crate::models::ProviderAttemptOutcome::NotAnswered),
+      }
+    );
     // The fake GPU sample also landed in the history rings.
     assert_eq!(store.gpu_history("fake:0", 60).len(), 1);
   }
@@ -454,6 +474,10 @@ mod tests {
     );
     assert!(snapshot.sensor_temperatures.is_empty());
     assert!(snapshot.motherboard_temperatures.is_empty());
+    assert_eq!(
+      snapshot.optional_sensor_providers,
+      OptionalSensorProviderOutcomes::default()
+    );
   }
 
   fn make_sample(

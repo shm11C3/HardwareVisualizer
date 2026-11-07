@@ -6,8 +6,9 @@ use crate::infrastructure::providers::windows::cpu_temperature::{
 use crate::infrastructure::providers::windows::super_io::motherboard::MotherboardSensorReadout;
 use crate::log_warn;
 use crate::models::{
-  ExternalComponentGuidanceCandidate, MotherboardSensorCollection, PowerDraw,
-  SensorAvailability, SensorSupport, SensorTemperature, TemperatureSample,
+  ExternalComponentGuidanceCandidate, MotherboardSensorCollection,
+  OptionalSensorProviderOutcomes, PowerDraw, ProviderAttemptOutcome, SensorAvailability,
+  SensorSupport, SensorTemperature, TemperatureSample,
 };
 use crate::sensor_service::windows::SampleError;
 
@@ -156,6 +157,34 @@ pub fn cpu_power_support() -> SensorSupport {
     .unwrap_or(SensorSupport::Unknown)
 }
 
+/// Classify the service's latest PawnIO results before the ACPI merge and
+/// guidance suppression, so a fallback reading or an acknowledged notice
+/// never reads as an answer or as a pending attempt. Reads the client's
+/// cached snapshot only; it sends no request.
+pub fn optional_sensor_provider_outcomes() -> OptionalSensorProviderOutcomes {
+  OptionalSensorProviderOutcomes {
+    cpu_package_temperature: Some(provider_attempt_outcome(
+      crate::sensor_service::windows::temperature().map(|sample| sample.availability),
+    )),
+    motherboard_sensors: Some(provider_attempt_outcome(
+      crate::sensor_service::windows::motherboard().map(|sample| sample.availability),
+    )),
+  }
+}
+
+fn provider_attempt_outcome(
+  result: Result<SensorAvailability, SampleError>,
+) -> ProviderAttemptOutcome {
+  match result {
+    Err(SampleError::Connecting) => ProviderAttemptOutcome::Pending,
+    Err(SampleError::Unavailable(_)) => ProviderAttemptOutcome::NotAnswered,
+    Ok(SensorAvailability::Available) => ProviderAttemptOutcome::Answered,
+    Ok(
+      SensorAvailability::Unsupported { .. } | SensorAvailability::Unavailable { .. },
+    ) => ProviderAttemptOutcome::NotAnswered,
+  }
+}
+
 fn build_power_draw(cpu_watts: Option<f32>) -> PowerDraw {
   PowerDraw {
     cpu_watts,
@@ -251,6 +280,62 @@ fn cpu_package_sensor_name(sample: &CpuPackageTemperature) -> &'static str {
 mod tests {
   use super::*;
   use crate::models::CpuPackageThermalStatus;
+
+  #[test]
+  fn provider_outcome_is_pending_while_the_service_connects() {
+    assert_eq!(
+      provider_attempt_outcome(Err(SampleError::Connecting)),
+      ProviderAttemptOutcome::Pending
+    );
+  }
+
+  #[test]
+  fn missing_service_is_not_answered_even_when_acpi_fills_the_headline() {
+    let missing = || SampleError::Unavailable("Sensor service not installed".into());
+    let merged = merge_service_and_acpi(
+      temperature_service_failure(missing()),
+      vec![SensorTemperature {
+        name: "CPU".to_string(),
+        temperature: 50.0,
+      }],
+    );
+
+    // The visible sample recovers through ACPI and drops its guidance ...
+    assert_eq!(merged.availability, SensorAvailability::Available);
+    assert!(merged.guidance_candidates.is_empty());
+    // ... but the provider outcome is taken from the service result.
+    assert_eq!(
+      provider_attempt_outcome(Err(missing())),
+      ProviderAttemptOutcome::NotAnswered
+    );
+  }
+
+  #[test]
+  fn readings_with_unsupported_fans_count_as_answered() {
+    let ite_like = MotherboardSensorCollection {
+      availability: SensorAvailability::Available,
+      fan_support: SensorSupport::Unsupported,
+      ..MotherboardSensorCollection::default()
+    };
+
+    assert_eq!(
+      provider_attempt_outcome(Ok(ite_like.availability)),
+      ProviderAttemptOutcome::Answered
+    );
+  }
+
+  #[test]
+  fn an_answered_service_without_readings_is_not_answered() {
+    for availability in [
+      SensorAvailability::unsupported("unsupported chip"),
+      SensorAvailability::unavailable("module missing"),
+    ] {
+      assert_eq!(
+        provider_attempt_outcome(Ok(availability)),
+        ProviderAttemptOutcome::NotAnswered
+      );
+    }
+  }
 
   #[test]
   fn service_guidance_waits_for_a_failed_attempt_and_respects_acpi_fallback() {

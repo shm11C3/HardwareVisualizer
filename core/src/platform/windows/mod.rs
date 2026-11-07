@@ -68,6 +68,12 @@ impl GpuPlatform for WindowsPlatform {
   fn cpu_power_support(&self) -> crate::models::SensorSupport {
     sensors::cpu_power_support()
   }
+
+  fn optional_sensor_provider_outcomes(
+    &self,
+  ) -> crate::models::OptionalSensorProviderOutcomes {
+    sensors::optional_sensor_provider_outcomes()
+  }
 }
 
 impl NetworkPlatform for WindowsPlatform {
