@@ -204,27 +204,6 @@ See [Clean-room Sensor Specifications](specs/sensors/README.md),
 [Code Signing Policy](../CODE_SIGNING_POLICY.md), and
 [Download Verification](download-verification.md).
 
-### DP-12: Simplify the specification before absorbing its complexity
-
-When planning, implementing, or reviewing a change, question whether its
-complexity is required by the user's outcome or created by a chosen workflow.
-An existing specification or earlier agent plan is a decision to examine, not
-proof that every step, mode, timer, state, consent prompt or fallback is needed.
-
-First consider removing an assumed requirement, combining user steps, choosing
-a useful default or reusing an existing data flow while preserving the intended
-outcome.
-Then simplify the implementation that remains. Moving branches into helpers,
-deduplicating code or generalizing a CTA does not resolve an unnecessary product
-step. Future reuse alone does not justify building a generic framework now.
-
-Distinguish explicit user requirements, platform/security constraints and
-persisted user choices from assumptions introduced by the design. Keep the
-former intact; state the specific trade-off when revising the latter. Reconcile
-an accepted ADR when changing its decision, and surface a conflict with an
-explicit user requirement instead of silently removing it. This is a recurring
-design lens, not a mandatory specification document or approval ceremony.
-
 ## Decision Checklist
 
 Before implementing or approving a design-changing change, answer:
@@ -240,8 +219,6 @@ Before implementing or approving a design-changing change, answer:
 8. What evidence would prove the intended claim, including the rendered result?
 9. Does the decision require an ADR, a regression test, or a clean-room gate?
 10. Is any adjacent work better kept in a separate issue or PR?
-11. Can the same user outcome require fewer steps, modes or states by changing
-    the specification, and which concrete constraint requires what remains?
 
 ## Source-of-Truth Map
 
