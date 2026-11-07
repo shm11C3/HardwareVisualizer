@@ -7,6 +7,21 @@ mod generated {
 
 pub use generated::*;
 
+#[derive(Debug, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CpuCoreTemperatures {
+  pub temperature_unit: crate::enums::settings::TemperatureUnit,
+  pub readings: Vec<CpuCoreTemperatureReading>,
+}
+
+#[derive(Debug, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CpuCoreTemperatureReading {
+  pub processor_group: u16,
+  pub logical_processor: u8,
+  pub temperature: Option<f32>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct GpuMonitorData {

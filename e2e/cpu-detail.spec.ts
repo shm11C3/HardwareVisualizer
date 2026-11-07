@@ -27,4 +27,26 @@ test.describe("cpu detail captures", () => {
 
     await saveCapture(page, "cpu-detail");
   });
+
+  test("CPU core temperatures preserve unavailable slots on desktop and compact windows", async ({
+    page,
+  }) => {
+    await gotoApp(page, {
+      path: "/?navigationLayout=classic&cpuCoreTemperatures=1",
+    });
+    await seedHardwareHistory(page);
+    await navigateTo(page, "cpuDetail");
+
+    const panel = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "CPU core temperatures" }),
+    });
+    await expect(panel.getByText("43 °C")).toBeVisible();
+    await expect(panel.getByText("N/A")).toBeVisible();
+    await saveCapture(page, "cpu-core-temperatures-desktop");
+
+    await page.setViewportSize({ width: 520, height: 800 });
+    await expect(panel.getByText("Core at P2")).toBeVisible();
+    await expect(panel.getByText("N/A")).toBeVisible();
+    await saveCapture(page, "cpu-core-temperatures-compact");
+  });
 });

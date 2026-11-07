@@ -17,7 +17,7 @@ use crate::sensor_service::protocol::*;
 
 use super::uptime_ms;
 
-const CPU_INTERVAL_MS: u64 = 1_000;
+pub(super) const CPU_INTERVAL_MS: u64 = 1_000;
 // Leave headroom over the ITE sampler's 1.5 s floor for the coarse uptime clock.
 const MOTHERBOARD_INTERVAL_MS: u64 = 1_600;
 const REOPEN_FAILED_PROVIDER_MS: u64 = 30_000;

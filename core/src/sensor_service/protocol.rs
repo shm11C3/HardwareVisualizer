@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::models::hardware::SuperIoChipIdDiagnostics;
-use crate::models::{MotherboardSensorCollection, SensorSupport, TemperatureSample};
+use crate::models::{
+  CpuCoreTemperature, MotherboardSensorCollection, SensorSupport, TemperatureSample,
+};
 
 pub const VERSION: u32 = 2;
 pub const MAX_FRAME: usize = 64 * 1024;
@@ -20,6 +22,9 @@ pub enum Operation {
   Hello,
   Sample,
   Diagnostics,
+  // Additive v2 operation. Clients request it over a separate connection,
+  // so a service predating it can keep serving ordinary sample batches.
+  CpuCoreTemperatures,
 }
 
 impl Request {
@@ -74,6 +79,7 @@ pub enum Payload {
   Hello { service_version: String },
   Snapshot(Box<Snapshot>),
   Diagnostics(SuperIoChipIdDiagnostics),
+  CpuCoreTemperatures(Option<Reading<Vec<CpuCoreTemperature>>>),
   Failure(String),
 }
 
@@ -107,6 +113,46 @@ mod tests {
     assert!(decode_request(&vec![b' '; MAX_FRAME + 1]).is_err());
     let sample = decode_request(br#"{"version":2,"operation":"Sample"}"#).unwrap();
     assert!(matches!(sample.operation, Operation::Sample));
+  }
+
+  #[test]
+  fn cpu_core_request_is_typed_and_preserves_unavailable_siblings() {
+    assert!(matches!(
+      decode_request(br#"{"version":2,"operation":"CpuCoreTemperatures"}"#)
+        .unwrap()
+        .operation,
+      Operation::CpuCoreTemperatures
+    ));
+    assert!(
+      decode_request(
+        br#"{"version":2,"operation":{"CpuCoreTemperatures":{"register":412}}}"#,
+      )
+      .is_err()
+    );
+
+    let values = vec![
+      CpuCoreTemperature {
+        processor_group: 0,
+        logical_processor: 0,
+        temperature_celsius: Some(53.0),
+      },
+      CpuCoreTemperature {
+        processor_group: 0,
+        logical_processor: 2,
+        temperature_celsius: None,
+      },
+    ];
+    let payload = Payload::CpuCoreTemperatures(Some(Reading {
+      acquired_at_ms: 100,
+      value: values.clone(),
+    }));
+    let bytes = serde_json::to_vec(&payload).unwrap();
+    let decoded: Payload = serde_json::from_slice(&bytes).unwrap();
+    let Payload::CpuCoreTemperatures(Some(decoded)) = decoded else {
+      panic!("wrong payload");
+    };
+    assert_eq!(decoded.acquired_at_ms, 100);
+    assert_eq!(decoded.value, values);
   }
 
   #[test]
