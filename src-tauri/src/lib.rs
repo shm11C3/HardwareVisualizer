@@ -299,6 +299,8 @@ fn build_specta_builder() -> Builder<Wry> {
       hardware::get_process_list,
       hardware::get_cpu_usage,
       hardware::get_hardware_info,
+      hardware::get_hardware_compatibility_report,
+      hardware::save_hardware_compatibility_report,
       hardware::get_memory_info_detail,
       hardware::get_memory_usage,
       hardware::get_gpu_usage,
@@ -1080,6 +1082,7 @@ pub fn run() {
     .manage(history_store)
     .manage(app_state)
     .manage(external_component_guidance_state)
+    .manage(services::hardware_compatibility_service::ReportEvidenceCache::default())
     .manage(lifecycle::CloseToTrayRuntimeState::default())
     .manage(workers::WorkersState::default())
     .manage(app_updates::PendingUpdate(Mutex::new(None)));

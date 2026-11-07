@@ -25,6 +25,9 @@ External Component Guidance は、HardwareVisualizer が任意コンポーネン
 
 このダイアログは情報提供のためのものです。ハードウェア監視は、利用できる最善のフォールバックデータで継続します。
 
+お使いのハードウェアで利用できるセンサーの種類や取得結果を共有するには、
+[ハードウェア互換性レポート](hardware-compatibility.md)を参照してください。
+
 ## Windowsセンサーサービス
 
 Program Files配下へインストールするMSIには **Windowsセンサーサービス** が含まれます。

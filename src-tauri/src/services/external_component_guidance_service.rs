@@ -5,7 +5,9 @@ use hardviz_core::models::external_component_guidance::{
   PAWNIO_CPU_PACKAGE_TEMPERATURE_KEY, PAWNIO_MOTHERBOARD_SENSORS_KEY,
   SMARTCTL_STORAGE_HEALTH_KEY,
 };
-use hardviz_core::models::{ExternalComponent, ExternalComponentGuidanceCandidate};
+use hardviz_core::models::{
+  ExternalComponent, ExternalComponentGuidanceCandidate, ExternalComponentReasonKind,
+};
 
 /// Every guidance key a component can produce. Core forms the keys as
 /// `<component>:<usage>:v1`; the mapping stays here because only the App
@@ -38,6 +40,15 @@ pub struct ExternalComponentGuidanceState {
 }
 
 impl ExternalComponentGuidanceState {
+  pub(crate) fn recorded_storage_reason(&self) -> Option<ExternalComponentReasonKind> {
+    self
+      .pending
+      .lock()
+      .ok()?
+      .get(SMARTCTL_STORAGE_HEALTH_KEY)
+      .map(|candidate| candidate.reason_kind)
+  }
+
   pub fn record_candidates(
     &self,
     candidates: impl IntoIterator<Item = ExternalComponentGuidanceCandidate>,

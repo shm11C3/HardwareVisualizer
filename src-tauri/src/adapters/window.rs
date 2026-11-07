@@ -94,6 +94,10 @@ impl WindowAdapter {
     }
   }
 
+  pub(crate) fn latest_snapshot(&self) -> Option<MetricsSnapshot> {
+    self.latest_snapshot.load()
+  }
+
   pub async fn terminate(self) {
     let _ = self.stop_tx.send(true);
     let _ = self.handle.await;

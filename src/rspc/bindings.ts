@@ -25,6 +25,8 @@ export const commands = {
 	getCpuUsage: () => __TAURI_INVOKE<number>("get_cpu_usage"),
 	// ## Get system information
 	getHardwareInfo: () => typedError<SysInfo, string>(__TAURI_INVOKE("get_hardware_info")),
+	getHardwareCompatibilityReport: () => typedError<string, string>(__TAURI_INVOKE("get_hardware_compatibility_report")),
+	saveHardwareCompatibilityReport: (report: string) => typedError<null, string>(__TAURI_INVOKE("save_hardware_compatibility_report", { report })),
 	/**
 	 *  ## Get detailed memory information
 	 * 

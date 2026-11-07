@@ -7,6 +7,7 @@ use crate::models::archive_history::{
 };
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
 use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
+use crate::services::hardware_compatibility_service::{self, ReportEvidenceCache};
 use chrono::{DateTime, SecondsFormat, Utc};
 use hardviz_core::collector::HistoryStore;
 use hardviz_core::persistence::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
@@ -51,10 +52,38 @@ pub fn get_processors_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> Vec<f
 #[specta::specta]
 pub async fn get_hardware_info(
   state: tauri::State<'_, Arc<HistoryStore>>,
+  report_evidence: tauri::State<'_, ReportEvidenceCache>,
 ) -> Result<SysInfo, String> {
   use crate::services::hardware_service;
 
-  hardware_service::collect_hardware_info(state.inner().as_ref()).await
+  let inventory = hardware_service::collect_hardware_info(state.inner().as_ref()).await?;
+  report_evidence.record_inventory(&inventory);
+  Ok(inventory)
+}
+
+#[command]
+#[specta::specta]
+pub async fn get_hardware_compatibility_report(
+  app: tauri::AppHandle,
+  report_evidence: tauri::State<'_, ReportEvidenceCache>,
+  workers: tauri::State<'_, crate::workers::WorkersState>,
+  guidance: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
+) -> Result<String, String> {
+  hardware_compatibility_service::build(
+    &app.package_info().version.to_string(),
+    &report_evidence,
+    &workers,
+    &guidance,
+  )
+}
+
+#[command]
+#[specta::specta]
+pub async fn save_hardware_compatibility_report(
+  window: tauri::WebviewWindow,
+  report: String,
+) -> Result<(), String> {
+  hardware_compatibility_service::save(window, report).await
 }
 
 ///
@@ -223,6 +252,7 @@ pub async fn get_super_io_chip_id_diagnostics()
 #[specta::specta]
 pub async fn get_storage_health_latest_records(
   app: tauri::AppHandle,
+  report_evidence: tauri::State<'_, ReportEvidenceCache>,
 ) -> Result<Vec<models::hardware::StorageHealthRecord>, String> {
   use crate::app::database_availability::ensure_database_available;
   use crate::services::hardware_service;
@@ -231,7 +261,10 @@ pub async fn get_storage_health_latest_records(
 
   hardware_service::get_storage_health_latest_records()
     .await
-    .map(|records| records.into_iter().map(Into::into).collect())
+    .map(|records| {
+      report_evidence.record_storage(!records.is_empty());
+      records.into_iter().map(Into::into).collect()
+    })
     .map_err(|e| format!("Failed to fetch latest storage health records: {e}"))
 }
 
@@ -278,6 +311,7 @@ pub async fn refresh_storage_devices(
   state: tauri::State<'_, settings::AppState>,
   workers: tauri::State<'_, crate::workers::WorkersState>,
   guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
+  report_evidence: tauri::State<'_, ReportEvidenceCache>,
 ) -> Result<Vec<models::hardware::StorageHealthRecord>, String> {
   use crate::app::database_availability::ensure_database_writable;
   use crate::services::hardware_service;
@@ -320,7 +354,10 @@ pub async fn refresh_storage_devices(
     Some(guidance_sink),
   )
   .await
-  .map(|records| records.into_iter().map(Into::into).collect())
+  .map(|records| {
+    report_evidence.record_storage(!records.is_empty());
+    records.into_iter().map(Into::into).collect()
+  })
 }
 
 ///

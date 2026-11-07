@@ -234,6 +234,9 @@ Checks whether CPU temperature is rising above its own baseline under similar lo
 
 ## Permissions & Security Notes
 
+To share which sensors work on your machine, review and export a
+[Hardware Compatibility Report](docs/user/hardware-compatibility.md).
+
 | Context                        | Reason                                                             |
 | ------------------------------ | ------------------------------------------------------------------ |
 | Windows WMI                    | Memory, system, and storage details, ACPI thermal zones            |
