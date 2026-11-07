@@ -112,7 +112,7 @@ pub async fn fetch_cpu_core_temperatures(
   temperature_unit: TemperatureUnit,
 ) -> Result<CpuCoreTemperatures, PlatformError> {
   let platform = PlatformFactory::shared()?;
-  let readings = platform.cpu_core_temperatures().await;
+  let readings = platform.cpu_core_temperatures().await?;
   Ok(format_cpu_core_temperatures(readings, temperature_unit))
 }
 
