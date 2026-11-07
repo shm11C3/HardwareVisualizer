@@ -1012,9 +1012,12 @@ text is agreed.
   are the ones with a clear user-started action today; the eight features are
   the Application Preferences a user switches on or off. Anything else is a
   guess until v1 data exists.
-- Endpoint hostname and service repository name. `analytics.hardviz.com` and
-  `hardviz-analytics` are placeholders. Slice 2 needs both, and slice 5 needs
-  the hostname as its endpoint constant.
+- Endpoint hostname. `analytics.hardviz.com` is a placeholder; slice 5 needs
+  the hostname as its endpoint constant. The service repository is
+  `hardviz-product-analytics`, named after the Product Analytics term so a
+  reader checking what the app sends lands on the same word as ADR 0028 and
+  the consent surface, and so it is not mistaken for website traffic
+  analytics beside `hardviz-webpage`.
 - Whether `k = 20` is the final suppression threshold, and whether month
   totals below `k` should be shown as "fewer than 20" rather than the number.
 - Whether a declined installation should be told, in Settings, when the
