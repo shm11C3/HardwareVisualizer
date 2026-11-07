@@ -115,14 +115,18 @@ _Avoid_: active installations (as a flag denominator), flag total, sample size
 | Consent value, consent version, seed, Consent Cohort | App settings service, `productAnalytics` section of `settings.json` | An Application Preference; App-owned because Core never reads it |
 | Consent enforcement, counters, State Flag sampling, tokens, batching, transport, lifecycle | App, new `src-tauri/src/analytics/` module and one managed service | RFC section 3; Core stays Tauri-independent and never learns that analytics exists |
 | Product Event and State Flag vocabulary | App Rust enums; the event enum is exported through the generated bindings, the flag enum is App-internal | The enums are the allowlist; the frontend cannot invent a name and never sees flags |
-| Vendor-class and provider-availability mapping | App analytics module, reading App-side hardware DTOs and the existing provider availability state | Hardware knowledge stays out of Core utilities; Core exposes facts, App classifies them for the wire |
+| Vendor-class and provider-availability mapping | App analytics module, reading App-side hardware DTOs and the optional sensor provider outcomes Core publishes in `MetricsSnapshot` | Hardware knowledge stays out of Core utilities; Core exposes facts, App classifies them for the wire |
+| Optional sensor provider attempt outcome | Core collector, one field of `MetricsSnapshot` | A hardware fact Core already computes before ACPI fallback and guidance suppression; see [Provider outcome source](#provider-outcome-source) |
 | Recording a Product Event | Frontend app layer (screen views) and feature hooks (capabilities) through one shared hook | Features stay unaware of transport; ADR 0027 layers hold |
 | Consent surface | Frontend: one startup dialog in `src/app/` and one Settings section | Same arbitration as the other first-run dialogs |
 | Data contract and privacy notice | `docs/user/product-analytics.md` and `.ja.md` | Published by the website; the consent surface links to it |
 | Ingestion, deduplication, retention, public aggregates | Separate public repository (Cloudflare Worker + D1) | RFC section 5 |
 | Public display | `hardviz-webpage` reads the public aggregate endpoint | No private table or account access |
 
-Core gains nothing. The seed and tokens are App data because they describe the
+Core gains no analytics concept. Its one change is to publish, in the snapshot
+it already emits, whether each optional sensor provider's attempt answered: a
+hardware fact with value beyond analytics, which Core computes today and then
+discards. The seed and tokens are App data because they describe the
 installation's relationship to the service, not a hardware fact.
 
 ### Consent model
@@ -189,7 +193,13 @@ only what it shares.
 **Startup dialog.** One more entry in the `StartupDialogs` arbitration, lowest
 priority: it shows only when no Close to Tray, External Component Guidance,
 database conversion, or NSIS notice flow is pending, and only when the
-effective state is not granted-at-current-version and not declined. Its two
+effective state is not granted-at-current-version and not declined. It also
+waits for the nonmodal corner notices outside that arbitration
+(`SensorServiceNotice` and `ElevationUnavailableNotice`): it opens only after
+the sensor notice's bounded startup evaluation has ended and while neither
+notice is visible, so a modal consent never covers a sensor notice the user
+has not answered. If that does not happen in a session, the dialog waits for
+the next start; nothing is recorded. Its two
 buttons have the same visual weight and no default emphasis. The description
 names in plain words what is sent (screen and capability counts, which
 features are switched on, CPU and GPU vendor class, whether a sensor provider
@@ -205,8 +215,10 @@ the installation `undecided` and asking again next launch, is the nagging that
 RFC section 2 rules out, and the privacy-preserving outcome of "I did not
 answer" is no data.
 
-**Settings section.** A new "Product analytics" block in the Advanced section,
-beside Elevated Startup Mode: a switch bound to grant/decline, a one-line state
+**Settings section.** A new "Product analytics" block at the end of the
+Advanced section, after the startup, sensor service, and component setup
+controls, because it is neither a sensor nor a startup control: a switch bound
+to grant/decline, a one-line state
 ("Sharing aggregate usage since contract v1" / "Not sharing"), and the same
 four links. Write failures surface through `ActionFailure` under the control,
 like every other settings write.
@@ -277,8 +289,9 @@ Wire names are `feature_on.<feature>`, `navigation.<layout>`,
 Flag rules:
 
 - Flags are sampled by the App service when a batch is sealed, from the
-  settings service and the App-side hardware DTOs and provider availability
-  state. Core is not changed; App classifies facts Core already exposes.
+  settings service, the App-side hardware DTOs, and the latest optional
+  sensor provider outcomes in `MetricsSnapshot`. App classifies facts Core
+  exposes; Core never sees a flag.
 - A flag is reported at most once per installation per UTC day, and the
   client is the only enforcer: flags go into the first batch sealed for a UTC
   day whose flag sources are settled, and only when that day is later than
@@ -290,8 +303,8 @@ Flag rules:
   re-sent; an undercount is accepted, an inflation is not.
 - A flag set is complete or absent, never partial. The client seals flags
   only when every source has a determined value: settings are loaded, the
-  CPU and GPU DTOs exist, and every provider that exists on this OS family
-  has reported the outcome of its attempt in a hardware snapshot. If any
+  CPU and GPU DTOs exist, and no provider that exists on this OS family is
+  `pending` in the latest snapshot. If any
   source is still undetermined when a batch is sealed, that batch carries no
   `flags` field, `reportedDay` is not written, and the next sealed batch of
   the day tries again. A session that ends before its sources settle sends no
@@ -322,9 +335,55 @@ Flag rules:
   logged nor stored. A cross such as "Archive off and Tray Widget on" is not
   answerable, by design; the question v1 answers is which features are
   unused, not which users combine them.
-- `ProviderAvailable` reports that a provider was attempted and answered, the
-  same fact External Component Guidance already derives. It says nothing about
-  which chip or which failure; that depth belongs to the compatibility report.
+- `ProviderAvailable` reports that a provider was attempted and answered.
+  It says nothing about which chip or which failure; that depth belongs to
+  the compatibility report.
+
+### Provider outcome source
+
+Since [ADR 0029](../adr/0029-windows-sensor-service.md), every PawnIO-backed
+reading on Windows comes through the Windows sensor service; the app reaches
+PawnIO no other way. The facts the App receives cannot express a provider's
+attempt outcome:
+
+- `MetricsSnapshot` carries no availability for CPU package temperature or
+  motherboard sensors, and the CPU temperature availability is merged with
+  the ACPI fallback before it leaves the platform layer.
+- `motherboard_fan_support` is `Unsupported` for a recognized ITE chip whose
+  temperatures are read, so it is not an answer signal.
+- `cpu_power_support` is `Unknown` both while the service connection is in
+  progress and after the service is found missing.
+- External Component Guidance candidates exist only for some failures, are
+  cleared when ACPI supplies a CPU temperature, and are removed by the App
+  once the user acknowledges a key, so their absence means nothing.
+
+Without a determined outcome, a Windows installation without the service
+would never settle its flag set and would drop out of the Flag Census,
+biasing every Windows rate toward installations that have the service.
+
+Core therefore publishes one more field in `MetricsSnapshot`: for each
+optional sensor provider (PawnIO CPU package temperature and Super I/O
+motherboard sensors, both Windows only), whether its latest attempt is
+`pending`, `answered`, or `notAnswered`. Core computes it where it already
+knows it, before the ACPI merge and before guidance suppression. `pending`
+covers a service connection in progress and a provider not sampled yet;
+`answered` means the attempt returned a reading; `notAnswered` covers a
+missing or incompatible service, a missing driver or module, and an
+unsupported chip alike. The Rust shape is settled in that slice with its
+tests.
+
+The App maps it: provider sources are settled when no provider is `pending`;
+`provider_available.pawnio_cpu` is set when CPU package temperature is
+`answered`, and `provider_available.superio` when motherboard sensors are
+`answered`.
+
+No flag for the sensor service itself is added. The service is the only
+PawnIO path, so `ProviderAvailable` already reports whether the service,
+PawnIO, and the chip work together, and `feature_on.elevated_startup_mode`
+reports how many installations still start elevated, which is what the
+migration question needs. Telling "service missing" from "chip unsupported"
+would need either a service status read at seal time, which ADR 0029 keeps
+out of automatic paths, or a reason dimension the contract does not allow.
 
 ### Local aggregation and Installation Tokens
 
@@ -737,7 +796,10 @@ The governance slice is documentation only and lands first:
 - ADR 0028 "Opt-in Product Analytics": the DP-01 exception, consent and
   versioning rules, what is and is not sent, retention and publication rules,
   and the T0 + 30 day release gate. Status `accepted` on merge; its merge date
-  is T0 and is written into the ADR by the merging pull request.
+  is T0. It landed in
+  [#2501](https://github.com/shm11C3/HardwareVisualizer/pull/2501) on
+  2026-11-03, so no release carrying the client is published before
+  2026-12-03.
 - DP-01 keeps "local ownership by default" and adds that Product Analytics is
   an opt-in exception governed by the ADR, with hardware data, settings,
   history, and identity still never leaving the machine.
@@ -793,9 +855,13 @@ which chips those are. Neither needs the other to ship.
   with every day token of the month in transit. Sending it once pairs it with
   one, and the same persisted "last reported" mechanism the flags need makes
   that free.
-- **App-only, Core untouched.** Analytics has no hardware fact in it, and the
-  RFC requires Core to stay unchanged. Placing even the token derivation in
-  Core would give Core a network-facing concept it has no reason to know.
+- **App-owned analytics, one Core fact.** Analytics has no hardware fact in
+  it, and the RFC requires core hardware collection to stay unchanged.
+  Placing even the token derivation in Core would give Core a network-facing
+  concept it has no reason to know. The provider outcome is the one Core
+  change because it is a hardware fact, Core already computes it, and only
+  Core can read it before the ACPI merge and guidance suppression erase it.
+  Publishing it changes what Core reports, not how it collects.
 - **One settings section, not three fields.** Grant and withdrawal change
   consent, version, and seed together; a partial write would be either a seed
   without consent or consent without a seed. One section is one atomic merge
@@ -861,6 +927,19 @@ which chips those are. Neither needs the other to ship.
   a contract expansion with renewed consent.
 - **Reuse the download dashboard repository for ingestion.** Rejected; see
   the service section.
+- **Derive provider outcomes in the App from the monitor DTO.** Rejected.
+  The DTO's support fields and guidance candidates do not distinguish
+  "connecting" from "service missing" and lose the answer once ACPI or a
+  guidance acknowledgement intervenes; see
+  [Provider outcome source](#provider-outcome-source).
+- **A `feature_on.sensor_service` flag.** Rejected for v1. The service is the
+  only PawnIO path, so `ProviderAvailable` already covers it, and sampling
+  the service's own state would add an automatic status read ADR 0029 keeps
+  in Settings.
+- **`ProviderAvailable` for Linux `smartctl` and `intel_gpu_top`.** Rejected
+  for v1. Their availability is decided per command rather than probed once,
+  so a daily sampled fact would not say what a reader expects. Adding them
+  later is a contract expansion with renewed consent.
 
 ## Verification
 
@@ -878,7 +957,8 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 | Only allowlisted events | Compile-time: the command takes the enum; a frontend test checks the generated binding type has no string variant |
 | Flags carry no raw strings | Unit test: every vendor string fixture maps to a named variant or `Other`; the wire serializer has no string path |
 | Flags once per day | Unit test: with a persisted `reportedDay`, a simulated restart in the same UTC day seals a batch without flags; the next UTC day seals them again; a clock earlier than `reportedDay` seals no flags; a failed `reportedDay` write seals the batch without flags |
-| Flag set complete or absent | Unit test: while a Windows provider has not reported its attempt outcome, a sealed batch has no `flags` field and `reportedDay` is unchanged; once it reports, the next batch carries exactly one variant of each exclusive group; on macOS and Linux no `provider_available` flag is ever sealed |
+| Flag set complete or absent | Unit test: while a Windows provider outcome is `pending`, a sealed batch has no `flags` field and `reportedDay` is unchanged; once both are `answered` or `notAnswered`, the next batch carries exactly one variant of each exclusive group; on macOS and Linux no `provider_available` flag is ever sealed |
+| Provider outcome is a Core fact | Core test: a service still connecting reports `pending`; a missing service reports `notAnswered` for both providers even when ACPI supplies the headline CPU temperature; a recognized ITE chip with temperatures and unsupported fans reports motherboard `answered`; an acknowledged guidance key does not change the outcome |
 | Flag rates use the Flag Census | Service-repository test: a batch with `flags` increments the census once for its day and OS family, a batch without it does not; a rate is flag total over census; a `flags` array missing an exclusive group, or a provider flag from a non-Windows batch, is rejected with `400`; a rate below `k` is withheld |
 | Metric definitions | Service-repository test: per-dimension Active Installation rows sum to the period total; a cohort below `k` publishes no retention row; a retention value above 1 is published unclamped; quality counters record accepted batches, repeated ids, and each rejection reason |
 | Flags never combined | Service-repository test: the schema has no table with a per-installation flag row, and ingesting a batch leaves only per-flag totals |
@@ -895,26 +975,31 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 1. **Governance** (`docs/`): ADR 0028, DP-01, READMEs, `CONTEXT.md`,
    `docs/user/product-analytics(.ja).md`, `docs/README.md` index. Its merge
    date is T0.
-2. **Service repository**: Worker, D1 schema, flag deduplication, cohort
-   retention derivation, rollup and retention jobs, public endpoints, JSON
-   Schema and examples, tests. Public before any client release.
+2. **Service repository**: Worker, D1 schema, per-flag totals and the Flag
+   Census, cohort retention derivation, rollup and retention jobs, public
+   endpoints, JSON Schema and examples, tests. Public before any client
+   release.
 3. **Consent persistence** (`feat/`, Rust): `productAnalytics` section with
    seed, Consent Cohort, and the reported day/month, service transitions
    including renew, DTO, commands, regenerated bindings, tests.
-4. **Analytics runtime** (`feat/`, Rust): event and flag enums, counters,
+4. **Provider outcome** (`feat/`, Core): the optional sensor provider
+   outcome in `MetricsSnapshot`, with the Core tests above. Independent of
+   slice 3.
+5. **Analytics runtime** (`feat/`, Rust): event and flag enums, counters,
    flag sampling and vendor mapping, tokens, sealed batches, transport trait
    and reqwest implementation, worker registration, tests with the transport
-   double.
-5. **Consent surface and event recording** (`feat/`, frontend): dialog,
+   double. Needs slices 3 and 4 and the endpoint hostname.
+6. **Consent surface and event recording** (`feat/`, frontend): dialog,
    Settings section, shared hook, screen-view and capability call sites,
    language files, E2E mocks and tests, screenshots.
-6. **Website** (`hardviz-webpage`): aggregate display from the public
+7. **Website** (`hardviz-webpage`): aggregate display from the public
    endpoint.
-7. **Release**: first stable tag no earlier than T0 + 30 days; record the
-   version in ADR 0028.
+8. **Release**: first stable tag no earlier than T0 + 30 days (2026-12-03);
+   record the version in ADR 0028.
 
-Slices 3 to 5 are stacked and each is independently reviewable; slice 2 can
-proceed in parallel with slice 1 once the contract text is agreed.
+Slices 3, 5, and 6 are stacked and each is independently reviewable; slice 4
+can proceed beside slice 3, and slice 2 beside all of them once the contract
+text is agreed.
 
 ## Open questions
 
@@ -922,11 +1007,9 @@ proceed in parallel with slice 1 once the contract text is agreed.
   are the ones with a clear user-started action today; the eight features are
   the Application Preferences a user switches on or off. Anything else is a
   guess until v1 data exists.
-- Whether `ProviderAvailable` should also cover Linux `smartctl` and
-  `intel_gpu_top`. They are optional components too, but their availability
-  is per-command rather than probed once, so the sampled fact is less clear.
 - Endpoint hostname and service repository name. `analytics.hardviz.com` and
-  `hardviz-analytics` are placeholders.
+  `hardviz-analytics` are placeholders. Slice 2 needs both, and slice 5 needs
+  the hostname as its endpoint constant.
 - Whether `k = 20` is the final suppression threshold, and whether month
   totals below `k` should be shown as "fewer than 20" rather than the number.
 - Whether a declined installation should be told, in Settings, when the

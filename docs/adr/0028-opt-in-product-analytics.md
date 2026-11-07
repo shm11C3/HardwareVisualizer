@@ -8,9 +8,10 @@ Hardware depth is handled separately by the Hardware Compatibility Report,
 [#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500).
 
 This record is the public decision and advance notice the RFC asks for. The
-merge date of the pull request that added this file is **T0**; the git history
-of this file is the record of that date. No HardwareVisualizer release that
-can send product analytics is published before T0 + 30 days; the project
+merge date of the pull request that added this file is **T0**: 2026-11-03,
+[#2501](https://github.com/shm11C3/HardwareVisualizer/pull/2501). No
+HardwareVisualizer release that can send product analytics is published
+before T0 + 30 days, 2026-12-03; the project
 publishes no pre-releases, so the rule has no second case. The first version
 that carries the client is recorded here when it ships.
 
@@ -63,7 +64,10 @@ publicly reviewed exception rather than an implementation detail.
 4. **The boundary is auditable.** The frontend records only typed, enumerated
    Product Events through generated Tauri commands; the App crate enforces
    consent on every event, owns aggregation, batching, transport, timeouts,
-   and lifecycle; Core is unchanged and never learns that analytics exists.
+   and lifecycle. Core never learns that analytics exists; its only change is
+  to publish whether each optional sensor provider's attempt answered, a
+  hardware fact the State Flags classify (see the design's provider outcome
+  source).
    Upload failure never blocks or fails startup, monitoring, shutdown, or any
    product capability.
 5. **The service is a separate public repository.** A Cloudflare Worker with
