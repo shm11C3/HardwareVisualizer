@@ -118,14 +118,15 @@ on the pipe ACL for client authorization and does not impersonate callers.
 ## IPC and Sampling
 
 Use framed, typed, versioned messages with a length cap checked before
-allocation. Start with one supported protocol major version; incompatible
-peers return an explicit mismatch instead of guessing at message shapes.
-Exchange service/build version and supported capabilities before subscribing.
+allocation. The pipe endpoint and frame version identify the supported IPC
+major version. The app and service ship together in the MSI. An incompatible
+pair reports the service unavailable until both ends use the same version.
+The handshake returns the service build version and process generation.
 
 | Operation | Allowed effect |
 | --- | --- |
-| Hello/capabilities | Authenticate compatibility and discover supported sensor families |
-| Sample request | Return shared readings for the requested sensor families, acquiring only when due |
+| Hello | Confirm protocol compatibility |
+| Sample request | Return shared readings for CPU temperature, CPU power and motherboard sensors, acquiring only when due |
 | Snapshot delivery | Send latest typed readings, per-family outcome and acquisition metadata |
 | Read-only diagnostics | Existing fixed sensor diagnostic operations, serialized and rate-limited; no raw access parameters |
 
@@ -171,13 +172,11 @@ The current producer contracts are:
 | Motherboard temperature/fan | `super_io/motherboard.rs` supplies provider `source` and channel `name`; Core models have no persistent sensor ID | Preserve labels and channel association, including optional/absent readings; never join by compacted vector position |
 | Package power | `cpu_power.rs` supplies the CPU package domain | Preserve `cpu_watts` semantics; do not populate derived total power or invent per-CPU IDs |
 
-There is no new identity namespace or persisted selection in this slice.
-Service generation and sample sequence identify acquisitions, not hardware.
-Any later identity/selection change must verify the actual producer contracts
-separately rather than treating transport sequence numbers as sensor IDs.
+Sensor identity follows the producer contracts above. The service generation
+identifies the connection's service process lifetime.
 
-Snapshots include service generation, per-provider sequence and actual
-acquisition time on a shared Windows monotonic clock. Cache hits retain their
+Snapshots carry each provider's actual acquisition time on a shared Windows
+monotonic clock. Cache hits retain their
 original acquisition time. The client drops its cached snapshot when
 communication fails and authenticates again before publishing another one.
 A response on the new connection may contain a still-current shared reading.

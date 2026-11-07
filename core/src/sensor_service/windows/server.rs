@@ -124,7 +124,6 @@ async fn connection(
     version: VERSION,
     generation,
     payload: Payload::Hello {
-      capabilities: ALL,
       service_version: super::host::build_version().to_string(),
     },
   };
@@ -152,9 +151,7 @@ async fn connection(
       }
 
       Ok::<_, String>(match request.operation {
-        Operation::Sample { families } => {
-          Payload::Snapshot(Box::new(providers.sample(families)))
-        }
+        Operation::Sample => Payload::Snapshot(Box::new(providers.sample())),
         Operation::Diagnostics => Payload::Diagnostics(providers.diagnostics()),
         Operation::Hello => unreachable!(),
       })
@@ -199,6 +196,12 @@ mod tests {
         ClientOptions::new().open(&name).unwrap()
       });
       connected.unwrap();
+      let busy = ClientOptions::new().open(&name).unwrap_err();
+      assert_eq!(
+        busy.raw_os_error(),
+        Some(windows::Win32::Foundation::ERROR_PIPE_BUSY.0 as i32)
+      );
+
       assert!(admit_client(&mut listener, &clients).is_none());
       assert!(
         ServerOptions::new()
@@ -231,13 +234,11 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn fragmented_frames_preserve_channel_identity_and_missing_values() {
+  async fn fragmented_sample_request_is_decoded() {
     let (mut writer, mut reader) = tokio::io::duplex(8);
     let request = Request {
       version: VERSION,
-      operation: Operation::Sample {
-        families: MOTHERBOARD,
-      },
+      operation: Operation::Sample,
     };
 
     let send = tokio::spawn(async move {
@@ -246,12 +247,7 @@ mod tests {
 
     let parsed: Request = read_frame(&mut reader).await.unwrap();
     parsed.validate().unwrap();
-    assert!(matches!(
-      parsed.operation,
-      Operation::Sample {
-        families: MOTHERBOARD
-      }
-    ));
+    assert!(matches!(parsed.operation, Operation::Sample));
     send.await.unwrap();
   }
 }

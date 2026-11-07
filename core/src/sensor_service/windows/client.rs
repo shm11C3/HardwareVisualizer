@@ -39,7 +39,7 @@ impl std::fmt::Display for SampleError {
 }
 
 fn sample<T: Clone>(
-  select: impl FnOnce(&Snapshot) -> &Option<Reading<T>>,
+  select: impl FnOnce(&Snapshot) -> &Reading<T>,
 ) -> Result<T, SampleError> {
   let state = CLIENT
     .lock()
@@ -48,11 +48,15 @@ fn sample<T: Clone>(
   match &*state {
     State::Connecting => Err(SampleError::Connecting),
     State::Unavailable(error) => Err(SampleError::Unavailable(error.clone())),
-    State::Connected(snapshot) => select(snapshot)
-      .as_ref()
-      .filter(|reading| reading.is_fresh(uptime_ms()))
-      .map(|reading| reading.value.clone())
-      .ok_or(SampleError::Connecting),
+    State::Connected(snapshot) => {
+      let reading = select(snapshot);
+
+      if reading.is_fresh(uptime_ms()) {
+        Ok(reading.value.clone())
+      } else {
+        Err(SampleError::Connecting)
+      }
+    }
   }
 }
 
@@ -108,19 +112,11 @@ impl Connection {
 }
 
 pub(super) async fn handshake() -> Result<Connection, String> {
-  let mut pipe = security::connect()?;
+  let mut pipe = security::connect().await?;
   let reply = exchange(&mut pipe, Operation::Hello).await?;
 
-  if reply.generation == 0
-    || !matches!(
-      reply.payload,
-      Payload::Hello {
-        capabilities: ALL,
-        ..
-      }
-    )
-  {
-    return Err("Incompatible sensor service capabilities".into());
+  if reply.generation == 0 || !matches!(reply.payload, Payload::Hello { .. }) {
+    return Err("Invalid sensor service handshake".into());
   }
 
   Ok(Connection {
@@ -176,7 +172,7 @@ pub(crate) async fn collect(mut ticks: mpsc::Receiver<()>) {
         Some(pipe) => pipe,
         None => connection.insert(handshake().await?),
       };
-      match pipe.request(Operation::Sample { families: ALL }).await? {
+      match pipe.request(Operation::Sample).await? {
         Payload::Snapshot(snapshot) => Ok(snapshot),
         _ => Err("Unexpected sensor response".to_string()),
       }

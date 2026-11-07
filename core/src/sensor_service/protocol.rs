@@ -3,12 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::models::hardware::SuperIoChipIdDiagnostics;
 use crate::models::{MotherboardSensorCollection, SensorSupport, TemperatureSample};
 
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 pub const MAX_FRAME: usize = 64 * 1024;
-pub const TEMPERATURE: u8 = 1;
-pub const POWER: u8 = 2;
-pub const MOTHERBOARD: u8 = 4;
-pub const ALL: u8 = TEMPERATURE | POWER | MOTHERBOARD;
 pub const FRESHNESS_MS: u64 = 5_000;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,7 +18,7 @@ pub struct Request {
 #[serde(deny_unknown_fields)]
 pub enum Operation {
   Hello,
-  Sample { families: u8 },
+  Sample,
   Diagnostics,
 }
 
@@ -32,29 +28,21 @@ impl Request {
       return Err("Sensor service protocol mismatch");
     }
 
-    if let Operation::Sample { families } = self.operation
-      && (families == 0 || families & !ALL != 0)
-    {
-      return Err("Invalid sensor family selection");
-    }
-
     Ok(())
   }
 }
 
+/// A provider result timed on the monotonic clock shared by both processes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Reading<T> {
   pub acquired_at_ms: u64,
-  pub sequence: u64,
   pub value: T,
 }
 
 impl<T> Reading<T> {
   pub fn is_fresh(&self, now_ms: u64) -> bool {
-    self.sequence > 0
-      && now_ms >= self.acquired_at_ms
-      && now_ms - self.acquired_at_ms <= FRESHNESS_MS
+    now_ms >= self.acquired_at_ms && now_ms - self.acquired_at_ms <= FRESHNESS_MS
   }
 }
 
@@ -64,12 +52,13 @@ pub struct CpuPower {
   pub support: SensorSupport,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// A complete batch whose provider results can be unavailable independently.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
-  pub temperature: Option<Reading<TemperatureSample>>,
-  pub power: Option<Reading<CpuPower>>,
-  pub motherboard: Option<Reading<MotherboardSensorCollection>>,
+  pub temperature: Reading<TemperatureSample>,
+  pub power: Reading<CpuPower>,
+  pub motherboard: Reading<MotherboardSensorCollection>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,10 +71,7 @@ pub struct Reply {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Payload {
-  Hello {
-    capabilities: u8,
-    service_version: String,
-  },
+  Hello { service_version: String },
   Snapshot(Box<Snapshot>),
   Diagnostics(SuperIoChipIdDiagnostics),
   Failure(String),
@@ -110,41 +96,32 @@ mod tests {
   #[test]
   fn rejects_unversioned_unknown_and_privileged_operations() {
     for bytes in [
-      br#"{"version":0,"operation":"Hello"}"#.as_slice(),
-      br#"{"version":1,"operation":{"Sample":{"families":128}}}"#,
-      br#"{"version":1,"operation":{"Sample":{"families":0}}}"#,
-      br#"{"version":1,"operation":"Hello","path":"x.dll"}"#,
-      br#"{"version":1,"operation":{"Execute":{"register":0}}}"#,
+      br#"{"operation":"Hello"}"#.as_slice(),
+      br#"{"version":1,"operation":"Hello"}"#,
+      br#"{"version":2,"operation":{"Sample":{"families":7}}}"#,
+      br#"{"version":2,"operation":"Sample","path":"x.dll"}"#,
+      br#"{"version":2,"operation":{"Execute":{"register":0}}}"#,
     ] {
       assert!(decode_request(bytes).is_err());
     }
     assert!(decode_request(&vec![b' '; MAX_FRAME + 1]).is_err());
-    assert!(
-      decode_request(br#"{"version":1,"operation":{"Sample":{"families":7}}}"#).is_ok()
-    );
+    let sample = decode_request(br#"{"version":2,"operation":"Sample"}"#).unwrap();
+    assert!(matches!(sample.operation, Operation::Sample));
   }
 
   #[test]
   fn cached_values_expire_and_future_timestamps_are_rejected() {
     let reading = Reading {
       acquired_at_ms: 100,
-      sequence: 1,
       value: (),
     };
     assert!(!reading.is_fresh(99));
     assert!(reading.is_fresh(100 + FRESHNESS_MS));
     assert!(!reading.is_fresh(101 + FRESHNESS_MS));
-    assert!(
-      !Reading {
-        sequence: 0,
-        ..reading
-      }
-      .is_fresh(100)
-    );
   }
 
   #[test]
-  fn transport_preserves_source_channel_and_missing_fan_rpm() {
+  fn snapshot_preserves_partial_availability_and_channel_identity() {
     use crate::models::{FanSpeedStatus, MotherboardFanSpeed, MotherboardSensorSample};
 
     let sample = MotherboardSensorCollection {
@@ -162,9 +139,30 @@ mod tests {
       guidance_candidates: Vec::new(),
     };
 
-    let bytes = serde_json::to_vec(&sample).unwrap();
-    let decoded: MotherboardSensorCollection = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(decoded, sample);
-    assert_eq!(decoded.sample.fan_speeds[0].rpm, None);
+    let snapshot = Snapshot {
+      temperature: Reading {
+        acquired_at_ms: 100,
+        value: TemperatureSample::unavailable("no temperature provider"),
+      },
+      power: Reading {
+        acquired_at_ms: 100,
+        value: CpuPower {
+          watts: None,
+          support: SensorSupport::Unknown,
+        },
+      },
+      motherboard: Reading {
+        acquired_at_ms: 120,
+        value: sample.clone(),
+      },
+    };
+
+    let bytes = serde_json::to_vec(&snapshot).unwrap();
+    let decoded: Snapshot = serde_json::from_slice(&bytes).unwrap();
+    assert!(decoded.temperature.value.cpu_temperature.is_none());
+    assert!(decoded.power.value.watts.is_none());
+    assert_eq!(decoded.motherboard.acquired_at_ms, 120);
+    assert_eq!(decoded.motherboard.value, sample);
+    assert_eq!(decoded.motherboard.value.sample.fan_speeds[0].rpm, None);
   }
 }

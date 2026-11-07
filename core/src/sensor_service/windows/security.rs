@@ -1,9 +1,12 @@
 use std::ffi::c_void;
-use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+use std::os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, OwnedHandle};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use tokio::net::windows::named_pipe::{NamedPipeClient, NamedPipeServer, ServerOptions};
-use windows::Win32::Foundation::{GENERIC_ALL, GENERIC_WRITE, HANDLE, HLOCAL, LocalFree};
+use windows::Win32::Foundation::{
+  ERROR_PIPE_BUSY, GENERIC_ALL, GENERIC_WRITE, HANDLE, HLOCAL, LocalFree,
+};
 use windows::Win32::Security::Authorization::{
   ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
   SDDL_REVISION_1,
@@ -95,11 +98,11 @@ impl Drop for ServiceHandle {
   }
 }
 
-pub(super) fn connect() -> Result<NamedPipeClient, String> {
+/// Open the local pipe and authenticate its SCM owner before sending a frame.
+pub(super) async fn connect() -> Result<NamedPipeClient, String> {
   let name: Vec<_> = PIPE_NAME.encode_utf16().chain([0]).collect();
-
-  unsafe {
-    let pipe = CreateFileW(
+  let open = || unsafe {
+    CreateFileW(
       PCWSTR(name.as_ptr()),
       PIPE_CLIENT_ACCESS,
       FILE_SHARE_NONE,
@@ -108,13 +111,23 @@ pub(super) fn connect() -> Result<NamedPipeClient, String> {
       FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
       None,
     )
-    .map_err(|e| format!("Sensor service connection unavailable: {e}"))?;
+    .map(|pipe| OwnedHandle::from_raw_handle(pipe.0))
+  };
 
-    let pipe = OwnedHandle::from_raw_handle(pipe.0);
-    authenticate_server(HANDLE(pipe.as_raw_handle()))?;
-    use std::os::windows::io::IntoRawHandle;
-    NamedPipeClient::from_raw_handle(pipe.into_raw_handle()).map_err(|e| e.to_string())
+  let pipe = match open() {
+    Err(error) if error.code() == ERROR_PIPE_BUSY.to_hresult() => {
+      // Allow the server to replace its listener during simultaneous opens.
+      tokio::time::sleep(Duration::from_millis(25)).await;
+      open()
+    }
+    result => result,
   }
+  .map_err(|error| format!("Sensor service connection unavailable: {error}"))?;
+
+  authenticate_server(HANDLE(pipe.as_raw_handle()))?;
+
+  unsafe { NamedPipeClient::from_raw_handle(pipe.into_raw_handle()) }
+    .map_err(|error| error.to_string())
 }
 
 fn protected_path(path: &Path) -> Result<PathBuf, String> {

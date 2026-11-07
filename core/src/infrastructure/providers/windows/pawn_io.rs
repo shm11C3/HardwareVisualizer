@@ -10,6 +10,9 @@ use libloading::Library;
 use windows::Win32::Foundation::{
   CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
+use windows::Win32::System::LibraryLoader::{
+  LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, LOAD_LIBRARY_SEARCH_SYSTEM32,
+};
 use windows::Win32::System::Threading::{
   CreateMutexW, MUTEX_MODIFY_STATE, OpenMutexW, ReleaseMutex,
   SYNCHRONIZATION_SYNCHRONIZE, WaitForSingleObject,
@@ -377,7 +380,10 @@ impl PawnIoLibrary {
     let file = crate::sensor_service::windows::security::protected_file(path)?;
 
     let library: Library = unsafe {
-      libloading::os::windows::Library::load_with_flags(path, 0x00000100 | 0x00000800)
+      libloading::os::windows::Library::load_with_flags(
+        path,
+        (LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32).0,
+      )
     }
     .map(Into::into)
     .map_err(|e| format!("failed to load {}: {e}", path.display()))?;

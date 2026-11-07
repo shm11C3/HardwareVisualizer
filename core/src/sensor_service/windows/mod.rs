@@ -11,7 +11,7 @@ pub use host::run;
 const MAX_CLIENTS: usize = 16;
 
 pub const SERVICE_NAME: &str = "HardwareVisualizerSensors";
-pub const PIPE_NAME: &str = r"\\.\pipe\HardwareVisualizer.Sensors.v1";
+pub const PIPE_NAME: &str = r"\\.\pipe\HardwareVisualizer.Sensors.v2";
 
 fn uptime_ms() -> u64 {
   // A machine-wide clock shared by both processes, including suspend time.

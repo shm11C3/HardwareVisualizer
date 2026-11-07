@@ -43,7 +43,6 @@ impl<S, T: Clone> Slot<S, T> {
     &mut self,
     now: u64,
     interval: u64,
-    sequence: &mut u64,
     open: impl FnOnce() -> S,
     read: impl FnOnce(&mut S) -> (T, bool),
   ) -> Reading<T> {
@@ -60,10 +59,8 @@ impl<S, T: Clone> Slot<S, T> {
       self.sampler = None;
     }
 
-    *sequence += 1;
     let reading = Reading {
       acquired_at_ms: uptime_ms(),
-      sequence: *sequence,
       value,
     };
     self.reading = Some(reading.clone());
@@ -76,7 +73,6 @@ pub(super) struct Providers {
   power: Slot<CpuPowerSampler, CpuPower>,
   motherboard: Slot<MotherboardSensorSampler, MotherboardSensorCollection>,
   diagnostics: Option<(u64, SuperIoChipIdDiagnostics)>,
-  sequence: u64,
   last_sample_ms: Option<u64>,
 }
 
@@ -87,7 +83,6 @@ impl Providers {
       power: Slot::default(),
       motherboard: Slot::default(),
       diagnostics: None,
-      sequence: 0,
       last_sample_ms: None,
     }
   }
@@ -114,7 +109,7 @@ impl Providers {
     }
   }
 
-  pub(super) fn sample(&mut self, families: u8) -> Snapshot {
+  pub(super) fn sample(&mut self) -> Snapshot {
     let now = uptime_ms();
 
     // Reset the sampling baseline after a gap, including suspend before SCM's
@@ -129,55 +124,43 @@ impl Providers {
     self.last_sample_ms = Some(now);
 
     Snapshot {
-      temperature: (families & TEMPERATURE != 0).then(|| {
-        self.temperature.sample(
-          now,
-          CPU_INTERVAL_MS,
-          &mut self.sequence,
-          CpuTemperatureSampler::new,
-          |sampler| {
-            let value = build_temperature_sample(sampler.sample(), Vec::new());
-            let reopen =
-              matches!(value.availability, SensorAvailability::Unavailable { .. });
-            (value, reopen)
-          },
-        )
-      }),
-      power: (families & POWER != 0).then(|| {
-        self.power.sample(
-          now,
-          CPU_INTERVAL_MS,
-          &mut self.sequence,
-          CpuPowerSampler::new,
-          |sampler| {
-            let watts = sampler.sample().ok().flatten().map(|v| v as f32);
-            let support = if sampler.diagnostics.selected_enablement.is_some() {
-              SensorSupport::Supported
-            } else {
-              SensorSupport::Unsupported
-            };
+      temperature: self.temperature.sample(
+        now,
+        CPU_INTERVAL_MS,
+        CpuTemperatureSampler::new,
+        |sampler| {
+          let value = build_temperature_sample(sampler.sample(), Vec::new());
+          let reopen =
+            matches!(value.availability, SensorAvailability::Unavailable { .. });
+          (value, reopen)
+        },
+      ),
+      power: self
+        .power
+        .sample(now, CPU_INTERVAL_MS, CpuPowerSampler::new, |sampler| {
+          let watts = sampler.sample().ok().flatten().map(|v| v as f32);
+          let support = if sampler.diagnostics.selected_enablement.is_some() {
+            SensorSupport::Supported
+          } else {
+            SensorSupport::Unsupported
+          };
 
-            (
-              CpuPower { watts, support },
-              !sampler.diagnostics.pawnio.module_loadable,
-            )
-          },
-        )
-      }),
-      motherboard: (families & MOTHERBOARD != 0).then(|| {
-        self.motherboard.sample(
-          now,
-          MOTHERBOARD_INTERVAL_MS,
-          &mut self.sequence,
-          MotherboardSensorSampler::new,
-          |sampler| {
-            let value = motherboard_collection_from_readout(sampler.readout());
-            let reopen =
-              matches!(value.availability, SensorAvailability::Unavailable { .. });
-            (value, reopen)
-          },
-        )
-      }),
+          (
+            CpuPower { watts, support },
+            !sampler.diagnostics.pawnio.module_loadable,
+          )
+        }),
+      motherboard: self.motherboard.sample(
+        now,
+        MOTHERBOARD_INTERVAL_MS,
+        MotherboardSensorSampler::new,
+        |sampler| {
+          let value = motherboard_collection_from_readout(sampler.readout());
+          let reopen =
+            matches!(value.availability, SensorAvailability::Unavailable { .. });
+          (value, reopen)
+        },
+      ),
     }
   }
 
@@ -203,31 +186,26 @@ mod tests {
   #[test]
   fn shared_cache_keeps_the_original_acquisition_until_the_provider_is_due() {
     let mut slot = Slot::<(), u32>::default();
-    let mut sequence = 0;
     let interval = MOTHERBOARD_INTERVAL_MS;
-    let first = slot.sample(uptime_ms(), interval, &mut sequence, || (), |_| (40, false));
+    let first = slot.sample(uptime_ms(), interval, || (), |_| (40, false));
 
     let cached = slot.sample(
       first.acquired_at_ms + interval - 1,
       interval,
-      &mut sequence,
       || panic!("cached reads must not open a sampler"),
       |_| panic!("cached reads must not touch hardware"),
     );
 
     assert_eq!(cached.acquired_at_ms, first.acquired_at_ms);
-    assert_eq!(cached.sequence, first.sequence);
     assert_eq!(cached.value, 40);
 
     let next = slot.sample(
       first.acquired_at_ms + interval,
       interval,
-      &mut sequence,
       || panic!("reuse the open sampler"),
       |_| (42, false),
     );
 
-    assert_eq!(next.sequence, first.sequence + 1);
     assert_eq!(next.value, 42);
   }
 }
