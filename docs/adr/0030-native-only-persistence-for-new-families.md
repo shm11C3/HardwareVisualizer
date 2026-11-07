@@ -41,20 +41,23 @@ Two facts limit who an engine-specific feature reaches:
    whether a new table, projection or user-entered record, is implemented only
    on the native database. It gets no SQLite migration, writer or query, and no
    differential test.
-2. **The consumer decides, and native-only data gets its own tables.** Data
-   that only a native-only feature reads is native-only. Data that an existing
-   feature reads keeps both engines until v2.0.0, as ADR 0025 requires. Before
-   v2.0.0, existing tables gain no native-only columns: when native-only data
-   extends an existing family, it goes in its own native-only table. Conversion
-   plans every native column from the SQLite candidate (`plan_columns`, used by
-   both finalization and reconciliation), so a column without a SQLite source
-   would make every conversion fail.
-3. **Unavailable is its own state.** While SQLite is authoritative, a
+2. **Only existing families keep both engines.** Decision 1 holds even when an
+   existing feature reads the new family. ADR 0025's two-engine requirement now
+   covers only the families that already exist: a change to an existing table
+   is made on both engines until v2.0.0. When an existing feature starts using
+   a new family, that new behavior is native-only, and on SQLite the feature
+   keeps its existing behavior without it.
+3. **Native-only data gets its own tables.** Before v2.0.0, existing tables gain
+   no native-only columns; data that extends an existing family goes in its own
+   native-only table. Conversion plans every native column from the SQLite
+   candidate (`plan_columns`, used by both finalization and reconciliation), so
+   a column without a SQLite source would make every conversion fail.
+4. **Unavailable is its own state.** While SQLite is authoritative, a
    native-only feature reports that it needs the native database. This state is
    distinct from empty data, from a read failure and from
    `DispatchError::NativeUnavailable` (DP-02). The UI may point to the existing
    Settings conversion action, but it never starts a conversion (DP-06).
-4. **Conversion learns which tables have no SQLite source.** Finalization and
+5. **Conversion learns which tables have no SQLite source.** Finalization and
    reconciliation walk every table in `NativeSchemaDefinition.tables` and refuse
    a candidate that lacks one. The native schema definition therefore marks
    native-only tables. Conversion creates them empty and leaves them out of the
@@ -63,21 +66,20 @@ Two facts limit who an engine-specific feature reaches:
    from the Hardware Archive backfills up to the archive's Retention Period, and
    a user-entered family starts empty. This change lands with the first
    native-only table or before it.
-5. **Builds without the `duckdb-archive` feature** report the same unavailable
+6. **Builds without the `duckdb-archive` feature** report the same unavailable
    state for native-only features.
-6. **Existing native databases need a schema upgrade first.** The native schema
+7. **Existing native databases need a schema upgrade first.** The native schema
    is at version 1, and opening a database at any other version fails with
-   `IncompatibleSchema`; there is no upgrade step. The first new table therefore
-   needs a versioned native schema upgrade for databases already at version 1.
-   Any new table needs this, native-only or not, but native-only tables are the
-   first ones that will.
+   `IncompatibleSchema`; there is no upgrade step. The first native-only table
+   therefore needs a versioned native schema upgrade for databases already at
+   version 1. A new table would need this whichever engine owned it.
 
 ## Consequences
 
 - New persistence work is written once. The work v2.0.0 has to remove does not
   grow.
 - The first native-only feature carries two one-time prerequisites: the native
-  schema upgrade (decision 6) and the conversion change (decision 4). Later
+  schema upgrade (decision 7) and the conversion change (decision 5). Later
   native-only tables reuse both.
 - Existing installs that have not converted do not get native-only features
   until their user converts. Because conversion only starts from a Settings
@@ -87,9 +89,10 @@ Two facts limit who an engine-specific feature reaches:
   without making conversion automatic.
 - The dispatch boundary gains an answer meaning "this family exists only on the
   native database". A native-only family's consumers have to handle it.
-- Features that span both kinds of data, such as one combining an existing
-  family with a native-only one, degrade to the existing part on SQLite, or
-  report unavailable as a whole. Each feature decides which and states it.
+- An existing feature that gains a native-only part keeps its current behavior
+  on SQLite (decision 2). A new feature that combines an existing family with a
+  native-only one either degrades to the existing part on SQLite or reports
+  unavailable as a whole; each such feature decides which and states it.
 
 ## Alternatives Considered
 
