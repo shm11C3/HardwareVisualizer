@@ -374,6 +374,7 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::acknowledge_external_component_guidance_key,
       settings::commands::dismiss_nsis_migration_notice,
       settings::commands::set_elevated_startup_mode,
+      settings::commands::set_product_analytics_consent,
       settings::commands::read_license_file,
       settings::commands::read_third_party_notices_file,
       settings::commands::open_license_file_path,

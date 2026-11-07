@@ -63,6 +63,11 @@ export const settingsAtom = atom<ClientSettings>({
     visibleMetrics: ["cpu", "gpu", "gpu-temp"],
     updateIntervalSecs: 1,
   },
+  productAnalytics: {
+    consent: "undecided",
+    consentVersion: 0,
+    currentConsentVersion: 0,
+  },
 });
 
 export const navigationMutationPendingAtom = atom(false);

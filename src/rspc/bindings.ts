@@ -238,6 +238,8 @@ export const commands = {
 	// Persist "Don't show again" for the NSIS-to-MSI migration notice (#2215).
 	dismissNsisMigrationNotice: () => typedError<null, string>(__TAURI_INVOKE("dismiss_nsis_migration_notice")),
 	setElevatedStartupMode: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_elevated_startup_mode", { newValue })),
+	// Grant, renew, or decline Analytics Consent (ADR 0028).
+	setProductAnalyticsConsent: (decision: ProductAnalyticsDecision) => typedError<null, string>(__TAURI_INVOKE("set_product_analytics_consent", { decision })),
 	readLicenseFile: () => typedError<string, string>(__TAURI_INVOKE("read_license_file")),
 	readThirdPartyNoticesFile: () => typedError<string, string>(__TAURI_INVOKE("read_third_party_notices_file")),
 	openLicenseFilePath: () => typedError<null, string>(__TAURI_INVOKE("open_license_file_path")),
@@ -433,6 +435,7 @@ export type ClientSettings_Deserialize = {
 	externalComponentGuidance: ExternalComponentGuidanceSettings,
 	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Deserialize,
+	productAnalytics: ProductAnalyticsClientSettings,
 };
 
 export type ClientSettings_Serialize = {
@@ -480,6 +483,7 @@ export type ClientSettings_Serialize = {
 	externalComponentGuidance: ExternalComponentGuidanceSettings,
 	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Serialize,
+	productAnalytics: ProductAnalyticsClientSettings,
 };
 
 // Wire mirror of `app::native_lifecycle::ConversionProgress`.
@@ -1226,6 +1230,26 @@ export type ProcessStatRecord = {
 	total_execution_sec: number,
 	latest_timestamp: string,
 };
+
+/**
+ *  Consent state sent to the frontend. Seed, cohort, and reported periods
+ *  stay in the backend.
+ */
+export type ProductAnalyticsClientSettings = {
+	consent: ProductAnalyticsConsent,
+	consentVersion: number,
+	/**
+	 *  Current contract version. This is wire metadata, not a persisted
+	 *  user preference.
+	 */
+	currentConsentVersion: number,
+};
+
+// Analytics Consent state persisted in `settings.json` (ADR 0028).
+export type ProductAnalyticsConsent = "undecided" | "granted" | "declined";
+
+// The choice a user makes on the consent dialog or the Settings switch.
+export type ProductAnalyticsDecision = "granted" | "declined";
 
 export type SensorSupport = "unknown" | "supported" | "unsupported";
 

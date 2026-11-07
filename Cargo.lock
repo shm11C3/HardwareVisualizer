@@ -2209,6 +2209,7 @@ dependencies = [
  "core-foundation 0.10.1",
  "dirs 7.0.0",
  "dxgi",
+ "getrandom 0.4.3",
  "hardviz-core",
  "image",
  "ipnet",

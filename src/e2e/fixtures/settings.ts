@@ -73,4 +73,9 @@ export const settingsFixture: ClientSettings_Serialize = {
     visibleMetrics: ["cpu", "gpu", "gpu-temp"],
     updateIntervalSecs: 1,
   },
+  productAnalytics: {
+    consent: "undecided",
+    consentVersion: 0,
+    currentConsentVersion: 1,
+  },
 };
