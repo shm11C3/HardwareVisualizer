@@ -10,7 +10,8 @@ working sensors are welcome.
 The report includes model names, provider outcomes available to the app and
 whether readings were available. It uses inventory and sensor results already
 available to the app. **Not recorded** means the app does not have evidence for
-the field. For smartctl, the report shows any recorded guidance separately
+the field. Missing readings may reflect startup or a transient gap in sampling.
+For smartctl, the report shows any recorded guidance separately
 from whether Storage Health records were available. For Super I/O, the report
 includes the model or family already identified in a regular sensor reading.
 A reading can be available through a fallback even when the primary provider

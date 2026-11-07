@@ -70,6 +70,7 @@ struct ProviderEvidence {
   switchbot: bool,
 }
 
+/// Render the report from the observations already held by the App and providers.
 pub(crate) fn build(
   version: &str,
   evidence: &ReportEvidenceCache,
@@ -114,6 +115,7 @@ pub(crate) fn build(
   Ok(render(version, &cached, &snapshot, providers))
 }
 
+/// Save the reviewed text to the destination chosen in the native dialog.
 pub(crate) async fn save(
   window: tauri::WebviewWindow,
   report: String,
@@ -199,20 +201,11 @@ fn render(
     ("intel_gpu_top", "DRM (Intel)"),
     ("macOS IOKit", "IOKit"),
   ] {
-    let mut samples = snapshot
-      .gpus
-      .iter()
-      .filter(|gpu| gpu.gpu_source == source)
-      .peekable();
-    let status = if samples.peek().is_none() {
-      "Not recorded"
-    } else if samples.any(|gpu| gpu.gpu_usage.is_some() || gpu.gpu_temperature.is_some())
-    {
-      "Available"
-    } else {
-      "Unavailable"
-    };
-    field(&mut report, label, Some(status));
+    let observed = snapshot.gpus.iter().any(|gpu| {
+      gpu.gpu_source == source
+        && (gpu.gpu_usage.is_some() || gpu.gpu_temperature.is_some())
+    });
+    field(&mut report, label, observed.then_some("Available"));
   }
   field(
     &mut report,
@@ -227,48 +220,42 @@ fn render(
 
   report.push_str("\n## Readings available to the app\n\n");
   let readings = [
-    ("CPU temperature", Some(snapshot.cpu_temperature.is_some())),
-    ("CPU power", Some(snapshot.power_draw.cpu_watts.is_some())),
-    ("Thermal zone temperatures", Some(providers.thermal_zones)),
+    ("CPU temperature", snapshot.cpu_temperature.is_some()),
+    ("CPU power", snapshot.power_draw.cpu_watts.is_some()),
+    ("Thermal zone temperatures", providers.thermal_zones),
     (
       "GPU usage",
-      Some(snapshot.gpus.iter().any(|gpu| gpu.gpu_usage.is_some())),
+      snapshot.gpus.iter().any(|gpu| gpu.gpu_usage.is_some()),
     ),
     (
       "GPU temperature",
-      Some(
-        snapshot
-          .gpus
-          .iter()
-          .any(|gpu| gpu.gpu_temperature.is_some()),
-      ),
+      snapshot
+        .gpus
+        .iter()
+        .any(|gpu| gpu.gpu_temperature.is_some()),
     ),
     (
       "Motherboard temperatures",
-      Some(!snapshot.motherboard_temperatures.is_empty()),
+      !snapshot.motherboard_temperatures.is_empty(),
     ),
     (
       "Motherboard fans",
-      Some(
-        snapshot
-          .motherboard_fan_speeds
-          .iter()
-          .any(|fan| fan.status != FanSpeedStatus::Invalid && fan.rpm.is_some()),
-      ),
+      snapshot
+        .motherboard_fan_speeds
+        .iter()
+        .any(|fan| fan.status != FanSpeedStatus::Invalid && fan.rpm.is_some()),
     ),
-    ("Storage Health records", evidence.storage_records),
   ];
   for (label, visible) in readings {
-    field(
-      &mut report,
-      label,
-      Some(match visible {
-        Some(true) => "Yes",
-        Some(false) => "No",
-        None => "Not recorded",
-      }),
-    );
+    field(&mut report, label, visible.then_some("Yes"));
   }
+  field(
+    &mut report,
+    "Storage Health records",
+    evidence
+      .storage_records
+      .map(|present| if present { "Yes" } else { "No" }),
+  );
   report
 }
 
@@ -445,7 +432,9 @@ mod tests {
       "CPU temperature: Yes",
       "CPU power: Yes",
       "Motherboard temperatures: Yes",
-      "Motherboard fans: No",
+      "Motherboard fans: Not recorded",
+      "Thermal zone temperatures: Not recorded",
+      "GPU temperature: Not recorded",
       "Storage Health records: No",
       "smartctl (recorded guidance): Unavailable (component missing)",
     ] {

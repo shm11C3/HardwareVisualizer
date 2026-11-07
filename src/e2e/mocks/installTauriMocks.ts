@@ -568,7 +568,7 @@ const buildInvokeHandlers = (
       "## Readings available to the app",
       "",
       "- CPU temperature: Yes",
-      "- CPU power: No",
+      "- CPU power: Not recorded",
       "- GPU temperature: Yes",
       "- Motherboard temperatures: Yes",
       "- Motherboard fans: Yes",
