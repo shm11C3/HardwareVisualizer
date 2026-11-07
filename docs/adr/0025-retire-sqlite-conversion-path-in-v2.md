@@ -2,6 +2,12 @@
 
 Status: accepted
 
+Amended by [ADR 0030](0030-native-only-persistence-for-new-families.md)
+(2026-11-08): a persisted family introduced after that record is implemented
+on the native database only, so the Consequences statement that anything
+persisted before v2.0.0 needs both engines and a differential test now covers
+existing families only. The removal plan and its preconditions are unchanged.
+
 Status update (2026-09-23): the "fresh install starts on SQLite" precondition
 below is closed — a fresh install creates and selects a native database
 directly on `develop` (#2203, merged). `duckdb-archive` is now a default
