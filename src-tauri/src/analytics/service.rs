@@ -883,7 +883,7 @@ mod tests {
     harness.transport.answer(Delivery::Deferred);
     harness.service.flush().await;
     let first = harness.transport.sent.lock().unwrap()[0].clone();
-    assert_eq!(harness.service.queued(), [first.clone()]);
+    assert_eq!(harness.service.queued(), std::slice::from_ref(&first));
 
     harness.service.record(EXPORTED);
     harness.service.flush().await;
