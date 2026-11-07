@@ -90,18 +90,8 @@ pub trait SuperIoPlatform: Send + Sync {
 /// Trait that defines live CPU / motherboard sensor sampling operations.
 #[async_trait]
 pub trait SensorPlatform: Send + Sync {
-  async fn sensor_service_status(
-    &self,
-  ) -> crate::sensor_service::protocol::ServiceStatus {
-    crate::sensor_service::protocol::ServiceStatus {
-      connected: false,
-      can_configure: false,
-      detail: Some("The sensor service is available only on Windows".into()),
-    }
-  }
-
-  fn configure_sensor_service(&self) -> Result<(), String> {
-    Err("The sensor service is available only on Windows".into())
+  async fn sensor_service_status(&self) -> bool {
+    false
   }
 
   /// Sample CPU and named temperature sensors, always in raw degrees Celsius.

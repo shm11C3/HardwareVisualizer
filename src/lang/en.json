@@ -963,19 +963,16 @@
   },
   "sensorService": {
     "openSettings": "Open sensor settings",
-    "setupSteps": "PawnIO is a separate optional driver. Set up PawnIO and its modules under {{section}} below if needed. The MSI already includes the sensor service; repair it here if it is unavailable.",
+    "setupSteps": "PawnIO is a separate optional driver. Set up PawnIO and its modules under {{section}} below if needed.",
     "loadFailed": "Failed to check the sensor service.",
     "title": "Windows sensor service",
     "description": "The MSI includes a SYSTEM service for PawnIO temperature, power and motherboard readings, so the app can stay resident with normal permissions. Service repair requires administrator approval.",
     "connected": "Service connected",
     "unavailable": "Service unavailable; other monitoring continues.",
     "loading": "Checking the sensor service…",
-    "requiresMsi": "Use the HardwareVisualizer MSI installed under Program Files to install or repair the service. This app can use an already installed compatible service.",
-    "configure": "Repair service",
-    "installing": "Running Windows Installer…",
+    "recoveryGuide": "Open installation and repair guide",
     "refresh": "Check again",
-    "failed": "The operation failed or was cancelled. Check the service and MSI installation, then try again.",
-    "setupGuidance": "Check PawnIO and its signed modules in Advanced settings. The MSI includes the Windows sensor service; repair it there if unavailable. The resident app does not need administrator permissions.",
+    "setupGuidance": "Check PawnIO and its signed modules in Advanced settings. If the Windows sensor service is unavailable, use the installation and repair guide there. The resident app can run with normal permissions.",
     "notice": {
       "setupTitle": "Some sensor readings are unavailable",
       "dismiss": "Hide sensor guidance for this session"

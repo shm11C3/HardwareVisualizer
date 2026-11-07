@@ -30,8 +30,8 @@ sidecar the app can accidentally execute from a writable installation.
 from the installer's embedded copy before `InstallFiles`. With no arguments,
 the executable is started only by the Windows Service Control Manager.
 
-Setup and repair use the registered MSI feature; no runtime IPC operation can
-install, download, load a client-specified module or execute a command.
+Windows Installer owns service setup and repair. Runtime IPC accepts only
+sensor requests and fixed read-only diagnostics.
 
 New and upgraded protected MSI installations include it without an opt-in or
 prior-selection registry marker. Its feature follows the required application

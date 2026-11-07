@@ -68,6 +68,10 @@ pub fn motherboard() -> Result<MotherboardSensorCollection, SampleError> {
   sample(|v| &v.motherboard)
 }
 
+pub async fn status() -> bool {
+  handshake().await.is_ok()
+}
+
 pub async fn diagnostics() -> SuperIoChipIdDiagnostics {
   let result = async {
     let mut connection = handshake().await?;

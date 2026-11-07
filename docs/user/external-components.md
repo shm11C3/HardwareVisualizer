@@ -43,8 +43,17 @@ The MSI includes the **Windows sensor service** when installed under Program
 Files. Fresh installs and updates, including silent installs, need no separate
 service selection. Installation and repair ask for administrator approval;
 ordinary launch, tray residence and reconnect do not need to elevate the app.
-**Settings → Advanced → Windows sensor service → Repair service** restores the
-bundled service if needed.
+If the service is unavailable, **Settings → Advanced → Windows sensor service**
+links here. Install the protected MSI from [HardwareVisualizer Releases](https://github.com/shm11C3/HardwareVisualizer/releases)
+to set up the service. For an existing MSI installation, download the MSI for
+the installed version. Open Command Prompt or PowerShell as an administrator
+and run this command with the path to that MSI.
+
+```powershell
+msiexec.exe /fomus "C:\path\to\HardwareVisualizer.msi"
+```
+
+After repair, select **Check again** in the Windows sensor service settings.
 
 For a **new installation**, CPU and motherboard sensors need both PawnIO (with
 its modules) and the bundled service. PawnIO remains a separate optional driver:
@@ -63,8 +72,8 @@ leave readings on the current screen unavailable. It follows the normal sensor
 updates and disappears on recovery; there is no setup dialog, startup deadline
 or separate periodic sensor-guidance check. Both closing it and **Never show
 again** keep sensor guidance quiet for this launch. **Never show again** also
-remembers only the currently shown collection gaps for later launches. Settings
-always remains available for checking or repairing the service.
+remembers only the currently shown collection gaps for later launches. Settings always
+remains available to check service status and open the recovery guide.
 
 If **Run as administrator on startup** was enabled, the update keeps that choice.
 To use normal permissions, turn that existing setting off, then exit and launch

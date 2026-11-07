@@ -59,6 +59,16 @@ export const externalComponentGuidanceDocsBaseUrl = (
     ? EXTERNAL_COMPONENT_DOCS_JA_URL
     : EXTERNAL_COMPONENT_DOCS_BASE_URL;
 
+export const sensorServiceRecoveryDocsUrl = (language?: string) => {
+  const url = externalComponentGuidanceDocsBaseUrl(language);
+  const section =
+    url === EXTERNAL_COMPONENT_DOCS_JA_URL
+      ? "#windowsセンサーサービス"
+      : "#windows-sensor-service";
+
+  return url + section;
+};
+
 export const externalComponentGuidanceDocsUrl = (
   candidate: ExternalComponentGuidanceCandidate,
   language?: string | null,

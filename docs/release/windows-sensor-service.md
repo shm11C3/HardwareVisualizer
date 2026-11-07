@@ -21,5 +21,6 @@ The NSIS/portable app can use an already installed compatible service, but
 service installation requires the protected MSI. Without it, available
 monitoring and fallbacks continue. Successful upgrades do not show a migration
 CTA. If an attempted sensor collection and its fallbacks still leave visible
-readings unavailable, the existing failure notice links to sensor settings for
-diagnosis and repair.
+readings unavailable, the existing failure notice links to sensor settings.
+The settings show service connectivity and link to standard MSI recovery
+instructions when the service is unavailable.

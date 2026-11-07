@@ -963,19 +963,16 @@
   },
   "sensorService": {
     "openSettings": "センサー設定を開く",
-    "setupSteps": "PawnIOは別途導入する任意のドライバーです。必要に応じて下の「{{section}}」でPawnIOとモジュールをセットアップしてください。センサーサービスはMSIに含まれます。利用できない場合はここで修復してください。",
+    "setupSteps": "PawnIOは別途導入する任意のドライバーです。必要に応じて下の「{{section}}」でPawnIOとモジュールをセットアップしてください。",
     "loadFailed": "センサーサービスの状態を確認できませんでした。",
     "title": "Windowsセンサーサービス",
     "description": "MSIにはPawnIOの温度・電力・マザーボード情報を取得するSYSTEMサービスが含まれ、本体は一般権限で常駐できます。サービスの修復には管理者の承認が必要です。",
     "connected": "サービスに接続済み",
     "unavailable": "サービスを利用できません。他の監視は継続します。",
     "loading": "センサーサービスを確認中…",
-    "requiresMsi": "サービスの導入・修復には、Program FilesにインストールしたHardwareVisualizerのMSI版を使用してください。導入済みの互換サービスには接続できます。",
-    "configure": "サービスを修復",
-    "installing": "Windows Installerを実行中…",
+    "recoveryGuide": "導入・修復手順を開く",
     "refresh": "再確認",
-    "failed": "操作に失敗したか、キャンセルされました。サービスとMSIのインストール状態を確認して再試行してください。",
-    "setupGuidance": "設定の詳細設定でPawnIOと対応する署名済みモジュールを確認してください。WindowsセンサーサービスはMSIに含まれます。利用できない場合は同じ設定欄で修復してください。本体を管理者権限で起動する必要はありません。",
+    "setupGuidance": "設定の詳細設定でPawnIOと対応する署名済みモジュールを確認してください。Windowsセンサーサービスを利用できない場合は、同じ設定欄から導入・修復手順を開けます。本体は一般権限で起動できます。",
     "notice": {
       "setupTitle": "一部のセンサー情報を取得できません",
       "dismiss": "このセッションではセンサー案内を非表示"

@@ -93,8 +93,9 @@ its lifecycle and security cost by serving that startup requirement.
    Explain the new ordinary-permission capability in release notes and the
    elevated-startup setting. Do not show a migration CTA just because that
    saved preference is enabled or the process is elevated. Settings owns
-   explicit status reads and repair; the startup setting explains sensor
-   privilege requirements and the next-launch behavior. The failure notice is
+   explicit status reads and links to installer recovery. Windows Installer
+   owns repair. The startup setting explains sensor privilege requirements
+   and the next-launch behavior. The failure notice is
    excluded there and never changes preferences or installs components automatically.
 
 ## Alternatives Considered

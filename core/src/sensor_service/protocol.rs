@@ -11,13 +11,6 @@ pub const MOTHERBOARD: u8 = 4;
 pub const ALL: u8 = TEMPERATURE | POWER | MOTHERBOARD;
 pub const FRESHNESS_MS: u64 = 5_000;
 
-#[derive(Debug, Clone)]
-pub struct ServiceStatus {
-  pub connected: bool,
-  pub can_configure: bool,
-  pub detail: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {

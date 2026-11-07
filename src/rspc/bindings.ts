@@ -274,8 +274,7 @@ export const commands = {
 	isProcessElevated: () => typedError<boolean, string>(__TAURI_INVOKE("is_process_elevated")),
 	// Whether this installation can run itself as administrator (#2216).
 	getElevationAvailability: () => __TAURI_INVOKE<ElevationAvailability>("get_elevation_availability"),
-	getSensorServiceStatus: () => typedError<SensorServiceStatus, string>(__TAURI_INVOKE("get_sensor_service_status")),
-	configureSensorService: () => typedError<null, string>(__TAURI_INVOKE("configure_sensor_service")),
+	getSensorServiceStatus: () => typedError<boolean, string>(__TAURI_INVOKE("get_sensor_service_status")),
 	/**
 	 *  Stop monitoring and exit the process.
 	 * 
@@ -1226,12 +1225,6 @@ export type ProcessStatRecord = {
 	avg_memory_usage: number,
 	total_execution_sec: number,
 	latest_timestamp: string,
-};
-
-export type SensorServiceStatus = {
-	connected: boolean,
-	canConfigure: boolean,
-	detail: string | null,
 };
 
 export type SensorSupport = "unknown" | "supported" | "unsupported";

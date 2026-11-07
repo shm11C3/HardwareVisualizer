@@ -36,9 +36,9 @@ Clear repaired sensor candidates without clearing a user's session deferral.
 Live failure detection does not require a modal interruption. The maintainer's
 request to simplify the specification exposed that a bounded startup dialog
 still needed timers, queue arbitration and dedicated reads. Replace that policy
-with a nonmodal notice driven by the normal hardware event, and keep explicit
-status and repair in Settings. Closing the notice silences it for this launch;
-existing per-key permanent suppression remains intact.
+with a nonmodal notice driven by the normal hardware event. Settings reports
+service status and links to installer recovery. Closing the notice silences it
+for this launch. Existing per-key permanent suppression remains intact.
 
 Do not simplify only the flags while retaining unnecessary requirements.
 Removing the separate diagnostic query also removes backend knowledge of

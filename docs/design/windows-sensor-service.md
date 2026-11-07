@@ -204,11 +204,11 @@ the privileged installation authority.
 - Interactive setup explains the app-owned background service. New installs and
   upgrades include it at every UI level, without a separate feature choice.
   PawnIO driver setup retains its existing explicit consent policy.
-- Settings shows readiness and an explicit repair action routed to the
-  protected MSI feature. An already installed app can restore that feature using
-  its trusted matching MSI package. A standard user may supply administrator
-  credentials without transferring their profile/settings ownership to that
-  account. Cancelled consent keeps the app running with partial capability.
+- Settings reports service compatibility and links to the installation and
+  repair guide when the service is unavailable. The user can run standard
+  Windows Installer repair with the matching MSI package. A standard user may
+  supply administrator credentials without transferring profile ownership.
+  Cancelled consent leaves the app running with partial capability.
 - Register the bundled service for automatic startup. It can run idle before
   logon, but does not poll hardware until client demand arrives. Missing driver
   or modules does not create a service restart loop or install them silently.
@@ -240,7 +240,7 @@ diagnostics carried by the existing hardware monitor event and relevant to
 visible readings. It does not query service status or infer readiness from
 missing or present temperatures. Closing it silences the
 notice for this launch; existing per-key permanent suppressions are retained.
-Settings owns status reads, explicit repair and the existing startup toggle.
+Settings owns status reads, the link to installer recovery and the existing startup toggle.
 There is no separate sensor-guidance timer, startup deadline or modal queue.
 Successful upgrades get no migration CTA. Release notes explain the new
 capability; the elevated-startup setting explains that CPU and motherboard

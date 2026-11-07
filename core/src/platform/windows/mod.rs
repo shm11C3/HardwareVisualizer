@@ -92,14 +92,8 @@ impl SuperIoPlatform for WindowsPlatform {
 
 #[async_trait]
 impl SensorPlatform for WindowsPlatform {
-  async fn sensor_service_status(
-    &self,
-  ) -> crate::sensor_service::protocol::ServiceStatus {
+  async fn sensor_service_status(&self) -> bool {
     crate::sensor_service::windows::status().await
-  }
-
-  fn configure_sensor_service(&self) -> Result<(), String> {
-    crate::sensor_service::windows::configure()
   }
 
   fn sample_temperatures(&self) -> crate::models::TemperatureSample {

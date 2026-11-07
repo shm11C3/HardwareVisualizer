@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { BOOTSTRAP_TIMEOUT, gotoApp, navigateTo, saveCapture } from "./helpers";
 
 test.describe("settings captures", () => {
-  test("service repair preserves startup intent and settings explains normal permissions", async ({
+  test("service status and startup settings explain normal permissions", async ({
     page,
   }) => {
     await page.addInitScript(() =>
@@ -19,12 +19,11 @@ test.describe("settings captures", () => {
     await page.setViewportSize({ width: 520, height: 800 });
     await section.scrollIntoViewIfNeeded();
     await saveCapture(page, "settings-sensor-service-narrow");
-    await section.getByRole("button", { name: "Repair service" }).click();
-    expect(
-      await page.evaluate(() =>
-        window.__E2E__?.getInvokeCount("configure_sensor_service"),
-      ),
-    ).toBe(1);
+    await expect(
+      section.getByRole("button", {
+        name: "Open installation and repair guide",
+      }),
+    ).toHaveCount(0);
     expect(
       await page.evaluate(() =>
         window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
@@ -81,10 +80,10 @@ test.describe("settings captures", () => {
     ).toBeDisabled();
     await expect(
       page.getByRole("button", {
-        name: "Repair service",
+        name: "Open installation and repair guide",
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await page.waitForTimeout(400);
 
     await saveCapture(page, "settings-elevation-unprotected");

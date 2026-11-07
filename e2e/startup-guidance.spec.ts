@@ -208,14 +208,16 @@ test("unprotected installations keep MSI guidance and never offer silent elevati
     animations: "disabled",
   });
   await setupNotice(page).getByRole("button", { name: CTA }).click();
-  await expect(
-    page.getByRole("button", { name: "Repair service" }),
-  ).toBeDisabled();
-  await expect(
-    page.getByText(
-      /Use the HardwareVisualizer MSI installed under Program Files/,
+  const repairGuide = page.getByRole("button", {
+    name: "Open installation and repair guide",
+  });
+  await expect(repairGuide).toBeVisible();
+  await repairGuide.click();
+  expect(
+    await page.evaluate(() =>
+      window.__E2E__?.getInvokeCount("plugin:shell|open"),
     ),
-  ).toBeVisible();
+  ).toBe(1);
 });
 
 for (const choice of ["Continue in background", "Quit app"]) {
