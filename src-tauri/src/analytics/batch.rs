@@ -59,6 +59,11 @@ impl SealedBatch {
     self.batch_id
   }
 
+  /// The UTC day the batch was sealed for, which its flags describe.
+  pub(crate) fn day(&self) -> NaiveDate {
+    self.installation.day
+  }
+
   #[cfg(test)]
   pub(crate) fn flags(&self) -> Option<&[StateFlag]> {
     self.flags.as_deref()
