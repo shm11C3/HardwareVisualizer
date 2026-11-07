@@ -60,6 +60,14 @@ mod tests {
         models::settings::ExternalComponentGuidanceSettings::default(),
       elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
+      product_analytics: models::settings::ProductAnalyticsSettings {
+        consent: models::settings::ProductAnalyticsConsent::Undecided,
+        consent_version: 0,
+        seed: None,
+        cohort_month: None,
+        reported_day: None,
+        reported_month: None,
+      },
     };
 
     assert_eq!(settings.version, expected.version,);
@@ -120,6 +128,7 @@ mod tests {
       settings.elevated_startup_mode,
       expected.elevated_startup_mode
     );
+    assert_eq!(settings.product_analytics, expected.product_analytics);
   }
 
   #[test]

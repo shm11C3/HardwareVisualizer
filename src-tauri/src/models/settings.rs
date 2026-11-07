@@ -29,6 +29,58 @@ pub struct ExternalComponentGuidanceSettings {
   pub acknowledged_keys: Vec<String>,
 }
 
+/// Analytics Consent state persisted in `settings.json` (ADR 0028).
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Type, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ProductAnalyticsConsent {
+  #[default]
+  Undecided,
+  Granted,
+  Declined,
+}
+
+/// The choice a user makes on the consent dialog or the Settings switch.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ProductAnalyticsDecision {
+  Granted,
+  Declined,
+}
+
+/// App-owned `productAnalytics` section. One section so that a grant or a
+/// withdrawal is one atomic write: a partial write could otherwise leave a
+/// seed without consent or consent without a seed.
+///
+/// The seed, Consent Cohort, and reported day/month exist only while
+/// consent is granted, and never reach the frontend.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ProductAnalyticsSettings {
+  pub consent: ProductAnalyticsConsent,
+  /// The contract version the user saw when they decided.
+  pub consent_version: u32,
+  /// 32 random bytes as lowercase hex; Installation Tokens derive from it.
+  pub seed: Option<String>,
+  /// The UTC month (`YYYY-MM`) of the grant.
+  pub cohort_month: Option<String>,
+  /// The UTC day (`YYYY-MM-DD`) whose State Flags were last sealed.
+  pub reported_day: Option<String>,
+  /// The UTC month (`YYYY-MM`) whose month token was last sealed.
+  pub reported_month: Option<String>,
+}
+
+/// Consent state sent to the frontend. Seed, cohort, and reported periods
+/// stay in the backend.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProductAnalyticsClientSettings {
+  pub consent: ProductAnalyticsConsent,
+  pub consent_version: u32,
+  /// Current contract version. This is wire metadata, not a persisted
+  /// user preference.
+  pub current_consent_version: u32,
+}
+
 ///
 /// ## App-owned settings persisted in `settings.json`.
 ///
@@ -76,6 +128,7 @@ pub struct Settings {
   pub external_component_guidance: ExternalComponentGuidanceSettings,
   pub elevated_startup_mode: bool,
   pub tray_widget: crate::tray::widget::TrayWidgetSettings,
+  pub product_analytics: ProductAnalyticsSettings,
 }
 
 ///
@@ -134,6 +187,7 @@ pub struct ClientSettings {
   pub external_component_guidance: ExternalComponentGuidanceSettings,
   pub elevated_startup_mode: bool,
   pub tray_widget: crate::tray::widget::TrayWidgetSettings,
+  pub product_analytics: ProductAnalyticsClientSettings,
 }
 
 impl Default for Settings {
@@ -187,6 +241,7 @@ impl Default for Settings {
       external_component_guidance: ExternalComponentGuidanceSettings::default(),
       elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
+      product_analytics: ProductAnalyticsSettings::default(),
     }
   }
 }
@@ -347,6 +402,11 @@ mod tests {
       external_component_guidance: ExternalComponentGuidanceSettings::default(),
       elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
+      product_analytics: ProductAnalyticsClientSettings {
+        consent: ProductAnalyticsConsent::Undecided,
+        consent_version: 0,
+        current_consent_version: 1,
+      },
     };
 
     let cloned = client_settings.clone();

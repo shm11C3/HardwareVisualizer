@@ -191,6 +191,12 @@ pub mod commands {
       external_component_guidance: settings.external_component_guidance,
       elevated_startup_mode: settings.elevated_startup_mode,
       tray_widget: settings.tray_widget.normalized(),
+      product_analytics: models::settings::ProductAnalyticsClientSettings {
+        consent: settings.product_analytics.consent,
+        consent_version: settings.product_analytics.consent_version,
+        current_consent_version:
+          services::settings_service::CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+      },
     };
 
     Ok(client_settings)
@@ -947,6 +953,23 @@ pub mod commands {
     guidance_state.remove_key(&key);
 
     Ok(())
+  }
+
+  /// Grant, renew, or decline Analytics Consent (ADR 0028).
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_product_analytics_consent(
+    state: tauri::State<'_, AppState>,
+    decision: models::settings::ProductAnalyticsDecision,
+  ) -> Result<(), String> {
+    // No `error_event`: a failed write keeps the previous decision, so it is
+    // a user-action failure the consent surface reports under its control,
+    // not an app-cannot-continue dialog.
+    state
+      .settings
+      .lock()
+      .unwrap()
+      .set_product_analytics_consent(decision)
   }
 
   #[tauri::command]

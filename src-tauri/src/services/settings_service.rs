@@ -12,6 +12,10 @@ const MAX_WINDOW_OPACITY: u8 = 100;
 const MIN_GLASS_BLUR: u8 = 0;
 const MAX_GLASS_BLUR: u8 = 30;
 const MAX_GRAPH_MARGIN_PX: u32 = 200;
+/// Product Analytics contract version. A bump requires renewed explicit
+/// consent from granted installations (ADR 0028).
+pub const CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION: u32 = 1;
+const PRODUCT_ANALYTICS_SEED_BYTES: usize = 32;
 
 pub trait SettingActions {
   fn write_file(&self) -> Result<(), String>;
@@ -121,6 +125,7 @@ fn read_settings_from_str(
     Ok(deserialized) => {
       *settings = deserialized;
       clamp_loaded_settings(settings);
+      normalize_product_analytics(&mut settings.product_analytics);
       Ok(())
     }
     Err(e) => {
@@ -246,6 +251,8 @@ impl models::settings::Settings {
     try_field!(external_component_guidance, "externalComponentGuidance");
     try_field!(elevated_startup_mode, "elevatedStartupMode");
     try_field!(tray_widget, "trayWidget");
+    try_field!(product_analytics, "productAnalytics");
+    normalize_product_analytics(&mut self.product_analytics);
 
     Ok(())
   }
@@ -696,6 +703,153 @@ impl models::settings::Settings {
 
     Ok(())
   }
+
+  pub fn set_product_analytics_consent(
+    &mut self,
+    decision: models::settings::ProductAnalyticsDecision,
+  ) -> Result<(), String> {
+    self.set_product_analytics_consent_with(
+      decision,
+      chrono::Utc::now().date_naive(),
+      generate_product_analytics_seed,
+      |settings| settings.write_file(),
+    )
+  }
+
+  /// Applies a consent transition and persists it, leaving the in-memory
+  /// section unchanged when the write fails.
+  fn set_product_analytics_consent_with<G, F>(
+    &mut self,
+    decision: models::settings::ProductAnalyticsDecision,
+    today: chrono::NaiveDate,
+    generate_seed: G,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    G: FnOnce() -> Result<String, String>,
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let Some(section) = product_analytics_transition(
+      &self.product_analytics,
+      decision,
+      today,
+      generate_seed,
+    )?
+    else {
+      return Ok(());
+    };
+
+    let mut next = self.clone();
+    next.product_analytics = section;
+    write_file(&next)?;
+    *self = next;
+
+    Ok(())
+  }
+}
+
+/// The section a decision leads to, or `None` when it changes nothing.
+///
+/// A grant from `undecided` or `declined` starts a new seed and Consent
+/// Cohort, so the installation counts as new. A grant while already
+/// granted at an older contract version is a renewal: the installation did
+/// not change, only what it shares, so the seed, cohort, and reported
+/// periods are kept. A decline clears everything but the version.
+fn product_analytics_transition<G>(
+  current: &models::settings::ProductAnalyticsSettings,
+  decision: models::settings::ProductAnalyticsDecision,
+  today: chrono::NaiveDate,
+  generate_seed: G,
+) -> Result<Option<models::settings::ProductAnalyticsSettings>, String>
+where
+  G: FnOnce() -> Result<String, String>,
+{
+  use models::settings::{
+    ProductAnalyticsConsent as Consent, ProductAnalyticsDecision as Decision,
+    ProductAnalyticsSettings,
+  };
+
+  let at_current_version =
+    current.consent_version >= CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION;
+  match (decision, current.consent) {
+    (Decision::Granted, Consent::Granted) if at_current_version => Ok(None),
+    (Decision::Declined, Consent::Declined) if at_current_version => Ok(None),
+    (Decision::Granted, Consent::Granted) => Ok(Some(ProductAnalyticsSettings {
+      consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+      ..current.clone()
+    })),
+    (Decision::Granted, Consent::Undecided | Consent::Declined) => {
+      Ok(Some(ProductAnalyticsSettings {
+        consent: Consent::Granted,
+        consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+        seed: Some(generate_seed()?),
+        cohort_month: Some(today.format(UTC_MONTH_FORMAT).to_string()),
+        reported_day: None,
+        reported_month: None,
+      }))
+    }
+    (Decision::Declined, _) => Ok(Some(ProductAnalyticsSettings {
+      consent: Consent::Declined,
+      consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+      ..ProductAnalyticsSettings::default()
+    })),
+  }
+}
+
+fn generate_product_analytics_seed() -> Result<String, String> {
+  let mut seed = [0u8; PRODUCT_ANALYTICS_SEED_BYTES];
+  getrandom::fill(&mut seed)
+    .map_err(|e| format!("Failed to generate product analytics seed: {e}"))?;
+  Ok(seed.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+const UTC_DAY_FORMAT: &str = "%Y-%m-%d";
+const UTC_MONTH_FORMAT: &str = "%Y-%m";
+
+/// Recovers a persisted section that no transition could have written.
+///
+/// A granted section with any invalid value recovers to `undecided`, never
+/// to a partially granted state: tokens need the seed, every batch needs
+/// the cohort, and a lost reported day would re-send a day's flags.
+fn normalize_product_analytics(section: &mut models::settings::ProductAnalyticsSettings) {
+  use models::settings::{ProductAnalyticsConsent as Consent, ProductAnalyticsSettings};
+
+  *section = match section.consent {
+    Consent::Undecided => ProductAnalyticsSettings::default(),
+    Consent::Declined => ProductAnalyticsSettings {
+      consent: Consent::Declined,
+      consent_version: section.consent_version,
+      ..ProductAnalyticsSettings::default()
+    },
+    Consent::Granted if is_valid_granted_section(section) => return,
+    Consent::Granted => ProductAnalyticsSettings::default(),
+  };
+}
+
+fn is_valid_granted_section(
+  section: &models::settings::ProductAnalyticsSettings,
+) -> bool {
+  section.consent_version > 0
+    && section.seed.as_deref().is_some_and(is_valid_seed)
+    && section.cohort_month.as_deref().is_some_and(is_utc_month)
+    && section.reported_day.as_deref().is_none_or(is_utc_day)
+    && section.reported_month.as_deref().is_none_or(is_utc_month)
+}
+
+fn is_valid_seed(seed: &str) -> bool {
+  seed.len() == PRODUCT_ANALYTICS_SEED_BYTES * 2
+    && seed
+      .bytes()
+      .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn is_utc_day(value: &str) -> bool {
+  chrono::NaiveDate::parse_from_str(value, UTC_DAY_FORMAT)
+    .is_ok_and(|day| day.format(UTC_DAY_FORMAT).to_string() == value)
+}
+
+fn is_utc_month(value: &str) -> bool {
+  is_utc_day(&format!("{value}-01"))
 }
 
 fn clamp_loaded_settings(settings: &mut models::settings::Settings) {
@@ -1053,5 +1207,373 @@ mod tests {
     let err = serialize_preserving_unknown_settings(&settings, &path).unwrap_err();
 
     assert_eq!(err, "Existing settings file must be a JSON object");
+  }
+
+  mod product_analytics {
+    use super::*;
+    use models::settings::{
+      ProductAnalyticsConsent as Consent, ProductAnalyticsDecision as Decision,
+      ProductAnalyticsSettings,
+    };
+
+    const SEED_A: &str =
+      "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+    const SEED_B: &str =
+      "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
+
+    fn day(value: &str) -> chrono::NaiveDate {
+      chrono::NaiveDate::parse_from_str(value, UTC_DAY_FORMAT).unwrap()
+    }
+
+    fn granted(seed: &str) -> ProductAnalyticsSettings {
+      ProductAnalyticsSettings {
+        consent: Consent::Granted,
+        consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+        seed: Some(seed.to_string()),
+        cohort_month: Some("2026-11".to_string()),
+        reported_day: Some("2026-11-03".to_string()),
+        reported_month: Some("2026-11".to_string()),
+      }
+    }
+
+    fn settings_with(section: ProductAnalyticsSettings) -> models::settings::Settings {
+      models::settings::Settings {
+        product_analytics: section,
+        ..models::settings::Settings::default()
+      }
+    }
+
+    fn read(input: &str) -> models::settings::Settings {
+      let mut settings = models::settings::Settings::default();
+      read_settings_from_str(&mut settings, input).unwrap();
+      settings
+    }
+
+    fn section_json(section: &ProductAnalyticsSettings) -> String {
+      format!(
+        r#"{{"productAnalytics":{}}}"#,
+        serde_json::to_string(section).unwrap()
+      )
+    }
+
+    #[test]
+    fn legacy_settings_without_the_section_are_undecided() {
+      let settings = read(r#"{"language":"ja"}"#);
+
+      assert_eq!(
+        settings.product_analytics,
+        ProductAnalyticsSettings::default()
+      );
+      assert_eq!(settings.product_analytics.consent, Consent::Undecided);
+    }
+
+    #[test]
+    fn unparseable_section_recovers_to_undecided_and_keeps_other_fields() {
+      let settings =
+        read(r#"{"language":"ja","productAnalytics":{"consent":"granted","seed":7}}"#);
+
+      assert_eq!(settings.language, "ja");
+      assert_eq!(
+        settings.product_analytics,
+        ProductAnalyticsSettings::default()
+      );
+    }
+
+    #[test]
+    fn valid_granted_section_loads_unchanged() {
+      let section = granted(SEED_A);
+
+      assert_eq!(read(&section_json(&section)).product_analytics, section);
+    }
+
+    #[test]
+    fn granted_section_with_any_invalid_value_recovers_to_undecided() {
+      let invalid_sections = [
+        ProductAnalyticsSettings {
+          seed: None,
+          ..granted(SEED_A)
+        },
+        ProductAnalyticsSettings {
+          seed: Some(SEED_A.to_uppercase()),
+          ..granted(SEED_A)
+        },
+        ProductAnalyticsSettings {
+          seed: Some(SEED_A[..62].to_string()),
+          ..granted(SEED_A)
+        },
+        ProductAnalyticsSettings {
+          cohort_month: None,
+          ..granted(SEED_A)
+        },
+        ProductAnalyticsSettings {
+          cohort_month: Some("2026-13".to_string()),
+          ..granted(SEED_A)
+        },
+        ProductAnalyticsSettings {
+          reported_day: Some("2026-11-3".to_string()),
+          ..granted(SEED_A)
+        },
+        ProductAnalyticsSettings {
+          reported_month: Some("2026/11".to_string()),
+          ..granted(SEED_A)
+        },
+        ProductAnalyticsSettings {
+          consent_version: 0,
+          ..granted(SEED_A)
+        },
+      ];
+
+      for section in invalid_sections {
+        assert_eq!(
+          read(&section_json(&section)).product_analytics,
+          ProductAnalyticsSettings::default(),
+          "{section:?}"
+        );
+      }
+    }
+
+    #[test]
+    fn declined_and_undecided_sections_never_keep_a_seed() {
+      let declined = ProductAnalyticsSettings {
+        consent: Consent::Declined,
+        ..granted(SEED_A)
+      };
+      let undecided = ProductAnalyticsSettings {
+        consent: Consent::Undecided,
+        ..granted(SEED_A)
+      };
+
+      assert_eq!(
+        read(&section_json(&declined)).product_analytics,
+        ProductAnalyticsSettings {
+          consent: Consent::Declined,
+          consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+          ..ProductAnalyticsSettings::default()
+        }
+      );
+      assert_eq!(
+        read(&section_json(&undecided)).product_analytics,
+        ProductAnalyticsSettings::default()
+      );
+    }
+
+    #[test]
+    fn field_level_recovery_also_normalizes_the_section() {
+      let mut settings = models::settings::Settings::default();
+      let section = ProductAnalyticsSettings {
+        consent: Consent::Declined,
+        ..granted(SEED_A)
+      };
+      let input = format!(
+        r#"{{"theme":"nonexistent_theme","productAnalytics":{}}}"#,
+        serde_json::to_string(&section).unwrap()
+      );
+
+      settings.merge_from_json_str(&input).unwrap();
+
+      assert_eq!(settings.product_analytics.consent, Consent::Declined);
+      assert_eq!(settings.product_analytics.seed, None);
+    }
+
+    #[test]
+    fn grant_from_undecided_starts_a_seed_and_cohort() {
+      let mut settings = models::settings::Settings::default();
+      let mut persisted = None;
+
+      settings
+        .set_product_analytics_consent_with(
+          Decision::Granted,
+          day("2026-11-07"),
+          || Ok(SEED_A.to_string()),
+          |next| {
+            persisted = Some(next.product_analytics.clone());
+            Ok(())
+          },
+        )
+        .unwrap();
+
+      let expected = ProductAnalyticsSettings {
+        reported_day: None,
+        reported_month: None,
+        ..granted(SEED_A)
+      };
+      assert_eq!(settings.product_analytics, expected);
+      assert_eq!(persisted, Some(expected));
+    }
+
+    #[test]
+    fn decline_clears_seed_cohort_and_reported_periods() {
+      let mut settings = settings_with(granted(SEED_A));
+
+      settings
+        .set_product_analytics_consent_with(
+          Decision::Declined,
+          day("2026-11-07"),
+          || unreachable!("a decline never generates a seed"),
+          |_| Ok(()),
+        )
+        .unwrap();
+
+      assert_eq!(
+        settings.product_analytics,
+        ProductAnalyticsSettings {
+          consent: Consent::Declined,
+          consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+          ..ProductAnalyticsSettings::default()
+        }
+      );
+    }
+
+    #[test]
+    fn regrant_after_decline_is_a_new_installation() {
+      let mut settings = settings_with(granted(SEED_A));
+      settings
+        .set_product_analytics_consent_with(
+          Decision::Declined,
+          day("2026-11-07"),
+          || unreachable!(),
+          |_| Ok(()),
+        )
+        .unwrap();
+
+      settings
+        .set_product_analytics_consent_with(
+          Decision::Granted,
+          day("2026-12-01"),
+          || Ok(SEED_B.to_string()),
+          |_| Ok(()),
+        )
+        .unwrap();
+
+      assert_eq!(settings.product_analytics.seed.as_deref(), Some(SEED_B));
+      assert_eq!(
+        settings.product_analytics.cohort_month.as_deref(),
+        Some("2026-12")
+      );
+    }
+
+    #[test]
+    fn renewal_keeps_seed_cohort_and_reported_periods() {
+      let older = ProductAnalyticsSettings {
+        consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION - 1,
+        ..granted(SEED_A)
+      };
+
+      let renewed = product_analytics_transition(
+        &older,
+        Decision::Granted,
+        day("2027-01-15"),
+        || unreachable!("a renewal keeps the seed"),
+      )
+      .unwrap();
+
+      assert_eq!(renewed, Some(granted(SEED_A)));
+    }
+
+    #[test]
+    fn repeating_the_current_decision_does_not_write() {
+      for (section, decision) in [
+        (granted(SEED_A), Decision::Granted),
+        (
+          ProductAnalyticsSettings {
+            consent: Consent::Declined,
+            consent_version: CURRENT_PRODUCT_ANALYTICS_CONSENT_VERSION,
+            ..ProductAnalyticsSettings::default()
+          },
+          Decision::Declined,
+        ),
+      ] {
+        let mut settings = settings_with(section.clone());
+
+        settings
+          .set_product_analytics_consent_with(
+            decision,
+            day("2026-11-07"),
+            || unreachable!(),
+            |_| panic!("an unchanged decision must not write"),
+          )
+          .unwrap();
+
+        assert_eq!(settings.product_analytics, section);
+      }
+    }
+
+    #[test]
+    fn failed_write_leaves_the_section_unchanged() {
+      for (section, decision) in [
+        (ProductAnalyticsSettings::default(), Decision::Granted),
+        (granted(SEED_A), Decision::Declined),
+      ] {
+        let mut settings = settings_with(section.clone());
+
+        let result = settings.set_product_analytics_consent_with(
+          decision,
+          day("2026-11-07"),
+          || Ok(SEED_B.to_string()),
+          |_| Err("write failed".to_string()),
+        );
+
+        assert_eq!(result, Err("write failed".to_string()));
+        assert_eq!(settings.product_analytics, section);
+      }
+    }
+
+    #[test]
+    fn failed_seed_generation_does_not_grant() {
+      let mut settings = models::settings::Settings::default();
+
+      let result = settings.set_product_analytics_consent_with(
+        Decision::Granted,
+        day("2026-11-07"),
+        || Err("no entropy".to_string()),
+        |_| panic!("nothing to write without a seed"),
+      );
+
+      assert_eq!(result, Err("no entropy".to_string()));
+      assert_eq!(
+        settings.product_analytics,
+        ProductAnalyticsSettings::default()
+      );
+    }
+
+    #[test]
+    fn generated_seeds_are_valid_and_distinct() {
+      let first = generate_product_analytics_seed().unwrap();
+      let second = generate_product_analytics_seed().unwrap();
+
+      assert!(is_valid_seed(&first));
+      assert!(is_valid_seed(&second));
+      assert_ne!(first, second);
+    }
+
+    #[test]
+    fn writes_preserve_core_owned_keys_beside_the_section() {
+      let dir = TempDir::new().unwrap();
+      let path = dir.path().join("settings.json");
+      std::fs::write(
+        &path,
+        r#"{"hardwareArchive":{"enabled":false,"retentionDays":90},"futureKey":true}"#,
+      )
+      .unwrap();
+
+      let serialized =
+        serialize_preserving_unknown_settings(&settings_with(granted(SEED_A)), &path)
+          .unwrap();
+      let value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+
+      assert_eq!(
+        value.pointer("/hardwareArchive/retentionDays"),
+        Some(&serde_json::json!(90))
+      );
+      assert_eq!(value.get("futureKey"), Some(&serde_json::json!(true)));
+      assert_eq!(
+        value.pointer("/productAnalytics/consent"),
+        Some(&serde_json::json!("granted"))
+      );
+      assert_eq!(
+        value.pointer("/productAnalytics/cohortMonth"),
+        Some(&serde_json::json!("2026-11"))
+      );
+    }
   }
 }

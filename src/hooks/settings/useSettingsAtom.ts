@@ -154,6 +154,7 @@ export const useSettingsAtom = () => {
       | "uiAnnouncementVersion"
       | "currentUiAnnouncementVersion"
       | "trayWidget"
+      | "productAnalytics"
     >]: (value: ClientSettings[K]) => Promise<Result<null, string>>;
   } = {
     theme: commands.setTheme,
@@ -221,6 +222,7 @@ export const useSettingsAtom = () => {
       | "uiAnnouncementVersion"
       | "currentUiAnnouncementVersion"
       | "trayWidget"
+      | "productAnalytics"
     >,
   >(
     key: K,
