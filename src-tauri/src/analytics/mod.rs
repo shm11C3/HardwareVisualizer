@@ -7,6 +7,7 @@
 
 mod batch;
 mod consent;
+mod flags;
 mod period;
 mod tokens;
 mod vocabulary;
