@@ -1,8 +1,8 @@
 use std::fmt;
 use std::sync::Arc;
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
 
+use super::cpu_ccd_temperature::VermeerCcdTarget;
 pub use super::cpu_identity::{CpuIdentity, CpuVendor};
 use super::cpu_identity::{cpuid_leaf, detect_cpu_identity};
 use super::cpu_temperature_decode::{
@@ -11,13 +11,11 @@ use super::cpu_temperature_decode::{
   decode_intel_temperature_target,
 };
 use super::pawn_io::{
-  ACCESS_PCI_MUTEX, NamedMutex, PawnIoClient, PawnIoDiscovery, PawnIoInitError,
-  PawnIoModule, open_shared_intel_msr,
+  PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
 };
-use crate::models::{CpuPackageThermalStatus, SensorEnablement};
+use crate::models::{CpuCcdTemperature, CpuPackageThermalStatus, SensorEnablement};
 use crate::{log_debug, log_warn};
 
-const PAWNIO_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
 const MSR_TEMPERATURE_TARGET: u64 = 0x1a2;
 const IA32_PACKAGE_THERM_STATUS: u64 = 0x1b1;
 const AMD_THM_TCON_CUR_TMP: u64 = 0x0005_9800;
@@ -319,25 +317,22 @@ impl CpuTemperatureSampler {
         client,
         tctl_offset_celsius,
         enablement: _,
-      }) => match NamedMutex::acquire(ACCESS_PCI_MUTEX, PAWNIO_MUTEX_TIMEOUT) {
-        Ok(_mutex) => client
-          .read_smu_register(AMD_THM_TCON_CUR_TMP)
-          .and_then(|value| {
-            decode_amd_zen_package_temperature(value as u32, *tctl_offset_celsius)
-              .map_err(format_decode_error)
-          })
-          .map(|temperature| CpuPackageTemperature {
-            temperature_celsius: temperature,
-            source: CpuTemperatureSource::AmdZenSmnTctl,
-            thermal_status: None,
-          }),
-        Err(reason) => Err(reason),
-      }
-      .map_err(|reason| CpuPackageTemperatureError::Unavailable {
-        reason,
-        enablement,
-        thermal_status: None,
-      }),
+      }) => client
+        .read_smu_register(AMD_THM_TCON_CUR_TMP)
+        .and_then(|value| {
+          decode_amd_zen_package_temperature(value as u32, *tctl_offset_celsius)
+            .map_err(format_decode_error)
+        })
+        .map(|temperature| CpuPackageTemperature {
+          temperature_celsius: temperature,
+          source: CpuTemperatureSource::AmdZenSmnTctl,
+          thermal_status: None,
+        })
+        .map_err(|reason| CpuPackageTemperatureError::Unavailable {
+          reason,
+          enablement,
+          thermal_status: None,
+        }),
       None => Err(self.inactive_error.clone().unwrap_or_else(|| {
         CpuPackageTemperatureError::Internal(
           "CPU package temperature unavailable".to_string(),
@@ -357,6 +352,17 @@ impl CpuTemperatureSampler {
     }
 
     result
+  }
+
+  pub(crate) fn sample_ccd(
+    &self,
+    target: VermeerCcdTarget,
+  ) -> Option<Vec<CpuCcdTemperature>> {
+    let Some(ActiveCpuTemperatureSource::Amd { client, .. }) = &self.active else {
+      return None;
+    };
+
+    Some(target.read(client))
   }
 }
 
@@ -590,6 +596,28 @@ mod tests {
         }),
       }
     );
+  }
+
+  #[test]
+  fn missing_ryzen_smu_module_leaves_ccd_and_package_independently_unavailable() {
+    let error = CpuPackageTemperatureError::Unavailable {
+      reason: "synthetic RyzenSMU load failure".into(),
+      enablement: SensorEnablement::Verified,
+      thermal_status: None,
+    };
+    let mut sampler = CpuTemperatureSampler {
+      diagnostics: CpuTemperatureDiagnostics::unavailable("synthetic missing module"),
+      active: None,
+      inactive_error: Some(error.clone()),
+      sample_failure_logged: true,
+    };
+
+    assert!(
+      sampler
+        .sample_ccd(super::super::cpu_ccd_temperature::synthetic_target())
+        .is_none()
+    );
+    assert_eq!(sampler.sample(), Err(error));
   }
 
   #[test]

@@ -1,4 +1,5 @@
 use crate::infrastructure::providers::windows::{
+  cpu_ccd_temperature::VermeerCcdTarget,
   cpu_power::CpuPowerSampler,
   cpu_temperature::CpuTemperatureSampler,
   pawn_io::release_shared_intel_msr,
@@ -7,8 +8,8 @@ use crate::infrastructure::providers::windows::{
   },
 };
 use crate::models::{
-  MotherboardSensorCollection, SensorAvailability, SensorSupport, TemperatureSample,
-  hardware::SuperIoChipIdDiagnostics,
+  CpuCcdTemperature, MotherboardSensorCollection, SensorAvailability, SensorSupport,
+  TemperatureSample, hardware::SuperIoChipIdDiagnostics,
 };
 use crate::platform::windows::sensors::{
   build_temperature_sample, motherboard_collection_from_readout,
@@ -70,6 +71,8 @@ impl<S, T: Clone> Slot<S, T> {
 
 pub(super) struct Providers {
   temperature: Slot<CpuTemperatureSampler, TemperatureSample>,
+  ccd_reading: Option<Reading<Vec<CpuCcdTemperature>>>,
+  last_ccd_request_ms: Option<u64>,
   power: Slot<CpuPowerSampler, CpuPower>,
   motherboard: Slot<MotherboardSensorSampler, MotherboardSensorCollection>,
   diagnostics: Option<(u64, SuperIoChipIdDiagnostics)>,
@@ -80,6 +83,8 @@ impl Providers {
   pub(super) fn new() -> Self {
     Self {
       temperature: Slot::default(),
+      ccd_reading: None,
+      last_ccd_request_ms: None,
       power: Slot::default(),
       motherboard: Slot::default(),
       diagnostics: None,
@@ -88,12 +93,17 @@ impl Providers {
   }
 
   pub(super) fn reset(&mut self) {
-    self.release_samplers();
+    self.ccd_reading = None;
+    self.last_ccd_request_ms = None;
+    self.release_monitor_samplers();
     self.diagnostics = None;
   }
 
-  fn release_samplers(&mut self) {
-    self.temperature = Slot::default();
+  fn release_monitor_samplers(&mut self) {
+    self.temperature.reading = None;
+    if self.last_ccd_request_ms.is_none() {
+      self.temperature.sampler = None;
+    }
     self.power = Slot::default();
     self.motherboard = Slot::default();
     self.last_sample_ms = None;
@@ -101,11 +111,22 @@ impl Providers {
   }
 
   pub(super) fn expire_idle(&mut self) {
+    let now = uptime_ms();
+    if self
+      .last_ccd_request_ms
+      .is_some_and(|at| now.saturating_sub(at) > IDLE_RELEASE_MS)
+    {
+      self.ccd_reading = None;
+      self.last_ccd_request_ms = None;
+      if self.last_sample_ms.is_none() {
+        self.temperature.sampler = None;
+      }
+    }
     if self
       .last_sample_ms
-      .is_some_and(|at| uptime_ms().saturating_sub(at) > IDLE_RELEASE_MS)
+      .is_some_and(|at| now.saturating_sub(at) > IDLE_RELEASE_MS)
     {
-      self.release_samplers();
+      self.release_monitor_samplers();
     }
   }
 
@@ -118,7 +139,7 @@ impl Providers {
       .last_sample_ms
       .is_some_and(|at| now.saturating_sub(at) > FRESHNESS_MS)
     {
-      self.release_samplers();
+      self.release_monitor_samplers();
     }
 
     self.last_sample_ms = Some(now);
@@ -162,6 +183,42 @@ impl Providers {
         },
       ),
     }
+  }
+
+  pub(super) fn cpu_ccd_temperatures(
+    &mut self,
+  ) -> Option<Reading<Vec<CpuCcdTemperature>>> {
+    let Some(target) = VermeerCcdTarget::detect() else {
+      self.ccd_reading = None;
+      return None;
+    };
+
+    let now = uptime_ms();
+    self.last_ccd_request_ms = Some(now);
+    if let Some(cached) = &self.ccd_reading
+      && cached.is_fresh(now)
+      && now - cached.acquired_at_ms < CPU_INTERVAL_MS
+    {
+      return Some(cached.clone());
+    }
+
+    // Reuse the same RyzenSMU handle as package temperature. This request
+    // does not touch the package reading or its cadence.
+    let (opened, sampler) = self
+      .temperature
+      .sampler
+      .get_or_insert_with(|| (now, CpuTemperatureSampler::new()));
+    let value = sampler.sample_ccd(target);
+    if value.is_none() && now.saturating_sub(*opened) >= REOPEN_FAILED_PROVIDER_MS {
+      self.temperature.sampler = None;
+    }
+
+    let reading = Reading {
+      acquired_at_ms: uptime_ms(),
+      value: value.unwrap_or_default(),
+    };
+    self.ccd_reading = Some(reading.clone());
+    Some(reading)
   }
 
   pub(super) fn diagnostics(&mut self) -> SuperIoChipIdDiagnostics {

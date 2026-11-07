@@ -7,8 +7,8 @@ mod server;
 
 pub(crate) use client::collect;
 pub use client::{
-  SampleError, cpu_core_temperatures, diagnostics, motherboard, power, status,
-  temperature,
+  SampleError, cpu_ccd_temperatures, cpu_core_temperatures, diagnostics, motherboard,
+  power, status, temperature,
 };
 pub use host::run;
 

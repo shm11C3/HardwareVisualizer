@@ -12,7 +12,7 @@ use super::{
 };
 use crate::enums::error::PlatformError;
 use crate::models::{
-  CpuCoreTemperature, MotherboardSensorCollection, TemperatureSample,
+  CpuCcdTemperature, CpuCoreTemperature, MotherboardSensorCollection, TemperatureSample,
   hardware::SuperIoChipIdDiagnostics,
 };
 use crate::sensor_service::protocol::*;
@@ -107,6 +107,24 @@ fn decode_cpu_core_temperature_response(
     _ => Err(PlatformError::fault(
       "Unexpected CPU core temperature response from the Windows sensor service",
     )),
+  }
+}
+
+pub async fn cpu_ccd_temperatures() -> Vec<CpuCcdTemperature> {
+  use crate::infrastructure::providers::windows::cpu_ccd_temperature::is_supported_processor;
+
+  if !is_supported_processor() {
+    return Vec::new();
+  }
+
+  let Ok(mut connection) = handshake().await else {
+    return Vec::new();
+  };
+  match connection.request(Operation::CpuCcdTemperatures).await {
+    Ok(Payload::CpuCcdTemperatures(Some(reading))) if reading.is_fresh(uptime_ms()) => {
+      reading.value
+    }
+    _ => Vec::new(),
   }
 }
 
