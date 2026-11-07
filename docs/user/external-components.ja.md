@@ -25,6 +25,59 @@ External Component Guidance は、HardwareVisualizer が任意コンポーネン
 
 このダイアログは情報提供のためのものです。ハードウェア監視は、利用できる最善のフォールバックデータで継続します。
 
+## Windowsセンサーサービス
+
+Program Files配下へインストールするMSIには **Windowsセンサーサービス** が含まれます。
+新規・更新・サイレントインストールともに、サービスの追加選択は不要です。
+導入・修復には管理者の承認が必要ですが、通常の起動・トレイ常駐・再接続では
+本体を昇格させる必要はありません。サービスを利用できない場合は、
+**設定 → 高度な設定 → Windowsセンサーサービス → 導入・修復手順を開く** からこのページを開けます。
+初回導入は [HardwareVisualizer Releases](https://github.com/shm11C3/HardwareVisualizer/releases)
+のMSIを使い、Program Files配下にインストールしてください。導入済みのMSI版を修復する場合は、
+インストール済みのバージョンと同じMSIを取得してください。コマンドプロンプトまたは
+PowerShellを管理者として開き、そのMSIのパスを指定して実行してください。
+
+```powershell
+msiexec.exe /fomus "C:\path\to\HardwareVisualizer.msi"
+```
+
+修復後は、Windowsセンサーサービス設定の「再確認」を選んでください。
+
+**新規インストール**でCPU・マザーボードのセンサーを取得するには、PawnIOと
+モジュール、および同梱のサービスが必要です。PawnIOは引き続き任意の外部ドライバーです。
+MSIでPawnIOを選ぶか、**設定 → 高度な設定 → 任意コンポーネントのセットアップ**
+からセットアップしてください。サイレントMSIでPawnIOを導入する場合は
+`EXTERNAL_COMPONENT_PAWNIO=1` を指定します。PawnIOがなくても他の監視は継続します。
+
+**本体で直接PawnIOを使用していた版からの更新**では、既存のPawnIOを維持し、
+通常のMSI更新でサービスを追加します。フォールバック後もセンサー値が取得できない場合、
+案内の「センサー設定を開く」から導入欄へ進めます。案内の非表示設定は維持します。
+
+センサーの案内は、実際の取得失敗により現在の画面で必要な値が不足した場合に、
+操作を妨げない画面内の案内として表示します。通常のセンサー更新に従い、復旧すると
+消えます。導入ダイアログ、起動後の時間制限、案内専用の定期確認はありません。
+閉じる場合も「今後表示しない」を選ぶ場合も、今回の起動中はセンサーの案内を再表示しません。
+「今後表示しない」は、そのとき案内している取得不足だけを次回以降の非表示対象として保存します。
+設定から状態を再確認でき、サービスを利用できない場合は導入・修復手順を開けます。
+
+「管理者として起動」が有効だった場合、その選択は更新後も維持します。
+一般権限で使用するには、この設定をオフにしてアプリを終了し、通常起動してください。
+CPUの温度・消費電力とマザーボードの取得にこの設定は不要です。
+現在のプロセスの権限はその場では下がりません。
+他の特権機能では取得情報が減る場合があります。最高権限のタスクや互換性設定を
+ユーザーが作成していた場合は、ご自身で変更してください。
+
+この変更はリリースノートと管理者起動設定の補足で説明します。更新が成功した場合、
+管理者起動が有効という理由だけで移行CTAは表示しません。
+設定画面ではセンサー取得失敗の案内欄を表示しません。
+
+サービスがなくても、通常の監視と利用可能なACPIフォールバックは継続します。
+NSIS版・ポータブル版は導入済みの互換サービスを利用できますが、初回導入には
+保護されたMSI版が必要です。本体のアンインストール時はサービスを削除し、共有の
+PawnIOは残します。SYSTEMサービスが読み込むモジュールは、アプリが識別できる
+署名済みリリースに限ります。未署名のテストモジュールや未認識のファイルは
+読み込まず、元のファイルを勝手に置き換えることもしません。
+
 ## PawnIO
 
 PawnIO は、対応している CPU で PawnIO 経由の取得経路が利用できる場合に、Windows の CPU パッケージ温度と CPU パッケージ電力を取得するために使われます。
@@ -65,11 +118,10 @@ HardwareVisualizer をアンインストールしても PawnIO やモジュー�
   - Intel パッケージ温度と電力では `IntelMSR.bin`
   - AMD パッケージ温度では `RyzenSMU.bin`
   - AMD パッケージ電力では `AMDFamily17.bin`
-- HardwareVisualizer のプロセスが PawnIO driver を開ける Windows 権限
+- アプリに代わってPawnIOを開く、接続済みのWindowsセンサーサービス
 
-未署名の `.amx` は、unrestricted PawnIO driver と Windows test-signing
-mode を使う場合だけのフォールバックです。通常の production setup では
-使用しません。
+Windowsセンサーサービスは、識別できる署名済みの `.bin` だけを読み込みます。
+未署名の `.amx` やテスト用モジュールは使用しません。
 
 モジュールを配置する手順:
 
@@ -84,7 +136,7 @@ mode を使う場合だけのフォールバックです。通常の production 
 
 `C:\Program Files\PawnIO` への書き込みには、通常は管理者権限が必要です。
 
-PawnIO をインストール済みでも HardwareVisualizer が権限不足を報告する場合は、HardwareVisualizer を管理者として実行してから再度確認してください。
+PawnIOを導入済みでも取得できない場合は、高度な設定でWindowsセンサーサービスを確認・修復してください。本体の昇格では、別プロセスのサービスは修復されません。
 
 ### 公式の入手先
 
@@ -95,16 +147,16 @@ PawnIO をインストール済みでも HardwareVisualizer が権限不足を�
 
 ### PawnIO Motherboard Sensors
 
-PawnIO は、対応している Super I/O のマザーボード温度とファン回転数を Windows で取得する場合にも使われます。この経路では PawnIO LpcIO module と、HardwareVisualizer のプロセスが PawnIO driver を開ける権限が必要です。
+PawnIO は、対応している Super I/O のマザーボード温度とファン回転数を Windows で取得する場合にも使われます。この経路では PawnIO LpcIO module と、WindowsセンサーサービスがPawnIO driverを開ける権限が必要です。
 
 PawnIO 経由でマザーボードセンサーを取得するには、対象の PC に次のものが必要です。
 
 - 正しく動作する PawnIO driver/runtime
 - PawnIO runtime に含まれる `PawnIOLib.dll`
-- PawnIO.Modules のリリースアセットに含まれる `LpcIO.bin` または `LpcIO.amx`
-- HardwareVisualizer のプロセスが PawnIO driver を開ける Windows 権限
+- 対応する署名済みリリースの `LpcIO.bin`
+- アプリに代わってPawnIOを開く、接続済みのWindowsセンサーサービス
 
-PawnIO をインストール済みでも HardwareVisualizer が権限不足を報告する場合は、HardwareVisualizer を管理者として実行するか、「管理者として起動」を有効にしてからアプリを再起動してください。
+PawnIOを導入済みでもマザーボードの値を取得できない場合は、Windowsセンサーサービスと対応する署名済みLpcIOモジュールを確認・修復してください。
 
 この案内は読み取り専用のマザーボードセンサー経路だけを対象にしています。ファン制御、PWM 書き込み、電圧、未対応の Super I/O chip、vendor 固有の embedded controller sensor は対象外です。
 

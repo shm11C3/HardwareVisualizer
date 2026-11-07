@@ -98,12 +98,14 @@ impl MotherboardPlatform for MacOSPlatform {
   }
 }
 
+#[async_trait]
 impl SuperIoPlatform for MacOSPlatform {
-  fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+  async fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
     SuperIoChipIdDiagnostics::unsupported_platform()
   }
 }
 
+#[async_trait]
 impl SensorPlatform for MacOSPlatform {
   fn sample_temperatures(&self) -> crate::models::TemperatureSample {
     crate::models::TemperatureSample::unsupported(

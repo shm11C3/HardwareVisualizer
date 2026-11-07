@@ -250,7 +250,6 @@ mod tests {
   }
 
   use crate::models::external_component_setup::ExternalComponentSetupFailureStage;
-  use crate::services::external_component_guidance_service::ExternalComponentGuidanceView;
   use hardviz_core::enums::error::PlatformError;
   use hardviz_core::external_component_setup::{
     ExternalComponentSetupPlan, ExternalComponentSetupStatus,
@@ -323,7 +322,7 @@ mod tests {
 
   fn pending_dashboard_keys(guidance: &ExternalComponentGuidanceState) -> Vec<String> {
     guidance
-      .pending_candidates(ExternalComponentGuidanceView::Dashboard, &[])
+      .pending_candidates(&[])
       .into_iter()
       .map(|candidate| candidate.key)
       .collect()

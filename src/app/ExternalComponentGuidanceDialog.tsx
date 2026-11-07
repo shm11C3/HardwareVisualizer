@@ -5,7 +5,7 @@ import {
   EyeOffIcon,
   ShieldIcon,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -33,15 +33,10 @@ import {
   externalComponentGuidanceActionKey,
   externalComponentGuidanceCopyKey,
   externalComponentGuidanceDocsUrl,
-  externalComponentGuidanceViewForDisplayTarget,
-  type PerformanceGuidanceContext,
 } from "@/lib/externalComponentGuidance";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";
-import type {
-  ExternalComponentGuidanceCandidate,
-  ExternalComponentGuidanceView,
-} from "@/rspc/bindings";
+import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import type { SelectedDisplayType } from "@/types/ui";
@@ -49,7 +44,6 @@ import type { SelectedDisplayType } from "@/types/ui";
 type ExternalComponentGuidanceDialogProps = {
   displayTarget: SelectedDisplayType | null;
   settingsLoaded?: boolean;
-  performanceContext?: PerformanceGuidanceContext;
   onRequestChange?: (requested: boolean) => void;
   /** Another startup AlertDialog is open; keep the candidate, wait to show. */
   deferred?: boolean;
@@ -61,7 +55,6 @@ type ExternalComponentGuidanceDialogProps = {
 export const ExternalComponentGuidanceDialog = ({
   displayTarget,
   settingsLoaded = true,
-  performanceContext,
   onRequestChange,
   deferred = false,
   onOpenChange,
@@ -78,13 +71,9 @@ export const ExternalComponentGuidanceDialog = ({
   // The view whose first candidate lookup has completed. Derived per render
   // rather than a boolean flipped in the effect, so a screen change counts
   // as pending in the very render it happens, before any effect runs.
-  const [loadedView, setLoadedView] =
-    useState<ExternalComponentGuidanceView | null>(null);
+  const [loadedView, setLoadedView] = useState<"dashboard" | null>(null);
 
-  const view = useMemo(
-    () => externalComponentGuidanceViewForDisplayTarget(displayTarget),
-    [displayTarget],
-  );
+  const view = displayTarget === "dashboard" ? "dashboard" : null;
   const screenKnown = displayTarget !== null;
   const lookupPending =
     !settingsLoaded || !screenKnown || (view !== null && loadedView !== view);
@@ -94,73 +83,31 @@ export const ExternalComponentGuidanceDialog = ({
       setCandidates([]);
       return;
     }
-
-    let isCancelled = false;
-
-    const loadCandidates = async () => {
+    let cancelled = false;
+    const load = async () => {
       try {
-        const result =
-          await commands.getExternalComponentGuidanceCandidates(view);
-        if (isCancelled) return;
-
-        if (isError(result)) {
-          console.error(
-            "Failed to fetch external component guidance:",
-            result.error,
-          );
-          return;
-        }
-
-        setCandidates(result.data);
-      } catch (err) {
-        if (isCancelled) return;
-        console.error("Failed to fetch external component guidance:", err);
+        const result = await commands.getExternalComponentGuidanceCandidates();
+        if (cancelled) return;
+        if (isError(result)) throw new Error(result.error);
+        setCandidates(
+          result.data.filter((item) => item.component === "smartctl"),
+        );
+      } catch (error) {
+        if (!cancelled)
+          console.error("External component guidance failed:", error);
       } finally {
-        if (!isCancelled) {
-          setLoadedView(view);
-        }
+        if (!cancelled) setLoadedView(view);
       }
     };
-
-    const stopPolling = startVisiblePolling(() => {
-      void loadCandidates();
-    }, 60_000);
-
+    const stop = startVisiblePolling(() => void load(), 60_000);
     return () => {
-      isCancelled = true;
-      stopPolling();
+      cancelled = true;
+      stop();
     };
   }, [settingsLoaded, screenKnown, view]);
 
   const processElevated = useProcessElevated();
-  const isPerformance = view === "performance";
-  const performanceReady =
-    !isPerformance || Boolean(performanceContext?.settled);
-  const candidate =
-    (loadedView === view ? candidates : []).find((item) => {
-      if (!isPerformance) return true;
-      if (
-        platform() !== "windows" ||
-        processElevated !== false ||
-        !performanceReady ||
-        performanceContext?.expanded
-      )
-        return false;
-      if (item.component !== "pawnio" || item.reasonKind !== "permission")
-        return false;
-      return (
-        (item.usage === "cpuPackageTemperature" &&
-          performanceContext?.cpuTemperatureVisible) ||
-        (item.usage === "motherboardSensors" &&
-          performanceContext?.motherboardSensorsVisible)
-      );
-    }) ?? null;
-  const copyKey = candidate
-    ? externalComponentGuidanceCopyKey(candidate)
-    : null;
-  const actionKey = candidate
-    ? externalComponentGuidanceActionKey(candidate)
-    : null;
+  const candidate = loadedView === view ? (candidates[0] ?? null) : null;
   const elevationAvailability = useElevationAvailability();
   // Outside Program Files the app refuses to elevate (#2216), so offer the
   // details page instead of a restart that would fail.
@@ -244,24 +191,17 @@ export const ExternalComponentGuidanceDialog = ({
 
   const elevationPending =
     isWindowsPermissionGuidance && elevationAvailability === null;
-  const wouldOpen = Boolean(
-    candidate && copyKey && actionKey && !elevationPending,
-  );
+  const wouldOpen = Boolean(candidate && !elevationPending);
   const isOpen = wouldOpen && !deferred;
   // A candidate that is ready but held back still counts as pending: it will
   // open the moment the blocker closes, so dialogs that yield to this one
   // must not take that same render.
-  const pending =
-    lookupPending ||
-    !performanceReady ||
-    elevationPending ||
-    (wouldOpen && deferred);
+  const pending = lookupPending || elevationPending || (wouldOpen && deferred);
 
   useLayoutEffect(() => {
     onRequestChange?.(wouldOpen);
   }, [wouldOpen, onRequestChange]);
 
-  // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
@@ -291,9 +231,12 @@ export const ExternalComponentGuidanceDialog = ({
     }
   };
 
-  if (!isOpen || !candidate || !copyKey || !actionKey) {
+  if (!isOpen || !candidate) {
     return null;
   }
+
+  const copyKey = externalComponentGuidanceCopyKey(candidate);
+  const actionKey = externalComponentGuidanceActionKey(candidate);
 
   return (
     <AlertDialog open>
@@ -318,10 +261,7 @@ export const ExternalComponentGuidanceDialog = ({
               />
               <GuidanceRow
                 label={t("externalComponentGuidance.labels.action")}
-                value={t(
-                  elevationReasonKey ??
-                    `externalComponentGuidance.candidates.${copyKey}.${actionKey}`,
-                )}
+                value={t(elevationReasonKey ?? actionKey)}
               />
               {shouldShowElevatedStartupAction && (
                 <p>{t("externalComponentGuidance.elevatedStartupConsent")}</p>

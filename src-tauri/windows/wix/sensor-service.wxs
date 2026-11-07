@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <?define ProtectedSensorDir = ((INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder) AND NOT (INSTALLDIR >< "..")) ?>
+  <Fragment>
+    <!-- Validate from the trusted embedded copy before INSTALLDIR can supply
+         any executable. The installed file cannot validate its own origin. -->
+    <Binary Id="SensorServiceValidator" SourceFile="$(sys.SOURCEFILEDIR)generated\hardware-visualizer-sensors.exe" />
+    <CustomAction Id="ValidateSensorServiceDirectory" BinaryKey="SensorServiceValidator" ExeCommand="--validate-install-dir &quot;[INSTALLDIR].&quot;" Execute="deferred" Impersonate="no" Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="ValidateSensorServiceDirectory" After="CreateFolders">$WindowsSensorServiceComponent = 3 AND NOT REMOVE</Custom>
+    </InstallExecuteSequence>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="WindowsSensorServiceComponent" Guid="456BBCE7-98E8-40EA-8DC2-C4A64CF603EC" Win64="yes">
+        <!-- followParent overrides feature-level location conditions, so the
+             component must own this gate even when all features are selected. -->
+        <Condition>$(var.ProtectedSensorDir)</Condition>
+        <CreateFolder />
+        <File Id="WindowsSensorServiceExe" Source="$(sys.SOURCEFILEDIR)generated\hardware-visualizer-sensors.exe" KeyPath="yes" />
+        <ServiceInstall Id="InstallWindowsSensorService" Name="HardwareVisualizerSensors" DisplayName="HardwareVisualizer Sensors" Description="Provides local read-only hardware sensor readings to HardwareVisualizer." Type="ownProcess" Start="auto" Account="LocalSystem" ErrorControl="normal" Vital="yes" />
+        <ServiceControl Id="ControlWindowsSensorService" Name="HardwareVisualizerSensors" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+    </DirectoryRef>
+    <!-- Follow the required application parent, including major upgrades;
+         this feature remains an MSI repair boundary, not a user preference. -->
+    <Feature Id="WindowsSensorService" Title="Windows sensor service" Description="Collect PawnIO readings without elevating the resident application." Level="1" InstallDefault="followParent" Absent="disallow" AllowAdvertise="no" Display="hidden">
+      <ComponentRef Id="WindowsSensorServiceComponent" />
+    </Feature>
+  </Fragment>
+</Wix>

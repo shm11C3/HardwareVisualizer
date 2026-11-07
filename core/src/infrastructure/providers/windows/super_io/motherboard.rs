@@ -1,4 +1,3 @@
-use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use super::super::pawn_io::{
@@ -76,9 +75,6 @@ const ITE_TEMPERATURE_REGISTERS: [(&str, u8, u8); 3] = [
   ("TMPIN3", 0x2B, 3),
 ];
 
-static MOTHERBOARD_SENSOR_SAMPLER: OnceLock<Mutex<MotherboardSensorSampler>> =
-  OnceLock::new();
-
 /// A motherboard sample paired with the active provider path's fan capability.
 pub(crate) struct MotherboardSensorReadout {
   /// The current reading attempt, which can fail independently of support.
@@ -97,36 +93,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
 ///
 /// No other external sensor implementation source was used.
-pub(crate) fn sample_motherboard_sensors() -> MotherboardSensorReadout {
-  let sampler = MOTHERBOARD_SENSOR_SAMPLER.get_or_init(|| {
-    let sampler = MotherboardSensorSampler::new();
-    log_debug!(
-      "super_io_motherboard_sensor_sampler_initialized",
-      "windows::super_io_motherboard::sample_motherboard_sensors",
-      Some(sampler.diagnostic_summary())
-    );
-    Mutex::new(sampler)
-  });
-
-  let Ok(mut sampler) = sampler.lock() else {
-    return MotherboardSensorReadout {
-      sample: Err("Motherboard sensor sampler lock poisoned".to_string()),
-      fan_support: SensorSupport::Unknown,
-    };
-  };
-  let sample = sampler.sample();
-  let fan_support = sampler.active.as_ref().map_or(
-    SensorSupport::Unknown,
-    ActiveMotherboardSensors::fan_support,
-  );
-
-  MotherboardSensorReadout {
-    sample,
-    fan_support,
-  }
-}
-
-struct MotherboardSensorSampler {
+pub(crate) struct MotherboardSensorSampler {
   active: Option<ActiveMotherboardSensors<PawnIoClient>>,
   unavailable_reason: Option<String>,
   retry_unavailable: bool,
@@ -134,7 +101,19 @@ struct MotherboardSensorSampler {
 }
 
 impl MotherboardSensorSampler {
-  fn new() -> Self {
+  pub(crate) fn readout(&mut self) -> MotherboardSensorReadout {
+    let sample = self.sample();
+    let fan_support = self.active.as_ref().map_or(
+      SensorSupport::Unknown,
+      ActiveMotherboardSensors::fan_support,
+    );
+    MotherboardSensorReadout {
+      sample,
+      fan_support,
+    }
+  }
+
+  pub(crate) fn new() -> Self {
     let mut sampler = Self {
       active: None,
       unavailable_reason: None,
@@ -142,10 +121,15 @@ impl MotherboardSensorSampler {
       sample_failure_logged: false,
     };
     let _ = sampler.try_open();
+    log_debug!(
+      "super_io_motherboard_sensor_sampler_initialized",
+      "windows::super_io::MotherboardSensorSampler::new",
+      Some(sampler.diagnostic_summary())
+    );
     sampler
   }
 
-  fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
+  pub(crate) fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
     if self.active.is_none()
       && (self.unavailable_reason.is_none() || self.retry_unavailable)
     {

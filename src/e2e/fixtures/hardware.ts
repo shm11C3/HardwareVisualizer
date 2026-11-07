@@ -281,6 +281,7 @@ export const buildHardwareUpdateSeries = (
       },
     ],
     motherboardFanSupport: "supported",
+    externalComponentGuidanceCandidates: [],
   }));
 
 const round1 = (value: number) => Math.round(value * 10) / 10;

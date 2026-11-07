@@ -71,6 +71,7 @@ jobs:
               - 'src/rspc/bindings.ts'
             backend:
               - 'core/**'
+              - 'sensor-service/**'
               - 'src-tauri/**'
               - 'Cargo.*'
               - '.cargo/**'
@@ -79,6 +80,7 @@ jobs:
               - '.github/scripts/**'
             core:
               - 'core/**'
+              - 'sensor-service/**'
               - 'Cargo.*'
               - '.cargo/**'
               - 'rust-toolchain*'
@@ -86,6 +88,7 @@ jobs:
               - '.github/scripts/**'
             tauri:
               - 'src-tauri/**'
+              - 'sensor-service/**'
               - 'e2e-native/**'
               - 'Cargo.*'
               - '.cargo/**'
@@ -97,6 +100,7 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
             backend-deps:
+              - 'sensor-service/Cargo.toml'
               - 'core/Cargo.toml'
               - 'src-tauri/Cargo.toml'
               - 'Cargo.*'
@@ -117,6 +121,7 @@ jobs:
               - '.github/actions/setup-rust/**'
               - '.github/workflows/ci.yml'
             windows-installer:
+              - 'sensor-service/**'
               - 'src-tauri/windows/**'
               - 'src-tauri/tauri.conf.json'
               - '.github/scripts/sign-codesigntool.ps1'
@@ -823,6 +828,7 @@ jobs:
         shell: pwsh
         env:
           CARGO_INCREMENTAL: "0"
+          HARDVIZ_SENSOR_SERVICE_PROFILE: ci
         run: npx tauri build --bundles msi,nsis -- --profile ci
 
       - name: Check installer outputs
@@ -832,6 +838,7 @@ jobs:
           $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "No MSI was produced" }
           ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
+          ./sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
 
   #
   # Frontend checks

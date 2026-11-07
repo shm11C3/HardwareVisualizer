@@ -2,6 +2,47 @@ import { expect, test } from "@playwright/test";
 import { BOOTSTRAP_TIMEOUT, gotoApp, navigateTo, saveCapture } from "./helpers";
 
 test.describe("settings captures", () => {
+  test("service status and startup settings explain normal permissions", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      window.localStorage.setItem("e2e:elevatedStartupMode", "true"),
+    );
+    await gotoApp(page, { path: "/?processElevated=1" });
+    await navigateTo(page, "settings");
+    const section = page.getByRole("region", {
+      name: "Windows sensor service",
+    });
+    await expect(section.getByText("Service connected")).toBeVisible();
+    await section.scrollIntoViewIfNeeded();
+    await saveCapture(page, "settings-sensor-service");
+    await page.setViewportSize({ width: 520, height: 800 });
+    await section.scrollIntoViewIfNeeded();
+    await saveCapture(page, "settings-sensor-service-narrow");
+    await expect(
+      section.getByRole("button", {
+        name: "Open installation and repair guide",
+      }),
+    ).toHaveCount(0);
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("set_elevated_startup_mode"),
+      ),
+    ).toBe(0);
+    await expect(
+      page.getByText(/MSI installs and updates include the sensor service/),
+    ).toBeVisible();
+    await page
+      .getByRole("switch", { name: "Run as administrator on startup" })
+      .click();
+    await expect(
+      page.getByRole("switch", { name: "Run as administrator on startup" }),
+    ).not.toBeChecked();
+    await expect(
+      page.getByText(/This process is still elevated/),
+    ).toBeVisible();
+  });
+
   test("settings sections render", async ({ page }) => {
     await gotoApp(page);
 
@@ -34,7 +75,15 @@ test.describe("settings captures", () => {
     await toggle.scrollIntoViewIfNeeded();
     await expect(toggle).toBeEnabled();
     await expect(page.getByText(/Saved as on, but not applied/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Install" })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Install missing files", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", {
+        name: "Open installation and repair guide",
+        exact: true,
+      }),
+    ).toBeEnabled();
     await page.waitForTimeout(400);
 
     await saveCapture(page, "settings-elevation-unprotected");

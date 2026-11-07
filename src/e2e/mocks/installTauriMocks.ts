@@ -96,6 +96,7 @@ type FixtureOverrides = {
   storageDeviceCount: number | null;
   showNavigationNotice: boolean;
   processElevated: boolean;
+  sensorServiceMissing: boolean;
   firstClose: boolean;
   settingsReadFailure: boolean;
   /** `?elevation=unprotected` reports an install outside Program Files with
@@ -271,6 +272,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
     processElevated:
       new URLSearchParams(window.location.search).get("processElevated") ===
       "1",
+    sensorServiceMissing:
+      new URLSearchParams(window.location.search).get("sensorService") ===
+      "missing",
     firstClose:
       new URLSearchParams(window.location.search).get("firstClose") === "1",
     settingsReadFailure:
@@ -552,23 +556,13 @@ const buildInvokeHandlers = (
       : buildStorageHealthFixture(fixtureOverrides.storageDeviceCount, {
           date: new Date().toISOString().slice(0, 10),
         }),
-  get_external_component_guidance_candidates: (args) => {
-    const { view } = args as { view: string };
-    return guidance.candidates.filter(
+  get_external_component_guidance_candidates: () =>
+    guidance.candidates.filter(
       (candidate) =>
+        candidate.component === "smartctl" &&
         !guidance.deferred.has(candidate.key) &&
-        !guidance.acknowledged.has(candidate.key) &&
-        (view === "dashboard" ||
-          (view === "cpuDetail" &&
-            candidate.usage === "cpuPackageTemperature") ||
-          (view === "performance" &&
-            candidate.component === "pawnio" &&
-            candidate.reasonKind === "permission" &&
-            ["cpuPackageTemperature", "motherboardSensors"].includes(
-              candidate.usage,
-            ))),
-    );
-  },
+        !guidance.acknowledged.has(candidate.key),
+    ),
   defer_external_component_guidance_for_session: (args) => {
     guidance.deferred.add((args as { key: string }).key);
     return null;
@@ -586,6 +580,10 @@ const buildInvokeHandlers = (
   // External Component Setup (ADR 0024): a machine with the PawnIO runtime
   // installed and one module file still missing, so the Settings capture
   // shows the install action.
+  get_sensor_service_status: () =>
+    !fixtureOverrides.elevationUnprotected &&
+    !fixtureOverrides.sensorServiceMissing,
+  "plugin:shell|open": () => null,
   is_process_elevated: () => fixtureOverrides.processElevated,
   set_elevated_startup_mode: (args) => {
     const { newValue } = args as { newValue: boolean };
@@ -943,14 +941,35 @@ export const installTauriMocks = () => {
   let streamIndex = 0;
   let streamRunning = false;
 
-  const emitHardwareUpdateAt = async (index: number) => {
-    const series = buildHardwareUpdateSeries(index + 1);
+  const emitMonitorUpdate = (payload: HardwareMonitorUpdate) => {
+    const update = applySensorSupportOverrides(payload, fixtureOverrides);
+    // A dismissal hides guidance, not the underlying collection gap.
+    for (const candidate of guidance.candidates) {
+      if (candidate.component !== "pawnio") continue;
+      if (candidate.usage === "cpuPackageTemperature") {
+        update.cpuTemperature = null;
+        update.sensorTemperatures = [];
+      } else if (candidate.usage === "motherboardSensors") {
+        update.motherboardTemperatures = [];
+        update.motherboardFanSpeeds = [];
+        update.motherboardFanSupport = "unknown";
+      }
+    }
     dispatchTauriEvent(eventListeners, {
       event: "hardware-monitor-update",
-      payload: applySensorSupportOverrides(series[index], fixtureOverrides),
+      payload: {
+        ...update,
+        externalComponentGuidanceCandidates: guidance.candidates.filter(
+          (item) =>
+            item.component === "pawnio" &&
+            !guidance.deferred.has(item.key) &&
+            !guidance.acknowledged.has(item.key),
+        ),
+      },
     });
   };
-
+  const emitHardwareUpdateAt = async (index: number) =>
+    emitMonitorUpdate(buildHardwareUpdateSeries(index + 1)[index]);
   const stopHardwareUpdateStream = () => {
     streamRunning = false;
     if (streamTimer !== undefined) {
@@ -998,6 +1017,7 @@ export const installTauriMocks = () => {
     getInvokeCount: (command) => invokeCounts.get(command) ?? 0,
     setGuidanceCandidates: (candidates) => {
       guidance.candidates = candidates;
+      emitMonitorUpdate(buildHardwareUpdateSeries(1)[0]);
     },
     requestFirstClose: () =>
       dispatchTauriEvent(eventListeners, {
@@ -1005,20 +1025,10 @@ export const installTauriMocks = () => {
         payload: null,
       }),
     emitHardwareUpdate: async (payload) =>
-      dispatchTauriEvent(eventListeners, {
-        event: "hardware-monitor-update",
-        payload: applySensorSupportOverrides(
-          payload ?? buildHardwareUpdateSeries(1)[0],
-          fixtureOverrides,
-        ),
-      }),
+      emitMonitorUpdate(payload ?? buildHardwareUpdateSeries(1)[0]),
     emitHardwareUpdateSeries: async (count = 30) => {
-      for (const payload of buildHardwareUpdateSeries(count)) {
-        dispatchTauriEvent(eventListeners, {
-          event: "hardware-monitor-update",
-          payload: applySensorSupportOverrides(payload, fixtureOverrides),
-        });
-      }
+      for (const payload of buildHardwareUpdateSeries(count))
+        emitMonitorUpdate(payload);
     },
     startHardwareUpdateStream: async ({ intervalMs = 1_000 } = {}) => {
       stopHardwareUpdateStream();

@@ -196,16 +196,12 @@
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
-        "missing": "PawnIO",
-        "impact": "CPU package temperature",
-        "action": "Install PawnIO and make sure HardwareVisualizer can open the driver with administrator privileges, then restart the app. The details page explains where to get it and where it must be placed.",
-        "permissionAction": "PawnIO appears to be installed, but HardwareVisualizer could not access it. Run the app as administrator or enable Run as administrator on startup, then try again."
+        "missing": "Windows sensor service / PawnIO",
+        "impact": "CPU package temperature"
       },
       "pawnioMotherboardSensors": {
-        "missing": "PawnIO LpcIO",
-        "impact": "Motherboard temperature sensors and fan speeds",
-        "action": "Install PawnIO, place the LpcIO module where HardwareVisualizer can load it, and make sure the app can open the driver with administrator privileges. Then restart the app.",
-        "permissionAction": "PawnIO appears to be installed, but HardwareVisualizer could not access the driver for motherboard sensors. Run the app as administrator or enable Run as administrator on startup, then try again."
+        "missing": "Windows sensor service / PawnIO LpcIO",
+        "impact": "Motherboard temperature sensors and fan speeds"
       },
       "smartctlStorageHealth": {
         "missing": "smartctl (smartmontools)",
@@ -871,7 +867,9 @@
         "openExternalComponentsDocsError": "Failed to open external components documentation.",
         "elevatedStartupMode": {
           "name": "Run as administrator on startup",
-          "description": "Start HardwareVisualizer with administrator privileges for sensors that require elevated access. Enabling this restarts the app after Windows approval."
+          "description": "CPU temperature, power and motherboard readings use the Windows sensor service and do not require this setting. Enable it only for other privileged features, such as some storage health readings. Enabling restarts the app after Windows approval.",
+          "migrationNote": "MSI installs and updates include the sensor service. Your saved startup choice is kept. To use normal permissions, turn this setting off, exit and launch normally. Other privileged readings may become unavailable.",
+          "currentProcessElevated": "This process is still elevated. Changing the startup preference does not lower its permissions. Exit and launch normally; remove any highest-privilege scheduled-task workaround yourself."
         },
         "externalComponentSetup": {
           "title": "Optional component setup",
@@ -962,5 +960,22 @@
     "en": "English",
     "ja": "Japanese",
     "ru": "Russian"
+  },
+  "sensorService": {
+    "openSettings": "Open sensor settings",
+    "setupSteps": "PawnIO is a separate optional driver. Set up PawnIO and its modules under {{section}} below if needed.",
+    "loadFailed": "Failed to check the sensor service.",
+    "title": "Windows sensor service",
+    "description": "The MSI includes a SYSTEM service for PawnIO temperature, power and motherboard readings, so the app can stay resident with normal permissions. Service repair requires administrator approval.",
+    "connected": "Service connected",
+    "unavailable": "Service unavailable; other monitoring continues.",
+    "loading": "Checking the sensor service…",
+    "recoveryGuide": "Open installation and repair guide",
+    "refresh": "Check again",
+    "setupGuidance": "Check PawnIO and its signed modules in Advanced settings. If the Windows sensor service is unavailable, use the installation and repair guide there. The resident app can run with normal permissions.",
+    "notice": {
+      "setupTitle": "Some sensor readings are unavailable",
+      "dismiss": "Hide sensor guidance for this session"
+    }
   }
 }

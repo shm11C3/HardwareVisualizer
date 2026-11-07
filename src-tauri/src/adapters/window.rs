@@ -15,6 +15,7 @@ use crate::models::hardware::{
   GpuMonitorData, HardwareMonitorUpdate, MotherboardFanSpeedValue,
   MotherboardTemperatureValue, NameValue,
 };
+use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
 use tauri_specta::Event as _;
 
 /// Subscribes to the in-process [`hardviz_core::event_bus::EventBus`] and
@@ -93,16 +94,6 @@ impl WindowAdapter {
     }
   }
 
-  pub fn latest_external_component_guidance_candidates(
-    &self,
-  ) -> Vec<hardviz_core::models::ExternalComponentGuidanceCandidate> {
-    self
-      .latest_snapshot
-      .load()
-      .map(|snapshot| snapshot.external_component_guidance_candidates)
-      .unwrap_or_default()
-  }
-
   pub async fn terminate(self) {
     let _ = self.stop_tx.send(true);
     let _ = self.handle.await;
@@ -114,12 +105,18 @@ fn to_window_snapshot(mut snapshot: MetricsSnapshot) -> MetricsSnapshot {
   snapshot
 }
 
-fn emit_snapshot(app_handle: &tauri::AppHandle, snapshot: MetricsSnapshot) {
+fn emit_snapshot(app_handle: &tauri::AppHandle, mut snapshot: MetricsSnapshot) {
   if !should_emit_for_main_window(main_window_state(app_handle)) {
     return;
   }
 
-  let temp_unit = current_temperature_unit(app_handle);
+  let (temp_unit, acknowledged_keys) = current_window_preferences(app_handle);
+  if let Some(guidance) = app_handle.try_state::<Arc<ExternalComponentGuidanceState>>() {
+    snapshot.external_component_guidance_candidates = guidance.unsuppressed_candidates(
+      snapshot.external_component_guidance_candidates,
+      &acknowledged_keys,
+    );
+  }
   let payload = to_hardware_monitor_update(snapshot, &temp_unit);
   if let Err(e) = payload.emit(app_handle) {
     log_warn!(
@@ -148,21 +145,22 @@ fn should_emit_for_main_window(state: Option<MainWindowState>) -> bool {
   state.is_some_and(|state| state.is_visible && !state.is_minimized)
 }
 
-/// Read the user's preferred temperature unit from `settings::AppState`.
-/// Defaults to Celsius if the state hasn't been registered yet (early
-/// startup) or if the settings mutex is poisoned. We don't want a
-/// poisoned lock to bring down the entire snapshot-forwarding loop.
-fn current_temperature_unit(app_handle: &tauri::AppHandle) -> TemperatureUnit {
+/// Read presentation preferences and guidance acknowledgements together.
+/// Early startup or a poisoned settings lock must not stop snapshot forwarding.
+fn current_window_preferences(
+  app_handle: &tauri::AppHandle,
+) -> (TemperatureUnit, Vec<String>) {
   app_handle
     .try_state::<settings::AppState>()
     .and_then(|state| {
-      state
-        .settings
-        .lock()
-        .ok()
-        .map(|s| s.temperature_unit.clone())
+      state.settings.lock().ok().map(|s| {
+        (
+          s.temperature_unit.clone(),
+          s.external_component_guidance.acknowledged_keys.clone(),
+        )
+      })
     })
-    .unwrap_or(TemperatureUnit::Celsius)
+    .unwrap_or((TemperatureUnit::Celsius, Vec::new()))
 }
 
 fn to_hardware_monitor_update(
@@ -203,6 +201,11 @@ fn to_hardware_monitor_update(
       .map(to_motherboard_fan_speed_value)
       .collect(),
     motherboard_fan_support: snapshot.motherboard_fan_support.into(),
+    external_component_guidance_candidates: snapshot
+      .external_component_guidance_candidates
+      .into_iter()
+      .map(Into::into)
+      .collect(),
   }
 }
 
@@ -647,6 +650,29 @@ mod tests {
     assert_eq!(
       snapshot.external_component_guidance_candidates,
       vec![candidate]
+    );
+  }
+
+  #[test]
+  fn monitor_event_preserves_core_guidance_keys_and_clears_recovered_diagnostics() {
+    use hardviz_core::models::ExternalComponentGuidanceCandidate;
+
+    let mut snapshot = make_snapshot(1.0);
+    let candidate = ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
+      "Sensor service unavailable".into(),
+    );
+    snapshot
+      .external_component_guidance_candidates
+      .push(candidate.clone());
+    let update = to_hardware_monitor_update(snapshot, &TemperatureUnit::Celsius);
+    assert_eq!(
+      update.external_component_guidance_candidates[0].key,
+      candidate.key
+    );
+    assert!(
+      to_hardware_monitor_update(make_snapshot(2.0), &TemperatureUnit::Celsius)
+        .external_component_guidance_candidates
+        .is_empty()
     );
   }
 }

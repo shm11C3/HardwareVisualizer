@@ -37,6 +37,60 @@ The dialog tells you:
 The dialog is informational. Hardware monitoring continues with the best
 available fallback data.
 
+## Windows Sensor Service
+
+The MSI includes the **Windows sensor service** when installed under Program
+Files. Fresh installs and updates, including silent installs, need no separate
+service selection. Installation and repair ask for administrator approval;
+ordinary launch, tray residence and reconnect do not need to elevate the app.
+If the service is unavailable, **Settings → Advanced → Windows sensor service**
+links here. Install the protected MSI from [HardwareVisualizer Releases](https://github.com/shm11C3/HardwareVisualizer/releases)
+to set up the service. For an existing MSI installation, download the MSI for
+the installed version. Open Command Prompt or PowerShell as an administrator
+and run this command with the path to that MSI.
+
+```powershell
+msiexec.exe /fomus "C:\path\to\HardwareVisualizer.msi"
+```
+
+After repair, select **Check again** in the Windows sensor service settings.
+
+For a **new installation**, CPU and motherboard sensors need both PawnIO (with
+its modules) and the bundled service. PawnIO remains a separate optional driver:
+select PawnIO in the interactive MSI, or use **Settings → Advanced → Optional
+component setup**. Silent MSI driver setup still requires
+`EXTERNAL_COMPONENT_PAWNIO=1`. Without PawnIO, other monitoring continues.
+
+For an **upgrade from direct PawnIO collection**, an existing PawnIO installation
+is maintained and the MSI adds the service during the normal update. If sensor
+readings remain unavailable
+after fallback collection, **Open sensor settings** takes you to the service
+setup section. Existing guidance dismissals are respected.
+
+Sensor guidance appears as a nonmodal notice when actual collection failures
+leave readings on the current screen unavailable. It follows the normal sensor
+updates and disappears on recovery; there is no setup dialog, startup deadline
+or separate periodic sensor-guidance check. Both closing it and **Never show
+again** keep sensor guidance quiet for this launch. **Never show again** also
+remembers only the currently shown collection gaps for later launches. Settings always
+remains available to check service status and open the recovery guide.
+
+If **Run as administrator on startup** was enabled, the update keeps that choice.
+To use normal permissions, turn that existing setting off, then exit and launch
+normally. CPU temperature/power and motherboard readings do not require the
+setting; other privileged providers may expose less data. User-created highest-privilege
+scheduled tasks or compatibility settings must be changed by their owner.
+Release notes and the startup setting explain the change. A successful update
+does not show a migration CTA merely because elevated startup remains enabled.
+The sensor failure notice is not shown on the Settings screen.
+
+Without the service, ordinary monitoring and available ACPI fallback continue.
+The NSIS/portable app may use a compatible installed service; first-time setup
+requires the protected MSI. Product uninstall removes the app-owned service
+while retaining shared PawnIO. A compatible signed module from the app's known
+release catalog is required; unsigned test modules and unrecognized files are
+not loaded by the SYSTEM service. Unknown files are kept rather than replaced.
+
 ## PawnIO
 
 PawnIO is used on Windows for CPU package temperature and CPU package power
@@ -94,10 +148,10 @@ temperature or power collection the machine needs:
   - `IntelMSR.bin` for Intel package temperature and power;
   - `RyzenSMU.bin` for AMD package temperature;
   - `AMDFamily17.bin` for AMD package power;
-- enough Windows privileges for the app process to open the PawnIO driver.
+- a connected Windows sensor service to open PawnIO on behalf of the app.
 
-Unsigned `.amx` files are only a fallback for an unrestricted PawnIO driver in
-Windows test-signing mode. They are not the normal production setup.
+The Windows service loads known signed `.bin` releases only; it does not use
+unsigned `.amx` or unrestricted test modules.
 
 To set up the module blob:
 
@@ -116,8 +170,9 @@ To set up the module blob:
 Writing to `C:\Program Files\PawnIO` usually requires administrator
 permission.
 
-If PawnIO is installed but HardwareVisualizer reports a permission issue, run
-HardwareVisualizer as administrator and try again.
+If PawnIO is installed but readings remain unavailable, check or repair the
+Windows sensor service in Advanced settings. Elevating the app does not repair
+the separate service.
 
 ### Official Sources
 
@@ -131,18 +186,17 @@ More implementation detail is recorded in
 
 PawnIO is also used on Windows for supported Super I/O motherboard temperature
 and fan-speed reads. This path currently depends on the PawnIO LpcIO module and
-the app process being able to open the PawnIO driver.
+the Windows sensor service being able to open the PawnIO driver.
 
 For PawnIO-backed motherboard sensors, the machine needs:
 
 - a working PawnIO driver/runtime installation;
 - `PawnIOLib.dll`, which is provided by the PawnIO runtime installation;
-- `LpcIO.bin` or `LpcIO.amx` from the PawnIO.Modules release assets;
-- enough Windows privileges for the app process to open the PawnIO driver.
+- signed `LpcIO.bin` from a compatible PawnIO.Modules release;
+- a connected Windows sensor service, which opens the PawnIO driver for the app.
 
-If PawnIO is installed but HardwareVisualizer reports a permission issue, run
-HardwareVisualizer as administrator or enable Run as administrator on startup,
-then restart the app.
+If PawnIO is installed but motherboard readings remain unavailable, check or
+repair the Windows sensor service and its compatible signed LpcIO module.
 
 This guidance only covers access to the read-only motherboard sensor path. It
 does not enable fan control, PWM writes, voltages, unsupported Super I/O chips,

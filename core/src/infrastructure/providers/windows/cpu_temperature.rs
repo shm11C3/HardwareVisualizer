@@ -179,7 +179,7 @@ enum ActiveCpuTemperatureSource {
   },
 }
 
-struct CpuTemperatureSampler {
+pub(crate) struct CpuTemperatureSampler {
   diagnostics: CpuTemperatureDiagnostics,
   active: Option<ActiveCpuTemperatureSource>,
   inactive_error: Option<CpuPackageTemperatureError>,
@@ -187,28 +187,6 @@ struct CpuTemperatureSampler {
 }
 
 static CPU_TEMPERATURE_SAMPLER: OnceLock<Mutex<CpuTemperatureSampler>> = OnceLock::new();
-
-pub fn sample_cpu_package_temperature()
--> Result<CpuPackageTemperature, CpuPackageTemperatureError> {
-  let sampler = CPU_TEMPERATURE_SAMPLER.get_or_init(|| {
-    let sampler = CpuTemperatureSampler::new();
-    log_debug!(
-      "cpu_temperature_diagnostics",
-      "windows::cpu_temperature::sample_cpu_package_temperature",
-      Some(format!("{:?}", sampler.diagnostics))
-    );
-    Mutex::new(sampler)
-  });
-
-  sampler
-    .lock()
-    .map_err(|_| {
-      CpuPackageTemperatureError::Internal(
-        "CPU temperature sampler lock poisoned".to_string(),
-      )
-    })?
-    .sample()
-}
 
 pub fn cpu_temperature_diagnostics() -> CpuTemperatureDiagnostics {
   let sampler = CPU_TEMPERATURE_SAMPLER.get_or_init(|| {
@@ -242,7 +220,7 @@ impl CpuTemperatureDiagnostics {
 }
 
 impl CpuTemperatureSampler {
-  fn new() -> Self {
+  pub(crate) fn new() -> Self {
     let cpu = detect_cpu_identity();
     let intel_capabilities = (cpu.vendor == CpuVendor::Intel)
       .then(detect_intel_thermal_capabilities)
@@ -315,7 +293,9 @@ impl CpuTemperatureSampler {
     }
   }
 
-  fn sample(&mut self) -> Result<CpuPackageTemperature, CpuPackageTemperatureError> {
+  pub(crate) fn sample(
+    &mut self,
+  ) -> Result<CpuPackageTemperature, CpuPackageTemperatureError> {
     let enablement = self
       .active
       .as_ref()

@@ -11,6 +11,7 @@ import { externalComponentGuidanceDocsBaseUrl } from "@/lib/externalComponentGui
 import { openURL } from "@/lib/openUrl";
 import { ElevatedStartupModeToggle } from "./ElevatedStartupModeToggle";
 import { ExternalComponentSetupSection } from "./ExternalComponentSetupSection";
+import { SensorServiceSection } from "./SensorServiceSection";
 
 export const AdvancedSettings = () => {
   const { t, i18n } = useTranslation();
@@ -41,6 +42,7 @@ export const AdvancedSettings = () => {
       </h3>
       <div className="px-4">
         <ElevatedStartupModeToggle />
+        <SensorServiceSection />
         <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
           <div className="space-y-0.5">
             <Label htmlFor="showGpuUsageSource" className="text-lg">

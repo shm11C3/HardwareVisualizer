@@ -114,22 +114,15 @@ pub async fn get_storage_health_latest_records() -> Result<
 
 pub async fn get_super_io_chip_id_diagnostics()
 -> hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
-  tokio::task::spawn_blocking(|| {
-    let platform =
-      PlatformFactory::shared().map_err(|e| format!("Failed to create platform: {e}"))?;
-    Ok::<_, String>(platform.get_super_io_chip_id_diagnostics())
-  })
-  .await
-  .map_err(|e| format!("Failed to join Super I/O diagnostic task: {e}"))
-  .and_then(|result| result)
-  .unwrap_or_else(
-    |error| hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
+  match PlatformFactory::shared() {
+    Ok(platform) => platform.get_super_io_chip_id_diagnostics().await,
+    Err(error) => hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
       platform_supported: cfg!(target_os = "windows"),
       pawnio: None,
       slots: Vec::new(),
-      error: Some(error),
+      error: Some(format!("Failed to create platform: {error}")),
     },
-  )
+  }
 }
 
 ///

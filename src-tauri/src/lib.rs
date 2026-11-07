@@ -385,6 +385,7 @@ fn build_specta_builder() -> Builder<Wry> {
       system::restart_app,
       system::is_process_elevated,
       system::get_elevation_availability,
+      commands::sensor_service::get_sensor_service_status,
       system::quit_app,
       system::is_close_to_tray_available,
       system::mark_close_to_tray_listener_ready,

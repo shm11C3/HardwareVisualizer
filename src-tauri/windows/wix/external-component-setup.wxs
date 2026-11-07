@@ -164,6 +164,11 @@
           <Condition Action="show">NOT $(var.ProtectedInstallDir)</Condition>
         </Control>
 
+        <Control Id="SensorServiceDescription" Type="Text" X="20" Y="168" Width="330" Height="64" NoPrefix="yes" Text="The app includes the Windows sensor service when installed under Program Files. It runs as SYSTEM so CPU and motherboard readings do not require app startup UAC. PawnIO above is a separate, optional driver setup. The service is removed with HardwareVisualizer.">
+          <Condition Action="hide">NOT $(var.ProtectedInstallDir)</Condition>
+          <Condition Action="show">$(var.ProtectedInstallDir)</Condition>
+        </Control>
+
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">
           <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>

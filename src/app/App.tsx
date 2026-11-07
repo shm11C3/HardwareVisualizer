@@ -59,6 +59,7 @@ import { AppStateProvider, useAppStateReset } from "./AppStateProvider";
 import { FullScreenButton } from "./FullScreenButton";
 import { FullscreenExitButton } from "./FullScreenExit";
 import { resetAppState } from "./resetAppState";
+import { SensorServiceNotice } from "./SensorServiceNotice";
 import { StartupDialogs } from "./StartupDialogs";
 
 const onRootError = (error: unknown, info: ErrorInfo) => {
@@ -380,10 +381,16 @@ const AppContent = () => {
             settingsLoaded={settingsLoaded}
             settingsSettled={settingsSettled}
             displayTarget={displayTarget}
-            performanceContext={performanceContext}
             nsisMigrationNoticeDismissed={settings.nsisMigrationNoticeDismissed}
           />
-          <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
+          <div className="fixed right-4 bottom-4 z-40 flex max-h-[calc(100dvh-2rem)] max-w-md flex-col gap-3 overflow-y-auto">
+            <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
+            <SensorServiceNotice
+              settingsLoaded={settingsLoaded}
+              displayTarget={displayTarget}
+              performanceContext={performanceContext}
+            />
+          </div>
         </div>
       </div>
       <FullscreenExitButton

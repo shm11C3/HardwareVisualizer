@@ -1,0 +1,24 @@
+mod client;
+mod host;
+mod providers;
+pub(crate) mod security;
+mod server;
+
+pub(crate) use client::collect;
+pub use client::{SampleError, diagnostics, motherboard, power, status, temperature};
+pub use host::run;
+
+const MAX_CLIENTS: usize = 16;
+
+pub const SERVICE_NAME: &str = "HardwareVisualizerSensors";
+pub const PIPE_NAME: &str = r"\\.\pipe\HardwareVisualizer.Sensors.v2";
+
+fn uptime_ms() -> u64 {
+  // A machine-wide clock shared by both processes, including suspend time.
+  unsafe { windows::Win32::System::SystemInformation::GetTickCount64() }
+}
+
+/// Read-only validation invoked from the MSI embedded executable before installing the service.
+pub fn validate_install_directory(path: &std::path::Path) -> Result<(), String> {
+  security::validate_install_directory(path)
+}

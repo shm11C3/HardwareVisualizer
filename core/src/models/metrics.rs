@@ -19,7 +19,9 @@ pub struct GpuSample {
 /// This value is present only when the package status register was read
 /// successfully. The fields are current-state bits; sticky/log history bits
 /// are intentionally not represented here.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(
+  Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub struct CpuPackageThermalStatus {
   /// Intel package Thermal Status (`0`).
   pub thermal_status: bool,
@@ -46,7 +48,9 @@ pub struct PowerDraw {
 /// This is deliberately separate from a reading: supported hardware may not
 /// have produced a value yet, while an absent historical value does not prove
 /// that the hardware is unsupported.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(
+  Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub enum SensorSupport {
   #[default]
   Unknown,
@@ -73,7 +77,7 @@ pub struct GpuMetric {
 /// Unsupported means the platform or hardware path is not available by design.
 /// Unavailable means the platform supports the path, but the current sample
 /// could not produce user-visible values.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SensorAvailability {
   #[default]
   Available,
@@ -118,14 +122,14 @@ pub enum SensorEnablement {
 /// `name` is a short zone label such as `TZ00` or `CPUZ`. Presentation
 /// conversion (Celsius/Fahrenheit) is the App's responsibility — Core
 /// never reads the user's preferred unit.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SensorTemperature {
   pub name: String,
   pub temperature: f32,
 }
 
 /// One named motherboard temperature reading, always in raw degrees C.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MotherboardTemperature {
   pub name: String,
   pub temperature: f32,
@@ -133,7 +137,7 @@ pub struct MotherboardTemperature {
 }
 
 /// Display classification for one motherboard fan-speed reading.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FanSpeedStatus {
   Active,
   Inactive,
@@ -141,7 +145,7 @@ pub enum FanSpeedStatus {
 }
 
 /// One named motherboard fan-speed reading.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MotherboardFanSpeed {
   pub name: String,
   pub rpm: Option<u32>,
@@ -150,14 +154,14 @@ pub struct MotherboardFanSpeed {
 }
 
 /// One round of motherboard sensor readings.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MotherboardSensorSample {
   pub temperatures: Vec<MotherboardTemperature>,
   pub fan_speeds: Vec<MotherboardFanSpeed>,
 }
 
 /// One round of CPU / sensor temperature readings, always in raw °C.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TemperatureSample {
   pub cpu_temperature: Option<f32>,
   pub sensor_temperatures: Vec<SensorTemperature>,
@@ -182,7 +186,7 @@ impl TemperatureSample {
   }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MotherboardSensorCollection {
   pub sample: MotherboardSensorSample,
   pub availability: SensorAvailability,

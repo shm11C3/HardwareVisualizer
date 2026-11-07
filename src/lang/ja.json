@@ -196,16 +196,12 @@
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
-        "missing": "PawnIO",
-        "impact": "CPU パッケージ温度",
-        "action": "PawnIO をインストールし、HardwareVisualizer が管理者権限で driver を開ける状態にしてからアプリを再起動してください。入手先と配置場所は詳細ページで確認できます。",
-        "permissionAction": "PawnIO はインストール済みの可能性がありますが、HardwareVisualizer がアクセスできませんでした。管理者として起動するか、設定の「管理者として起動」を有効にしてから再度確認してください。"
+        "missing": "Windowsセンサーサービス / PawnIO",
+        "impact": "CPU パッケージ温度"
       },
       "pawnioMotherboardSensors": {
-        "missing": "PawnIO LpcIO",
-        "impact": "マザーボード温度センサーとファン回転数",
-        "action": "PawnIO をインストールし、LpcIO module を HardwareVisualizer が読み込める場所に配置して、アプリが管理者権限で driver を開ける状態にしてから再起動してください。",
-        "permissionAction": "PawnIO は見つかりましたが、現在の権限では HardwareVisualizer がマザーボードセンサー用 driver を開けません。管理者として起動するか、設定の「管理者として起動」を有効にしてから再度確認してください。"
+        "missing": "Windowsセンサーサービス / PawnIO LpcIO",
+        "impact": "マザーボード温度センサーとファン回転数"
       },
       "smartctlStorageHealth": {
         "missing": "smartctl（smartmontools）",
@@ -871,7 +867,9 @@
         "openExternalComponentsDocsError": "外部コンポーネントのドキュメントを開けませんでした。",
         "elevatedStartupMode": {
           "name": "管理者として起動",
-          "description": "昇格が必要なセンサーを使えるように、HardwareVisualizer を管理者権限で起動します。有効にすると Windows の承認後にアプリを再起動します。"
+          "description": "CPUの温度・消費電力とマザーボードの値はWindowsセンサーサービスで取得するため、この設定は不要です。一部のストレージ正常性情報など、他の特権機能が必要な場合に有効にしてください。有効にすると、Windowsの承認後にアプリを再起動します。",
+          "migrationNote": "MSIのインストール・更新にはセンサーサービスが含まれます。保存済みの起動設定は維持します。一般権限で使用するには、この設定をオフにしてアプリを終了し、通常起動してください。他の特権機能では取得できる情報が減る場合があります。",
+          "currentProcessElevated": "現在のプロセスは管理者権限のままです。起動設定を変更しても権限は下がりません。終了後に通常起動してください。最高権限のタスクを作成している場合は、ご自身で解除してください。"
         },
         "externalComponentSetup": {
           "title": "任意コンポーネントのセットアップ",
@@ -962,5 +960,22 @@
     "en": "英語",
     "ja": "日本語",
     "ru": "ロシア語"
+  },
+  "sensorService": {
+    "openSettings": "センサー設定を開く",
+    "setupSteps": "PawnIOは別途導入する任意のドライバーです。必要に応じて下の「{{section}}」でPawnIOとモジュールをセットアップしてください。",
+    "loadFailed": "センサーサービスの状態を確認できませんでした。",
+    "title": "Windowsセンサーサービス",
+    "description": "MSIにはPawnIOの温度・電力・マザーボード情報を取得するSYSTEMサービスが含まれ、本体は一般権限で常駐できます。サービスの修復には管理者の承認が必要です。",
+    "connected": "サービスに接続済み",
+    "unavailable": "サービスを利用できません。他の監視は継続します。",
+    "loading": "センサーサービスを確認中…",
+    "recoveryGuide": "導入・修復手順を開く",
+    "refresh": "再確認",
+    "setupGuidance": "設定の詳細設定でPawnIOと対応する署名済みモジュールを確認してください。Windowsセンサーサービスを利用できない場合は、同じ設定欄から導入・修復手順を開けます。本体は一般権限で起動できます。",
+    "notice": {
+      "setupTitle": "一部のセンサー情報を取得できません",
+      "dismiss": "このセッションではセンサー案内を非表示"
+    }
   }
 }

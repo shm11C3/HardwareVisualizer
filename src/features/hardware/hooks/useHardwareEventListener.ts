@@ -32,6 +32,7 @@ import {
   motherboardFanSpeedsAtom,
   motherboardFanSupportAtom,
   motherboardTempsAtom,
+  sensorGuidanceAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/sensors";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -104,6 +105,7 @@ export const useHardwareEventListener = () => {
   const setSelectedGpuId = useSetAtom(selectedGpuIdAtom);
   const setCpuTemp = useSetAtom(cpuTempAtom);
   const setSensorTemps = useSetAtom(sensorTempsAtom);
+  const setSensorGuidance = useSetAtom(sensorGuidanceAtom);
   const setMotherboardTemps = useSetAtom(motherboardTempsAtom);
   const setMotherboardFanSpeeds = useSetAtom(motherboardFanSpeedsAtom);
   const setMotherboardFanSupport = useSetAtom(motherboardFanSupportAtom);
@@ -149,6 +151,15 @@ export const useHardwareEventListener = () => {
         cpuPowerSupport,
         motherboardFanSupport,
       } = event.payload;
+
+      setSensorGuidance(
+        keepArray(
+          event.payload.externalComponentGuidanceCandidates.map(
+            ({ key, component, usage }) => ({ key, component, usage }),
+          ),
+          shallowEqualRecord,
+        ),
+      );
 
       const currentGpuIds = gpus.map((gpu) => asLiveGpuId(gpu.gpuId));
       const currentGpuIdSet = new Set(currentGpuIds);
@@ -381,6 +392,7 @@ export const useHardwareEventListener = () => {
       setSelectedGpuId,
       setCpuTemp,
       setSensorTemps,
+      setSensorGuidance,
       setMotherboardTemps,
       setMotherboardFanSpeeds,
       setMotherboardFanSupport,

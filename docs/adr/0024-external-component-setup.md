@@ -2,6 +2,11 @@
 
 Status: accepted
 
+Amended by [ADR 0029](0029-windows-sensor-service.md): an optional app-owned
+Windows sensor service replaces the service deferral under Alternatives
+Considered. External-component consent, verification and shared PawnIO ownership
+remain applicable; selecting the service is a separate installation choice.
+
 Amended by [ADR 0026](0026-refresh-outdated-external-component-files.md)
 (2026-09-26): outdated module files are replaced with the pinned release,
 and an MSI upgrade runs that refresh at every UI level. Decisions 1 and 4

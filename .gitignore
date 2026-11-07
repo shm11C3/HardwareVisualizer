@@ -31,3 +31,4 @@ test-results
 
 # Rust files
 target
+src-tauri/windows/wix/generated/

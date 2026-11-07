@@ -3,31 +3,19 @@ use std::sync::Arc;
 use crate::commands::settings;
 use crate::models;
 use crate::services::external_component_guidance_service::{
-  ExternalComponentGuidanceState, ExternalComponentGuidanceView,
-  normalize_external_component_guidance_key,
+  ExternalComponentGuidanceState, normalize_external_component_guidance_key,
 };
 use tauri::command;
 
 #[command]
 #[specta::specta]
 pub async fn get_external_component_guidance_candidates(
-  view: ExternalComponentGuidanceView,
   state: tauri::State<'_, settings::AppState>,
   guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
-  workers: tauri::State<'_, crate::workers::WorkersState>,
 ) -> Result<
   Vec<models::external_component_guidance::ExternalComponentGuidanceCandidate>,
   String,
 > {
-  let latest_snapshot_candidates = workers
-    .window_adapter
-    .lock()
-    .map_err(|_| "window adapter state lock poisoned".to_string())?
-    .as_ref()
-    .map(|adapter| adapter.latest_external_component_guidance_candidates())
-    .unwrap_or_default();
-  guidance_state.record_candidates(latest_snapshot_candidates);
-
   let acknowledged_keys = state
     .settings
     .lock()
@@ -38,7 +26,7 @@ pub async fn get_external_component_guidance_candidates(
 
   Ok(
     guidance_state
-      .pending_candidates(view, &acknowledged_keys)
+      .pending_candidates(&acknowledged_keys)
       .into_iter()
       .map(Into::into)
       .collect(),

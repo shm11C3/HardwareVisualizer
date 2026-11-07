@@ -49,3 +49,4 @@ ADR status describes decision maturity, not implementation or release status.
 - [0026 Refresh Outdated External Component Files](0026-refresh-outdated-external-component-files.md)
 - [0027 Frontend Layer Boundaries and State Ownership](0027-frontend-layer-boundaries-and-state-ownership.md)
 - [0028 Opt-in Product Analytics](0028-opt-in-product-analytics.md)
+- [0029 Windows Sensor Service for Unelevated Resident Monitoring](0029-windows-sensor-service.md)

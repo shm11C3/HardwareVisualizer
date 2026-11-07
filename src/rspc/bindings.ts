@@ -112,7 +112,7 @@ export const commands = {
 	 *  for the dashboard.
 	 */
 	refreshStorageDevices: () => typedError<StorageHealthRecord[], string>(__TAURI_INVOKE("refresh_storage_devices")),
-	getExternalComponentGuidanceCandidates: (view: ExternalComponentGuidanceView) => typedError<ExternalComponentGuidanceCandidate[], string>(__TAURI_INVOKE("get_external_component_guidance_candidates", { view })),
+	getExternalComponentGuidanceCandidates: () => typedError<ExternalComponentGuidanceCandidate[], string>(__TAURI_INVOKE("get_external_component_guidance_candidates")),
 	deferExternalComponentGuidanceForSession: (key: string) => typedError<null, string>(__TAURI_INVOKE("defer_external_component_guidance_for_session", { key })),
 	/**
 	 *  Components that HardwareVisualizer can set up on the user's request, in
@@ -274,6 +274,7 @@ export const commands = {
 	isProcessElevated: () => typedError<boolean, string>(__TAURI_INVOKE("is_process_elevated")),
 	// Whether this installation can run itself as administrator (#2216).
 	getElevationAvailability: () => __TAURI_INVOKE<ElevationAvailability>("get_elevation_availability"),
+	getSensorServiceStatus: () => typedError<boolean, string>(__TAURI_INVOKE("get_sensor_service_status")),
 	/**
 	 *  Stop monitoring and exit the process.
 	 * 
@@ -965,8 +966,6 @@ export type ExternalComponentGuidanceSettings = {
 	acknowledgedKeys?: string[],
 };
 
-export type ExternalComponentGuidanceView = "dashboard" | "performance" | "cpuDetail" | "storageHealth";
-
 /**
  *  Whether a module file is missing, matches the pinned release, matches
  *  only an earlier release (setup replaces it), or has any other contents
@@ -1110,6 +1109,8 @@ export type HardwareMonitorUpdate = {
 	// Motherboard fan speeds in RPM.
 	motherboardFanSpeeds: MotherboardFanSpeedValue[],
 	motherboardFanSupport: SensorSupport,
+	// Collection diagnostics, with the Core-produced guidance keys unchanged.
+	externalComponentGuidanceCandidates: ExternalComponentGuidanceCandidate[],
 };
 
 export type HardwareType = "cpu" | "memory" | "gpu";
