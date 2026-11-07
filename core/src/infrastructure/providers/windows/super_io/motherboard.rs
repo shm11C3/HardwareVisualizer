@@ -5,8 +5,8 @@ use super::super::pawn_io::{
 };
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
 use super::ite::{
-  decode_ite_temperature_byte, is_ite_temperature_channel_eligible,
-  is_plausible_ite_temperature,
+  IteEcProfile, decode_ite_fan_rpm, decode_ite_temperature_byte,
+  is_ite_temperature_channel_eligible, is_plausible_ite_temperature,
 };
 use super::nuvoton::{
   NuvotonHmBaseCheck, NuvotonHmProfile, decode_filtered_nuvoton_temperature_byte,
@@ -14,20 +14,18 @@ use super::nuvoton::{
   is_nuvoton_hm_io_space_locked, nuvoton_hm_profile, nuvoton_hm_profiles,
 };
 use crate::models::{
-  MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature, SensorSupport,
+  FanSpeedStatus, MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature,
+  SensorSupport,
 };
 use crate::{log_debug, log_warn};
 
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
-const ITE_IT8728F_CHIP_ID: u16 = 0x8728;
-const ITE_CHIP_LABEL: &str = "IT8728F/EX";
-const ITE_SOURCE_LABEL: &str = "IT8728F/EX / Super I/O";
 pub(crate) const UNSUPPORTED_SUPER_IO_HM_PATH_REASON: &str =
   "No supported Super I/O hardware-monitor path found";
 pub(crate) const ITE_EXPERIMENTAL_FAILURE_PREFIX: &str =
-  "Experimental IT8728F/EX motherboard temperature path failed";
+  "Experimental ITE motherboard sensor path failed";
 pub(crate) const ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
-  "Experimental IT8728F/EX motherboard temperature path failed: hardware state";
+  "Experimental ITE motherboard sensor path failed: hardware state";
 /// Experimental Nuvoton failures read
 /// `Experimental <chip label> motherboard sensor path failed: <reason>`.
 const NUVOTON_EXPERIMENTAL_FAILURE_LEAD: &str = "Experimental";
@@ -53,6 +51,10 @@ const NUVOTON_HM_IO_SPACE_LOCK_REGISTER: u8 = 0x28;
 const LOGICAL_DEVICE_SELECT_REGISTER: u8 = 0x07;
 const NUVOTON_HARDWARE_MONITOR_LDN: u8 = 0x0B;
 const ITE_ENVIRONMENT_CONTROLLER_LDN: u8 = 0x04;
+const ITE_GPIO_LDN: u8 = 0x07;
+const ITE_REVISION_REGISTER: u8 = 0x22;
+const ITE_FAN2_ROUTING_REGISTER: u8 = 0x29;
+const ITE_FAN3_ROUTING_REGISTER: u8 = 0x27;
 const LDN_ACTIVATION_REGISTER: u8 = 0x30;
 const HM_BASE_HIGH_REGISTER: u8 = 0x60;
 const HM_BASE_LOW_REGISTER: u8 = 0x61;
@@ -66,6 +68,10 @@ const ITE_EC_INDEX_OFFSET: u16 = 0x05;
 const ITE_EC_DATA_OFFSET: u16 = 0x06;
 const ITE_EC_CONFIGURATION_REGISTER: u8 = 0x00;
 const ITE_EC_CHANNEL_ENABLE_REGISTER: u8 = 0x51;
+const ITE_EC_VENDOR_REGISTER: u8 = 0x58;
+const ITE_EC_VENDOR_ID: u8 = 0x90;
+const ITE_EC_FAN_ENABLE_REGISTER: u8 = 0x13;
+const ITE_EC_FAN_MODE_REGISTER: u8 = 0x0C;
 const ITE_ABSENT_EC_BASE: u16 = 0x0FF8;
 const ITE_SAMPLE_MIN_INTERVAL: Duration = Duration::from_millis(1_500);
 
@@ -73,6 +79,14 @@ const ITE_TEMPERATURE_REGISTERS: [(&str, u8, u8); 3] = [
   ("TMPIN1", 0x29, 1),
   ("TMPIN2", 0x2A, 2),
   ("TMPIN3", 0x2B, 3),
+];
+
+// The fan name is the key in the live display and archive. A missing input
+// must not shift the names of its siblings.
+const ITE_FAN_REGISTERS: [(&str, u8, u8); 3] = [
+  ("FAN1", 0x0D, 0x18),
+  ("FAN2", 0x0E, 0x19),
+  ("FAN3", 0x0F, 0x1A),
 ];
 
 /// A motherboard sample paired with the active provider path's fan capability.
@@ -87,10 +101,11 @@ pub(crate) struct MotherboardSensorReadout {
 /// Nuvoton normal-HM or ITE Environment Controller path.
 ///
 /// Implemented from:
-/// - docs/specs/sensors/pawnio-interface.md revision 6
-/// - docs/specs/sensors/superio-access.md revision 3
+/// - docs/specs/sensors/pawnio-interface.md revision 7
+/// - docs/specs/sensors/superio-access.md revision 4
 /// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
+/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 3
 ///
 /// No other external sensor implementation source was used.
 pub(crate) struct MotherboardSensorSampler {
@@ -254,8 +269,9 @@ struct ActiveIteMotherboardSensors<C: LpcIoOps> {
   client: C,
   slot: u8,
   ec_base: u16,
-  chip_label: &'static str,
-  source_label: &'static str,
+  profile: IteEcProfile,
+  fan_routes: [bool; 3],
+  source_label: String,
   last_attempt: Option<(Instant, Result<MotherboardSensorSample, String>)>,
   partial_failure_logged: bool,
 }
@@ -288,15 +304,9 @@ impl ActiveMotherboardSensors<PawnIoClient> {
 
       match ActiveIteMotherboardSensors::discover_slot(&client, slot) {
         Ok(Some(discovered)) => {
-          return Ok(Self::Ite(ActiveIteMotherboardSensors {
-            client,
-            slot: discovered.slot,
-            ec_base: discovered.ec_base,
-            chip_label: ITE_CHIP_LABEL,
-            source_label: ITE_SOURCE_LABEL,
-            last_attempt: None,
-            partial_failure_logged: false,
-          }));
+          return Ok(Self::Ite(ActiveIteMotherboardSensors::new(
+            client, discovered,
+          )));
         }
         Ok(None) => {}
         Err(reason) => {
@@ -314,6 +324,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   fn fan_support(&self) -> SensorSupport {
     match self {
       Self::Nuvoton(_) => SensorSupport::Supported,
+      Self::Ite(active) if active.profile.has_fans() => SensorSupport::Supported,
       Self::Ite(_) => SensorSupport::Unsupported,
     }
   }
@@ -333,7 +344,9 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
       ),
       Self::Ite(active) => format!(
         "active chip={} slot={} ec_base=0x{:04X}",
-        active.chip_label, active.slot, active.ec_base
+        active.profile.chip_label(),
+        active.slot,
+        active.ec_base
       ),
     }
   }
@@ -543,6 +556,19 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
 }
 
 impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
+  fn new(client: C, detected: DetectedIteSlot) -> Self {
+    Self {
+      client,
+      slot: detected.slot,
+      ec_base: detected.ec_base,
+      profile: detected.profile,
+      fan_routes: detected.fan_routes,
+      source_label: format!("{} / Super I/O", detected.profile.chip_label()),
+      last_attempt: None,
+      partial_failure_logged: false,
+    }
+  }
+
   fn discover_slot(client: &C, slot: u8) -> Result<Option<DetectedIteSlot>, String> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
       return Ok(None);
@@ -565,18 +591,37 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
 
     match (result, exit_result) {
       (Ok(Some(discovered)), Ok(())) => {
-        read_ite_ec_byte(client, discovered.ec_base, ITE_EC_CONFIGURATION_REGISTER)
-          .map_err(|reason| {
-            ite_experimental_failure(format!(
-              "{ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT}: {reason}"
-            ))
-          })?;
+        let probe = |register| {
+          read_ite_ec_byte(client, discovered.ec_base, register).map_err(|reason| {
+            ite_experimental_failure(
+              discovered.profile,
+              format!("{ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT}: {reason}"),
+            )
+          })
+        };
+        let configuration = probe(ITE_EC_CONFIGURATION_REGISTER)?;
+        if discovered.profile.is_modern() {
+          if configuration & 0x80 != 0 {
+            return Err(ite_experimental_non_component_failure(
+              discovered.profile,
+              "Environment Controller configuration bit 7 is set",
+            ));
+          }
+          let vendor = probe(ITE_EC_VENDOR_REGISTER)?;
+          if vendor != ITE_EC_VENDOR_ID {
+            return Err(ite_experimental_non_component_failure(
+              discovered.profile,
+              format!("unexpected Environment Controller vendor byte 0x{vendor:02X}"),
+            ));
+          }
+        }
         Ok(Some(discovered))
       }
       (Ok(None), Ok(())) => Ok(None),
-      (Ok(Some(_)), Err(exit_error)) => Err(ite_experimental_failure(format!(
-        "{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"
-      ))),
+      (Ok(Some(discovered)), Err(exit_error)) => Err(ite_experimental_failure(
+        discovered.profile,
+        format!("{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"),
+      )),
       (Ok(None), Err(exit_error)) => Err(format!("ITE config exit failed: {exit_error}")),
       (Err(reason), Ok(())) => Err(reason),
       (Err(reason), Err(exit_error)) => Err(format!(
@@ -623,12 +668,16 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
           log_warn!(
             "experimental_ite_motherboard_sensor_partial_sample",
             "windows::super_io_motherboard::ActiveIteMotherboardSensors::sample",
-            Some(partial_failures.join("; "))
+            Some(format!(
+              "{}: {}",
+              self.profile.chip_label(),
+              partial_failures.join("; ")
+            ))
           );
         }
         Ok(sample)
       }
-      Err(reason) => Err(ite_experimental_failure(reason)),
+      Err(reason) => Err(ite_experimental_failure(self.profile, reason)),
     };
 
     self.last_attempt = Some((completed_at, result.clone()));
@@ -654,27 +703,74 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     let monitoring_state = self.read_ec_byte(ITE_EC_CONFIGURATION_REGISTER)?;
     if (monitoring_state & 0x01) == 0 {
       return Err(ite_experimental_non_component_failure(
+        self.profile,
         "Environment Controller monitoring is in standby",
       ));
     }
     if (monitoring_state & 0x08) != 0 {
       return Err(ite_experimental_non_component_failure(
+        self.profile,
         "Environment Controller monitoring is stopped by INT_Clear",
       ));
     }
+    if self.profile.is_modern() && monitoring_state & 0x80 != 0 {
+      return Err(ite_experimental_non_component_failure(
+        self.profile,
+        "Environment Controller configuration bit 7 is set",
+      ));
+    }
 
-    let channel_config = self.read_ec_byte(ITE_EC_CHANNEL_ENABLE_REGISTER)?;
-    let mut temperatures = Vec::new();
+    let mut sample = MotherboardSensorSample::default();
     let mut partial_failures = Vec::new();
-    let mut eligible_channels = 0_usize;
+    let mut had_io_failure = false;
+
+    if self.profile.has_temperatures() {
+      match self.read_temperatures(&mut sample.temperatures, &mut partial_failures) {
+        Ok(input_io_failure) => had_io_failure |= input_io_failure,
+        Err(reason) => {
+          had_io_failure = true;
+          partial_failures.push(format!("temperature selection read failed: {reason}"));
+        }
+      }
+    }
+    if self.profile.has_fans() {
+      match self.read_fans(&mut sample.fan_speeds, &mut partial_failures) {
+        Ok(input_io_failure) => had_io_failure |= input_io_failure,
+        Err(reason) => {
+          had_io_failure = true;
+          partial_failures.push(reason);
+        }
+      }
+    }
+
+    if sample.temperatures.is_empty() && sample.fan_speeds.is_empty() {
+      let reason = if partial_failures.is_empty() {
+        "no eligible sensor inputs are enabled".to_string()
+      } else {
+        format!("no usable sensor readings: {}", partial_failures.join("; "))
+      };
+      return if had_io_failure {
+        Err(reason)
+      } else {
+        Err(ite_experimental_non_component_failure(self.profile, reason))
+      };
+    }
+
+    Ok((sample, partial_failures))
+  }
+
+  fn read_temperatures(
+    &self,
+    temperatures: &mut Vec<MotherboardTemperature>,
+    partial_failures: &mut Vec<String>,
+  ) -> Result<bool, String> {
+    let channel_config = self.read_ec_byte(ITE_EC_CHANNEL_ENABLE_REGISTER)?;
     let mut had_io_failure = false;
 
     for (name, register, channel) in ITE_TEMPERATURE_REGISTERS {
       if !is_ite_temperature_channel_eligible(channel_config, channel) {
         continue;
       }
-      eligible_channels += 1;
-
       match self.read_ec_byte(register) {
         Ok(raw) => {
           let temperature = decode_ite_temperature_byte(raw);
@@ -682,7 +778,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
             temperatures.push(MotherboardTemperature {
               name: name.to_string(),
               temperature,
-              source: self.source_label.to_string(),
+              source: self.source_label.clone(),
             });
           } else {
             partial_failures.push(format!(
@@ -697,27 +793,62 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       }
     }
 
-    if eligible_channels == 0 {
-      return Err(ite_experimental_non_component_failure(
-        "no eligible physical TMPIN channels are enabled",
-      ));
-    }
-    if temperatures.is_empty() {
-      let reason = format!("no usable TMPIN readings: {}", partial_failures.join("; "));
-      return if had_io_failure {
-        Err(reason)
-      } else {
-        Err(ite_experimental_non_component_failure(reason))
+    Ok(had_io_failure)
+  }
+
+  fn read_fans(
+    &self,
+    fans: &mut Vec<MotherboardFanSpeed>,
+    partial_failures: &mut Vec<String>,
+  ) -> Result<bool, String> {
+    let enabled = self
+      .read_ec_byte(ITE_EC_FAN_ENABLE_REGISTER)
+      .map_err(|reason| format!("fan enable read failed: {reason}"))?
+      >> 4;
+    let mode = if self.profile == IteEcProfile::It8716fD {
+      self
+        .read_ec_byte(ITE_EC_FAN_MODE_REGISTER)
+        .map_err(|reason| format!("fan counter mode read failed: {reason}"))?
+    } else {
+      0x07
+    };
+    let mut had_io_failure = false;
+
+    for (channel, (name, low_register, high_register)) in
+      ITE_FAN_REGISTERS.into_iter().enumerate()
+    {
+      if !self.fan_routes[channel] || (enabled & mode & (1 << channel)) == 0 {
+        continue;
+      }
+
+      let read_count = || {
+        let low = self.read_ec_byte(low_register)?;
+        let high = self.read_ec_byte(high_register)?;
+        Ok::<_, String>(u16::from_le_bytes([low, high]))
       };
+      let stable_count = read_count().and_then(|first| {
+        let second = read_count()?;
+        Ok((first == second).then_some(first))
+      });
+      match stable_count {
+        Ok(Some(count)) => {
+          let rpm = decode_ite_fan_rpm(count);
+          fans.push(MotherboardFanSpeed {
+            name: name.to_string(),
+            rpm,
+            status: rpm.map_or(FanSpeedStatus::Invalid, fan_speed_status_from_rpm),
+            source: self.source_label.clone(),
+          });
+        }
+        Ok(None) => partial_failures.push(format!("{name} counter pairs disagreed")),
+        Err(reason) => {
+          had_io_failure = true;
+          partial_failures.push(format!("{name} read failed: {reason}"));
+        }
+      }
     }
 
-    Ok((
-      MotherboardSensorSample {
-        temperatures,
-        fan_speeds: Vec::new(),
-      },
-      partial_failures,
-    ))
+    Ok(had_io_failure)
   }
 
   fn read_ec_byte(&self, register: u8) -> Result<u8, String> {
@@ -736,6 +867,8 @@ struct DetectedSlot {
 struct DetectedIteSlot {
   slot: u8,
   ec_base: u16,
+  profile: IteEcProfile,
+  fan_routes: [bool; 3],
 }
 
 fn discover_nuvoton_hm_base(
@@ -848,50 +981,94 @@ fn discover_ite_ec_base(
   id_high: u8,
   id_low: u8,
 ) -> Result<Option<DetectedIteSlot>, String> {
-  if is_absent_id(id_high, id_low) {
+  let Some(profile) = IteEcProfile::from_slot_and_chip_id(slot, chip_id(id_high, id_low))
+  else {
     return Ok(None);
+  };
+  if profile == IteEcProfile::It8716fD {
+    let revision = client
+      .superio_inb(ITE_REVISION_REGISTER)
+      .map_err(|reason| {
+        ite_experimental_failure(profile, format!("CR22 read failed: {reason}"))
+      })?;
+    if revision & 0x0F != 0x01 {
+      return Ok(None);
+    }
   }
 
-  let raw_chip_id = chip_id(id_high, id_low);
-  if raw_chip_id != ITE_IT8728F_CHIP_ID {
-    return Ok(None);
-  }
-
-  client
-    .superio_outb(
-      LOGICAL_DEVICE_SELECT_REGISTER,
-      ITE_ENVIRONMENT_CONTROLLER_LDN,
-    )
-    .map_err(|reason| {
-      ite_experimental_failure(format!("LDN selection failed: {reason}"))
-    })?;
+  let select_ldn = |ldn| client.superio_outb(LOGICAL_DEVICE_SELECT_REGISTER, ldn);
+  let select_ec = || {
+    select_ldn(ITE_ENVIRONMENT_CONTROLLER_LDN).map_err(|reason| {
+      ite_experimental_failure(profile, format!("LDN selection failed: {reason}"))
+    })
+  };
+  select_ec()?;
   let activation = client
     .superio_inb(LDN_ACTIVATION_REGISTER)
-    .map_err(|reason| ite_experimental_failure(format!("CR30 read failed: {reason}")))?;
+    .map_err(|reason| {
+      ite_experimental_failure(profile, format!("CR30 read failed: {reason}"))
+    })?;
   if (activation & 0x01) == 0 {
     return Err(ite_experimental_non_component_failure(
+      profile,
       "Environment Controller logical device is inactive",
     ));
   }
 
   let base_high = client
     .superio_inb(HM_BASE_HIGH_REGISTER)
-    .map_err(|reason| ite_experimental_failure(format!("CR60 read failed: {reason}")))?;
-  let base_low = client
-    .superio_inb(HM_BASE_LOW_REGISTER)
-    .map_err(|reason| ite_experimental_failure(format!("CR61 read failed: {reason}")))?;
-  let ec_base = ((base_high as u16 & 0x0F) << 8) | (base_low as u16 & 0xF8);
-  if !is_valid_ite_ec_base(base_high, base_low, ec_base) {
-    return Err(ite_experimental_non_component_failure(format!(
-      "invalid Environment Controller base from CR60/61=0x{base_high:02X}/0x{base_low:02X} (derived 0x{ec_base:04X})"
-    )));
+    .map_err(|reason| {
+      ite_experimental_failure(profile, format!("CR60 read failed: {reason}"))
+    })?;
+  let base_low = client.superio_inb(HM_BASE_LOW_REGISTER).map_err(|reason| {
+    ite_experimental_failure(profile, format!("CR61 read failed: {reason}"))
+  })?;
+  let raw_base = u16::from_be_bytes([base_high, base_low]);
+  let ec_base = if profile.is_modern() {
+    raw_base
+  } else {
+    raw_base & 0x0FF8
+  };
+  let valid_base = if profile.is_modern() {
+    (0x0100..=0x0FF0).contains(&raw_base) && raw_base & 0x07 == 0 && raw_base != 0x0CF8
+  } else {
+    is_valid_ite_ec_base(base_high, base_low, ec_base)
+  };
+  if !valid_base {
+    return Err(ite_experimental_non_component_failure(
+      profile,
+      format!(
+        "invalid Environment Controller base from CR60/61=0x{base_high:02X}/0x{base_low:02X} (derived 0x{ec_base:04X})"
+      ),
+    ));
   }
 
+  let mut fan_routes = [profile.has_fans(), false, false];
+  if profile.has_fans() {
+    if !profile.is_modern() || select_ldn(ITE_GPIO_LDN).is_ok() {
+      fan_routes[1] = client
+        .superio_inb(ITE_FAN2_ROUTING_REGISTER)
+        .is_ok_and(|route| route & 0x04 == 0);
+      fan_routes[2] = client
+        .superio_inb(ITE_FAN3_ROUTING_REGISTER)
+        .is_ok_and(|route| route & 0x80 == 0);
+    }
+    if profile.is_modern() {
+      // BAR discovery scans LDNs. Restore the EC selection before that scan
+      // and do not rely on the selected LDN after it.
+      select_ec()?;
+    }
+  }
   client.find_lpc_bars().map_err(|reason| {
-    ite_experimental_failure(format!("LpcIO BAR discovery failed: {reason}"))
+    ite_experimental_failure(profile, format!("LpcIO BAR discovery failed: {reason}"))
   })?;
 
-  Ok(Some(DetectedIteSlot { slot, ec_base }))
+  Ok(Some(DetectedIteSlot {
+    slot,
+    ec_base,
+    profile,
+    fan_routes,
+  }))
 }
 
 fn enter_nuvoton(client: &impl LpcIoOps, index_port: u16) -> Result<(), String> {
@@ -956,18 +1133,25 @@ fn is_valid_ite_ec_base(base_high: u8, base_low: u8, ec_base: u16) -> bool {
     && ec_base.checked_add(ITE_EC_DATA_OFFSET).is_some()
 }
 
-fn ite_experimental_failure(reason: impl AsRef<str>) -> String {
+fn ite_experimental_failure(profile: IteEcProfile, reason: impl AsRef<str>) -> String {
   let reason = reason.as_ref();
   if reason.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX) {
     reason.to_string()
   } else {
-    format!("{ITE_EXPERIMENTAL_FAILURE_PREFIX}: {reason}")
+    format!(
+      "{ITE_EXPERIMENTAL_FAILURE_PREFIX} ({}): {reason}",
+      profile.chip_label()
+    )
   }
 }
 
-fn ite_experimental_non_component_failure(reason: impl AsRef<str>) -> String {
+fn ite_experimental_non_component_failure(
+  profile: IteEcProfile,
+  reason: impl AsRef<str>,
+) -> String {
   format!(
-    "{ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX}: {}",
+    "{ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({}): {}",
+    profile.chip_label(),
     reason.as_ref()
   )
 }
@@ -1304,20 +1488,31 @@ mod tests {
     activation: Cell<u8>,
     base_high: Cell<u8>,
     base_low: Cell<u8>,
+    revision: Cell<Option<u8>>,
+    routing: Cell<[Option<u8>; 2]>,
     ec_configuration: Cell<u8>,
+    ec_vendor: Cell<u8>,
     channel_configuration: Cell<u8>,
     temperature_values: Cell<[u8; 3]>,
-    failed_temperature_register: Cell<Option<u8>>,
+    fan_enable: Cell<u8>,
+    fan_mode: Cell<u8>,
+    fan_counts: Cell<[[u16; 2]; 3]>,
+    failed_ec_register: Cell<Option<u8>>,
     fail_config_exit: Cell<bool>,
+    fail_gpio_selection: Cell<bool>,
+    fail_ec_reselection: Cell<bool>,
     selected_slot_calls: Cell<u32>,
     find_bars_calls: Cell<u32>,
     config_exit_calls: Cell<u32>,
+    deny_ec_bars: Cell<bool>,
     ec_bars_authorized: Cell<bool>,
     selected_ldn: Cell<Option<u8>>,
     base_high_read: Cell<bool>,
     base_low_read: Cell<bool>,
     selected_ec_register: Cell<Option<u8>>,
     read_registers: RefCell<Vec<u8>>,
+    config_reads: RefCell<Vec<(Option<u8>, u8)>>,
+    config_writes: RefCell<Vec<(u8, u8)>>,
     config_port_writes: RefCell<Vec<(u16, u8)>>,
   }
 
@@ -1329,34 +1524,40 @@ mod tests {
         activation: Cell::new(0x01),
         base_high: Cell::new(0x02),
         base_low: Cell::new(0x90),
+        revision: Cell::new(Some(0x01)),
+        routing: Cell::new([Some(0), Some(0)]),
         ec_configuration: Cell::new(0x01),
+        ec_vendor: Cell::new(0x90),
         channel_configuration: Cell::new(0b0010_1000),
         temperature_values: Cell::new([25, 30, 35]),
-        failed_temperature_register: Cell::new(None),
+        fan_enable: Cell::new(0x70),
+        fan_mode: Cell::new(0x07),
+        fan_counts: Cell::new([[450; 2], [675; 2], [1_350; 2]]),
+        failed_ec_register: Cell::new(None),
         fail_config_exit: Cell::new(false),
+        fail_gpio_selection: Cell::new(false),
+        fail_ec_reselection: Cell::new(false),
         selected_slot_calls: Cell::new(0),
         find_bars_calls: Cell::new(0),
         config_exit_calls: Cell::new(0),
+        deny_ec_bars: Cell::new(false),
         ec_bars_authorized: Cell::new(false),
         selected_ldn: Cell::new(None),
         base_high_read: Cell::new(false),
         base_low_read: Cell::new(false),
         selected_ec_register: Cell::new(None),
         read_registers: RefCell::new(Vec::new()),
+        config_reads: RefCell::new(Vec::new()),
+        config_writes: RefCell::new(Vec::new()),
         config_port_writes: RefCell::new(Vec::new()),
       }
     }
 
-    fn with_authorized_ec(channel_configuration: u8) -> Self {
+    fn with_chip_id(chip_id: u16) -> Self {
       let client = Self::new();
-      client.channel_configuration.set(channel_configuration);
-      client.ec_bars_authorized.set(true);
-      client
-        .selected_ldn
-        .set(Some(ITE_ENVIRONMENT_CONTROLLER_LDN));
-      client.base_high_read.set(true);
-      client.base_low_read.set(true);
-      client.config_exit_calls.set(1);
+      let [high, low] = chip_id.to_be_bytes();
+      client.chip_id_high.set(high);
+      client.chip_id_low.set(low);
       client
     }
 
@@ -1386,7 +1587,8 @@ mod tests {
       if !self.base_high_read.get() || !self.base_low_read.get() {
         return Err("find_lpc_bars called before EC base discovery".to_string());
       }
-      self.ec_bars_authorized.set(true);
+      self.ec_bars_authorized.set(!self.deny_ec_bars.get());
+      self.selected_ldn.set(None);
       Ok(())
     }
 
@@ -1403,14 +1605,27 @@ mod tests {
         .selected_ec_register
         .get()
         .ok_or_else(|| "EC index register was not selected".to_string())?;
-      self.read_registers.borrow_mut().push(register);
-      if self.failed_temperature_register.get() == Some(register) {
+      let mut reads = self.read_registers.borrow_mut();
+      let prior_reads = reads.iter().filter(|&&read| read == register).count();
+      reads.push(register);
+      if self.failed_ec_register.get() == Some(register) {
         return Err(format!("simulated EC register 0x{register:02X} failure"));
       }
 
       match register {
         ITE_EC_CONFIGURATION_REGISTER => Ok(self.ec_configuration.get()),
         ITE_EC_CHANNEL_ENABLE_REGISTER => Ok(self.channel_configuration.get()),
+        ITE_EC_VENDOR_REGISTER => Ok(self.ec_vendor.get()),
+        ITE_EC_FAN_ENABLE_REGISTER => Ok(self.fan_enable.get()),
+        ITE_EC_FAN_MODE_REGISTER => Ok(self.fan_mode.get()),
+        0x0D..=0x0F => {
+          let count = self.fan_counts.get()[(register - 0x0D) as usize][prior_reads % 2];
+          Ok(count.to_le_bytes()[0])
+        }
+        0x18..=0x1A => {
+          let count = self.fan_counts.get()[(register - 0x18) as usize][prior_reads % 2];
+          Ok(count.to_le_bytes()[1])
+        }
         0x29 => Ok(self.temperature_values.get()[0]),
         0x2A => Ok(self.temperature_values.get()[1]),
         0x2B => Ok(self.temperature_values.get()[2]),
@@ -1422,6 +1637,7 @@ mod tests {
       match port {
         0x0295 => {
           self.require_ec_bars()?;
+          assert!(self.config_exit_calls.get() > 0 && !self.fail_config_exit.get());
           self.selected_ec_register.set(Some(value));
           Ok(())
         }
@@ -1430,14 +1646,28 @@ mod tests {
           self.config_port_writes.borrow_mut().push((port, value));
           Ok(())
         }
-        _ => Ok(()),
+        _ => panic!("unexpected ITE write to port 0x{port:04X}"),
       }
     }
 
     fn superio_inb(&self, register: u8) -> Result<u8, String> {
+      self
+        .config_reads
+        .borrow_mut()
+        .push((self.selected_ldn.get(), register));
       match register {
         CHIP_ID_HIGH_REGISTER => Ok(self.chip_id_high.get()),
         CHIP_ID_LOW_REGISTER => Ok(self.chip_id_low.get()),
+        ITE_REVISION_REGISTER => self
+          .revision
+          .get()
+          .ok_or_else(|| "unreadable CR22".to_string()),
+        ITE_FAN2_ROUTING_REGISTER => {
+          self.routing.get()[0].ok_or_else(|| "unreadable CR29".to_string())
+        }
+        ITE_FAN3_ROUTING_REGISTER => {
+          self.routing.get()[1].ok_or_else(|| "unreadable CR27".to_string())
+        }
         LDN_ACTIVATION_REGISTER => Ok(self.activation.get()),
         HM_BASE_HIGH_REGISTER => {
           self.base_high_read.set(true);
@@ -1447,13 +1677,28 @@ mod tests {
           self.base_low_read.set(true);
           Ok(self.base_low.get())
         }
-        _ => Ok(0),
+        _ => panic!("unexpected ITE configuration read at 0x{register:02X}"),
       }
     }
 
     fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+      self.config_writes.borrow_mut().push((register, value));
       match (register, value) {
-        (LOGICAL_DEVICE_SELECT_REGISTER, value) => {
+        (LOGICAL_DEVICE_SELECT_REGISTER, ITE_GPIO_LDN)
+          if self.fail_gpio_selection.get() =>
+        {
+          return Err("simulated GPIO LDN selection failure".to_string());
+        }
+        (LOGICAL_DEVICE_SELECT_REGISTER, ITE_ENVIRONMENT_CONTROLLER_LDN)
+          if self.selected_ldn.get() == Some(ITE_GPIO_LDN)
+            && self.fail_ec_reselection.get() =>
+        {
+          return Err("simulated EC LDN reselection failure".to_string());
+        }
+        (
+          LOGICAL_DEVICE_SELECT_REGISTER,
+          ITE_ENVIRONMENT_CONTROLLER_LDN | ITE_GPIO_LDN,
+        ) => {
           self.selected_ldn.set(Some(value));
         }
         (0x02, 0x02) => {
@@ -1462,7 +1707,7 @@ mod tests {
             return Err("simulated ITE config exit failure".to_string());
           }
         }
-        _ => {}
+        _ => panic!("unexpected ITE configuration write 0x{register:02X}=0x{value:02X}"),
       }
       Ok(())
     }
@@ -2215,18 +2460,35 @@ mod tests {
   #[test]
   fn fan_support_follows_the_selected_provider_path() {
     let nuvoton = ActiveMotherboardSensors::Nuvoton(authorized_active(d802_profile()));
-    let ite = ActiveMotherboardSensors::Ite(ActiveIteMotherboardSensors {
-      client: FakeIteLpcIo::new(),
-      slot: 0,
-      ec_base: 0x0290,
-      chip_label: ITE_CHIP_LABEL,
-      source_label: ITE_SOURCE_LABEL,
-      last_attempt: None,
-      partial_failure_logged: false,
-    });
+    let ite = ActiveMotherboardSensors::Ite(discover_ite_fixture(FakeIteLpcIo::new()));
 
     assert_eq!(nuvoton.fan_support(), SensorSupport::Supported);
     assert_eq!(ite.fan_support(), SensorSupport::Unsupported);
+    for id in [0x8620, 0x8628, 0x8716] {
+      let client = FakeIteLpcIo::with_chip_id(id);
+      client.fan_enable.set(0);
+      let mut active = discover_ite_fixture(client);
+      let sample = active.sample_unlocked_at(Instant::now());
+      if id == 0x8716 {
+        assert!(sample.is_err());
+      } else {
+        assert!(sample.unwrap().fan_speeds.is_empty());
+      }
+      assert_eq!(
+        ActiveMotherboardSensors::Ite(active).fan_support(),
+        SensorSupport::Supported
+      );
+    }
+  }
+
+  fn discover_ite_fixture(
+    client: FakeIteLpcIo,
+  ) -> ActiveIteMotherboardSensors<FakeIteLpcIo> {
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+    client.read_registers.borrow_mut().clear();
+    ActiveIteMotherboardSensors::new(client, detected)
   }
 
   #[test]
@@ -2317,7 +2579,7 @@ mod tests {
   fn ite_discovery_does_not_cache_when_the_post_exit_probe_fails() {
     let client = FakeIteLpcIo::new();
     client
-      .failed_temperature_register
+      .failed_ec_register
       .set(Some(ITE_EC_CONFIGURATION_REGISTER));
 
     let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
@@ -2332,9 +2594,10 @@ mod tests {
 
   #[test]
   fn ite_configuration_exit_failure_requires_rediscovery() {
-    let error = ite_experimental_failure(format!(
-      "{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"
-    ));
+    let error = ite_experimental_failure(
+      IteEcProfile::It8728f,
+      format!("{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"),
+    );
 
     assert!(is_retryable_init_error(&error));
   }
@@ -2405,19 +2668,433 @@ mod tests {
   }
 
   #[test]
+  fn ite_expansion_rejects_unlisted_ids_and_secondary_slots() {
+    for (slot, id) in [
+      (0, 0x8622),
+      (0, 0x8726),
+      (1, 0x8620),
+      (1, 0x8628),
+      (1, 0x8716),
+    ] {
+      let client = FakeIteLpcIo::with_chip_id(id);
+
+      assert!(
+        ActiveIteMotherboardSensors::discover_slot(&client, slot)
+          .unwrap()
+          .is_none()
+      );
+      assert_eq!(*client.config_reads.borrow(), [(None, 0x20), (None, 0x21)]);
+      assert_eq!(*client.config_writes.borrow(), [(0x02, 0x02)]);
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert!(client.selected_ec_register.get().is_none());
+    }
+  }
+
+  #[test]
+  fn ite_legacy_fan_profile_requires_the_exact_d_revision() {
+    for revision in [Some(0x00), Some(0x02), None] {
+      let client = FakeIteLpcIo::with_chip_id(0x8716);
+      client.revision.set(revision);
+
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0);
+
+      if revision.is_some() {
+        assert!(detected.unwrap().is_none());
+      } else {
+        assert!(detected.unwrap_err().contains("CR22 read failed"));
+      }
+      assert_eq!(
+        *client.config_reads.borrow(),
+        [(None, 0x20), (None, 0x21), (None, 0x22)]
+      );
+      assert_eq!(*client.config_writes.borrow(), [(0x02, 0x02)]);
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert!(client.selected_ec_register.get().is_none());
+    }
+
+    for revision in [0x01, 0x81] {
+      let client = FakeIteLpcIo::with_chip_id(0x8716);
+      client.revision.set(Some(revision));
+      client.fan_mode.set(0x04);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert!(sample.temperatures.is_empty());
+      assert_eq!(
+        sample.fan_speeds,
+        [MotherboardFanSpeed {
+          name: "FAN3".to_string(),
+          rpm: Some(500),
+          status: FanSpeedStatus::Active,
+          source: "IT8716F D / Super I/O".to_string(),
+        }]
+      );
+      let reads = active.client.config_reads.borrow();
+      assert_eq!(reads[2], (None, 0x22));
+      assert_eq!(reads[6..], [(Some(0x04), 0x29), (Some(0x04), 0x27)]);
+      assert_eq!(
+        *active.client.config_writes.borrow(),
+        [(0x07, 0x04), (0x02, 0x02)]
+      );
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        [0x00, 0x13, 0x0C, 0x0F, 0x1A, 0x0F, 0x1A]
+      );
+    }
+  }
+
+  #[test]
+  fn ite_8728_fan_path_remains_unsupported_for_both_revision_nibbles() {
+    for revision in [0x00, 0x01] {
+      let client = FakeIteLpcIo::new();
+      client.revision.set(Some(revision));
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(sample.temperatures.len(), 2);
+      assert!(sample.fan_speeds.is_empty());
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        [0x00, 0x51, 0x29, 0x2B]
+      );
+      assert_eq!(
+        *active.client.config_reads.borrow(),
+        [
+          (None, 0x20),
+          (None, 0x21),
+          (Some(0x04), 0x30),
+          (Some(0x04), 0x60),
+          (Some(0x04), 0x61)
+        ]
+      );
+    }
+  }
+
+  #[test]
+  fn ite_modern_profiles_check_gpio_ldn_and_report_exact_source_labels() {
+    for (id, label) in [(0x8620, "IT8620E"), (0x8628, "IT8628E")] {
+      let client = FakeIteLpcIo::with_chip_id(id);
+      client.channel_configuration.set(0x94);
+      client.temperature_values.set([0xC9, 0x19, 0x7D]);
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+        .unwrap()
+        .unwrap();
+      assert_eq!(detected.profile.chip_label(), label);
+      assert_eq!(
+        *client.config_writes.borrow(),
+        [(0x07, 0x04), (0x07, 0x07), (0x07, 0x04), (0x02, 0x02)]
+      );
+      assert_eq!(
+        client.config_reads.borrow()[5..],
+        [(Some(0x07), 0x29), (Some(0x07), 0x27)]
+      );
+      assert_eq!(*client.read_registers.borrow(), [0x00, 0x58]);
+      client.read_registers.borrow_mut().clear();
+      let mut active = ActiveIteMotherboardSensors::new(client, detected);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      let source = format!("{label} / Super I/O");
+      assert_eq!(
+        sample.temperatures,
+        [MotherboardTemperature {
+          name: "TMPIN3".to_string(),
+          temperature: 125.0,
+          source: source.clone(),
+        }]
+      );
+      assert_eq!(sample.fan_speeds.len(), 3);
+      assert_eq!(
+        sample.fan_speeds[0],
+        MotherboardFanSpeed {
+          name: "FAN1".to_string(),
+          rpm: Some(1_500),
+          status: FanSpeedStatus::Active,
+          source,
+        }
+      );
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        [
+          0x00, 0x51, 0x2B, 0x13, 0x0D, 0x18, 0x0D, 0x18, 0x0E, 0x19, 0x0E, 0x19, 0x0F,
+          0x1A, 0x0F, 0x1A
+        ]
+      );
+    }
+  }
+
+  #[test]
+  fn ite_modern_temperature_boundaries_preserve_signed_and_zero_readings() {
+    for (config, values, expected) in [
+      (
+        0x15,
+        [0xC9, 0x19, 0x7D],
+        vec![("TMPIN1", -55.0), ("TMPIN2", 25.0), ("TMPIN3", 125.0)],
+      ),
+      (0x07, [0xC8, 0, 0x7E], vec![("TMPIN2", 0.0)]),
+    ] {
+      let client = FakeIteLpcIo::with_chip_id(0x8628);
+      client.channel_configuration.set(config);
+      client.temperature_values.set(values);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(
+        sample
+          .temperatures
+          .iter()
+          .map(|reading| (reading.name.as_str(), reading.temperature))
+          .collect::<Vec<_>>(),
+        expected
+      );
+    }
+  }
+
+  #[test]
+  fn ite_fan_counts_preserve_invalid_inactive_and_active_boundaries() {
+    for (counts, expected) in [
+      (
+        [0x0000, 0xFFFF, 0xFFFE],
+        [
+          (None, FanSpeedStatus::Invalid),
+          (Some(0), FanSpeedStatus::Inactive),
+          (Some(10), FanSpeedStatus::Active),
+        ],
+      ),
+      (
+        [0x003F, 0x0040, 0x01C2],
+        [
+          (None, FanSpeedStatus::Invalid),
+          (Some(10_546), FanSpeedStatus::Active),
+          (Some(1_500), FanSpeedStatus::Active),
+        ],
+      ),
+    ] {
+      let client = FakeIteLpcIo::with_chip_id(0x8716);
+      client.fan_counts.set(counts.map(|count| [count; 2]));
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(
+        sample
+          .fan_speeds
+          .iter()
+          .map(|reading| (reading.name.as_str(), (reading.rpm, reading.status)))
+          .collect::<Vec<_>>(),
+        ["FAN1", "FAN2", "FAN3"]
+          .into_iter()
+          .zip(expected)
+          .collect::<Vec<_>>()
+      );
+    }
+  }
+
+  #[test]
+  fn ite_fans_omit_gpio_routed_disabled_and_unreadable_inputs_before_counter_reads() {
+    for (id, routing, fan_enable, fail_gpio_selection) in [
+      (0x8716, [Some(0x04), Some(0)], 0x30, false),
+      (0x8620, [None, Some(0)], 0x30, false),
+      (0x8628, [Some(0), Some(0x80)], 0x50, false),
+      (0x8628, [Some(0), Some(0)], 0x70, true),
+    ] {
+      let client = FakeIteLpcIo::with_chip_id(id);
+      client.routing.set(routing);
+      client.fail_gpio_selection.set(fail_gpio_selection);
+      client.fan_enable.set(fan_enable);
+      client.fan_counts.set([[0xFFFF; 2], [450; 2], [450; 2]]);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(sample.fan_speeds.len(), 1);
+      assert_eq!(sample.fan_speeds[0].name, "FAN1");
+      assert_eq!(sample.fan_speeds[0].rpm, Some(0));
+      assert_eq!(sample.fan_speeds[0].status, FanSpeedStatus::Inactive);
+      assert!(
+        !active
+          .client
+          .read_registers
+          .borrow()
+          .iter()
+          .any(|register| [0x0E, 0x19, 0x0F, 0x1A].contains(register))
+      );
+      if fail_gpio_selection {
+        assert!(
+          !active
+            .client
+            .config_reads
+            .borrow()
+            .iter()
+            .any(|(_, register)| [0x29, 0x27].contains(register))
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn ite_modern_sample_preserves_usable_siblings_on_gate_and_counter_failures() {
+    let client = FakeIteLpcIo::with_chip_id(0x8620);
+    client.failed_ec_register.set(Some(0x51));
+    client.fan_counts.set([[450; 2], [675, 676], [1_350; 2]]);
+    let mut active = discover_ite_fixture(client);
+    let first_at = Instant::now();
+
+    let sample = active.sample_unlocked_at(first_at).unwrap();
+    assert!(sample.temperatures.is_empty());
+    assert_eq!(
+      sample
+        .fan_speeds
+        .iter()
+        .map(|reading| reading.name.as_str())
+        .collect::<Vec<_>>(),
+      ["FAN1", "FAN3"]
+    );
+
+    active.client.failed_ec_register.set(Some(0x18));
+    let sample = active
+      .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+      .unwrap();
+    assert_eq!(sample.temperatures.len(), 2);
+    assert_eq!(sample.fan_speeds.len(), 1);
+    assert_eq!(sample.fan_speeds[0].name, "FAN3");
+
+    active.client.failed_ec_register.set(Some(0x13));
+    let sample = active
+      .sample_unlocked_at(first_at + 2 * ITE_SAMPLE_MIN_INTERVAL)
+      .unwrap();
+    assert_eq!(sample.temperatures.len(), 2);
+    assert!(sample.fan_speeds.is_empty());
+  }
+
+  #[test]
+  fn ite_legacy_mode_read_failure_prevents_all_fan_counters() {
+    let client = FakeIteLpcIo::with_chip_id(0x8716);
+    client.failed_ec_register.set(Some(0x0C));
+    let mut active = discover_ite_fixture(client);
+
+    let error = active.sample_unlocked_at(Instant::now()).unwrap_err();
+
+    assert!(error.contains("fan counter mode read failed"));
+    assert_eq!(*active.client.read_registers.borrow(), [0x00, 0x13, 0x0C]);
+  }
+
+  #[test]
+  fn ite_modern_discovery_rejects_invalid_base_inactive_device_and_failed_ldn_restore() {
+    for base in [0x00F8_u16, 0x0291, 0x0CF8, 0x0FF8, 0x1000] {
+      let client = FakeIteLpcIo::with_chip_id(0x8628);
+      let [high, low] = base.to_be_bytes();
+      client.base_high.set(high);
+      client.base_low.set(low);
+
+      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+      assert!(error.contains("invalid Environment Controller base"));
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert_eq!(client.config_exit_calls.get(), 1);
+      assert!(client.selected_ec_register.get().is_none());
+    }
+
+    for activation in [0x00, 0x01] {
+      let client = FakeIteLpcIo::with_chip_id(0x8620);
+      client.activation.set(activation);
+      client.fail_ec_reselection.set(true);
+
+      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+      assert!(error.contains(if activation == 0 {
+        "logical device is inactive"
+      } else {
+        "LDN selection failed"
+      }));
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert_eq!(client.config_exit_calls.get(), 1);
+      assert!(client.selected_ec_register.get().is_none());
+    }
+  }
+
+  #[test]
+  fn ite_modern_discovery_requires_exit_port_proof_and_vendor_signature() {
+    for (fail_exit, deny_ports, state, vendor, expected_error, expected_reads) in [
+      (
+        true,
+        false,
+        0x01,
+        0x90,
+        ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT,
+        vec![],
+      ),
+      (
+        false,
+        true,
+        0x01,
+        0x90,
+        ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT,
+        vec![],
+      ),
+      (
+        false,
+        false,
+        0x81,
+        0x90,
+        "configuration bit 7 is set",
+        vec![0x00],
+      ),
+      (
+        false,
+        false,
+        0x01,
+        0xFF,
+        "unexpected Environment Controller vendor byte",
+        vec![0x00, 0x58],
+      ),
+    ] {
+      let client = FakeIteLpcIo::with_chip_id(0x8620);
+      client.fail_config_exit.set(fail_exit);
+      client.deny_ec_bars.set(deny_ports);
+      client.ec_configuration.set(state);
+      client.ec_vendor.set(vendor);
+
+      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+      assert!(error.contains(expected_error), "{error}");
+      assert!(error.contains("IT8620E"));
+      assert_eq!(is_retryable_init_error(&error), fail_exit || deny_ports);
+      assert_eq!(*client.read_registers.borrow(), expected_reads);
+    }
+  }
+
+  #[test]
+  fn ite_modern_sample_gates_all_inputs_on_each_new_ec_state() {
+    for state in [None, Some(0x00), Some(0x09), Some(0x81)] {
+      let mut active = discover_ite_fixture(FakeIteLpcIo::with_chip_id(0x8628));
+      if let Some(state) = state {
+        active.client.ec_configuration.set(state);
+      } else {
+        active.client.failed_ec_register.set(Some(0x00));
+      }
+
+      let error = active.sample_unlocked_at(Instant::now()).unwrap_err();
+
+      assert!(error.contains("IT8628E"));
+      assert_eq!(
+        error.starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX),
+        state.is_some()
+      );
+      assert_eq!(*active.client.read_registers.borrow(), [0x00]);
+    }
+  }
+
+  #[test]
   fn ite_sample_keeps_successful_siblings_and_never_reads_fans() {
-    let client = FakeIteLpcIo::with_authorized_ec(0b0010_1010);
+    let client = FakeIteLpcIo::new();
+    client.channel_configuration.set(0b0010_1010);
     client.temperature_values.set([25, 30, 0x80]);
-    client.failed_temperature_register.set(Some(0x2A));
-    let mut active = ActiveIteMotherboardSensors {
-      client,
-      slot: 0,
-      ec_base: 0x0290,
-      chip_label: ITE_CHIP_LABEL,
-      source_label: ITE_SOURCE_LABEL,
-      last_attempt: None,
-      partial_failure_logged: false,
-    };
+    client.failed_ec_register.set(Some(0x2A));
+    let mut active = discover_ite_fixture(client);
 
     let sample = active.sample_unlocked_at(Instant::now()).unwrap();
 
@@ -2426,7 +3103,7 @@ mod tests {
       vec![MotherboardTemperature {
         name: "TMPIN1".to_string(),
         temperature: 25.0,
-        source: ITE_SOURCE_LABEL.to_string(),
+        source: "IT8728F/EX / Super I/O".to_string(),
       }]
     );
     assert!(sample.fan_speeds.is_empty());
@@ -2439,17 +3116,10 @@ mod tests {
 
   #[test]
   fn ite_sample_stops_when_the_monitoring_state_is_not_running() {
-    let client = FakeIteLpcIo::with_authorized_ec(0b0000_1000);
+    let client = FakeIteLpcIo::new();
+    client.channel_configuration.set(0b0000_1000);
     client.ec_configuration.set(0x09);
-    let mut active = ActiveIteMotherboardSensors {
-      client,
-      slot: 0,
-      ec_base: 0x0290,
-      chip_label: ITE_CHIP_LABEL,
-      source_label: ITE_SOURCE_LABEL,
-      last_attempt: None,
-      partial_failure_logged: false,
-    };
+    let mut active = discover_ite_fixture(client);
 
     let error = active.sample_unlocked_at(Instant::now()).unwrap_err();
 
@@ -2460,16 +3130,9 @@ mod tests {
 
   #[test]
   fn ite_sample_reuses_the_last_result_inside_the_minimum_interval() {
-    let client = FakeIteLpcIo::with_authorized_ec(0b0000_1000);
-    let mut active = ActiveIteMotherboardSensors {
-      client,
-      slot: 0,
-      ec_base: 0x0290,
-      chip_label: ITE_CHIP_LABEL,
-      source_label: ITE_SOURCE_LABEL,
-      last_attempt: None,
-      partial_failure_logged: false,
-    };
+    let client = FakeIteLpcIo::new();
+    client.channel_configuration.set(0b0000_1000);
+    let mut active = discover_ite_fixture(client);
     let first_at = Instant::now();
 
     let first = active.sample_unlocked_at(first_at).unwrap();
