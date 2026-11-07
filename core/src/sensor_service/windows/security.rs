@@ -1,4 +1,5 @@
 use std::ffi::c_void;
+use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
 use std::os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, OwnedHandle};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -14,10 +15,10 @@ use windows::Win32::Security::Authorization::{
 use windows::Win32::Security::{ACL, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES};
 use windows::Win32::Storage::FileSystem::{
   CreateFileW, DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_REPARSE_POINT, FILE_DELETE_CHILD,
-  FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_SHARE_DELETE,
-  FILE_SHARE_NONE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES,
-  FILE_WRITE_DATA, FILE_WRITE_EA, OPEN_EXISTING, SECURITY_IDENTIFICATION,
-  SECURITY_SQOS_PRESENT, WRITE_DAC, WRITE_OWNER,
+  FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_FLAG_OVERLAPPED,
+  FILE_GENERIC_READ, FILE_SHARE_DELETE, FILE_SHARE_NONE, FILE_SHARE_READ,
+  FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, OPEN_EXISTING,
+  SECURITY_IDENTIFICATION, SECURITY_SQOS_PRESENT, WRITE_DAC, WRITE_OWNER,
 };
 use windows::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows::Win32::System::Services::*;
@@ -131,20 +132,11 @@ pub(super) async fn connect() -> Result<NamedPipeClient, String> {
 }
 
 fn protected_path(path: &Path) -> Result<PathBuf, String> {
-  use std::os::windows::fs::MetadataExt;
-
   let resolved = crate::platform::windows::process_elevation::protected_file_path(path)?
     .ok_or("Privileged sensor input must be under Program Files")?;
 
   for ancestor in path.ancestors() {
-    if std::fs::symlink_metadata(ancestor)
-      .map_err(|e| e.to_string())?
-      .file_attributes()
-      & FILE_ATTRIBUTE_REPARSE_POINT.0
-      != 0
-    {
-      return Err("Reparse points are not allowed for privileged sensor inputs".into());
-    }
+    reject_reparse(&std::fs::symlink_metadata(ancestor).map_err(|e| e.to_string())?)?;
   }
 
   Ok(resolved)
@@ -157,8 +149,6 @@ pub(crate) fn validate_install_directory(path: &Path) -> Result<(), String> {
 }
 
 fn validate_directory_acl(path: &Path, first_check: AclCheck) -> Result<(), String> {
-  use std::os::windows::fs::OpenOptionsExt;
-
   let mut parent = Some(path);
 
   while let Some(directory) = parent {
@@ -169,9 +159,11 @@ fn validate_directory_acl(path: &Path, first_check: AclCheck) -> Result<(), Stri
     let handle = std::fs::OpenOptions::new()
       .read(true)
       .share_mode((FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE).0)
-      .custom_flags(FILE_FLAG_BACKUP_SEMANTICS.0)
+      .custom_flags((FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT).0)
       .open(directory)
       .map_err(|e| e.to_string())?;
+    verify_opened_path(directory, &handle)?;
+
     let check = if directory == path {
       first_check
     } else {
@@ -191,23 +183,44 @@ fn validate_directory_acl(path: &Path, first_check: AclCheck) -> Result<(), Stri
   Ok(())
 }
 
-/// Hold an existing runtime input against replacement through the caller's use.
-pub(crate) fn protected_file(path: &Path) -> Result<std::fs::File, String> {
-  use std::os::windows::fs::OpenOptionsExt;
-
+/// Return the checked path and hold its file against replacement while loading.
+pub(crate) fn protected_file(path: &Path) -> Result<(PathBuf, std::fs::File), String> {
   let resolved = protected_path(path)?;
   let file = std::fs::OpenOptions::new()
     .read(true)
     .share_mode(FILE_SHARE_READ.0)
+    .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0)
     .open(&resolved)
     .map_err(|e| e.to_string())?;
+  verify_opened_path(&resolved, &file)?;
   protected_acl(HANDLE(file.as_raw_handle()), AclCheck::Effective)?;
   validate_directory_acl(
     resolved.parent().ok_or("Sensor input has no parent")?,
     AclCheck::Effective,
   )?;
 
-  Ok(file)
+  Ok((resolved, file))
+}
+
+fn verify_opened_path(expected: &Path, file: &std::fs::File) -> Result<(), String> {
+  reject_reparse(&file.metadata().map_err(|e| e.to_string())?)?;
+  let handle = HANDLE(file.as_raw_handle());
+  let actual = crate::platform::windows::process_elevation::final_path_for_handle(handle)
+    .map_err(|error| error.to_string())?;
+
+  if Path::new(&actual) != expected {
+    return Err("Privileged sensor input changed while opening it".into());
+  }
+
+  Ok(())
+}
+
+fn reject_reparse(metadata: &std::fs::Metadata) -> Result<(), String> {
+  if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+    return Err("Reparse points are not allowed for privileged sensor inputs".into());
+  }
+
+  Ok(())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -494,6 +507,20 @@ mod tests {
     let dll = temp.path().join("PawnIOLib.dll");
     std::fs::write(&dll, b"not executable").unwrap();
     assert!(protected_file(&dll).is_err());
+  }
+
+  #[test]
+  fn opened_file_must_match_the_resolved_path() {
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let actual = crate::platform::windows::process_elevation::final_path_for_handle(
+      HANDLE(file.as_file().as_raw_handle()),
+    )
+    .unwrap();
+    let resolved = Path::new(&actual);
+
+    verify_opened_path(resolved, file.as_file()).unwrap();
+    let unrelated = resolved.with_file_name("different-sensor-input.dll");
+    assert!(verify_opened_path(&unrelated, file.as_file()).is_err());
   }
 
   #[tokio::test]

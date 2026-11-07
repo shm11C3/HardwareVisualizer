@@ -69,7 +69,8 @@ final paths and safe DLL search rules; reject user-writable/reparse redirection.
 The embedded MSI validator checks the directory and the permissions a newly
 installed file would inherit before the installer writes or registers the
 service. At runtime, existing files and their effective ancestor ACLs are
-checked and opened against replacement. The release catalog limits which
+checked and opened against replacement. DLL loading uses the verified path
+from the held file. The release catalog limits which
 external module bytes this service passes to PawnIO, including systems where
 another application has installed an unrestricted driver.
 

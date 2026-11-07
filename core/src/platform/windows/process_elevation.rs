@@ -142,8 +142,17 @@ fn final_path(path: &Path) -> Result<String, String> {
   }
   .map_err(|e| format!("Failed to open {}: {e}", path.display()))?;
 
+  let resolved = final_path_for_handle(handle);
+  let _ = unsafe { CloseHandle(handle) };
+
+  resolved.map_err(|error| format!("Failed to resolve {}: {error}", path.display()))
+}
+
+/// Resolve the name of an already open file without opening its path again.
+pub(crate) fn final_path_for_handle(handle: HANDLE) -> windows::core::Result<String> {
   let mut buffer = vec![0u16; 512];
-  let resolved = loop {
+
+  loop {
     let length = unsafe {
       GetFinalPathNameByHandleW(
         handle,
@@ -151,21 +160,18 @@ fn final_path(path: &Path) -> Result<String, String> {
         GETFINALPATHNAMEBYHANDLE_FLAGS(FILE_NAME_NORMALIZED.0 | VOLUME_NAME_DOS.0),
       )
     } as usize;
-    if length == 0 {
-      break Err(format!(
-        "Failed to resolve {}: {}",
-        path.display(),
-        windows::core::Error::from_thread()
-      ));
-    }
-    if length < buffer.len() {
-      break Ok(String::from_utf16_lossy(&buffer[..length]));
-    }
-    buffer.resize(length + 1, 0);
-  };
-  let _ = unsafe { CloseHandle(handle) };
 
-  resolved.map(|resolved| strip_verbatim_prefix(&resolved))
+    if length == 0 {
+      return Err(windows::core::Error::from_thread());
+    }
+
+    if length < buffer.len() {
+      let resolved = String::from_utf16_lossy(&buffer[..length]);
+      return Ok(strip_verbatim_prefix(&resolved));
+    }
+
+    buffer.resize(length + 1, 0);
+  }
 }
 
 fn strip_verbatim_prefix(path: &str) -> String {

@@ -377,16 +377,17 @@ struct PawnIoLibrary {
 
 impl PawnIoLibrary {
   fn load(path: &Path) -> Result<Self, String> {
-    let file = crate::sensor_service::windows::security::protected_file(path)?;
+    let (resolved, file) =
+      crate::sensor_service::windows::security::protected_file(path)?;
 
     let library: Library = unsafe {
       libloading::os::windows::Library::load_with_flags(
-        path,
+        &resolved,
         (LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32).0,
       )
     }
     .map(Into::into)
-    .map_err(|e| format!("failed to load {}: {e}", path.display()))?;
+    .map_err(|e| format!("failed to load {}: {e}", resolved.display()))?;
     let version = *unsafe { library.get::<PawnIoVersion>(b"pawnio_version") }
       .map_err(|e| format!("missing pawnio_version: {e}"))?;
     let open = *unsafe { library.get::<PawnIoOpen>(b"pawnio_open") }
@@ -415,7 +416,7 @@ fn read_protected_module(path: &Path) -> Result<Vec<u8>, String> {
     return Err("The sensor service requires signed .bin modules".into());
   }
 
-  let mut file = crate::sensor_service::windows::security::protected_file(path)?;
+  let (_, mut file) = crate::sensor_service::windows::security::protected_file(path)?;
 
   if file.metadata().map_err(|e| e.to_string())?.len() > 1_048_576 {
     return Err("PawnIO module exceeds size limit".into());
