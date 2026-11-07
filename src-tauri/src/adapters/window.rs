@@ -292,6 +292,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     }
   }
 
@@ -312,6 +313,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.cpu_usage, 12.5);
@@ -355,6 +357,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus.len(), 2);
@@ -393,6 +396,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert_eq!(update.gpus[0].gpu_temperature, Some(212.0));
@@ -423,6 +427,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus[0].gpu_temperature, Some(66.0));
@@ -453,6 +458,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert!(update.gpus[0].gpu_usage.is_none());
@@ -487,6 +493,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert_eq!(update.cpu_temperature, Some(122.0));
@@ -517,6 +524,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.cpu_temperature, Some(50.0));
@@ -549,6 +557,7 @@ mod tests {
       cpu_power_support: hardviz_core::models::SensorSupport::Supported,
       motherboard_fan_support: hardviz_core::models::SensorSupport::Supported,
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     };
 
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);

@@ -54,6 +54,12 @@ pub trait GpuPlatform: Send + Sync {
   fn cpu_power_support(&self) -> models::SensorSupport {
     models::SensorSupport::Unsupported
   }
+
+  /// Report the latest attempt outcome of each optional native sensor
+  /// provider. Platforms without such providers report none.
+  fn optional_sensor_provider_outcomes(&self) -> models::OptionalSensorProviderOutcomes {
+    models::OptionalSensorProviderOutcomes::default()
+  }
 }
 
 /// Trait that defines platform-specific network operations

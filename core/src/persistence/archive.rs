@@ -824,6 +824,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     }
   }
 
@@ -1182,6 +1183,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     });
     assert_eq!(t.gpu_name_map.get("gpu:0").unwrap(), "RTX");
     assert_eq!(t.gpu_usage_histories.get("gpu:0").unwrap().len(), 1);
@@ -1214,6 +1216,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     }
   }
 
@@ -1333,6 +1336,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     });
     assert!(t.collect_process_stats().is_empty());
   }
@@ -1361,6 +1365,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     });
     let stats = t.collect_process_stats();
     assert_eq!(stats.len(), 1);
@@ -1392,6 +1397,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     });
     assert!(t.collect_process_stats().is_empty());
   }
@@ -1424,6 +1430,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     });
     let gpus = t.collect_gpu_data();
     assert_eq!(gpus.len(), 1);
@@ -1471,6 +1478,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     });
 
     t.ingest(MetricsSnapshot {
@@ -1496,6 +1504,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     });
 
     let gpus = t.collect_gpu_data();

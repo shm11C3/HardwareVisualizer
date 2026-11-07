@@ -400,6 +400,7 @@ mod tests {
       cpu_power_support: Default::default(),
       motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
+      optional_sensor_providers: Default::default(),
     }
   }
 
