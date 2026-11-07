@@ -1,5 +1,5 @@
 use crate::models::hardware::GraphicInfo;
-use crate::{log_debug, log_error, log_warn};
+use crate::{log_error, log_warn};
 
 use super::setupdi_provider;
 use dxgi::Factory;
@@ -11,6 +11,22 @@ use tokio::task::spawn_blocking;
 /// "Microsoft Basic Render Driver". It has no device behind it to report on,
 /// so offering it as a GPU to attribute readings to would be a fiction.
 const DXGI_ADAPTER_FLAG_SOFTWARE: u32 = 2;
+
+fn hardware_adapter_descriptions() -> Result<Vec<AdapterDesc>, String> {
+  let factory =
+    Factory::new().map_err(|e| format!("Failed to create DXGI Factory: {e:?}"))?;
+  Ok(
+    factory
+      .adapters()
+      .map(|adapter| adapter.get_desc())
+      .filter(|desc| is_hardware_adapter(desc.flags()))
+      .collect(),
+  )
+}
+
+fn is_hardware_adapter(flags: u32) -> bool {
+  flags & DXGI_ADAPTER_FLAG_SOFTWARE == 0
+}
 
 /// Lightweight LUID info for a GPU adapter, used to match PDH counters.
 pub struct GpuLuidInfo {
@@ -36,8 +52,7 @@ pub struct GpuLuidInfo {
 /// sample stream cannot be named, attributed, or selected at all.
 pub async fn get_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
   let handle = spawn_blocking(|| {
-    let factory =
-      Factory::new().map_err(|e| format!("Failed to create DXGI Factory: {e:?}"))?;
+    let adapters = hardware_adapter_descriptions()?;
     let pnp_by_luid: HashMap<(i32, u32), setupdi_provider::DisplayAdapterBdf> =
       setupdi_provider::enumerate_display_adapters()
         .into_iter()
@@ -45,12 +60,7 @@ pub async fn get_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
         .collect();
     let mut result = Vec::new();
 
-    for adapter in factory.adapters() {
-      let desc: AdapterDesc = adapter.get_desc();
-      if desc.flags() & DXGI_ADAPTER_FLAG_SOFTWARE != 0 {
-        continue;
-      }
-
+    for desc in adapters {
       let luid = desc.adapter_luid();
       let pnp = pnp_by_luid.get(&(luid.HighPart, luid.LowPart));
       result.push(GpuLuidInfo {
@@ -97,90 +107,63 @@ pub async fn get_gpu_luid_info_cached() -> &'static [GpuLuidInfo] {
   }
 }
 
-/// Get Intel GPU information
-pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
-  let handle = spawn_blocking(|| {
-    log_debug!("start", "get_intel_gpu_info", None::<&str>);
-
-    // Create DXGI factory instance
-    let factory = Factory::new().expect("Failed to create DXGI Factory");
-    let mut gpu_info_list = Vec::new();
-
-    // Enumerate adapters
-    for adapter in factory.adapters() {
-      // Unwrap get_desc() result and handle errors
-      let desc: AdapterDesc = adapter.get_desc();
-
-      // Add only Intel GPUs
-      let gpu_name = desc.description();
-      if gpu_name.contains("Intel") {
-        let memory_size_dedicated = desc.dedicated_video_memory() / 1024 / 1024;
-        let memory_size_shared = desc.shared_system_memory() / 1024 / 1024;
-
-        let gpu_info = GraphicInfo {
-          id: desc.device_id().to_string(),
-          name: gpu_name.trim_end_matches('\0').to_string(),
-          vendor_name: "Intel".to_string(),
-          clock: 0, // Set to 0 because Intel clock frequency is difficult to obtain
-          memory_size: format!("{memory_size_shared} MB"),
-          memory_size_dedicated: format!("{memory_size_dedicated} MB"),
-          core_count: None,
-        };
-
-        gpu_info_list.push(gpu_info);
-      }
-    }
-
-    log_debug!("end", "get_intel_gpu_info", None::<&str>);
-    Ok(gpu_info_list)
-  });
-
-  handle.await.map_err(|e| {
-    log_error!("join_error", "get_intel_gpu_info", Some(e.to_string()));
-    "Intel GPU info retrieval failed".to_string()
-  })?
+pub(crate) struct InventoryAdapter {
+  pub(crate) info: GraphicInfo,
+  pub(crate) vendor_id: u32,
+  // Older AMD/Intel inventory rows used only the device/model number.
+  pub(crate) legacy_device_id: Option<String>,
 }
 
-/// Get AMD GPU information
-pub async fn get_amd_gpu_info() -> Result<Vec<GraphicInfo>, String> {
-  let handle = spawn_blocking(|| {
-    log_debug!("start", "get_amd_gpu_info", None::<&str>);
+pub(crate) async fn get_gpu_inventory() -> Result<Vec<InventoryAdapter>, String> {
+  spawn_blocking(|| {
+    Ok(
+      hardware_adapter_descriptions()?
+        .into_iter()
+        .map(|desc| {
+          let vendor_id = desc.vendor_id();
+          let vendor_name = match vendor_id {
+            0x1002 => "AMD".into(),
+            0x10de => "NVIDIA".into(),
+            0x8086 => "Intel".into(),
+            0 => "Unknown".into(),
+            id => format!("0x{id:04X}"),
+          };
+          let luid = desc.adapter_luid();
+          InventoryAdapter {
+            info: GraphicInfo {
+              id: format!("dxgi:{}:{}", luid.HighPart, luid.LowPart),
+              name: desc.description(),
+              vendor_name,
+              clock: 0,
+              memory_size: format!("{} MB", desc.shared_system_memory() / (1024 * 1024)),
+              memory_size_dedicated: format!(
+                "{} MB",
+                desc.dedicated_video_memory() / (1024 * 1024)
+              ),
+              core_count: None,
+            },
+            vendor_id,
+            legacy_device_id: (matches!(vendor_id, 0x1002 | 0x8086)
+              && desc.device_id() != 0)
+              .then(|| desc.device_id().to_string()),
+          }
+        })
+        .collect(),
+    )
+  })
+  .await
+  .map_err(|e| format!("DXGI GPU inventory task failed: {e}"))?
+}
 
-    // Create DXGI factory instance
-    let factory = Factory::new().expect("Failed to create DXGI Factory");
-    let mut gpu_info_list = Vec::new();
+#[cfg(test)]
+mod tests {
+  use super::*;
 
-    // Enumerate adapters
-    for adapter in factory.adapters() {
-      // Unwrap get_desc() result and handle errors
-      let desc: AdapterDesc = adapter.get_desc();
-
-      // Get GPU name
-      let gpu_name = desc.description();
-      if gpu_name.contains("AMD") || gpu_name.contains("Radeon") {
-        let memory_size_dedicated = desc.dedicated_video_memory() / 1024 / 1024;
-        let memory_size_shared = desc.shared_system_memory() / 1024 / 1024;
-
-        let gpu_info = GraphicInfo {
-          id: desc.device_id().to_string(),
-          name: gpu_name.trim_end_matches('\0').to_string(),
-          vendor_name: "AMD".to_string(),
-          clock: 0, // Set to 0 because clock frequency is difficult to obtain
-          memory_size: format!("{memory_size_shared} MB"),
-          memory_size_dedicated: format!("{memory_size_dedicated} MB"),
-          core_count: None,
-        };
-
-        gpu_info_list.push(gpu_info);
-      }
-    }
-
-    log_debug!("end", "get_amd_gpu_info", None::<&str>);
-    Ok(gpu_info_list)
-  });
-
-  handle.await.map_err(|e| {
-    log_error!("join_error", "get_amd_gpu_info", Some(e.to_string()));
-    "AMD GPU info retrieval failed".to_string()
-  })?
+  #[test]
+  fn excludes_the_software_bit_without_filtering_other_flags() {
+    assert!(is_hardware_adapter(0));
+    assert!(is_hardware_adapter(1));
+    assert!(!is_hardware_adapter(2));
+    assert!(!is_hardware_adapter(3));
+  }
 }

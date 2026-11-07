@@ -2,6 +2,7 @@ import { ArrowSquareOutIcon, GithubLogoIcon } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { HardwareCompatibilityReport } from "@/components/HardwareCompatibilityReport";
 import { Button } from "@/components/ui/button";
 import { openURL } from "@/lib/openUrl";
 
@@ -59,6 +60,7 @@ export const AboutSection = ({
           {t("pages.settings.about.license")}
         </Button>
       </div>
+      <HardwareCompatibilityReport />
     </div>
   );
 };

@@ -134,6 +134,9 @@ Linux providers:
   commands.
 - `linux/drm_sys.rs`, `linux/hwmon.rs`, `linux/kernel.rs`, and
   `linux/lspci.rs` read GPU-related data from DRM/sysfs/debugfs/lspci sources.
+- `linux/nvml_provider.rs` samples detected NVIDIA DRM adapters by full PCI
+  address using the system-provided NVML library. DRM detection keeps
+  runtime-suspended adapters visible without querying NVML for them.
 - `linux/dmidecode.rs` reads DMI hardware facts through `dmidecode`.
 - `linux/smart.rs` reads SMART data through `smartctl`, including Linux device
   candidate fallback.

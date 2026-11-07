@@ -38,15 +38,17 @@ there is no longer anything to honor.
 ## The inventory is not a source of adapter identity
 
 The `getHardwareInfo` inventory and the monitor stream key their GPUs in
-different namespaces on every platform. Windows NVIDIA reports the raw NVAPI id
-as `GraphicInfo.id` but samples as `nvapi:<id>`; Windows AMD ADL samples use the
-PCI address as `pci:<bus>:<device>:<function>`; Windows PDH samples — the
-fallback for every adapter no vendor API reported, not Intel alone — use
+different namespaces on every platform. The Windows inventory enumerates DXGI
+hardware adapters. It preserves unambiguous legacy numeric inventory ids
+(raw NVAPI id for an enriched NVIDIA adapter and device id for AMD/Intel)
+and otherwise uses `dxgi:<luid_high>:<luid_low>`. Live NVIDIA samples use
+`nvapi:<id>`. Windows AMD ADL samples use the PCI address as
+`pci:<bus>:<device>:<function>`. The Windows PDH fallback samples use
 the reboot-stable PnP device instance id as
 `pdh:instance:<device_instance_id>` when SetupDi can associate it with the
-DXGI adapter LUID, and fall back to `pdh:<luid_high>:<luid_low>` when it
-cannot; macOS pairs
-`0x<registry_id>` with `iokit:<name>`; Linux pairs `card<n>` with the PCI BDF.
+DXGI adapter LUID and fall back to `pdh:<luid_high>:<luid_low>` otherwise.
+macOS pairs `0x<registry_id>` with `iokit:<name>`. Linux pairs `card<n>` with the
+PCI BDF.
 The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
 across. The frontend enforces this at compile time: live ids carry the branded
 `LiveGpuId` type, minted only where samples enter (`useHardwareEventListener`),
@@ -63,6 +65,11 @@ needed the gate. Two tests back the types up deterministically: the e2e fixture
 must keep its inventory and live ids distinct the way every platform does, and
 `selectedGpuIdAtom` may only be reached by an allowlisted set of resolution
 owners — by named or namespace import alike.
+
+Linux live keys keep the existing domainless `pci:<bus>:<device>.<function>`
+format or the `drm:card<n>` fallback. NVML queries use the full PCI address,
+including the domain. The provider skips readings when a domainless live key
+is shared by multiple DRM cards in the current sample.
 
 The adapter list is therefore built from the live side alone: every id the
 stream reported, named by the `gpuName` each sample carries, plus any id that

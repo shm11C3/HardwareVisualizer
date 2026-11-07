@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { HardwareCompatibilityGuideLink } from "@/components/HardwareCompatibilityGuideLink";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -269,6 +270,7 @@ export const ExternalComponentGuidanceDialog = ({
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <HardwareCompatibilityGuideLink />
         <AlertDialogFooter className="gap-2">
           {shouldShowElevatedStartupAction ? (
             <Button

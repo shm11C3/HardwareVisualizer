@@ -300,7 +300,11 @@ Flag rules:
 - Flags are sampled by the App service when a batch is sealed, from the
   settings service, the App-side hardware DTOs, and the latest optional
   sensor provider outcomes in `MetricsSnapshot`. App classifies facts Core
-  exposes; Core never sees a flag.
+  exposes; Core never sees a flag. The one exception to the settings source
+  is `view.performance.*`, which comes from the UI-local Tauri Store key
+  `performanceLayoutPreset` and follows the frontend's
+  `normalizePerformanceView`; an absent key is `panels`, and a store that
+  cannot be read leaves the flag sources unsettled.
 - A flag is reported at most once per installation per UTC day, and the
   client is the only enforcer: flags go into the first batch sealed for a UTC
   day whose flag sources are settled, and only when that day is later than

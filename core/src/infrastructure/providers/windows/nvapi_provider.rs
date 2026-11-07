@@ -154,70 +154,36 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>,
     let mut gpu_info_list = Vec::new();
 
     for gpu in gpus.iter() {
-      let name = gpu.full_name().unwrap_or("Unknown".to_string());
-
-      // Get clock frequency (MHz)
-      let clock_frequencies =
-        match gpu.clock_frequencies(nvapi::ClockFrequencyType::Current) {
-          Ok(freqs) => freqs,
-          Err(e) => {
-            log_error!("clock_failed", "get_nvidia_gpu_info", Some(e.to_string()));
-            continue;
-          }
-        };
-
-      let frequency = match clock_frequencies.get(&nvapi::ClockDomain::Graphics) {
-        Some(&nvapi::Kilohertz(freq)) => freq as u64,
-        None => {
-          log_warn!(
-            "clock_not_found",
-            "get_nvidia_gpu_info",
-            Some("Graphics clock not found")
-          );
-          0 // Set 0 as default value
+      let clock = gpu
+        .clock_frequencies(nvapi::ClockFrequencyType::Current)
+        .ok()
+        .and_then(|clocks| clocks.get(&nvapi::ClockDomain::Graphics).copied())
+        .map_or(0, |nvapi::Kilohertz(khz)| khz);
+      let memory = gpu.memory_info().ok();
+      let format_memory = |kibibytes| {
+        utils::formatter::RoundedKibibytes {
+          kibibytes,
+          precision: 1,
         }
+        .to_string()
       };
-
-      // Get memory size (MB)
-      let memory_info = match gpu.memory_info() {
-        Ok(info) => info,
-        Err(e) => {
-          log_error!(
-            "memory_info_failed",
-            "get_nvidia_gpu_info",
-            Some(e.to_string())
-          );
-          continue;
-        }
-      };
-
-      let gpu_id = match gpu.gpu_id() {
-        Ok(id) => id.to_string(),
-        Err(e) => {
-          log_error!("gpu_id_failed", "get_nvidia_gpu_info", Some(e.to_string()));
-          continue;
-        }
-      };
-
-      let gpu_info = models::hardware::GraphicInfo {
-        id: gpu_id,
-        name,
+      gpu_info_list.push(models::hardware::GraphicInfo {
+        id: gpu.gpu_id().map(|id| id.to_string()).unwrap_or_default(),
+        name: gpu.full_name().unwrap_or_default(),
         vendor_name: "NVIDIA".to_string(),
-        clock: frequency as u32,
-        memory_size: utils::formatter::RoundedKibibytes {
-          kibibytes: memory_info.shared,
-          precision: 1,
-        }
-        .to_string(),
-        memory_size_dedicated: utils::formatter::RoundedKibibytes {
-          kibibytes: memory_info.dedicated,
-          precision: 1,
-        }
-        .to_string(),
-        core_count: None,
-      };
-
-      gpu_info_list.push(gpu_info);
+        clock,
+        memory_size: memory
+          .as_ref()
+          .map_or_else(|| "N/A".into(), |m| format_memory(m.shared)),
+        memory_size_dedicated: memory
+          .as_ref()
+          .map_or_else(|| "N/A".into(), |m| format_memory(m.dedicated)),
+        core_count: gpu
+          .core_count()
+          .ok()
+          .filter(|&count| count > 0)
+          .map(|count| count.to_string()),
+      });
     }
 
     log_debug!("end", "get_nvidia_gpu_info", None::<&str>);

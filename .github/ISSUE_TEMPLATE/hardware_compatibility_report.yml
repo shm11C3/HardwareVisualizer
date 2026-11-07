@@ -1,0 +1,22 @@
+name: Hardware Compatibility Report
+description: Share which sensors work on your hardware, or which are unavailable
+title: "[Compatibility] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Paste the Markdown from **Settings → About → Hardware Compatibility Report**.
+        This issue is public. Review the full text before posting, including any
+        note you added. Reports with working sensors are welcome.
+  - type: textarea
+    id: report
+    attributes:
+      label: Hardware Compatibility Report
+      description: Paste the report here as Markdown.
+    validations:
+      required: true
+  - type: input
+    id: note
+    attributes:
+      label: Contributor note
+      description: Add any optional context about your setup.
