@@ -4,5 +4,6 @@ pub mod hwmon;
 pub mod kernel;
 pub mod lspci;
 pub mod net_sys;
+pub(crate) mod nvml_provider;
 pub mod procfs;
 pub mod smart;
