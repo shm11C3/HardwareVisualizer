@@ -186,10 +186,15 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
   let mut metrics: Vec<models::GpuSample> = Vec::new();
   let cards: Vec<_> = drm_sys::get_all_card_ids()
     .into_iter()
-    .map(|id| DrmCard {
-      id,
-      vendor: drm_sys::detect_gpu_vendor(id),
-      pci_address: drm_sys::get_card_pci_address(id),
+    .map(|id| {
+      let vendor = drm_sys::detect_gpu_vendor(id);
+      DrmCard {
+        id,
+        vendor,
+        pci_address: drm_sys::get_card_pci_address(id),
+        runtime_suspended: vendor == GpuVendor::Nvidia
+          && drm_sys::card_runtime_suspended(id),
+      }
     })
     .collect();
 
@@ -207,6 +212,7 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
       id: card_id,
       vendor,
       pci_address,
+      ..
     } = card;
     let bdf = pci_address.as_deref().map(drm_sys::domainless_bdf);
     let lspci_name = bdf.and_then(|bdf| {
@@ -271,8 +277,10 @@ struct DrmCard {
   id: u8,
   vendor: infrastructure::providers::drm_sys::GpuVendor,
   pci_address: Option<String>,
+  runtime_suspended: bool,
 }
 
+/// Select unambiguous NVIDIA DRM cards without querying a suspended device.
 fn nvml_pci_addresses(cards: &[DrmCard]) -> Vec<String> {
   use infrastructure::providers::drm_sys::{GpuVendor, domainless_bdf};
 
@@ -280,7 +288,8 @@ fn nvml_pci_addresses(cards: &[DrmCard]) -> Vec<String> {
   // omit the domain. Decline measurements when that key is ambiguous.
   cards
     .iter()
-    .filter(|card| card.vendor == GpuVendor::Nvidia)
+    // A device handle lookup can wake a GPU from runtime suspension.
+    .filter(|card| card.vendor == GpuVendor::Nvidia && !card.runtime_suspended)
     .filter_map(|card| {
       let address = card.pci_address.as_ref()?;
       let bdf = domainless_bdf(address);
@@ -393,11 +402,12 @@ mod tests {
   const NVIDIA_LSPCI_LINE: &str = "01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD107 [GeForce RTX 4060] [10de:2882]";
 
   #[test]
-  fn only_unambiguous_nvidia_drm_slots_reach_nvml() {
+  fn only_unambiguous_awake_nvidia_drm_slots_reach_nvml() {
     let card = |id, vendor, address: Option<&str>| DrmCard {
       id,
       vendor,
       pci_address: address.map(str::to_string),
+      runtime_suspended: false,
     };
     let cards = [
       card(0, GpuVendor::Nvidia, Some("0000:01:00.0")),
@@ -406,6 +416,10 @@ mod tests {
       card(3, GpuVendor::Nvidia, None),
       card(4, GpuVendor::Intel, Some("0000:00:02.0")),
       card(5, GpuVendor::Nvidia, Some("0000:02:00.0")),
+      DrmCard {
+        runtime_suspended: true,
+        ..card(6, GpuVendor::Nvidia, Some("0000:03:00.0"))
+      },
     ];
 
     assert_eq!(nvml_pci_addresses(&cards), ["0003:04:00.1", "0000:02:00.0"]);

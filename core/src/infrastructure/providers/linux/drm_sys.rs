@@ -146,6 +146,18 @@ pub(crate) fn get_card_pci_address(card_id: u8) -> Option<String> {
   parse_pci_address_from_device_link(link.to_str()?).map(str::to_ascii_lowercase)
 }
 
+/// Query the OS runtime state without opening the GPU through a vendor API.
+pub(crate) fn card_runtime_suspended(card_id: u8) -> bool {
+  fs::read_to_string(format!(
+    "/sys/class/drm/card{card_id}/device/power/runtime_status"
+  ))
+  .is_ok_and(|status| runtime_suspended(&status))
+}
+
+fn runtime_suspended(status: &str) -> bool {
+  matches!(status.trim(), "suspended" | "suspending")
+}
+
 pub(crate) fn domainless_bdf(address: &str) -> &str {
   // Callers hold an address already validated by get_card_pci_address.
   address.split_once(':').map_or(address, |(_, bdf)| bdf)
@@ -175,6 +187,16 @@ fn parse_pci_address_from_device_link(symlink_target: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn runtime_status_only_skips_confirmed_suspend_states() {
+    for status in ["suspended\n", "suspending"] {
+      assert!(runtime_suspended(status));
+    }
+    for status in ["active", "resuming", "unsupported", "error", ""] {
+      assert!(!runtime_suspended(status));
+    }
+  }
 
   fn parse_bdf_from_device_link(symlink_target: &str) -> Option<String> {
     parse_pci_address_from_device_link(symlink_target)
