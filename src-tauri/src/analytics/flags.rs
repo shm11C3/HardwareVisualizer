@@ -387,17 +387,19 @@ mod tests {
 
   #[test]
   fn preference_facts_read_app_and_core_settings() {
-    let mut settings = crate::models::settings::Settings::default();
-    settings.close_to_tray = true;
-    settings.burn_in_shift = true;
-    settings.selected_background_img = Some("image.png".to_string());
-    settings.navigation_layout = NavigationLayout::Classic;
+    let mut settings = crate::models::settings::Settings {
+      close_to_tray: true,
+      burn_in_shift: true,
+      selected_background_img: Some("image.png".to_string()),
+      navigation_layout: NavigationLayout::Classic,
+      elevated_startup_mode: false,
+      ..crate::models::settings::Settings::default()
+    };
+    settings.tray_widget.enabled = false;
     let mut core_settings = hardviz_core::settings::CoreSettings::default();
     core_settings.hardware_archive.enabled = false;
     core_settings.storage_health.enabled = true;
     core_settings.environmental_sensors.switchbot_meter_enabled = true;
-    settings.tray_widget.enabled = false;
-    settings.elevated_startup_mode = false;
 
     let facts =
       PreferenceFacts::from_settings(&settings, &core_settings, PerformanceView::Monitor);
