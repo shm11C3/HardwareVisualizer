@@ -22,7 +22,7 @@
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| MSI PRO B850-P WIFI (MS-7E56), BIOS 2.A93, already bound `nct6683.2592` with hwmon name `nct6687` | S1/S2/S3/S6 establish the named board and observed OEM firmware/controller tuple. Lead-only S5 establishes kernel device and driver names, resource ownership, firmware-customer acceptance and channel mapping. Public ABI is S4. | Experimental for matching Linux endpoints. |
+| MSI PRO B850-P WIFI (MS-7E56), BIOS 2.A93, already bound `nct6683.2592` with hwmon name `nct6687` | S1/S2/S3/S6 establish the named board and observed OEM firmware/controller tuple. Lead-only S5 establishes kernel device and driver names, the hwmon class link to the canonical child, the child's `device` link to the platform parent, resource ownership, firmware-customer acceptance and channel mapping. Public ABI is S4. | Experimental for matching Linux endpoints. |
 | Other boards, firmware versions, NCT6686D/NCT6683D and direct Windows access | Require separate exact evidence in [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520). See [direct-access draft](superio-nuvoton-nct668x.md). | Unsupported by this revision. |
 
 - Require DMI baseboard vendor `Micro-Star International Co., Ltd.`,

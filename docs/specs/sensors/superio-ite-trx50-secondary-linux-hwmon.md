@@ -22,7 +22,7 @@
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Gigabyte TRX50 AI TOP and already bound platform device `it87.2656` with hwmon name `it87952` | S1/S2 pin the board, S2 observes the live secondary device and channels, and S3 observes its exact raw ID. Lead-only S5 associates the name with raw `0x8695`, defines platform identity and input representation, and documents when an input exists. S4 supplies the public Linux ABI. | Experimental for matching Linux endpoints. |
+| Gigabyte TRX50 AI TOP and already bound platform device `it87.2656` with hwmon name `it87952` | S1/S2 pin the board, S2 observes the live secondary device and channels, and S3 observes its exact raw ID. Lead-only S5 associates the name with raw `0x8695` and defines platform identity, the hwmon class link to the canonical child, the child's `device` link to the platform parent, and input representation and visibility. S4 supplies the public Linux ABI. | Experimental for matching Linux endpoints. |
 | Other Gigabyte boards, alternate chip IDs, direct Windows LPC, ECIO or ISA bridge paths | See [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) and S6. | Unsupported by this revision. |
 
 - Require `/sys/class/dmi/id/board_vendor` equal to
