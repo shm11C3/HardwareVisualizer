@@ -82,8 +82,7 @@ pub(crate) fn build(
     .lock()
     .map_err(|_| "Monitor snapshot is unavailable".to_owned())?
     .as_ref()
-    .and_then(|adapter| adapter.latest_snapshot())
-    .ok_or_else(|| "Monitor snapshot is not ready".to_owned())?;
+    .and_then(|adapter| adapter.latest_snapshot());
   #[cfg(target_os = "windows")]
   let (thermal_zones, switchbot) = {
     use hardviz_core::infrastructure::providers::windows::thermal_zone::read_thermal_zones_cached;
@@ -112,7 +111,7 @@ pub(crate) fn build(
     .lock()
     .map(|cached| cached.clone())
     .unwrap_or_default();
-  Ok(render(version, &cached, &snapshot, providers))
+  Ok(render(version, &cached, snapshot.as_ref(), providers))
 }
 
 /// Save the reviewed text to the destination chosen in the native dialog.
@@ -144,7 +143,7 @@ pub(crate) async fn save(
 fn render(
   version: &str,
   evidence: &ReportEvidence,
-  snapshot: &MetricsSnapshot,
+  snapshot: Option<&MetricsSnapshot>,
   providers: ProviderEvidence,
 ) -> String {
   let inventory = &evidence.inventory;
@@ -162,7 +161,7 @@ fn render(
     ("Motherboard model", inventory.board_model.as_deref()),
     (
       "Super I/O identification",
-      super_io_identification(snapshot),
+      snapshot.and_then(super_io_identification),
     ),
   ] {
     field(&mut report, label, value);
@@ -170,7 +169,7 @@ fn render(
 
   report.push_str("\n## Sensor providers\n\n");
   let guidance_reason = |usage| {
-    snapshot
+    snapshot?
       .external_component_guidance_candidates
       .iter()
       .find(|candidate| candidate.usage == usage)
@@ -179,13 +178,13 @@ fn render(
   provider(
     &mut report,
     "PawnIO CPU package temperature",
-    snapshot.optional_sensor_providers.cpu_package_temperature,
+    snapshot.and_then(|sample| sample.optional_sensor_providers.cpu_package_temperature),
     guidance_reason(ExternalComponentUsage::CpuPackageTemperature),
   );
   provider(
     &mut report,
     "Super I/O",
-    snapshot.optional_sensor_providers.motherboard_sensors,
+    snapshot.and_then(|sample| sample.optional_sensor_providers.motherboard_sensors),
     guidance_reason(ExternalComponentUsage::MotherboardSensors),
   );
   field(
@@ -193,6 +192,7 @@ fn render(
     "Platform thermal zones",
     providers.thermal_zones.then_some("Available"),
   );
+  let gpus = snapshot.map_or(&[][..], |sample| sample.gpus.as_slice());
   for (label, source) in [
     ("NVIDIA NVAPI", "NVAPI"),
     ("AMD ADL", "ADL"),
@@ -201,7 +201,7 @@ fn render(
     ("intel_gpu_top", "DRM (Intel)"),
     ("macOS IOKit", "IOKit"),
   ] {
-    let observed = snapshot.gpus.iter().any(|gpu| {
+    let observed = gpus.iter().any(|gpu| {
       gpu.gpu_source == source
         && (gpu.gpu_usage.is_some() || gpu.gpu_temperature.is_some())
     });
@@ -220,30 +220,32 @@ fn render(
 
   report.push_str("\n## Readings available to the app\n\n");
   let readings = [
-    ("CPU temperature", snapshot.cpu_temperature.is_some()),
-    ("CPU power", snapshot.power_draw.cpu_watts.is_some()),
-    ("Thermal zone temperatures", providers.thermal_zones),
     (
-      "GPU usage",
-      snapshot.gpus.iter().any(|gpu| gpu.gpu_usage.is_some()),
+      "CPU temperature",
+      snapshot.is_some_and(|sample| sample.cpu_temperature.is_some()),
     ),
     (
+      "CPU power",
+      snapshot.is_some_and(|sample| sample.power_draw.cpu_watts.is_some()),
+    ),
+    ("Thermal zone temperatures", providers.thermal_zones),
+    ("GPU usage", gpus.iter().any(|gpu| gpu.gpu_usage.is_some())),
+    (
       "GPU temperature",
-      snapshot
-        .gpus
-        .iter()
-        .any(|gpu| gpu.gpu_temperature.is_some()),
+      gpus.iter().any(|gpu| gpu.gpu_temperature.is_some()),
     ),
     (
       "Motherboard temperatures",
-      !snapshot.motherboard_temperatures.is_empty(),
+      snapshot.is_some_and(|sample| !sample.motherboard_temperatures.is_empty()),
     ),
     (
       "Motherboard fans",
-      snapshot
-        .motherboard_fan_speeds
-        .iter()
-        .any(|fan| fan.status != FanSpeedStatus::Invalid && fan.rpm.is_some()),
+      snapshot.is_some_and(|sample| {
+        sample
+          .motherboard_fan_speeds
+          .iter()
+          .any(|fan| fan.status != FanSpeedStatus::Invalid && fan.rpm.is_some())
+      }),
     ),
   ];
   for (label, visible) in readings {
@@ -291,7 +293,7 @@ fn provider(
     Some(ProviderAttemptOutcome::NotAnswered) => {
       reason.map_or("Unavailable", reason_label)
     }
-    None => "Not applicable",
+    None => "Not recorded",
   };
   field(report, label, Some(status));
 }
@@ -416,7 +418,7 @@ mod tests {
         inventory: (&inventory).into(),
         storage_records: Some(false),
       },
-      &snapshot,
+      Some(&snapshot),
       ProviderEvidence {
         smartctl_guidance: Some(ExternalComponentReasonKind::Missing),
         ..Default::default()
@@ -465,5 +467,28 @@ mod tests {
     );
     snapshot.motherboard_temperatures[0].source = "private provider description".into();
     assert_eq!(super_io_identification(&snapshot), None);
+  }
+
+  #[test]
+  fn report_keeps_cached_evidence_before_the_monitor_starts() {
+    let evidence = ReportEvidenceCache(Mutex::new(ReportEvidence {
+      inventory: ReportInventory {
+        cpu_model: Some("Example CPU".into()),
+        ..Default::default()
+      },
+      storage_records: Some(true),
+    }));
+    let report = build(
+      "1.2.3",
+      &evidence,
+      &WorkersState::default(),
+      &ExternalComponentGuidanceState::default(),
+    )
+    .unwrap();
+
+    assert!(report.contains("CPU model: Example CPU"));
+    assert!(report.contains("Storage Health records: Yes"));
+    assert!(report.contains("PawnIO CPU package temperature: Not recorded"));
+    assert!(report.contains("CPU temperature: Not recorded"));
   }
 }

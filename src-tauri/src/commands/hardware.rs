@@ -334,7 +334,6 @@ pub async fn refresh_storage_devices(
   let (retention_days, identity_hash_key) = {
     let settings = state.core_settings.lock().unwrap();
     if !settings.storage_health.enabled {
-      report_evidence.record_storage(false);
       return Ok(Vec::new());
     }
     let identity_hash_key = settings.storage_health_identity.hash_key_bytes()?;
