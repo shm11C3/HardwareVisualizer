@@ -18,14 +18,14 @@ use super::service::{AnalyticsService, ConsentStore, FlagSourceReader};
 use super::vocabulary::PerformanceView;
 use crate::commands::settings::AppState;
 use crate::models::settings::{ProductAnalyticsDecision, ProductAnalyticsSettings};
+use crate::services::ui_service;
 
 /// The first flush waits so the upload never competes with startup
 /// collection and the first window paint.
 const FIRST_FLUSH_DELAY: Duration = Duration::from_secs(60);
 const FLUSH_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
-/// The frontend's Tauri Store file and the key its Performance view is
-/// stored under (`usePerformanceLayout`).
-const UI_STORE_FILE: &str = "store.json";
+/// The key the frontend stores its Performance view under in the UI store
+/// (`usePerformanceLayout`).
 const PERFORMANCE_VIEW_KEY: &str = "performanceLayoutPreset";
 
 /// Reads and writes the `productAnalytics` section through the App
@@ -66,26 +66,37 @@ pub(crate) struct AppFlagSources {
 }
 
 impl AppFlagSources {
-  fn preferences(&self) -> PreferenceFacts {
+  /// `None` while the UI store cannot be read, which leaves the day's flag
+  /// set unsettled like a pending provider.
+  fn preferences(&self) -> Option<PreferenceFacts> {
+    let performance_view = self.performance_view()?;
     let state = self.app.state::<AppState>();
     let settings = state.settings.lock().unwrap().clone();
     let core_settings = state.core_settings.lock().unwrap().clone();
-    PreferenceFacts::from_settings(&settings, &core_settings, self.performance_view())
+    Some(PreferenceFacts::from_settings(
+      &settings,
+      &core_settings,
+      performance_view,
+    ))
   }
 
-  /// The Performance view is UI-local state in the frontend's Tauri Store.
-  /// `StoreExt::store` returns the instance the frontend already loaded, or
-  /// loads it with the same defaults the frontend uses.
-  fn performance_view(&self) -> PerformanceView {
-    match self.app.store(UI_STORE_FILE) {
-      Ok(store) => PerformanceView::from_stored(store.get(PERFORMANCE_VIEW_KEY).as_ref()),
+  /// The Performance view is UI-local state in the frontend's Tauri Store,
+  /// not an Application Preference in `settings.json`. `StoreExt::store`
+  /// returns the instance the frontend already loaded, or loads it with the
+  /// same defaults the frontend uses. An absent key is the default view the
+  /// app really shows; a store that cannot be opened is no answer at all.
+  fn performance_view(&self) -> Option<PerformanceView> {
+    match self.app.store(ui_service::STORE_FILENAME) {
+      Ok(store) => Some(PerformanceView::from_stored(
+        store.get(PERFORMANCE_VIEW_KEY).as_ref(),
+      )),
       Err(error) => {
         crate::log_warn!(
           "Failed to read the UI store for product analytics",
           "analytics::AppFlagSources::performance_view",
           Some(error.to_string())
         );
-        PerformanceView::from_stored(None)
+        None
       }
     }
   }

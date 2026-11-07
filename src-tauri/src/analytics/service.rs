@@ -476,11 +476,11 @@ pub(crate) mod test_support {
   impl Default for FixedFlagSources {
     fn default() -> Self {
       Self(Mutex::new(FlagSources {
-        preferences: PreferenceFacts {
+        preferences: Some(PreferenceFacts {
           features_on: Vec::new(),
           navigation: Navigation::Grouped,
           performance_view: PerformanceView::Panels,
-        },
+        }),
         cpu_vendor: Some(CpuVendor::Intel),
         gpu_vendors: Some(vec![GpuVendor::Nvidia]),
         providers: Some(OptionalSensorProviderOutcomes {
@@ -1020,6 +1020,28 @@ mod tests {
     assert!(sent[0].flags().is_none());
     assert!(!sent[0].has_month_token());
     assert_eq!(harness.store.section().reported_day, None);
+  }
+
+  #[tokio::test]
+  async fn an_unreadable_ui_store_seals_no_flags_and_keeps_the_reported_day() {
+    let store = Arc::new(test_support::MemoryStore::with(
+      crate::analytics::consent::test_support::granted_section(),
+    ));
+    let transport = Arc::new(test_support::RecordingTransport::default());
+    let flag_sources = test_support::FixedFlagSources::default();
+    flag_sources.0.lock().unwrap().preferences = None;
+    let service = AnalyticsService::new(Ports {
+      store: store.clone(),
+      flag_sources: Arc::new(flag_sources),
+      transport: transport.clone(),
+      clock: Arc::new(test_support::ManualClock::at("2026-11-03T12:00:00Z")),
+    });
+
+    service.flush().await;
+
+    let sent = transport.sent.lock().unwrap().clone();
+    assert!(sent[0].flags().is_none());
+    assert_eq!(store.section().reported_day, None);
   }
 
   #[tokio::test]
