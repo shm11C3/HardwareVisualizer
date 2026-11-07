@@ -141,3 +141,4 @@ shared enforcement surface.
 - [Re-measure before the next slice](remeasure-before-the-next-slice.md)
 
 - [Match macOS native opacity to Transparent UI](macos-native-window-opacity.md)
+- [Audit OS-owned sensor read effects](audit-os-owned-sensor-read-effects.md)
