@@ -33,7 +33,8 @@ documentation.
 - [Earlier SQLite chunk candidate](development/hardware-archive-storage-design.md)
 - [Hardware Archive investigation and work tracking](https://github.com/shm11C3/HardwareVisualizer/issues/2052)
 - [Relicense to GPL-3.0-or-later decision](adr/0020-relicense-to-gpl-3.0-or-later.md)
-- [Sensor hardware specs (clean-room)](specs/sensors/)
+- [Sensor hardware specs (clean-room)](specs/sensors/README.md), including
+  specification revisions and model-specific enablement limits.
 - [Frontend architecture](../src/README.md)
 - [Frontend layer boundaries decision](adr/0027-frontend-layer-boundaries-and-state-ownership.md)
 - [Frontend architecture Design Doc](design/frontend-architecture.md)
