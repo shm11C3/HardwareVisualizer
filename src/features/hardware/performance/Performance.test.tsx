@@ -635,14 +635,19 @@ describe("Performance", () => {
     expect(gpuMetric).not.toHaveTextContent("VRAM 4.0/8 GB");
   });
 
-  it("keeps the VRAM total when exactly one inventory entry matches", () => {
+  it.each([
+    ["8 GB", "VRAM 4.0/8 GB"],
+    ["8192 MB", "VRAM 4096.0/8192 MB"],
+  ])("uses the VRAM total's unit when capacity is %s", (capacity, label) => {
     const store = createStore();
-    state.gpus = [gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090")];
-    store.set(gpuNamesAtom, liveMap({ "nvapi:1": "NVIDIA GeForce RTX 4090" }));
-    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [40] }));
+    const name = "NVIDIA GeForce RTX 4060";
+    const inventory = gpuFixture("272514048", name);
+    state.gpus = [{ ...inventory, memorySizeDedicated: capacity }];
+    store.set(gpuNamesAtom, liveMap({ "nvapi:272514048": name }));
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:272514048": [40] }));
     store.set(
       gpuDedicatedMemoryKbMapAtom,
-      liveMap({ "nvapi:1": 4 * 1024 * 1024 }),
+      liveMap({ "nvapi:272514048": 4 * 1024 * 1024 }),
     );
 
     render(
@@ -652,7 +657,7 @@ describe("Performance", () => {
     );
 
     expect(screen.getByTestId("performance-metric-gpu")).toHaveTextContent(
-      "VRAM 4.0/8 GB",
+      label,
     );
   });
 

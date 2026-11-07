@@ -248,13 +248,14 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         inventoryMatches.length === 1
           ? inventoryMatches[0].memorySizeDedicated
           : undefined;
-      const usedGb = (gpuDedicatedMemoryKb / 1024 / 1024).toFixed(1);
+      const kibPerUnit = totalLabel?.endsWith(" MB") ? 1024 : 1024 * 1024;
+      const used = (gpuDedicatedMemoryKb / kibPerUnit).toFixed(1);
       substats.push({
         key: "vram",
         text:
           totalLabel != null && totalLabel !== "N/A"
-            ? `VRAM ${usedGb}/${totalLabel}`
-            : `VRAM ${usedGb} GB`,
+            ? `VRAM ${used}/${totalLabel}`
+            : `VRAM ${used} GB`,
       });
     }
 
