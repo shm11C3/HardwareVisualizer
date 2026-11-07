@@ -7,8 +7,6 @@
 pub use hardviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
 
 mod adapters;
-// The runtime that uses these pieces lands in the stacked follow-up PRs.
-#[cfg_attr(not(test), allow(dead_code))]
 mod analytics;
 // `pub` so `src-tauri/tests/*.rs` integration test binaries - linking
 // against this crate's `rlib` target (see `Cargo.toml`'s `crate-type`) -
@@ -380,6 +378,7 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::dismiss_nsis_migration_notice,
       settings::commands::set_elevated_startup_mode,
       settings::commands::set_product_analytics_consent,
+      commands::analytics::record_product_event,
       settings::commands::read_license_file,
       settings::commands::read_third_party_notices_file,
       settings::commands::open_license_file_path,
@@ -508,6 +507,61 @@ static HANDOFF_NOTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 /// the elevated relaunch child takes that lock and opens the database only
 /// after the parent that launched it has released both. A child that cannot
 /// confirm the parent's exit terminates here instead of starting.
+/// Manages the Product Analytics service (ADR 0028) once settings are
+/// loaded and registers its flush loop with the other workers, so
+/// `terminate_all` aborts it, and any in-flight upload with it.
+fn setup_product_analytics(
+  app: &tauri::App,
+  bus: &hardviz_core::event_bus::EventBus,
+  runtime: &tokio::runtime::Handle,
+) {
+  let latest_providers = Arc::new(Mutex::new(None));
+  let transport = analytics::build_transport();
+  let service = Arc::new(analytics::AnalyticsService::new(analytics::Ports {
+    store: Arc::new(analytics::AppConsentStore {
+      app: app.handle().clone(),
+    }),
+    flag_sources: Arc::new(analytics::AppFlagSources {
+      app: app.handle().clone(),
+      latest_providers: Arc::clone(&latest_providers),
+    }),
+    // Without a client nothing can be sent: the service still answers the
+    // commands, but no flush loop starts below.
+    transport: transport
+      .clone()
+      .unwrap_or_else(|_| Arc::new(analytics::LoggingTransport)),
+    clock: Arc::new(analytics::SystemClock),
+  }));
+  app.manage(Arc::clone(&service));
+
+  if let Err(e) = transport {
+    log_error!(
+      "Product analytics uploads are unavailable this session",
+      "lib::setup_product_analytics",
+      Some(e)
+    );
+    return;
+  }
+
+  // Provider outcomes only feed Windows flags, so other platforms do not
+  // receive every snapshot just to ignore it.
+  let snapshots = (analytics::OS_FAMILY_HAS_OPTIONAL_PROVIDERS).then(|| bus.subscribe());
+  let workers = app.state::<workers::WorkersState>();
+  let mut slot = workers.analytics_flush.lock().unwrap();
+  if workers
+    .shutting_down
+    .load(std::sync::atomic::Ordering::SeqCst)
+  {
+    return;
+  }
+  slot.replace(analytics::spawn_flush_loop(
+    runtime,
+    service,
+    snapshots,
+    latest_providers,
+  ));
+}
+
 pub fn run_cli_mode_if_requested() -> Option<i32> {
   let args = match cli::parse_cli_args(cli::process_args()) {
     Ok(args) => args,
@@ -784,6 +838,8 @@ pub fn run() {
           );
         }
       }
+
+      setup_product_analytics(app, &bus, &runtime_handle);
 
       // Record the startup authority decision on the App's single lifecycle
       // owner before anything else reads it — including the `is_db_ok`

@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Manager};
 use tauri_plugin_store::StoreExt;
 
-const STORE_FILENAME: &str = "store.json";
+pub(crate) const STORE_FILENAME: &str = "store.json";
 const KEY_WINDOW_DECORATED: &str = "window_decorated";
 
 /// Apply saved decoration state on app startup

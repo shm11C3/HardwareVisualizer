@@ -66,6 +66,10 @@ impl PerformanceView {
   /// `normalizePerformanceView` resolves it: the retired `detailed` and
   /// `custom` presets are Panels, and anything absent or unknown falls back
   /// to the default, Panels.
+  ///
+  /// `normalizePerformanceView` in
+  /// `src/features/hardware/performance/types/performanceLayout.ts` owns
+  /// this mapping; the two must change together.
   pub(crate) fn from_stored(value: Option<&serde_json::Value>) -> Self {
     match value.and_then(serde_json::Value::as_str) {
       Some("compact") => Self::Compact,
@@ -78,7 +82,9 @@ impl PerformanceView {
 /// Every source a flag set needs. `None` means not determined yet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FlagSources {
-  pub(crate) preferences: PreferenceFacts,
+  /// `None` when a preference source, such as the UI store, could not be
+  /// read. A read failure never stands in for a default value.
+  pub(crate) preferences: Option<PreferenceFacts>,
   pub(crate) cpu_vendor: Option<CpuVendor>,
   /// The vendor of each enumerated GPU; empty when none was enumerated.
   pub(crate) gpu_vendors: Option<Vec<GpuVendor>>,
@@ -95,6 +101,7 @@ pub(crate) fn sample(
   sources: &FlagSources,
   os_family: OsFamily,
 ) -> Option<Vec<StateFlag>> {
+  let preferences = sources.preferences.as_ref()?;
   let cpu_vendor = sources.cpu_vendor?;
   let gpu_vendors = sources.gpu_vendors.as_ref()?;
   let providers = match os_family {
@@ -102,17 +109,14 @@ pub(crate) fn sample(
     OsFamily::Macos | OsFamily::Linux => Vec::new(),
   };
 
-  let mut flags: Vec<StateFlag> = sources
-    .preferences
+  let mut flags: Vec<StateFlag> = preferences
     .features_on
     .iter()
     .copied()
     .map(StateFlag::FeatureOn)
     .collect();
-  flags.push(StateFlag::Navigation(sources.preferences.navigation));
-  flags.push(StateFlag::PerformanceView(
-    sources.preferences.performance_view,
-  ));
+  flags.push(StateFlag::Navigation(preferences.navigation));
+  flags.push(StateFlag::PerformanceView(preferences.performance_view));
   flags.push(StateFlag::CpuVendor(cpu_vendor));
   flags.extend(gpu_vendors.iter().copied().map(StateFlag::GpuVendor));
   flags.extend(providers.into_iter().map(StateFlag::ProviderAvailable));
@@ -181,7 +185,7 @@ mod tests {
     motherboard: Option<ProviderAttemptOutcome>,
   ) -> FlagSources {
     FlagSources {
-      preferences: preferences(),
+      preferences: Some(preferences()),
       cpu_vendor: Some(CpuVendor::Amd),
       gpu_vendors: Some(vec![GpuVendor::Nvidia, GpuVendor::Amd]),
       providers: Some(OptionalSensorProviderOutcomes {
@@ -293,6 +297,15 @@ mod tests {
         );
         assert_eq!(exclusive_group_counts(&flags), [1, 1, 1]);
       }
+    }
+  }
+
+  #[test]
+  fn an_unreadable_preference_source_leaves_the_set_absent() {
+    let mut unreadable = settled(Some(Answered), Some(Answered));
+    unreadable.preferences = None;
+    for os_family in [OsFamily::Windows, OsFamily::Macos, OsFamily::Linux] {
+      assert_eq!(sample(&unreadable, os_family), None);
     }
   }
 

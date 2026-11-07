@@ -750,10 +750,6 @@ impl models::settings::Settings {
   /// Records the UTC day whose State Flags and the UTC month whose month
   /// token a sealed batch carries. `None` keeps the persisted value; a month
   /// is given as any day in it.
-  #[expect(
-    dead_code,
-    reason = "the analytics runtime calls it from a stacked follow-up PR"
-  )]
   pub fn set_product_analytics_reported_periods(
     &mut self,
     day: Option<chrono::NaiveDate>,
@@ -767,13 +763,6 @@ impl models::settings::Settings {
   /// Like [`Self::set_product_analytics_consent_with`], the in-memory
   /// section changes only after the write succeeds. Reported periods exist
   /// only while consent is granted, so a write without a grant is refused.
-  #[cfg_attr(
-    not(test),
-    expect(
-      dead_code,
-      reason = "the analytics runtime calls it from a stacked follow-up PR"
-    )
-  )]
   fn set_product_analytics_reported_periods_with<F>(
     &mut self,
     day: Option<chrono::NaiveDate>,

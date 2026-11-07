@@ -240,8 +240,17 @@ export const commands = {
 	// Persist "Don't show again" for the NSIS-to-MSI migration notice (#2215).
 	dismissNsisMigrationNotice: () => typedError<null, string>(__TAURI_INVOKE("dismiss_nsis_migration_notice")),
 	setElevatedStartupMode: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_elevated_startup_mode", { newValue })),
-	// Grant, renew, or decline Analytics Consent (ADR 0028).
+	/**
+	 *  Grant, renew, or decline Analytics Consent (ADR 0028). The runtime
+	 *  change and the settings write run as one transition under the
+	 *  analytics service's consent lock.
+	 */
 	setProductAnalyticsConsent: (decision: ProductAnalyticsDecision) => typedError<null, string>(__TAURI_INVOKE("set_product_analytics_consent", { decision })),
+	/**
+	 *  Counts one Product Event if Analytics Consent is effective. Otherwise it
+	 *  does nothing; it never fails and never reports whether analytics is on.
+	 */
+	recordProductEvent: (event: ProductEvent) => __TAURI_INVOKE<void>("record_product_event", { event }),
 	readLicenseFile: () => typedError<string, string>(__TAURI_INVOKE("read_license_file")),
 	readThirdPartyNoticesFile: () => typedError<string, string>(__TAURI_INVOKE("read_third_party_notices_file")),
 	openLicenseFilePath: () => typedError<null, string>(__TAURI_INVOKE("open_license_file_path")),
@@ -389,6 +398,12 @@ export type BurnInShiftOptions = {
 };
 
 export type BurnInShiftPreset = "gentle" | "balanced" | "aggressive";
+
+/**
+ *  A user-started action, counted when it starts rather than when it
+ *  succeeds.
+ */
+export type Capability = "hardwareReportExported" | "trayWidgetOpened" | "externalComponentSetupStarted" | { insightOpened: Insight };
 
 export type ClientSettings = ClientSettings_Serialize | ClientSettings_Deserialize;
 
@@ -1121,6 +1136,9 @@ export type HardwareMonitorUpdate = {
 
 export type HardwareType = "cpu" | "memory" | "gpu";
 
+// Mirrors the frontend `InsightType`; its `main` tab is `Hardware`.
+export type Insight = "hardware" | "cooling" | "gpu" | "process" | "snapshot";
+
 // Structure of settings to send to client
 export type LineGraphColorStringSettings = {
 	cpu: string,
@@ -1252,6 +1270,15 @@ export type ProductAnalyticsConsent = "undecided" | "granted" | "declined";
 
 // The choice a user makes on the consent dialog or the Settings switch.
 export type ProductAnalyticsDecision = "granted" | "declined";
+
+/**
+ *  One enumerated screen view or capability use. It carries no payload
+ *  beyond its name.
+ */
+export type ProductEvent = ({ screenView: Screen }) & { capability?: never } | ({ capability: Capability }) & { screenView?: never };
+
+// Mirrors the frontend `SelectedDisplayType`.
+export type Screen = "dashboard" | "performance" | "systemSpecifications" | "usage" | "cpuDetail" | "insights" | "settings";
 
 export type SensorSupport = "unknown" | "supported" | "unsupported";
 
