@@ -193,16 +193,19 @@ only what it shares.
 **Startup dialog.** One more entry in the `StartupDialogs` arbitration, lowest
 priority: it shows only when no Close to Tray, External Component Guidance,
 database conversion, or NSIS notice flow is pending, and only when the
-effective state is not granted-at-current-version and not declined. It also
-waits for the nonmodal corner notices outside that arbitration
-(`SensorServiceNotice` and `ElevationUnavailableNotice`) only through their
-current visibility: it does not open while either notice is visible, and it
-opens once the arbitration is free and neither is. Those notices have no
-startup phase or completion signal, and ADR 0029 rules out adding one, so
-consent reads visibility and nothing else. A notice that appears while the
-consent dialog is open stays nonmodal behind it and is still there when the
-dialog closes, so no queue is needed. If the dialog never opens in a session,
-it waits for the next start; nothing is recorded. Its two
+effective state is not granted-at-current-version and not declined. Whether
+it opens is decided once per launch, at the moment the arbitration first
+becomes free: it opens only if, at that moment, the main window is not on
+Settings and neither nonmodal corner notice outside the arbitration
+(`SensorServiceNotice`, `ElevationUnavailableNotice`) is visible. Otherwise
+it does not open in that launch and is offered again at the next start;
+nothing is recorded. So it never interrupts later in a session, including
+after a notice has sent the user to Settings, and it never opens over a
+notice the user has not answered. Those notices have no startup phase or
+completion signal, and ADR 0029 rules out adding one, so consent reads only
+their visibility at that moment. A notice that appears while the consent
+dialog is open stays nonmodal behind it and is still there when the dialog
+closes, so no queue is needed. Its two
 buttons have the same visual weight and no default emphasis. The description
 names in plain words what is sent (screen and capability counts, which
 features are switched on, CPU and GPU vendor class, whether a sensor provider
