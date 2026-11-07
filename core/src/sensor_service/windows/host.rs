@@ -82,7 +82,7 @@ unsafe extern "system" fn control(
     }
 
     SERVICE_CONTROL_POWEREVENT => {
-      super::server::INVALIDATE.store(true, Ordering::Release);
+      super::server::invalidate();
     }
 
     _ => {}

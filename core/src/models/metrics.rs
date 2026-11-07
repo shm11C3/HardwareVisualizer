@@ -14,6 +14,15 @@ pub struct GpuSample {
   pub source: String,
 }
 
+/// One physical core's live temperature. The representative logical processor
+/// and its group identify this slot only within the current topology.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CpuCoreTemperature {
+  pub processor_group: u16,
+  pub logical_processor: u8,
+  pub temperature_celsius: Option<f32>,
+}
+
 /// Live package-level Intel thermal and power-limitation status.
 ///
 /// This value is present only when the package status register was read

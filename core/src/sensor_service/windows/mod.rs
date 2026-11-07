@@ -1,11 +1,15 @@
 mod client;
+mod core_temperatures;
 mod host;
 mod providers;
 pub(crate) mod security;
 mod server;
 
 pub(crate) use client::collect;
-pub use client::{SampleError, diagnostics, motherboard, power, status, temperature};
+pub use client::{
+  SampleError, cpu_core_temperatures, diagnostics, motherboard, power, status,
+  temperature,
+};
 pub use host::run;
 
 const MAX_CLIENTS: usize = 16;

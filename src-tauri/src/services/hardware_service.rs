@@ -1,8 +1,11 @@
-use crate::models::hardware::SysInfo;
+use crate::enums::settings::TemperatureUnit;
+use crate::models::hardware::{CpuCoreTemperatureReading, CpuCoreTemperatures, SysInfo};
 use crate::services::motherboard_service;
 use crate::{log_error, log_warn};
 use hardviz_core::collector::HistoryStore;
+use hardviz_core::enums::error::PlatformError;
 use hardviz_core::infrastructure::providers::sysinfo_provider;
+use hardviz_core::models::CpuCoreTemperature;
 use hardviz_core::platform::factory::PlatformFactory;
 
 ///
@@ -103,6 +106,38 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
     storage,
     motherboard,
   })
+}
+
+pub async fn fetch_cpu_core_temperatures(
+  temperature_unit: TemperatureUnit,
+) -> Result<CpuCoreTemperatures, PlatformError> {
+  let platform = PlatformFactory::shared()?;
+  let readings = platform.cpu_core_temperatures().await;
+  Ok(format_cpu_core_temperatures(readings, temperature_unit))
+}
+
+fn format_cpu_core_temperatures(
+  readings: Vec<CpuCoreTemperature>,
+  temperature_unit: TemperatureUnit,
+) -> CpuCoreTemperatures {
+  let readings = readings
+    .into_iter()
+    .map(|reading| CpuCoreTemperatureReading {
+      processor_group: reading.processor_group,
+      logical_processor: reading.logical_processor,
+      temperature: reading
+        .temperature_celsius
+        .map(|celsius| match temperature_unit {
+          TemperatureUnit::Celsius => celsius,
+          TemperatureUnit::Fahrenheit => celsius * 9.0 / 5.0 + 32.0,
+        }),
+    })
+    .collect();
+
+  CpuCoreTemperatures {
+    temperature_unit,
+    readings,
+  }
 }
 
 pub async fn get_storage_health_latest_records() -> Result<
@@ -209,6 +244,35 @@ mod tests {
   use super::*;
   use hardviz_core::collector::LiveStorageHealthCollector;
   use std::sync::Arc;
+
+  #[test]
+  fn cpu_core_temperature_wire_values_preserve_ids_and_missing_readings() {
+    let readings = vec![
+      CpuCoreTemperature {
+        processor_group: 0,
+        logical_processor: 0,
+        temperature_celsius: Some(40.0),
+      },
+      CpuCoreTemperature {
+        processor_group: 0,
+        logical_processor: 2,
+        temperature_celsius: None,
+      },
+    ];
+
+    let formatted = format_cpu_core_temperatures(readings, TemperatureUnit::Fahrenheit);
+
+    assert_eq!(
+      serde_json::to_value(formatted).unwrap(),
+      serde_json::json!({
+        "temperatureUnit": "F",
+        "readings": [
+          {"processorGroup": 0, "logicalProcessor": 0, "temperature": 104.0},
+          {"processorGroup": 0, "logicalProcessor": 2, "temperature": null}
+        ]
+      }),
+    );
+  }
 
   #[tokio::test]
   async fn live_storage_health_returns_empty_when_collector_is_absent() {

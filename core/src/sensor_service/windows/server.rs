@@ -7,10 +7,17 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::windows::named_pipe::NamedPipeServer;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-use super::{MAX_CLIENTS, providers::Providers, security};
+use super::{
+  MAX_CLIENTS, core_temperatures::CoreTemperatures, providers::Providers, security,
+};
 use crate::sensor_service::protocol::*;
 
-pub(super) static INVALIDATE: AtomicBool = AtomicBool::new(false);
+static INVALIDATE: AtomicBool = AtomicBool::new(false);
+
+pub(super) fn invalidate() {
+  INVALIDATE.store(true, Ordering::Release);
+  super::core_temperatures::invalidate();
+}
 
 pub(super) async fn read_frame<T: DeserializeOwned>(
   stream: &mut (impl AsyncRead + Unpin),
@@ -53,6 +60,7 @@ pub(super) async fn serve(stop: &'static AtomicBool) -> Result<(), String> {
 
   let generation = u64::from_le_bytes(random).max(1);
   let providers = Arc::new(Mutex::new(Providers::new()));
+  let core_temperatures = Arc::new(CoreTemperatures::default());
   let clients = Arc::new(Semaphore::new(MAX_CLIENTS));
   let mut pipe = security::server_pipe(true)?;
   let mut housekeeping = tokio::time::interval(Duration::from_secs(1));
@@ -72,10 +80,11 @@ pub(super) async fn serve(stop: &'static AtomicBool) -> Result<(), String> {
         let connected = std::mem::replace(&mut pipe, next);
 
         let providers = Arc::clone(&providers);
+        let core_temperatures = Arc::clone(&core_temperatures);
         tokio::spawn(async move {
           let _permit = permit;
 
-          if let Err(error) = connection(connected, generation, providers).await {
+          if let Err(error) = connection(connected, generation, providers, core_temperatures).await {
             crate::log_debug!("sensor_service_client_disconnected", "sensor_service::serve", Some(error));
           }
         });
@@ -109,6 +118,7 @@ async fn connection(
   mut pipe: NamedPipeServer,
   generation: u64,
   providers: Arc<Mutex<Providers>>,
+  core_temperatures: Arc<CoreTemperatures>,
 ) -> Result<(), String> {
   let hello: Request =
     tokio::time::timeout(Duration::from_secs(3), read_frame(&mut pipe))
@@ -138,26 +148,31 @@ async fn connection(
         .map_err(|_| "Sensor pipe read timed out")??;
     request.validate()?;
 
-    if matches!(request.operation, Operation::Hello) {
-      return Err("Duplicate Hello".into());
-    }
-
-    let owner = Arc::clone(&providers);
-    let payload = tokio::task::spawn_blocking(move || {
-      let mut providers = owner.lock().map_err(|_| "Sensor sampler unavailable")?;
-
-      if INVALIDATE.swap(false, Ordering::AcqRel) {
-        providers.reset();
+    let payload = match request.operation {
+      Operation::Hello => return Err("Duplicate Hello".into()),
+      Operation::CpuCoreTemperatures => {
+        Payload::CpuCoreTemperatures(core_temperatures.request().await)
       }
+      Operation::Sample | Operation::Diagnostics => {
+        let owner = Arc::clone(&providers);
+        let diagnostics = matches!(request.operation, Operation::Diagnostics);
+        tokio::task::spawn_blocking(move || {
+          let mut providers = owner.lock().map_err(|_| "Sensor sampler unavailable")?;
 
-      Ok::<_, String>(match request.operation {
-        Operation::Sample => Payload::Snapshot(Box::new(providers.sample())),
-        Operation::Diagnostics => Payload::Diagnostics(providers.diagnostics()),
-        Operation::Hello => unreachable!(),
-      })
-    })
-    .await
-    .map_err(|e| e.to_string())??;
+          if INVALIDATE.swap(false, Ordering::AcqRel) {
+            providers.reset();
+          }
+
+          Ok::<_, String>(if diagnostics {
+            Payload::Diagnostics(providers.diagnostics())
+          } else {
+            Payload::Snapshot(Box::new(providers.sample()))
+          })
+        })
+        .await
+        .map_err(|e| e.to_string())??
+      }
+    };
 
     let reply = Reply {
       version: VERSION,

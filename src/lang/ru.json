@@ -337,6 +337,8 @@
       "now": "Сейчас",
       "secondsAgo": "{{seconds}} с назад",
       "perCoreUnavailable": "Загрузка по ядрам недоступна в этой системе.",
+      "coreTemperatures": "Температура ядер ЦП",
+      "coreTemperatureProcessor": "Ядро на P{{processor}}",
       "motherboardSensorsUnavailable": "Датчики материнской платы не обнаружены в этой системе.",
       "power": {
         "cpu": "ЦП",

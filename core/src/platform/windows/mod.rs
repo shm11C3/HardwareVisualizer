@@ -102,6 +102,10 @@ impl SensorPlatform for WindowsPlatform {
     crate::sensor_service::windows::status().await
   }
 
+  async fn cpu_core_temperatures(&self) -> Vec<crate::models::CpuCoreTemperature> {
+    crate::sensor_service::windows::cpu_core_temperatures().await
+  }
+
   fn sample_temperatures(&self) -> crate::models::TemperatureSample {
     sensors::sample_temperatures()
   }

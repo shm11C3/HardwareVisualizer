@@ -11,7 +11,8 @@ use super::{
   uptime_ms,
 };
 use crate::models::{
-  MotherboardSensorCollection, TemperatureSample, hardware::SuperIoChipIdDiagnostics,
+  CpuCoreTemperature, MotherboardSensorCollection, TemperatureSample,
+  hardware::SuperIoChipIdDiagnostics,
 };
 use crate::sensor_service::protocol::*;
 
@@ -70,6 +71,24 @@ pub fn power() -> Result<CpuPower, SampleError> {
 
 pub fn motherboard() -> Result<MotherboardSensorCollection, SampleError> {
   sample(|v| &v.motherboard)
+}
+
+pub async fn cpu_core_temperatures() -> Vec<CpuCoreTemperature> {
+  use crate::infrastructure::providers::windows::cpu_core_temperature::supported_model;
+
+  if supported_model().is_none() {
+    return Vec::new();
+  }
+
+  let Ok(mut connection) = handshake().await else {
+    return Vec::new();
+  };
+  match connection.request(Operation::CpuCoreTemperatures).await {
+    Ok(Payload::CpuCoreTemperatures(Some(reading))) if reading.is_fresh(uptime_ms()) => {
+      reading.value
+    }
+    _ => Vec::new(),
+  }
 }
 
 pub async fn status() -> bool {

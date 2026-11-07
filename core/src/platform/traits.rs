@@ -100,6 +100,11 @@ pub trait SensorPlatform: Send + Sync {
     false
   }
 
+  /// Request current physical-core readings in raw degrees Celsius.
+  async fn cpu_core_temperatures(&self) -> Vec<models::CpuCoreTemperature> {
+    Vec::new()
+  }
+
   /// Sample CPU and named temperature sensors, always in raw degrees Celsius.
   fn sample_temperatures(&self) -> models::TemperatureSample;
 

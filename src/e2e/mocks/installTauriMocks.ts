@@ -34,6 +34,7 @@ import { settingsFixture } from "@/e2e/fixtures/settings";
 import { storeFixture } from "@/e2e/fixtures/store";
 import type {
   ArchiveBucketTimestamp,
+  CpuCoreTemperatures,
   DatabaseConversionState,
   ExternalComponentGuidanceCandidate,
   HardwareMonitorUpdate,
@@ -107,6 +108,8 @@ type FixtureOverrides = {
    * migration notice so the notice can be captured. */
   nsisMigrationNotice: boolean;
   classicNavigation: boolean;
+  /** A synthetic mixed-availability result for the core temperature panel. */
+  cpuCoreTemperatures: boolean;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
   storedDisplayTarget: string | null;
   /** `?legacyPerformanceLayout=1` seeds the pre-#2293 default Performance
@@ -289,6 +292,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
     classicNavigation:
       new URLSearchParams(window.location.search).get("navigationLayout") ===
       "classic",
+    cpuCoreTemperatures:
+      new URLSearchParams(window.location.search).get("cpuCoreTemperatures") ===
+      "1",
     storedDisplayTarget: new URLSearchParams(window.location.search).get(
       "storedDisplay",
     ),
@@ -543,6 +549,21 @@ const buildInvokeHandlers = (
           storage: buildStorageInfoFixture(fixtureOverrides.storageDeviceCount),
         },
   get_process_list: () => processListFixture,
+  get_cpu_core_temperatures: (): CpuCoreTemperatures => ({
+    temperatureUnit: "C",
+    readings: fixtureOverrides.cpuCoreTemperatures
+      ? [
+          { processorGroup: 0, logicalProcessor: 0, temperature: 43 },
+          { processorGroup: 0, logicalProcessor: 1, temperature: 42 },
+          { processorGroup: 0, logicalProcessor: 2, temperature: null },
+          { processorGroup: 0, logicalProcessor: 3, temperature: 47 },
+          { processorGroup: 0, logicalProcessor: 4, temperature: 46 },
+          { processorGroup: 0, logicalProcessor: 5, temperature: 45 },
+          { processorGroup: 0, logicalProcessor: 6, temperature: 41 },
+          { processorGroup: 0, logicalProcessor: 7, temperature: 44 },
+        ]
+      : [],
+  }),
   get_hardware_compatibility_report: () =>
     [
       "# Hardware Compatibility Report",

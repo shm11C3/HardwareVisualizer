@@ -347,6 +347,8 @@
       "now": "現在",
       "secondsAgo": "{{seconds}}秒前",
       "perCoreUnavailable": "このシステムではコア別使用率を利用できません。",
+      "coreTemperatures": "CPU コア別温度",
+      "coreTemperatureProcessor": "P{{processor}} のコア",
       "motherboardSensorsUnavailable": "このシステムではマザーボードセンサーを検出できません。",
       "power": {
         "cpu": "CPU",
