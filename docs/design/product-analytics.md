@@ -195,11 +195,14 @@ priority: it shows only when no Close to Tray, External Component Guidance,
 database conversion, or NSIS notice flow is pending, and only when the
 effective state is not granted-at-current-version and not declined. It also
 waits for the nonmodal corner notices outside that arbitration
-(`SensorServiceNotice` and `ElevationUnavailableNotice`): it opens only after
-the sensor notice's bounded startup evaluation has ended and while neither
-notice is visible, so a modal consent never covers a sensor notice the user
-has not answered. If that does not happen in a session, the dialog waits for
-the next start; nothing is recorded. Its two
+(`SensorServiceNotice` and `ElevationUnavailableNotice`) only through their
+current visibility: it does not open while either notice is visible, and it
+opens once the arbitration is free and neither is. Those notices have no
+startup phase or completion signal, and ADR 0029 rules out adding one, so
+consent reads visibility and nothing else. A notice that appears while the
+consent dialog is open stays nonmodal behind it and is still there when the
+dialog closes, so no queue is needed. If the dialog never opens in a session,
+it waits for the next start; nothing is recorded. Its two
 buttons have the same visual weight and no default emphasis. The description
 names in plain words what is sent (screen and capability counts, which
 features are switched on, CPU and GPU vendor class, whether a sensor provider
