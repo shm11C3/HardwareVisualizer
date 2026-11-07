@@ -34,7 +34,6 @@ describe("SensorServiceSection", () => {
       status: "ok",
       data: {
         connected: true,
-        hasReadings: true,
         canConfigure: true,
         detail: null,
       },
@@ -64,7 +63,6 @@ describe("SensorServiceSection", () => {
       status: "ok",
       data: {
         connected: false,
-        hasReadings: false,
         canConfigure: false,
         detail: "missing",
       },

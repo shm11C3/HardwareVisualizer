@@ -83,15 +83,19 @@ impl MotherboardPlatform for WindowsPlatform {
   }
 }
 
+#[async_trait]
 impl SuperIoPlatform for WindowsPlatform {
-  fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
-    crate::sensor_service::windows::diagnostics()
+  async fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+    crate::sensor_service::windows::diagnostics().await
   }
 }
 
+#[async_trait]
 impl SensorPlatform for WindowsPlatform {
-  fn sensor_service_status(&self) -> crate::sensor_service::protocol::ServiceStatus {
-    crate::sensor_service::windows::status()
+  async fn sensor_service_status(
+    &self,
+  ) -> crate::sensor_service::protocol::ServiceStatus {
+    crate::sensor_service::windows::status().await
   }
 
   fn configure_sensor_service(&self) -> Result<(), String> {

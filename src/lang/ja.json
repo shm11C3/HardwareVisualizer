@@ -970,7 +970,6 @@
     "connected": "サービスに接続済み",
     "unavailable": "サービスを利用できません。他の監視は継続します。",
     "loading": "センサーサービスを確認中…",
-    "noReadings": "サービスは動作していますが、PawnIOの値を取得できていません。PawnIOと対応するセンサーモジュールを確認してください。",
     "requiresMsi": "サービスの導入・修復には、Program FilesにインストールしたHardwareVisualizerのMSI版を使用してください。導入済みの互換サービスには接続できます。",
     "configure": "サービスを修復",
     "installing": "Windows Installerを実行中…",

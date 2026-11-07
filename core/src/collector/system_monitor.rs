@@ -42,6 +42,13 @@ impl SystemMonitorController {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
+      #[cfg(target_os = "windows")]
+      let (sensor_ticks, sensor_task) = {
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+        let task = tokio::spawn(crate::sensor_service::windows::collect(receiver));
+        (sender, task)
+      };
+
       let mut ticker = interval(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL));
       ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
@@ -58,6 +65,9 @@ impl SystemMonitorController {
         );
       }
 
+      #[cfg(target_os = "windows")]
+      let _ = sensor_ticks.try_send(());
+
       // Prime the snapshot once so the first emit lands without waiting a tick.
       if let Some(snapshot) = sampling::collect_snapshot(&store, &platform).await {
         bus.publish(snapshot);
@@ -71,6 +81,9 @@ impl SystemMonitorController {
             if platform.is_err() {
               platform = PlatformFactory::shared();
             }
+            #[cfg(target_os = "windows")]
+            let _ = sensor_ticks.try_send(());
+
             if let Some(snapshot) = sampling::collect_snapshot(&store, &platform).await {
               bus.publish(snapshot);
             }
@@ -95,6 +108,11 @@ impl SystemMonitorController {
             }
           }
         }
+      }
+      #[cfg(target_os = "windows")]
+      {
+        drop(sensor_ticks);
+        let _ = sensor_task.await;
       }
     });
 

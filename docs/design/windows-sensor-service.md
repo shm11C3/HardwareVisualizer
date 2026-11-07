@@ -66,6 +66,13 @@ and shared-mutex contracts; verify restrictions against actual driver access.
 The service executable, DLL dependencies and module inputs must reside in
 administrator-controlled locations. Use fixed installation roots, validated
 final paths and safe DLL search rules; reject user-writable/reparse redirection.
+The embedded MSI validator checks the directory and the permissions a newly
+installed file would inherit before the installer writes or registers the
+service. At runtime, existing files and their effective ancestor ACLs are
+checked and opened against replacement. The release catalog limits which
+external module bytes this service passes to PawnIO, including systems where
+another application has installed an unrestricted driver.
+
 Do not reuse broad recursive discovery as proof of trust. Do not load plugins,
 user-supplied DLL paths, environment/PATH overrides, unsigned test modules or
 per-user configuration in this privileged process. Keep the existing pinned
@@ -105,8 +112,8 @@ or stopped service gives unavailable data. Do not require opening the SYSTEM
 process or token: those rights can be denied to the ordinary users this service
 is intended to support. SCM query rights suffice; service reconfiguration remains
 administrative.
-Clients request identification-only impersonation quality; the service must
-not perform sensor access while impersonating a normal client.
+Clients request identification-only impersonation quality. The service relies
+on the pipe ACL for client authorization and does not impersonate callers.
 
 ## IPC and Sampling
 
@@ -118,7 +125,7 @@ Exchange service/build version and supported capabilities before subscribing.
 | Operation | Allowed effect |
 | --- | --- |
 | Hello/capabilities | Authenticate compatibility and discover supported sensor families |
-| Sample request / connection expiry | Renew demand for enumerated sensor families and return a shared, rate-limited acquisition |
+| Sample request | Return shared readings for the requested sensor families, acquiring only when due |
 | Snapshot delivery | Send latest typed readings, per-family outcome and acquisition metadata |
 | Read-only diagnostics | Existing fixed sensor diagnostic operations, serialized and rate-limited; no raw access parameters |
 
@@ -126,19 +133,22 @@ Keep exact frame layouts, error enums and limit constants with the transport
 code/tests when implemented. This document fixes their safety/ownership
 constraints rather than maintaining a second byte-level specification.
 
-There is one machine-wide sampling owner and at most one in-flight acquisition
-per provider. Merge valid client demand; more clients must not multiply
-hardware transactions. Preserve current sampling policies and provider minimum
-intervals, including ITE's existing 1.5-second floor. The service caps CPU acquisition
-at 1 Hz and motherboard acquisition at one per 1.6 seconds; the latter leaves
-headroom for the coarse Windows uptime clock so an ITE cached value cannot be
-restamped as a new acquisition. Honor explicit background
-archive/tray demand even with a hidden window. Leases expire after a bounded
-interval without renewal, so crashed/disconnected apps cannot leave permanent
-polling. No active lease means no sensor reads; bounded idle cleanup releases
-provider handles. A later subscription reinitializes them safely.
+The existing monitor cycle submits one batched request using the app's
+runtime. At most one tick can wait behind an in-flight request, and the
+collector can continue publishing other metrics while IPC is slow. Settings
+checks the authenticated handshake without sampling. Explicit diagnostics use
+the same transport on the app runtime.
 
-Use bounded client counts, per-user request budgets, queues and deadlines.
+There is one machine-wide sampling owner. Preserve current provider minimum
+intervals, including ITE's existing 1.5-second floor. The service caps CPU
+acquisition at 1 Hz and motherboard acquisition at one per 1.6 seconds; the
+latter leaves headroom for the coarse Windows uptime clock so an ITE cached
+value cannot be restamped as a new acquisition. Existing monitor cycles also
+cover background archive/tray demand. Without a request, the service does no
+sampling. Bounded idle cleanup releases provider handles independently of
+connection read deadlines and explicit diagnostic requests.
+
+Use a shared connection limit, bounded frames, and communication deadlines.
 Slow clients receive the latest result or disconnect; they never block the
 shared sampler. Connection and handshake run asynchronously with bounded
 timeouts; retry with capped backoff. SCM may restart a crashed service under a
@@ -166,22 +176,21 @@ Service generation and sample sequence identify acquisitions, not hardware.
 Any later identity/selection change must verify the actual producer contracts
 separately rather than treating transport sequence numbers as sensor IDs.
 
-Snapshots include a service-generation identifier, per-provider sequence and
-actual acquisition age/time on a shared Windows monotonic timebase. Reused
-provider cache values retain their original acquisition time. The app validates
-age, sequence and generation, applies a bounded freshness deadline tied to the
-effective cadence, and stops publishing values as current when it expires.
-Reject impossible future timestamps and out-of-order/replayed acquisitions.
-Do not stamp a cached value as newly acquired when delivering or reconnecting.
+Snapshots include service generation, per-provider sequence and actual
+acquisition time on a shared Windows monotonic clock. Cache hits retain their
+original acquisition time. The client drops its cached snapshot when
+communication fails and authenticates again before publishing another one.
+A response on the new connection may contain a still-current shared reading.
+Only current readings are returned to the collector. Future timestamps and
+readings past the freshness deadline are unavailable independently of other
+families.
 
-On reconnect, discard the client's transport cache and authenticate again.
 Service restart, sleep/resume or a sampling discontinuity invalidates the
 service-owned RAPL baseline; its first new baseline can legitimately have no
-watts. Reconnecting one client must not reset a continuously running sampler
-or the power baseline used by other clients. Preserve existing history without
-backfilling a disconnected period or inserting a replayed acquisition as a new
-observation. The app remains the only owner that decides how valid current
-samples enter history.
+watts. Reconnecting one client leaves the sampling baseline used by other
+clients intact. The app owns history at the existing monitor cadence; a
+reconnection never backfills a disconnected period or refreshes the
+acquisition time of cached readings.
 
 ## Setup, Maintenance and Migration
 
@@ -256,11 +265,11 @@ activation compatibility while those binaries remain supported.
 | Server identity, authorization or protocol failure | Reject the connection/data, distinguish the failure, never execute supplied paths or silently elevate |
 | Driver/DLL/module missing or denied | Report the component-specific reason; attempt existing useful fallback before guidance |
 | Unsupported chip or partial provider failure | Preserve existing support/availability distinctions and other valid channels; no misleading installation guidance |
-| Disconnected, stale or resumed connection | Expire current values, retain history, reconnect with new baselines and no replay |
+| Disconnected, stale or resumed connection | Expire current values, retain history, reauthenticate and keep the original acquisition time of any still-current cached result |
 | Setup cancelled or rolled back | Preserve prior settings/component ownership and keep normal monitoring usable |
 
 Use focused tests at the new boundaries: authorization and server spoofing;
-framing/version/size limits; request/lease/client bounds; sampling deduplication;
+framing/version/size limits; request/client bounds; sampling deduplication;
 provider safety intervals; partial capability and identity; freshness/restart
 and power baselines; setup consent and preference preservation. Transport work
 must not bypass the clean-room implementation gate for sensor-file changes.

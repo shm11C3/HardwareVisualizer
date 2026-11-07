@@ -75,23 +75,26 @@ pub trait MotherboardPlatform: Send + Sync {
 }
 
 /// Trait that defines platform-specific Super I/O chip-id diagnostics.
+#[async_trait]
 pub trait SuperIoPlatform: Send + Sync {
   /// Read raw Super I/O chip-id diagnostics.
   ///
-  /// This is a blocking, read-only probe. Platforms without a Super I/O
+  /// This is a read-only probe. Platforms without a Super I/O
   /// LpcIO path return a result with `platform_supported = false` rather
   /// than erroring, so the caller can branch on support uniformly.
-  fn get_super_io_chip_id_diagnostics(
+  async fn get_super_io_chip_id_diagnostics(
     &self,
   ) -> models::hardware::SuperIoChipIdDiagnostics;
 }
 
 /// Trait that defines live CPU / motherboard sensor sampling operations.
+#[async_trait]
 pub trait SensorPlatform: Send + Sync {
-  fn sensor_service_status(&self) -> crate::sensor_service::protocol::ServiceStatus {
+  async fn sensor_service_status(
+    &self,
+  ) -> crate::sensor_service::protocol::ServiceStatus {
     crate::sensor_service::protocol::ServiceStatus {
       connected: false,
-      has_readings: false,
       can_configure: false,
       detail: Some("The sensor service is available only on Windows".into()),
     }

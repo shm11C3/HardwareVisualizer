@@ -5,9 +5,12 @@ mod providers;
 pub(crate) mod security;
 mod server;
 
+pub(crate) use client::collect;
 pub use client::{SampleError, diagnostics, motherboard, power, temperature};
 pub use host::run;
 pub use maintenance::{configure, status};
+
+const MAX_CLIENTS: usize = 16;
 
 pub const SERVICE_NAME: &str = "HardwareVisualizerSensors";
 pub const PIPE_NAME: &str = r"\\.\pipe\HardwareVisualizer.Sensors.v1";

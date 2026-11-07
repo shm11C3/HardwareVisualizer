@@ -76,12 +76,14 @@ impl MotherboardPlatform for LinuxPlatform {
   }
 }
 
+#[async_trait]
 impl SuperIoPlatform for LinuxPlatform {
-  fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+  async fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
     SuperIoChipIdDiagnostics::unsupported_platform()
   }
 }
 
+#[async_trait]
 impl SensorPlatform for LinuxPlatform {
   fn sample_temperatures(&self) -> crate::models::TemperatureSample {
     crate::models::TemperatureSample::unsupported(

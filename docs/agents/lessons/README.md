@@ -96,7 +96,7 @@ shared enforcement surface.
 
 ## Records
 
-- [Guide optional service migration](guide-optional-service-migration.md)
+- [Guide Windows sensor service migration](guide-windows-sensor-service-migration.md)
 - [Validate future privileged file ACLs](validate-future-privileged-file-acls.md)
 
 - [Evidence before conclusions](evidence-before-conclusions.md)

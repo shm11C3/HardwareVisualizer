@@ -90,11 +90,6 @@ export const SensorServiceSection = () => {
           )}
         </p>
       )}
-      {status?.connected && !status.hasReadings && (
-        <p className="text-sm text-muted-foreground">
-          {t("sensorService.noReadings")}
-        </p>
-      )}
       {status && !status.canConfigure && (
         <p className="text-sm text-muted-foreground">
           {t("sensorService.requiresMsi")}

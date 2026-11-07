@@ -6,7 +6,6 @@ use specta::Type;
 #[serde(rename_all = "camelCase")]
 pub struct SensorServiceStatus {
   connected: bool,
-  has_readings: bool,
   can_configure: bool,
   detail: Option<String>,
 }
@@ -14,19 +13,14 @@ pub struct SensorServiceStatus {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_sensor_service_status() -> Result<SensorServiceStatus, String> {
-  tauri::async_runtime::spawn_blocking(|| {
-    let platform = PlatformFactory::shared().map_err(|e| e.to_string())?;
-    let status = platform.sensor_service_status();
+  let platform = PlatformFactory::shared().map_err(|e| e.to_string())?;
+  let status = platform.sensor_service_status().await;
 
-    Ok(SensorServiceStatus {
-      connected: status.connected,
-      has_readings: status.has_readings,
-      can_configure: status.can_configure,
-      detail: status.detail,
-    })
+  Ok(SensorServiceStatus {
+    connected: status.connected,
+    can_configure: status.can_configure,
+    detail: status.detail,
   })
-  .await
-  .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

@@ -1230,7 +1230,6 @@ export type ProcessStatRecord = {
 
 export type SensorServiceStatus = {
 	connected: boolean,
-	hasReadings: boolean,
 	canConfigure: boolean,
 	detail: string | null,
 };

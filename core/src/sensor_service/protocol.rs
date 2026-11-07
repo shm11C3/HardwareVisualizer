@@ -14,7 +14,6 @@ pub const FRESHNESS_MS: u64 = 5_000;
 #[derive(Debug, Clone)]
 pub struct ServiceStatus {
   pub connected: bool,
-  pub has_readings: bool,
   pub can_configure: bool,
   pub detail: Option<String>,
 }

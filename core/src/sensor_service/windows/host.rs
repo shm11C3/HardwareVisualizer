@@ -1,7 +1,9 @@
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 use windows::Win32::System::Services::*;
-use windows::core::{PWSTR, w};
+use windows::core::{PCWSTR, PWSTR};
+
+use super::SERVICE_NAME;
 
 static STOP: AtomicBool = AtomicBool::new(false);
 static STATUS: AtomicUsize = AtomicUsize::new(0);
@@ -16,19 +18,11 @@ pub fn run(version: &'static str) -> Result<(), String> {
   let _executable = super::security::protected_file(
     &std::env::current_exe().map_err(|e| e.to_string())?,
   )?;
-  use crate::platform::traits::ElevationAvailability;
 
-  if crate::platform::windows::process_elevation::elevation_availability()
-    != ElevationAvailability::Available
-  {
-    return Err(
-      "The sensor service must be installed in a protected Program Files location".into(),
-    );
-  }
-
+  let name: Vec<_> = SERVICE_NAME.encode_utf16().chain([0]).collect();
   let entries = [
     SERVICE_TABLE_ENTRYW {
-      lpServiceName: PWSTR(w!("HardwareVisualizerSensors").as_ptr().cast_mut()),
+      lpServiceName: PWSTR(name.as_ptr().cast_mut()),
       lpServiceProc: Some(service_main),
     },
     SERVICE_TABLE_ENTRYW::default(),
@@ -38,9 +32,9 @@ pub fn run(version: &'static str) -> Result<(), String> {
 }
 
 unsafe extern "system" fn service_main(_: u32, _: *mut PWSTR) {
-  let result = unsafe {
-    RegisterServiceCtrlHandlerExW(w!("HardwareVisualizerSensors"), Some(control), None)
-  };
+  let name: Vec<_> = SERVICE_NAME.encode_utf16().chain([0]).collect();
+  let result =
+    unsafe { RegisterServiceCtrlHandlerExW(PCWSTR(name.as_ptr()), Some(control), None) };
 
   let Ok(handle) = result else {
     return;

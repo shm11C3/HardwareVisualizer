@@ -1,7 +1,9 @@
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use tokio::net::windows::named_pipe::NamedPipeClient;
+use tokio::sync::mpsc;
+use tokio::time::Instant;
 
 use super::{
   security,
@@ -13,14 +15,13 @@ use crate::models::{
 };
 use crate::sensor_service::protocol::*;
 
-#[derive(Default)]
-struct State {
-  demand: [u64; 3],
-  snapshot: Snapshot,
-  error: Option<String>,
+enum State {
+  Connecting,
+  Connected(Box<Snapshot>),
+  Unavailable(String),
 }
 
-static CLIENT: OnceLock<Arc<Mutex<State>>> = OnceLock::new();
+static CLIENT: Mutex<State> = Mutex::new(State::Connecting);
 
 #[derive(Debug)]
 pub enum SampleError {
@@ -37,87 +38,46 @@ impl std::fmt::Display for SampleError {
   }
 }
 
-fn client() -> &'static Arc<Mutex<State>> {
-  CLIENT.get_or_init(|| {
-    let state = Arc::new(Mutex::new(State::default()));
-    let worker = Arc::clone(&state);
-
-    if let Err(error) = std::thread::Builder::new()
-      .name("sensor-service-client".into())
-      .spawn(move || {
-        match tokio::runtime::Builder::new_current_thread()
-          .enable_all()
-          .build()
-        {
-          Ok(runtime) => runtime.block_on(poll(worker)),
-          Err(error) => {
-            worker.lock().unwrap_or_else(|p| p.into_inner()).error =
-              Some(error.to_string());
-          }
-        }
-      })
-    {
-      state.lock().unwrap_or_else(|p| p.into_inner()).error = Some(error.to_string());
-    }
-    state
-  })
-}
-
 fn sample<T: Clone>(
-  family: u8,
   select: impl FnOnce(&Snapshot) -> &Option<Reading<T>>,
 ) -> Result<T, SampleError> {
-  let now = uptime_ms();
-  let mut state = client()
+  let state = CLIENT
     .lock()
     .map_err(|_| SampleError::Unavailable("Sensor service client unavailable".into()))?;
-  state.demand[family.trailing_zeros() as usize] = now;
 
-  select(&state.snapshot)
-    .as_ref()
-    .filter(|v| v.is_fresh(now))
-    .map(|v| v.value.clone())
-    .ok_or_else(|| {
-      state
-        .error
-        .clone()
-        .map(SampleError::Unavailable)
-        .unwrap_or(SampleError::Connecting)
-    })
+  match &*state {
+    State::Connecting => Err(SampleError::Connecting),
+    State::Unavailable(error) => Err(SampleError::Unavailable(error.clone())),
+    State::Connected(snapshot) => select(snapshot)
+      .as_ref()
+      .filter(|reading| reading.is_fresh(uptime_ms()))
+      .map(|reading| reading.value.clone())
+      .ok_or(SampleError::Connecting),
+  }
 }
 
 pub fn temperature() -> Result<TemperatureSample, SampleError> {
-  sample(TEMPERATURE, |v| &v.temperature)
+  sample(|v| &v.temperature)
 }
 
 pub fn power() -> Result<CpuPower, SampleError> {
-  sample(POWER, |v| &v.power)
+  sample(|v| &v.power)
 }
 
 pub fn motherboard() -> Result<MotherboardSensorCollection, SampleError> {
-  sample(MOTHERBOARD, |v| &v.motherboard)
+  sample(|v| &v.motherboard)
 }
 
-pub fn diagnostics() -> SuperIoChipIdDiagnostics {
-  let result = tokio::runtime::Builder::new_current_thread()
-    .enable_all()
-    .build()
-    .map_err(|e| e.to_string())
-    .and_then(|runtime| {
-      runtime.block_on(async {
-        let (mut pipe, generation) = handshake().await?;
-        let reply = exchange(&mut pipe, Operation::Diagnostics).await?;
+pub async fn diagnostics() -> SuperIoChipIdDiagnostics {
+  let result = async {
+    let mut connection = handshake().await?;
+    match connection.request(Operation::Diagnostics).await? {
+      Payload::Diagnostics(value) => Ok(value),
+      _ => Err("Unexpected sensor diagnostics response".into()),
+    }
+  }
+  .await;
 
-        if reply.generation != generation {
-          return Err("Sensor service restarted".into());
-        }
-
-        match reply.payload {
-          Payload::Diagnostics(value) => Ok(value),
-          _ => Err("Unexpected sensor diagnostics response".into()),
-        }
-      })
-    });
   result.unwrap_or_else(|error| SuperIoChipIdDiagnostics {
     platform_supported: true,
     pawnio: None,
@@ -126,7 +86,24 @@ pub fn diagnostics() -> SuperIoChipIdDiagnostics {
   })
 }
 
-pub(super) async fn handshake() -> Result<(NamedPipeClient, u64), String> {
+pub(super) struct Connection {
+  pipe: NamedPipeClient,
+  generation: u64,
+}
+
+impl Connection {
+  async fn request(&mut self, operation: Operation) -> Result<Payload, String> {
+    let reply = exchange(&mut self.pipe, operation).await?;
+
+    if reply.generation != self.generation {
+      return Err("Sensor service generation changed".into());
+    }
+
+    Ok(reply.payload)
+  }
+}
+
+pub(super) async fn handshake() -> Result<Connection, String> {
   let mut pipe = security::connect()?;
   let reply = exchange(&mut pipe, Operation::Hello).await?;
 
@@ -142,10 +119,13 @@ pub(super) async fn handshake() -> Result<(NamedPipeClient, u64), String> {
     return Err("Incompatible sensor service capabilities".into());
   }
 
-  Ok((pipe, reply.generation))
+  Ok(Connection {
+    pipe,
+    generation: reply.generation,
+  })
 }
 
-pub(super) async fn exchange(
+async fn exchange(
   pipe: &mut NamedPipeClient,
   operation: Operation,
 ) -> Result<Reply, String> {
@@ -175,205 +155,53 @@ pub(super) async fn exchange(
   .map_err(|_| "Sensor service request timed out".to_string())?
 }
 
-async fn poll(state: Arc<Mutex<State>>) {
+/// Only collector ticks trigger sampling. The one-slot channel coalesces
+/// ticks while a request is in flight without delaying other monitor data.
+pub(crate) async fn collect(mut ticks: mpsc::Receiver<()>) {
   let mut connection = None;
-  let mut backoff = 1u64;
-  let mut observed = Snapshot::default();
-  let mut observed_generation = 0;
-  let mut awaiting_fresh = false;
+  let mut retry_at = Instant::now();
+  let mut backoff = Duration::from_secs(1);
 
-  loop {
-    let mask = {
-      let state = state.lock().unwrap_or_else(|p| p.into_inner());
-      demand_mask(state.demand, uptime_ms())
-    };
-
-    if mask == 0 {
-      connection = None;
-      tokio::time::sleep(Duration::from_millis(250)).await;
+  while ticks.recv().await.is_some() && !ticks.is_closed() {
+    if Instant::now() < retry_at {
       continue;
     }
 
     let result = async {
-      if connection.is_none() {
-        state
-          .lock()
-          .map_err(|_| "Sensor service cache unavailable")?
-          .snapshot = Snapshot::default();
-
-        let established = handshake().await?;
-
-        if established.1 != observed_generation {
-          observed = Snapshot::default();
-          observed_generation = established.1;
-        }
-
-        awaiting_fresh = true;
-        connection = Some(established);
-      }
-
-      let (pipe, generation) = connection.as_mut().unwrap();
-      let reply = exchange(pipe, Operation::Sample { families: mask }).await?;
-
-      if reply.generation != *generation {
-        return Err("Sensor service generation changed".to_string());
-      }
-
-      let Payload::Snapshot(snapshot) = reply.payload else {
-        return Err("Unexpected sensor response".into());
+      let pipe = match &mut connection {
+        Some(pipe) => pipe,
+        None => connection.insert(handshake().await?),
       };
-      validate_snapshot(&snapshot, &observed, mask, uptime_ms())?;
-
-      if awaiting_fresh && !new_acquisitions(&snapshot, &observed, mask) {
-        // Keep the authenticated connection, but wait for a new acquisition
-        // instead of replaying the last observation after a disconnect.
-        return Ok(());
+      match pipe.request(Operation::Sample { families: ALL }).await? {
+        Payload::Snapshot(snapshot) => Ok(snapshot),
+        _ => Err("Unexpected sensor response".to_string()),
       }
-
-      observed = (*snapshot).clone();
-      awaiting_fresh = false;
-
-      let mut state = state
-        .lock()
-        .map_err(|_| "Sensor service cache unavailable")?;
-      state.snapshot = *snapshot;
-      state.error = None;
-      Ok::<_, String>(())
     }
     .await;
 
+    let mut state = CLIENT.lock().unwrap_or_else(|error| error.into_inner());
     match result {
-      Ok(()) => {
-        backoff = 1;
-        tokio::time::sleep(Duration::from_secs(1)).await;
+      Ok(snapshot) => {
+        *state = State::Connected(snapshot);
+        backoff = Duration::from_secs(1);
       }
       Err(error) => {
         connection = None;
-        {
-          let mut state = state.lock().unwrap_or_else(|p| p.into_inner());
-          state.snapshot = Snapshot::default();
+        retry_at = Instant::now() + backoff;
+        backoff = (backoff * 2).min(Duration::from_secs(30));
 
-          if state.error.as_ref() != Some(&error) {
-            crate::log_warn!(
-              "sensor_service_unavailable",
-              "sensor_service::client",
-              Some(error.clone())
-            );
-          }
-
-          state.error = Some(error);
+        if !matches!(&*state, State::Unavailable(previous) if previous == &error) {
+          crate::log_warn!(
+            "sensor_service_unavailable",
+            "sensor_service::client",
+            Some(error.clone())
+          );
         }
-        tokio::time::sleep(Duration::from_secs(backoff)).await;
-        backoff = (backoff * 2).min(30);
+
+        *state = State::Unavailable(error);
       }
     }
   }
-}
 
-fn new_acquisitions(value: &Snapshot, previous: &Snapshot, mask: u8) -> bool {
-  fn newer<T>(next: &Option<Reading<T>>, old: &Option<Reading<T>>) -> bool {
-    next
-      .as_ref()
-      .is_some_and(|next| old.as_ref().is_none_or(|old| next.sequence > old.sequence))
-  }
-
-  (mask & TEMPERATURE == 0 || newer(&value.temperature, &previous.temperature))
-    && (mask & POWER == 0 || newer(&value.power, &previous.power))
-    && (mask & MOTHERBOARD == 0 || newer(&value.motherboard, &previous.motherboard))
-}
-
-fn demand_mask(demand: [u64; 3], now: u64) -> u8 {
-  demand.iter().enumerate().fold(0, |mask, (i, at)| {
-    if *at != 0 && now.saturating_sub(*at) <= 5_000 {
-      mask | (1 << i)
-    } else {
-      mask
-    }
-  })
-}
-
-fn validate_snapshot(
-  value: &Snapshot,
-  previous: &Snapshot,
-  mask: u8,
-  now: u64,
-) -> Result<(), String> {
-  fn check<T>(
-    next: &Option<Reading<T>>,
-    previous: &Option<Reading<T>>,
-    required: bool,
-    now: u64,
-  ) -> bool {
-    if !required {
-      return next.is_none();
-    }
-    next.as_ref().is_some_and(|next| {
-      next.is_fresh(now)
-        && previous.as_ref().is_none_or(|old| {
-          next.sequence > old.sequence
-            || (next.sequence == old.sequence
-              && next.acquired_at_ms == old.acquired_at_ms)
-        })
-    })
-  }
-
-  if check(
-    &value.temperature,
-    &previous.temperature,
-    mask & TEMPERATURE != 0,
-    now,
-  ) && check(&value.power, &previous.power, mask & POWER != 0, now)
-    && check(
-      &value.motherboard,
-      &previous.motherboard,
-      mask & MOTHERBOARD != 0,
-      now,
-    )
-  {
-    Ok(())
-  } else {
-    Err("Sensor service sent stale or out-of-order readings".into())
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn a_crashed_app_cannot_keep_demand_alive() {
-    assert_eq!(demand_mask([100, 0, 200], 500), TEMPERATURE | MOTHERBOARD);
-    assert_eq!(demand_mask([100, 0, 200], 5_201), 0);
-  }
-
-  #[test]
-  fn replay_cannot_refresh_acquisition_time() {
-    let reading = Reading {
-      acquired_at_ms: 100,
-      sequence: 2,
-      value: TemperatureSample::default(),
-    };
-
-    let previous = Snapshot {
-      temperature: Some(reading.clone()),
-      ..Snapshot::default()
-    };
-
-    let mut next = previous.clone();
-
-    assert!(!new_acquisitions(&next, &previous, TEMPERATURE));
-    assert!(validate_snapshot(&next, &previous, TEMPERATURE, 200).is_ok());
-    next.temperature.as_mut().unwrap().acquired_at_ms = 200;
-    assert!(validate_snapshot(&next, &previous, TEMPERATURE, 200).is_err());
-
-    next.temperature.as_mut().unwrap().sequence = 3;
-    assert!(new_acquisitions(&next, &previous, TEMPERATURE));
-    assert!(validate_snapshot(&next, &previous, TEMPERATURE, 200).is_ok());
-
-    next.temperature = Some(Reading {
-      sequence: 1,
-      ..reading
-    });
-    assert!(validate_snapshot(&next, &previous, TEMPERATURE, 200).is_err());
-  }
+  *CLIENT.lock().unwrap_or_else(|error| error.into_inner()) = State::Connecting;
 }

@@ -318,12 +318,14 @@ mod tests {
     }
   }
 
+  #[async_trait]
   impl SuperIoPlatform for FakePlatform {
-    fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+    async fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
       SuperIoChipIdDiagnostics::unsupported_platform()
     }
   }
 
+  #[async_trait]
   impl SensorPlatform for FakePlatform {
     fn sample_temperatures(&self) -> TemperatureSample {
       TemperatureSample {

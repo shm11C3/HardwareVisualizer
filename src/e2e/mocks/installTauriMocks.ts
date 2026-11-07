@@ -584,9 +584,6 @@ const buildInvokeHandlers = (
     connected:
       !fixtureOverrides.elevationUnprotected &&
       !fixtureOverrides.sensorServiceMissing,
-    hasReadings:
-      !fixtureOverrides.elevationUnprotected &&
-      !fixtureOverrides.sensorServiceMissing,
     canConfigure: !fixtureOverrides.elevationUnprotected,
     detail: null,
   }),

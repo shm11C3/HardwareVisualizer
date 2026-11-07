@@ -1,28 +1,40 @@
 use std::ffi::c_void;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+use std::path::{Path, PathBuf};
 
 use tokio::net::windows::named_pipe::{NamedPipeClient, NamedPipeServer, ServerOptions};
-use windows::Win32::Foundation::{HANDLE, HLOCAL, LocalFree};
+use windows::Win32::Foundation::{GENERIC_ALL, GENERIC_WRITE, HANDLE, HLOCAL, LocalFree};
 use windows::Win32::Security::Authorization::{
   ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
   SDDL_REVISION_1,
 };
-use windows::Win32::Security::{
-  ACL, GetTokenInformation, PSECURITY_DESCRIPTOR, PSID, RevertToSelf,
-  SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER, TokenUser,
-};
+use windows::Win32::Security::{ACL, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES};
 use windows::Win32::Storage::FileSystem::{
-  CreateFileW, FILE_FLAG_OVERLAPPED, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_NONE,
-  OPEN_EXISTING,
+  CreateFileW, DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_REPARSE_POINT, FILE_DELETE_CHILD,
+  FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ, FILE_SHARE_DELETE,
+  FILE_SHARE_NONE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES,
+  FILE_WRITE_DATA, FILE_WRITE_EA, OPEN_EXISTING, SECURITY_IDENTIFICATION,
+  SECURITY_SQOS_PRESENT, WRITE_DAC, WRITE_OWNER,
 };
-use windows::Win32::System::Pipes::{
-  GetNamedPipeServerProcessId, ImpersonateNamedPipeClient,
-};
+use windows::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows::Win32::System::Services::*;
-use windows::Win32::System::Threading::{GetCurrentThread, OpenThreadToken};
-use windows::core::{PCWSTR, PWSTR, w};
+use windows::core::{PCWSTR, PWSTR};
 
-use super::{PIPE_NAME, SERVICE_NAME};
+use super::{MAX_CLIENTS, PIPE_NAME, SERVICE_NAME};
+
+const PIPE_CLIENT_ACCESS: u32 =
+  FILE_GENERIC_READ.0 | FILE_WRITE_DATA.0 | FILE_WRITE_EA.0 | FILE_WRITE_ATTRIBUTES.0;
+
+const FILE_MUTATION_ACCESS: u32 = GENERIC_ALL.0
+  | GENERIC_WRITE.0
+  | DELETE.0
+  | WRITE_DAC.0
+  | WRITE_OWNER.0
+  | FILE_WRITE_ATTRIBUTES.0
+  | FILE_DELETE_CHILD.0
+  | FILE_WRITE_EA.0
+  | FILE_APPEND_DATA.0
+  | FILE_WRITE_DATA.0;
 
 struct LocalAllocation(*mut c_void);
 
@@ -34,47 +46,19 @@ impl Drop for LocalAllocation {
   }
 }
 
-fn user_sid(token: HANDLE) -> Result<String, String> {
-  let mut needed = 0;
-
-  unsafe {
-    let _ = GetTokenInformation(token, TokenUser, None, 0, &mut needed);
-  }
-
-  if needed == 0 || needed > 64 * 1024 {
-    return Err("Invalid Windows token size".into());
-  }
-
-  // usize storage keeps TOKEN_USER aligned, unlike an arbitrary byte slice.
-  let mut buffer = vec![0usize; (needed as usize).div_ceil(size_of::<usize>())];
-
-  unsafe {
-    GetTokenInformation(
-      token,
-      TokenUser,
-      Some(buffer.as_mut_ptr().cast()),
-      needed,
-      &mut needed,
-    )
-    .map_err(|e| e.to_string())?;
-
-    let user = &*buffer.as_ptr().cast::<TOKEN_USER>();
-    let mut sid = PWSTR::null();
-    ConvertSidToStringSidW(user.User.Sid, &mut sid).map_err(|e| e.to_string())?;
-
-    let _allocation = LocalAllocation(sid.0.cast());
-    sid.to_string().map_err(|e| e.to_string())
-  }
-}
-
 pub(super) fn server_pipe(first: bool) -> Result<NamedPipeServer, String> {
   // Interactive clients get data rights, never FILE_APPEND_DATA (which is
   // FILE_CREATE_PIPE_INSTANCE on pipes). Generic-write would grant that bit.
+  let descriptor_text: Vec<_> =
+    format!("D:P(D;;GA;;;NU)(D;;GA;;;AN)(A;;GA;;;SY)(A;;{PIPE_CLIENT_ACCESS:#x};;;IU)S:(ML;;NW;;;ME)")
+      .encode_utf16()
+      .chain([0])
+      .collect();
   let mut descriptor = PSECURITY_DESCRIPTOR::default();
 
   unsafe {
     ConvertStringSecurityDescriptorToSecurityDescriptorW(
-      w!("D:P(D;;GA;;;NU)(D;;GA;;;AN)(A;;GA;;;SY)(A;;0x12019b;;;IU)S:(ML;;NW;;;ME)"),
+      PCWSTR(descriptor_text.as_ptr()),
       SDDL_REVISION_1,
       &mut descriptor,
       None,
@@ -90,7 +74,7 @@ pub(super) fn server_pipe(first: bool) -> Result<NamedPipeServer, String> {
     ServerOptions::new()
       .first_pipe_instance(first)
       .reject_remote_clients(true)
-      .max_instances(17)
+      .max_instances(MAX_CLIENTS + 1)
       .in_buffer_size(65_536)
       .out_buffer_size(65_536)
       .create_with_security_attributes_raw(
@@ -99,33 +83,6 @@ pub(super) fn server_pipe(first: bool) -> Result<NamedPipeServer, String> {
       )
       .map_err(|e| e.to_string())
   }
-}
-
-pub(super) fn client_sid(pipe: &NamedPipeServer) -> Result<String, String> {
-  struct Revert;
-
-  impl Drop for Revert {
-    fn drop(&mut self) {
-      unsafe {
-        let _ = RevertToSelf();
-      }
-    }
-  }
-
-  unsafe {
-    ImpersonateNamedPipeClient(HANDLE(pipe.as_raw_handle()))
-      .map_err(|e| e.to_string())?;
-
-    let _revert = Revert;
-    let mut token = HANDLE::default();
-    OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, true, &mut token)
-      .map_err(|e| e.to_string())?;
-
-    let token = OwnedHandle::from_raw_handle(token.0);
-    user_sid(HANDLE(token.as_raw_handle()))
-  }
-
-  // No impersonation can survive this synchronous scope or cross an await.
 }
 
 struct ServiceHandle(SC_HANDLE);
@@ -139,14 +96,16 @@ impl Drop for ServiceHandle {
 }
 
 pub(super) fn connect() -> Result<NamedPipeClient, String> {
+  let name: Vec<_> = PIPE_NAME.encode_utf16().chain([0]).collect();
+
   unsafe {
     let pipe = CreateFileW(
-      w!("\\\\.\\pipe\\HardwareVisualizer.Sensors.v1"),
-      0x12019b,
+      PCWSTR(name.as_ptr()),
+      PIPE_CLIENT_ACCESS,
       FILE_SHARE_NONE,
       None,
       OPEN_EXISTING,
-      FILE_FLAG_OVERLAPPED | FILE_FLAGS_AND_ATTRIBUTES(0x110000),
+      FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
       None,
     )
     .map_err(|e| format!("Sensor service connection unavailable: {e}"))?;
@@ -158,28 +117,36 @@ pub(super) fn connect() -> Result<NamedPipeClient, String> {
   }
 }
 
-/// Hold privileged code/data against replacement and reject writable owners,
-/// writable ACLs and reparse redirection, including on ancestor directories.
-pub(crate) fn validate_install_directory(path: &std::path::Path) -> Result<(), String> {
-  use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+fn protected_path(path: &Path) -> Result<PathBuf, String> {
+  use std::os::windows::fs::MetadataExt;
 
   let resolved = crate::platform::windows::process_elevation::protected_file_path(path)?
-    .ok_or("The sensor service installation must be under Program Files")?;
+    .ok_or("Privileged sensor input must be under Program Files")?;
 
   for ancestor in path.ancestors() {
     if std::fs::symlink_metadata(ancestor)
       .map_err(|e| e.to_string())?
       .file_attributes()
-      & 0x400
+      & FILE_ATTRIBUTE_REPARSE_POINT.0
       != 0
     {
-      return Err(
-        "Reparse points are not allowed in the sensor service installation".into(),
-      );
+      return Err("Reparse points are not allowed for privileged sensor inputs".into());
     }
   }
 
-  let mut parent = Some(resolved.as_path());
+  Ok(resolved)
+}
+
+/// The install directory must be safe both now and for newly installed files.
+pub(crate) fn validate_install_directory(path: &Path) -> Result<(), String> {
+  let resolved = protected_path(path)?;
+  validate_directory_acl(&resolved, AclCheck::NewFileParent)
+}
+
+fn validate_directory_acl(path: &Path, first_check: AclCheck) -> Result<(), String> {
+  use std::os::windows::fs::OpenOptionsExt;
+
+  let mut parent = Some(path);
 
   while let Some(directory) = parent {
     let last =
@@ -188,12 +155,12 @@ pub(crate) fn validate_install_directory(path: &std::path::Path) -> Result<(), S
 
     let handle = std::fs::OpenOptions::new()
       .read(true)
-      .share_mode(7)
-      .custom_flags(0x02000000)
+      .share_mode((FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE).0)
+      .custom_flags(FILE_FLAG_BACKUP_SEMANTICS.0)
       .open(directory)
       .map_err(|e| e.to_string())?;
-    let check = if directory == resolved.as_path() {
-      AclCheck::NewFileParent
+    let check = if directory == path {
+      first_check
     } else {
       // Existing descendants already reflect inheritance or block it. Only
       // effective ancestor permissions can allow replacement of this path.
@@ -211,35 +178,21 @@ pub(crate) fn validate_install_directory(path: &std::path::Path) -> Result<(), S
   Ok(())
 }
 
-pub(crate) fn protected_file(path: &std::path::Path) -> Result<std::fs::File, String> {
-  use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+/// Hold an existing runtime input against replacement through the caller's use.
+pub(crate) fn protected_file(path: &Path) -> Result<std::fs::File, String> {
+  use std::os::windows::fs::OpenOptionsExt;
 
-  let resolved = crate::platform::windows::process_elevation::protected_file_path(path)?
-    .ok_or_else(|| {
-      format!(
-        "Privileged sensor input is outside Program Files: {}",
-        path.display()
-      )
-    })?;
-
-  for ancestor in path.ancestors() {
-    if std::fs::symlink_metadata(ancestor)
-      .map_err(|e| e.to_string())?
-      .file_attributes()
-      & 0x400
-      != 0
-    {
-      return Err("Reparse points are not allowed for privileged sensor inputs".into());
-    }
-  }
-
+  let resolved = protected_path(path)?;
   let file = std::fs::OpenOptions::new()
     .read(true)
-    .share_mode(1)
+    .share_mode(FILE_SHARE_READ.0)
     .open(&resolved)
     .map_err(|e| e.to_string())?;
   protected_acl(HANDLE(file.as_raw_handle()), AclCheck::Effective)?;
-  validate_install_directory(resolved.parent().ok_or("Sensor input has no parent")?)?;
+  validate_directory_acl(
+    resolved.parent().ok_or("Sensor input has no parent")?,
+    AclCheck::Effective,
+  )?;
 
   Ok(file)
 }
@@ -284,7 +237,8 @@ unsafe fn validate_acl(
   check: AclCheck,
 ) -> Result<(), String> {
   use windows::Win32::Security::{
-    ACCESS_ALLOWED_ACE, ACE_HEADER, GetAce, IsWellKnownSid, WinCreatorOwnerSid,
+    ACCESS_ALLOWED_ACE, ACE_HEADER, GetAce, INHERIT_ONLY_ACE, IsWellKnownSid,
+    OBJECT_INHERIT_ACE, WinCreatorOwnerSid,
   };
 
   unsafe {
@@ -301,14 +255,16 @@ unsafe fn validate_acl(
       let ace = std::ptr::NonNull::new(ace).ok_or("Missing ACL entry")?;
       let header = ace.cast::<ACE_HEADER>().as_ref();
 
-      let inherit_only = header.AceFlags & 0x08 != 0;
-      if inherit_only && (check == AclCheck::Effective || header.AceFlags & 0x01 == 0) {
+      let inherit_only = u32::from(header.AceFlags) & INHERIT_ONLY_ACE.0 != 0;
+      if inherit_only
+        && (check == AclCheck::Effective
+          || u32::from(header.AceFlags) & OBJECT_INHERIT_ACE.0 == 0)
+      {
         continue;
       }
 
       if header.AceType == 0 {
         let allowed = ace.cast::<ACCESS_ALLOWED_ACE>().as_ref();
-        let writes = 0x10000000 | 0x40000000 | 0x000d0156;
         let sid = PSID((&allowed.SidStart as *const u32).cast_mut().cast());
 
         // A trusted installer creates the new file, so CREATOR OWNER resolves
@@ -317,7 +273,10 @@ unsafe fn validate_acl(
         // template and must not be rejected as an untrusted named principal.
         let trusted_creator =
           inherit_only && IsWellKnownSid(sid, WinCreatorOwnerSid).as_bool();
-        if allowed.Mask & writes != 0 && !trusted_sid(sid)? && !trusted_creator {
+        if allowed.Mask & FILE_MUTATION_ACCESS != 0
+          && !trusted_sid(sid)?
+          && !trusted_creator
+        {
           return Err(
             "Privileged sensor input is writable by an unelevated principal".into(),
           );

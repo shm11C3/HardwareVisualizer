@@ -13,7 +13,7 @@ evidence: maintainer corrections on PR 2509 requesting specification-level simpl
 revalidate_when: sensor installation policy, provider fallback, guidance suppression, startup preference ownership, or the design-review workflow changes
 ---
 
-# Guide Optional Service Migration
+# Guide Windows Sensor Service Migration
 
 ADR 0029 now includes the app-owned service in protected MSI installation and
 updates. PawnIO remains an optional external driver, and existing elevated

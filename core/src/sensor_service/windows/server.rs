@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -8,7 +7,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::windows::named_pipe::NamedPipeServer;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-use super::{providers::Providers, security};
+use super::{MAX_CLIENTS, providers::Providers, security};
 use crate::sensor_service::protocol::*;
 
 pub(super) static INVALIDATE: AtomicBool = AtomicBool::new(false);
@@ -54,8 +53,7 @@ pub(super) async fn serve(stop: &'static AtomicBool) -> Result<(), String> {
 
   let generation = u64::from_le_bytes(random).max(1);
   let providers = Arc::new(Mutex::new(Providers::new()));
-  let clients = Arc::new(Semaphore::new(16));
-  let users = Arc::new(Mutex::new(HashMap::<String, usize>::new()));
+  let clients = Arc::new(Semaphore::new(MAX_CLIENTS));
   let mut pipe = security::server_pipe(true)?;
   let mut housekeeping = tokio::time::interval(Duration::from_secs(1));
 
@@ -74,11 +72,10 @@ pub(super) async fn serve(stop: &'static AtomicBool) -> Result<(), String> {
         let connected = std::mem::replace(&mut pipe, next);
 
         let providers = Arc::clone(&providers);
-        let users = Arc::clone(&users);
         tokio::spawn(async move {
           let _permit = permit;
 
-          if let Err(error) = connection(connected, generation, providers, users).await {
+          if let Err(error) = connection(connected, generation, providers).await {
             crate::log_debug!("sensor_service_client_disconnected", "sensor_service::serve", Some(error));
           }
         });
@@ -108,30 +105,10 @@ fn admit_client(
   }
 }
 
-struct UserLease {
-  sid: String,
-  users: Arc<Mutex<HashMap<String, usize>>>,
-}
-
-impl Drop for UserLease {
-  fn drop(&mut self) {
-    let mut users = self.users.lock().unwrap_or_else(|e| e.into_inner());
-
-    if let Some(count) = users.get_mut(&self.sid) {
-      *count -= 1;
-
-      if *count == 0 {
-        users.remove(&self.sid);
-      }
-    }
-  }
-}
-
 async fn connection(
   mut pipe: NamedPipeServer,
   generation: u64,
   providers: Arc<Mutex<Providers>>,
-  users: Arc<Mutex<HashMap<String, usize>>>,
 ) -> Result<(), String> {
   let hello: Request =
     tokio::time::timeout(Duration::from_secs(3), read_frame(&mut pipe))
@@ -143,20 +120,6 @@ async fn connection(
     return Err("Hello must precede sensor requests".into());
   }
 
-  let sid = security::client_sid(&pipe)?;
-
-  {
-    let mut counts = users.lock().map_err(|_| "Client accounting unavailable")?;
-    let count = counts.entry(sid.clone()).or_default();
-
-    if *count >= 4 {
-      return Err("Too many sensor clients for this user".into());
-    }
-
-    *count += 1;
-  }
-
-  let _lease = UserLease { sid, users };
   let response = Reply {
     version: VERSION,
     generation,
@@ -173,7 +136,7 @@ async fn connection(
     let request: Request =
       tokio::time::timeout(Duration::from_secs(15), read_frame(&mut pipe))
         .await
-        .map_err(|_| "Sensor demand lease expired")??;
+        .map_err(|_| "Sensor pipe read timed out")??;
     request.validate()?;
 
     if matches!(request.operation, Operation::Hello) {

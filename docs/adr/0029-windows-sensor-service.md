@@ -51,14 +51,18 @@ its lifecycle and security cost by serving that startup requirement.
    The app authenticates the server against the SCM-owned service process.
    These users may read the same machine-level sensor facts; the interface
    exposes no other user's processes, settings or history. Bound all messages,
-   clients, demand, waiting and retries.
-4. **Keep optionality and freshness explicit.** A single service sampling
-   owner shares readings across sessions, follows leased demand and preserves
-   provider minimum intervals and ecosystem mutexes. No active demand means
-   no sensor polling. Service loss, incompatibility or PawnIO failure preserves
-   unrelated monitoring and existing fallbacks. Never silently elevate or
-   present stale readings as current; service restarts invalidate acquisition
-   generations and power-delta baselines.
+   clients, waiting and retries. The pipe ACL enforces local authorization;
+   capacity is shared across authorized clients.
+4. **Let monitor cycles drive sampling.** The app submits one batched request
+   per existing monitor cycle without delaying unrelated metrics. The service
+   acquires only on requests, shares rate-limited readings across sessions and
+   releases idle handles. Settings checks compatibility without reading
+   sensors. Explicit hardware diagnostics remain a separate read-only
+   operation. Cached readings keep their original acquisition time and expire
+   on a shared monotonic clock. Reconnect discards the client's old snapshot
+   and authenticates again; the new connection can return still-current
+   service readings. Service loss, incompatibility or PawnIO failure
+   preserves unrelated monitoring and existing fallbacks.
 5. **Ship the service as part of the protected MSI application.** New installs
    and upgrades include the machine-wide service without a separate opt-in,
    including unattended updates. It is an app-owned implementation boundary,

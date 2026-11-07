@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 pub use super::cpu_identity::CpuIdentity;
@@ -8,7 +8,6 @@ use super::pawn_io::{
   PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
 };
 use crate::models::SensorEnablement;
-use crate::{log_debug, log_warn};
 
 const MSR_RAPL_POWER_UNIT: u64 = 0x606;
 const MSR_PKG_ENERGY_STATUS: u64 = 0x611;
@@ -225,63 +224,6 @@ pub(crate) struct CpuPowerSampler {
   pub(crate) diagnostics: CpuPowerDiagnostics,
   active: Option<ActivePowerSource>,
   inactive_reason: Option<String>,
-  sample_failure_logged: bool,
-}
-
-static CPU_POWER_SAMPLER: OnceLock<Mutex<CpuPowerSampler>> = OnceLock::new();
-
-pub fn sample_cpu_package_power() -> Option<f32> {
-  let sampler = CPU_POWER_SAMPLER.get_or_init(|| {
-    let sampler = CpuPowerSampler::new();
-    log_debug!(
-      "cpu_power_diagnostics",
-      "windows::cpu_power::sample_cpu_package_power",
-      Some(format!("{:?}", sampler.diagnostics))
-    );
-    Mutex::new(sampler)
-  });
-
-  let mut sampler = match sampler.lock() {
-    Ok(sampler) => sampler,
-    Err(_) => return None,
-  };
-  let result = sampler.sample();
-  if let Err(reason) = &result
-    && !sampler.sample_failure_logged
-  {
-    sampler.sample_failure_logged = true;
-    log_warn!(
-      "cpu_power_sample_failed",
-      "windows::cpu_power::CpuPowerSampler::sample",
-      Some(reason.clone())
-    );
-  }
-
-  result.ok().flatten().map(|watts| watts as f32)
-}
-
-pub fn cpu_power_diagnostics() -> CpuPowerDiagnostics {
-  let sampler = CPU_POWER_SAMPLER.get_or_init(|| {
-    let sampler = CpuPowerSampler::new();
-    log_debug!(
-      "cpu_power_diagnostics",
-      "windows::cpu_power::cpu_power_diagnostics",
-      Some(format!("{:?}", sampler.diagnostics))
-    );
-    Mutex::new(sampler)
-  });
-
-  sampler
-    .lock()
-    .map(|sampler| sampler.diagnostics.clone())
-    .unwrap_or_else(|_| CpuPowerDiagnostics {
-      cpu: CpuIdentity::unknown(),
-      amd_rapl_supported: None,
-      pawnio: PawnIoDiscovery::unavailable("sampler lock poisoned"),
-      selected_source: None,
-      selected_enablement: None,
-      fallback_reason: Some("sampler lock poisoned".to_string()),
-    })
 }
 
 impl CpuPowerSampler {
@@ -310,7 +252,6 @@ impl CpuPowerSampler {
           },
           active: None,
           inactive_reason: Some(fallback_reason),
-          sample_failure_logged: false,
         };
       }
     };
@@ -327,7 +268,6 @@ impl CpuPowerSampler {
         },
         active: Some(active),
         inactive_reason: None,
-        sample_failure_logged: false,
       },
       Err(PawnIoInitError { discovery, reason }) => Self {
         diagnostics: CpuPowerDiagnostics {
@@ -340,7 +280,6 @@ impl CpuPowerSampler {
         },
         active: None,
         inactive_reason: Some(reason),
-        sample_failure_logged: false,
       },
     }
   }

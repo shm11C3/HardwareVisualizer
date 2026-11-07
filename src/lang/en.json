@@ -970,7 +970,6 @@
     "connected": "Service connected",
     "unavailable": "Service unavailable; other monitoring continues.",
     "loading": "Checking the sensor service…",
-    "noReadings": "The service is running, but no PawnIO readings are currently available. Check PawnIO and the supported sensor modules.",
     "requiresMsi": "Use the HardwareVisualizer MSI installed under Program Files to install or repair the service. This app can use an already installed compatible service.",
     "configure": "Repair service",
     "installing": "Running Windows Installer…",
