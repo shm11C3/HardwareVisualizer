@@ -108,10 +108,11 @@ pub trait SensorPlatform: Send + Sync {
     Ok(Vec::new())
   }
 
-  /// Sample CPU and named temperature sensors, always in raw degrees Celsius.
   /// Request current CPU chiplet (CCD) readings in raw degrees Celsius.
-  async fn cpu_ccd_temperatures(&self) -> Vec<models::CpuCcdTemperature> {
-    Vec::new()
+  async fn cpu_ccd_temperatures(
+    &self,
+  ) -> Result<Vec<models::CpuCcdTemperature>, PlatformError> {
+    Ok(Vec::new())
   }
 
   /// Sample CPU and named temperature sensors, always in raw degrees Celsius.

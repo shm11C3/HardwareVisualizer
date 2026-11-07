@@ -120,7 +120,7 @@ pub async fn fetch_cpu_detail_temperatures(
   );
   Ok(format_cpu_detail_temperatures(
     cores?,
-    ccds,
+    ccds?,
     temperature_unit,
   ))
 }

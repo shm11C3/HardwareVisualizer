@@ -94,38 +94,59 @@ fn decode_cpu_core_temperature_response(
   now: u64,
 ) -> Result<Vec<CpuCoreTemperature>, PlatformError> {
   match response.map_err(PlatformError::unavailable)? {
-    Payload::CpuCoreTemperatures(Some(reading)) if !reading.is_fresh(now) => {
-      Err(PlatformError::unavailable(
-        "Windows sensor service returned an out-of-date CPU core temperature sample",
-      ))
-    }
-    Payload::CpuCoreTemperatures(Some(reading)) if !reading.value.is_empty() => {
-      Ok(reading.value)
-    }
-    // A supported CPU signature can still have a topology outside the scope.
-    Payload::CpuCoreTemperatures(None) => Ok(Vec::new()),
+    Payload::CpuCoreTemperatures(reading) => decode_cpu_temperature_sample(reading, now),
     _ => Err(PlatformError::fault(
       "Unexpected CPU core temperature response from the Windows sensor service",
     )),
   }
 }
 
-pub async fn cpu_ccd_temperatures() -> Vec<CpuCcdTemperature> {
+pub async fn cpu_ccd_temperatures() -> Result<Vec<CpuCcdTemperature>, PlatformError> {
   use crate::infrastructure::providers::windows::cpu_ccd_temperature::is_supported_processor;
 
   if !is_supported_processor() {
-    return Vec::new();
+    return Ok(Vec::new());
   }
 
-  let Ok(mut connection) = handshake().await else {
-    return Vec::new();
-  };
-  match connection.request(Operation::CpuCcdTemperatures).await {
-    Ok(Payload::CpuCcdTemperatures(Some(reading))) if reading.is_fresh(uptime_ms()) => {
-      reading.value
-    }
-    _ => Vec::new(),
+  let response = async {
+    let mut connection = handshake().await?;
+    connection.request(Operation::CpuCcdTemperatures).await
   }
+  .await;
+  decode_cpu_ccd_temperature_response(response, uptime_ms())
+}
+
+fn decode_cpu_ccd_temperature_response(
+  response: Result<Payload, String>,
+  now: u64,
+) -> Result<Vec<CpuCcdTemperature>, PlatformError> {
+  match response.map_err(PlatformError::unavailable)? {
+    Payload::CpuCcdTemperatures(reading) => decode_cpu_temperature_sample(reading, now),
+    _ => Err(PlatformError::fault(
+      "Unexpected CPU CCD temperature response from the Windows sensor service",
+    )),
+  }
+}
+
+fn decode_cpu_temperature_sample<T>(
+  reading: Option<Reading<Vec<T>>>,
+  now: u64,
+) -> Result<Vec<T>, PlatformError> {
+  let Some(reading) = reading else {
+    // An explicit no-sample reply can represent an excluded topology.
+    return Ok(Vec::new());
+  };
+  if !reading.is_fresh(now) {
+    return Err(PlatformError::unavailable(
+      "Windows sensor service returned an out-of-date CPU temperature sample",
+    ));
+  }
+  if reading.value.is_empty() {
+    return Err(PlatformError::fault(
+      "Windows sensor service returned a CPU temperature sample without slots",
+    ));
+  }
+  Ok(reading.value)
 }
 
 pub async fn status() -> bool {
@@ -289,6 +310,22 @@ mod tests {
       decode_cpu_core_temperature_response(Ok(Payload::CpuCoreTemperatures(None)), 100),
       Ok(Vec::new())
     );
+  }
+
+  #[test]
+  fn cpu_ccd_temperature_keeps_transport_failure_separate_from_empty() {
+    assert_eq!(
+      decode_cpu_ccd_temperature_response(Err("timed out".into()), 100),
+      Err(PlatformError::unavailable("timed out")),
+    );
+    assert_eq!(
+      decode_cpu_ccd_temperature_response(Ok(Payload::CpuCcdTemperatures(None)), 100),
+      Ok(Vec::new()),
+    );
+    assert!(matches!(
+      decode_cpu_ccd_temperature_response(Ok(Payload::CpuCoreTemperatures(None)), 100),
+      Err(PlatformError::Fault { .. }),
+    ));
   }
 
   #[test]
