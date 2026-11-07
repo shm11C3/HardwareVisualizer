@@ -37,4 +37,7 @@ New and upgraded protected MSI installations include it without an opt-in or
 prior-selection registry marker. Its feature follows the required application
 parent and exists as a repair boundary. `check-msi.ps1` verifies the compiled
 tables and costs fresh/full-UI, silent, upgrade-property and unprotected plans
-without executing installation. PawnIO driver setup remains a separate choice.
+without executing installation. On a disposable GitHub-hosted Windows runner,
+the installer job also uses `-VerifyRepair` to exercise the real install,
+standard MSI repair, and uninstall. PawnIO driver setup remains a separate
+choice.

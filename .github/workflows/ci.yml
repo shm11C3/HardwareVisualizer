@@ -838,7 +838,7 @@ jobs:
           $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "No MSI was produced" }
           ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
-          ./sensor-service/check-msi.ps1 $msi.FullName
+          ./sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
 
   #
   # Frontend checks

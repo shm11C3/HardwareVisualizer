@@ -1,4 +1,7 @@
-param([Parameter(Mandatory = $true)][string]$MsiPath)
+param(
+  [Parameter(Mandatory = $true)][string]$MsiPath,
+  [switch]$VerifyRepair
+)
 
 $ErrorActionPreference = "Stop"
 $installer = New-Object -ComObject WindowsInstaller.Installer
@@ -88,3 +91,70 @@ foreach ($case in @(
 }
 
 Write-Output "MSI sensor-service default selection, ownership, validation and lifecycle checks passed: $MsiPath"
+
+
+if (-not $VerifyRepair) { return }
+
+# This deliberately removes installation artifacts. Run only on a disposable
+# hosted runner with a fresh product and service registration.
+Assert ($env:RUNNER_ENVIRONMENT -eq 'github-hosted') "MSI repair verification requires a disposable GitHub-hosted runner"
+$product = (Get-MsiRow 'SELECT `Value` FROM `Property` WHERE `Property` = ''ProductCode''' 1)[0][0]
+Assert ($product -match '^\{[0-9A-Fa-f-]{36}\}$') "Unexpected MSI product code"
+Assert ($installer.ProductState($product) -eq -1) "MSI product is already installed"
+
+$serviceName = $service[0][0]
+$installDir = Join-Path $env:ProgramFiles 'HardwareVisualizer MSI Recovery Test'
+$serviceExe = Join-Path $installDir 'hardware-visualizer-sensors.exe'
+$serviceKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"
+Assert (-not (Test-Path -LiteralPath $serviceKey)) "An existing sensor service owns the test registration"
+Assert (-not (Test-Path -LiteralPath $installDir)) "MSI recovery test directory already exists"
+
+$package = (Resolve-Path -LiteralPath $MsiPath).Path
+$repair = '/fomus "{0}"' -f $package
+
+function Invoke-TestMsi([string]$arguments, [string]$caseName) {
+  $logPath = Join-Path $env:RUNNER_TEMP "hardviz-msi-$caseName.log"
+  $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" -ArgumentList (
+    '{0} /qn /norestart /l*v "{1}"' -f $arguments, $logPath
+  ) -WindowStyle Hidden -Wait -PassThru
+
+  if ($process.ExitCode -ne 0) {
+    Get-Content -LiteralPath $logPath -Tail 35 -ErrorAction SilentlyContinue
+    throw "MSI $caseName failed ($($process.ExitCode))"
+  }
+}
+
+function Assert-TestServiceRunning {
+  $registration = Get-ItemProperty -LiteralPath $serviceKey
+  Assert ($registration.ImagePath.Trim('"') -eq $serviceExe -and $registration.ObjectName -eq 'LocalSystem') "Unexpected recovery test service registration"
+  Assert (Test-Path -LiteralPath $serviceExe -PathType Leaf) "Service executable is absent"
+  (Get-Service -Name $serviceName).WaitForStatus('Running', [TimeSpan]::FromSeconds(15))
+}
+
+try {
+  Invoke-TestMsi ('/i "{0}" INSTALLDIR="{1}"' -f $package, $installDir) 'install'
+  Assert-TestServiceRunning
+
+  Stop-Service -Name $serviceName
+  Invoke-TestMsi $repair 'stopped-service'
+  Assert-TestServiceRunning
+
+  Stop-Service -Name $serviceName
+  Remove-Item -LiteralPath $serviceExe
+  Invoke-TestMsi $repair 'missing-executable'
+  Assert-TestServiceRunning
+
+  Stop-Service -Name $serviceName
+  sc.exe delete $serviceName
+  Assert ($LASTEXITCODE -eq 0) "Could not simulate a missing service registration"
+  Invoke-TestMsi $repair 'missing-registration'
+  Assert-TestServiceRunning
+}
+finally {
+  if ($installer.ProductState($product) -eq 5) {
+    Invoke-TestMsi "/x $product" 'uninstall'
+  }
+}
+
+Assert (-not (Test-Path -LiteralPath $serviceKey)) "Uninstall left the test service registered"
+Write-Output 'Standard MSI repair restored stopped, missing-executable and missing-registration cases.'
