@@ -503,8 +503,9 @@ Worker validates every one against the same enums and rejects unknown keys.
 
 ### Transport
 
-- Fixed HTTPS endpoint, a constant in the App crate. There is no setting,
-  environment variable, or remote switch that changes it in a release build.
+- Fixed HTTPS endpoint `https://analytics.hardviz.com`, a constant in the App
+  crate. There is no setting, environment variable, or remote switch that
+  changes it in a release build.
 - `reqwest` async client with a 10 second total timeout, the existing
   `HardwareVisualizer/<version>` user agent, and the `ring` provider installed
   the way `external_component_setup::download_client` does it (reqwest is
@@ -604,8 +605,11 @@ consent on every event even though the frontend hook also checks it.
 
 ### Service contract (owned by the separate repository)
 
-The Worker repository owns its own design; this section fixes only what the
-client and the public contract depend on.
+The Worker repository, `hardviz-product-analytics`, owns its own design; this
+section fixes only what the client and the public contract depend on. The
+name follows the Product Analytics term, so a reader checking what the app
+sends finds the same word as ADR 0028 and the consent surface, and it is not
+mistaken for website traffic analytics beside `hardviz-webpage`.
 
 - `POST /v1/batches`: body limit 8 KiB, at most 64 counters and 64 flags,
   strict JSON schema, unknown fields rejected, enums checked against the
@@ -993,7 +997,7 @@ Each claim maps to the narrowest evidence that proves it (DP-09):
 5. **Analytics runtime** (`feat/`, Rust): event and flag enums, counters,
    flag sampling and vendor mapping, tokens, sealed batches, transport trait
    and reqwest implementation, worker registration, tests with the transport
-   double. Needs slices 3 and 4 and the endpoint hostname.
+   double. Needs slices 3 and 4.
 6. **Consent surface and event recording** (`feat/`, frontend): dialog,
    Settings section, shared hook, screen-view and capability call sites,
    language files, E2E mocks and tests, screenshots.
@@ -1012,12 +1016,6 @@ text is agreed.
   are the ones with a clear user-started action today; the eight features are
   the Application Preferences a user switches on or off. Anything else is a
   guess until v1 data exists.
-- Endpoint hostname. `analytics.hardviz.com` is a placeholder; slice 5 needs
-  the hostname as its endpoint constant. The service repository is
-  `hardviz-product-analytics`, named after the Product Analytics term so a
-  reader checking what the app sends lands on the same word as ADR 0028 and
-  the consent surface, and so it is not mistaken for website traffic
-  analytics beside `hardviz-webpage`.
 - Whether `k = 20` is the final suppression threshold, and whether month
   totals below `k` should be shown as "fewer than 20" rather than the number.
 - Whether a declined installation should be told, in Settings, when the
