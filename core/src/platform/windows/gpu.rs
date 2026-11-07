@@ -1,7 +1,9 @@
 use crate::enums::error::PlatformError;
 use crate::infrastructure;
 use crate::infrastructure::providers::adl_provider::AdlAdapterMetric;
+use crate::infrastructure::providers::directx::InventoryAdapter;
 use crate::models::GpuSample;
+use crate::models::hardware::GraphicInfo;
 use crate::{log_error, log_warn};
 
 pub async fn get_gpu_usage() -> Result<(f32, String), PlatformError> {
@@ -96,32 +98,188 @@ pub async fn get_gpu_temperature()
   }
 }
 
-pub async fn get_gpu_info()
--> Result<Vec<crate::models::hardware::GraphicInfo>, PlatformError> {
-  let (nvidia_res, amd_res, intel_res) = tokio::join!(
-    infrastructure::providers::nvapi_provider::get_nvidia_gpu_info(),
-    infrastructure::providers::directx::get_amd_gpu_info(),
-    infrastructure::providers::directx::get_intel_gpu_info(),
-  );
+pub async fn get_gpu_info() -> Result<Vec<GraphicInfo>, PlatformError> {
+  use infrastructure::providers::{directx, nvapi_provider};
 
-  fn append(
-    tag: &str,
-    result: Result<Vec<crate::models::hardware::GraphicInfo>, String>,
-    acc: &mut Vec<crate::models::hardware::GraphicInfo>,
-  ) {
-    match result {
-      Ok(list) => acc.extend(list),
-      Err(e) => log_error!(tag, "get_gpu_info", Some(e.clone())),
+  let adapters = directx::get_gpu_inventory().await;
+  if let Err(error) = &adapters {
+    log_error!("dxgi_error", "get_gpu_info", Some(error));
+  }
+  let nvidia = if adapters
+    .as_ref()
+    .is_ok_and(|adapters| !adapters.iter().any(|a| a.vendor_id == NVIDIA_VENDOR_ID))
+  {
+    Vec::new()
+  } else {
+    nvapi_provider::get_nvidia_gpu_info()
+      .await
+      .unwrap_or_default()
+  };
+
+  Ok(match adapters {
+    Ok(adapters) => merge_gpu_inventory(adapters, &nvidia),
+    Err(_) => nvidia
+      .into_iter()
+      .filter(|info| !info.id.is_empty())
+      .collect(),
+  })
+}
+
+fn merge_gpu_inventory(
+  mut adapters: Vec<InventoryAdapter>,
+  nvidia: &[GraphicInfo],
+) -> Vec<GraphicInfo> {
+  use std::collections::HashMap;
+
+  let mut name_counts = HashMap::new();
+  for adapter in &adapters {
+    *name_counts.entry(adapter.info.name.clone()).or_insert(0) += 1;
+  }
+
+  for adapter in &mut adapters {
+    if adapter.vendor_id != NVIDIA_VENDOR_ID
+      || adapter.info.name.is_empty()
+      || name_counts[&adapter.info.name] != 1
+    {
+      continue;
+    }
+
+    // DXGI LUIDs and NVAPI GPU ids are separate namespaces. Use the name
+    // only when exactly one adapter on each side reports it (ADR 0016).
+    let mut matches = nvidia.iter().filter(|gpu| gpu.name == adapter.info.name);
+    if let (Some(gpu), None) = (matches.next(), matches.next()) {
+      adapter.info.clock = gpu.clock;
+      adapter.info.core_count.clone_from(&gpu.core_count);
+      adapter.legacy_device_id = (!gpu.id.is_empty()).then(|| gpu.id.clone());
     }
   }
 
-  let mut gpus = Vec::new();
+  let mut legacy_id_counts = HashMap::new();
+  for id in adapters.iter().filter_map(|a| a.legacy_device_id.as_ref()) {
+    *legacy_id_counts.entry(id.clone()).or_insert(0) += 1;
+  }
+  adapters
+    .into_iter()
+    .map(|mut adapter| {
+      if let Some(id) = adapter.legacy_device_id
+        && legacy_id_counts[&id] == 1
+      {
+        adapter.info.id = id;
+      }
+      adapter.info
+    })
+    .collect()
+}
 
-  append("nvidia_error", nvidia_res, &mut gpus);
-  append("amd_error", amd_res, &mut gpus);
-  append("intel_error", intel_res, &mut gpus);
+#[cfg(test)]
+mod inventory_tests {
+  use super::*;
 
-  Ok(gpus)
+  // Synthetic DXGI rows use LUIDs. NVAPI ids below are opaque decimal
+  // values, as in the legacy inventory, and are distinct from both LUIDs
+  // and the live stream's nvapi:<id> keys.
+  fn adapter(low: u32, vendor_id: u32, name: &str) -> InventoryAdapter {
+    InventoryAdapter {
+      info: GraphicInfo {
+        id: format!("dxgi:0:{low}"),
+        name: name.into(),
+        vendor_name: format!("0x{vendor_id:04X}"),
+        clock: 0,
+        memory_size: "4096 MB".into(),
+        memory_size_dedicated: "8192 MB".into(),
+        core_count: None,
+      },
+      vendor_id,
+      legacy_device_id: None,
+    }
+  }
+
+  fn nvidia_info(id: &str, name: &str) -> GraphicInfo {
+    GraphicInfo {
+      id: id.into(),
+      name: name.into(),
+      vendor_name: "NVIDIA".into(),
+      clock: 1_800_000,
+      memory_size: "N/A".into(),
+      memory_size_dedicated: "N/A".into(),
+      core_count: Some("3072".into()),
+    }
+  }
+
+  #[test]
+  fn nvapi_absence_keeps_nvidia_and_unrecognized_hardware_in_inventory() {
+    let inventory = merge_gpu_inventory(
+      vec![
+        adapter(41, NVIDIA_VENDOR_ID, "NVIDIA GeForce RTX 4060"),
+        adapter(42, 0x17cb, "Qualcomm Adreno"),
+      ],
+      &[],
+    );
+
+    assert_eq!(inventory.len(), 2);
+    assert_eq!(inventory[0].id, "dxgi:0:41");
+    assert_eq!(inventory[0].memory_size_dedicated, "8192 MB");
+    assert_eq!(inventory[0].clock, 0);
+    assert_eq!(inventory[1].name, "Qualcomm Adreno");
+    assert_eq!(inventory[1].id, "dxgi:0:42");
+  }
+
+  #[test]
+  fn unique_nvapi_match_preserves_dxgi_memory_and_partial_vendor_fields() {
+    let name = "NVIDIA GeForce RTX 4060";
+    let mut vendor_info = nvidia_info("272514048", name);
+    vendor_info.clock = 0;
+    let inventory =
+      merge_gpu_inventory(vec![adapter(41, NVIDIA_VENDOR_ID, name)], &[vendor_info]);
+
+    assert_eq!(inventory.len(), 1);
+    assert_eq!(inventory[0].id, "272514048");
+    assert_eq!(inventory[0].memory_size_dedicated, "8192 MB");
+    assert_eq!(inventory[0].clock, 0);
+    assert_eq!(inventory[0].core_count.as_deref(), Some("3072"));
+  }
+
+  #[test]
+  fn identical_adapters_on_either_side_decline_nvapi_enrichment() {
+    let name = "NVIDIA GeForce RTX 4060";
+    let vendor_info = nvidia_info("272514048", name);
+    let two_dxgi = merge_gpu_inventory(
+      vec![
+        adapter(41, NVIDIA_VENDOR_ID, name),
+        adapter(42, NVIDIA_VENDOR_ID, name),
+      ],
+      std::slice::from_ref(&vendor_info),
+    );
+    let two_nvapi = merge_gpu_inventory(
+      vec![adapter(41, NVIDIA_VENDOR_ID, name)],
+      &[vendor_info, nvidia_info("272580608", name)],
+    );
+
+    assert_eq!(two_dxgi.len(), 2);
+    assert_eq!(two_dxgi[1].id, "dxgi:0:42");
+    assert_eq!(two_nvapi.len(), 1);
+    for gpu in two_dxgi.iter().chain(&two_nvapi) {
+      assert!(gpu.id.starts_with("dxgi:"));
+      assert_eq!(gpu.clock, 0);
+      assert_eq!(gpu.core_count, None);
+    }
+  }
+
+  #[test]
+  fn legacy_model_id_is_kept_only_when_unique() {
+    let mut amd = adapter(41, 0x1002, "AMD Radeon");
+    amd.legacy_device_id = Some("29884".into());
+    let unique = merge_gpu_inventory(vec![amd], &[]);
+    assert_eq!(unique[0].id, "29884");
+
+    let mut first = adapter(41, 0x1002, "AMD Radeon");
+    let mut second = adapter(42, 0x1002, "AMD Radeon");
+    first.legacy_device_id = Some("29884".into());
+    second.legacy_device_id = first.legacy_device_id.clone();
+    let duplicate = merge_gpu_inventory(vec![first, second], &[]);
+    assert_eq!(duplicate[0].id, "dxgi:0:41");
+    assert_eq!(duplicate[1].id, "dxgi:0:42");
+  }
 }
 
 pub async fn sample_gpus() -> Vec<GpuSample> {
