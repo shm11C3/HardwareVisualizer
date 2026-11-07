@@ -1,28 +1,69 @@
-//! Pure helpers for the ITE IT8728F Environment Controller decode.
+//! Scoped ITE Environment Controller profiles and pure decoding helpers.
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
+//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 3
 //!
 //! No other external sensor source was used.
 
 use super::is_plausible_super_io_temperature;
 
-/// Decode an IT8728F Environment Controller temperature byte as signed
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum IteEcProfile {
+  It8620e,
+  It8628e,
+  It8716fD,
+  It8728f,
+}
+
+impl IteEcProfile {
+  /// Match the raw chip ID exactly. IT8716F still requires a CR22 D-version
+  /// check in configuration mode before any logical-device selection.
+  pub(super) const fn from_slot_and_chip_id(slot: u8, id: u16) -> Option<Self> {
+    match (slot, id) {
+      (0, 0x8620) => Some(Self::It8620e),
+      (0, 0x8628) => Some(Self::It8628e),
+      (0, 0x8716) => Some(Self::It8716fD),
+      (0 | 1, 0x8728) => Some(Self::It8728f),
+      _ => None,
+    }
+  }
+
+  pub(super) const fn chip_label(self) -> &'static str {
+    match self {
+      Self::It8620e => "IT8620E",
+      Self::It8628e => "IT8628E",
+      Self::It8716fD => "IT8716F D",
+      Self::It8728f => "IT8728F/EX",
+    }
+  }
+
+  pub(super) const fn is_modern(self) -> bool {
+    matches!(self, Self::It8620e | Self::It8628e)
+  }
+
+  pub(super) const fn has_temperatures(self) -> bool {
+    !matches!(self, Self::It8716fD)
+  }
+
+  pub(super) const fn has_fans(self) -> bool {
+    !matches!(self, Self::It8728f)
+  }
+}
+
+/// Decode a scoped ITE Environment Controller temperature byte as signed
 /// degrees C.
-///
-/// Implemented from `docs/specs/sensors/superio-ite-it86xx-it87xx.md`
-/// revision 2, scoped to exact chip id `0x8728` and generic TMPIN1-TMPIN3.
 pub const fn decode_ite_temperature_byte(raw: u8) -> f32 {
   (raw as i8) as f32
 }
 
-/// Whether an IT8728F temperature is inside the revision 2 plausibility
-/// range. Zero is a valid reading for an enabled physical input.
+/// Whether a temperature is inside the scoped ITE plausibility range.
+/// Zero is a valid reading for an enabled physical input.
 pub const fn is_plausible_ite_temperature(temperature: f32) -> bool {
   is_plausible_super_io_temperature(temperature)
 }
 
-/// Whether one IT8728F TMPIN is an enabled physical temperature input.
+/// Whether one TMPIN is an enabled physical temperature input.
 ///
 /// `channel` is one-based (`1..=3`). A channel is eligible only when exactly
 /// one of its resistor/diode mode bits is set and the SST/PECI route does not
@@ -39,6 +80,15 @@ pub const fn is_ite_temperature_channel_eligible(config: u8, channel: u8) -> boo
   let routed_external_channel = config >> 6;
 
   resistor_enabled != diode_enabled && routed_external_channel != channel
+}
+
+/// Convert one stable 16-bit count after all profile and channel gates passed.
+pub(super) const fn decode_ite_fan_rpm(count: u16) -> Option<u32> {
+  match count {
+    0..=0x003F => None,
+    0xFFFF => Some(0),
+    _ => Some(675_000 / count as u32),
+  }
 }
 
 #[cfg(test)]
@@ -75,5 +125,16 @@ mod tests {
     assert!(!is_ite_temperature_channel_eligible(0b1000_0010, 2));
     assert!(!is_ite_temperature_channel_eligible(0b1110_0000, 3));
     assert!(!is_ite_temperature_channel_eligible(0xFF, 4));
+  }
+
+  #[test]
+  fn ite_16_bit_fan_count_distinguishes_invalid_active_and_inactive() {
+    assert_eq!(decode_ite_fan_rpm(0x0000), None);
+    assert_eq!(decode_ite_fan_rpm(0x0001), None);
+    assert_eq!(decode_ite_fan_rpm(0x003F), None);
+    assert_eq!(decode_ite_fan_rpm(0x0040), Some(10_546));
+    assert_eq!(decode_ite_fan_rpm(0x01C2), Some(1_500));
+    assert_eq!(decode_ite_fan_rpm(0xFFFE), Some(10));
+    assert_eq!(decode_ite_fan_rpm(0xFFFF), Some(0));
   }
 }
