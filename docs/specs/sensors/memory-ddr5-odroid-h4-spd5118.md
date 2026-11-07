@@ -12,7 +12,7 @@
 | ID | Source | Notes |
 | --- | --- | --- |
 | S1 | Hardkernel [ODROID-H4 hardware specification](https://www.hardkernel.com/blog-2/odroid-h4-series/) and Dasharo [H4 hardware validation matrix](https://docs.dasharo.com/variants/hardkernel_odroid_h4/hardware-matrix/) | Primary for the single DDR5 SO-DIMM socket and the exact Samsung M425R1GB4BB0-CWMOD validated in the H4+ configuration. No temperature claim is supplied by the matrix. |
-| S2 | MSI [Cubi service guide](https://storage-asset.msi.com/global/pdf/Cubi_B0B1v1.0_ServiceGuide_0411-2.pdf), memory replacement section | Independent OEM part documentation for the exact Samsung M425R1GB4BB0-CWMOD 8 GB DDR5 SO-DIMM. The MSI system's controller and firmware are outside this candidate. |
+| S2 | MSI [Cubi service guide v1.0](https://storage-asset.msi.com/global/pdf/Cubi_B0B1v1.0_ServiceGuide_0411-2.pdf#page=51), p. 51, System Info screenshot | The Memory 1 entry identifies Samsung M425R1GB4BB0-CWMOD as an 8 GB DDR5-5600 module. S1 identifies the ODROID test configuration. |
 | S3 | Dasharo [ODROID-H4 UEFI v0.9.1 release](https://docs.dasharo.com/variants/hardkernel_odroid_h4/releases/#v091-2025-09-03), September 3, 2025, coreboot `7d10ea62`, [build config](https://github.com/Dasharo/coreboot/blob/7d10ea62/configs/config.hardkernel_odroid_h4), [board Kconfig](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/mainboard/hardkernel/odroid-h4/Kconfig), [memory configuration](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/mainboard/hardkernel/odroid-h4/romstage_fsp_params.c), and [SMBus SPD read](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/common/block/smbus/smbuslib.c) | **lead-only (copyleft)** for exact board strings, socket address and the 1024-byte boot-time DDR5 SPD read. This is the firmware's own source. |
 | S4 | Dasharo coreboot at `7d10ea62`, [UEFI BIOS version string](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/vendorcode/dasharo/smbios.c), [Intel DIMM information](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/alderlake/romstage/romstage.c), [saved serial field](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/common/smbios.h), and [Type 17 output](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/lib/smbios.c) | **lead-only (copyleft)** for deriving Type 17 from the FSP's SPD information, exact serial formatting and part string. Only information describing the single populated slot is used. |
 | S5 | JEDEC *DDR5 DIMM Label*, JESD401-5D, [public-use document mirror](https://studylib.net/doc/28582427/jesd401-5d), serial and part fields, and DMTF [SMBIOS DSP0134 3.9.0](https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.9.0.pdf), §7.18 | Primary for SPD field offsets and Type 17 memory device locator, serial, part and type semantics. |
@@ -43,13 +43,15 @@
   hwmon device. Bus and hwmon enumeration indices are transient.
   A missing, changed, duplicate or ambiguous binding is unavailable.
 - Require exactly one populated Type 17 memory record and a usable
-  device locator. Require 8 GiB DDR5 SO-DIMM and exact part number.
-  The formatted Type 17 record must be at least `0x1B` bytes to
-  contain the part string index at `0x1A`, alongside serial at `0x18`
-  and locator at `0x10` (S5). For binary input, require in-bounds
-  formatted data and a complete, terminated string set with valid
-  string indices. Empty records are excluded. Duplicate or incomplete
-  populated inventory is unavailable. Keep the locator and its
+  device locator. Require 8 GiB DDR5 SO-DIMM and exact part number
+  (S1, S2). For binary SMBIOS, require a formatted Type 17 length
+  of at least `0x1B` bytes to contain the part string index at
+  `0x1A`, serial at `0x18` and locator at `0x10` (S5). Require
+  in-bounds formatted data and a terminated string set with valid
+  indices. For inventory text, require a complete Type 17 report
+  with those fields and the size, memory type and form factor.
+  Empty records are excluded. Duplicate or incomplete populated
+  inventory is unavailable. Keep the locator and its
   Type 17 handle scoped to this boot. Do not display the serial or
   use transient sysfs enumeration as identity.
 
@@ -66,18 +68,19 @@ Decode only the exact eight-character Type 17 hexadecimal format to
 four bytes. Require byte-for-byte equality with SPD. Reject all zero,
 all ones, blank, malformed and mismatched identities. Do not swap byte
 order, match a prefix, accept an alternate product spelling, or fall
-back to address or record order. A complete firmware table is necessary
+back to address or record order. A complete Type 17 inventory is necessary
 to verify uniqueness. The base SPD CRC does not authenticate the
 manufacturing identity fields, so it cannot replace this match.
 
 ## Collection and safety
 
-1. Scope all work to a request for DIMM telemetry. Use Type 17 from an
-   already available, explicitly acquired hardware-inventory result,
-   or a directly readable local table. Linux's existing explicit
-   detailed inventory action may already read SMBIOS. An unavailable
-   table makes the DIMM temperature unavailable. Do not add background
-   privilege prompts or persist serials.
+1. Scope all work to a request for DIMM telemetry. Use a directly
+   readable local SMBIOS table or parse Type 17 in memory from the raw
+   result of the existing user-initiated Linux detailed inventory
+   action (`pkexec dmidecode --type memory`). The persisted aggregate
+   `MemoryInfo` cache has no per-DIMM identity fields. If neither source
+   supplies a complete inventory, the temperature is unavailable.
+   Do not prompt for background elevation or persist serials.
 2. After exact board and bound endpoint checks, read exactly 34 bytes
    starting at offset 517 through the existing I²C client's read-only
    `eeprom` binary attribute. The pinned driver registers a 1024-byte
@@ -123,8 +126,8 @@ It does not change OS probing or override SPD-write protection. (S7)
 | --- | --- |
 | Exact DMI profile and PCI ancestry, one populated Type 17 row, SPD serial bytes `01 23 45 67`, Type 17 `01234567`, exact part, `temp1_enable=1` and `temp1_input=40250` | One temperature at 40.25 °C attributed to the Type 17 locator. |
 | Part mismatch, unknown firmware, wrong controller, wrong client address, wrong binding, or a name-only hwmon match | No unsupported read. Leave inventory available. |
-| Second populated Type 17 row, duplicate match, malformed table, empty locator, reversed, absent or invalid serial, or a partial EEPROM read | No attributed reading. Do not substitute address or order. |
-| Missing or disabled sensor, inaccessible sysfs, missing DMI, transient bus or binding failure | Unavailable without fallback probing, bus writes or background elevation. |
+| Second populated Type 17 row, duplicate match, malformed binary table, incomplete inventory text, empty locator, reversed, absent or invalid serial, or a partial EEPROM read | No attributed reading. Do not substitute address or order. |
+| Missing or disabled sensor, inaccessible sysfs, aggregate-only or missing DMI inventory, transient bus or binding failure | Unavailable without fallback probing, bus writes or background elevation. |
 | `temp1_input` 0, 250, 125000, 125250 or 40251 m°C | Accept only 250 and 125000 m°C in this set. Keep unavailable values distinct from measured zero. |
 | Changed driver, I²C node re-created, or hwmon node renumbered | Requalify the endpoint and join before using a new binding. Do not equate an enumeration index with a physical slot. |
 
