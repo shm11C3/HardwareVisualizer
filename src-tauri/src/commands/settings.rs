@@ -959,18 +959,17 @@ pub mod commands {
   #[tauri::command]
   #[specta::specta]
   pub async fn set_product_analytics_consent(
-    window: Window,
     state: tauri::State<'_, AppState>,
     decision: models::settings::ProductAnalyticsDecision,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-
-    if let Err(e) = settings.set_product_analytics_consent(decision) {
-      emit_error(&window)?;
-      return Err(e);
-    }
-
-    Ok(())
+    // No `error_event`: a failed write keeps the previous decision, so it is
+    // a user-action failure the consent surface reports under its control,
+    // not an app-cannot-continue dialog.
+    state
+      .settings
+      .lock()
+      .unwrap()
+      .set_product_analytics_consent(decision)
   }
 
   #[tauri::command]
