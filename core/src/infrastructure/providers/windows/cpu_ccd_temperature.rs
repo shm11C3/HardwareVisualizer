@@ -35,6 +35,10 @@ impl VermeerCcdTarget {
     self.read_with(|address| u32::try_from(client.read_smu_register(address).ok()?).ok())
   }
 
+  pub(crate) fn unavailable_readings(&self) -> Vec<CpuCcdTemperature> {
+    self.read_with(|_| None)
+  }
+
   fn read_with(
     &self,
     mut read: impl FnMut(u64) -> Option<u32>,

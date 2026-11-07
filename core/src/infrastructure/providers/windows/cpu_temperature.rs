@@ -357,12 +357,27 @@ impl CpuTemperatureSampler {
   pub(crate) fn sample_ccd(
     &self,
     target: VermeerCcdTarget,
-  ) -> Option<Vec<CpuCcdTemperature>> {
+  ) -> (Vec<CpuCcdTemperature>, bool) {
     let Some(ActiveCpuTemperatureSource::Amd { client, .. }) = &self.active else {
-      return None;
+      // Detection established both fixed slots even when the module did not open.
+      return (target.unavailable_readings(), true);
     };
 
-    Some(target.read(client))
+    (target.read(client), false)
+  }
+
+  #[cfg(test)]
+  pub(crate) fn synthetic_unavailable() -> Self {
+    Self {
+      diagnostics: CpuTemperatureDiagnostics::unavailable("synthetic missing module"),
+      active: None,
+      inactive_error: Some(CpuPackageTemperatureError::Unavailable {
+        reason: "synthetic RyzenSMU load failure".into(),
+        enablement: SensorEnablement::Verified,
+        thermal_status: None,
+      }),
+      sample_failure_logged: true,
+    }
   }
 }
 
@@ -596,28 +611,6 @@ mod tests {
         }),
       }
     );
-  }
-
-  #[test]
-  fn missing_ryzen_smu_module_leaves_ccd_and_package_independently_unavailable() {
-    let error = CpuPackageTemperatureError::Unavailable {
-      reason: "synthetic RyzenSMU load failure".into(),
-      enablement: SensorEnablement::Verified,
-      thermal_status: None,
-    };
-    let mut sampler = CpuTemperatureSampler {
-      diagnostics: CpuTemperatureDiagnostics::unavailable("synthetic missing module"),
-      active: None,
-      inactive_error: Some(error.clone()),
-      sample_failure_logged: true,
-    };
-
-    assert!(
-      sampler
-        .sample_ccd(super::super::cpu_ccd_temperature::synthetic_target())
-        .is_none()
-    );
-    assert_eq!(sampler.sample(), Err(error));
   }
 
   #[test]

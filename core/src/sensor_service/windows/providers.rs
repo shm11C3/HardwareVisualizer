@@ -188,12 +188,19 @@ impl Providers {
   pub(super) fn cpu_ccd_temperatures(
     &mut self,
   ) -> Option<Reading<Vec<CpuCcdTemperature>>> {
-    let Some(target) = VermeerCcdTarget::detect() else {
+    self.sample_ccd_temperatures(VermeerCcdTarget::detect(), uptime_ms())
+  }
+
+  fn sample_ccd_temperatures(
+    &mut self,
+    target: Option<VermeerCcdTarget>,
+    now: u64,
+  ) -> Option<Reading<Vec<CpuCcdTemperature>>> {
+    let Some(target) = target else {
       self.ccd_reading = None;
       return None;
     };
 
-    let now = uptime_ms();
     self.last_ccd_request_ms = Some(now);
     if let Some(cached) = &self.ccd_reading
       && cached.is_fresh(now)
@@ -208,14 +215,14 @@ impl Providers {
       .temperature
       .sampler
       .get_or_insert_with(|| (now, CpuTemperatureSampler::new()));
-    let value = sampler.sample_ccd(target);
-    if value.is_none() && now.saturating_sub(*opened) >= REOPEN_FAILED_PROVIDER_MS {
+    let (value, reopen) = sampler.sample_ccd(target);
+    if reopen && now.saturating_sub(*opened) >= REOPEN_FAILED_PROVIDER_MS {
       self.temperature.sampler = None;
     }
 
     let reading = Reading {
       acquired_at_ms: uptime_ms(),
-      value: value.unwrap_or_default(),
+      value,
     };
     self.ccd_reading = Some(reading.clone());
     Some(reading)
@@ -239,6 +246,65 @@ impl Providers {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::infrastructure::providers::windows::cpu_ccd_temperature::synthetic_target;
+
+  #[test]
+  fn missing_ccd_module_returns_known_slots_and_keeps_the_package_cache() {
+    let now = uptime_ms();
+    let mut providers = Providers::new();
+    providers.temperature.sampler =
+      Some((now, CpuTemperatureSampler::synthetic_unavailable()));
+    providers.temperature.reading = Some(Reading {
+      acquired_at_ms: now,
+      value: TemperatureSample {
+        cpu_temperature: Some(63.0),
+        ..Default::default()
+      },
+    });
+
+    let expected = [
+      CpuCcdTemperature {
+        package_index: 0,
+        ccd_slot: 1,
+        temperature_celsius: None,
+      },
+      CpuCcdTemperature {
+        package_index: 0,
+        ccd_slot: 2,
+        temperature_celsius: None,
+      },
+    ];
+    let first = providers
+      .sample_ccd_temperatures(Some(synthetic_target()), now)
+      .unwrap();
+    assert_eq!(first.value, expected);
+    assert!(providers.temperature.sampler.is_some());
+
+    let cached = providers
+      .sample_ccd_temperatures(
+        Some(synthetic_target()),
+        first.acquired_at_ms + CPU_INTERVAL_MS - 1,
+      )
+      .unwrap();
+    assert_eq!(cached.acquired_at_ms, first.acquired_at_ms);
+    assert_eq!(cached.value, expected);
+    assert!(providers.temperature.sampler.is_some());
+
+    let retry_due = providers
+      .sample_ccd_temperatures(
+        Some(synthetic_target()),
+        first.acquired_at_ms + REOPEN_FAILED_PROVIDER_MS,
+      )
+      .unwrap();
+    assert_eq!(retry_due.value, expected);
+    assert!(providers.temperature.sampler.is_none());
+
+    let package = providers.temperature.reading.as_ref().unwrap();
+    assert_eq!(package.acquired_at_ms, now);
+    assert_eq!(package.value.cpu_temperature, Some(63.0));
+    assert!(providers.sample_ccd_temperatures(None, now).is_none());
+    assert!(providers.ccd_reading.is_none());
+  }
 
   #[test]
   fn shared_cache_keeps_the_original_acquisition_until_the_provider_is_due() {
