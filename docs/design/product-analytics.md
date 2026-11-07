@@ -194,18 +194,17 @@ only what it shares.
 priority: it shows only when no Close to Tray, External Component Guidance,
 database conversion, or NSIS notice flow is pending, and only when the
 effective state is not granted-at-current-version and not declined. Whether
-it opens is decided once per launch, at the moment the arbitration first
-becomes free: it opens only if, at that moment, the main window is not on
-Settings and neither nonmodal corner notice outside the arbitration
-(`SensorServiceNotice`, `ElevationUnavailableNotice`) is visible. Otherwise
-it does not open in that launch and is offered again at the next start;
-nothing is recorded. So it never interrupts later in a session, including
-after a notice has sent the user to Settings, and it never opens over a
-notice the user has not answered. Those notices have no startup phase or
-completion signal, and ADR 0029 rules out adding one, so consent reads only
-their visibility at that moment. A notice that appears while the consent
-dialog is open stays nonmodal behind it and is still there when the dialog
-closes, so no queue is needed. Its two
+it opens is decided once per launch, when the arbitration first becomes
+free: it opens then unless the main window is on Settings, in which case it
+is offered again at the next start and nothing is recorded. That moment is
+normally at startup, but it follows the existing arbitration, so a slow
+first guidance lookup can move it after the user has started using the
+window; this design adds no startup-phase or completion signal of its own,
+consistent with ADR 0029. The nonmodal corner notices outside the
+arbitration (`SensorServiceNotice`, `ElevationUnavailableNotice`) do not
+gate consent: they stay visible behind the dialog and after it closes, so
+nothing is lost, and gating on them would defer consent indefinitely for an
+installation whose notice reappears every launch. Its two
 buttons have the same visual weight and no default emphasis. The description
 names in plain words what is sent (screen and capability counts, which
 features are switched on, CPU and GPU vendor class, whether a sensor provider
