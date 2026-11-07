@@ -34,7 +34,7 @@ import { settingsFixture } from "@/e2e/fixtures/settings";
 import { storeFixture } from "@/e2e/fixtures/store";
 import type {
   ArchiveBucketTimestamp,
-  CpuCoreTemperatures,
+  CpuDetailTemperatures,
   DatabaseConversionState,
   ExternalComponentGuidanceCandidate,
   HardwareMonitorUpdate,
@@ -110,6 +110,7 @@ type FixtureOverrides = {
   classicNavigation: boolean;
   /** A synthetic mixed-availability result for the core temperature panel. */
   cpuCoreTemperatures: boolean;
+  cpuCcdTemperatures: boolean;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
   storedDisplayTarget: string | null;
   /** `?legacyPerformanceLayout=1` seeds the pre-#2293 default Performance
@@ -294,6 +295,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       "classic",
     cpuCoreTemperatures:
       new URLSearchParams(window.location.search).get("cpuCoreTemperatures") ===
+      "1",
+    cpuCcdTemperatures:
+      new URLSearchParams(window.location.search).get("cpuCcdTemperatures") ===
       "1",
     storedDisplayTarget: new URLSearchParams(window.location.search).get(
       "storedDisplay",
@@ -549,9 +553,15 @@ const buildInvokeHandlers = (
           storage: buildStorageInfoFixture(fixtureOverrides.storageDeviceCount),
         },
   get_process_list: () => processListFixture,
-  get_cpu_core_temperatures: (): CpuCoreTemperatures => ({
+  get_cpu_detail_temperatures: (): CpuDetailTemperatures => ({
     temperatureUnit: "C",
-    readings: fixtureOverrides.cpuCoreTemperatures
+    ccds: fixtureOverrides.cpuCcdTemperatures
+      ? [
+          { packageIndex: 0, ccdSlot: 1, temperature: null },
+          { packageIndex: 0, ccdSlot: 2, temperature: 54 },
+        ]
+      : [],
+    cores: fixtureOverrides.cpuCoreTemperatures
       ? [
           { processorGroup: 0, logicalProcessor: 0, temperature: 43 },
           { processorGroup: 0, logicalProcessor: 1, temperature: 42 },

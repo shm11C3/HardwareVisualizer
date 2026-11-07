@@ -349,6 +349,8 @@
       "perCoreUnavailable": "Per-core usage is not available on this system.",
       "coreTemperatures": "CPU core temperatures",
       "coreTemperatureProcessor": "Core at P{{processor}}",
+      "ccdTemperatures": "CPU CCD temperatures",
+      "ccdTemperatureSlot": "CCD {{slot}}",
       "motherboardSensorsUnavailable": "No motherboard sensors detected on this system.",
       "power": {
         "cpu": "CPU",

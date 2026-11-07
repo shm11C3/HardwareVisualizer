@@ -25,7 +25,7 @@ import {
 } from "@phosphor-icons/react";
 import { GripVerticalIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { CpuCoreTemperatures } from "@/features/hardware/components/CpuCoreTemperatures";
+import { CpuDetailTemperatures } from "@/features/hardware/components/CpuDetailTemperatures";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
 import { useAvailablePerformancePanels } from "@/features/hardware/performance/hooks/useAvailablePerformancePanels";
 import type {
@@ -68,7 +68,7 @@ const PanelBody = ({
     return (
       <>
         <PerCorePanel />
-        <CpuCoreTemperatures />
+        <CpuDetailTemperatures />
       </>
     );
   }
