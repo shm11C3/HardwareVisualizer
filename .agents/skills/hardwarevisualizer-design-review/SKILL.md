@@ -26,6 +26,20 @@ State the user-visible outcome in one sentence. Name the issue or explicit
 request that anchors scope. Separate adjacent cleanup or features unless they
 are necessary for the same claim.
 
+Apply [DP-12](../../../docs/design-principles.md#dp-12-simplify-the-specification-before-absorbing-its-complexity)
+before choosing a structure and revisit it when complexity grows or a review
+asks for simplification:
+
+- Which requirements come from the user or concrete platform/security
+  constraints, and which came from our chosen specification?
+- Can the same outcome use fewer user steps, choices, modes or states by
+  removing a step or reusing an existing flow?
+- What concrete requirement makes the remaining complexity necessary?
+
+Compare the simpler specification with the current one before proposing helper
+extraction or a generic framework. Keep the reasoning with the owning decision;
+do not introduce mandatory paperwork or an additional approval gate.
+
 ### 2. Map Ownership
 
 Identify who owns each part:
