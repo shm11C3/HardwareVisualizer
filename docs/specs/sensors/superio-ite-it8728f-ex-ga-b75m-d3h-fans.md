@@ -47,7 +47,7 @@ and controller response.
 
 | Predicate | Condition | Source |
 | --- | --- | --- |
-| Windows baseboard identity | A single local baseboard record with Manufacturer exactly `Gigabyte Technology Co., Ltd.` and Product exactly `B75M-D3H`. Use the baseboard fields, with only surrounding whitespace removed. Missing, failed, ambiguous or different records do not select the fan profile. | S1–S3, S6 |
+| Windows baseboard identity | The complete local `Win32_BaseBoard` query returns exactly one record before any filtering or deduplication. Its Manufacturer is exactly `Gigabyte Technology Co., Ltd.` and its Product is exactly `B75M-D3H`, with only surrounding whitespace removed. A failed query, any other record count, or mismatched fields keep the fan profile unavailable. | S1–S3, S6 |
 | PCB revision evidence | Require Version `1.0`, `1.1`, `1.2`, or the observed placeholder `x.x`, with only surrounding whitespace removed. The placeholder carries no revision value. Every OEM-listed revision has the same documented EX part. An absent, unreadable or unrecognized Version keeps the new fan path unavailable. | S1–S3, S6. The Version acceptance rule is a conservative scope guard. |
 | Primary slot | PawnIO slot 0, configuration index/data pair `0x2E/0x2F`. | S4–S5, S9–S10 |
 | Exact live chip ID | Actual `CR20=0x87` and `CR21=0x28`. | S5, S9 |
@@ -64,13 +64,17 @@ same tuple. Acceptance of this exact factory population as the
 discriminator is the maintainer decision for this readiness proposal
 (S1–S5).
 
-Use the existing Windows baseboard inventory interface. The sampling host
-resolves the local board at discovery or from its own hardware identity
-snapshot before taking the ISA mutex. An application or IPC caller cannot
-assert eligibility. The successful profile may be cached with the
-port-proven executor and slot per S9. Version is a conservative scope
-check. BIOS, serial number and system model are outside the discriminator
-(S6, S9–S11).
+The sampling host resolves the local board before taking the ISA mutex.
+Reuse the existing `Win32_BaseBoard` query infrastructure or a local
+query that preserves the number of returned records. Check the complete
+result for exactly one record before checking Manufacturer, Product and
+Version. The current `query_motherboard_info` output retains only the
+first baseboard record and cannot be used to establish eligibility.
+The host may reuse its own hardware identity snapshot if it preserves
+the query's record count. An IPC caller cannot assert eligibility.
+The successful profile may be cached with the port-proven executor and
+slot per S9. Version is a conservative scope check. BIOS, serial number
+and system model are outside the discriminator (S6, S9–S11).
 
 ## Register map
 
@@ -181,6 +185,7 @@ and verifies absence of EC data writes and interrupt-status reads.
 | --- | --- |
 | Exact board and `x.x`, slot 0, `0x8728`, `CR22=0x01`, active LDN 04, raw base `0x0A/0x30`, `CR29[2]=0`, BAR/exit/post-exit proof succeeds, EC `0x00=0x01`, EC `0x13=0x30`. FAN1 low/high `0xC2/0x01` twice and FAN2 `0x84/0x03` twice. | Fan 1 at 1500 RPM and Fan 2 at 750 RPM. The normal temperature path can report in the same collection. |
 | Otherwise qualified with `CR22=0x81`, or an explicit known PCB revision | The low revision nibble and exact factory tuple still qualify. Upper CR22 bits are never written. |
+| No baseboard records, or multiple baseboard records with an exact match first | Reject the new fan profile before its additional discovery reads. This includes duplicate matching records. The existing temperature path remains eligible under S9. |
 | Neighboring baseboard `B75M-D3V`, mismatched manufacturer, unresolved or ambiguous board identity, unrecognized version, wrong slot, wrong chip, unreadable/unlisted revision nibble, or a different valid EC base | No new fan-specific EC read. Existing eligible temperatures or unrelated supported fan profiles still follow S9/S11. |
 | Configuration exit fails, BAR discovery fails, the post-exit address or data access is denied, or ISA mutex unavailable | No fan-enable or count read. No port-proof cache on failure. If the exit fails, no EC access at all. |
 | The executor or slot was replaced after a successful proof | Prior port proof and fan qualification cannot authorize a later sample. |
@@ -213,4 +218,4 @@ and verifies absence of EC data writes and interrupt-status reads.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-08 | Propose exact OEM GA-B75M-D3H IT8728F/EX FAN1–2 Experimental readback, with primary-slot authorization and the factory discriminator subject to maintainer approval. |
+| 1 | 2026-11-08 | Propose the transition from Draft to Implementation-ready (rev 1) for exact OEM GA-B75M-D3H IT8728F/EX FAN1–2 Experimental readback. The primary-slot authorization applies and the factory discriminator requires maintainer approval. |
