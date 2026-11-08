@@ -231,9 +231,12 @@ and fixed channel. No other attributes are scoped on this board.
   Only BIOS 2.A93 (PRO) and 1.A68 (MORTAR) have observations. A
   Hardware Compatibility Report
   ([#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500))
-  from another BIOS build on either board is the graduation evidence,
-  and a report of a changed fan assignment would move the fan channels
-  of that build to Open questions.
+  from another BIOS build on either board corroborates the path on that
+  build as compatibility evidence. Graduation to Verified still requires
+  primary documentation of the EC channel assignment or a
+  maintainer-accepted labeled capture, like S2, for every lead-only
+  mapping fact. A report of a changed fan assignment would move the fan
+  channels of that build to Open questions.
 - Non-blocking for the MAG B850M MORTAR WIFI fan slice: the positive exact-board sample and unchanged RPM path establish SYS_FAN1 for Experimental use.
   A stock-driver sample with full sysfs paths and independently observed
   raw controller and firmware IDs remains useful for verification. The
@@ -247,4 +250,4 @@ and fixed channel. No other attributes are scoped on this board.
 | 1 | 2026-11-08 | Propose exact Experimental Linux sysfs coverage, separate from direct Windows access. |
 | 2 | 2026-11-08 | Record the pinned MSI input-cache read set and selector-only writes during refresh. |
 | 3 | 2026-11-08 | Propose Implementation-ready Experimental SYS_FAN1 coverage on exact MAG B850M MORTAR WIFI BIOS 1.A68 through its native Linux hwmon endpoint. |
-| 4 | 2026-11-09 | Apply ADR 0031: the BIOS version and the PRO platform instance number become evidence identities in Status; the board identity stays a mechanism gate because it selects the OEM EC channel assignment, and the per-channel label/type checks detect a changed assignment. Add the gate-kind table, let the PRO profile accept any canonical instance suffix, and add BIOS-independence fixtures. |
+| 4 | 2026-11-09 | Apply ADR 0031: the BIOS version and the PRO platform instance number become evidence identities in Status; the board identity stays a mechanism gate because it selects the OEM EC channel assignment, and the per-channel label/type checks detect a changed assignment. Add the gate-kind table, let the PRO profile accept any canonical instance suffix, and add BIOS-independence fixtures. A Compatibility Report corroborates a build; Verified still needs primary or labeled-capture evidence for every lead-only mapping fact. |
