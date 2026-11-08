@@ -7,7 +7,11 @@ safe access path already recognizes, even when the register behavior has not yet
 been fully verified against a primary hardware specification. The goal is to
 increase the number of devices that can produce useful local readings and then
 use user reports, diagnostics, and later primary-source or hardware-dump
-verification to improve quality.
+verification to improve quality. For Experimental enablement on hardware
+the project cannot access directly, a scoped specification
+can use sufficient published evidence under ADR 0023, with synthetic fixtures
+for the software contract. Record physical validation separately and investigate
+reported failures as they arrive.
 
 [ADR 0023](0023-copyleft-derived-facts-for-experimental-scopes.md) refines the
 source rule for the Experimental state: a specification may rest an

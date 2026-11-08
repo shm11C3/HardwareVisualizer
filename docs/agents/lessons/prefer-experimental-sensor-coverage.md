@@ -22,6 +22,11 @@ Verified/Experimental hardware matrix in the relevant sensor specification.
 Successful readings keep the ordinary Core, App, and UI contracts; only a
 surfaced failure from the attempted path should identify it as experimental.
 
+Use the published evidence permitted by ADR 0023 to prepare exact scopes when
+there is no device available to the project. Treat a later user report as
+evidence to investigate after release. Keep synthetic and hardware validation
+separate. See the Experimental Sensor Enablement decision for the entry gate.
+
 This preference does not authorize guessing hardware facts. Unknown addresses,
 register maps, chip selection, writes, or behavior still require an
 implementation-ready specification before runtime enablement.
