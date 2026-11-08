@@ -76,10 +76,14 @@ The rules that follow:
    appear in the Status column of the scoped-enablement table and in the
    fixture that corroborates the row. They never block a read.
 2. Scope rows are keyed by mechanism. The configurations that were observed
-   are the Verified members of the row, or its Experimental members when the
-   facts rest on lead-only sources under ADR 0023. Other configurations that
-   share the mechanism are Experimental under ADR 0011, with its existing
-   read-only, plausibility and failure-presentation rules.
+   are named in the row's Status column as its best-evidenced members. A
+   member is Verified only when the specification README's Verified criteria
+   hold for every fact it depends on: a primary source or a
+   maintainer-accepted independent hardware dump. An observation alone, or
+   any fact that rests on a lead-only source under ADR 0023, leaves the
+   member Experimental. Configurations that share the mechanism but have no
+   observation are Experimental under ADR 0011, with its existing read-only,
+   plausibility and failure-presentation rules.
 3. A mechanism gate is never guessed. When the fact that distinguishes two
    configurations is unknown, for example the CCD register addresses of a
    different Zen die, the unknown configuration stays Unsupported until the

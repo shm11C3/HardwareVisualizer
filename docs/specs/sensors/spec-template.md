@@ -62,9 +62,11 @@ boards); then tag it `mechanism` and name that fact.
 If parts of the hardware scope are unverified while the rest of the
 document is ready, add a scoped-enablement table here (columns:
 Scope, Status, Default enablement) following the per-family example
-in cpu-amd-zen-smn.md. Key each Scope row by mechanism; the observed
-configurations are that row's Verified members, or its Experimental
-members when the facts are lead-only. A row whose default enablement
+in cpu-amd-zen-smn.md. Key each Scope row by mechanism and name the
+observed configurations in its Status column. A member is Verified
+only when a primary source or a maintainer-accepted independent dump
+covers every fact it depends on; an observation alone, or any
+lead-only fact, keeps it Experimental. A row whose default enablement
 is Experimental because it depends on lead-only facts names those
 facts (with their source IDs) in its Status column; a Verified row
 never depends on one.
