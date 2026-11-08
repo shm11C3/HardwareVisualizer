@@ -9,6 +9,29 @@ pub use generated::*;
 
 #[derive(Debug, serde::Serialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct MemoryDetails {
+  pub memory: MemoryInfo,
+  pub dimm_temperature: DimmTemperature,
+}
+
+#[derive(Debug, serde::Serialize, Type)]
+#[serde(
+  tag = "status",
+  rename_all = "camelCase",
+  rename_all_fields = "camelCase"
+)]
+pub enum DimmTemperature {
+  Unsupported,
+  Unavailable,
+  Available {
+    locator: String,
+    temperature: f32,
+    temperature_unit: crate::enums::settings::TemperatureUnit,
+  },
+}
+
+#[derive(Debug, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct CpuDetailTemperatures {
   pub temperature_unit: crate::enums::settings::TemperatureUnit,
   pub cores: Vec<CpuCoreTemperatureReading>,

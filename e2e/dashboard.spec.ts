@@ -8,6 +8,62 @@ import {
 } from "./helpers";
 
 test.describe("dashboard captures", () => {
+  test("DDR5 temperature is only read on demand and keeps its DIMM locator", async ({
+    page,
+  }) => {
+    await gotoApp(page, {
+      path: "/?navigationLayout=classic&dimmTemperature=available",
+    });
+    await seedHardwareHistory(page);
+
+    const load = page.getByRole("button", { name: "Load detailed info" });
+    await expect(load).toBeVisible();
+    await expect(
+      page.getByText("DIMM temperature at last read (DIMM 0)"),
+    ).toHaveCount(0);
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("get_memory_info_detail"),
+      ),
+    ).toBe(0);
+    await load.click();
+
+    await expect(
+      page.getByText("DIMM temperature at last read (DIMM 0)"),
+    ).toBeVisible();
+    await expect(page.getByText("40.25 °C")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Refresh memory details" }),
+    ).toBeVisible();
+    await page.getByText("40.25 °C").scrollIntoViewIfNeeded();
+    await saveCapture(page, "dimm-temperature-desktop");
+
+    await page.setViewportSize({ width: 520, height: 800 });
+    await page
+      .getByText("DIMM temperature at last read (DIMM 0)")
+      .scrollIntoViewIfNeeded();
+    await expect(page.getByText("40.25 °C")).toBeVisible();
+    await saveCapture(page, "dimm-temperature-compact");
+  });
+
+  test("unavailable DIMM temperature preserves the detailed memory inventory", async ({
+    page,
+  }) => {
+    await gotoApp(page, {
+      path: "/?navigationLayout=classic&dimmTemperature=unavailable",
+    });
+    await seedHardwareHistory(page);
+    await page.getByRole("button", { name: "Load detailed info" }).click();
+    const temperatureRow = page
+      .getByText("DIMM temperature", { exact: true })
+      .locator("..");
+    await expect(temperatureRow).toContainText("N/A");
+    await expect(page.getByText("2400 MHz")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Refresh memory details" }),
+    ).toBeVisible();
+  });
+
   test("dashboard renders fixture hardware data", async ({ page }) => {
     await gotoApp(page, { path: "/?navigationLayout=classic" });
     await seedHardwareHistory(page);

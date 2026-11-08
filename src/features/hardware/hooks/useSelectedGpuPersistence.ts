@@ -103,8 +103,7 @@ export const useSelectedGpuPersistence = () => {
     // Compact), and the migration cannot read what nothing has fetched. Only
     // an unresolved id triggers the fetch, so steady-state startups where the
     // stored id is already live cost no extra IPC. The ref keeps the request
-    // single-shot: `init` is a new function every render, so it re-triggers
-    // this effect while the fetch is still in flight.
+    // single-shot even if the effect inputs change while the fetch is in flight.
     if (hardwareInfo.gpus == null) {
       if (!inventoryRequestedRef.current) {
         inventoryRequestedRef.current = true;

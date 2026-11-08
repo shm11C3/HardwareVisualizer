@@ -103,19 +103,21 @@ pub async fn save_hardware_compatibility_report(
   hardware_compatibility_service::save(window, report).await
 }
 
-///
-/// ## Get detailed memory information
-///
-/// - return: `models::hardware::MemoryInfo` Detailed memory information
-///
+/// Load detailed memory information and any temperature attributed to a DIMM.
 #[command]
 #[specta::specta]
-pub async fn get_memory_info_detail() -> Result<models::hardware::MemoryInfo, String> {
-  use crate::services::memory_service;
-
-  memory_service::fetch_memory_detail()
+pub async fn get_memory_info_detail(
+  state: tauri::State<'_, settings::AppState>,
+) -> Result<models::hardware::MemoryDetails, String> {
+  let temperature_unit = state
+    .settings
+    .lock()
+    .map_err(|_| "settings lock was poisoned".to_string())?
+    .temperature_unit
+    .clone();
+  crate::services::memory_service::fetch_memory_detail(temperature_unit)
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|error| error.to_string())
 }
 
 ///

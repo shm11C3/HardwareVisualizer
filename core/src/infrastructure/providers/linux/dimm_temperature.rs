@@ -22,7 +22,7 @@ fn collect_from(sys: &Path, raw_inventory: &str) -> DimmTemperature {
   let board = attribute(&dmi, "board_name");
   match (vendor.as_deref(), board.as_deref()) {
     (Some(BOARD_VENDOR), Some(BOARD_NAME)) => {}
-    (Some(BOARD_VENDOR), None) | (None, Some(BOARD_NAME)) => {
+    (Some(BOARD_VENDOR), None) | (None, Some(BOARD_NAME)) | (None, None) => {
       return DimmTemperature::Unavailable;
     }
     _ => return DimmTemperature::Unsupported,
@@ -514,6 +514,12 @@ Memory Device
       client.join("driver"),
     )
     .unwrap();
+    fs::remove_file(dmi.join("board_vendor")).unwrap();
+    fs::remove_file(dmi.join("board_name")).unwrap();
+    assert_eq!(fixture.collect(INVENTORY), DimmTemperature::Unavailable);
+    write_attr(&dmi, "board_vendor", BOARD_VENDOR);
+    write_attr(&dmi, "board_name", BOARD_NAME);
+
     fs::remove_file(client.join("hwmon/hwmon4/device")).unwrap();
     assert_eq!(fixture.collect(INVENTORY), DimmTemperature::Unavailable);
   }

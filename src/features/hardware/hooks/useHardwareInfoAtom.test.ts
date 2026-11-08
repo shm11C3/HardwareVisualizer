@@ -159,7 +159,7 @@ describe("useHardwareInfoAtom", () => {
     const memoryData = { size: "32GB", memoryType: "DDR5", isDetailed: true };
     (commands.getMemoryInfoDetail as Mock).mockResolvedValue({
       status: "ok",
-      data: memoryData,
+      data: { memory: memoryData, dimmTemperature: { status: "unsupported" } },
     });
 
     const { result } = renderHook(() => useHardwareInfoAtom(), {
@@ -172,6 +172,21 @@ describe("useHardwareInfoAtom", () => {
     });
 
     expect(loaded).toBe(true);
+    expect(result.current.hardwareInfo.memory).toEqual(memoryData);
+
+    (commands.getHardwareInfo as Mock).mockResolvedValue({
+      status: "ok",
+      data: {
+        cpu: null,
+        memory: { ...memoryData, isDetailed: false },
+        gpus: null,
+        storage: [],
+        motherboard: null,
+      },
+    });
+    await act(async () => {
+      await result.current.init();
+    });
     expect(result.current.hardwareInfo.memory).toEqual(memoryData);
   });
 

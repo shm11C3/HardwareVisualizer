@@ -50,6 +50,10 @@ import {
   graphicUsageHistoryAtom,
 } from "@/features/hardware/store/gpu";
 import {
+  memoryDetailLoadingAtom,
+  memoryDimmTemperatureAtom,
+} from "@/features/hardware/store/hardwareInfo";
+import {
   cpuUsageHistoryAtom,
   memoryUsageHistoryAtom,
   processorCountAtom,
@@ -526,7 +530,6 @@ const MemoryLiveReadings = () => {
 const MemorySpecifications = () => {
   const { t } = useTranslation();
   const { hardwareInfo, inventoryLoadFailed, init } = useHardwareInfoAtom();
-  const os = platform();
 
   if (hardwareInfo.memory) {
     return (
@@ -558,11 +561,7 @@ const MemorySpecifications = () => {
                 }
           }
         />
-        <div className="flex justify-end">
-          {!hardwareInfo.memory.isDetailed && os !== "macos" && (
-            <FetchDetailButton />
-          )}
-        </div>
+        <MemoryDetailControls isDetailed={hardwareInfo.memory.isDetailed} />
       </div>
     );
   }
@@ -578,34 +577,71 @@ const MemorySpecifications = () => {
   );
 };
 
-export const FetchDetailButton = () => {
+export const MemoryDetailControls = ({
+  isDetailed,
+}: {
+  isDetailed: boolean;
+}) => {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
+  const loading = useAtomValue(memoryDetailLoadingAtom);
+  const reading = useAtomValue(memoryDimmTemperatureAtom);
   const [failed, setFailed] = useState(false);
   const { fetchMemoryInfoDetail } = useHardwareInfoAtom();
+  const os = platform();
+
+  if (
+    os === "macos" ||
+    (isDetailed && (os !== "linux" || reading?.status === "unsupported"))
+  ) {
+    return null;
+  }
 
   const handleLoadDetail = async () => {
-    setLoading(true);
     setFailed(false);
     const loaded = await fetchMemoryInfoDetail();
     setFailed(!loaded);
-    setLoading(false);
   };
 
   return (
-    <div className="flex items-center gap-3">
-      {failed && (
-        <span
-          role="alert"
-          data-testid="memory-detail-load-failure"
-          className="text-sm text-destructive"
-        >
-          {t("shared.loadFailed")}
-        </span>
+    <div className="space-y-2">
+      {reading?.status === "available" && (
+        <InfoTable
+          className="grid-cols-1 pb-2"
+          data={{
+            [t("shared.dimmTemperatureAt", {
+              locator: reading.locator,
+            })]: `${Number(reading.temperature.toFixed(2))} °${reading.temperatureUnit}`,
+          }}
+        />
       )}
-      <Button onClick={handleLoadDetail} disabled={loading}>
-        {t("shared.loadDetailedInfo")}
-      </Button>
+      {reading?.status === "unavailable" && (
+        <InfoTable
+          className="grid-cols-1 pb-2"
+          data={{ [t("shared.dimmTemperature")]: t("shared.notAvailable") }}
+        />
+      )}
+      <div className="flex flex-wrap items-center justify-end gap-3 px-4">
+        {failed && (
+          <span
+            role="alert"
+            data-testid="memory-detail-load-failure"
+            className="text-sm text-destructive"
+          >
+            {t("shared.loadFailed")}
+          </span>
+        )}
+        <Button
+          className="h-auto min-h-10 max-w-full whitespace-normal"
+          onClick={handleLoadDetail}
+          disabled={loading}
+        >
+          {t(
+            isDetailed
+              ? "shared.refreshMemoryDetails"
+              : "shared.loadDetailedInfo",
+          )}
+        </Button>
+      </div>
     </div>
   );
 };

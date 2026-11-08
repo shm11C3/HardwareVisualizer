@@ -28,12 +28,8 @@ export const commands = {
 	getHardwareInfo: () => typedError<SysInfo, string>(__TAURI_INVOKE("get_hardware_info")),
 	getHardwareCompatibilityReport: () => typedError<string, string>(__TAURI_INVOKE("get_hardware_compatibility_report")),
 	saveHardwareCompatibilityReport: (report: string) => typedError<null, string>(__TAURI_INVOKE("save_hardware_compatibility_report", { report })),
-	/**
-	 *  ## Get detailed memory information
-	 * 
-	 *  - return: `models::hardware::MemoryInfo` Detailed memory information
-	 */
-	getMemoryInfoDetail: () => typedError<MemoryInfo, string>(__TAURI_INVOKE("get_memory_info_detail")),
+	// Load detailed memory information and any temperature attributed to a DIMM.
+	getMemoryInfoDetail: () => typedError<MemoryDetails, string>(__TAURI_INVOKE("get_memory_info_detail")),
 	/**
 	 *  ## Get memory usage (%)
 	 * 
@@ -955,6 +951,8 @@ export type DatabaseConversionState =
  */
 { kind: "actionRequired"; reason: string; diagnostic: string };
 
+export type DimmTemperature = { status: "unsupported" } | { status: "unavailable" } | { status: "available"; locator: string; temperature: number; temperatureUnit: TemperatureUnit };
+
 export type DiskKind = "hdd" | "ssd" | "other";
 
 export type DownloadEvent = { event: "started"; data: {
@@ -1178,6 +1176,11 @@ export type LiveStorageHealth = {
 	powerOnHours: number | null,
 	powerCycleCount: number | null,
 	collectedAt: string,
+};
+
+export type MemoryDetails = {
+	memory: MemoryInfo,
+	dimmTemperature: DimmTemperature,
 };
 
 export type MemoryInfo = {
