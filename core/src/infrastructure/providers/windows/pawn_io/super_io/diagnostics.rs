@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use super::super::pawn_io::{
+use super::super::client::{
   ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoDiscovery, PawnIoModule,
 };
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};

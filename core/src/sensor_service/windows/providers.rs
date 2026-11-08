@@ -1,8 +1,9 @@
-use crate::infrastructure::providers::windows::{
-  cpu_ccd_temperature::VermeerCcdTarget,
-  cpu_power::CpuPowerSampler,
-  cpu_temperature::CpuTemperatureSampler,
-  pawn_io::release_shared_intel_msr,
+use crate::infrastructure::providers::windows::pawn_io::{
+  client::release_shared_intel_msr,
+  cpu::{
+    ccd_temperature::VermeerCcdTarget, power::CpuPowerSampler,
+    temperature::CpuTemperatureSampler,
+  },
   super_io::{
     diagnostics::read_super_io_chip_id_diagnostics, motherboard::MotherboardSensorSampler,
   },
@@ -246,7 +247,7 @@ impl Providers {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::infrastructure::providers::windows::cpu_ccd_temperature::synthetic_target;
+  use crate::infrastructure::providers::windows::pawn_io::cpu::ccd_temperature::synthetic_target;
 
   #[test]
   fn missing_ccd_module_returns_known_slots_and_keeps_the_package_cache() {

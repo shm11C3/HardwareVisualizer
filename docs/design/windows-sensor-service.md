@@ -169,9 +169,9 @@ The current producer contracts are:
 
 | Reading | Producer / current identity | Transport rule |
 | --- | --- | --- |
-| CPU package temperature | `cpu_temperature.rs` supplies a source enum; `platform/windows/sensors.rs` maps it to a label | Preserve the source and raw Celsius value; do not manufacture a device ID |
-| Motherboard temperature/fan | `super_io/motherboard.rs` supplies provider `source` and channel `name`; Core models have no persistent sensor ID | Preserve labels and channel association, including optional/absent readings; never join by compacted vector position |
-| Package power | `cpu_power.rs` supplies the CPU package domain | Preserve `cpu_watts` semantics; do not populate derived total power or invent per-CPU IDs |
+| CPU package temperature | `pawn_io/cpu/temperature.rs` supplies a source enum; `platform/windows/sensors.rs` maps it to a label | Preserve the source and raw Celsius value; do not manufacture a device ID |
+| Motherboard temperature/fan | `pawn_io/super_io/motherboard.rs` supplies provider `source` and channel `name`; Core models have no persistent sensor ID | Preserve labels and channel association, including optional/absent readings; never join by compacted vector position |
+| Package power | `pawn_io/cpu/power.rs` supplies the CPU package domain | Preserve `cpu_watts` semantics; do not populate derived total power or invent per-CPU IDs |
 
 Sensor identity follows the producer contracts above. The service generation
 identifies the connection's service process lifetime.

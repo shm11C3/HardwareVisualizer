@@ -6,7 +6,7 @@ use tokio::sync::{Mutex, oneshot};
 use tokio::time::{Instant, timeout_at};
 
 use super::{providers::CPU_INTERVAL_MS, uptime_ms};
-use crate::infrastructure::providers::windows::cpu_core_temperature::{
+use crate::infrastructure::providers::windows::pawn_io::cpu::core_temperature::{
   CoreDtsProfile, CoreTopology, acquire, read_topology, supported_profile,
 };
 use crate::models::CpuCoreTemperature;
@@ -158,7 +158,7 @@ mod tests {
     mpsc,
   };
 
-  use crate::infrastructure::providers::windows::cpu_core_temperature::synthetic_topology;
+  use crate::infrastructure::providers::windows::pawn_io::cpu::core_temperature::synthetic_topology;
 
   fn readings() -> Vec<CpuCoreTemperature> {
     vec![

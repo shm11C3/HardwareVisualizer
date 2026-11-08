@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-pub use super::cpu_identity::CpuIdentity;
-use super::cpu_identity::{CpuVendor, detect_amd_rapl_support, detect_cpu_identity};
-use super::cpu_power_decode::{PowerDecoder, PowerUnitDecodeError};
-use super::pawn_io::{
+use super::super::client::{
   PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
 };
+pub use super::identity::CpuIdentity;
+use super::identity::{CpuVendor, detect_amd_rapl_support, detect_cpu_identity};
+use super::power_decode::{PowerDecoder, PowerUnitDecodeError};
 use crate::models::SensorEnablement;
 
 const MSR_RAPL_POWER_UNIT: u64 = 0x606;
