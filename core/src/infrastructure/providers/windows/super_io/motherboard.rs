@@ -3,12 +3,11 @@ use std::time::{Duration, Instant};
 use super::super::pawn_io::{
   ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule,
 };
-use super::super::wmi_provider::query_baseboard_identity_records;
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
 use super::ite::{
-  IteEcProfile, decode_ite_fan_rpm, decode_ite_temperature_byte,
-  is_ga_b75m_d3h_baseboard, is_ite_temperature_channel_eligible,
-  is_plausible_ite_temperature,
+  IteEcProfile, cached_ga_b75m_d3h_match, decode_ite_fan_rpm,
+  decode_ite_temperature_byte, is_ite_temperature_channel_eligible,
+  is_plausible_ite_temperature, poll_ga_b75m_d3h_match,
 };
 use super::nuvoton::{
   NuvotonHmBaseCheck, NuvotonHmProfile, decode_filtered_nuvoton_temperature_byte,
@@ -115,7 +114,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// No other external sensor implementation source was used.
 pub(crate) struct MotherboardSensorSampler {
   active: Option<ActiveMotherboardSensors<PawnIoClient>>,
-  ga_b75m_d3h_baseboard: Option<bool>,
+  ga_b75m_d3h_checked: bool,
   unavailable_reason: Option<String>,
   retry_unavailable: bool,
   sample_failure_logged: bool,
@@ -128,6 +127,8 @@ impl MotherboardSensorSampler {
       SensorSupport::Unknown,
       ActiveMotherboardSensors::fan_support,
     );
+    // Keep the completed reading independent of an optional profile recheck.
+    self.refresh_ga_b75m_d3h_profile();
     MotherboardSensorReadout {
       sample,
       fan_support,
@@ -137,7 +138,7 @@ impl MotherboardSensorSampler {
   pub(crate) fn new() -> Self {
     let mut sampler = Self {
       active: None,
-      ga_b75m_d3h_baseboard: None,
+      ga_b75m_d3h_checked: false,
       unavailable_reason: None,
       retry_unavailable: false,
       sample_failure_logged: false,
@@ -183,7 +184,9 @@ impl MotherboardSensorSampler {
   }
 
   fn try_open(&mut self) -> Result<(), String> {
-    match ActiveMotherboardSensors::open(&mut self.ga_b75m_d3h_baseboard) {
+    let board_match = cached_ga_b75m_d3h_match();
+    self.ga_b75m_d3h_checked = board_match.is_some();
+    match ActiveMotherboardSensors::open(board_match == Some(true)) {
       Ok(active) => {
         self.active = Some(active);
         self.unavailable_reason = None;
@@ -197,6 +200,40 @@ impl MotherboardSensorSampler {
         self.unavailable_reason = Some(reason.clone());
         Err(reason)
       }
+    }
+  }
+
+  fn refresh_ga_b75m_d3h_profile(&mut self) {
+    let Some(ActiveMotherboardSensors::Ite(active)) = self.active.as_mut() else {
+      return;
+    };
+    if self.ga_b75m_d3h_checked || !active.is_ga_b75m_d3h_candidate() {
+      return;
+    }
+    let Some(board_match) = poll_ga_b75m_d3h_match() else {
+      return;
+    };
+    if !board_match {
+      self.ga_b75m_d3h_checked = true;
+      return;
+    }
+
+    let Ok(_mutex) = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)
+    else {
+      return;
+    };
+    self.ga_b75m_d3h_checked = true;
+    if let Err(reason) = active.recheck_ga_b75m_d3h() {
+      // Selecting the slot invalidated the old allow-list. Return the sample
+      // already collected and require normal discovery before another EC read.
+      log_warn!(
+        "experimental_ite_ga_b75m_d3h_recheck_failed",
+        "windows::super_io::MotherboardSensorSampler::readout",
+        Some(reason.clone())
+      );
+      self.active = None;
+      self.unavailable_reason = Some(reason);
+      self.retry_unavailable = true;
     }
   }
 
@@ -289,17 +326,10 @@ enum ActiveMotherboardSensors<C: LpcIoOps> {
 }
 
 impl ActiveMotherboardSensors<PawnIoClient> {
-  fn open(ga_b75m_d3h_baseboard: &mut Option<bool>) -> Result<Self, String> {
+  fn open(ga_b75m_d3h_baseboard: bool) -> Result<Self, String> {
     let (client, _discovery) =
       PawnIoClient::open(PawnIoModule::LpcIo).map_err(|error| error.reason)?;
 
-    // Keep WMI outside the ISA transaction and reuse only the board identity
-    // on retries. The new executor still needs its own live gates and proof.
-    let ga_b75m_d3h_baseboard = *ga_b75m_d3h_baseboard.get_or_insert_with(|| {
-      query_baseboard_identity_records()
-        .ok()
-        .is_some_and(|records| is_ga_b75m_d3h_baseboard(&records))
-    });
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
     let mut last_error: Option<String> = None;
 
@@ -592,6 +622,41 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     slot: u8,
     ga_b75m_d3h_baseboard: bool,
   ) -> Result<Option<DetectedIteSlot>, String> {
+    let scope = if ga_b75m_d3h_baseboard {
+      IteDiscoveryScope::WithGaB75mD3h
+    } else {
+      IteDiscoveryScope::Standard
+    };
+    Self::discover_slot_in_scope(client, slot, scope)
+  }
+
+  fn is_ga_b75m_d3h_candidate(&self) -> bool {
+    self.profile == IteEcProfile::It8728f
+      && self.slot == 0
+      && self.ec_base == ITE_GA_B75M_D3H_EC_BASE
+  }
+
+  /// Recheck the same primary controller while the caller holds the ISA mutex.
+  /// The caller must discard this sampler if its port proof is not renewed.
+  fn recheck_ga_b75m_d3h(&mut self) -> Result<(), String> {
+    let detected =
+      Self::discover_slot_in_scope(&self.client, 0, IteDiscoveryScope::RecheckGaB75mD3h)?
+        .ok_or_else(|| {
+          ite_experimental_non_component_failure(
+            self.profile,
+            "the primary IT8728F controller or its EC base changed",
+          )
+        })?;
+    self.profile = detected.profile;
+    self.fan_routes = detected.fan_routes;
+    Ok(())
+  }
+
+  fn discover_slot_in_scope(
+    client: &C,
+    slot: u8,
+    scope: IteDiscoveryScope,
+  ) -> Result<Option<DetectedIteSlot>, String> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
       return Ok(None);
     };
@@ -608,7 +673,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       return Ok(None);
     }
     let result = id_bytes.and_then(|(id_high, id_low)| {
-      discover_ite_ec_base(client, slot, id_high, id_low, ga_b75m_d3h_baseboard)
+      discover_ite_ec_base(client, slot, id_high, id_low, scope)
     });
     let exit_result = exit_ite(client);
 
@@ -903,6 +968,13 @@ struct DetectedIteSlot {
   fan_routes: [bool; 3],
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum IteDiscoveryScope {
+  Standard,
+  WithGaB75mD3h,
+  RecheckGaB75mD3h,
+}
+
 fn discover_nuvoton_hm_base(
   client: &impl LpcIoOps,
   slot: u8,
@@ -1012,13 +1084,18 @@ fn discover_ite_ec_base(
   slot: u8,
   id_high: u8,
   id_low: u8,
-  ga_b75m_d3h_baseboard: bool,
+  scope: IteDiscoveryScope,
 ) -> Result<Option<DetectedIteSlot>, String> {
   let Some(mut profile) =
     IteEcProfile::from_slot_and_chip_id(slot, chip_id(id_high, id_low))
   else {
     return Ok(None);
   };
+  if scope == IteDiscoveryScope::RecheckGaB75mD3h
+    && (slot != 0 || profile != IteEcProfile::It8728f)
+  {
+    return Ok(None);
+  }
   if profile == IteEcProfile::It8716fD {
     let revision = client
       .superio_inb(ITE_REVISION_REGISTER)
@@ -1058,6 +1135,9 @@ fn discover_ite_ec_base(
     ite_experimental_failure(profile, format!("CR61 read failed: {reason}"))
   })?;
   let raw_base = u16::from_be_bytes([base_high, base_low]);
+  if scope == IteDiscoveryScope::RecheckGaB75mD3h && raw_base != ITE_GA_B75M_D3H_EC_BASE {
+    return Ok(None);
+  }
   let ec_base = if profile.is_modern() {
     raw_base
   } else {
@@ -1094,7 +1174,7 @@ fn discover_ite_ec_base(
     }
   } else if profile == IteEcProfile::It8728f
     && slot == 0
-    && ga_b75m_d3h_baseboard
+    && scope != IteDiscoveryScope::Standard
     && raw_base == ITE_GA_B75M_D3H_EC_BASE
     && client
       .superio_inb(ITE_REVISION_REGISTER)
@@ -2997,6 +3077,68 @@ mod tests {
     assert!(error.contains(ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT));
     assert_eq!(replacement.find_bars_calls.get(), 1);
     assert!(replacement.selected_ec_register.get().is_none());
+  }
+
+  #[test]
+  fn ga_b75m_d3h_late_match_renews_the_temperature_only_proof_and_preserves_cadence() {
+    let client = FakeIteLpcIo::for_ga_b75m_d3h();
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+      .unwrap()
+      .unwrap();
+    let mut active = ActiveIteMotherboardSensors::new(client, detected);
+    assert!(active.is_ga_b75m_d3h_candidate());
+
+    let first_at = Instant::now();
+    let fallback = active.sample_unlocked_at(first_at).unwrap();
+    assert_eq!(temperature_names(&fallback), ["TMPIN1", "TMPIN3"]);
+    assert!(fallback.fan_speeds.is_empty());
+    active.client.read_registers.borrow_mut().clear();
+
+    active.recheck_ga_b75m_d3h().unwrap();
+
+    assert_eq!(active.client.find_bars_calls.get(), 2);
+    assert_eq!(active.client.config_exit_calls.get(), 2);
+    assert_eq!(*active.client.read_registers.borrow(), [0x00]);
+    assert!(!active.is_ga_b75m_d3h_candidate());
+    assert_eq!(
+      active
+        .sample_unlocked_at(first_at + Duration::from_secs(1))
+        .unwrap(),
+      fallback
+    );
+    assert_eq!(*active.client.read_registers.borrow(), [0x00]);
+
+    let next = active
+      .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+      .unwrap();
+    assert_eq!(temperature_names(&next), ["TMPIN1", "TMPIN3"]);
+    assert_eq!(fan_names(&next), ["Fan 1", "Fan 2"]);
+  }
+
+  #[test]
+  fn ga_b75m_d3h_late_match_cannot_probe_a_changed_controller_or_ec_base() {
+    for change_chip in [true, false] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+        .unwrap()
+        .unwrap();
+      let mut active = ActiveIteMotherboardSensors::new(client, detected);
+      active.client.config_reads.borrow_mut().clear();
+      active.client.read_registers.borrow_mut().clear();
+      if change_chip {
+        active.client.chip_id_high.set(0x86);
+      } else {
+        active.client.base_high.set(0x02);
+        active.client.base_low.set(0x90);
+      }
+
+      assert!(active.recheck_ga_b75m_d3h().is_err());
+      let reads = active.client.config_reads.borrow();
+      assert_eq!(reads.len(), if change_chip { 2 } else { 5 });
+      assert_eq!(active.client.find_bars_calls.get(), 1);
+      assert_eq!(active.client.config_exit_calls.get(), 2);
+      assert!(active.client.read_registers.borrow().is_empty());
+    }
   }
 
   #[test]

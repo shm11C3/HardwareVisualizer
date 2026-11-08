@@ -8,7 +8,6 @@ use serde::de::DeserializeOwned;
 use std::net::IpAddr;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
-use std::time::Duration;
 use wmi::WMIConnection;
 
 #[derive(Debug, Deserialize)]
@@ -170,11 +169,10 @@ pub(super) struct Win32BaseBoard {
 }
 
 /// Preserve the complete query result for sensor profiles that require a
-/// single unambiguous baseboard. Bound the service's wait for optional identity.
-pub(super) fn query_baseboard_identity_records() -> Result<Vec<Win32BaseBoard>, String> {
+/// single unambiguous baseboard. The sampler polls the receiver without waiting.
+pub(super) fn start_baseboard_identity_query()
+-> Receiver<Result<Vec<Win32BaseBoard>, String>> {
   spawn_wmi_query("SELECT Manufacturer, Product, Version FROM Win32_BaseBoard".into())
-    .recv_timeout(Duration::from_millis(500))
-    .map_err(|error| format!("Baseboard identity query unavailable: {error}"))?
 }
 
 #[derive(Debug, Deserialize)]
@@ -267,7 +265,7 @@ where
       Ok(results)
     })();
 
-    // An optional identity query may time out while WMI is still returning.
+    // The optional identity consumer may shut down before WMI returns.
     let _ = tx.send(result);
   });
 

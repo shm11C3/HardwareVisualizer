@@ -7,7 +7,106 @@
 //!
 //! No other external sensor source was used.
 
-use super::{super::wmi_provider::Win32BaseBoard, is_plausible_super_io_temperature};
+use std::sync::{
+  Mutex,
+  mpsc::{Receiver, TryRecvError},
+};
+
+use super::{
+  super::wmi_provider::{Win32BaseBoard, start_baseboard_identity_query},
+  is_plausible_super_io_temperature,
+};
+use crate::{log_debug, log_warn};
+
+type BaseboardIdentityQuery = Receiver<Result<Vec<Win32BaseBoard>, String>>;
+
+// The service can drop and recreate its sampler while WMI is still running.
+// Keep the receiver in the host so a later sampler can consume that same result.
+static GA_B75M_D3H_LOOKUP: Mutex<GaB75mD3hLookup> =
+  Mutex::new(GaB75mD3hLookup::Unstarted);
+
+enum GaB75mD3hLookup {
+  Unstarted,
+  Pending {
+    query: BaseboardIdentityQuery,
+    can_retry: bool,
+  },
+  Resolved(bool),
+}
+
+impl GaB75mD3hLookup {
+  fn resolved(&self) -> Option<bool> {
+    match self {
+      Self::Resolved(qualified) => Some(*qualified),
+      _ => None,
+    }
+  }
+
+  fn poll(
+    &mut self,
+    start_query: impl FnOnce() -> BaseboardIdentityQuery,
+  ) -> Option<bool> {
+    let (query, can_retry) = match self {
+      Self::Unstarted => {
+        *self = Self::Pending {
+          query: start_query(),
+          can_retry: true,
+        };
+        log_debug!(
+          "ite_ga_b75m_d3h_baseboard_query_started",
+          "windows::super_io::ite",
+          None::<&str>
+        );
+        return None;
+      }
+      Self::Pending { query, can_retry } => (query, *can_retry),
+      Self::Resolved(qualified) => return Some(*qualified),
+    };
+
+    let failure = match query.try_recv() {
+      Ok(Ok(records)) => {
+        let qualified = is_ga_b75m_d3h_baseboard(&records);
+        *self = Self::Resolved(qualified);
+        log_debug!(
+          "ite_ga_b75m_d3h_baseboard_query_completed",
+          "windows::super_io::ite",
+          Some(format!("qualified={qualified}"))
+        );
+        return Some(qualified);
+      }
+      Err(TryRecvError::Empty) => return None,
+      Ok(Err(_)) => "WMI query failed",
+      Err(TryRecvError::Disconnected) => "WMI worker disconnected",
+    };
+
+    log_warn!(
+      "ite_ga_b75m_d3h_baseboard_query_failed",
+      "windows::super_io::ite",
+      Some(format!("{failure}, retrying={can_retry}"))
+    );
+    if can_retry {
+      *self = Self::Pending {
+        query: start_query(),
+        can_retry: false,
+      };
+      None
+    } else {
+      *self = Self::Resolved(false);
+      Some(false)
+    }
+  }
+}
+
+pub(super) fn cached_ga_b75m_d3h_match() -> Option<bool> {
+  GA_B75M_D3H_LOOKUP.lock().ok()?.resolved()
+}
+
+pub(super) fn poll_ga_b75m_d3h_match() -> Option<bool> {
+  GA_B75M_D3H_LOOKUP
+    .lock()
+    .ok()?
+    .poll(start_baseboard_identity_query)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum IteEcProfile {
@@ -111,6 +210,52 @@ pub(super) const fn decode_ite_fan_rpm(count: u16) -> Option<u32> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn late_ga_b75m_d3h_identity_remains_pending_until_the_existing_worker_replies() {
+    let mut lookup = GaB75mD3hLookup::Unstarted;
+    let (send, receive) = std::sync::mpsc::channel();
+    assert_eq!(lookup.poll(|| receive), None);
+    for _ in 0..3 {
+      assert_eq!(lookup.resolved(), None);
+      assert_eq!(
+        lookup.poll(|| panic!("an in-flight WMI query cannot be replaced")),
+        None
+      );
+    }
+
+    let board = serde_json::from_value::<Win32BaseBoard>(serde_json::json!({
+      "Manufacturer": "Gigabyte Technology Co., Ltd.",
+      "Product": "B75M-D3H",
+      "Version": "x.x",
+    }))
+    .unwrap();
+    send.send(Ok(vec![board])).unwrap();
+    assert_eq!(
+      lookup.poll(|| panic!("the late result is usable")),
+      Some(true)
+    );
+    assert_eq!(lookup.resolved(), Some(true));
+  }
+
+  #[test]
+  fn ga_b75m_d3h_identity_retries_a_failed_worker_once() {
+    let mut lookup = GaB75mD3hLookup::Unstarted;
+    let (first_send, first_receive) = std::sync::mpsc::channel();
+    let (retry_send, retry_receive) = std::sync::mpsc::channel();
+    assert_eq!(lookup.poll(|| first_receive), None);
+    first_send
+      .send(Err("synthetic WMI failure".into()))
+      .unwrap();
+    assert_eq!(lookup.poll(|| retry_receive), None);
+    assert_eq!(lookup.poll(|| panic!("the retry is still in flight")), None);
+
+    drop(retry_send);
+    assert_eq!(
+      lookup.poll(|| panic!("only one retry is permitted")),
+      Some(false)
+    );
+  }
 
   #[test]
   fn ga_b75m_d3h_identity_requires_one_complete_exact_baseboard() {
