@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental read-only temperature for Samsung M425R1GB4BB0-CWMOD on the single-slot HARDKERNEL ODROID-H4 memory profile with Dasharo UEFI v0.9.1 and an already bound Linux SPD5118 hub on Intel SMBus. |
 | Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526) |
 
@@ -20,12 +20,13 @@
 | S7 | Linux [SPD5118 driver, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/spd5118.c), November 30, 2025, Git blob `5da44571b6a0ce43b621faba9e67d81491ff0b28`, [Intel I801 driver at the same tag](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/busses/i2c-i801.c), [DMI-based instantiation](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-smbus.c) and [driver configuration](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/Kconfig) | **lead-only (copyleft)** for binding capabilities, the thermal-enable attribute, quarter-degree scaling, locking, EEPROM size and normal kernel enumeration limits. |
 | S8 | [ODROID-H4 base model PCI inventory](https://forum.level1techs.com/t/mini-pc-home-server/218042/18), October 14, 2024, and Dasharo [board device tree](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/mainboard/hardkernel/odroid-h4/devicetree.cb) | Independent first-hand observation of the onboard PCI SMBus controller at `00:1f.4`, PCI `8086:54A3`. The device tree is **lead-only (copyleft)** for the enabled controller. |
 | S9 | Linux [regmap, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/base/regmap/regmap.c), paged ranges and locked reads | **lead-only (copyleft)** for serialized page selection and read, and the lack of post-read page restoration. |
+| S10 | Linux v6.18 [I²C bus](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L699-L705), [adapter registration](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L1557-L1565), [client registration](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L999-L1004), [device core subsystem link](https://github.com/torvalds/linux/blob/v6.18/drivers/base/bus.c#L493-L510), [character-device class](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-dev.c#L611-L614), and [I²C sysfs documentation](https://github.com/torvalds/linux/blob/v6.18/Documentation/i2c/i2c-sysfs.rst#L35-L43) | **lead-only (copyleft)** for the canonical subsystem targets and the distinct character-device class. The public sysfs documentation identifies the adapter and client entries in the I²C bus namespace. |
 
 ## Detection and scoped enablement
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| DMI board `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, single populated DDR5 SO-DIMM, `spd5118` at `0x52` under `8086:54A3` | S1/S2 pin the DIMM and single-slot platform. Lead-only S3/S4 pin the exact firmware and identity encoding. S5/S6 provide the identity field and telemetry ABI. Lead-only S7/S9 pin the enabled sensor and page-select read details. S8 corroborates the PCI identity, with its device tree providing a lead-only binding fact. A one-to-one runtime match and successful temperature are required. | Experimental for the exact already bound endpoint with a unique live identity match. |
+| DMI board `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, single populated DDR5 SO-DIMM, `spd5118` at `0x52` under `8086:54A3` | S1/S2 pin the DIMM and single-slot platform. Lead-only S3/S4 pin the exact firmware and identity encoding. S5/S6 provide the identity field and telemetry ABI. Lead-only S7/S9 pin the enabled sensor and page-select read details. Lead-only S10 pins the kernel-owned I²C subsystem links. S8 corroborates the PCI identity, with its device tree providing a lead-only binding fact. A one-to-one runtime match and successful temperature are required. | Experimental for the exact already bound endpoint with a unique live identity match. |
 | DDR4 `jc42`, other modules, firmware, controllers and Windows routes | Separate scopes in [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526). | Unsupported by this revision. |
 
 - Require the exact DMI vendor, board and UEFI version strings in the
@@ -38,9 +39,14 @@
   `spd5118` driver. Its client address must be `0x52` on the
   non-multiplexed adapter under PCI `0000:00:1f.4` with
   `vendor=0x8086`, `device=0x54a3`, and a binding to
-  `/sys/bus/pci/drivers/i801_smbus`. Verify kernel-owned subsystem
-  links and the same canonical parent for the `eeprom` file and
-  hwmon device. Bus and hwmon enumeration indices are transient.
+  `/sys/bus/pci/drivers/i801_smbus`. Verify that the kernel-owned
+  `subsystem` symlinks of both the native I²C adapter `i2c-N` and its
+  SPD client `N-0052` resolve to `/sys/bus/i2c` (S10, lead-only).
+  Reject class targets such as `/sys/class/i2c-adapter` and
+  `/sys/class/i2c-dev`. The latter is the separate character-device
+  class (S10, lead-only). Require the canonical parent of `eeprom` and
+  the canonical target of the `hwmonN/device` symlink to be the same
+  I²C client. Bus and hwmon enumeration indices are transient.
   A missing, changed, duplicate or ambiguous binding is unavailable.
 - Require exactly one populated Type 17 memory record and a usable
   device locator. Require 8 GiB DDR5 SO-DIMM and exact part number
@@ -126,6 +132,7 @@ It does not change OS probing or override SPD-write protection. (S7)
 | --- | --- |
 | Exact DMI profile and PCI ancestry, one populated Type 17 row, SPD serial bytes `01 23 45 67`, Type 17 `01234567`, exact part, `temp1_enable=1` and `temp1_input=40250` | One temperature at 40.25 °C attributed to the Type 17 locator. |
 | Part mismatch, unknown firmware, wrong controller, wrong client address, wrong binding, or a name-only hwmon match | No unsupported read. Leave inventory available. |
+| Either native I²C node has a missing, broken or wrong-subsystem link, including a class target such as `/sys/class/i2c-adapter` or `/sys/class/i2c-dev` | No EEPROM or temperature read. Leave inventory available. |
 | Second populated Type 17 row, duplicate match, malformed binary table, incomplete inventory text, empty locator, reversed, absent or invalid serial, or a partial EEPROM read | No attributed reading. Do not substitute address or order. |
 | Missing or disabled sensor, inaccessible sysfs, aggregate-only or missing DMI inventory, transient bus or binding failure | Unavailable without fallback probing, bus writes or background elevation. |
 | `temp1_input` 0, 250, 125000, 125250 or 40251 m°C | Accept only 250 and 125000 m°C in this set. Keep unavailable values distinct from measured zero. |
@@ -143,3 +150,4 @@ It does not change OS probing or override SPD-write protection. (S7)
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-08 | Propose Implementation-ready status for the exact Experimental Linux DIMM scope with a fail-closed runtime identity gate. |
+| 2 | 2026-11-08 | Pin the existing kernel-owned I²C subsystem identity check to Linux v6.18 and add wrong-subsystem fixture cases for the exact Experimental scope. |
