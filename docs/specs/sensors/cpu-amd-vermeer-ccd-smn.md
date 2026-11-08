@@ -42,7 +42,11 @@ products stay in the Status column.
 ## Detection
 
 Every runtime condition below is a mechanism gate. The processor name
-is not read for admission (ADR 0031).
+is not read for admission (ADR 0031). The first four rows are admission
+gates, confirmed before any SMN request. The last row is a post-read
+reporting check applied to each word after it is read; it cannot be
+evaluated before the read and is not part of step 1 of the read
+procedure.
 
 | Condition | Gate kind | Source |
 | --- | --- | --- |
@@ -50,7 +54,7 @@ is not read for admission (ADR 0031).
 | CPUID.01H:EAX decodes to family `0x19` and model `0x21` (extended family and model fields per S7 §2.2.1); any stepping | mechanism | S3 (lead-only, keyed by family and model), S5 (module selects Vermeer by family and model), S7 |
 | CPUID.80000001H:EBX bits 31:28 equal `0x2` (AM4) | mechanism | S7 |
 | A successful `GetLogicalProcessorInformationEx` query for `RelationProcessorPackage` yields exactly one valid physical package record | mechanism (the signed module uses a fixed host bridge with no package selection input) | S5, S6 |
-| Per slot, the read word has bit 11 set and is neither all-zero nor all-ones | mechanism (the register's own validity bit) | S3, S13, S17 |
+| Per slot, after the read: the word has bit 11 set and is neither all-zero nor all-ones | mechanism (the register's own validity bit); post-read reporting check, not a pre-read admission gate | S3, S13, S17 |
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
@@ -59,9 +63,14 @@ is not read for admission (ADR 0031).
 
 The observed product names below are evidence identities. They record
 where the S2, S11, S12, S15, S16 and S19 observations came from and are
-the first candidates for graduation toward Verified once a
-maintainer-accepted hardware report confirms the HardwareVisualizer
-path. They do not gate the read.
+the first candidates for graduation toward Verified. Graduation requires
+primary documentation of the CCD registers or a maintainer-accepted
+labeled register dump that confirms every lead-only fact the row depends
+on (addresses, validity bit, scaling). A Hardware Compatibility Report
+([#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500))
+corroborates that the path produced readings on a product, but it carries
+no raw words and cannot by itself graduate a member. The names do not
+gate the read.
 
 | Observed processor name | Signature | Observations |
 | --- | --- | --- |
@@ -80,7 +89,8 @@ path. They do not gate the read.
 
 ## Read procedure and decode
 
-1. Confirm the detection gates and successful signed module load.
+1. Confirm the four admission gates (vendor, die, package field and
+   single package) and successful signed module load.
    On demand for CCD temperatures, make at most one read of each of
    the two authorized words per sample through `ioctl_read_smu_register`
    with the PCI mutex (S5). Both words are read on every admitted
@@ -151,7 +161,9 @@ path. They do not gate the read.
 - Non-blocking for the Experimental scope: the lead-only map (S3) and the signed module (S5) both key on family and model, so stepping 2 (S19) shares the mechanism.
   No readback observation exists at stepping 2. A Hardware Compatibility
   Report ([#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500))
-  from a B2 part is the graduation evidence.
+  from a B2 part would corroborate the path there as compatibility
+  evidence; Verified still needs the primary documentation or labeled
+  register dump named in the first entry.
 - Non-blocking for the Experimental scope: the second slot on single-CCD products is governed by the slot's own validity bit (S3), not by the product name.
   The 5800X observation (S16) shows only the first channel. The
   second slot's behavior on an identified 5800X has not been observed;
@@ -169,4 +181,4 @@ path. They do not gate the read.
 | 2 | 2026-11-08 | Pin the AM4 package and bounded sampling gates and add synthetic acceptance cases. Transition the exact single-package 5900X B0 scope to Implementation-ready as Experimental under ADR 0023. |
 | 3 | 2026-11-08 | Add the exact single-package Ryzen 9 5950X B0 Experimental scope under ADR 0023. Record its own hardware identity, two-CCD topology and Linux channel observation. Reuse the two approved SMN addresses and signed Windows transport. |
 | 4 | 2026-11-09 | Propose Implementation-ready for the exact single-package Ryzen 7 5800X B0 first-slot Experimental scope under ADR 0023. Pin the independent hardware observation and its distribution's address-to-channel mapping. Keep the second slot outside the 5800X scope. |
-| 5 | 2026-11-09 | Key the scope by the Vermeer die (family `0x19` model `0x21`, any stepping), AM4 package field, single package and per-slot validity bit under ADR 0031. Remove the three product-name gates and the 5800X first-slot restriction; keep the observed products as evidence identities. Add the gate-kind table and mechanism fixtures. |
+| 5 | 2026-11-09 | Key the scope by the Vermeer die (family `0x19` model `0x21`, any stepping), AM4 package field, single package and per-slot validity bit under ADR 0031. Remove the three product-name gates and the 5800X first-slot restriction; keep the observed products as evidence identities. Add the gate-kind table and mechanism fixtures. Review: mark the validity bit as a post-read check outside step 1, and state that a Compatibility Report corroborates but does not graduate a member. |
