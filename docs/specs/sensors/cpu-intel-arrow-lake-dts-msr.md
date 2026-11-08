@@ -48,22 +48,8 @@ the read (ADR 0031).
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Vendor `GenuineIntel`, full `CPUID.01H:EAX = 0x000C0662`, core DTS and hybrid capability present | S1 documents the DTS readout and calibrated reference for the 200S, 200S Plus, 200HX and 200HX Plus lines, and S2 documents that these lines carry the signature. S5 independently observes the signature, both core types and P/E `0x19C`/`0x1A2` reads on five SKUs: Ultra 5 245K, Ultra 7 265K, Ultra 7 270K Plus, Ultra 9 275HX and Ultra 9 290HX Plus (brands below). Other SKUs that carry the signature have no public or HardwareVisualizer readback observation yet. | Experimental under the common topology and per-target gates. |
+| Vendor `GenuineIntel`, full `CPUID.01H:EAX = 0x000C0662`, core DTS and hybrid capability present | S1 documents the DTS readout and calibrated reference for the 200S, 200S Plus, 200HX and 200HX Plus lines, and S2 documents that these lines carry the signature. S5 independently observes the signature, both core types and P/E `0x19C`/`0x1A2` reads on five SKUs, recorded here as evidence identities that do not gate the read: `Intel(R) Core(TM) Ultra 5 245K` (200S; [capture](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLake_07_CPUID.txt), signature line 55, brand lines 130–132), `Intel(R) Core(TM) Ultra 7 265K` (200S; [capture](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLake_08_CPUID.txt), signature line 55, brand lines 122–124), `Intel(R) Core(TM) Ultra 7 270K Plus` (200S Plus; [capture](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLakeR_01_CPUID.txt), signature line 6, brand lines 73–75), `Intel(R) Core(TM) Ultra 9 275HX` (200HX; [capture](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLakeHX_01_CPUID.txt), signature line 6, brand lines 73–75) and `Intel(R) Core(TM) Ultra 9 290HX Plus` (200HX Plus; [capture](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLakeR_11_CPUID.txt), signature line 6, brand lines 73–75). These five are the first graduation candidates toward Verified once a maintainer-accepted hardware report confirms the HardwareVisualizer path on the product. Other SKUs that carry the signature have no public or HardwareVisualizer readback observation yet. | Experimental under the common topology and per-target gates. |
 | Other signature (S2 lists standard H at `0x000C0652` and U at `0x000B0650`), wrong vendor, unavailable required CPUID leaf, absent core DTS or hybrid capability, unrecognized target type, or more than one active group or physical package | Outside the supported scope (S2–S6). | Disabled for this core path. |
-
-The brands below are evidence identities. They record which products
-the S5 observations came from and are the candidates for graduation to
-Verified once a maintainer-accepted hardware report confirms the
-HardwareVisualizer path on that product. They are not read for
-admission.
-
-| Observed CPUID brand | Product line | S5 capture and identity lines |
-| --- | --- | --- |
-| `Intel(R) Core(TM) Ultra 5 245K` | 200S | [245K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLake_07_CPUID.txt), signature line 55, brand lines 130–132 |
-| `Intel(R) Core(TM) Ultra 7 265K` | 200S | [265K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLake_08_CPUID.txt), signature line 55, brand lines 122–124 |
-| `Intel(R) Core(TM) Ultra 7 270K Plus` | 200S Plus | [270K Plus](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLakeR_01_CPUID.txt), signature line 6, brand lines 73–75 |
-| `Intel(R) Core(TM) Ultra 9 275HX` | 200HX | [275HX](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLakeHX_01_CPUID.txt), signature line 6, brand lines 73–75 |
-| `Intel(R) Core(TM) Ultra 9 290HX Plus` | 200HX Plus | [290HX Plus](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00C0662_ArrowLakeR_11_CPUID.txt), signature line 6, brand lines 73–75 |
 
 - At discovery, require the vendor, the exact full signature,
   `CPUID.06H:EAX[0]` (core DTS), `CPUID.07H.00H:EDX[15]` (hybrid) and
@@ -176,4 +162,4 @@ its Windows affinity lifecycle or its fallback behavior.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-09 | Initial Experimental readiness proposal for five exact Arrow Lake SKUs with signature `0x000C0662`. |
-| 2 | 2026-11-09 | Replace the five exact brand gates with the signature, capability and core-type mechanism gates of ADR 0031. Keep the five observed brands as evidence identities in Status, add the gate-kind table, and rewrite the brand fixtures so the brand never changes admission. |
+| 2 | 2026-11-09 | Replace the five exact brand gates with the signature, capability and core-type mechanism gates of ADR 0031. Keep the five observed brands and their S5 captures as evidence identities inside the Status column, add the gate-kind table, and rewrite the brand fixtures so the brand never changes admission. |
