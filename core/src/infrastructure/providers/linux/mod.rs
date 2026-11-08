@@ -4,6 +4,7 @@ pub mod drm_sys;
 pub mod hwmon;
 pub mod kernel;
 pub mod lspci;
+pub(crate) mod nct6687_hwmon;
 pub mod net_sys;
 pub(crate) mod nvml_provider;
 pub mod procfs;

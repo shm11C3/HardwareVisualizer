@@ -97,9 +97,7 @@ impl SensorPlatform for LinuxPlatform {
   }
 
   fn sample_motherboard_sensors(&self) -> crate::models::MotherboardSensorCollection {
-    crate::models::MotherboardSensorCollection::unsupported(
-      "Motherboard sensor sampling is available on Windows only",
-    )
+    crate::infrastructure::providers::nct6687_hwmon::sample()
   }
 }
 

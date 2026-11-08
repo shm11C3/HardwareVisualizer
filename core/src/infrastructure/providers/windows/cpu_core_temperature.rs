@@ -14,7 +14,7 @@ use windows::Win32::{
 use windows::core::HRESULT;
 
 use super::{
-  cpu_identity::{CpuVendor, cpuid_leaf, detect_cpu_identity},
+  cpu_identity::{cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
   cpu_temperature_decode::{
     decode_intel_package_temperature, decode_intel_temperature_target,
   },
@@ -25,32 +25,54 @@ use crate::models::CpuCoreTemperature;
 const MSR_TEMPERATURE_TARGET: u64 = 0x1a2;
 const IA32_THERM_STATUS: u64 = 0x19c;
 const SILVERMONT_ATOM_C2000: u32 = 0x4d;
+const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
+const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
+const HYBRID_CAPABILITY: u32 = 1 << 15;
 const MAX_TOPOLOGY_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
   std::mem::offset_of!(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, Anonymous);
 
-pub(crate) fn supported_model() -> Option<u32> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CoreDtsProfile {
+  LegacyModel(u32),
+  HybridSignature(u32),
+}
+
+pub(crate) fn supported_profile() -> Option<CoreDtsProfile> {
   if !cfg!(target_arch = "x86_64") {
     return None;
   }
-  let cpu = detect_cpu_identity();
-  select_model(cpu.vendor, cpu.family, cpu.model, cpuid_leaf(6)?.eax)
+
+  let vendor = vendor_id_from_leaf0(cpuid_leaf(0)?);
+  let signature = cpuid_leaf(1)?.eax;
+  let thermal_features = cpuid_leaf(6)?.eax;
+  // cpuid_leaf selects subleaf 0.
+  let extended_features = cpuid_leaf(7).map_or(0, |leaf| leaf.edx);
+  select_profile(&vendor, signature, thermal_features, extended_features)
 }
 
-fn select_model(
-  vendor: CpuVendor,
-  family: u32,
-  model: u32,
+fn select_profile(
+  vendor: &str,
+  signature: u32,
   thermal_features: u32,
-) -> Option<u32> {
-  (vendor == CpuVendor::Intel
-    && family == 6
+  extended_features: u32,
+) -> Option<CoreDtsProfile> {
+  if vendor != "GenuineIntel" || thermal_features & 1 == 0 {
+    return None;
+  }
+
+  if extended_features & HYBRID_CAPABILITY != 0 {
+    return matches!(signature, ALDER_LAKE_S_HX | RAPTOR_LAKE_S_HX)
+      .then_some(CoreDtsProfile::HybridSignature(signature));
+  }
+
+  let (family, model) = effective_family_model(signature);
+  (family == 6
     && matches!(
       model,
       0x1a | 0x1e | 0x1f | 0x2e | 0x2a | 0x2d | SILVERMONT_ATOM_C2000
-    )
-    && thermal_features & 1 != 0)
-    .then_some(model)
+    ))
+  .then_some(CoreDtsProfile::LegacyModel(model))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -201,7 +223,7 @@ unsafe fn read_record<T: Copy>(bytes: &[u8]) -> Option<T> {
 }
 
 pub(crate) fn acquire(
-  model: u32,
+  profile: CoreDtsProfile,
   topology: &CoreTopology,
   deadline: Instant,
 ) -> Option<Vec<CpuCoreTemperature>> {
@@ -211,7 +233,7 @@ pub(crate) fn acquire(
   // A synchronous request can outlive its wait budget. Give this disposable
   // thread its own client so an in-flight call holds no package sampler lock.
   let (client, _) = PawnIoClient::open(PawnIoModule::IntelMsr).ok()?;
-  collect(model, topology, deadline, &client)
+  collect(profile, topology, deadline, &client)
 }
 
 trait CoreAccess {
@@ -219,7 +241,8 @@ trait CoreAccess {
 
   fn pin(&self, processor: Processor) -> Option<Self::PreviousAffinity>;
   fn current_processor(&self) -> Processor;
-  fn model(&self) -> Option<u32>;
+  fn profile(&self) -> Option<CoreDtsProfile>;
+  fn hybrid_core_type(&self) -> Option<u8>;
   fn read_msr(&self, msr: u64) -> Option<u64>;
   fn restore(&self, previous: Self::PreviousAffinity) -> bool;
 }
@@ -247,8 +270,12 @@ impl CoreAccess for PawnIoClient {
     }
   }
 
-  fn model(&self) -> Option<u32> {
-    supported_model()
+  fn profile(&self) -> Option<CoreDtsProfile> {
+    supported_profile()
+  }
+
+  fn hybrid_core_type(&self) -> Option<u8> {
+    Some((cpuid_leaf(0x1a)?.eax >> 24) as u8)
   }
 
   fn read_msr(&self, msr: u64) -> Option<u64> {
@@ -261,7 +288,7 @@ impl CoreAccess for PawnIoClient {
 }
 
 fn collect(
-  model: u32,
+  profile: CoreDtsProfile,
   topology: &CoreTopology,
   deadline: Instant,
   access: &impl CoreAccess,
@@ -276,7 +303,7 @@ fn collect(
       number: mask.trailing_zeros() as u8,
     };
     let temperature_celsius = if let Some(previous) = access.pin(processor) {
-      let reading = sample_core(model, processor, deadline, access);
+      let reading = sample_core(profile, processor, deadline, access);
       if !access.restore(previous) {
         return None;
       }
@@ -294,13 +321,15 @@ fn collect(
 }
 
 fn sample_core(
-  model: u32,
+  profile: CoreDtsProfile,
   processor: Processor,
   deadline: Instant,
   access: &impl CoreAccess,
 ) -> Option<f32> {
   if access.current_processor() != processor
-    || access.model() != Some(model)
+    || access.profile() != Some(profile)
+    || (matches!(profile, CoreDtsProfile::HybridSignature(_))
+      && !matches!(access.hybrid_core_type(), Some(0x40 | 0x20)))
     || Instant::now() >= deadline
   {
     return None;
@@ -315,17 +344,23 @@ fn sample_core(
     return None;
   }
 
-  decode_core_temperature(model, target, status)
+  decode_core_temperature(profile, target, status)
 }
 
-fn decode_core_temperature(model: u32, target: u64, status: u64) -> Option<f32> {
+fn decode_core_temperature(
+  profile: CoreDtsProfile,
+  target: u64,
+  status: u64,
+) -> Option<f32> {
   if status & (1 << 31) == 0
-    || (model == SILVERMONT_ATOM_C2000 && (target >> 24) & 0x3f != 0)
+    || (matches!(profile, CoreDtsProfile::LegacyModel(SILVERMONT_ATOM_C2000))
+      && (target >> 24) & 0x3f != 0)
   {
     return None;
   }
 
-  // The core and package digital readout fields use the same seven bits.
+  // On the approved hybrid targets the DTS reference is factory Tjmax.
+  // The TCC offset affects the control threshold and does not enter this decode.
   let target = decode_intel_temperature_target(target).ok()?;
   decode_intel_package_temperature(target, status).ok()
 }
@@ -337,50 +372,131 @@ mod tests {
   use std::time::Duration;
   use windows::Win32::System::SystemInformation::PROCESSOR_GROUP_INFO;
 
+  const BLOOMFIELD_SIGNATURE: u32 = 0x0001_06a4;
+  const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::LegacyModel(0x1a);
+  const SILVERMONT_PROFILE: CoreDtsProfile =
+    CoreDtsProfile::LegacyModel(SILVERMONT_ATOM_C2000);
+
   #[test]
   fn core_model_gate_is_independent_of_package_capability() {
     // Synthetic leaf-6 values reflect the two DTS-only observations in the spec.
-    for (model, leaf6) in [(0x1a, 0x03), (0x4d, 0x05), (0x2a, 0x41)] {
-      assert_eq!(select_model(CpuVendor::Intel, 6, model, leaf6), Some(model));
+    for (signature, model, leaf6) in [
+      (BLOOMFIELD_SIGNATURE, 0x1a, 0x03),
+      (0x0004_06d8, 0x4d, 0x05),
+      (0x0002_06a7, 0x2a, 0x41),
+    ] {
+      assert_eq!(
+        select_profile("GenuineIntel", signature, leaf6, 0),
+        Some(CoreDtsProfile::LegacyModel(model))
+      );
     }
     for leaf6 in [0, 0x40] {
-      assert_eq!(select_model(CpuVendor::Intel, 6, 0x2a, leaf6), None);
+      assert_eq!(
+        select_profile("GenuineIntel", BLOOMFIELD_SIGNATURE, leaf6, 0),
+        None
+      );
     }
-    assert_eq!(select_model(CpuVendor::Intel, 6, 0x4c, 0x41), None);
-    assert_eq!(select_model(CpuVendor::Intel, 5, 0x4d, 0x41), None);
-    assert_eq!(select_model(CpuVendor::Amd, 6, 0x4d, 0x41), None);
+    assert_eq!(select_profile("GenuineIntel", 0x0004_06c8, 0x41, 0), None);
+    assert_eq!(select_profile("GenuineIntel", 0x0000_05d8, 0x41, 0), None);
+    assert_eq!(
+      select_profile("AuthenticAMD", BLOOMFIELD_SIGNATURE, 0x41, 0),
+      None
+    );
+  }
+
+  #[test]
+  fn hybrid_gate_requires_the_exact_full_signature_and_flag() {
+    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+      for thermal_features in [1, 0x41] {
+        assert_eq!(
+          select_profile(
+            "GenuineIntel",
+            signature,
+            thermal_features,
+            HYBRID_CAPABILITY
+          ),
+          Some(CoreDtsProfile::HybridSignature(signature))
+        );
+      }
+      assert_eq!(select_profile("GenuineIntel", signature, 0x41, 0), None);
+      assert_eq!(
+        select_profile("GenuineIntel", signature, 0x40, HYBRID_CAPABILITY),
+        None
+      );
+      assert_eq!(
+        select_profile("AuthenticAMD", signature, 0x41, HYBRID_CAPABILITY),
+        None
+      );
+    }
+    for other_signature in [0x0009_0675, 0x000b_06f2, 0x000b_0672, BLOOMFIELD_SIGNATURE] {
+      assert_eq!(
+        select_profile("GenuineIntel", other_signature, 0x41, HYBRID_CAPABILITY),
+        None
+      );
+    }
+  }
+
+  #[test]
+  fn hybrid_decode_uses_tjmax_at_zero_and_nonzero_tcc_offsets() {
+    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+      let profile = CoreDtsProfile::HybridSignature(signature);
+      for (offset, other_bits) in [(0, 0), (10, 0), (10, 0x55aa), (63, 0xffff)] {
+        let target = (100 << 16) | (offset << 24) | other_bits;
+        let valid = 1 << 31;
+        assert_eq!(
+          decode_core_temperature(profile, target, valid | (30 << 16)),
+          Some(70.0)
+        );
+        assert_eq!(decode_core_temperature(profile, target, valid), Some(100.0));
+      }
+    }
   }
 
   #[test]
   fn core_decode_requires_validity_a_plausible_target_and_positive_temperature() {
     let valid = 1 << 31;
     assert_eq!(
-      decode_core_temperature(0x1a, 100 << 16, valid | (42 << 16)),
+      decode_core_temperature(LEGACY_PROFILE, 100 << 16, valid | (42 << 16)),
       Some(58.0)
     );
-    assert_eq!(decode_core_temperature(0x1a, 50 << 16, valid), Some(50.0));
-    assert_eq!(decode_core_temperature(0x1a, 120 << 16, valid), Some(120.0));
     assert_eq!(
-      decode_core_temperature(0x1a, 50 << 16, valid | (49 << 16)),
+      decode_core_temperature(LEGACY_PROFILE, 50 << 16, valid),
+      Some(50.0)
+    );
+    assert_eq!(
+      decode_core_temperature(LEGACY_PROFILE, 120 << 16, valid),
+      Some(120.0)
+    );
+    assert_eq!(
+      decode_core_temperature(LEGACY_PROFILE, 50 << 16, valid | (49 << 16)),
       Some(1.0)
     );
 
     for target in [0, 49, 121] {
-      assert_eq!(decode_core_temperature(0x1a, target << 16, valid), None);
+      assert_eq!(
+        decode_core_temperature(LEGACY_PROFILE, target << 16, valid),
+        None
+      );
     }
-    assert_eq!(decode_core_temperature(0x1a, 50 << 16, 49 << 16), None);
     assert_eq!(
-      decode_core_temperature(0x1a, 50 << 16, valid | (50 << 16)),
+      decode_core_temperature(LEGACY_PROFILE, 50 << 16, 49 << 16),
       None
     );
     assert_eq!(
-      decode_core_temperature(0x1a, 50 << 16, valid | (127 << 16)),
+      decode_core_temperature(LEGACY_PROFILE, 50 << 16, valid | (50 << 16)),
       None
     );
-    assert_eq!(decode_core_temperature(0x4d, 100 << 16, valid), Some(100.0));
+    assert_eq!(
+      decode_core_temperature(LEGACY_PROFILE, 50 << 16, valid | (127 << 16)),
+      None
+    );
+    assert_eq!(
+      decode_core_temperature(SILVERMONT_PROFILE, 100 << 16, valid),
+      Some(100.0)
+    );
     for offset in [1, 0x20, 0x3f] {
       assert_eq!(
-        decode_core_temperature(0x4d, (100 << 16) | (offset << 24), valid),
+        decode_core_temperature(SILVERMONT_PROFILE, (100 << 16) | (offset << 24), valid),
         None
       );
     }
@@ -503,7 +619,11 @@ mod tests {
     Pin,
     Target,
     Status,
-    Model,
+    NoDts,
+    DifferentSignature,
+    NoHybridFlag,
+    MissingCoreType,
+    UnknownCoreType,
     MovedAfterStatus,
     Restore,
   }
@@ -519,6 +639,8 @@ mod tests {
     current: Cell<Processor>,
     failure: (u8, Failure),
     calls: RefCell<Vec<Call>>,
+    signature: u32,
+    extended_features: u32,
   }
 
   impl Fixture {
@@ -530,6 +652,16 @@ mod tests {
         }),
         failure,
         calls: RefCell::default(),
+        signature: BLOOMFIELD_SIGNATURE,
+        extended_features: 0,
+      }
+    }
+
+    fn hybrid(signature: u32, failure: (u8, Failure)) -> Self {
+      Self {
+        signature,
+        extended_features: HYBRID_CAPABILITY,
+        ..Self::new(failure)
       }
     }
   }
@@ -549,8 +681,48 @@ mod tests {
       self.current.get()
     }
 
-    fn model(&self) -> Option<u32> {
-      (self.failure != (self.current.get().number, Failure::Model)).then_some(0x1a)
+    fn profile(&self) -> Option<CoreDtsProfile> {
+      let target = self.current.get().number;
+      let signature = if self.failure == (target, Failure::DifferentSignature) {
+        if self.signature == ALDER_LAKE_S_HX {
+          RAPTOR_LAKE_S_HX
+        } else {
+          ALDER_LAKE_S_HX
+        }
+      } else {
+        self.signature
+      };
+      let thermal_features = if self.failure == (target, Failure::NoDts) {
+        0x40
+      } else {
+        0x41
+      };
+      let extended_features = if self.failure == (target, Failure::NoHybridFlag) {
+        0
+      } else {
+        self.extended_features
+      };
+      select_profile(
+        "GenuineIntel",
+        signature,
+        thermal_features,
+        extended_features,
+      )
+    }
+
+    fn hybrid_core_type(&self) -> Option<u8> {
+      assert_ne!(
+        self.extended_features, 0,
+        "legacy targets do not need leaf 1AH"
+      );
+      let target = self.current.get().number;
+      if self.failure == (target, Failure::MissingCoreType) {
+        None
+      } else if self.failure == (target, Failure::UnknownCoreType) {
+        Some(0x30)
+      } else {
+        Some(if target == 0 { 0x40 } else { 0x20 })
+      }
     }
 
     fn read_msr(&self, msr: u64) -> Option<u64> {
@@ -588,18 +760,88 @@ mod tests {
   }
 
   #[test]
+  fn hybrid_affinity_samples_one_representative_per_physical_core() {
+    // Processor 1 is an SMT sibling of P-core 0. E-cores 2 and 3
+    // remain separate physical core records.
+    let topology = synthetic_topology(&[0b1000, 0b0011, 0b0100]);
+    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+      let fixture = Fixture::hybrid(signature, (u8::MAX, Failure::Pin));
+      let readings = collect(
+        CoreDtsProfile::HybridSignature(signature),
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [(0, Some(58.0)), (2, Some(58.0)), (3, Some(58.0))]
+      );
+      let calls = fixture.calls.into_inner();
+      for (index, representative) in [0, 2, 3].into_iter().enumerate() {
+        assert_eq!(
+          calls[index * 4..(index + 1) * 4],
+          [
+            Call::Pin(representative),
+            Call::Read(representative, MSR_TEMPERATURE_TARGET),
+            Call::Read(representative, IA32_THERM_STATUS),
+            Call::Restore(representative),
+          ]
+        );
+      }
+      assert_eq!(calls.len(), 12);
+    }
+  }
+
+  #[test]
+  fn hybrid_target_rechecks_signature_dts_flag_and_core_type_before_msr_reads() {
+    let topology = synthetic_topology(&[0b0011, 0b0100, 0b1000]);
+    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+      for failure in [
+        Failure::DifferentSignature,
+        Failure::NoDts,
+        Failure::NoHybridFlag,
+        Failure::MissingCoreType,
+        Failure::UnknownCoreType,
+      ] {
+        let fixture = Fixture::hybrid(signature, (2, failure));
+        let readings = collect(
+          CoreDtsProfile::HybridSignature(signature),
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          readings
+            .iter()
+            .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+            .collect::<Vec<_>>(),
+          [(0, Some(58.0)), (2, None), (3, Some(58.0))]
+        );
+        let calls = fixture.calls.into_inner();
+        assert!(calls.contains(&Call::Restore(2)));
+        assert!(!calls.iter().any(|call| matches!(call, Call::Read(2, _))));
+      }
+    }
+  }
+
+  #[test]
   fn isolated_failures_preserve_the_slot_and_other_physical_cores() {
     let topology = synthetic_topology(&[0b1010, 0b0101]);
     for failure in [
       Failure::Pin,
       Failure::Target,
       Failure::Status,
-      Failure::Model,
+      Failure::NoDts,
       Failure::MovedAfterStatus,
     ] {
       let fixture = Fixture::new((0, failure));
       let result = collect(
-        0x1a,
+        LEGACY_PROFILE,
         &topology,
         Instant::now() + Duration::from_secs(1),
         &fixture,
@@ -630,7 +872,7 @@ mod tests {
       let calls = fixture.calls.borrow();
       assert_eq!(calls.contains(&Call::Restore(0)), failure != Failure::Pin);
       assert!(calls.contains(&Call::Restore(1)));
-      if matches!(failure, Failure::Pin | Failure::Model) {
+      if matches!(failure, Failure::Pin | Failure::NoDts) {
         assert!(!calls.iter().any(|call| matches!(call, Call::Read(0, _))));
       }
     }
@@ -642,7 +884,7 @@ mod tests {
     let fixture = Fixture::new((1, Failure::Restore));
     assert!(
       collect(
-        0x1a,
+        LEGACY_PROFILE,
         &topology,
         Instant::now() + Duration::from_secs(1),
         &fixture
@@ -667,7 +909,15 @@ mod tests {
   #[test]
   fn expired_pass_does_not_pin_or_read_any_processor() {
     let fixture = Fixture::new((0, Failure::Restore));
-    assert!(collect(0x1a, &synthetic_topology(&[1]), Instant::now(), &fixture).is_none());
+    assert!(
+      collect(
+        LEGACY_PROFILE,
+        &synthetic_topology(&[1]),
+        Instant::now(),
+        &fixture
+      )
+      .is_none()
+    );
     assert!(fixture.calls.into_inner().is_empty());
   }
 }
