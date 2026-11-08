@@ -15,7 +15,7 @@ use windows::core::HRESULT;
 
 use super::{
   super::client::{PawnIoClient, PawnIoModule},
-  identity::{cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
+  identity::{cpu_brand_bytes, cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
   temperature_decode::{
     decode_intel_package_temperature, decode_intel_temperature_target,
   },
@@ -27,6 +27,14 @@ const IA32_THERM_STATUS: u64 = 0x19c;
 const SILVERMONT_ATOM_C2000: u32 = 0x4d;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
 const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
+const ARROW_LAKE_SIGNATURE: u32 = 0x000c_0662;
+const ARROW_LAKE_BRANDS: [&str; 5] = [
+  "Intel(R) Core(TM) Ultra 5 245K",
+  "Intel(R) Core(TM) Ultra 7 265K",
+  "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "Intel(R) Core(TM) Ultra 9 275HX",
+  "Intel(R) Core(TM) Ultra 9 290HX Plus",
+];
 const HYBRID_CAPABILITY: u32 = 1 << 15;
 const MAX_TOPOLOGY_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
@@ -36,6 +44,7 @@ const HEADER_SIZE: usize =
 pub(crate) enum CoreDtsProfile {
   LegacyModel(u32),
   HybridSignature(u32),
+  ArrowLakeSku(&'static str),
 }
 
 pub(crate) fn supported_profile() -> Option<CoreDtsProfile> {
@@ -48,7 +57,13 @@ pub(crate) fn supported_profile() -> Option<CoreDtsProfile> {
   let thermal_features = cpuid_leaf(6)?.eax;
   // cpuid_leaf selects subleaf 0.
   let extended_features = cpuid_leaf(7).map_or(0, |leaf| leaf.edx);
-  select_profile(&vendor, signature, thermal_features, extended_features)
+  select_profile(
+    &vendor,
+    signature,
+    thermal_features,
+    extended_features,
+    cpu_brand_bytes,
+  )
 }
 
 fn select_profile(
@@ -56,12 +71,16 @@ fn select_profile(
   signature: u32,
   thermal_features: u32,
   extended_features: u32,
+  read_brand: impl FnOnce() -> Option<[u8; 48]>,
 ) -> Option<CoreDtsProfile> {
   if vendor != "GenuineIntel" || thermal_features & 1 == 0 {
     return None;
   }
 
   if extended_features & HYBRID_CAPABILITY != 0 {
+    if signature == ARROW_LAKE_SIGNATURE {
+      return arrow_lake_sku(&read_brand()?).map(CoreDtsProfile::ArrowLakeSku);
+    }
     return matches!(signature, ALDER_LAKE_S_HX | RAPTOR_LAKE_S_HX)
       .then_some(CoreDtsProfile::HybridSignature(signature));
   }
@@ -73,6 +92,19 @@ fn select_profile(
       0x1a | 0x1e | 0x1f | 0x2e | 0x2a | 0x2d | SILVERMONT_ATOM_C2000
     ))
   .then_some(CoreDtsProfile::LegacyModel(model))
+}
+
+fn arrow_lake_sku(raw_brand: &[u8; 48]) -> Option<&'static str> {
+  let end = raw_brand.iter().position(|&byte| byte == 0)?;
+  let (brand, padding) = raw_brand.split_at(end);
+  if padding.iter().any(|&byte| byte != 0) {
+    return None;
+  }
+
+  let brand = std::str::from_utf8(brand).ok()?.trim_matches(' ');
+  ARROW_LAKE_BRANDS
+    .into_iter()
+    .find(|&approved| approved == brand)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -328,8 +360,10 @@ fn sample_core(
 ) -> Option<f32> {
   if access.current_processor() != processor
     || access.profile() != Some(profile)
-    || (matches!(profile, CoreDtsProfile::HybridSignature(_))
-      && !matches!(access.hybrid_core_type(), Some(0x40 | 0x20)))
+    || (matches!(
+      profile,
+      CoreDtsProfile::HybridSignature(_) | CoreDtsProfile::ArrowLakeSku(_)
+    ) && !matches!(access.hybrid_core_type(), Some(0x40 | 0x20)))
     || Instant::now() >= deadline
   {
     return None;
@@ -376,6 +410,119 @@ mod tests {
   const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::LegacyModel(0x1a);
   const SILVERMONT_PROFILE: CoreDtsProfile =
     CoreDtsProfile::LegacyModel(SILVERMONT_ATOM_C2000);
+  const ARROW_LAKE_FIXTURES: [&str; 5] = [
+    "Intel(R) Core(TM) Ultra 5 245K",
+    "Intel(R) Core(TM) Ultra 7 265K",
+    "Intel(R) Core(TM) Ultra 7 270K Plus",
+    "Intel(R) Core(TM) Ultra 9 275HX",
+    "Intel(R) Core(TM) Ultra 9 290HX Plus",
+  ];
+
+  fn select_profile(
+    vendor: &str,
+    signature: u32,
+    thermal_features: u32,
+    extended_features: u32,
+  ) -> Option<CoreDtsProfile> {
+    super::select_profile(
+      vendor,
+      signature,
+      thermal_features,
+      extended_features,
+      || panic!("Only an eligible Arrow Lake signature can read the brand"),
+    )
+  }
+
+  fn brand_bytes(name: &str) -> [u8; 48] {
+    let mut bytes = [0; 48];
+    bytes[..name.len()].copy_from_slice(name.as_bytes());
+    bytes
+  }
+
+  #[test]
+  fn arrow_lake_discovery_requires_the_exact_brand_and_capabilities() {
+    const SIGNATURE: u32 = 0x000c_0662;
+    for brand in ARROW_LAKE_FIXTURES {
+      for thermal_features in [1, 0x41] {
+        for raw in [brand_bytes(brand), brand_bytes(&format!("  {brand} "))] {
+          assert_eq!(
+            super::select_profile(
+              "GenuineIntel",
+              SIGNATURE,
+              thermal_features,
+              HYBRID_CAPABILITY,
+              || Some(raw)
+            ),
+            Some(CoreDtsProfile::ArrowLakeSku(brand))
+          );
+        }
+      }
+    }
+
+    for (vendor, signature, thermal_features, extended_features) in [
+      ("AuthenticAMD", SIGNATURE, 0x41, HYBRID_CAPABILITY),
+      ("GenuineIntel", SIGNATURE, 0x40, HYBRID_CAPABILITY),
+      ("GenuineIntel", SIGNATURE, 0x41, 0),
+      ("GenuineIntel", 0x000c_0661, 0x41, HYBRID_CAPABILITY),
+      ("GenuineIntel", 0x000c_0664, 0x41, HYBRID_CAPABILITY),
+      ("GenuineIntel", 0x000c_0652, 0x41, HYBRID_CAPABILITY),
+    ] {
+      assert_eq!(
+        select_profile(vendor, signature, thermal_features, extended_features),
+        None
+      );
+    }
+
+    let mut hidden_suffix = brand_bytes(ARROW_LAKE_FIXTURES[0]);
+    hidden_suffix[47] = b'X';
+    let mut unterminated = brand_bytes(ARROW_LAKE_FIXTURES[0]);
+    unterminated[ARROW_LAKE_FIXTURES[0].len()..].fill(b' ');
+    for raw in [
+      None,
+      Some(hidden_suffix),
+      Some(unterminated),
+      Some(brand_bytes("Intel(R) Core(TM) Ultra 7 265KF")),
+      Some(brand_bytes("Intel(R) Core(TM) Ultra 5 245KF")),
+      Some(brand_bytes("Intel(R) Core(TM) Ultra 7 270K")),
+      Some(brand_bytes("Intel(r) Core(TM) Ultra 7 265K")),
+      Some(brand_bytes("Intel(R) Core(TM) Ultra  7 265K")),
+      Some(brand_bytes("Intel(R) Core(TM) Ultra 7 265K\t")),
+    ] {
+      assert_eq!(
+        super::select_profile("GenuineIntel", SIGNATURE, 0x41, HYBRID_CAPABILITY, || raw),
+        None
+      );
+    }
+  }
+
+  #[test]
+  fn arrow_lake_decodes_only_the_valid_delta_and_calibrated_target() {
+    let profile = CoreDtsProfile::ArrowLakeSku(ARROW_LAKE_FIXTURES[0]);
+    let valid = 1 << 31;
+    for target in [0x0069_1400, 0x8269_0000] {
+      assert_eq!(
+        decode_core_temperature(profile, target, 0x8835_2800),
+        Some(52.0)
+      );
+      assert_eq!(decode_core_temperature(profile, target, valid), Some(105.0));
+    }
+    for (target, expected) in [
+      (49, None),
+      (50, Some(50.0)),
+      (120, Some(120.0)),
+      (121, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(profile, target << 16, valid),
+        expected
+      );
+    }
+    assert_eq!(decode_core_temperature(profile, 105 << 16, 53 << 16), None);
+    assert_eq!(
+      decode_core_temperature(profile, 105 << 16, valid | (105 << 16)),
+      None
+    );
+  }
 
   #[test]
   fn core_model_gate_is_independent_of_package_capability() {
@@ -619,8 +766,11 @@ mod tests {
     Pin,
     Target,
     Status,
+    InvalidStatus,
     NoDts,
     DifferentSignature,
+    DifferentBrand,
+    MissingBrand,
     NoHybridFlag,
     MissingCoreType,
     UnknownCoreType,
@@ -641,6 +791,7 @@ mod tests {
     calls: RefCell<Vec<Call>>,
     signature: u32,
     extended_features: u32,
+    brand: Option<[u8; 48]>,
   }
 
   impl Fixture {
@@ -654,6 +805,7 @@ mod tests {
         calls: RefCell::default(),
         signature: BLOOMFIELD_SIGNATURE,
         extended_features: 0,
+        brand: None,
       }
     }
 
@@ -662,6 +814,13 @@ mod tests {
         signature,
         extended_features: HYBRID_CAPABILITY,
         ..Self::new(failure)
+      }
+    }
+
+    fn arrow_lake(brand: &str, failure: (u8, Failure)) -> Self {
+      Self {
+        brand: Some(brand_bytes(brand)),
+        ..Self::hybrid(0x000c_0662, failure)
       }
     }
   }
@@ -702,11 +861,20 @@ mod tests {
       } else {
         self.extended_features
       };
-      select_profile(
+      super::select_profile(
         "GenuineIntel",
         signature,
         thermal_features,
         extended_features,
+        || {
+          if self.failure == (target, Failure::DifferentBrand) {
+            Some(brand_bytes(ARROW_LAKE_FIXTURES[1]))
+          } else if self.failure == (target, Failure::MissingBrand) {
+            None
+          } else {
+            self.brand
+          }
+        },
       )
     }
 
@@ -742,7 +910,8 @@ mod tests {
               ..processor
             });
           }
-          Some((1 << 31) | (42 << 16))
+          let valid = self.failure != (processor.number, Failure::InvalidStatus);
+          Some((u64::from(valid) << 31) | (42 << 16))
         }
         MSR_TEMPERATURE_TARGET | IA32_THERM_STATUS => None,
         _ => panic!("Core DTS must never read the package status MSR"),
@@ -756,6 +925,68 @@ mod tests {
       }
       self.current.set(previous);
       true
+    }
+  }
+
+  #[test]
+  fn arrow_lake_keeps_one_reading_per_qualified_physical_core() {
+    let topology = synthetic_topology(&[0b0001, 0b0100]);
+    for brand in ARROW_LAKE_FIXTURES {
+      let fixture = Fixture::arrow_lake(brand, (u8::MAX, Failure::Pin));
+      let readings = collect(
+        CoreDtsProfile::ArrowLakeSku(brand),
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [(0, Some(58.0)), (2, Some(58.0))]
+      );
+    }
+  }
+
+  #[test]
+  fn arrow_lake_rechecks_exact_sku_and_keeps_an_eligible_sibling() {
+    let brand = ARROW_LAKE_FIXTURES[0];
+    let topology = synthetic_topology(&[0b0001, 0b0100]);
+    for (failure, should_read) in [
+      (Failure::DifferentBrand, false),
+      (Failure::MissingBrand, false),
+      (Failure::DifferentSignature, false),
+      (Failure::NoDts, false),
+      (Failure::NoHybridFlag, false),
+      (Failure::MissingCoreType, false),
+      (Failure::UnknownCoreType, false),
+      (Failure::Status, true),
+      (Failure::InvalidStatus, true),
+      (Failure::MovedAfterStatus, true),
+    ] {
+      let fixture = Fixture::arrow_lake(brand, (2, failure));
+      let readings = collect(
+        CoreDtsProfile::ArrowLakeSku(brand),
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [(0, Some(58.0)), (2, None)]
+      );
+      let calls = fixture.calls.into_inner();
+      assert!(calls.contains(&Call::Restore(2)));
+      assert_eq!(
+        calls.iter().any(|call| matches!(call, Call::Read(2, _))),
+        should_read
+      );
     }
   }
 
