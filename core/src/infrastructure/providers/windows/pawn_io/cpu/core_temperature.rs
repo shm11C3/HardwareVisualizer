@@ -28,6 +28,7 @@ const SILVERMONT_ATOM_C2000: u32 = 0x4d;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
 const ALDER_LAKE_H_P_PS: u32 = 0x0009_06a3;
 const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
+const METEOR_LAKE_C0: u32 = 0x000a_06a4;
 const HYBRID_CAPABILITY: u32 = 1 << 15;
 const MAX_TOPOLOGY_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
@@ -65,7 +66,7 @@ fn select_profile(
   if extended_features & HYBRID_CAPABILITY != 0 {
     return matches!(
       signature,
-      ALDER_LAKE_S_HX | ALDER_LAKE_H_P_PS | RAPTOR_LAKE_S_HX
+      ALDER_LAKE_S_HX | ALDER_LAKE_H_P_PS | RAPTOR_LAKE_S_HX | METEOR_LAKE_C0
     )
     .then_some(CoreDtsProfile::HybridSignature(signature));
   }
@@ -377,8 +378,12 @@ mod tests {
   use windows::Win32::System::SystemInformation::PROCESSOR_GROUP_INFO;
 
   const BLOOMFIELD_SIGNATURE: u32 = 0x0001_06a4;
-  const HYBRID_SIGNATURES: [u32; 3] =
-    [ALDER_LAKE_S_HX, ALDER_LAKE_H_P_PS, RAPTOR_LAKE_S_HX];
+  const HYBRID_SIGNATURES: [u32; 4] = [
+    ALDER_LAKE_S_HX,
+    ALDER_LAKE_H_P_PS,
+    RAPTOR_LAKE_S_HX,
+    METEOR_LAKE_C0,
+  ];
   const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::LegacyModel(0x1a);
   const SILVERMONT_PROFILE: CoreDtsProfile =
     CoreDtsProfile::LegacyModel(SILVERMONT_ATOM_C2000);
@@ -438,6 +443,8 @@ mod tests {
       0x0009_0675,
       0x0009_06a2,
       0x0009_06a4,
+      0x000a_06a3,
+      0x000a_06a5,
       0x000b_06f2,
       0x000b_0672,
       BLOOMFIELD_SIGNATURE,
@@ -454,13 +461,24 @@ mod tests {
     for signature in HYBRID_SIGNATURES {
       let profile = CoreDtsProfile::HybridSignature(signature);
       for (offset, other_bits) in [(0, 0), (10, 0), (10, 0x55aa), (63, 0xffff)] {
-        let target = (100 << 16) | (offset << 24) | other_bits;
-        let valid = 1 << 31;
-        assert_eq!(
-          decode_core_temperature(profile, target, valid | (30 << 16)),
-          Some(70.0)
-        );
-        assert_eq!(decode_core_temperature(profile, target, valid), Some(100.0));
+        for (target, digital_readout, expected) in [
+          (49, 0, None),
+          (50, 0, Some(50.0)),
+          (50, 50, None),
+          (100, 30, Some(70.0)),
+          (100, 0, Some(100.0)),
+          (110, 59, Some(51.0)),
+          (110, 0, Some(110.0)),
+          (120, 0, Some(120.0)),
+          (121, 0, None),
+        ] {
+          let target_word = (target << 16) | (offset << 24) | other_bits;
+          let status = (1 << 31) | (digital_readout << 16);
+          assert_eq!(
+            decode_core_temperature(profile, target_word, status),
+            expected
+          );
+        }
       }
     }
   }
@@ -654,6 +672,7 @@ mod tests {
     failure: (u8, Failure),
     calls: RefCell<Vec<Call>>,
     signature: u32,
+    thermal_features: u32,
     extended_features: u32,
     target_by_core_type: [u64; 2],
   }
@@ -668,6 +687,7 @@ mod tests {
         failure,
         calls: RefCell::default(),
         signature: BLOOMFIELD_SIGNATURE,
+        thermal_features: 0x41,
         extended_features: 0,
         target_by_core_type: [100 << 16; 2],
       }
@@ -709,9 +729,9 @@ mod tests {
         self.signature
       };
       let thermal_features = if self.failure == (target, Failure::NoDts) {
-        0x40
+        self.thermal_features & !1
       } else {
-        0x41
+        self.thermal_features
       };
       let extended_features = if self.failure == (target, Failure::NoHybridFlag) {
         0
@@ -838,6 +858,45 @@ mod tests {
           .collect::<Vec<_>>(),
         [(0, Some(58.0)), (2, expected_e_core)]
       );
+    }
+  }
+
+  #[test]
+  fn meteor_lake_without_package_dts_keeps_separate_e_core_slots() {
+    // Core 2 represents a compute-tile E-core and core 3 a low-power E-core.
+    // Both advertise type 0x20, but each has a separate Windows core record.
+    let topology = synthetic_topology(&[0b0011, 0b0100, 0b1000]);
+    for (failure, expected_low_power_core) in [
+      ((u8::MAX, Failure::Pin), Some(68.0)),
+      ((3, Failure::MissingCoreType), None),
+      ((3, Failure::InvalidStatus), None),
+    ] {
+      let mut fixture = Fixture::hybrid(0x000a_06a4, failure);
+      fixture.thermal_features = 1;
+      fixture.target_by_core_type = [110 << 16, (110 << 16) | (5 << 24)];
+      let readings = collect(
+        CoreDtsProfile::HybridSignature(0x000a_06a4),
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [
+          (0, Some(68.0)),
+          (2, Some(68.0)),
+          (3, expected_low_power_core)
+        ]
+      );
+      if failure.1 == Failure::MissingCoreType {
+        let calls = fixture.calls.into_inner();
+        assert!(calls.contains(&Call::Restore(3)));
+        assert!(!calls.iter().any(|call| matches!(call, Call::Read(3, _))));
+      }
     }
   }
 
