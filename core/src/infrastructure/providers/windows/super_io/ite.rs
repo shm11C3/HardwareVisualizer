@@ -2,11 +2,12 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
-//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 3
+//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 4
+//! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 1
 //!
 //! No other external sensor source was used.
 
-use super::is_plausible_super_io_temperature;
+use super::{super::wmi_provider::Win32BaseBoard, is_plausible_super_io_temperature};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum IteEcProfile {
@@ -14,6 +15,7 @@ pub(super) enum IteEcProfile {
   It8628e,
   It8716fD,
   It8728f,
+  It8728fExGaB75mD3h,
 }
 
 impl IteEcProfile {
@@ -34,7 +36,7 @@ impl IteEcProfile {
       Self::It8620e => "IT8620E",
       Self::It8628e => "IT8628E",
       Self::It8716fD => "IT8716F D",
-      Self::It8728f => "IT8728F/EX",
+      Self::It8728f | Self::It8728fExGaB75mD3h => "IT8728F/EX",
     }
   }
 
@@ -49,6 +51,21 @@ impl IteEcProfile {
   pub(super) const fn has_fans(self) -> bool {
     !matches!(self, Self::It8728f)
   }
+}
+
+/// Check cardinality before considering any field. The inventory API's first
+/// row alone cannot distinguish this factory board from an ambiguous result.
+pub(super) fn is_ga_b75m_d3h_baseboard(records: &[Win32BaseBoard]) -> bool {
+  let [board] = records else {
+    return false;
+  };
+
+  board.manufacturer.as_deref().map(str::trim) == Some("Gigabyte Technology Co., Ltd.")
+    && board.product.as_deref().map(str::trim) == Some("B75M-D3H")
+    && matches!(
+      board.version.as_deref().map(str::trim),
+      Some("1.0" | "1.1" | "1.2" | "x.x")
+    )
 }
 
 /// Decode a scoped ITE Environment Controller temperature byte as signed
@@ -94,6 +111,47 @@ pub(super) const fn decode_ite_fan_rpm(count: u16) -> Option<u32> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn ga_b75m_d3h_identity_requires_one_complete_exact_baseboard() {
+    let record = |manufacturer: &str, product: &str, version: Option<&str>| {
+      serde_json::from_value::<Win32BaseBoard>(serde_json::json!({
+        "Manufacturer": manufacturer,
+        "Product": product,
+        "Version": version,
+      }))
+      .unwrap()
+    };
+    let manufacturer = "Gigabyte Technology Co., Ltd.";
+    for version in ["1.0", "1.1", "1.2", "x.x", " x.x\t"] {
+      assert!(is_ga_b75m_d3h_baseboard(&[record(
+        " Gigabyte Technology Co., Ltd. ",
+        " B75M-D3H ",
+        Some(version)
+      )]));
+    }
+    assert!(!is_ga_b75m_d3h_baseboard(&[]));
+    for other_product in ["B75M-D3H", "B75M-D3V"] {
+      assert!(!is_ga_b75m_d3h_baseboard(&[
+        record(manufacturer, "B75M-D3H", Some("x.x")),
+        record(manufacturer, other_product, Some("x.x")),
+      ]));
+    }
+    for (manufacturer, product, version) in [
+      (manufacturer, "B75M-D3V", Some("x.x")),
+      (manufacturer, "GA-B75M-D3H", Some("x.x")),
+      ("GIGABYTE Technology Co., Ltd.", "B75M-D3H", Some("x.x")),
+      (manufacturer, "B75M-D3H", Some("1.3")),
+      (manufacturer, "B75M-D3H", Some(" ")),
+      (manufacturer, "B75M-D3H", None),
+    ] {
+      assert!(!is_ga_b75m_d3h_baseboard(&[record(
+        manufacturer,
+        product,
+        version
+      )]));
+    }
+  }
 
   #[test]
   fn ite_temperature_byte_decodes_signed_celsius() {

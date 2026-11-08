@@ -1,13 +1,14 @@
+use crate::log_debug;
 use crate::models::hardware::{MemoryInfo, MotherboardInfo, NetworkInfo};
 use crate::utils;
 use crate::utils::formatter;
-use crate::{log_debug, log_error};
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::net::IpAddr;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
+use std::time::Duration;
 use wmi::WMIConnection;
 
 #[derive(Debug, Deserialize)]
@@ -161,11 +162,19 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-struct Win32BaseBoard {
-  manufacturer: Option<String>,
-  product: Option<String>,
-  version: Option<String>,
+pub(super) struct Win32BaseBoard {
+  pub(super) manufacturer: Option<String>,
+  pub(super) product: Option<String>,
+  pub(super) version: Option<String>,
   serial_number: Option<String>,
+}
+
+/// Preserve the complete query result for sensor profiles that require a
+/// single unambiguous baseboard. Bound the service's wait for optional identity.
+pub(super) fn query_baseboard_identity_records() -> Result<Vec<Win32BaseBoard>, String> {
+  spawn_wmi_query("SELECT Manufacturer, Product, Version FROM Win32_BaseBoard".into())
+    .recv_timeout(Duration::from_millis(500))
+    .map_err(|error| format!("Baseboard identity query unavailable: {error}"))?
 }
 
 #[derive(Debug, Deserialize)]
@@ -229,6 +238,15 @@ fn wmi_query_in_thread<T>(query: String) -> Result<Vec<T>, String>
 where
   T: DeserializeOwned + std::fmt::Debug + Send + 'static,
 {
+  spawn_wmi_query(query)
+    .recv()
+    .map_err(|_| "Failed to receive data from thread".to_string())?
+}
+
+fn spawn_wmi_query<T>(query: String) -> Receiver<Result<Vec<T>, String>>
+where
+  T: DeserializeOwned + std::fmt::Debug + Send + 'static,
+{
   type ResultChannel<T> = Result<Vec<T>, String>;
   type SenderChannel<T> = Sender<ResultChannel<T>>;
   type ReceiverChannel<T> = Receiver<ResultChannel<T>>;
@@ -249,19 +267,11 @@ where
       Ok(results)
     })();
 
-    // Send result to main thread
-    if let Err(err) = tx.send(result) {
-      log_error!(
-        "Failed to send data from thread",
-        "get_wmi_data_in_thread",
-        Some(err.to_string())
-      );
-    }
+    // An optional identity query may time out while WMI is still returning.
+    let _ = tx.send(result);
   });
 
-  // Receive result in main thread
-  rx.recv()
-    .map_err(|_| "Failed to receive data from thread".to_string())?
+  rx
 }
 
 ///
