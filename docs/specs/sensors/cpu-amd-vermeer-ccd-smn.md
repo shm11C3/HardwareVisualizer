@@ -58,25 +58,17 @@ procedure.
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Family `0x19` model `0x21`, AM4, single physical package, `RyzenSMU` 0.2.11 read interface, both slots `0x00059954` and `0x00059958` | Observed at stepping 0 on three products: Ryzen 9 5900X (S1, S2, S8; lead-only S4 names it tested), Ryzen 9 5950X (S9–S12 with both channels in S12), Ryzen 7 5800X (S14–S16 with the first channel in S16). S19 observes the B2 stepping identity on a 5800X with no readback. CCD addresses, bit 11, unavailable responses and scaling depend on lead-only S3; lead-only S13 and S17 tie the Linux channel observations to the two SMN words; lead-only S4 corroborates both addresses and the decode on words with bit 11 set. S5 pins the signed transport. S7 pins the identity encoding and package field. | Experimental with the mechanism gates, per-slot validity and plausibility gates. |
+| Family `0x19` model `0x21`, AM4, single physical package, `RyzenSMU` 0.2.11 read interface, both slots `0x00059954` and `0x00059958` | Observed at stepping 0 (`0x00A20F10`) on three products, recorded here as evidence identities that do not gate the read: `AMD Ryzen 9 5900X 12-Core Processor` (S1, S2, S8; lead-only S4 names it tested), `AMD Ryzen 9 5950X 16-Core Processor` (S9–S12 with both channels in S12) and `AMD Ryzen 7 5800X 8-Core Processor` (S14–S16 with the first channel in S16). S19 observes the B2 stepping identity (`0x00A20F12`) on a 5800X with no readback. CCD addresses, bit 11, unavailable responses and scaling depend on lead-only S3; lead-only S13 and S17 tie the Linux channel observations to the two SMN words; lead-only S4 corroborates both addresses and the decode on words with bit 11 set. S5 pins the signed transport. S7 pins the identity encoding and package field. | Experimental with the mechanism gates, per-slot validity and plausibility gates. |
 | Other family or model (for example Cezanne `0x19`/`0x50`, Raphael `0x19`/`0x61`, any family `0x17` or `0x1A`), non-AM4 package field, or more than one physical package | Separate address, count, validity and attribution evidence is required. | Unsupported. Follow-up in #2515. |
 
-The observed product names below are evidence identities. They record
-where the S2, S11, S12, S15, S16 and S19 observations came from and are
-the first candidates for graduation toward Verified. Graduation requires
-primary documentation of the CCD registers or a maintainer-accepted
-labeled register dump that confirms every lead-only fact the row depends
-on (addresses, validity bit, scaling). A Hardware Compatibility Report
+The observed products named in the Status column are the first
+candidates for graduation toward Verified. Graduation requires primary
+documentation of the CCD registers or a maintainer-accepted labeled
+register dump that confirms every lead-only fact the row depends on
+(addresses, validity bit, scaling). A Hardware Compatibility Report
 ([#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500))
 corroborates that the path produced readings on a product, but it carries
-no raw words and cannot by itself graduate a member. The names do not
-gate the read.
-
-| Observed processor name | Signature | Observations |
-| --- | --- | --- |
-| `AMD Ryzen 9 5900X 12-Core Processor` | `0x00A20F10` | S1, S2, S8, lead-only S4 |
-| `AMD Ryzen 9 5950X 16-Core Processor` | `0x00A20F10` | S9–S12 |
-| `AMD Ryzen 7 5800X 8-Core Processor` | `0x00A20F10`, `0x00A20F12` (S19, identity only) | S14–S16, S19 |
+no raw words and cannot by itself graduate a member.
 
 ## Register map (facts)
 
