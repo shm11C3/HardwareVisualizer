@@ -555,6 +555,30 @@ Memory Device
   }
 
   #[test]
+  fn adapter_and_client_require_the_i2c_bus_subsystem() {
+    let fixture = Fixture::new();
+    let client = fixture.add_client(7, "0052", 3);
+    let adapter = client.parent().unwrap();
+    let i2c_bus = fixture.sys.join("bus/i2c");
+    assert_eq!(fixture.collect(INVENTORY), available(40.25));
+
+    // The I2C character device is a separate child of the bus adapter.
+    for class in ["class/i2c-adapter", "class/i2c-dev"] {
+      let class = fixture.sys.join(class);
+      fs::create_dir_all(&class).unwrap();
+      for node in [adapter, &client] {
+        let subsystem = node.join("subsystem");
+        fs::remove_file(&subsystem).unwrap();
+        symlink(&class, &subsystem).unwrap();
+        assert_eq!(fixture.collect(INVENTORY), DimmTemperature::Unavailable);
+        fs::remove_file(&subsystem).unwrap();
+        symlink(&i2c_bus, &subsystem).unwrap();
+      }
+    }
+    assert_eq!(fixture.collect(INVENTORY), available(40.25));
+  }
+
+  #[test]
   fn physical_array_counts_require_complete_type17_inventory_including_empty_slots() {
     let fixture = Fixture::new();
     fixture.add_client(7, "0052", 3);
