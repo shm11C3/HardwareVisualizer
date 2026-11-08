@@ -7,12 +7,32 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 const SOURCE: &str = "NCT6687D (hwmon)";
-const PLATFORM_NODE: &str = "devices/platform/nct6683.2592";
-const BOARD_IDENTITY: [(&str, &str); 3] = [
-  ("board_vendor", "Micro-Star International Co., Ltd."),
-  ("board_name", "PRO B850-P WIFI (MS-7E56)"),
-  ("bios_version", "2.A93"),
-];
+const BOARD_VENDOR: &str = "Micro-Star International Co., Ltd.";
+const PRO_BOARD: &str = "PRO B850-P WIFI (MS-7E56)";
+const MORTAR_BOARD: &str = "MAG B850M MORTAR WIFI (MS-7E61)";
+const PRO_PLATFORM_INSTANCE: &str = "nct6683.2592";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BoardProfile {
+  Pro,
+  Mortar,
+}
+
+impl BoardProfile {
+  fn matches_platform_instance(self, name: &str) -> bool {
+    match self {
+      Self::Pro => name == PRO_PLATFORM_INSTANCE,
+      Self::Mortar => {
+        let Some(suffix) = name.strip_prefix("nct6683.") else {
+          return false;
+        };
+        suffix.parse::<u16>().is_ok_and(|id| {
+          (8..=65_528).contains(&id) && id.is_multiple_of(8) && suffix == id.to_string()
+        })
+      }
+    }
+  }
+}
 const TEMPERATURE_CHANNELS: [(u8, &str, &str); 3] = [
   (2, "Diode 0 (curr)", "3"),
   (3, "Thermistor 15", "4"),
@@ -23,48 +43,90 @@ pub(crate) fn sample() -> MotherboardSensorCollection {
   sample_at(Path::new("/sys"))
 }
 
-fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
-  let dmi = sysfs.join("class/dmi/id");
-  for (attribute, expected) in BOARD_IDENTITY {
-    match read_attribute(&dmi, attribute).as_deref() {
-      Some(value) if value == expected => {}
-      Some(_) => {
-        return MotherboardSensorCollection::unsupported(
-          "No supported Linux motherboard sensor profile for this board and BIOS",
-        );
-      }
-      None => {
-        return MotherboardSensorCollection::unavailable(
-          "Could not identify the Linux motherboard and BIOS",
-        );
-      }
-    }
+fn identify_profile(dmi: &Path) -> Result<BoardProfile, MotherboardSensorCollection> {
+  let missing = || {
+    MotherboardSensorCollection::unavailable(
+      "Could not identify the Linux motherboard and BIOS",
+    )
+  };
+  let unsupported = || {
+    MotherboardSensorCollection::unsupported(
+      "No supported Linux motherboard sensor profile for this board and BIOS",
+    )
+  };
+  if read_attribute(dmi, "board_vendor").ok_or_else(missing)? != BOARD_VENDOR {
+    return Err(unsupported());
   }
+  let (profile, bios) = match read_attribute(dmi, "board_name")
+    .ok_or_else(missing)?
+    .as_str()
+  {
+    PRO_BOARD => (BoardProfile::Pro, "2.A93"),
+    MORTAR_BOARD => (BoardProfile::Mortar, "1.A68"),
+    _ => return Err(unsupported()),
+  };
+  if read_attribute(dmi, "bios_version").ok_or_else(missing)? != bios {
+    return Err(unsupported());
+  }
+  Ok(profile)
+}
 
-  let Some(endpoint) = find_endpoint(sysfs) else {
+fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
+  let profile = match identify_profile(&sysfs.join("class/dmi/id")) {
+    Ok(profile) => profile,
+    Err(collection) => return collection,
+  };
+  let Some(endpoint) = find_endpoint(sysfs, profile) else {
     return MotherboardSensorCollection::unavailable(
       "The bound NCT6687D hwmon endpoint is unavailable or ambiguous",
     );
   };
 
-  let temperatures = TEMPERATURE_CHANNELS
-    .into_iter()
-    .filter_map(|(channel, label, kind)| {
-      read_temperature(&endpoint.path, channel, label, kind)
-    })
-    .collect::<Vec<_>>();
-  let fan_speeds = (1..=2)
-    .filter_map(|channel| read_fan(&endpoint.path, channel))
-    .collect::<Vec<_>>();
+  let (temperatures, fan_speeds) = match profile {
+    BoardProfile::Pro => (
+      TEMPERATURE_CHANNELS
+        .into_iter()
+        .filter_map(|(channel, label, kind)| {
+          read_temperature(&endpoint.path, channel, label, kind)
+        })
+        .collect(),
+      [(1, "Fan 1"), (2, "Fan 2")]
+        .into_iter()
+        .filter_map(|(channel, name)| read_fan(&endpoint.path, channel, name))
+        .collect(),
+    ),
+    BoardProfile::Mortar => (
+      Vec::new(),
+      read_fan(&endpoint.path, 16, "SYS_FAN1")
+        .into_iter()
+        .collect(),
+    ),
+  };
+  finish_sample(
+    sysfs,
+    profile,
+    &endpoint,
+    MotherboardSensorSample {
+      temperatures,
+      fan_speeds,
+    },
+  )
+}
 
-  // A hwmon index can be reused by a new device during collection.
-  if find_endpoint(sysfs).as_ref() != Some(&endpoint) {
+fn finish_sample(
+  sysfs: &Path,
+  profile: BoardProfile,
+  endpoint: &Endpoint,
+  sample: MotherboardSensorSample,
+) -> MotherboardSensorCollection {
+  // Linux can reuse the same paths after a binding or hwmon node is replaced.
+  if find_endpoint(sysfs, profile).as_ref() != Some(endpoint) {
     return MotherboardSensorCollection::unavailable(
       "The NCT6687D hwmon binding changed during collection",
     );
   }
 
-  let availability = if temperatures.is_empty() && fan_speeds.is_empty() {
+  let availability = if sample.temperatures.is_empty() && sample.fan_speeds.is_empty() {
     SensorAvailability::unavailable(
       "The NCT6687D hwmon endpoint returned no usable readings",
     )
@@ -72,10 +134,7 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
     SensorAvailability::Available
   };
   MotherboardSensorCollection {
-    sample: MotherboardSensorSample {
-      temperatures,
-      fan_speeds,
-    },
+    sample,
     availability,
     fan_support: SensorSupport::Supported,
     ..MotherboardSensorCollection::default()
@@ -85,51 +144,71 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
 #[derive(Debug, PartialEq, Eq)]
 struct Endpoint {
   path: PathBuf,
-  device: u64,
-  inode: u64,
+  identities: [(u64, u64); 3],
 }
 
-fn find_endpoint(sysfs: &Path) -> Option<Endpoint> {
-  let parent = sysfs.join(PLATFORM_NODE);
-  if !resolves_to(&parent.join("subsystem"), &sysfs.join("bus/platform"))
-    || !resolves_to(
-      &parent.join("driver"),
-      &sysfs.join("bus/platform/drivers/nct6683"),
-    )
-  {
-    return None;
-  }
-  let expected_hwmon = parent.join("hwmon");
+fn find_endpoint(sysfs: &Path, profile: BoardProfile) -> Option<Endpoint> {
   let mut endpoint = None;
   for entry in fs::read_dir(sysfs.join("class/hwmon")).ok()? {
     let entry = entry.ok()?;
-    if !entry.file_name().to_str().is_some_and(is_hwmon_name) {
+    let class_name = entry.file_name();
+    if !class_name.to_str().is_some_and(is_hwmon_name) {
       continue;
     }
     let Ok(path) = fs::canonicalize(entry.path()) else {
       continue;
     };
-    if path.parent() != Some(expected_hwmon.as_path())
-      || !path.file_name()?.to_str().is_some_and(is_hwmon_name)
-      || !resolves_to(&path.join("device"), &parent)
-      || read_attribute(&path, "name").as_deref() != Some("nct6687")
+    if profile == BoardProfile::Mortar && path.file_name() != Some(class_name.as_os_str())
     {
       continue;
     }
+    let Some(candidate) = qualify_endpoint(sysfs, profile, path) else {
+      continue;
+    };
     if endpoint
       .as_ref()
-      .is_some_and(|candidate: &Endpoint| candidate.path != path)
+      .is_some_and(|previous| previous != &candidate)
     {
       return None;
     }
-    let metadata = fs::metadata(&path).ok()?;
-    endpoint = Some(Endpoint {
-      path,
-      device: metadata.dev(),
-      inode: metadata.ino(),
-    });
+    endpoint = Some(candidate);
   }
   endpoint
+}
+
+fn qualify_endpoint(
+  sysfs: &Path,
+  profile: BoardProfile,
+  path: PathBuf,
+) -> Option<Endpoint> {
+  let hwmon = path.parent()?;
+  let parent = hwmon.parent()?;
+  let instance = parent.file_name()?.to_str()?;
+  let driver = parent.join("driver");
+  if hwmon.file_name()?.to_str()? != "hwmon"
+    || parent.parent() != Some(sysfs.join("devices/platform").as_path())
+    || !profile.matches_platform_instance(instance)
+    || !path.file_name()?.to_str().is_some_and(is_hwmon_name)
+    || !resolves_to(&path.join("device"), parent)
+    || !resolves_to(&parent.join("subsystem"), &sysfs.join("bus/platform"))
+    || !resolves_to(&driver, &sysfs.join("bus/platform/drivers/nct6683"))
+    || (profile == BoardProfile::Mortar
+      && !resolves_to(&sysfs.join("bus/platform/devices").join(instance), parent))
+    || read_attribute(&path, "name").as_deref() != Some("nct6687")
+  {
+    return None;
+  }
+
+  let identities = [
+    file_identity(&fs::metadata(&path).ok()?),
+    file_identity(&fs::metadata(parent).ok()?),
+    file_identity(&fs::symlink_metadata(driver).ok()?),
+  ];
+  Some(Endpoint { path, identities })
+}
+
+fn file_identity(metadata: &fs::Metadata) -> (u64, u64) {
+  (metadata.dev(), metadata.ino())
 }
 
 fn is_hwmon_name(name: &str) -> bool {
@@ -171,12 +250,12 @@ fn read_temperature(
     })
 }
 
-fn read_fan(path: &Path, channel: u8) -> Option<MotherboardFanSpeed> {
+fn read_fan(path: &Path, channel: u8, name: &str) -> Option<MotherboardFanSpeed> {
   let rpm = read_attribute(path, &format!("fan{channel}_input"))?
     .parse::<u32>()
     .ok()?;
   (1..=65_534).contains(&rpm).then(|| MotherboardFanSpeed {
-    name: format!("Fan {channel}"),
+    name: name.to_owned(),
     rpm: Some(rpm),
     status: FanSpeedStatus::Active,
     source: SOURCE.to_owned(),
@@ -197,29 +276,8 @@ mod tests {
 
   impl Fixture {
     fn new() -> Self {
-      let directory = tempfile::tempdir().unwrap();
-      let sysfs = directory.path().canonicalize().unwrap();
-      let dmi = sysfs.join("class/dmi/id");
-      let parent = sysfs.join(PLATFORM_NODE);
-      let driver = sysfs.join("bus/platform/drivers/nct6683");
-      let node = parent.join("hwmon/hwmon5");
-      for path in [&dmi, &driver, &node, &sysfs.join("class/hwmon")] {
-        fs::create_dir_all(path).unwrap();
-      }
-      for (attribute, value) in BOARD_IDENTITY {
-        fs::write(dmi.join(attribute), format!("{value}\n")).unwrap();
-      }
-      symlink(sysfs.join("bus/platform"), parent.join("subsystem")).unwrap();
-      symlink(driver, parent.join("driver")).unwrap();
-      symlink(parent, node.join("device")).unwrap();
-      symlink(&node, sysfs.join("class/hwmon/hwmon5")).unwrap();
-
-      let fixture = Self {
-        _directory: directory,
-        sysfs,
-        node,
-      };
-      fixture.write("name", "nct6687\n");
+      let fixture =
+        Self::with_binding("PRO B850-P WIFI (MS-7E56)", "2.A93", "nct6683.2592");
       for ((channel, label, kind), reading) in TEMPERATURE_CHANNELS
         .into_iter()
         .zip([26_000, 22_000, 26_000])
@@ -233,6 +291,37 @@ mod tests {
       fixture
     }
 
+    fn mortar(instance: &str) -> Self {
+      let fixture =
+        Self::with_binding("MAG B850M MORTAR WIFI (MS-7E61)", "1.A68", instance);
+      fixture.write("fan16_input", "926\n");
+      fixture
+    }
+
+    fn with_binding(board: &str, bios: &str, instance: &str) -> Self {
+      let directory = tempfile::tempdir().unwrap();
+      let sysfs = directory.path().canonicalize().unwrap();
+      let dmi = sysfs.join("class/dmi/id");
+      fs::create_dir_all(&dmi).unwrap();
+      for (attribute, value) in [
+        ("board_vendor", "Micro-Star International Co., Ltd."),
+        ("board_name", board),
+        ("bios_version", bios),
+      ] {
+        fs::write(dmi.join(attribute), format!("{value}\n")).unwrap();
+      }
+      let node = add_binding(&sysfs, instance, "hwmon5");
+      Self {
+        _directory: directory,
+        sysfs,
+        node,
+      }
+    }
+
+    fn parent(&self) -> &Path {
+      self.node.parent().unwrap().parent().unwrap()
+    }
+
     fn write(&self, attribute: &str, value: &str) {
       fs::write(self.node.join(attribute), value).unwrap();
     }
@@ -240,6 +329,24 @@ mod tests {
     fn sample(&self) -> MotherboardSensorCollection {
       sample_at(&self.sysfs)
     }
+  }
+
+  fn add_binding(sysfs: &Path, instance: &str, hwmon: &str) -> PathBuf {
+    let parent = sysfs.join("devices/platform").join(instance);
+    let driver = sysfs.join("bus/platform/drivers/nct6683");
+    let bus_devices = sysfs.join("bus/platform/devices");
+    let class = sysfs.join("class/hwmon");
+    let node = parent.join("hwmon").join(hwmon);
+    for directory in [&driver, &bus_devices, &node, &class] {
+      fs::create_dir_all(directory).unwrap();
+    }
+    symlink(sysfs.join("bus/platform"), parent.join("subsystem")).unwrap();
+    symlink(driver, parent.join("driver")).unwrap();
+    symlink(&parent, bus_devices.join(instance)).unwrap();
+    symlink(parent, node.join("device")).unwrap();
+    symlink(&node, class.join(hwmon)).unwrap();
+    fs::write(node.join("name"), "nct6687\n").unwrap();
+    node
   }
 
   #[test]
@@ -310,7 +417,7 @@ mod tests {
   #[test]
   fn requires_platform_binding_and_a_unique_canonical_child() {
     let fixture = Fixture::new();
-    let parent = fixture.sysfs.join(PLATFORM_NODE);
+    let parent = fixture.parent().to_path_buf();
     let class_node = fixture.sysfs.join("class/hwmon/hwmon5");
     for (link, wrong_target) in [
       (class_node, parent.clone()),
@@ -335,17 +442,17 @@ mod tests {
     symlink(parent, duplicate.join("device")).unwrap();
     fs::write(duplicate.join("name"), "nct6687\n").unwrap();
     symlink(duplicate, fixture.sysfs.join("class/hwmon/hwmon6")).unwrap();
-    assert!(find_endpoint(&fixture.sysfs).is_none());
+    assert!(find_endpoint(&fixture.sysfs, BoardProfile::Pro).is_none());
   }
 
   #[test]
   fn rejects_wrong_kind_and_missing_binding() {
     let fixture = Fixture::new();
     fixture.write("name", "nct6686\n");
-    assert!(find_endpoint(&fixture.sysfs).is_none());
+    assert!(find_endpoint(&fixture.sysfs, BoardProfile::Pro).is_none());
     fixture.write("name", "nct6687\n");
-    fs::remove_file(fixture.sysfs.join(PLATFORM_NODE).join("driver")).unwrap();
-    assert!(find_endpoint(&fixture.sysfs).is_none());
+    fs::remove_file(fixture.parent().to_path_buf().join("driver")).unwrap();
+    assert!(find_endpoint(&fixture.sysfs, BoardProfile::Pro).is_none());
   }
 
   #[test]
@@ -401,7 +508,7 @@ mod tests {
     ] {
       fixture.write("fan1_input", raw);
       assert_eq!(
-        read_fan(&fixture.node, 1).and_then(|reading| reading.rpm),
+        read_fan(&fixture.node, 1, "Fan 1").and_then(|reading| reading.rpm),
         expected
       );
     }
@@ -410,17 +517,178 @@ mod tests {
   #[test]
   fn detects_replaced_endpoint_even_when_the_class_index_is_reused() {
     let fixture = Fixture::new();
-    let original = find_endpoint(&fixture.sysfs).unwrap();
+    let original = find_endpoint(&fixture.sysfs, BoardProfile::Pro).unwrap();
     fs::rename(&fixture.node, fixture.node.with_file_name("old")).unwrap();
     fs::create_dir(&fixture.node).unwrap();
-    symlink(
-      fixture.sysfs.join(PLATFORM_NODE),
-      fixture.node.join("device"),
-    )
-    .unwrap();
+    symlink(fixture.parent(), fixture.node.join("device")).unwrap();
     fixture.write("name", "nct6687\n");
-    let replacement = find_endpoint(&fixture.sysfs).unwrap();
+    let replacement = find_endpoint(&fixture.sysfs, BoardProfile::Pro).unwrap();
     assert_eq!(replacement.path, original.path);
     assert_ne!(replacement, original);
+  }
+
+  #[test]
+  fn mortar_reads_only_sys_fan1_for_two_distinct_valid_instances() {
+    for instance in ["nct6683.8", "nct6683.65528"] {
+      let fixture = Fixture::mortar(instance);
+      assert_mortar_fan(&fixture.sample(), 926);
+
+      fixture.write("fan1_input", "1111");
+      fixture.write("fan15_input", "2222");
+      fixture.write("temp2_label", "Diode 0 (curr)");
+      fixture.write("temp2_type", "3");
+      fixture.write("temp2_input", "26000");
+      assert_mortar_fan(&fixture.sample(), 926);
+
+      let renamed = fixture.node.with_file_name("hwmon7");
+      fs::rename(&fixture.node, &renamed).unwrap();
+      let class = fixture.sysfs.join("class/hwmon");
+      fs::remove_file(class.join("hwmon5")).unwrap();
+      symlink(renamed, class.join("hwmon7")).unwrap();
+      assert_mortar_fan(&fixture.sample(), 926);
+    }
+  }
+
+  #[test]
+  fn mortar_rejects_unknown_boards_firmware_instances_and_ownership() {
+    for name in [
+      "nct6683.0",
+      "nct6683.7",
+      "nct6683.9",
+      "nct6683.0008",
+      "nct6683.+8",
+      "nct6683.-8",
+      "nct6683.65535",
+      "nct6683.65536",
+      "nct6684.8",
+    ] {
+      assert_unavailable(&Fixture::mortar(name).sample());
+    }
+
+    let fixture = Fixture::mortar("nct6683.2720");
+    let dmi = fixture.sysfs.join("class/dmi/id");
+    for (attribute, wrong) in [
+      ("board_name", "MAG B850M MORTAR (MS-7E61)"),
+      ("bios_version", "1.A69"),
+    ] {
+      let path = dmi.join(attribute);
+      let original = fs::read(&path).unwrap();
+      fs::write(&path, wrong).unwrap();
+      let sample = fixture.sample();
+      assert!(matches!(
+        sample.availability,
+        SensorAvailability::Unsupported { .. }
+      ));
+      assert_eq!(sample.sample, MotherboardSensorSample::default());
+      fs::write(path, original).unwrap();
+    }
+
+    fixture.write("name", "nct6686");
+    assert_unavailable(&fixture.sample());
+    fixture.write("name", "nct6687");
+
+    for (link, wrong_target) in [
+      (
+        fixture.parent().join("driver"),
+        fixture.sysfs.join("bus/platform"),
+      ),
+      (
+        fixture.parent().join("subsystem"),
+        fixture.sysfs.join("class"),
+      ),
+      (
+        fixture.node.join("device"),
+        fixture.sysfs.join("devices/platform"),
+      ),
+      (
+        fixture.sysfs.join("class/hwmon/hwmon5"),
+        fixture.parent().to_path_buf(),
+      ),
+      (
+        fixture.sysfs.join("bus/platform/devices/nct6683.2720"),
+        fixture.sysfs.join("devices/platform"),
+      ),
+    ] {
+      let original = fs::read_link(&link).unwrap();
+      fs::remove_file(&link).unwrap();
+      assert_unavailable(&fixture.sample());
+      symlink(wrong_target, &link).unwrap();
+      assert_unavailable(&fixture.sample());
+      fs::remove_file(&link).unwrap();
+      symlink(original, link).unwrap();
+    }
+    assert_mortar_fan(&fixture.sample(), 926);
+  }
+
+  #[test]
+  fn mortar_refuses_distinct_matching_nodes_even_if_only_one_exposes_fan16() {
+    let fixture = Fixture::mortar("nct6683.2720");
+    add_binding(&fixture.sysfs, "nct6683.2744", "hwmon6");
+    assert_unavailable(&fixture.sample());
+  }
+
+  #[test]
+  fn mortar_preserves_missing_and_invalid_rpm_and_accepts_inclusive_bounds() {
+    let fixture = Fixture::mortar("nct6683.2720");
+    fixture.write("fan1_input", "1111");
+    for raw in ["-1", "0", "65535", "4294967296", "926 RPM"] {
+      fixture.write("fan16_input", raw);
+      assert_unavailable(&fixture.sample());
+    }
+    for (raw, expected) in [("1", 1), ("65534", 65_534)] {
+      fixture.write("fan16_input", raw);
+      assert_mortar_fan(&fixture.sample(), expected);
+    }
+
+    fs::remove_file(fixture.node.join("fan16_input")).unwrap();
+    assert_unavailable(&fixture.sample());
+    fs::create_dir(fixture.node.join("fan16_input")).unwrap();
+    assert_unavailable(&fixture.sample());
+  }
+
+  #[test]
+  fn mortar_discards_samples_if_the_binding_is_replaced_at_the_same_path() {
+    let fixture = Fixture::mortar("nct6683.2720");
+    let old = find_endpoint(&fixture.sysfs, BoardProfile::Mortar).unwrap();
+    let sample = MotherboardSensorSample {
+      temperatures: Vec::new(),
+      fan_speeds: vec![read_fan(&old.path, 16, "SYS_FAN1").unwrap()],
+    };
+    let driver = fixture.parent().join("driver");
+    let target = fs::read_link(&driver).unwrap();
+    fs::rename(&driver, fixture.parent().join("old-driver")).unwrap();
+    symlink(target, driver).unwrap();
+
+    assert_unavailable(&finish_sample(
+      &fixture.sysfs,
+      BoardProfile::Mortar,
+      &old,
+      sample,
+    ));
+    fixture.write("fan16_input", "1000");
+    assert_mortar_fan(&fixture.sample(), 1000);
+  }
+
+  fn assert_mortar_fan(collection: &MotherboardSensorCollection, rpm: u32) {
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert_eq!(collection.fan_support, SensorSupport::Supported);
+    assert!(collection.sample.temperatures.is_empty());
+    assert_eq!(
+      collection.sample.fan_speeds,
+      [MotherboardFanSpeed {
+        name: "SYS_FAN1".to_owned(),
+        rpm: Some(rpm),
+        status: FanSpeedStatus::Active,
+        source: SOURCE.to_owned(),
+      }],
+    );
+  }
+
+  fn assert_unavailable(collection: &MotherboardSensorCollection) {
+    assert!(matches!(
+      collection.availability,
+      SensorAvailability::Unavailable { .. }
+    ));
+    assert_eq!(collection.sample, MotherboardSensorSample::default());
   }
 }

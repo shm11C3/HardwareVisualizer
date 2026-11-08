@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 4 |
-| Status | Implementation-ready (rev 4) |
-| Scope | Read-only access to the primary LPC Environment Controller for IT8716F silicon version D FAN1–3 and exact IT8620E and IT8628E TMPIN1–3 and FAN1–3. Only the model and channel rows below qualify. |
+| Revision | 5 |
+| Status | Implementation-ready (rev 5) |
+| Scope | Read-only access to the primary LPC Environment Controller for IT8716F silicon version D FAN1–3, IT8772E silicon version FX FAN2–3, and exact IT8620E and IT8628E TMPIN1–3 and FAN1–3. Only the model and channel rows below qualify. |
 | Issue phase | Phase 4 (#1635), [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518) |
 
-This revision records which specification owns the exact GA-B75M-D3H
-fan scope. Clean-room implementation can pin revision 4 after the
-maintainer approves the specification PR under the
+This revision proposes adding IT8772E FX FAN2–3 as Experimental.
+Clean-room implementation can pin revision 5 after the maintainer
+approves the specification PR under the
 [specification gate](README.md#status-transition-draft--implementation-ready).
 All expansion rows are Experimental. They have pinned lead-only
 facts and lack an accepted independent hardware dump. The existing
@@ -27,13 +27,15 @@ failure diagnostics under [ADR 0011](../../adr/0011-experimental-sensor-enableme
 | S1 | ITE Tech., Inc., IT8728F Preliminary Specification V0.4.2 (E version), pinned as S1 in [the existing IT8728 temperature specification](superio-ite-it86xx-it87xx.md#sources) | Vendor-authored primary source. The cover limits V0.4.2 to E. Section 8.3.5, printed p. 48, assigns the same revision nibble to DX and EX. Pins the E-specific fan map in §§9.5.2.1–9.5.2.2 and the temperature path in S3. |
 | S3 | [Existing IT8728 temperature specification revision 2](superio-ite-it86xx-it87xx.md) | Baseline for access ordering, PawnIO BAR authorization and the explicit post-exit port proof. |
 | S5 | [ADR 0011](../../adr/0011-experimental-sensor-enablement.md) and [design principle DP-02](../../design-principles.md#dp-02-represent-partial-capability-honestly) | Project policy source for Experimental enablement, success/failure presentation, plausibility-gated partial readings, manual feedback, and no new telemetry. It supplies no hardware fact. |
-| S6 | Linux kernel [v6.18, `drivers/hwmon/it87.c`](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, GPL-2.0-or-later | **lead-only (copyleft)**. Pins exact modern IDs, I/O discovery and layout, temperature routing, pin selections, fan count format and availability, vendor register, and 16-bit mode differences. The exact IT8620E and IT8628E profile entries and model-scoped discovery are at lines 477–504, 2779–2787 and 2955–2989. The revision-specific branches at lines 3427–3448 concern other models. |
+| S6 | Linux kernel [v6.18, `drivers/hwmon/it87.c`](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, GPL-2.0-or-later | **lead-only (copyleft)**. Pins exact modern IDs, I/O discovery and layout, temperature routing, pin selections, fan count format and availability, vendor register, and 16-bit mode differences. The exact IT8620E and IT8628E profile entries and model-scoped discovery are at lines 477–504, 2779–2787 and 2955–2989. For exact IT8772E, lines 409–418 and 2757–2759 identify the model and fixed 16-bit path. Lines 683–687, 910–921, 3245–3255, 3309–3325 and 3424–3448 pin divisor, count interpretation, read order, enable order and model-specific mode handling. The three-fan claim in this source does not apply to the FX scope in S13. |
 | S7 | LibreHardwareMonitor [`2808d80564b6`, ITE LPC Environment Controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT87XX.cs), Git blob `cc3dfd301e46cca5a92801890c512e0af422f8e1`, MPL-2.0 | **lead-only (copyleft)**. Corroborates the fixed divisor, low-byte then high-byte read order, maximum count as no measured rotation, and supports a conservative lower count bound for 16-bit tachometer channels. |
 | S8 | ITE Tech., Inc., *IT8716F Environment Control - LPC I/O*, Preliminary Specification V0.3, [public third-party mirror](https://www.rom.by/files/IT8716F_V0.3.pdf) | Vendor-authored primary document. The cover applies V0.3 to D and future versions. Section 8.3.5, printed p. 39, explicitly identifies C and D through `CR22[3:0]`. Pins configuration §8.1 and §§8.3, 8.8, dedicated FAN1 and shared FAN2/3 pin functions §§4–5 and §§8.3.10, 8.3.12, EC access §§9.6.1–9.6.2.1, monitor state §9.6.2.2.1, fan read and enable fields §§9.6.2.2.13–16 and .21, printed pp. 89–91, and tachometer format and cadence §§9.6.3.5–6, printed p. 101. |
 | S9 | [Super I/O configuration access revision 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [PawnIO interface revision 7](pawnio-interface.md#lpcio) | Current repository transport facts and scope limits. The Experimental slot-1 withhold applies to diagnostics. |
 | S10 | Out-of-tree [IT87 driver](https://github.com/frankcrawford/it87/blob/master/it87.c), Git blob `56148f202fee43436fa73a747a1bf465deb8721e`, GPL-2.0-or-later | **lead-only (copyleft)**. Corroborates the separate exact IT8620E and IT8628E IDs and fixed 16-bit fan profile selection, with distinct bank and SMBus access requirements for deferred chips. |
 | S11 | PawnIO.Modules [`LpcIO` at `52a7e536dff3`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p) | Upstream public interface used by HardwareVisualizer. Slot selection invalidates previous BAR permissions. BAR discovery is a multi-LDN scan and does not guarantee preservation of the selected LDN. |
 | S12 | [GA-B75M-D3H IT8728F/EX fan specification revision 1](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md) | Applicability reference for the separate Experimental board profile and its approval gate. The primary expansion rows in this document do not depend on that profile. |
+| S13 | ITE Tech., Inc., *IT8772E Environment Control – LPC I/O*, Preliminary Specification V0.4 (For F Version), ITPM-PN-2012032, 2012-03-16, [public third-party mirror](https://mediatronik.net/wp/wp-content/uploads/2024/01/IT8772E-ITE.pdf), SHA-256 `e7517c2c4228526e95308dd275cfaf2d70c249b9b36e7657ed800d9c377539db` | Vendor-authored primary source. Printed pages are one-based PDF pages minus 14. Pins primary configuration and exact FX identity (§§8.1, 8.3.1–8.3.5, pp. 25–26, 33), tachometer routing (§§8.3.10, 8.3.12, pp. 36–37), active EC base (§§8.5.1–8.5.3, p. 41), LPC index/data ports (Table 9-1, p. 68), runtime gate and alarms (§§9.5.2.2.1–9.5.2.2.4, pp. 73–74), tachometer mode, counts and enable (§§9.5.2.2.13–9.5.2.2.16, .19, pp. 75–77, 79), vendor byte (§9.5.2.2.34, p. 81), and conversion and cadence (§§9.5.3.5–9.5.3.6, p. 95). |
+| S14 | coreboot 4.22, [exact IT8772F firmware definitions](https://github.com/coreboot/coreboot/blob/4.22/src/superio/ite/it8772f/it8772f.h#L36-L38), Git blob `38cfe3b20ee841ca9a89333ffa9cc030e826a0a9`, [enable path](https://github.com/coreboot/coreboot/blob/4.22/src/superio/ite/it8772f/superio.c#L130-L134), Git blob `82f30fa6cd36b9bbaf4aa9469d24ad571af9d7be`, GPL-2.0-or-later, and [Google Beltino board configuration](https://github.com/coreboot/coreboot/blob/4.22/src/mainboard/google/beltino/devicetree.cb#L80-L95), Git blob `cdaab35b54e4a8517431e6926c5e4f724b345cb9` | **lead-only (copyleft)**. Corroborates channel enable bit order and a deployment with FAN2 enabled by firmware on primary LDN `0x04` at `0x0700`. Supplies no live RPM evidence and does not authorize any firmware writes. |
 
 ## Detection
 
@@ -44,6 +46,7 @@ failure diagnostics under [ADR 0011](../../adr/0011-experimental-sensor-enableme
 | Exact raw chip ID `0x8728` / IT8728F/EX TMPIN1–3 | Existing **Experimental** scope from S3. | Enabled under S3. |
 | Exact `0x8728` / IT8728F FAN1–3 outside the GA-B75M-D3H FAN1–2 scope in S12 | DX and EX both report `CR22[3:0]=0x1` (S1). The exact-chip leads S6/S7 do not distinguish the two versions. | Disabled. Apply S12 only to its exact board, controller, and channel scope after its approval gate. |
 | Slot 0, exact `0x8716` / IT8716F D with `CR22[3:0]=0x1`, FAN1–3 | **Experimental**. S8 identifies D and defines discovery, counters, pin routing, and per-channel 16-bit mode bits. Fixed divisor in 16-bit mode, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible firmware-enabled 16-bit inputs. Other or unreadable revision nibbles are outside the scope. |
+| Slot 0, exact `0x8772` / IT8772E FX with `CR22[3:0]=0x2`, FAN2–3 | **Experimental**. S13 establishes FX identity, primary discovery, two tachometer inputs, routing, and both count bytes. The ordinal enable bits, fixed 16-bit interpretation and divisor, read order, and count dispositions use S6/S7/S14 (lead-only). | Enabled best-effort for eligible FAN2 and FAN3 inputs after approval of this revision. |
 | Slot 0, exact `0x8620` / IT8620E TMPIN1–3 and FAN1–3 | **Experimental**. Exact ID and model-wide fixed 16-bit fan path from S6/S10. Discovery, vendor check, EC read access, physical-temperature selection and encoding, fan enable, pin routing, divisor, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible inputs. |
 | Slot 0, exact `0x8628` / IT8628E TMPIN1–3 and FAN1–3 | **Experimental**. Exact ID and model-wide fixed 16-bit fan path from S6/S10. Discovery, vendor check, EC read access, physical-temperature selection and encoding, fan enable, pin routing, divisor, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible inputs. |
 | Additional channels, IT86xx/IT87xx models, and secondary transport | See [Deferred profiles](#deferred-profiles). A raw `0x8721` cannot use the IT8728 profile. | Disabled. |
@@ -60,6 +63,7 @@ that sequence. (S3, S11)
 | Profile | Discovery and authorization | Sample gate | Source |
 | --- | --- | --- | --- |
 | IT8716F D | After raw chip ID `0x8716`, read global `CR22` before LDN selection. Require its low nibble to be exactly `0x1`. A failed read, C (`0x0`), or an unlisted nibble ends expansion discovery with the usual primary configuration exit. Use the same primary configuration keys, active LDN `0x04`, 12-bit aligned base format from `CR60/61`, and EC index/data offsets as IT8728. Read the global pin-routing fields with LDN `0x04` selected. | EC `0x00` bit 0 set and bit 3 clear. | S8 §§8.1, 8.3, 8.8, 9.6.1–9.6.2.1, 9.6.2.2.1; S3 |
+| IT8772E FX | After exact raw chip ID `0x8772`, read global `CR22` before LDN selection. Require its low nibble to be exactly `0x2`. Refuse a failed revision read or any other nibble and perform the usual primary configuration exit. Use the same primary keys, active LDN `0x04`, 12-bit aligned base from `CR60/61`, and EC index/data offsets as IT8716F D. Read the global pin-routing fields with LDN `0x04` selected. After the usual EC `0x00` port proof, require `EC 0x58=0x90` before caching the path. | EC `0x00` bit 0 set and bits 7 and 3 clear. | S13 §§8.1, 8.3, 8.5, 9.5.1, 9.5.2.2.1, .34 and 9.5.3.6, S3 |
 | IT8620E, IT8628E | S6 describes the primary configuration keys and exact IDs, LDN `0x04` with `CR30[0]` set, and an eight-port EC block from `CR60/61`, with index/data at base + 5/+ 6. Require the raw big-endian base in `0x0100`–`0x0FF0`, bits 2:0 clear, and an address outside the PawnIO-protected PCI window. Read pin-routing fields with LDN `0x07` selected, then return to LDN `0x04` before BAR discovery. After the EC `0x00` port proof, require bit 7 clear and EC `0x58=0x90` before caching this path. | EC `0x00` bit 0 set and bits 7 and 3 clear. The bit 3 check and stricter base checks are conservative project guards. | Discovery, ports, EC vendor byte, monitor start, and EC `0x00[7]` refusal S6 (lead-only); allow-list S3/S9/S11 |
 
 Mark a failed pin-routing read unavailable for the affected fan until
@@ -93,6 +97,17 @@ only; a failed individual temperature read prevents that input only.
 | FAN2/FAN3 pin routing | `CR29[2]` / `CR27[7]` must be clear respectively, S8 §§8.3.10, 8.3.12 | `CR29[2]` / `CR27[7]` of LDN `0x07` must be clear respectively, S6 (lead-only) |
 | FAN1 pin routing | Dedicated tachometer pin, S8 §§4–5 | Available through the firmware fan-enable bit without an additional routing gate, S6 (lead-only) |
 
+| IT8772E FX channel | Pin routing | Firmware fan enable | Count bytes, low then high |
+| --- | --- | --- | --- |
+| FAN2 | `CR29[2]=0` selects tachometer input over GP52 (S13 §8.3.12). | EC `0x13[5]=1` (S13 §9.5.2.2.16, ordinal bit S6/S14, lead-only). | EC `0x0E` then `0x19` (S13 §§9.5.2.2.14, .19, read order S6, lead-only). |
+| FAN3 | `CR27[7]=0` selects tachometer input over GP37 (S13 §8.3.10). | EC `0x13[6]=1` (S13 §9.5.2.2.16, ordinal bit S6/S14, lead-only). | EC `0x0F` then `0x1A` (S13 §§9.5.2.2.14, .19, read order S6, lead-only). |
+
+For FX, the model-specific 16-bit path in S6 uses both documented count
+bytes without changing or testing a counter-mode field. S13 §9.5.2.2.13
+provides no width-selection field in EC `0x0C`. After the runtime gate,
+read EC `0x13` and the count pairs for the eligible inputs. Restrict
+sampling to these fields. (S13, S6 lead-only)
+
 ## Read procedure and decode
 
 After reading the gate bytes, read each eligible channel's low byte and
@@ -106,8 +121,8 @@ omits the dependent fan inputs while preserving eligible temperatures.
 
 Compute `count = 256 * high + low`. A 16-bit counter uses divisor 2,
 so the whole-number speed is `floor(675000 / count)`. The formula base
-is pinned for IT8716F D by S8 §9.6.3.5 and for the modern profiles by
-S6 (lead-only). The fixed 16-bit divisor is supported by S6/S7
+is pinned for IT8716F D by S8 §9.6.3.5, for IT8772E FX by S13 §9.5.3.5,
+and for the modern profiles by S6 (lead-only). The fixed 16-bit divisor is supported by S6/S7
 (lead-only). Interpret the results only after the activation,
 routing, mode, authorization, and consistency checks:
 
@@ -142,6 +157,12 @@ fan capability independently of this sample's available rows. (S3, S5;
 | Exact `0x8620` and separately exact `0x8628`, vendor byte `0x90`, EC `0x51=0x94`, bytes `0xC9`, `0x19`, `0x7D` | TMPIN1 unavailable (no physical input selected), TMPIN2 unavailable (external route), TMPIN3 +125 °C. If `0x51=0x15`, TMPIN1 −55 °C, TMPIN2 +25 °C, TMPIN3 +125 °C. |
 | EC `0x51=0x07` with bytes `0xC8`, `0x00`, and `0x7E` | TMPIN2 at 0 °C. TMPIN1 and TMPIN3 are outside the accepted range. |
 | Failed temperature selection read and valid FAN1, or failed FAN1 high byte and valid FAN2 | Preserve the successful fan under its original channel name. Mismatched count pairs leave the affected channel unavailable. |
+| Exact primary FX (`0x8772`, `CR22=0x02`), active aligned EC, vendor byte `0x90`, `EC 0x00=0x11`, `EC 0x13=0x60`, both pins routed to tachometers, FAN2 bytes `0xC2/0x01` twice and FAN3 bytes `0x84/0x03` twice | FAN2 1500 RPM and FAN3 750 RPM. Under one ISA mutex, read each low/high pair twice. No FAN1, `EC 0x0C`, alarm, or high-index read. |
+| Exact primary FX with `CR29[2]=1` and `EC 0x13=0x40`, or `CR29` unreadable with FAN3 eligible | FAN2 omitted before its counter reads. FAN3 retains its label and its reading. Exercise the inverse with `CR27[7]=1` or unreadable and FAN2 eligible, and each single enable bit with both pins routed. |
+| Exact FX with a failed byte or mismatched count pairs on one fan and a valid sibling | Affected fan unavailable. Preserve the successful sibling. A failed `EC 0x13` read leaves both unavailable. |
+| Exact FX, separately stable `0x0000`, `0x003F`, `0x0040`, `0xFFFE` and `0xFFFF` on an enabled and routed fan | Invalid without RPM, invalid without RPM, active at 10546 RPM, active at 10 RPM, and inactive at 0 RPM respectively. |
+| `0x8772` with an older or unlisted revision, or `CR22` unreadable | Refuse the FX profile before LDN discovery. Perform the usual primary configuration exit. The same ID on slot 1 is outside this profile. |
+| Exact FX with inactive LDN, denied BAR, failed exit, wrong vendor byte, or runtime `EC 0x00` unreadable, stopped, or in initialization | No fan count reads. A failed primary exit prevents every EC read. |
 | Modern profile with `CR60/61=0x0C/0xF8`, an unaligned base, a base above `0x0FF0`, or inactive LDN | Reject before any EC index write. |
 | Mutex unavailable, BAR port denied, failed primary exit, or wrong EC vendor byte on a modern profile | Reject without caching a port proof. A failed primary exit prevents every EC read. |
 | Slot 0 unknown ID or neighboring `0x8622`, or slot 1 with `0x8733`, `0x8790`, `0x8695`, or `0x8883` | No expansion LDN discovery or sensor reads. The slot-1 exit-withhold rule still applies to the existing diagnostic. |
@@ -167,7 +188,7 @@ fan capability independently of this sample's available rows. (S3, S5;
 | IT8705F, IT8712F | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). Counter width depends on revision. Require exact `CR22` cutoffs with the relevant errata, active 8-bit divisor fields, and per-channel firmware mode checks. The IT8716F mode gate alone does not select these profiles. (S6, lead-only) |
 | IT8716F C or unlisted revisions, 8-bit mode, IT8726F | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). Pin the exact silicon revision and its compatible read-only fields. An 8-bit path also needs the active divisor. Raw `0x8726` needs its own EC field definitions. (S6, lead-only; S8) |
 | IT8718F, IT8720F, IT8721F | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). Require separately pinned discovery, per-channel routing, width control, and any high-index access. The firmware pin selection differs even across these three models. (S6, lead-only) |
-| IT8771E, IT8772E | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). Confirm revision-specific channel population and width. S6 flags uncertainty for IT8771E. ITE's [IT8772E V0.4 for F version](https://mediatronik.net/wp/wp-content/uploads/2024/01/IT8772E-ITE.pdf), §§9.5.2.2.14 and .19, names FAN2/3 only. Resolve this with any three-channel evidence before enabling other revisions. |
+| IT8771E and IT8772E outside FX FAN2–3 | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). IT8771E needs model-specific population and width evidence. IT8772E BX/CX, DX/EX, or unlisted versions need their own map and width evidence. FX FAN1 and additional fan inputs remain outside the vendor's two tachometer inputs. (S6 lead-only, S13 §§5, 8.3.5, 9.5) |
 | IT8613E | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517). Confirm exact routing and enable fields. The published [comparison sheet](https://raw.githubusercontent.com/a1wong/it87/master/ITE_Register_map.pdf) leaves FAN1's enable field unspecified for this model. |
 | IT8625E, IT8655E, IT8665E, IT8686E | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517). Pin initial bank, safe access while firmware owns SMBus, and the channel gates before selecting a profile. Some layouts require additional bank or transport handling in S10 (lead-only); this proposal leaves those operations disabled. |
 | IT8631E, IT8638E, IT8688E, IT8689E, IT8696E | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517). Confirm the exact EC transport, index/bank layout, and per-input enable/routing independently. A matching chip ID or family name does not determine the transport. |
@@ -186,8 +207,9 @@ fan capability independently of this sample's available rows. (S3, S5;
   monitoring-start state, temperature configuration, interrupt/alarm
   state, fan-control/PWM, divisor, threshold/limit, GPIO, or power state.
 - Do not read EC interrupt-status registers `0x01`-`0x03`; S1 documents
-  read-to-clear behavior for this group. (S1 §9.5.2.2.2-9.5.2.2.4,
-  printed p. 92)
+  read-to-clear behavior for this group. S13 independently specifies it
+  for IT8772E FX. (S1 §§9.5.2.2.2–9.5.2.2.4, printed p. 92, S13
+  §§9.5.2.2.2–9.5.2.2.4, printed pp. 73–74)
 - Hold the ISA mutex across the complete multi-step transaction. PawnIO
   requires caller ownership. A mutex timeout, failed transport proof, or
   unreadable global EC gate aborts the transaction. An individual input
@@ -216,10 +238,17 @@ fan capability independently of this sample's available rows. (S3, S5;
   factory board independently of that alias. The S8 cover
   describes future versions without enumerating their revision codes.
 
+- Non-blocking for Phase 4 primary LPC expansion: Experimental FX sampling uses only the two vendor-defined count pairs with model-specific fixed-width corroboration.
+  S13 §9.5.3.5 describes 8- or 16-bit counting and gives divisor 2 as
+  the default. The FX register table supplies both count bytes and no
+  documented width selector. S6 uses a fixed 16-bit path and divisor 2
+  for exact IT8772E (lead-only). An independent FX dump with paired RPM
+  evidence is still needed for verification.
+
 ## Readiness review
 
 - The scoped rows name the exact model IDs, applicable revision gate,
-  and register dependencies. Every applicable copyleft-only fact is attributed to S6, S7 or S10 and
+  and register dependencies. Every applicable copyleft-only fact is attributed to S6, S7, S10 or S14 and
   confined to Experimental coverage.
 - Discovery retains the active-LDN and post-exit port proofs, with
   bounded, mutex-protected transactions. Each sample has an explicit
@@ -247,3 +276,4 @@ compatibility unverified.
 | 2 | 2026-11-08 | Propose Implementation-ready status for the four Experimental primary LPC rows. Pin IT8716F pin routing directly to the vendor specification, constrain modern EC base validation and authorization, and add synthetic scope, partial-result, and boundary cases. |
 | 3 | 2026-11-08 | Require the vendor-defined IT8716F D revision nibble. Defer IT8728F fan reads because the E-only source shares the same revision value with DX. Retain the exact IT8620E and IT8628E model-scoped Experimental paths and add revision rejection cases. |
 | 4 | 2026-11-08 | Keep the primary expansion Implementation-ready and assign the exact GA-B75M-D3H FAN1–2 profile to its separate specification. Limit the IT8728 no-fan fixture and deferred row to cases outside that profile. Retain the revision 3 primary expansion profiles and transport rules. |
+| 5 | 2026-11-08 | Propose Implementation-ready status for Experimental primary IT8772E FX FAN2–3. Pin the exact revision, per-input routing and counts, and model-specific 16-bit evidence. Add partial, invalid, and authorization fixtures. |

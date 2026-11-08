@@ -2,7 +2,7 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
-//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 4
+//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 5
 //! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 1
 //!
 //! No other external sensor source was used.
@@ -115,17 +115,27 @@ pub(super) enum IteEcProfile {
   It8716fD,
   It8728f,
   It8728fExGaB75mD3h,
+  It8772eFx,
 }
 
 impl IteEcProfile {
-  /// Match the raw chip ID exactly. IT8716F still requires a CR22 D-version
-  /// check in configuration mode before any logical-device selection.
+  /// Match the raw chip ID exactly. A profile with a required revision still
+  /// needs the CR22 check before logical-device selection.
   pub(super) const fn from_slot_and_chip_id(slot: u8, id: u16) -> Option<Self> {
     match (slot, id) {
       (0, 0x8620) => Some(Self::It8620e),
       (0, 0x8628) => Some(Self::It8628e),
       (0, 0x8716) => Some(Self::It8716fD),
       (0 | 1, 0x8728) => Some(Self::It8728f),
+      (0, 0x8772) => Some(Self::It8772eFx),
+      _ => None,
+    }
+  }
+
+  pub(super) const fn required_revision(self) -> Option<u8> {
+    match self {
+      Self::It8716fD => Some(0x01),
+      Self::It8772eFx => Some(0x02),
       _ => None,
     }
   }
@@ -136,6 +146,7 @@ impl IteEcProfile {
       Self::It8628e => "IT8628E",
       Self::It8716fD => "IT8716F D",
       Self::It8728f | Self::It8728fExGaB75mD3h => "IT8728F/EX",
+      Self::It8772eFx => "IT8772E FX",
     }
   }
 
@@ -144,7 +155,7 @@ impl IteEcProfile {
   }
 
   pub(super) const fn has_temperatures(self) -> bool {
-    !matches!(self, Self::It8716fD)
+    !matches!(self, Self::It8716fD | Self::It8772eFx)
   }
 
   pub(super) const fn has_fans(self) -> bool {

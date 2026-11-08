@@ -106,7 +106,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// - docs/specs/sensors/superio-access.md revision 4
 /// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
-/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 4
+/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 5
 /// - docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md revision 1
 ///
 /// No other external sensor implementation source was used.
@@ -686,13 +686,14 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
           })
         };
         let configuration = probe(ITE_EC_CONFIGURATION_REGISTER)?;
-        if discovered.profile.is_modern() {
-          if configuration & 0x80 != 0 {
-            return Err(ite_experimental_non_component_failure(
-              discovered.profile,
-              "Environment Controller configuration bit 7 is set",
-            ));
-          }
+        if discovered.profile.is_modern() && configuration & 0x80 != 0 {
+          return Err(ite_experimental_non_component_failure(
+            discovered.profile,
+            "Environment Controller configuration bit 7 is set",
+          ));
+        }
+        if discovered.profile.is_modern() || discovered.profile == IteEcProfile::It8772eFx
+        {
           let vendor = probe(ITE_EC_VENDOR_REGISTER)?;
           if vendor != ITE_EC_VENDOR_ID {
             return Err(ite_experimental_non_component_failure(
@@ -799,7 +800,9 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         "Environment Controller monitoring is stopped by INT_Clear",
       ));
     }
-    if self.profile.is_modern() && monitoring_state & 0x80 != 0 {
+    if (self.profile.is_modern() || self.profile == IteEcProfile::It8772eFx)
+      && monitoring_state & 0x80 != 0
+    {
       return Err(ite_experimental_non_component_failure(
         self.profile,
         "Environment Controller configuration bit 7 is set",
@@ -1094,13 +1097,13 @@ fn discover_ite_ec_base(
   {
     return Ok(None);
   }
-  if profile == IteEcProfile::It8716fD {
+  if let Some(required_revision) = profile.required_revision() {
     let revision = client
       .superio_inb(ITE_REVISION_REGISTER)
       .map_err(|reason| {
         ite_experimental_failure(profile, format!("CR22 read failed: {reason}"))
       })?;
-    if revision & 0x0F != 0x01 {
+    if revision & 0x0F != required_revision {
       return Ok(None);
     }
   }
@@ -1155,7 +1158,12 @@ fn discover_ite_ec_base(
     ));
   }
 
-  let mut fan_routes = [profile.has_fans(), false, false];
+  // FX has only the FAN2 and FAN3 tachometer inputs, regardless of EC 0x13[4].
+  let mut fan_routes = [
+    profile.has_fans() && profile != IteEcProfile::It8772eFx,
+    false,
+    false,
+  ];
   if profile.has_fans() {
     if !profile.is_modern() || select_ldn(ITE_GPIO_LDN).is_ok() {
       fan_routes[1] = client
@@ -1696,6 +1704,17 @@ mod tests {
       client.base_high.set(0x0A);
       client.base_low.set(0x30);
       client.fan_counts.set([[450; 2], [900; 2], [1_350; 2]]);
+      client
+    }
+
+    fn for_it8772e_fx() -> Self {
+      let client = Self::with_chip_id(0x8772);
+      client.base_high.set(0x07);
+      client.base_low.set(0);
+      client.revision.set(Some(0x02));
+      client.ec_configuration.set(0x11);
+      client.fan_enable.set(0x60);
+      client.fan_counts.set([[675; 2], [450; 2], [900; 2]]);
       client
     }
 
@@ -2889,6 +2908,201 @@ mod tests {
         *active.client.read_registers.borrow(),
         [0x00, 0x13, 0x0C, 0x0F, 0x1A, 0x0F, 0x1A]
       );
+    }
+  }
+
+  #[test]
+  fn it8772e_fx_uses_only_primary_fan2_and_fan3_with_their_own_labels() {
+    for (revision, enabled) in [(0x02, 0x60), (0x82, 0x70)] {
+      let client = FakeIteLpcIo::for_it8772e_fx();
+      client.revision.set(Some(revision));
+      client.fan_enable.set(enabled);
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+        .unwrap()
+        .unwrap();
+      assert_eq!(detected.profile, IteEcProfile::It8772eFx);
+      assert_eq!(detected.ec_base, 0x0700);
+      assert_eq!(
+        *client.config_reads.borrow(),
+        [
+          (None, 0x20),
+          (None, 0x21),
+          (None, 0x22),
+          (Some(0x04), 0x30),
+          (Some(0x04), 0x60),
+          (Some(0x04), 0x61),
+          (Some(0x04), 0x29),
+          (Some(0x04), 0x27),
+        ]
+      );
+      assert_eq!(*client.config_writes.borrow(), [(0x07, 0x04), (0x02, 0x02)]);
+      assert_eq!(*client.read_registers.borrow(), [0x00, 0x58]);
+      assert_eq!(client.find_bars_calls.get(), 1);
+      client.read_registers.borrow_mut().clear();
+      let mut active = ActiveIteMotherboardSensors::new(client, detected);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert!(sample.temperatures.is_empty());
+      assert_eq!(fan_names(&sample), ["FAN2", "FAN3"]);
+      assert_eq!(sample.fan_speeds[0].rpm, Some(1_500));
+      assert_eq!(sample.fan_speeds[1].rpm, Some(750));
+      assert_eq!(sample.fan_speeds[0].source, "IT8772E FX / Super I/O");
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        [0x00, 0x13, 0x0E, 0x19, 0x0E, 0x19, 0x0F, 0x1A, 0x0F, 0x1A]
+      );
+    }
+  }
+
+  #[test]
+  fn it8772e_fx_rejects_other_revisions_ids_and_the_secondary_slot_before_ldn_selection()
+  {
+    for (slot, id, revision) in [
+      (0, 0x8772_u16, Some(0x00)),
+      (0, 0x8772, Some(0x01)),
+      (0, 0x8772, Some(0x03)),
+      (0, 0x8772, None),
+      (0, 0x8771, Some(0x02)),
+      (1, 0x8772, Some(0x02)),
+    ] {
+      let client = FakeIteLpcIo::with_chip_id(id);
+      client.revision.set(revision);
+
+      let result = ActiveIteMotherboardSensors::discover_slot(&client, slot, false);
+
+      if revision.is_none() {
+        assert!(result.unwrap_err().contains("CR22 read failed"));
+      } else {
+        assert!(result.unwrap().is_none());
+      }
+      let config_reads = client.config_reads.borrow();
+      assert_eq!(&config_reads[..2], &[(None, 0x20), (None, 0x21)]);
+      let revision_reads = if slot == 0 && id == 0x8772 {
+        &[(None, 0x22)][..]
+      } else {
+        &[]
+      };
+      assert_eq!(&config_reads[2..], revision_reads);
+      assert_eq!(*client.config_writes.borrow(), [(0x02, 0x02)]);
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert!(client.selected_ec_register.get().is_none());
+    }
+  }
+
+  #[test]
+  fn it8772e_fx_routes_and_enables_each_physical_fan_independently() {
+    for (routing, enable, name, count_registers) in [
+      ([Some(0x04), Some(0)], 0x40, "FAN3", [0x0F, 0x1A]),
+      ([Some(0x04), Some(0)], 0x60, "FAN3", [0x0F, 0x1A]),
+      ([None, Some(0)], 0x60, "FAN3", [0x0F, 0x1A]),
+      ([Some(0), Some(0x80)], 0x60, "FAN2", [0x0E, 0x19]),
+      ([Some(0), None], 0x60, "FAN2", [0x0E, 0x19]),
+      ([Some(0), Some(0)], 0x20, "FAN2", [0x0E, 0x19]),
+      ([Some(0), Some(0)], 0x40, "FAN3", [0x0F, 0x1A]),
+    ] {
+      let client = FakeIteLpcIo::for_it8772e_fx();
+      client.routing.set(routing);
+      client.fan_enable.set(enable);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(fan_names(&sample), [name]);
+      let [low, high] = count_registers;
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        [0x00, 0x13, low, high, low, high]
+      );
+    }
+  }
+
+  #[test]
+  fn it8772e_fx_counter_failures_keep_successful_siblings_and_gate_failure_reads_none() {
+    for (failed_register, fan3_unstable, expected) in [
+      (Some(0x19), false, Some("FAN3")),
+      (None, true, Some("FAN2")),
+      (Some(0x13), false, None),
+    ] {
+      let client = FakeIteLpcIo::for_it8772e_fx();
+      client.failed_ec_register.set(failed_register);
+      if fan3_unstable {
+        client.fan_counts.set([[675; 2], [450; 2], [900, 901]]);
+      }
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now());
+
+      if let Some(name) = expected {
+        assert_eq!(fan_names(&sample.unwrap()), [name]);
+      } else {
+        assert!(sample.unwrap_err().contains("fan enable read failed"));
+        assert_eq!(*active.client.read_registers.borrow(), [0x00, 0x13]);
+      }
+      assert_eq!(
+        ActiveMotherboardSensors::Ite(active).fan_support(),
+        SensorSupport::Supported
+      );
+    }
+  }
+
+  #[test]
+  fn it8772e_fx_uses_shared_counter_boundaries() {
+    for (count, rpm, status) in [
+      (0x0000, None, FanSpeedStatus::Invalid),
+      (0x003F, None, FanSpeedStatus::Invalid),
+      (0x0040, Some(10_546), FanSpeedStatus::Active),
+      (0xFFFE, Some(10), FanSpeedStatus::Active),
+      (0xFFFF, Some(0), FanSpeedStatus::Inactive),
+    ] {
+      let client = FakeIteLpcIo::for_it8772e_fx();
+      client.fan_enable.set(0x20);
+      client.fan_counts.set([[0; 2], [count; 2], [0; 2]]);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(fan_names(&sample), ["FAN2"]);
+      assert_eq!(sample.fan_speeds[0].rpm, rpm);
+      assert_eq!(sample.fan_speeds[0].status, status);
+    }
+  }
+
+  #[test]
+  fn it8772e_fx_requires_bar_exit_and_vendor_proofs_before_collecting() {
+    for (activation, deny_ports, fail_exit, vendor, expected_reads) in [
+      (0x00, false, false, 0x90, &[][..]),
+      (0x01, true, false, 0x90, &[][..]),
+      (0x01, false, true, 0x90, &[][..]),
+      (0x01, false, false, 0xFF, &[0x00, 0x58][..]),
+    ] {
+      let client = FakeIteLpcIo::for_it8772e_fx();
+      client.activation.set(activation);
+      client.deny_ec_bars.set(deny_ports);
+      client.fail_config_exit.set(fail_exit);
+      client.ec_vendor.set(vendor);
+
+      let error =
+        ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+
+      assert!(error.contains("IT8772E FX"));
+      assert_eq!(client.config_exit_calls.get(), 1);
+      assert_eq!(client.read_registers.borrow().as_slice(), expected_reads);
+    }
+  }
+
+  #[test]
+  fn it8772e_fx_refuses_all_fan_reads_when_the_runtime_monitor_is_unready() {
+    for state in [None, Some(0x00), Some(0x09), Some(0x81)] {
+      let mut active = discover_ite_fixture(FakeIteLpcIo::for_it8772e_fx());
+      if let Some(configuration) = state {
+        active.client.ec_configuration.set(configuration);
+      } else {
+        active.client.failed_ec_register.set(Some(0x00));
+      }
+
+      assert!(active.sample_unlocked_at(Instant::now()).is_err());
+      assert_eq!(*active.client.read_registers.borrow(), [0x00]);
     }
   }
 
