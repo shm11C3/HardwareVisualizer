@@ -44,9 +44,9 @@
   SPD client `N-0052` resolve to `/sys/bus/i2c` (S10, lead-only).
   Reject class targets such as `/sys/class/i2c-adapter` and
   `/sys/class/i2c-dev`. The latter is the separate character-device
-  class (S10, lead-only). Require the same canonical parent for
-  the `eeprom` file and hwmon device. Bus and hwmon enumeration
-  indices are transient.
+  class (S10, lead-only). Require the canonical parent of `eeprom` and
+  the canonical target of the `hwmonN/device` symlink to be the same
+  I²C client. Bus and hwmon enumeration indices are transient.
   A missing, changed, duplicate or ambiguous binding is unavailable.
 - Require exactly one populated Type 17 memory record and a usable
   device locator. Require 8 GiB DDR5 SO-DIMM and exact part number
