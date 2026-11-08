@@ -38,6 +38,7 @@ import type {
   DatabaseConversionState,
   ExternalComponentGuidanceCandidate,
   HardwareMonitorUpdate,
+  MemoryDetails,
 } from "@/rspc/bindings";
 
 declare global {
@@ -111,6 +112,7 @@ type FixtureOverrides = {
   /** A synthetic mixed-availability result for the core temperature panel. */
   cpuCoreTemperatures: boolean;
   cpuCcdTemperatures: boolean;
+  dimmTemperature: string | null;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
   storedDisplayTarget: string | null;
   /** `?legacyPerformanceLayout=1` seeds the pre-#2293 default Performance
@@ -299,6 +301,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
     cpuCcdTemperatures:
       new URLSearchParams(window.location.search).get("cpuCcdTemperatures") ===
       "1",
+    dimmTemperature: new URLSearchParams(window.location.search).get(
+      "dimmTemperature",
+    ),
     storedDisplayTarget: new URLSearchParams(window.location.search).get(
       "storedDisplay",
     ),
@@ -552,6 +557,31 @@ const buildInvokeHandlers = (
           ...sysInfoFixture,
           storage: buildStorageInfoFixture(fixtureOverrides.storageDeviceCount),
         },
+  get_memory_info_detail: (): MemoryDetails => ({
+    memory: {
+      size: "8.0 GB",
+      clock: 2400,
+      clockUnit: "MHz",
+      memoryCount: 1,
+      totalSlots: 1,
+      memoryType: "DDR5",
+      isDetailed: true,
+    },
+    dimmTemperature:
+      fixtureOverrides.dimmTemperature === "available"
+        ? {
+            status: "available",
+            locator: "DIMM 0",
+            temperature: 40.25,
+            temperatureUnit: "C",
+          }
+        : {
+            status:
+              fixtureOverrides.dimmTemperature === null
+                ? "unsupported"
+                : "unavailable",
+          },
+  }),
   get_process_list: () => processListFixture,
   get_cpu_detail_temperatures: (): CpuDetailTemperatures => ({
     temperatureUnit: "C",
@@ -945,14 +975,16 @@ const dispatchTauriEvent = (
  */
 export const installTauriMocks = () => {
   mockWindows("main");
+  const fixtureOverrides = readFixtureOverrides();
+  const isLinuxMemoryFixture = fixtureOverrides.dimmTemperature !== null;
 
   (
     window as Window & { __TAURI_OS_PLUGIN_INTERNALS__?: unknown }
   ).__TAURI_OS_PLUGIN_INTERNALS__ = {
-    platform: "windows",
+    platform: isLinuxMemoryFixture ? "linux" : "windows",
     version: "10.0.26100",
-    family: "windows",
-    os_type: "windows",
+    family: isLinuxMemoryFixture ? "unix" : "windows",
+    os_type: isLinuxMemoryFixture ? "linux" : "windows",
     arch: "x86_64",
     exe_extension: "exe",
     eol: "\r\n",
@@ -960,7 +992,6 @@ export const installTauriMocks = () => {
 
   const store = new Map<string, unknown>(Object.entries(storeFixture));
   const eventListeners = new Map<string, Set<number>>();
-  const fixtureOverrides = readFixtureOverrides();
   if (fixtureOverrides.storedDisplayTarget != null) {
     store.set("display", fixtureOverrides.storedDisplayTarget);
   }

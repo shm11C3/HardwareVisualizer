@@ -29,6 +29,24 @@ pub struct MemoryInfo {
   pub is_detailed: bool,
 }
 
+/// Result of an explicit detailed memory request. Only the aggregate inventory
+/// is written to the Linux inventory cache.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MemoryDetails {
+  pub memory: MemoryInfo,
+  pub dimm_temperature: DimmTemperature,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DimmTemperature {
+  Unsupported,
+  Unavailable,
+  Available {
+    locator: String,
+    temperature_celsius: f32,
+  },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GraphicInfo {
   pub id: String,

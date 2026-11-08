@@ -45,7 +45,7 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
 }));
 
 vi.mock("@/features/hardware/dashboard/components/DashboardItems", () => ({
-  FetchDetailButton: () => <button type="button">load</button>,
+  MemoryDetailControls: () => <button type="button">load</button>,
   NetworkInfo: () => <div data-testid="network-info" />,
   StorageDataInfo: () => <div data-testid="storage-data-info" />,
 }));

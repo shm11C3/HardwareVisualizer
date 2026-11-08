@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  FetchDetailButton,
+  MemoryDetailControls,
   NetworkInfo,
   StorageDataInfo,
 } from "@/features/hardware/dashboard/components/DashboardItems";
@@ -185,11 +185,9 @@ export const SystemSpecifications = () => {
                     : []),
                 ]}
               />
-              {!hardwareInfo.memory.isDetailed && os !== "macos" && (
-                <div className="flex justify-end">
-                  <FetchDetailButton />
-                </div>
-              )}
+              <MemoryDetailControls
+                isDetailed={hardwareInfo.memory.isDetailed}
+              />
             </div>
           ) : inventoryLoadFailed ? (
             inventoryFailure

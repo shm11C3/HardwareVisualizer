@@ -15,6 +15,16 @@ pub trait MemoryPlatform: Send + Sync {
   async fn get_memory_info_detail(
     &self,
   ) -> Result<models::hardware::MemoryInfo, PlatformError>;
+
+  /// Read detailed inventory and any DIMM temperature available on this request.
+  async fn get_memory_details(
+    &self,
+  ) -> Result<models::hardware::MemoryDetails, PlatformError> {
+    Ok(models::hardware::MemoryDetails {
+      memory: self.get_memory_info_detail().await?,
+      dimm_temperature: models::hardware::DimmTemperature::Unsupported,
+    })
+  }
 }
 
 /// Trait that defines platform-specific GPU operations

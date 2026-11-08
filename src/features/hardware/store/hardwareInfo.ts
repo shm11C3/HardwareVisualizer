@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import type { NetworkInfo, SysInfo } from "@/rspc/bindings";
+import type { DimmTemperature, NetworkInfo, SysInfo } from "@/rspc/bindings";
 
 export const hardInfoAtom = atom<SysInfo>({
   cpu: null,
@@ -8,6 +8,10 @@ export const hardInfoAtom = atom<SysInfo>({
   storage: [],
   motherboard: null,
 });
+
+// The last explicit detail request is scoped to the current UI session.
+export const memoryDimmTemperatureAtom = atom<DimmTemperature | null>(null);
+export const memoryDetailLoadingAtom = atom(false);
 
 export const networkInfoAtom = atom<NetworkInfo[]>([]);
 

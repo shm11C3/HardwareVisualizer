@@ -2,7 +2,7 @@ use crate::enums::error::PlatformError;
 use crate::infrastructure::providers;
 use crate::log_warn;
 use crate::models;
-use crate::models::hardware::MemoryInfo;
+use crate::models::hardware::{DimmTemperature, MemoryDetails, MemoryInfo};
 use crate::platform::linux;
 use crate::utils;
 use std;
@@ -28,6 +28,24 @@ pub async fn get_memory_info() -> Result<MemoryInfo, PlatformError> {
 }
 
 pub async fn get_memory_info_detail() -> Result<MemoryInfo, PlatformError> {
+  let (memory, _) = read_detail_and_cache().await?;
+  Ok(memory)
+}
+
+pub async fn get_memory_details() -> Result<MemoryDetails, PlatformError> {
+  let (memory, raw) = read_detail_and_cache().await?;
+  let dimm_temperature =
+    tokio::task::spawn_blocking(move || providers::dimm_temperature::collect(&raw))
+      .await
+      .unwrap_or(DimmTemperature::Unavailable);
+
+  Ok(MemoryDetails {
+    memory,
+    dimm_temperature,
+  })
+}
+
+async fn read_detail_and_cache() -> Result<(MemoryInfo, String), PlatformError> {
   let raw = providers::dmidecode::get_raw_dmidecode()
     .await
     .map_err(PlatformError::fault)?;
@@ -43,7 +61,7 @@ pub async fn get_memory_info_detail() -> Result<MemoryInfo, PlatformError> {
     );
   }
 
-  Ok(parsed)
+  Ok((parsed, raw))
 }
 
 fn get_memory_info_cached_detail() -> std::io::Result<MemoryInfo> {

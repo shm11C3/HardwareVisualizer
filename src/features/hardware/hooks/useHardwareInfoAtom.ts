@@ -1,7 +1,10 @@
-import { useAtom } from "jotai";
+import { useAtom, useStore } from "jotai";
+import { useCallback } from "react";
 import {
   hardInfoAtom,
   hardwareInfoLoadFailedAtom,
+  memoryDetailLoadingAtom,
+  memoryDimmTemperatureAtom,
   networkInfoAtom,
   networkInfoLoadFailedAtom,
 } from "@/features/hardware/store/hardwareInfo";
@@ -9,6 +12,7 @@ import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 export const useHardwareInfoAtom = () => {
+  const store = useStore();
   const [hardwareInfo, setHardInfo] = useAtom(hardInfoAtom);
   const [networkInfo, setNetworkInfo] = useAtom(networkInfoAtom);
   const [inventoryLoadFailed, setInventoryLoadFailed] = useAtom(
@@ -19,7 +23,7 @@ export const useHardwareInfoAtom = () => {
   );
 
   /** Also the retry for the specification sheet: it clears the failure on success. */
-  const init = async () => {
+  const init = useCallback(async () => {
     const fetchedHardwareInfo = await commands.getHardwareInfo();
     if (isError(fetchedHardwareInfo)) {
       console.error("Failed to fetch hardware info:", fetchedHardwareInfo);
@@ -27,9 +31,21 @@ export const useHardwareInfoAtom = () => {
       return;
     }
 
-    setHardInfo(fetchedHardwareInfo.data);
+    setHardInfo((current) => {
+      const inventory = fetchedHardwareInfo.data;
+      // A concurrent or partial inventory read may still have the basic view.
+      // Keep the more detailed result from the explicit memory request.
+      if (
+        store.get(memoryDimmTemperatureAtom) !== null &&
+        current.memory?.isDetailed &&
+        !inventory.memory?.isDetailed
+      ) {
+        return { ...inventory, memory: current.memory };
+      }
+      return inventory;
+    });
     setInventoryLoadFailed(false);
-  };
+  }, [setHardInfo, setInventoryLoadFailed, store]);
 
   const initNetwork = async () => {
     const fetchedNetworkInfo = await commands.getNetworkInfo();
@@ -48,19 +64,23 @@ export const useHardwareInfoAtom = () => {
    * show the failure next to the control that was used.
    */
   const fetchMemoryInfoDetail = async (): Promise<boolean> => {
-    const backup = hardwareInfo.memory;
-    setHardInfo({ ...hardwareInfo, memory: null });
-
-    const result = await commands.getMemoryInfoDetail();
-
-    if (isError(result)) {
-      console.error("Failed to fetch memory info detail:", result);
-      setHardInfo({ ...hardwareInfo, memory: backup });
-      return false;
+    if (store.get(memoryDetailLoadingAtom)) return true;
+    store.set(memoryDetailLoadingAtom, true);
+    try {
+      const result = await commands.getMemoryInfoDetail();
+      if (isError(result)) {
+        console.error("Failed to fetch memory info detail:", result);
+        store.set(memoryDimmTemperatureAtom, (reading) =>
+          reading?.status === "available" ? { status: "unavailable" } : reading,
+        );
+        return false;
+      }
+      setHardInfo((current) => ({ ...current, memory: result.data.memory }));
+      store.set(memoryDimmTemperatureAtom, result.data.dimmTemperature);
+      return true;
+    } finally {
+      store.set(memoryDetailLoadingAtom, false);
     }
-
-    setHardInfo({ ...hardwareInfo, memory: result.data });
-    return true;
   };
 
   return {
