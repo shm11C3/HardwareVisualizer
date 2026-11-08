@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
-| Status | Draft |
-| Scope | Candidate Experimental, read-only sampling through an already bound Linux `it87` hwmon device for the IT87952E secondary LPC controller on Gigabyte TRX50 AI TOP. |
+| Revision | 3 |
+| Status | Draft — not implementation-ready |
+| Scope | Candidate Experimental, read-only sampling through an already bound Linux `it87` hwmon device for the IT87952E secondary LPC controller on Gigabyte TRX50 AI TOP. Includes a separate static OEM F11 ACPI assessment. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
 
 ## Sources
@@ -17,6 +17,8 @@
 | S4 | Linux [hwmon sysfs interface](https://www.kernel.org/doc/html/v6.18/hwmon/sysfs-interface.html) and [IT87 documentation, v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/it87.html) | Primary for the kernel hwmon units, sensor types, and IT87952E having up to three fans with 16-bit readback. |
 | S5 | Linux [IT87 driver, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, [platform device implementation at the same tag](https://github.com/torvalds/linux/blob/v6.18/drivers/base/platform.c), [hwmon core](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/hwmon.c), [device core](https://github.com/torvalds/linux/blob/v6.18/drivers/base/core.c) and [observed DKMS driver at `60d9def`](https://github.com/frankcrawford/it87/blob/60d9def/it87.c), Git blob `f74edf51cbb854cb002fc763291345d7df0e424777` | **lead-only (copyleft)** for mainline device naming, sysfs child and parent links, exact raw ID association, I/O resource ownership, forced-ID visibility, unavailable fan values and cache-refresh alarm-status reads. The mainline driver publishes this same device name and input ABI, and is separate from the DKMS build in S2. |
 | S6 | [Super I/O access rev. 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [Gigabyte secondary ITE draft](superio-ite-gigabyte-secondary.md) | Project's slot-1 safety rule and restrictions for the Windows direct LPC, ECIO and ISA bridge routes. |
+| S7 | Gigabyte, [TRX50 AI TOP BIOS F11](https://download.gigabyte.com/FileList/BIOS/mb_bios_trx50-ai-top_8astp003_f11.zip?v=bc9649020d9c9c00c94093b44101906a), [OEM release entry](https://www.gigabyte.com/Motherboard/TRX50-AI-TOP/support?lan=en#support-dl-bios), July 4, 2025, OEM checksum `B290` | Primary OEM firmware artifact. ZIP SHA-256 `53508a2d8154b7f3372987689bd83adbce84a69cfce77e8c8dfae56ac3c5fc3b`. `TRX50AITOP.F11` image SHA-256 `7c32acc0b048309c29cad2ae201448d77117fd30e34674bce7beee632e1ef801`. |
+| S8 | UEFI Forum, [ACPI 6.5 §11 Thermal Management](https://uefi.org/specs/ACPI/6.5/11_Thermal_Management.html), §§11.3.1.4 and 11.4.18 | Primary for the units and semantics of the standard fan status and thermal-zone methods. |
 
 ## Detection
 
@@ -106,6 +108,47 @@ disabled.
   absent exact binding on an admitted board is unavailable. Reuse
   the existing motherboard collection models.
 
+## OEM F11 ACPI evidence
+
+The following observations describe the distributed image in S7.
+They are separate from the Linux live observations in S2 and S3,
+which do not establish the installed BIOS version.
+
+The static inspection unpacked the firmware volume with
+[UEFIExtract A76](https://github.com/LongSoft/UEFITool/releases/tag/A76).
+It selected DSDT and SSDT objects wholly contained in the extracted
+section payloads with a consistent ACPI header, length and checksum,
+deduplicated their bytes, and disassembled all 40 distinct tables
+with [ACPICA iASL 20260408](https://github.com/open-acpica/acpica/releases/tag/20260408).
+This covers the recovered static table set in F11. Tables generated,
+patched or installed dynamically at boot and tables from other
+firmware builds are outside that set.
+
+| Static table | SHA-256 |
+| --- | --- |
+| DSDT `AMD/AMI`, 71,925 bytes | `b403531463b0b38f6a648405fd8cf164eb86f32c886477803f3d9d0b2a8410ab` |
+| DSDT `AMD/AMI`, 74,677 bytes | `e9a3eceb05782bddfc4e67909dc2fbc2f9aaead6601002929af786f6bd83ac02` |
+| SSDT `AMD/TZ01` | `81101420721ac22d91b4cc011ae5453343371c98c823f098e19cde3a991d63fa` |
+| SSDT `GBT/GSWApp` | `d6216bb78835198025eb74ed439cd433aea80f1a82d92f968bcaab9082309727` |
+
+- The only `_TMP` definition in the recovered tables is the
+  `AMD/TZ01` thermal zone. It calculates a repeating value of
+  approximately 33–48 °C from an AML-local counter without reading
+  a sensor. No `_FST` or `PNP0C0B` fan device was present in the
+  recovered tables. (S7, S8)
+- The `GBT/GSWApp` table defines a WMI device. Its fixed indexed ITE
+  monitor field uses primary ports `0x0A45` and `0x0A46`. Both DSDTs
+  declare `0x0A60` and `0x0A65`, which agree with the observed
+  secondary controller location, without a sensor method that uses
+  those declarations. The WMI dispatch also exposes generic,
+  caller-addressed raw port reads and writes. Separate raw calls
+  do not establish a firmware-owned secondary sensor transaction or
+  shared selector arbitration. (S2, S5, S7)
+
+The recovered F11 interfaces supply no qualified secondary temperature
+and RPM path. The static findings neither establish nor change the
+effects of the alarm-status reads on the Linux path.
+
 ## Synthetic fixture acceptance
 
 These cases describe a future approved path. The current Draft
@@ -137,9 +180,15 @@ requires the secondary collector to remain disabled.
   Separate firmware profiles and a safe Windows transport remain
   tracked by [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519).
 
+- Blocking for an OEM ACPI or WMI slice: establish a live temperature
+  and RPM endpoint attributable to the secondary controller with an
+  audited read path and shared ownership. The recovered F11 tables
+  provide no such endpoint. (S7, S8)
+
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-08 | Propose exact Experimental Linux sysfs coverage for the secondary controller evidenced on TRX50 AI TOP. |
 | 2 | 2026-11-08 | Document alarm-status reads in both pinned drivers and return the profile to Draft pending exact chip semantics. |
+| 3 | 2026-11-08 | Record the OEM F11 static ACPI and WMI findings. The Linux and firmware routes remain Draft. |
