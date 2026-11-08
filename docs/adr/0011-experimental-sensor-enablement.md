@@ -20,6 +20,13 @@ implementation, tagged as lead-only, while Verified scopes still require a
 primary source or an accepted hardware dump. The three-state model, the
 plausibility gates, and the failure presentation below are unchanged.
 
+[ADR 0031](0031-runtime-sensor-gates-follow-hardware-mechanism.md) refines
+which conditions a specification may place on the runtime path: mechanism and
+safety gates only. Brand, firmware-version and part-number identities
+record evidence in the specification and do not block a read; a baseboard
+identity gates a read only where the specification states the mechanism it
+selects.
+
 The concrete trigger is issue #1824: AMD Family 1Ah / Zen 5 (Ryzen 7 9800X3D)
 is recognized by the PawnIO `RyzenSMU` module, but HardwareVisualizer previously
 hard-disabled it with `AMD family 0x1a is disabled by the ready spec`. Under this

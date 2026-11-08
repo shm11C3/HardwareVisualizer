@@ -53,6 +53,15 @@ in spec documents.
   A quirk known only from a copyleft implementation that cannot be
   expressed as a read-only fact for an Experimental scope stays in
   Open questions until independently verified.
+- Runtime conditions in **Detection** are mechanism or safety gates
+  only ([ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md)).
+  A brand string, firmware version, part number or bus address records
+  where evidence came from; it goes in the Status column of the
+  scoped-enablement table, never in a runtime gate. A baseboard
+  identity is evidence too, unless the document states the mechanism
+  it selects (for example a firmware-defined channel mapping that
+  differs between boards); then it is a mechanism gate tagged with
+  that fact.
 - Anything uncertain goes in the document's **Open questions** section,
   not in the fact tables.
 - Read-only orientation: documents describe register *reads*. Writes
@@ -156,6 +165,14 @@ Checklist for the flipping PR (all items required):
       fact row) and is depended on only by scoped-enablement rows whose
       default enablement is Experimental; no Verified scope depends on
       one (re-check the notes column of the Sources table).
+- [ ] Every runtime condition in **Detection** carries a gate kind of
+      `mechanism` or `safety`
+      ([ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md)).
+      Brand, firmware-version, part-number and bus-address identities
+      appear only in Status columns and fixtures. A baseboard identity
+      appears there too unless its gate row states the mechanism it
+      selects. Each Scope row is keyed by the mechanism its members
+      share.
 - [ ] Scoped-enablement tables are consistent with the verification
       state of each row. A *scoped-enablement table* is the pattern
       for documents that are ready overall while specific hardware
