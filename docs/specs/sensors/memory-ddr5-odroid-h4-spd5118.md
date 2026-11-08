@@ -1,149 +1,220 @@
-# Spec: ODROID-H4 DDR5 DIMM temperature through Linux spd5118
+# Spec: Linux DDR5 DIMM temperature through SPD5118
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
-| Status | Implementation-ready (rev 2) |
-| Scope | Experimental read-only temperature for Samsung M425R1GB4BB0-CWMOD on the single-slot HARDKERNEL ODROID-H4 memory profile with Dasharo UEFI v0.9.1 and an already bound Linux SPD5118 hub on Intel SMBus. |
+| Revision | 3 |
+| Status | Implementation-ready (rev 3) |
+| Scope | Experimental read-only DDR5 DIMM temperatures on Linux through already bound SPD5118 I²C clients that each match one populated SMBIOS Type 17 record. |
 | Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526) |
 
 ## Sources
 
 | ID | Source | Notes |
 | --- | --- | --- |
-| S1 | Hardkernel [ODROID-H4 hardware specification](https://www.hardkernel.com/blog-2/odroid-h4-series/) and Dasharo [H4 hardware validation matrix](https://docs.dasharo.com/variants/hardkernel_odroid_h4/hardware-matrix/) | Primary for the single DDR5 SO-DIMM socket and the exact Samsung M425R1GB4BB0-CWMOD validated in the H4+ configuration. No temperature claim is supplied by the matrix. |
-| S2 | MSI [Cubi service guide v1.0](https://storage-asset.msi.com/global/pdf/Cubi_B0B1v1.0_ServiceGuide_0411-2.pdf#page=51), p. 51, System Info screenshot | The Memory 1 entry identifies Samsung M425R1GB4BB0-CWMOD as an 8 GB DDR5-5600 module. S1 identifies the ODROID test configuration. |
+| S1 | Hardkernel [ODROID-H4 hardware specification](https://www.hardkernel.com/blog-2/odroid-h4-series/) and Dasharo [H4 hardware validation matrix](https://docs.dasharo.com/variants/hardkernel_odroid_h4/hardware-matrix/) | Primary for the single DDR5 SO-DIMM socket and the exact Samsung M425R1GB4BB0-CWMOD validated in the H4+ configuration. The matrix supplies no temperature claim. |
+| S2 | MSI [Cubi service guide v1.0](https://storage-asset.msi.com/global/pdf/Cubi_B0B1v1.0_ServiceGuide_0411-2.pdf#page=51), p. 51, System Info screenshot | Identifies Samsung M425R1GB4BB0-CWMOD as an 8 GB DDR5-5600 module. |
 | S3 | Dasharo [ODROID-H4 UEFI v0.9.1 release](https://docs.dasharo.com/variants/hardkernel_odroid_h4/releases/#v091-2025-09-03), September 3, 2025, coreboot `7d10ea62`, [build config](https://github.com/Dasharo/coreboot/blob/7d10ea62/configs/config.hardkernel_odroid_h4), [board Kconfig](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/mainboard/hardkernel/odroid-h4/Kconfig), [memory configuration](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/mainboard/hardkernel/odroid-h4/romstage_fsp_params.c), and [SMBus SPD read](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/common/block/smbus/smbuslib.c) | **lead-only (copyleft)** for exact board strings, socket address and the 1024-byte boot-time DDR5 SPD read. This is the firmware's own source. |
-| S4 | Dasharo coreboot at `7d10ea62`, [UEFI BIOS version string](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/vendorcode/dasharo/smbios.c), [Intel DIMM information](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/alderlake/romstage/romstage.c), [saved serial field](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/common/smbios.h), and [Type 17 output](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/lib/smbios.c) | **lead-only (copyleft)** for deriving Type 17 from the FSP's SPD information, exact serial formatting and part string. Only information describing the single populated slot is used. |
-| S5 | JEDEC *DDR5 DIMM Label*, JESD401-5D, [public-use document mirror](https://studylib.net/doc/28582427/jesd401-5d), serial and part fields, and DMTF [SMBIOS DSP0134 3.9.0](https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.9.0.pdf), §7.18 | Primary for SPD field offsets and Type 17 memory device locator, serial, part and type semantics. |
-| S6 | Linux [SPD5118 hwmon ABI](https://docs.kernel.org/hwmon/spd5118.html) and [generic hwmon ABI, v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/sysfs-interface.html) | Primary for public read-only temperature and EEPROM attributes, temperature enable attribute semantics and units. |
-| S7 | Linux [SPD5118 driver, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/spd5118.c), November 30, 2025, Git blob `5da44571b6a0ce43b621faba9e67d81491ff0b28`, [Intel I801 driver at the same tag](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/busses/i2c-i801.c), [DMI-based instantiation](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-smbus.c) and [driver configuration](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/Kconfig) | **lead-only (copyleft)** for binding capabilities, the thermal-enable attribute, quarter-degree scaling, locking, EEPROM size and normal kernel enumeration limits. |
-| S8 | [ODROID-H4 base model PCI inventory](https://forum.level1techs.com/t/mini-pc-home-server/218042/18), October 14, 2024, and Dasharo [board device tree](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/mainboard/hardkernel/odroid-h4/devicetree.cb) | Independent first-hand observation of the onboard PCI SMBus controller at `00:1f.4`, PCI `8086:54A3`. The device tree is **lead-only (copyleft)** for the enabled controller. |
-| S9 | Linux [regmap, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/base/regmap/regmap.c), paged ranges and locked reads | **lead-only (copyleft)** for serialized page selection and read, and the lack of post-read page restoration. |
-| S10 | Linux v6.18 [I²C bus](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L699-L705), [adapter registration](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L1557-L1565), [client registration](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L999-L1004), [device core subsystem link](https://github.com/torvalds/linux/blob/v6.18/drivers/base/bus.c#L493-L510), [character-device class](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-dev.c#L611-L614), and [I²C sysfs documentation](https://github.com/torvalds/linux/blob/v6.18/Documentation/i2c/i2c-sysfs.rst#L35-L43) | **lead-only (copyleft)** for the canonical subsystem targets and the distinct character-device class. The public sysfs documentation identifies the adapter and client entries in the I²C bus namespace. |
+| S4 | Dasharo coreboot at `7d10ea62`, [UEFI BIOS version string](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/vendorcode/dasharo/smbios.c), [Intel DIMM information](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/alderlake/romstage/romstage.c), [saved serial field](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/soc/intel/common/smbios.h), and [Type 17 output](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/lib/smbios.c) | **lead-only (copyleft)** for the observed firmware's Type 17 derivation from the FSP's SPD information, short serial format and part string. |
+| S5 | JEDEC *DDR5 DIMM Label*, JESD401-5D, [public-use document mirror](https://studylib.net/doc/28582427/jesd401-5d), §§2.3–2.5, pp. 11–12, and DMTF [SMBIOS DSP0134 3.9.0](https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.9.0.pdf#page=100), §§7.16, 7.18 | Primary for SPD manufacturing identity field offsets and byte order, part offsets, and SMBIOS array and memory-device structure semantics. SMBIOS defines Serial Number as a string without specifying its encoding. |
+| S6 | Linux [SPD5118 hwmon ABI](https://docs.kernel.org/hwmon/spd5118.html) and [generic hwmon ABI, v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/sysfs-interface.html) | Public ABI for read-only temperature and EEPROM attributes, the temperature enable attribute, millidegrees Celsius and read-to-clear alarm attributes. |
+| S7 | Linux v6.18, [SPD5118 driver](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/spd5118.c), November 30, 2025, Git blob `5da44571b6a0ce43b621faba9e67d81491ff0b28`, [thermal reads](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/spd5118.c#L89-L185), [EEPROM read and addressing](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/spd5118.c#L338-L490), [device registration](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/spd5118.c#L534-L568), [chip and bus mode checks](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/spd5118.c#L630-L745), and [Intel I801](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/busses/i2c-i801.c) | **lead-only (copyleft)** for the driver's chip and temperature capability checks, temperature quantization, read-only 1024-byte NVMEM, protocol and locking, and the ODROID controller's SMBus-only capability. |
+| S8 | [ODROID-H4 base model PCI inventory](https://forum.level1techs.com/t/mini-pc-home-server/218042/18), October 14, 2024, and Dasharo [board device tree](https://github.com/Dasharo/coreboot/blob/7d10ea62/src/mainboard/hardkernel/odroid-h4/devicetree.cb) | First-hand observation of onboard PCI SMBus `00:1f.4`, PCI `8086:54A3`. The device tree is **lead-only (copyleft)** for the enabled controller. |
+| S9 | Linux [regmap, v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/base/regmap/regmap.c), paged ranges and locked reads | **lead-only (copyleft)** for serialized page selection and read and the lack of post-read page restoration. |
+| S10 | Linux v6.18 [I²C bus](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L699-L705), [adapter registration](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L1557-L1565), [client registration](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-core-base.c#L999-L1004), [device core subsystem link](https://github.com/torvalds/linux/blob/v6.18/drivers/base/bus.c#L493-L510), [character-device class](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-dev.c#L611-L614), and [I²C sysfs ABI](https://github.com/torvalds/linux/blob/v6.18/Documentation/i2c/i2c-sysfs.rst) | **lead-only (copyleft)** for the adapter and client subsystem targets and the distinct character-device class. The public I²C sysfs ABI describes the kernel-owned adapter/client relationships and logical buses behind muxes. |
+| S11 | Linux v6.18 [hwmon device registration](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/hwmon.c#L973-L984) and [NVMEM sysfs attributes](https://github.com/torvalds/linux/blob/v6.18/drivers/nvmem/core.c#L373-L436) | **lead-only (copyleft)** for the hwmon child's physical parent and the legacy client `eeprom` and provider `nvmem` files sharing one provider. |
+| S12 | AMD [*Ubuntu Tuning Guide for AMD EPYC 9005 Series Processors*](https://docs.amd.com/api/khub/documents/2tw6thFYsT7~8Hl2Cdo68g/content#page=30), document 58470 rev 1.0, §2.10.1, pp. 26–28 | First-hand Type 17 examples with eighteen hexadecimal digits and repeated Device Locators across distinct Bank Locators and handles. S5 supplies the byte order. The guide supplies no paired EEPROM dump or temperature. |
+| S13 | [Framework Laptop 13 AMD Linux hardware report](https://www.kamprad.net/hardwareinfo/framework13-amd-hardinfo2_report.html), SPD and hardware sensor sections | First-hand report of two bound `spd5118` clients for one part with distinct SPD serials and separate temperatures of 37.00 °C and 34.75 °C. The Type 17 records have distinct handles and banks but repeat Device Locator `DIMM 0`. The report omits Type 17 serials and its SPD and inventory size fields disagree. It corroborates multi-device telemetry and the locator collision only. |
+| S14 | Micron [*DDR5 SDRAM RDIMM Core*](https://www.mouser.com/datasheet/2/671/ddr5_rdimm_core-3310292.pdf), Serial Presence Detect section, SPD EEPROM block map | Primary for the base SPD CRC covering bytes 0–509 and manufacturing data starting at byte 512. |
 
 ## Detection and scoped enablement
 
+| Condition | Gate kind | Source |
+| --- | --- | --- |
+| An existing I²C client belongs to the kernel `spd5118` driver. Identity requires its direct `eeprom`. Temperature requires a qualified same-client `spd5118` hwmon child. | mechanism | S6, S7/S10/S11 (lead-only) |
+| Kernel-owned sysfs ancestry, subsystem links and exact driver binding agree. Each EEPROM or hwmon attribute is opened only through its proven owner. Stop on changed ownership or a known bus ownership conflict. | safety | S6, S7/S9/S10/S11 (lead-only) |
+| The bound hub's SPD manufacturing data uniquely matches one populated DDR5 Type 17 record in the current boot's system memory inventory. | mechanism | S4 (lead-only short format), S5, S12 |
+| The same child reports `temp1_enable` equal to `1` before the temperature read. | mechanism | S6, S7 (lead-only visibility) |
+
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| DMI board `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, single populated DDR5 SO-DIMM, `spd5118` at `0x52` under `8086:54A3` | S1/S2 pin the DIMM and single-slot platform. Lead-only S3/S4 pin the exact firmware and identity encoding. S5/S6 provide the identity field and telemetry ABI. Lead-only S7/S9 pin the enabled sensor and page-select read details. Lead-only S10 pins the kernel-owned I²C subsystem links. S8 corroborates the PCI identity, with its device tree providing a lead-only binding fact. A one-to-one runtime match and successful temperature are required. | Experimental for the exact already bound endpoint with a unique live identity match. |
-| DDR4 `jc42`, other modules, firmware, controllers and Windows routes | Separate scopes in [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526). | Unsupported by this revision. |
+| Linux DDR5, already bound SPD5118 I²C ABI and one-to-one Type 17 identity | Best-evidenced configuration: DMI `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, one DDR5 SO-DIMM, client `0x52` under Intel I801 PCI `0000:00:1f.4` (`8086:54A3`). S1/S2/S8 corroborate the module and platform, with S3/S4/S8 (lead-only) pinning firmware, slot address, controller configuration and short serial format. S5/S6 define identity fields and the ABI. S7/S9/S10/S11 (lead-only) supply device registration, paging/locking and canonical ownership. S12 corroborates the long serial format in Type 17. S13 corroborates multiple bound temperature endpoints and duplicate device labels. | Experimental when the mechanism and safety gates pass. |
+| Unbound hubs, other drivers or bus mechanisms, DDR4 `jc42`, and Windows routes | Separate scopes in [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526). | Unsupported by this revision. |
 
-- Require the exact DMI vendor, board and UEFI version strings in the
-  table. The public hardware matrix shows an H4+ system. This scope
-  identifies the one-slot memory implementation in the published
-  firmware through its DMI strings and fixed memory bus. It does not
-  attribute a separately marketed SATA or CPU variant.
-- Require one canonical hwmon node named `spd5118` with device and
-  `driver` links to the same bound I²C client and the Linux I²C
-  `spd5118` driver. Its client address must be `0x52` on the
-  non-multiplexed adapter under PCI `0000:00:1f.4` with
-  `vendor=0x8086`, `device=0x54a3`, and a binding to
-  `/sys/bus/pci/drivers/i801_smbus`. Verify that the kernel-owned
-  `subsystem` symlinks of both the native I²C adapter `i2c-N` and its
-  SPD client `N-0052` resolve to `/sys/bus/i2c` (S10, lead-only).
-  Reject class targets such as `/sys/class/i2c-adapter` and
-  `/sys/class/i2c-dev`. The latter is the separate character-device
-  class (S10, lead-only). Require the canonical parent of `eeprom` and
-  the canonical target of the `hwmonN/device` symlink to be the same
-  I²C client. Bus and hwmon enumeration indices are transient.
-  A missing, changed, duplicate or ambiguous binding is unavailable.
-- Require exactly one populated Type 17 memory record and a usable
-  device locator. Require 8 GiB DDR5 SO-DIMM and exact part number
-  (S1, S2). For binary SMBIOS, require a formatted Type 17 length
-  of at least `0x1B` bytes to contain the part string index at
-  `0x1A`, serial at `0x18` and locator at `0x10` (S5). Require
-  in-bounds formatted data and a terminated string set with valid
-  indices. For inventory text, require a complete Type 17 report
-  with those fields and the size, memory type and form factor.
-  Empty records are excluded. Duplicate or incomplete populated
-  inventory is unavailable. Keep the locator and its
-  Type 17 handle scoped to this boot. Do not display the serial or
-  use transient sysfs enumeration as identity.
+### Kernel ownership
+
+Use the existing bound clients in the kernel's I²C `spd5118` driver
+namespace and the kernel hwmon class. A qualified client resolves under
+`/sys/devices` with its `driver` link targeting
+`/sys/bus/i2c/drivers/spd5118`. Its immediate adapter and the client
+each have a kernel-owned `subsystem` link resolving to `/sys/bus/i2c`.
+Reject class targets such as `/sys/class/i2c-adapter` and
+`/sys/class/i2c-dev`. The latter is the separate character-device
+class. The adapter can be a logical bus behind a kernel-owned mux
+(S10, lead-only for the subsystem links).
+
+A class entry `/sys/class/hwmon/hwmonN` named `spd5118` resolves to
+a child under the client's `hwmon` directory. Its `device` symlink
+must resolve to the same canonical client as the direct `eeprom` file's
+canonical parent. Require the named attributes to belong to those
+canonical nodes. Multiple aliases of the same canonical client and
+same hwmon child count once. Distinct clients always count separately.
+Include every proven bound client in the identity candidate set,
+including clients with a missing, foreign or competing hwmon child.
+Such a client cannot supply a temperature. Use its SPD identity if
+EEPROM ownership is independently proven and the identity is readable.
+Otherwise retain it as an unresolved candidate.
+A separate provider `nvmem` attribute exposes the same underlying
+NVMEM. Use only the direct client `eeprom` for identity
+(S6, S7/S11 lead-only for registration and aliasing).
+
+### Type 17 inventory
+
+Use a complete snapshot of the current boot's system memory inventory.
+Identify each Type 17 row by its structure handle and verify its
+Type 16 physical memory array handle. Require unique handles and the
+declared number of slots for each relevant system-memory array,
+including empty Type 17 rows. Empty slots and records known to describe
+other memory mechanisms do not compete. A record that could be populated
+DDR5 remains a possible candidate when its type, size or identity is
+unknown. If parsing or enumeration cannot establish a complete set of
+possible competitors, withhold attribution (S5).
+
+For binary SMBIOS, require in-bounds formatted data and terminated
+string sets with valid indices. The populated record must reach
+formatted length `0x1B` to supply the part string index at `0x1A`,
+serial at `0x18`, Device Locator at `0x10` and Bank Locator at
+`0x11`. An inventory text path requires complete Type 16 and Type 17
+records with equivalent handles, counts, presence, memory type and
+identity fields. A missing field in an otherwise structurally known
+candidate is handled by the uncertainty rule below (S5).
 
 ## Identity and temperature facts
 
 | Item | Interpretation | Source |
 | --- | --- | --- |
-| SPD serial at offsets 517–520, zero-based | Four bytes in increasing address order. Dasharo's Type 17 presents those four SPD-derived bytes as eight lowercase hexadecimal characters, preserving leading zeros and order. | S4 (lead-only), S5 |
-| SPD part at offsets 521–550, zero-based | ASCII part field. Strip trailing ASCII space padding only and require exact `M425R1GB4BB0-CWMOD`. The populated Type 17 must have the same exact part. | S1, S2, S4 (lead-only), S5 |
-| `temp1_enable` | Standard hwmon enable attribute, visible on the pinned driver. Read only. Value `1` is required. | S6, S7 (lead-only visibility) |
-| `temp1_input` | One temperature in millidegrees Celsius. The pinned driver returns 250 m°C increments and independently checks thermal capability before registering the device. | S6, S7 (lead-only scaling and capability) |
+| Type 17 serial of exactly eight hexadecimal characters | Decode four byte pairs in the displayed order and compare to SPD offsets 517–520 in increasing address order. | S4 (lead-only Type 17 format), S5 |
+| Type 17 serial of exactly eighteen hexadecimal characters | Decode nine byte pairs in the displayed order and compare to SPD offsets 512–520 in increasing address order. The fields are two manufacturer bytes, one manufacturing location byte, two BCD date bytes and four serial bytes. AMD supplies a Type 17 example of this syntax. Admit a pair only when all nine bytes match. | S5, S12 |
+| SPD module part at offsets 521–550 | Compare the complete case-sensitive printable ASCII part with Type 17 after removing only trailing ASCII spaces from each value. | S4 (lead-only firmware output), S5 |
+| `temp1_enable` | Standard hwmon enable attribute exposed by the driver. Read only. Value `1` is required. | S6, S7 (lead-only visibility) |
+| `temp1_input` | One temperature in millidegrees Celsius. The pinned driver reports 250 m°C increments and checks thermal capability before registering the device. | S6, S7 (lead-only quantization and capability check) |
 
-Decode only the exact eight-character Type 17 hexadecimal format to
-four bytes. Require byte-for-byte equality with SPD. Reject all zero,
-all ones, blank, malformed and mismatched identities. Do not swap byte
-order, match a prefix, accept an alternate product spelling, or fall
-back to address or record order. A complete Type 17 inventory is necessary
-to verify uniqueness. The base SPD CRC does not authenticate the
-manufacturing identity fields, so it cannot replace this match.
+Hex digits may use either case. Preserve byte order and leading zeros.
+Reject blank, malformed or placeholder identities, including all-zero
+or all-ones four-byte serials. The long format also requires valid BCD
+date nibbles. An invalid long-format prefix does not invalidate an
+otherwise valid short-format SPD serial. Reject empty part values, bytes outside printable ASCII, and absent
+SMBIOS strings rendered as `Not Specified` or `Unknown` in inventory text. No byte swap, truncation, prefix match,
+integer conversion that drops leading zeros, case-folded part, or
+other product spelling is accepted. The base SPD CRC excludes the
+manufacturing bytes (S14). Treat the match as boot-local attribution
+under the kernel and firmware's inventory contract.
+
+### One-to-one attribution
+
+- A complete candidate pair consists of one qualified bound client,
+  one populated DDR5 Type 17 record, a supported serial that matches
+  in full and an equal normalized part. Evaluate both serial forms in
+  the same set of candidates. A short and a long record may compete
+  for the same client. A long record with different known prefix bytes
+  can rule out a client even when the last four bytes coincide.
+- Require that each member of a complete pair has exactly one possible
+  counterpart, counting complete matches and unresolved candidates.
+  A client without a qualified hwmon child still competes using its
+  known identity, or as an unresolved candidate if its identity cannot
+  be established. An in-scope Type 17 row with missing or unrecognized
+  identity also remains unresolved. Retain these candidates unless a
+  supported, known field
+  rules out the pair, such as a different normalized part or a
+  different serial in a comparable format. A malformed serial format
+  provides no comparable serial bytes. If a client cannot be proven
+  to own its EEPROM, do not read it to resolve uncertainty.
+- Withhold the affected attribution on competition. A known unrelated
+  duplicate or unresolved peer with incompatible known fields does not
+  suppress an independent pair. A missing candidate with no
+  distinguishing fields may block all pairs. A temperature read
+  failure after the join affects only that module. Keep known empty
+  slots and confirmed unmatched populated records without temperatures.
+- Attach the reading to its matching Type 17 handle in the boot
+  snapshot. Use Device Locator as the slot label and include Bank
+  Locator when Device Locators repeat. When the combined labels still
+  repeat or a label is missing, the rendered row can append a boot-local
+  Type 17 handle, such as `(Type 17 0x003B)`, to the available label.
+  If neither label is present, the handle can label that row by itself.
+  Do not persist the handle or its rendered suffix. Withhold the
+  temperature if the consuming path cannot uniquely address the
+  matched row. The handle and labels do not infer the SPD connection.
+- Do not join by client address, bus or mux index, hwmon number,
+  enumeration order, array handle alone or labels. Discard the join
+  when its boot inventory or bound endpoint set changes. Revalidate the
+  identity and ownership before using a recreated or renumbered node.
 
 ## Collection and safety
 
-1. Scope all work to a request for DIMM telemetry. Use a directly
-   readable local SMBIOS table or parse Type 17 in memory from the raw
-   result of the existing user-initiated Linux detailed inventory
-   action (`pkexec dmidecode --type memory`). The persisted aggregate
-   `MemoryInfo` cache has no per-DIMM identity fields. If neither source
-   supplies a complete inventory, the temperature is unavailable.
-   Do not prompt for background elevation or persist serials.
-2. After exact board and bound endpoint checks, read exactly 34 bytes
-   starting at offset 517 through the existing I²C client's read-only
-   `eeprom` binary attribute. The pinned driver registers a 1024-byte
-   read-only NVMEM and serializes its EEPROM reads with a device mutex.
-   The exact I801 adapter exposes SMBus operations without native I²C
-   transfers. The pinned driver can bind this adapter in legacy 8-bit
-   mode. The 34-byte slice stays on 128-byte page 4, at in-page offsets
-   5–38. Regmap serializes each page selection and data read under the
-   same device lock used for temperature transfers. It may update the
-   volatile page selector in MR11 bits 2:0 while preserving the other
-   bits. The read callback attempts no restoration of the prior page on
-   success or error. A later actual temperature transfer selects page 0
-   before reading. These are kernel-owned read protocol operations. The lock
-   does not establish arbitration with firmware or independent raw bus
-   clients (S7, S9).
-3. The application never opens raw SMBus devices, loads or binds a
-   driver, changes addressing mode, selects a page itself, enables a
-   sensor, writes EEPROM/PMIC data, or requests firmware changes.
-   Preserve a verified identity match only while the same boot
-   inventory and driver binding remain valid.
-4. Read `temp1_enable` and `temp1_input` through the same bound node.
-   Require the enabled state and a complete, valid signed decimal
-   temperature greater than 0 and at most 125,000 m°C in steps of
-   250 m°C. The positive window is a project gate. Convert m°C to °C.
-   Read errors and removed devices yield an unavailable reading. Do
-   not access alarm attributes, whose reads can clear state (S6).
-5. Keep memory inventory and utilization independent from the
-   optional temperature. Keep serial and part comparison local and
-   ephemeral. No new persisted setting, history or outbound data.
-
-On a kernel with standard x86 DMI registration, I801
-scans too few addresses to find a single DIMM at `0x52`. Upstream's
-optional driver autodetection can independently bind existing
-supported devices. This feature accepts only an endpoint already
-bound by the OS and leaves a non-bound configuration unavailable.
-Upstream disables optional driver autodetection by default on x86
-with DMI support.
-It does not change OS probing or override SPD-write protection. (S7)
+1. Run only on a DIMM telemetry request. Use a directly readable
+   local SMBIOS table or the raw result of the existing user-initiated
+   Linux detailed inventory action (`pkexec dmidecode --type memory`).
+   The persisted aggregate `MemoryInfo` cache has no per-DIMM
+   identity. No background elevation, polling or serial persistence.
+2. Qualify kernel ownership before file reads. For each bound client
+   with proven EEPROM ownership, read one bounded 39-byte identity slice at offsets
+   512–550 through its direct read-only `eeprom` (S5–S7). A short or
+   failed read leaves the client's identity unresolved. No full SPD
+   dump, alternative NVMEM file or wider address sweep is needed.
+3. The pinned driver exposes a 1024-byte read-only EEPROM and
+   serializes EEPROM access with a per-device mutex. In 8-bit
+   addressed mode the slice stays on 128-byte page 4 at in-page
+   offsets 0–38. The kernel may update the volatile MR11 page bits
+   2:0 under the register-map lock while preserving the other bits.
+   It does not restore the old page after a read. A subsequent actual
+   temperature transfer selects page 0 under the same register-map
+   lock. In 16-bit addressed mode the kernel uses a two-byte address
+   and a combined I²C transfer without MR11 page selection. The
+   driver admits that mode only where native I²C combined transfers
+   are available. The application follows the bound ABI in either
+   case. These locks cover the kernel's own accesses and do not
+   establish arbitration with firmware or independent raw bus
+   clients (S7/S9, lead-only).
+4. After the join, read only `temp1_enable` and `temp1_input` through
+   the matched child. Require enabled state and a complete signed
+   decimal temperature greater than 0 and at most 125,000 m°C in
+   steps of 250 m°C. Convert m°C to °C. An unavailable, disabled or
+   invalid sample remains absent for its matched module. Do not
+   access alarm attributes, whose reads can clear state (S6/S7).
+5. The application does not open raw I²C, SMBus or I3C devices, probe
+   addresses, instantiate or rebind clients, write page selectors,
+   change addressing mode, enable sensors, write EEPROM or PMIC data,
+   or request firmware changes. Preserve the normal memory inventory
+   and utilization independently. Keep serial and part comparisons
+   local to the request, with no new setting, history or outbound
+   data. No unavailable value is substituted for a temperature.
 
 ## Synthetic fixture acceptance
 
 | Case | Required result |
 | --- | --- |
-| Exact DMI profile and PCI ancestry, one populated Type 17 row, SPD serial bytes `01 23 45 67`, Type 17 `01234567`, exact part, `temp1_enable=1` and `temp1_input=40250` | One temperature at 40.25 °C attributed to the Type 17 locator. |
-| Part mismatch, unknown firmware, wrong controller, wrong client address, wrong binding, or a name-only hwmon match | No unsupported read. Leave inventory available. |
-| Either native I²C node has a missing, broken or wrong-subsystem link, including a class target such as `/sys/class/i2c-adapter` or `/sys/class/i2c-dev` | No EEPROM or temperature read. Leave inventory available. |
-| Second populated Type 17 row, duplicate match, malformed binary table, incomplete inventory text, empty locator, reversed, absent or invalid serial, or a partial EEPROM read | No attributed reading. Do not substitute address or order. |
-| Missing or disabled sensor, inaccessible sysfs, aggregate-only or missing DMI inventory, transient bus or binding failure | Unavailable without fallback probing, bus writes or background elevation. |
-| `temp1_input` 0, 250, 125000, 125250 or 40251 m°C | Accept only 250 and 125000 m°C in this set. Keep unavailable values distinct from measured zero. |
-| Changed driver, I²C node re-created, or hwmon node renumbered | Requalify the endpoint and join before using a new binding. Do not equate an enumeration index with a physical slot. |
+| ODROID evidence profile above, one populated row, SPD serial bytes `01 23 45 67`, Type 17 `01234567`, matching part, enable `1`, input `40250` | One reading at 40.25 °C on the matching Type 17 handle. The same outcome holds with different board, firmware, adapter, client address and matching part values. |
+| Two clients with the same part and different serials, reversed endpoint/record order, reused addresses behind distinct kernel adapters, duplicate Device Locator and distinct banks | Attribute both readings to their corresponding handles. Include bank labels in the display. When the combined labels still repeat or are missing, a boot-local handle can distinguish the rendered rows. No handle or suffix is persisted. |
+| Two SPD records with the same last four bytes and part, distinct first five bytes, and one exact eighteen-digit Type 17 serial | Attribute only the full nine-byte match. If a second Type 17 record supplies the matching short form, withhold affected pairs that now compete. |
+| Duplicate supported identity on either side plus an unrelated unique pair | Withhold the duplicate identity's attribution. Preserve the unrelated reading. A duplicate bound client still competes even if its hwmon child is missing or unqualified. |
+| One populated Type 17 candidate has unknown or unrecognized serial but a known different part | It cannot compete for the other part. Preserve the independent pair. If its part also could match, withhold the affected attribution. |
+| One bound client has unreadable SPD or a short identity read | Keep it unresolved. Suppress pairs whose uniqueness cannot be established. Leave normal inventory available. |
+| Legitimate canonical aliases or a duplicate NVMEM provider attribute | Count one client. Read only its direct `eeprom` and proven hwmon attributes. A distinct client with equal identity remains a competitor. |
+| Wrong driver, foreign or competing hwmon child, foreign `eeprom` parent, or adapter/client subsystem link missing, broken or resolving to `/sys/class/i2c-adapter` or `/sys/class/i2c-dev` | Do not read unqualified files or attribute a temperature from that node. A potentially competing bound client remains unresolved unless known facts rule it out. |
+| Non-DDR5 or empty Type 17 row, malformed binary table, duplicate handle, missing system-memory array or fewer Type 17 rows than declared slots | Known non-DDR5 or empty rows do not compete. An incomplete or structurally unreliable inventory provides no attributed reading. |
+| Reversed, blank, zero, all-ones or malformed serial, truncated long form, prefix-only match, case-changed part or part with non-ASCII/control bytes | No match on that identity. Leading zeros and either hex case are preserved. The only ignored part padding is trailing ASCII space. |
+| Missing or disabled sensor, inaccessible sample, or a binding lost during collection | No temperature for the affected module. Preserve still-proven independent results. Requalify ownership and the join before using a new binding. No fallback probing, bus writes or background elevation. |
+| `temp1_input` values 0, 250, 125000, 125250 and 40251 m°C | Accept only 250 and 125000 m°C in this set. Keep absent readings distinct from measured zero. |
 
 ## Open questions
 
-- Non-blocking for the Experimental scope: only a unique live match and a usable enabled temperature can produce a reading.
-  A published combined SPD, Type 17 and temperature trace is still
-  needed to claim independently verified operation. Availability
-  depends on the OS already binding the hub.
+- Non-blocking for the Experimental DDR5 scope: each temperature requires a proven boot-local one-to-one match.
+  An independently verified, same-boot SPD, Type 17 and live temperature
+  trace covering multiple DIMMs is still missing. The scope depends on
+  the kernel already binding the hub and on firmware publishing a
+  supported identity.
+- Non-blocking for the Experimental DDR5 scope: unsupported identity encodings cannot produce attributed readings.
+  SMBIOS leaves the serial encoding to firmware. Only the two
+  documented syntaxes with byte-for-byte matches are covered.
 
 ## Revision history
 
@@ -151,3 +222,4 @@ It does not change OS probing or override SPD-write protection. (S7)
 | --- | --- | --- |
 | 1 | 2026-11-08 | Propose Implementation-ready status for the exact Experimental Linux DIMM scope with a fail-closed runtime identity gate. |
 | 2 | 2026-11-08 | Pin the existing kernel-owned I²C subsystem identity check to Linux v6.18 and add wrong-subsystem fixture cases for the exact Experimental scope. |
+| 3 | 2026-11-09 | Propose Implementation-ready status for the Experimental SPD5118 mechanism under ADR 0031. Preserve ODROID-H4 as evidence and qualify each DIMM through canonical OS ownership and a one-to-one Type 17 join with bounded reads and partial results. |
