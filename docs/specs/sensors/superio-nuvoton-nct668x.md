@@ -4,7 +4,7 @@
 | --- | --- |
 | Revision | 3 |
 | Status | Draft — not implementation-ready |
-| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence for two NCT6686D boards. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
+| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence for ASRock NCT6686D and Intel NCT6683D boards. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
 | Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520) |
 
 ## Sources
@@ -26,6 +26,8 @@
 | S13 | Linux [BC-250 customer support commit](https://github.com/torvalds/linux/commit/f392611e268f5462b51d90857c72058c31282706), first in v6.15, and [v7.1-rc5 documentation](https://www.kernel.org/doc/html/v7.1-rc5/hwmon/nct6683.html#tested-boards-and-firmware-versions) | **lead-only (copyleft)** for native customer `0x162b` acceptance and reported NCT6686D EC 1.0 build 2021-07-28. |
 | S14 | ASRock AMD BC-250 [December 2024 Fedora 41 observation](https://github.com/mothenjoyer69/bc250-documentation/issues/3#issue-2734591172) and [separate Fedora CoreOS boot log](https://github.com/elektricM/amd-bc250-docs/blob/98e48d9a346cb04ba1cabc62e54a0ae5363357a6/docs/linux/fedora-coreos.md#L132-L150) | First-hand raw ID, live values and a separate firmware/version and platform-instance observation. The documented captures use the driver's force option. |
 | S15 | Linux [Z590 Taichi customer support commit](https://github.com/torvalds/linux/commit/c0fa7879c9850bd4597740a79d4fac5ebfcf69cc) and [stable submission with the author's two-board report](https://lists.openwall.net/linux-kernel/2026/02/28/1014) | **lead-only (copyleft)** for native customer `0x1621` acceptance and reported instantiation on EC 1.0 build 2021-01-25. |
+| S16 | Linux v7.0 [Intel firmware note and tested boards](https://www.kernel.org/doc/html/v7.0/hwmon/nct6683.html#usage-note), [fan attribute visibility](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L746-L769) and [v3.16 refresh](https://github.com/torvalds/linux/blob/v3.16/drivers/hwmon/nct6683.c#L629-L636) | **lead-only (copyleft)** for the reported Intel EC builds, firmware-dependent limits, and fan-minimum reads in both kernel versions. |
+| S17 | [DH87MC contributed sensor configuration](https://github.com/sqrdevl/nct6683/blob/4c57b3c54f60f73cf23f5bd0e612e6c6921136d0/conf/intel-dh87mc.conf#L1-L17), credited to Adam Nielsen, and Intel [DH87MC Technical Product Specification G94453-003](https://gzhls.at/blob/ldb/8/f/2/5/188cfe3a34e80c2326718304c43d92d324fe.pdf), §§1.10 and 1.11.2.2 (Intel document mirror) | **lead-only (copyleft)** for the configuration's device name, base and channel labels. Intel is the primary source for physical fan headers and lists the controller as NCT6883D-T. |
 
 ## Detection
 
@@ -51,9 +53,10 @@
 | Direct-access NCT6686D, including ASRock deployments | S1 pins a host interface but the stated chip IDs conflict with S3. S7 names multiple firmware builds. | Unsupported by this revision. Follow-up in #2520. |
 | ASRock AMD BC-250, bound Linux `nct6683` | Lead-only S12/S13 document native admission of customer `0x162b` and the EC 1.0 (2021-07-28) build. Separate S14 observations provide raw `0xD441`, a bound instance and usable channel values under the force option. | Disabled. Firmware read safety and native endpoint qualification are unresolved. |
 | ASRock Z590 Taichi, bound Linux `nct6683` | Lead-only S12/S15 document native admission of customer `0x1621` and successful instantiation on two NCT6686D units with EC 1.0 (2021-01-25). | Disabled. Firmware read safety, exact endpoint and channel evidence are unresolved. |
-| NCT6683D, including Intel and ASRock deployments | S7 reports firmware-dependent differences and an Intel OEM layout outside the public specification. | Unsupported by this revision. Follow-up in #2520. |
+| Intel DH87MC and DH87RL, bound Linux `nct6683` | Lead-only S12/S16 document the default Intel customer `0x0805` branch and tested NCT6683D EC 1.0 (2013-04-03) units. S17 records DH87MC's contributed channel mapping and the OEM controller description. | Disabled. The Intel firmware read safety and exact native endpoint qualification remain unresolved. |
+| Direct-access NCT6683D and other NCT6683D mechanisms | S7 reports firmware-dependent differences and an Intel OEM layout outside the public specification. | Unsupported by this revision. Follow-up in #2520. |
 
-### Linux bound-hwmon research
+### ASRock Linux bound-hwmon research
 
 S14's BC-250 Fedora 41 observation reports `nct6686-isa-0a20` with
 fan input 2 at 2,877 RPM and `Thermistor 14` and `Thermistor 15` at
@@ -84,6 +87,27 @@ designated monitor/fan status addresses (S12). These are driver access
 facts. S1 §§7.2–7.3 and §8 place the underlying sensor semantics in the
 separate EC Space specification. The [MSI NCT6687D Linux evidence](superio-nuvoton-nct6687-linux-hwmon.md)
 covers its own OEM firmware profiles.
+
+### Intel Linux bound-hwmon research
+
+S12 matches NCT6683D as `0xC730` under mask `0xFFF0`. S17 names
+`nct6683-isa-0a20` for DH87MC and labels fan inputs 1–3 as CPU,
+front and rear. It provides neither live values nor a complete raw ID
+for the unit. The Intel board document in S17 identifies the physical
+headers and uses a different controller name. The public records do
+not establish the same-unit BIOS, raw controller ID, native readings
+and firmware ownership of the EC application window (S12, S16, S17).
+
+The Intel branch reads measured voltages without their limits. It
+reads temperature values, repeats each Intel maximum read for the
+minimum and hysteresis positions, and reads the Intel critical limit.
+It also reads RPM, PWM readback, and a generic fan-minimum word from
+`0x03B8 + 2n` for each enabled zero-based fan input `n`. Both temperature and
+RPM inputs can trigger this refresh. The driver hides `fanN_min` for
+Intel and documents that its Intel address and encoding are unknown.
+The generic minimum read also occurs in v3.16. The v7.0 refresh
+writes selectors and has no EC data write or explicit monitor/fan
+status access (S12, S16).
 
 ## Register map (facts)
 
@@ -230,6 +254,12 @@ EC addresses below are page in the high byte and index in the low byte.
   firmware semantics for EC 1.0 (2021-01-25). Associate that build with
   a known board/BIOS, controller identity and native hwmon instance,
   and establish at least one attributable published input.
+- **Linux DH87MC and DH87RL evidence remains blocking.** Establish
+  non-destructive semantics for the enabled refresh addresses on Intel
+  EC 1.0 (2013-04-03), especially the generic fan-minimum bank. Pin a
+  board/BIOS association with a qualified native endpoint and an
+  attributable reading, including how the OS and firmware share the
+  application window.
 
 ## Revision history
 
@@ -237,4 +267,4 @@ EC addresses below are page in the high byte and index in the low byte.
 | --- | --- | --- |
 | 1 | 2026-11-07 | Initial draft of the MSI candidate and its firmware-dependent access, with unsupported scopes and unresolved read-only safety conditions. |
 | 2 | 2026-11-08 | Pin the exact OEM controller capture, a configuration exit candidate, and sample data. Narrow the fan proposal to verified positive RPM and retain transport, selector and fan validity blockers. |
-| 3 | 2026-11-09 | Record separate BC-250 and Z590 Taichi Linux hwmon research, native customer acceptance and unresolved firmware refresh evidence. |
+| 3 | 2026-11-09 | Record separate BC-250, Z590 Taichi and Intel DH87MC/DH87RL Linux hwmon research, native customer acceptance and unresolved firmware refresh evidence. |
