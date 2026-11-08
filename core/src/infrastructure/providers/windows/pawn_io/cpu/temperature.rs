@@ -359,7 +359,7 @@ impl CpuTemperatureSampler {
     target: VermeerCcdTarget,
   ) -> (Vec<CpuCcdTemperature>, bool) {
     let Some(ActiveCpuTemperatureSource::Amd { client, .. }) = &self.active else {
-      // Detection established both fixed slots even when the module did not open.
+      // Keep the authorized slots visible when the module did not open.
       return (target.unavailable_readings(), true);
     };
 
