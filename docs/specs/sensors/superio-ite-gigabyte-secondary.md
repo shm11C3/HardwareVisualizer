@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 4 |
+| Revision | 5 |
 | Status | Draft — not implementation-ready |
-| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E. |
+| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E and OEM ECIO evidence for X670E AORUS MASTER BIOS F41. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
 
 ## Sources
@@ -28,6 +28,9 @@
 | S15 | Gigabyte [GA-Z87X-UD5H rev. 1.x specifications](https://www.gigabyte.com/Motherboard/GA-Z87X-UD5H-rev-1x/sp) and [GA-Z87X-UD5H R101 schematic](https://www.scribd.com/document/872779130/GA-Z87X-UD5H-R101) (public mirror) | Vendor board identity and schematic marking `IT8790E/LQFP64`. The schematic does not define register read effects. |
 | S16 | GA-Z87X-UD5H [owner boot and sysfs report, March 5, 2017](https://www.linux.org.ru/forum/linux-hardware/13265282) and [same author's sensor output, October 19, 2022](https://www.linux.org.ru/forum/talks/17004990#comment-17005247) | Independent observations of two separate controllers. The first identifies the board and shows an unbound secondary platform node. The later snapshot shows sensor readings at the same bases and omits the full hardware and software identity. |
 | S17 | Linux [v7.4-rc1 IT87 driver](https://github.com/torvalds/linux/blob/v7.4-rc1/drivers/hwmon/it87.c#L1118-L1121), Git blob `2757d428a23dba550756cb327c851dbcaa25c078`, and [Frank Crawford DKMS driver](https://github.com/frankcrawford/it87/blob/bd7a566c8a60fe0308d67e26761e16260368191a/it87.c#L3496-L3499), commit `bd7a566c8a60fe0308d67e26761e16260368191a`, Git blob `56148f202fee43436fa73a747a1bf465deb8721e`, both GPL-2.0-or-later. See also [IT87 driver documentation v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/it87.html#hardware-interface). | **lead-only (copyleft)** for the shared cache refresh, its alarm-status reads and their documented general effect. Neither driver revision is identified as the one in the positive S16 capture. |
+| S18 | Gigabyte, [X670E AORUS MASTER rev. 1.x BIOS F41 release](https://www.gigabyte.com/Motherboard/X670E-AORUS-MASTER-rev-1x/support#support-dl-bios) and [official F41 archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_x670e-aorus-master_8arpl002_f41.zip?v=5f0e5b9dc371d6536323fbf3445115d1), February 5, 2026, OEM checksum `B0E7` | Static OEM artifact. ZIP SHA-256 `8e44a623a41044e77cd961403e85144394a0fe36b5e4818ff0b5393da11bb8a7`. `X670EAORUSMASTER.F41` image SHA-256 `91df1bca4b0266fffe64bca9a68210f127ac952f6e7001d2566d03abe117d3aa`. |
+| S19 | [X670E AORUS MASTER rev. 1.x F41 owner report](https://github.com/frankcrawford/it87/issues/96), March 2026 | Independent DMI, BIOS and H2RAM detection observation with an opt-in driver branch. The secondary headers were unpopulated. |
+| S20 | [Separate X670E AORUS MASTER pump report](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/2582), October 2026 | First-hand pump RPM observation from a local modified monitor. The report gives no BIOS version or populated thermistor reading. Its chip and transport attribution is a research lead. |
 
 ## Detection
 
@@ -37,6 +40,7 @@
 | X470 AORUS ULTRA GAMING rev. 1.0, BIOS F61a, OEM WMI | S14 advertises the GUID but lacks the S13 temperature method. The observed WMI values are all zero. | Disabled. No verified secondary read path. |
 | GA-AB350-Gaming 3 rev. 1.x, BIOS F54d, OEM WMI | S12 advertises the GUID but lacks the S13 temperature method. The table's visible monitor pair defaults to the primary controller. | Disabled. No verified secondary read path. |
 | GA-Z87X-UD5H, already-bound Linux `it8790` at observed base `0x0A40` | Candidate Experimental. S15 identifies the part. S16 records an unbound secondary and a later positive endpoint. Lead-only S17 establishes that the published inputs use a cache refresh that reads alarm status. | Disabled pending exact IT8790E read effects or a separate safe kernel input route, plus matching bound-endpoint evidence. |
+| X670E AORUS MASTER rev. 1.x, BIOS F41, secondary ECIO | S18 establishes OEM boot-time mailbox access. S19 reports a separate H2RAM endpoint. S20's pump observation has no F41 identity. | Disabled pending an OS-owned read path, exact channel evidence and mailbox arbitration. |
 | Other board/transport combinations for `0x8733`, `0x8790` and `0x8695` | Diagnostic identities only under S5. The shared raw `0x8733` cannot distinguish the IT8792E and IT8795E models. | Disabled until independently scoped. |
 | Alternate `0x8883` report, unreadable, absent or changed pre-key ID | S5/S9 distinguish the alternate report from a usable pre-key identity. S4 records a real absent pre-key result. | Disabled. |
 | ECIO or ISA bridge | Separate access domains. See transport limits below. | Disabled. |
@@ -131,6 +135,43 @@ offset `0x2CEF` defaults to primary ports `0x0A45`/`0x0A46`.
 These tables do not establish a read-only secondary WMI path or
 serialization with concurrent firmware access. (S14, S13 lead-only)
 
+### X670E AORUS MASTER BIOS F41 OEM ECIO
+
+Static inspection of S18 with UEFIExtract A76 identifies the
+`ThermalFanCtrlDxe` FFS file
+`2FD10E90-C379-45CE-BD79-EEFB1600DEAC`. Its extracted x86-64 PE image
+has SHA-256
+`4f1f00449d181011a3cfec5ad0b79cc450cfb77c9c07ee785044fe19cecbb2fc`.
+The routine at PE RVAs `0x19C8`–`0x1AA3` establishes that the F41
+boot-time firmware uses `0x03F4` and `0x03F0` for a command/status
+and data mailbox. Its waits for mailbox status are bounded. The
+four direct callers use the read in configuration updates. The
+read routine can return after a timeout during a partial operation
+without an observed abort or recovery step. The image does not
+establish host ownership after boot, arbitration with firmware or
+other clients, or a fixed read-only temperature and RPM endpoint.
+(S18)
+
+Static inspection of 72 distinct checksum-valid DSDT and SSDT
+tables from the F41 image found no `_FST`. The three `_TMP`
+definitions use AMD processor temperature sources. The OEM
+`GBT/GSWApp` WMI table, SHA-256
+`ca4bb4556b52c5353671d52a42d1dc20f28f755a29110eccc3675bb65c47754e`,
+fixes its indexed ITE monitor region at primary `0x0A45`/`0x0A46`.
+These findings cover the recovered static F41 tables. Tables
+generated or patched at boot and other BIOS versions are outside
+the inspection. (S18)
+
+S19 independently reports an IT8792E/IT8795E-kind device, revision 3,
+at `0x0A60` on F41 using the H2RAM backend of an opt-in DKMS build.
+Its `SYS_FAN4` and `SYS_FAN5/6_PUMP` headers were unpopulated. This
+is a detection observation. S20 separately reports RPM from
+`SYS_FAN7/8_PUMP` through a modified monitor, with no BIOS version
+or positive thermistor sample. These observations concern different
+headers and do not qualify a firmware-matched temperature and RPM
+path. Firmware module names do not establish the pump controller's
+physical marking. (S18–S20)
+
 ### GA-Z87X-UD5H IT8790E through Linux hwmon
 
 On March 5, 2017, the owner identified a GA-Z87X-UD5H running Debian
@@ -201,6 +242,12 @@ boundary only.
 
 ## Open questions
 
+- For X670E AORUS MASTER F41 ECIO, establish a fixed OS-owned
+  secondary temperature and RPM endpoint or a proven arbitration
+  and recovery contract with an exact, non-mutating read set.
+  Neither the recovered OEM tables nor the independent reports
+  provide those facts. (S18–S20)
+
 - For GA-Z87X-UD5H Linux hwmon, establish the exact IT8790E
   alarm-status read effects for `0x01`–`0x03`, or pin a kernel
   input path that avoids those registers. Obtain same-session board,
@@ -241,3 +288,4 @@ available. An absent pre-key response is itself an evidence result.
 | 2 | 2026-11-08 | Pin the GA-AB350-Gaming 3 F54d OEM WMI evidence and the reason this route is disabled. |
 | 3 | 2026-11-08 | Corroborate the X470 rev. 1.0 dual-controller observation under F61a and record why its OEM WMI route is disabled. |
 | 4 | 2026-11-08 | Record GA-Z87X-UD5H IT8790E Linux endpoint observations and the alarm-refresh evidence that keeps collection disabled. |
+| 5 | 2026-11-08 | Record the exact X670E AORUS MASTER F41 boot-time ECIO mailbox and separate Linux and pump observations. Keep the ECIO candidate disabled. |
