@@ -146,10 +146,10 @@ pub(crate) fn get_card_pci_address(card_id: u8) -> Option<String> {
   parse_pci_address_from_device_link(link.to_str()?).map(str::to_ascii_lowercase)
 }
 
-/// Query the OS runtime state without opening the GPU through a vendor API.
-pub(crate) fn card_runtime_suspended(card_id: u8) -> bool {
+/// Query the OS runtime state for a validated full PCI address.
+pub(crate) fn pci_runtime_suspended(address: &str) -> bool {
   fs::read_to_string(format!(
-    "/sys/class/drm/card{card_id}/device/power/runtime_status"
+    "/sys/bus/pci/devices/{address}/power/runtime_status"
   ))
   .is_ok_and(|status| runtime_suspended(&status))
 }
