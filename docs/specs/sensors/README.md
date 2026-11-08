@@ -241,5 +241,5 @@ enablement. Their revisions remain outside the implementation gate.
 | Document | Candidate scope | Issue |
 | --- | --- | --- |
 | [`superio-ite-gigabyte-secondary.md`](superio-ite-gigabyte-secondary.md) | Gigabyte X470 AORUS ULTRA GAMING rev. 1.0 secondary LPC evidence and separate ECIO and ISA bridge transport limits | #2519 |
-| [`superio-ite-trx50-secondary-linux-hwmon.md`](superio-ite-trx50-secondary-linux-hwmon.md) | Gigabyte TRX50 AI TOP IT87952E Linux hwmon candidate with unresolved alarm-status read semantics | #2519 |
+| [`superio-ite-trx50-secondary-linux-hwmon.md`](superio-ite-trx50-secondary-linux-hwmon.md) | Gigabyte TRX50 AI TOP IT87952E Linux hwmon alarm-status blocker and separate OEM F11 ACPI/WMI findings | #2519 |
 | [`superio-nuvoton-nct668x.md`](superio-nuvoton-nct668x.md) | MSI PRO B850-P WIFI OEM capture for raw ID `0xD592` and exact EC firmware, with remaining safe-access and fan-validity gaps | #2520 |
