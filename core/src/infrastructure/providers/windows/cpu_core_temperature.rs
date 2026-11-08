@@ -26,6 +26,7 @@ const MSR_TEMPERATURE_TARGET: u64 = 0x1a2;
 const IA32_THERM_STATUS: u64 = 0x19c;
 const SILVERMONT_ATOM_C2000: u32 = 0x4d;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
+const ALDER_LAKE_H_P_PS: u32 = 0x0009_06a3;
 const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
 const HYBRID_CAPABILITY: u32 = 1 << 15;
 const MAX_TOPOLOGY_BYTES: usize = 64 * 1024;
@@ -62,8 +63,11 @@ fn select_profile(
   }
 
   if extended_features & HYBRID_CAPABILITY != 0 {
-    return matches!(signature, ALDER_LAKE_S_HX | RAPTOR_LAKE_S_HX)
-      .then_some(CoreDtsProfile::HybridSignature(signature));
+    return matches!(
+      signature,
+      ALDER_LAKE_S_HX | ALDER_LAKE_H_P_PS | RAPTOR_LAKE_S_HX
+    )
+    .then_some(CoreDtsProfile::HybridSignature(signature));
   }
 
   let (family, model) = effective_family_model(signature);
@@ -373,6 +377,8 @@ mod tests {
   use windows::Win32::System::SystemInformation::PROCESSOR_GROUP_INFO;
 
   const BLOOMFIELD_SIGNATURE: u32 = 0x0001_06a4;
+  const HYBRID_SIGNATURES: [u32; 3] =
+    [ALDER_LAKE_S_HX, ALDER_LAKE_H_P_PS, RAPTOR_LAKE_S_HX];
   const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::LegacyModel(0x1a);
   const SILVERMONT_PROFILE: CoreDtsProfile =
     CoreDtsProfile::LegacyModel(SILVERMONT_ATOM_C2000);
@@ -406,7 +412,7 @@ mod tests {
 
   #[test]
   fn hybrid_gate_requires_the_exact_full_signature_and_flag() {
-    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+    for signature in HYBRID_SIGNATURES {
       for thermal_features in [1, 0x41] {
         assert_eq!(
           select_profile(
@@ -428,7 +434,14 @@ mod tests {
         None
       );
     }
-    for other_signature in [0x0009_0675, 0x000b_06f2, 0x000b_0672, BLOOMFIELD_SIGNATURE] {
+    for other_signature in [
+      0x0009_0675,
+      0x0009_06a2,
+      0x0009_06a4,
+      0x000b_06f2,
+      0x000b_0672,
+      BLOOMFIELD_SIGNATURE,
+    ] {
       assert_eq!(
         select_profile("GenuineIntel", other_signature, 0x41, HYBRID_CAPABILITY),
         None
@@ -438,7 +451,7 @@ mod tests {
 
   #[test]
   fn hybrid_decode_uses_tjmax_at_zero_and_nonzero_tcc_offsets() {
-    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+    for signature in HYBRID_SIGNATURES {
       let profile = CoreDtsProfile::HybridSignature(signature);
       for (offset, other_bits) in [(0, 0), (10, 0), (10, 0x55aa), (63, 0xffff)] {
         let target = (100 << 16) | (offset << 24) | other_bits;
@@ -619,6 +632,7 @@ mod tests {
     Pin,
     Target,
     Status,
+    InvalidStatus,
     NoDts,
     DifferentSignature,
     NoHybridFlag,
@@ -641,6 +655,7 @@ mod tests {
     calls: RefCell<Vec<Call>>,
     signature: u32,
     extended_features: u32,
+    target_by_core_type: [u64; 2],
   }
 
   impl Fixture {
@@ -654,6 +669,7 @@ mod tests {
         calls: RefCell::default(),
         signature: BLOOMFIELD_SIGNATURE,
         extended_features: 0,
+        target_by_core_type: [100 << 16; 2],
       }
     }
 
@@ -733,7 +749,7 @@ mod tests {
         .push(Call::Read(processor.number, msr));
       match msr {
         MSR_TEMPERATURE_TARGET if self.failure != (processor.number, Failure::Target) => {
-          Some(100 << 16)
+          Some(self.target_by_core_type[usize::from(processor.number != 0)])
         }
         IA32_THERM_STATUS if self.failure != (processor.number, Failure::Status) => {
           if self.failure == (processor.number, Failure::MovedAfterStatus) {
@@ -742,7 +758,8 @@ mod tests {
               ..processor
             });
           }
-          Some((1 << 31) | (42 << 16))
+          let valid = self.failure != (processor.number, Failure::InvalidStatus);
+          Some((u64::from(valid) << 31) | (42 << 16))
         }
         MSR_TEMPERATURE_TARGET | IA32_THERM_STATUS => None,
         _ => panic!("Core DTS must never read the package status MSR"),
@@ -764,7 +781,7 @@ mod tests {
     // Processor 1 is an SMT sibling of P-core 0. E-cores 2 and 3
     // remain separate physical core records.
     let topology = synthetic_topology(&[0b1000, 0b0011, 0b0100]);
-    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+    for signature in HYBRID_SIGNATURES {
       let fixture = Fixture::hybrid(signature, (u8::MAX, Failure::Pin));
       let readings = collect(
         CoreDtsProfile::HybridSignature(signature),
@@ -797,9 +814,37 @@ mod tests {
   }
 
   #[test]
+  fn alder_lake_mobile_uses_each_cores_tjmax_and_preserves_partial_results() {
+    let topology = synthetic_topology(&[0b0011, 0b0100]);
+    for (offset, failure, expected_e_core) in [
+      (0, (u8::MAX, Failure::Pin), Some(63.0)),
+      (10, (u8::MAX, Failure::Pin), Some(63.0)),
+      (10, (2, Failure::InvalidStatus), None),
+    ] {
+      let mut fixture = Fixture::hybrid(0x0009_06a3, failure);
+      fixture.target_by_core_type =
+        [(100 << 16) | (offset << 24), (105 << 16) | (offset << 24)];
+      let readings = collect(
+        CoreDtsProfile::HybridSignature(0x0009_06a3),
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [(0, Some(58.0)), (2, expected_e_core)]
+      );
+    }
+  }
+
+  #[test]
   fn hybrid_target_rechecks_signature_dts_flag_and_core_type_before_msr_reads() {
     let topology = synthetic_topology(&[0b0011, 0b0100, 0b1000]);
-    for signature in [ALDER_LAKE_S_HX, RAPTOR_LAKE_S_HX] {
+    for signature in HYBRID_SIGNATURES {
       for failure in [
         Failure::DifferentSignature,
         Failure::NoDts,
