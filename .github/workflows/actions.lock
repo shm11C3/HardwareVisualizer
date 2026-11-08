@@ -55,7 +55,7 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
         - 'actions/upload-artifact@v7.0.2'
-        - 'davelosert/vitest-coverage-report-action@v2.13.1'
+        - 'davelosert/vitest-coverage-report-action@v2.13.2'
         - 'dorny/paths-filter@v4.0.3'
         - 'ilammy/msvc-dev-cmd@v1.13.0'
         - 'marocchino/sticky-pull-request-comment@v3.0.5'
@@ -177,9 +177,9 @@ dependencies:
         repo_id: 986421638
         uses:
             - 'oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6'
-    'davelosert/vitest-coverage-report-action@v2.13.1':
-        ref: 'v2.13.1'
-        commit: 'sha1-8f86cfb56ed6d5613ea8cdc5259f207fbfd51ece'
+    'davelosert/vitest-coverage-report-action@v2.13.2':
+        ref: 'v2.13.2'
+        commit: 'sha1-74c2d9210b4fc44c84d8213f61d7ec99837b7aa0'
         owner_id: 4287128
         repo_id: 501176456
     'dependabot/fetch-metadata@v3.1.0':

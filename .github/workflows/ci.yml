@@ -895,7 +895,7 @@ jobs:
         wait: frontend-tests
 
       - name: Report coverage
-        uses: davelosert/vitest-coverage-report-action@v2.13.1
+        uses: davelosert/vitest-coverage-report-action@v2.13.2
         with:
           json-summary-path: coverage/coverage-summary.json
 
