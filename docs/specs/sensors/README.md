@@ -55,9 +55,13 @@ in spec documents.
   Open questions until independently verified.
 - Runtime conditions in **Detection** are mechanism or safety gates
   only ([ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md)).
-  A brand string, baseboard identity, firmware version, part number or
-  bus address records where evidence came from; it goes in the Status
-  column of the scoped-enablement table, never in a runtime gate.
+  A brand string, firmware version, part number or bus address records
+  where evidence came from; it goes in the Status column of the
+  scoped-enablement table, never in a runtime gate. A baseboard
+  identity is evidence too, unless the document states the mechanism
+  it selects (for example a firmware-defined channel mapping that
+  differs between boards); then it is a mechanism gate tagged with
+  that fact.
 - Anything uncertain goes in the document's **Open questions** section,
   not in the fact tables.
 - Read-only orientation: documents describe register *reads*. Writes
@@ -164,9 +168,11 @@ Checklist for the flipping PR (all items required):
 - [ ] Every runtime condition in **Detection** carries a gate kind of
       `mechanism` or `safety`
       ([ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md)).
-      Brand, baseboard, firmware-version, part-number and bus-address
-      identities appear only in Status columns and fixtures, and each
-      Scope row is keyed by the mechanism its members share.
+      Brand, firmware-version, part-number and bus-address identities
+      appear only in Status columns and fixtures. A baseboard identity
+      appears there too unless its gate row states the mechanism it
+      selects. Each Scope row is keyed by the mechanism its members
+      share.
 - [ ] Scoped-enablement tables are consistent with the verification
       state of each row. A *scoped-enablement table* is the pattern
       for documents that are ready overall while specific hardware

@@ -52,10 +52,13 @@ List every runtime condition in the gate table below and tag its kind
 decodes or topologies that genuinely differ, using what the hardware
 or OS reports about itself (CPUID family/model, capability bits,
 chip ID and revision registers, a register's own valid bit, a hwmon
-chip kind); `safety` avoids a known hazard. Brand strings, baseboard
-strings, firmware versions, part numbers and bus addresses are
-evidence identities: they belong in the Status column of the
-scoped-enablement table and in fixtures, never in this gate table.
+chip kind); `safety` avoids a known hazard. Brand strings, firmware
+versions, part numbers and bus addresses are evidence identities:
+they belong in the Status column of the scoped-enablement table and
+in fixtures, never in this gate table. A baseboard identity is
+evidence too, unless its row states the mechanism it selects (for
+example a firmware-defined channel mapping that differs between
+boards); then tag it `mechanism` and name that fact.
 If parts of the hardware scope are unverified while the rest of the
 document is ready, add a scoped-enablement table here (columns:
 Scope, Status, Default enablement) following the per-family example

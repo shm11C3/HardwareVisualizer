@@ -64,7 +64,11 @@ three kinds, and the specification tags it:
   gates are required and stay as exact as the hazard they describe.
 - **Evidence identity.** A brand string, baseboard strings, a BIOS or firmware
   version, a DIMM part number, a bus address. It records which configuration
-  an observation came from. It is not a runtime condition.
+  an observation came from. It is not a runtime condition. A baseboard
+  identity is an evidence identity unless the specification states the
+  mechanism it selects, such as an embedded controller's firmware-defined
+  channel mapping that differs between boards; then it is a mechanism gate,
+  tagged with the fact it selects.
 
 The rules that follow:
 
