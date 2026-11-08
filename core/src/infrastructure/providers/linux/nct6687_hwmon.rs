@@ -10,29 +10,16 @@ const SOURCE: &str = "NCT6687D (hwmon)";
 const BOARD_VENDOR: &str = "Micro-Star International Co., Ltd.";
 const PRO_BOARD: &str = "PRO B850-P WIFI (MS-7E56)";
 const MORTAR_BOARD: &str = "MAG B850M MORTAR WIFI (MS-7E61)";
-const PRO_PLATFORM_INSTANCE: &str = "nct6683.2592";
 
+/// The board whose OEM EC firmware defines the scoped hwmon channel
+/// assignment. The BIOS version and the EC base address are evidence
+/// identities recorded in the specification; they do not gate a read.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum BoardProfile {
   Pro,
   Mortar,
 }
 
-impl BoardProfile {
-  fn matches_platform_instance(self, name: &str) -> bool {
-    match self {
-      Self::Pro => name == PRO_PLATFORM_INSTANCE,
-      Self::Mortar => {
-        let Some(suffix) = name.strip_prefix("nct6683.") else {
-          return false;
-        };
-        suffix.parse::<u16>().is_ok_and(|id| {
-          (8..=65_528).contains(&id) && id.is_multiple_of(8) && suffix == id.to_string()
-        })
-      }
-    }
-  }
-}
 const TEMPERATURE_CHANNELS: [(u8, &str, &str); 3] = [
   (2, "Diode 0 (curr)", "3"),
   (3, "Thermistor 15", "4"),
@@ -43,32 +30,27 @@ pub(crate) fn sample() -> MotherboardSensorCollection {
   sample_at(Path::new("/sys"))
 }
 
+/// Admit a board from the DMI baseboard vendor and product only.
 fn identify_profile(dmi: &Path) -> Result<BoardProfile, MotherboardSensorCollection> {
   let missing = || {
-    MotherboardSensorCollection::unavailable(
-      "Could not identify the Linux motherboard and BIOS",
-    )
+    MotherboardSensorCollection::unavailable("Could not identify the Linux motherboard")
   };
   let unsupported = || {
     MotherboardSensorCollection::unsupported(
-      "No supported Linux motherboard sensor profile for this board and BIOS",
+      "No supported Linux motherboard sensor profile for this board",
     )
   };
   if read_attribute(dmi, "board_vendor").ok_or_else(missing)? != BOARD_VENDOR {
     return Err(unsupported());
   }
-  let (profile, bios) = match read_attribute(dmi, "board_name")
+  match read_attribute(dmi, "board_name")
     .ok_or_else(missing)?
     .as_str()
   {
-    PRO_BOARD => (BoardProfile::Pro, "2.A93"),
-    MORTAR_BOARD => (BoardProfile::Mortar, "1.A68"),
-    _ => return Err(unsupported()),
-  };
-  if read_attribute(dmi, "bios_version").ok_or_else(missing)? != bios {
-    return Err(unsupported());
+    PRO_BOARD => Ok(BoardProfile::Pro),
+    MORTAR_BOARD => Ok(BoardProfile::Mortar),
+    _ => Err(unsupported()),
   }
-  Ok(profile)
 }
 
 fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
@@ -76,7 +58,7 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
     Ok(profile) => profile,
     Err(collection) => return collection,
   };
-  let Some(endpoint) = find_endpoint(sysfs, profile) else {
+  let Some(endpoint) = find_endpoint(sysfs) else {
     return MotherboardSensorCollection::unavailable(
       "The bound NCT6687D hwmon endpoint is unavailable or ambiguous",
     );
@@ -104,7 +86,6 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
   };
   finish_sample(
     sysfs,
-    profile,
     &endpoint,
     MotherboardSensorSample {
       temperatures,
@@ -115,12 +96,11 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
 
 fn finish_sample(
   sysfs: &Path,
-  profile: BoardProfile,
   endpoint: &Endpoint,
   sample: MotherboardSensorSample,
 ) -> MotherboardSensorCollection {
   // Linux can reuse the same paths after a binding or hwmon node is replaced.
-  if find_endpoint(sysfs, profile).as_ref() != Some(endpoint) {
+  if find_endpoint(sysfs).as_ref() != Some(endpoint) {
     return MotherboardSensorCollection::unavailable(
       "The NCT6687D hwmon binding changed during collection",
     );
@@ -147,7 +127,10 @@ struct Endpoint {
   identities: [(u64, u64); 3],
 }
 
-fn find_endpoint(sysfs: &Path, profile: BoardProfile) -> Option<Endpoint> {
+/// Find the one distinct canonical `nct6687` hwmon child of a bound
+/// `nct6683.<id>` platform device. The same endpoint checks apply to every
+/// board profile.
+fn find_endpoint(sysfs: &Path) -> Option<Endpoint> {
   let mut endpoint = None;
   for entry in fs::read_dir(sysfs.join("class/hwmon")).ok()? {
     let entry = entry.ok()?;
@@ -158,11 +141,10 @@ fn find_endpoint(sysfs: &Path, profile: BoardProfile) -> Option<Endpoint> {
     let Ok(path) = fs::canonicalize(entry.path()) else {
       continue;
     };
-    if profile == BoardProfile::Mortar && path.file_name() != Some(class_name.as_os_str())
-    {
+    if path.file_name() != Some(class_name.as_os_str()) {
       continue;
     }
-    let Some(candidate) = qualify_endpoint(sysfs, profile, path) else {
+    let Some(candidate) = qualify_endpoint(sysfs, path) else {
       continue;
     };
     if endpoint
@@ -176,24 +158,19 @@ fn find_endpoint(sysfs: &Path, profile: BoardProfile) -> Option<Endpoint> {
   endpoint
 }
 
-fn qualify_endpoint(
-  sysfs: &Path,
-  profile: BoardProfile,
-  path: PathBuf,
-) -> Option<Endpoint> {
+fn qualify_endpoint(sysfs: &Path, path: PathBuf) -> Option<Endpoint> {
   let hwmon = path.parent()?;
   let parent = hwmon.parent()?;
   let instance = parent.file_name()?.to_str()?;
   let driver = parent.join("driver");
   if hwmon.file_name()?.to_str()? != "hwmon"
     || parent.parent() != Some(sysfs.join("devices/platform").as_path())
-    || !profile.matches_platform_instance(instance)
+    || !is_platform_instance(instance)
     || !path.file_name()?.to_str().is_some_and(is_hwmon_name)
     || !resolves_to(&path.join("device"), parent)
     || !resolves_to(&parent.join("subsystem"), &sysfs.join("bus/platform"))
     || !resolves_to(&driver, &sysfs.join("bus/platform/drivers/nct6683"))
-    || (profile == BoardProfile::Mortar
-      && !resolves_to(&sysfs.join("bus/platform/devices").join(instance), parent))
+    || !resolves_to(&sysfs.join("bus/platform/devices").join(instance), parent)
     || read_attribute(&path, "name").as_deref() != Some("nct6687")
   {
     return None;
@@ -205,6 +182,19 @@ fn qualify_endpoint(
     file_identity(&fs::symlink_metadata(driver).ok()?),
   ];
   Some(Endpoint { path, identities })
+}
+
+/// The driver names the platform device after the firmware-discovered EC
+/// base, aligned to eight bytes, as a canonical unsigned decimal. Accept
+/// `nct6683.<id>` with `id` from 8 through 65528 divisible by 8. The suffix
+/// validates and identifies the sysfs instance; it does not select a profile.
+fn is_platform_instance(name: &str) -> bool {
+  let Some(suffix) = name.strip_prefix("nct6683.") else {
+    return false;
+  };
+  suffix.parse::<u16>().is_ok_and(|id| {
+    (8..=65_528).contains(&id) && id.is_multiple_of(8) && suffix == id.to_string()
+  })
 }
 
 fn file_identity(metadata: &fs::Metadata) -> (u64, u64) {
@@ -268,6 +258,25 @@ mod tests {
   use std::os::unix::fs::symlink;
   use tempfile::TempDir;
 
+  /// Observed BIOS versions from the specification. They are evidence
+  /// identities, so fixtures also run with other and missing versions.
+  const PRO_OBSERVED_BIOS: &str = "2.A93";
+  const MORTAR_OBSERVED_BIOS: &str = "1.A68";
+  /// The PRO observation's EC base `0x0A20` as the decimal instance suffix.
+  const PRO_OBSERVED_INSTANCE: &str = "nct6683.2592";
+
+  const NONCANONICAL_INSTANCES: [&str; 9] = [
+    "nct6683.0",
+    "nct6683.7",
+    "nct6683.9",
+    "nct6683.0008",
+    "nct6683.+8",
+    "nct6683.-8",
+    "nct6683.65535",
+    "nct6683.65536",
+    "nct6684.8",
+  ];
+
   struct Fixture {
     _directory: TempDir,
     sysfs: PathBuf,
@@ -276,8 +285,13 @@ mod tests {
 
   impl Fixture {
     fn new() -> Self {
-      let fixture =
-        Self::with_binding("PRO B850-P WIFI (MS-7E56)", "2.A93", "nct6683.2592");
+      Self::pro(Some(PRO_OBSERVED_BIOS), PRO_OBSERVED_INSTANCE)
+    }
+
+    /// Synthetic PRO sysfs values; the specification's capture shows 26/22/26
+    /// degrees Celsius and 518/0 RPM.
+    fn pro(bios: Option<&str>, instance: &str) -> Self {
+      let fixture = Self::with_binding(PRO_BOARD, bios, instance);
       for ((channel, label, kind), reading) in TEMPERATURE_CHANNELS
         .into_iter()
         .zip([26_000, 22_000, 26_000])
@@ -292,23 +306,25 @@ mod tests {
     }
 
     fn mortar(instance: &str) -> Self {
-      let fixture =
-        Self::with_binding("MAG B850M MORTAR WIFI (MS-7E61)", "1.A68", instance);
+      Self::mortar_with_bios(Some(MORTAR_OBSERVED_BIOS), instance)
+    }
+
+    fn mortar_with_bios(bios: Option<&str>, instance: &str) -> Self {
+      let fixture = Self::with_binding(MORTAR_BOARD, bios, instance);
       fixture.write("fan16_input", "926\n");
       fixture
     }
 
-    fn with_binding(board: &str, bios: &str, instance: &str) -> Self {
+    fn with_binding(board: &str, bios: Option<&str>, instance: &str) -> Self {
       let directory = tempfile::tempdir().unwrap();
       let sysfs = directory.path().canonicalize().unwrap();
       let dmi = sysfs.join("class/dmi/id");
       fs::create_dir_all(&dmi).unwrap();
-      for (attribute, value) in [
-        ("board_vendor", "Micro-Star International Co., Ltd."),
-        ("board_name", board),
-        ("bios_version", bios),
-      ] {
+      for (attribute, value) in [("board_vendor", BOARD_VENDOR), ("board_name", board)] {
         fs::write(dmi.join(attribute), format!("{value}\n")).unwrap();
+      }
+      if let Some(bios) = bios {
+        fs::write(dmi.join("bios_version"), format!("{bios}\n")).unwrap();
       }
       let node = add_binding(&sysfs, instance, "hwmon5");
       Self {
@@ -354,37 +370,24 @@ mod tests {
     let fixture = Fixture::new();
     fixture.write("temp1_input", "45000");
     fixture.write("fan3_input", "1200");
-    let collection = fixture.sample();
-    assert_eq!(collection.availability, SensorAvailability::Available);
-    assert_eq!(collection.fan_support, SensorSupport::Supported);
-    assert_eq!(
-      collection
-        .sample
-        .temperatures
-        .iter()
-        .map(|reading| {
-          (
-            reading.name.as_str(),
-            reading.temperature,
-            reading.source.as_str(),
-          )
-        })
-        .collect::<Vec<_>>(),
-      [
-        ("Temperature 2", 26.0, SOURCE),
-        ("Temperature 3", 22.0, SOURCE),
-        ("Temperature 4", 26.0, SOURCE)
-      ],
-    );
-    assert_eq!(
-      collection.sample.fan_speeds,
-      [MotherboardFanSpeed {
-        name: "Fan 1".to_owned(),
-        rpm: Some(518),
-        status: FanSpeedStatus::Active,
-        source: SOURCE.to_owned(),
-      }],
-    );
+    assert_pro_sample(&fixture.sample());
+  }
+
+  #[test]
+  fn pro_admission_ignores_the_bios_version_and_the_instance_number() {
+    for bios in [Some("2.A94"), None, Some("Dasharo (coreboot+UEFI) v0.9.2")] {
+      assert_pro_sample(&Fixture::pro(bios, PRO_OBSERVED_INSTANCE).sample());
+    }
+    for instance in ["nct6683.2600", "nct6683.8", "nct6683.65528"] {
+      assert_pro_sample(&Fixture::pro(Some(PRO_OBSERVED_BIOS), instance).sample());
+    }
+  }
+
+  #[test]
+  fn pro_rejects_noncanonical_instances() {
+    for instance in NONCANONICAL_INSTANCES {
+      assert_unavailable(&Fixture::pro(Some(PRO_OBSERVED_BIOS), instance).sample());
+    }
   }
 
   #[test]
@@ -394,7 +397,6 @@ mod tests {
     for (attribute, bad_value) in [
       ("board_vendor", "Micro-Star International Co., Ltd. "),
       ("board_name", "B850 GAMING PLUS WIFI (MS-7E56)"),
-      ("bios_version", "2.A94"),
     ] {
       let path = dmi.join(attribute);
       let original = fs::read(&path).unwrap();
@@ -407,11 +409,14 @@ mod tests {
       assert_eq!(result.sample, MotherboardSensorSample::default());
       fs::write(path, original).unwrap();
     }
-    fs::remove_file(dmi.join("bios_version")).unwrap();
-    assert!(matches!(
-      fixture.sample().availability,
-      SensorAvailability::Unavailable { .. }
-    ));
+    for attribute in ["board_name", "board_vendor"] {
+      let path = dmi.join(attribute);
+      let original = fs::read(&path).unwrap();
+      fs::remove_file(&path).unwrap();
+      assert_unavailable(&fixture.sample());
+      fs::write(path, original).unwrap();
+    }
+    assert_pro_sample(&fixture.sample());
   }
 
   #[test]
@@ -420,39 +425,52 @@ mod tests {
     let parent = fixture.parent().to_path_buf();
     let class_node = fixture.sysfs.join("class/hwmon/hwmon5");
     for (link, wrong_target) in [
-      (class_node, parent.clone()),
+      (class_node.clone(), parent.clone()),
       (fixture.node.join("device"), fixture.sysfs.clone()),
       (parent.join("subsystem"), fixture.sysfs.join("class")),
       (parent.join("driver"), fixture.sysfs.join("bus/platform")),
+      (
+        fixture
+          .sysfs
+          .join("bus/platform/devices")
+          .join(PRO_OBSERVED_INSTANCE),
+        fixture.sysfs.join("devices/platform"),
+      ),
     ] {
       let original = fs::read_link(&link).unwrap();
       fs::remove_file(&link).unwrap();
+      assert_unavailable(&fixture.sample());
       symlink(wrong_target, &link).unwrap();
-      let result = fixture.sample();
-      assert!(matches!(
-        result.availability,
-        SensorAvailability::Unavailable { .. }
-      ));
-      assert_eq!(result.sample, MotherboardSensorSample::default());
+      assert_unavailable(&fixture.sample());
       fs::remove_file(&link).unwrap();
       symlink(original, link).unwrap();
     }
+
+    // A class link whose index differs from the child it resolves to is not
+    // the canonical child.
+    fs::remove_file(&class_node).unwrap();
+    symlink(&fixture.node, fixture.sysfs.join("class/hwmon/hwmon9")).unwrap();
+    assert_unavailable(&fixture.sample());
+    fs::remove_file(fixture.sysfs.join("class/hwmon/hwmon9")).unwrap();
+    symlink(&fixture.node, class_node).unwrap();
+    assert_pro_sample(&fixture.sample());
+
     let duplicate = parent.join("hwmon/hwmon6");
     fs::create_dir(&duplicate).unwrap();
     symlink(parent, duplicate.join("device")).unwrap();
     fs::write(duplicate.join("name"), "nct6687\n").unwrap();
     symlink(duplicate, fixture.sysfs.join("class/hwmon/hwmon6")).unwrap();
-    assert!(find_endpoint(&fixture.sysfs, BoardProfile::Pro).is_none());
+    assert!(find_endpoint(&fixture.sysfs).is_none());
   }
 
   #[test]
   fn rejects_wrong_kind_and_missing_binding() {
     let fixture = Fixture::new();
     fixture.write("name", "nct6686\n");
-    assert!(find_endpoint(&fixture.sysfs, BoardProfile::Pro).is_none());
+    assert!(find_endpoint(&fixture.sysfs).is_none());
     fixture.write("name", "nct6687\n");
     fs::remove_file(fixture.parent().to_path_buf().join("driver")).unwrap();
-    assert!(find_endpoint(&fixture.sysfs, BoardProfile::Pro).is_none());
+    assert!(find_endpoint(&fixture.sysfs).is_none());
   }
 
   #[test]
@@ -517,12 +535,12 @@ mod tests {
   #[test]
   fn detects_replaced_endpoint_even_when_the_class_index_is_reused() {
     let fixture = Fixture::new();
-    let original = find_endpoint(&fixture.sysfs, BoardProfile::Pro).unwrap();
+    let original = find_endpoint(&fixture.sysfs).unwrap();
     fs::rename(&fixture.node, fixture.node.with_file_name("old")).unwrap();
     fs::create_dir(&fixture.node).unwrap();
     symlink(fixture.parent(), fixture.node.join("device")).unwrap();
     fixture.write("name", "nct6687\n");
-    let replacement = find_endpoint(&fixture.sysfs, BoardProfile::Pro).unwrap();
+    let replacement = find_endpoint(&fixture.sysfs).unwrap();
     assert_eq!(replacement.path, original.path);
     assert_ne!(replacement, original);
   }
@@ -550,38 +568,31 @@ mod tests {
   }
 
   #[test]
-  fn mortar_rejects_unknown_boards_firmware_instances_and_ownership() {
-    for name in [
-      "nct6683.0",
-      "nct6683.7",
-      "nct6683.9",
-      "nct6683.0008",
-      "nct6683.+8",
-      "nct6683.-8",
-      "nct6683.65535",
-      "nct6683.65536",
-      "nct6684.8",
-    ] {
+  fn mortar_admission_ignores_the_bios_version() {
+    for bios in [Some(MORTAR_OBSERVED_BIOS), Some("1.A69"), None] {
+      let fixture = Fixture::mortar_with_bios(bios, "nct6683.2720");
+      assert_mortar_fan(&fixture.sample(), 926);
+    }
+  }
+
+  #[test]
+  fn mortar_rejects_unknown_boards_instances_and_ownership() {
+    for name in NONCANONICAL_INSTANCES {
       assert_unavailable(&Fixture::mortar(name).sample());
     }
 
     let fixture = Fixture::mortar("nct6683.2720");
     let dmi = fixture.sysfs.join("class/dmi/id");
-    for (attribute, wrong) in [
-      ("board_name", "MAG B850M MORTAR (MS-7E61)"),
-      ("bios_version", "1.A69"),
-    ] {
-      let path = dmi.join(attribute);
-      let original = fs::read(&path).unwrap();
-      fs::write(&path, wrong).unwrap();
-      let sample = fixture.sample();
-      assert!(matches!(
-        sample.availability,
-        SensorAvailability::Unsupported { .. }
-      ));
-      assert_eq!(sample.sample, MotherboardSensorSample::default());
-      fs::write(path, original).unwrap();
-    }
+    let board_name = dmi.join("board_name");
+    let original = fs::read(&board_name).unwrap();
+    fs::write(&board_name, "MAG B850M MORTAR (MS-7E61)").unwrap();
+    let sample = fixture.sample();
+    assert!(matches!(
+      sample.availability,
+      SensorAvailability::Unsupported { .. }
+    ));
+    assert_eq!(sample.sample, MotherboardSensorSample::default());
+    fs::write(board_name, original).unwrap();
 
     fixture.write("name", "nct6686");
     assert_unavailable(&fixture.sample());
@@ -649,7 +660,7 @@ mod tests {
   #[test]
   fn mortar_discards_samples_if_the_binding_is_replaced_at_the_same_path() {
     let fixture = Fixture::mortar("nct6683.2720");
-    let old = find_endpoint(&fixture.sysfs, BoardProfile::Mortar).unwrap();
+    let old = find_endpoint(&fixture.sysfs).unwrap();
     let sample = MotherboardSensorSample {
       temperatures: Vec::new(),
       fan_speeds: vec![read_fan(&old.path, 16, "SYS_FAN1").unwrap()],
@@ -659,14 +670,42 @@ mod tests {
     fs::rename(&driver, fixture.parent().join("old-driver")).unwrap();
     symlink(target, driver).unwrap();
 
-    assert_unavailable(&finish_sample(
-      &fixture.sysfs,
-      BoardProfile::Mortar,
-      &old,
-      sample,
-    ));
+    assert_unavailable(&finish_sample(&fixture.sysfs, &old, sample));
     fixture.write("fan16_input", "1000");
     assert_mortar_fan(&fixture.sample(), 1000);
+  }
+
+  fn assert_pro_sample(collection: &MotherboardSensorCollection) {
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert_eq!(collection.fan_support, SensorSupport::Supported);
+    assert_eq!(
+      collection
+        .sample
+        .temperatures
+        .iter()
+        .map(|reading| {
+          (
+            reading.name.as_str(),
+            reading.temperature,
+            reading.source.as_str(),
+          )
+        })
+        .collect::<Vec<_>>(),
+      [
+        ("Temperature 2", 26.0, SOURCE),
+        ("Temperature 3", 22.0, SOURCE),
+        ("Temperature 4", 26.0, SOURCE)
+      ],
+    );
+    assert_eq!(
+      collection.sample.fan_speeds,
+      [MotherboardFanSpeed {
+        name: "Fan 1".to_owned(),
+        rpm: Some(518),
+        status: FanSpeedStatus::Active,
+        source: SOURCE.to_owned(),
+      }],
+    );
   }
 
   fn assert_mortar_fan(collection: &MotherboardSensorCollection, rpm: u32) {
