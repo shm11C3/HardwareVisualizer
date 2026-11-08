@@ -47,13 +47,34 @@ possible; otherwise add TODO(provenance).
 <!--
 How an implementation decides this document applies: CPUID checks,
 chip ID registers, presence probes. Each fact tagged with a source ID.
+List every runtime condition in the gate table below and tag its kind
+(ADR 0031): `mechanism` selects between register maps, addresses,
+decodes or topologies that genuinely differ, using what the hardware
+or OS reports about itself (CPUID family/model, capability bits,
+chip ID and revision registers, a register's own valid bit, a hwmon
+chip kind); `safety` avoids a known hazard. Brand strings, firmware
+versions, part numbers and bus addresses are evidence identities:
+they belong in the Status column of the scoped-enablement table and
+in fixtures, never in this gate table. A baseboard identity is
+evidence too, unless its row states the mechanism it selects (for
+example a firmware-defined channel mapping that differs between
+boards); then tag it `mechanism` and name that fact.
 If parts of the hardware scope are unverified while the rest of the
 document is ready, add a scoped-enablement table here (columns:
 Scope, Status, Default enablement) following the per-family example
-in cpu-amd-zen-smn.md. A row whose default enablement is Experimental
-because it depends on lead-only facts names those facts (with their
-source IDs) in its Status column; a Verified row never depends on one.
+in cpu-amd-zen-smn.md. Key each Scope row by mechanism and name the
+observed configurations in its Status column. A member is Verified
+only when a primary source or a maintainer-accepted independent dump
+covers every fact it depends on; an observation alone, or any
+lead-only fact, keeps it Experimental. A row whose default enablement
+is Experimental because it depends on lead-only facts names those
+facts (with their source IDs) in its Status column; a Verified row
+never depends on one.
 -->
+
+| Condition | Gate kind | Source |
+| --- | --- | --- |
+| <e.g. CPUID.06H:EAX[0] set> | mechanism | S1 |
 
 ## Register map (facts)
 

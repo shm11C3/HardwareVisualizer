@@ -85,7 +85,11 @@ and a fact resting solely on one (a **lead-only fact**, tagged
 a Verified one (`docs/adr/0023-copyleft-derived-facts-for-experimental-scopes.md`);
 no code excerpts, structure, or identifiers from copyrighted
 implementations may enter the spec documents; every fact carries
-provenance. Use `.claude/agents/sensor-spec-author.md` for this role.
+provenance. Runtime conditions are mechanism or safety gates only;
+brand, firmware-version and part identities record evidence in
+Status columns and never gate a read, and a board identity gates a
+read only where the spec states the mechanism it selects
+(`docs/adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md`). Use `.claude/agents/sensor-spec-author.md` for this role.
 
 ## License policy
 

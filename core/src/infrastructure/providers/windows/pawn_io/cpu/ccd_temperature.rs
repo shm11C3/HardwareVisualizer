@@ -11,32 +11,30 @@ use windows::core::HRESULT;
 
 use super::{
   super::client::PawnIoClient,
-  identity::{cpu_brand_bytes, cpuid_leaf, vendor_id_from_leaf0},
+  identity::{CpuidLeaf, cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
 };
 use crate::models::CpuCcdTemperature;
 
-const VERMEER_B0_SIGNATURE: u32 = 0x00a2_0f10;
+const AMD_VENDOR_ID: &str = "AuthenticAMD";
+/// Family `0x19` model `0x21` is the Vermeer die. Every stepping shares the
+/// CCD register map, so the stepping field takes no part in admission.
+const VERMEER_FAMILY_MODEL: (u32, u32) = (0x19, 0x21);
 const AM4_PACKAGE_FIELD: u32 = 0x2;
-const CCD_SLOT_1: u64 = 0x0005_9954;
-const FIRST_CCD_SLOT: &[u64] = &[CCD_SLOT_1];
-const BOTH_CCD_SLOTS: &[u64] = &[CCD_SLOT_1, 0x0005_9958];
-const VERMEER_B0_PROFILES: [(&[u8], &[u64]); 3] = [
-  (b"AMD Ryzen 7 5800X 8-Core Processor", FIRST_CCD_SLOT),
-  (b"AMD Ryzen 9 5900X 12-Core Processor", BOTH_CCD_SLOTS),
-  (b"AMD Ryzen 9 5950X 16-Core Processor", BOTH_CCD_SLOTS),
-];
+/// The two authorized SMN words in fixed slot order. Both are read on every
+/// admitted processor; each slot's own validity bit decides whether it reports.
+const CCD_SLOTS: [u64; 2] = [0x0005_9954, 0x0005_9958];
 const MAX_PACKAGE_RECORD_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
   std::mem::offset_of!(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, Anonymous);
 
-/// Experimental target authorized by the exact processor and package gates.
-pub(crate) struct VermeerCcdTarget {
-  addresses: &'static [u64],
-}
+/// Experimental target admitted by mechanism gates only: the Vermeer die as
+/// the processor reports it, the AM4 package field and a single physical
+/// package. The processor name is not read for admission.
+pub(crate) struct VermeerCcdTarget(());
 
 impl VermeerCcdTarget {
   pub(crate) fn detect() -> Option<Self> {
-    authorize_target(supported_processor_addresses(), query_single_package)
+    authorize_target(is_supported_processor(), query_single_package)
   }
 
   pub(crate) fn read(&self, client: &PawnIoClient) -> Vec<CpuCcdTemperature> {
@@ -47,18 +45,15 @@ impl VermeerCcdTarget {
     self.read_with(|_| None)
   }
 
-  pub(crate) fn slot_count(&self) -> usize {
-    self.addresses.len()
-  }
-
+  /// Reads each authorized word once, in slot order, with no retries. A slot
+  /// that fails stays unavailable in its own position; slot 2 is never
+  /// remapped onto slot 1.
   fn read_with(
     &self,
     mut read: impl FnMut(u64) -> Option<u32>,
   ) -> Vec<CpuCcdTemperature> {
-    self
-      .addresses
-      .iter()
-      .copied()
+    CCD_SLOTS
+      .into_iter()
       .enumerate()
       .map(|(index, address)| CpuCcdTemperature {
         package_index: 0,
@@ -69,52 +64,39 @@ impl VermeerCcdTarget {
   }
 }
 
+/// The processor-side mechanism gates (vendor, die and package field). The
+/// package topology gate is applied separately by [`VermeerCcdTarget::detect`].
 pub(crate) fn is_supported_processor() -> bool {
-  supported_processor_addresses().is_some()
+  cfg!(target_arch = "x86_64") && admits_identity(cpuid_leaf)
 }
 
-fn supported_processor_addresses() -> Option<&'static [u64]> {
-  if !cfg!(target_arch = "x86_64") {
-    return None;
+fn admits_identity(read_leaf: impl Fn(u32) -> Option<CpuidLeaf>) -> bool {
+  let Some(leaf0) = read_leaf(0) else {
+    return false;
+  };
+  if vendor_id_from_leaf0(leaf0) != AMD_VENDOR_ID {
+    return false;
   }
 
-  let vendor = vendor_id_from_leaf0(cpuid_leaf(0)?);
-  let signature = cpuid_leaf(1)?.eax;
-  let package = cpuid_leaf(0x8000_0001)?.ebx;
-  let name = cpu_brand_bytes()?;
-  addresses_for_identity(&vendor, signature, package, &name)
-}
-
-fn addresses_for_identity(
-  vendor: &str,
-  signature: u32,
-  package: u32,
-  name: &[u8],
-) -> Option<&'static [u64]> {
-  if vendor != "AuthenticAMD"
-    || signature != VERMEER_B0_SIGNATURE
-    || package >> 28 != AM4_PACKAGE_FIELD
-  {
-    return None;
+  let Some(leaf1) = read_leaf(1) else {
+    return false;
+  };
+  if effective_family_model(leaf1.eax) != VERMEER_FAMILY_MODEL {
+    return false;
   }
 
-  VERMEER_B0_PROFILES
-    .into_iter()
-    .find_map(|(processor_name, addresses)| {
-      name
-        .strip_prefix(processor_name)
-        .filter(|suffix| suffix.iter().all(|&byte| matches!(byte, b' ' | 0)))
-        .map(|_| addresses)
-    })
+  read_leaf(0x8000_0001).is_some_and(|leaf| leaf.ebx >> 28 == AM4_PACKAGE_FIELD)
 }
 
 fn authorize_target(
-  addresses: Option<&'static [u64]>,
+  identity_admitted: bool,
   single_package: impl FnOnce() -> Option<()>,
 ) -> Option<VermeerCcdTarget> {
-  let addresses = addresses?;
+  if !identity_admitted {
+    return None;
+  }
   single_package()?;
-  Some(VermeerCcdTarget { addresses })
+  Some(VermeerCcdTarget(()))
 }
 
 fn query_single_package() -> Option<()> {
@@ -196,73 +178,179 @@ fn decode_ccd_temperature(value: u32) -> Option<f32> {
 }
 
 #[cfg(test)]
-pub(crate) fn synthetic_target(first_slot_only: bool) -> VermeerCcdTarget {
-  let addresses = if first_slot_only {
-    FIRST_CCD_SLOT
-  } else {
-    BOTH_CCD_SLOTS
-  };
-  authorize_target(Some(addresses), || Some(())).unwrap()
+pub(crate) fn synthetic_target() -> VermeerCcdTarget {
+  authorize_target(true, || Some(())).unwrap()
 }
 
 #[cfg(test)]
 mod tests {
+  use std::cell::RefCell;
+
   use super::*;
 
-  const FIXTURE_5800X_NAME: &[u8] = b"AMD Ryzen 7 5800X 8-Core Processor";
-  const FIXTURE_TWO_SLOT_NAMES: [&[u8]; 2] = [
+  const AMD: &[u8; 12] = b"AuthenticAMD";
+  const INTEL: &[u8; 12] = b"GenuineIntel";
+  const VERMEER_B0: u32 = 0x00a2_0f10;
+  const VERMEER_B2: u32 = 0x00a2_0f12;
+  const CEZANNE: u32 = 0x00a5_0f00;
+  const RAPHAEL: u32 = 0x00a6_0f12;
+  // Family 0x17 and 0x1A signatures built from the extended-field encoding.
+  const FAMILY_17H: u32 = (0x8 << 20) | (0x7 << 16) | 0x0f10;
+  const FAMILY_1AH: u32 = (0xb << 20) | (0x4 << 16) | 0x0f40;
+  const AM4: u32 = 0x2ff0_0000;
+  const NOT_AM4: u32 = 0x3000_0000;
+  const BRAND_LEAVES: std::ops::RangeInclusive<u32> = 0x8000_0002..=0x8000_0004;
+
+  const OBSERVED_NAMES: [&[u8]; 3] = [
+    b"AMD Ryzen 7 5800X 8-Core Processor",
     b"AMD Ryzen 9 5900X 12-Core Processor",
     b"AMD Ryzen 9 5950X 16-Core Processor",
   ];
-  const FIXTURE_B0: u32 = 0x00a2_0f10;
-  const FIXTURE_AM4: u32 = 0x2ff0_0000;
+  const SYNTHETIC_NAMES: [&[u8]; 3] = [
+    b"AMD Ryzen 5 5600X 6-Core Processor",
+    b"AMD Ryzen 7 5800X3D 8-Core Processor",
+    b"AMD Ryzen 7 5800XT 8-Core Processor",
+  ];
 
-  fn padded_brand(name: &[u8]) -> [u8; 48] {
-    let mut padded = [0; 48];
-    padded[..name.len()].copy_from_slice(name);
-    padded[name.len()] = b' ';
-    padded
+  /// Synthetic CPUID identity. The brand is optional so the missing-name
+  /// fixture row can be exercised.
+  struct Identity {
+    vendor: &'static [u8; 12],
+    signature: u32,
+    package: u32,
+    brand: Option<&'static [u8]>,
+  }
+
+  impl Identity {
+    fn leaf(&self, leaf: u32) -> Option<CpuidLeaf> {
+      let word = |bytes: &[u8]| u32::from_le_bytes(bytes.try_into().unwrap());
+      match leaf {
+        0 => Some(CpuidLeaf {
+          eax: 0x10,
+          ebx: word(&self.vendor[..4]),
+          ecx: word(&self.vendor[8..]),
+          edx: word(&self.vendor[4..8]),
+        }),
+        1 => Some(CpuidLeaf {
+          eax: self.signature,
+          ebx: 0,
+          ecx: 0,
+          edx: 0,
+        }),
+        0x8000_0000 => Some(CpuidLeaf {
+          eax: if self.brand.is_some() {
+            0x8000_0004
+          } else {
+            0x8000_0001
+          },
+          ebx: 0,
+          ecx: 0,
+          edx: 0,
+        }),
+        0x8000_0001 => Some(CpuidLeaf {
+          eax: self.signature,
+          ebx: self.package,
+          ecx: 0,
+          edx: 0,
+        }),
+        leaf if BRAND_LEAVES.contains(&leaf) => {
+          let name = self.brand?;
+          let mut padded = [0; 48];
+          padded[..name.len()].copy_from_slice(name);
+          let chunk = &padded[(leaf - 0x8000_0002) as usize * 16..][..16];
+          Some(CpuidLeaf {
+            eax: word(&chunk[..4]),
+            ebx: word(&chunk[4..8]),
+            ecx: word(&chunk[8..12]),
+            edx: word(&chunk[12..]),
+          })
+        }
+        _ => None,
+      }
+    }
+  }
+
+  fn names() -> impl Iterator<Item = Option<&'static [u8]>> {
+    OBSERVED_NAMES
+      .into_iter()
+      .chain(SYNTHETIC_NAMES)
+      .map(Some)
+      .chain(std::iter::once(None))
+  }
+
+  /// Runs the identity gate and records which CPUID leaves it requested.
+  fn admit(identity: &Identity) -> (bool, Vec<u32>) {
+    let requested = RefCell::new(Vec::new());
+    let admitted = admits_identity(|leaf| {
+      requested.borrow_mut().push(leaf);
+      identity.leaf(leaf)
+    });
+    (admitted, requested.into_inner())
   }
 
   #[test]
-  fn only_the_exact_approved_vermeer_b0_processors_are_admitted() {
-    for name in std::iter::once(FIXTURE_5800X_NAME).chain(FIXTURE_TWO_SLOT_NAMES) {
-      let mut padded = padded_brand(name);
-      assert!(
-        addresses_for_identity("AuthenticAMD", FIXTURE_B0, FIXTURE_AM4, &padded)
-          .is_some()
-      );
-      for (vendor, signature, package) in [
-        ("GenuineIntel", FIXTURE_B0, FIXTURE_AM4),
-        ("AuthenticAMD", 0x00a2_0f12, FIXTURE_AM4),
-        ("AuthenticAMD", FIXTURE_B0, 0x3000_0000),
-      ] {
-        assert!(addresses_for_identity(vendor, signature, package, &padded).is_none());
+  fn vermeer_die_is_admitted_at_any_stepping_without_reading_the_processor_name() {
+    for signature in [VERMEER_B0, VERMEER_B2] {
+      for brand in names() {
+        let (admitted, requested) = admit(&Identity {
+          vendor: AMD,
+          signature,
+          package: AM4,
+          brand,
+        });
+        assert!(admitted, "signature {signature:#010x}, name {brand:?}");
+        assert_eq!(requested, [0, 1, 0x8000_0001]);
       }
-      padded[47] = b'X';
-      assert!(
-        addresses_for_identity("AuthenticAMD", FIXTURE_B0, FIXTURE_AM4, &padded)
-          .is_none()
-      );
     }
+  }
 
-    for unsupported in [
-      b"AMD Ryzen 7 5800X3D 8-Core Processor".as_slice(),
-      b"AMD Ryzen 7 5800XT 8-Core Processor",
-      b"AMD Ryzen 9 5950X 12-Core Processor",
-      b" AMD Ryzen 9 5900X 12-Core Processor",
-      b"AMD Ryzen 9 5950X 16-Core Processor (ES)",
-      b"AMD Ryzen 9 5950X 16-Core Processor\t",
+  #[test]
+  fn other_dies_vendors_and_packages_are_rejected_regardless_of_name() {
+    assert_eq!(effective_family_model(CEZANNE), (0x19, 0x50));
+    assert_eq!(effective_family_model(RAPHAEL), (0x19, 0x61));
+    assert_eq!(effective_family_model(FAMILY_17H).0, 0x17);
+    assert_eq!(effective_family_model(FAMILY_1AH).0, 0x1a);
+
+    for (vendor, signature, package) in [
+      (AMD, CEZANNE, AM4),
+      (AMD, RAPHAEL, AM4),
+      (AMD, FAMILY_17H, AM4),
+      (AMD, FAMILY_1AH, AM4),
+      (INTEL, VERMEER_B0, AM4),
+      (AMD, VERMEER_B0, NOT_AM4),
+      (AMD, VERMEER_B0, 0),
     ] {
-      assert!(
-        addresses_for_identity(
-          "AuthenticAMD",
-          FIXTURE_B0,
-          FIXTURE_AM4,
-          &padded_brand(unsupported)
-        )
-        .is_none()
-      );
+      for brand in names() {
+        let (admitted, requested) = admit(&Identity {
+          vendor,
+          signature,
+          package,
+          brand,
+        });
+        assert!(
+          !admitted,
+          "vendor {:?}, signature {signature:#010x}, package {package:#010x}, name {brand:?}",
+          std::str::from_utf8(vendor).unwrap()
+        );
+        assert!(requested.iter().all(|leaf| !BRAND_LEAVES.contains(leaf)));
+      }
+    }
+  }
+
+  #[test]
+  fn missing_cpuid_leaves_refuse_admission() {
+    assert!(!admits_identity(|_| None));
+
+    let vermeer = Identity {
+      vendor: AMD,
+      signature: VERMEER_B0,
+      package: AM4,
+      brand: None,
+    };
+    for missing in [0, 1, 0x8000_0001] {
+      assert!(!admits_identity(
+        |leaf| (leaf != missing).then(|| vermeer.leaf(leaf))?
+      ));
     }
   }
 
@@ -312,15 +400,12 @@ mod tests {
       Vec::new(),
     ] {
       assert!(
-        authorize_target(Some(BOTH_CCD_SLOTS), || validate_single_package_record(
-          &invalid
-        ))
-        .is_none()
+        authorize_target(true, || validate_single_package_record(&invalid)).is_none()
       );
     }
-    assert!(authorize_target(Some(BOTH_CCD_SLOTS), || None).is_none());
+    assert!(authorize_target(true, || None).is_none());
     assert!(
-      authorize_target(None, || panic!(
+      authorize_target(false, || panic!(
         "An unsupported processor cannot query topology"
       ))
       .is_none()
@@ -346,70 +431,23 @@ mod tests {
   }
 
   #[test]
-  fn both_models_preserve_fixed_slots_and_skip_extra_addresses_on_failures() {
+  fn both_slots_are_read_once_in_fixed_order_and_fail_independently() {
     let package = package_record(&[(0, 0b1111)]);
-    for name in FIXTURE_TWO_SLOT_NAMES {
-      let target = authorize_target(
-        addresses_for_identity(
-          "AuthenticAMD",
-          FIXTURE_B0,
-          FIXTURE_AM4,
-          &padded_brand(name),
-        ),
-        || validate_single_package_record(&package),
-      )
-      .unwrap();
+    let target =
+      authorize_target(true, || validate_single_package_record(&package)).unwrap();
 
-      assert_fixed_slot_reads(&target);
-    }
-  }
-
-  #[test]
-  fn ryzen_5800x_reads_only_the_first_ccd_slot() {
-    let package = package_record(&[(0, 0b1111)]);
-    let target = authorize_target(
-      addresses_for_identity(
-        "AuthenticAMD",
-        FIXTURE_B0,
-        FIXTURE_AM4,
-        &padded_brand(FIXTURE_5800X_NAME),
-      ),
-      || validate_single_package_record(&package),
-    )
-    .unwrap();
-
-    for (word, expected) in [
-      (Some(0x0ac8), Some(40.0)),
-      (None, None),
-      (Some(0x02c8), None),
-      (Some(0), None),
-      (Some(u32::MAX), None),
-    ] {
-      let mut addresses = Vec::new();
-      let readings = target.read_with(|address| {
-        addresses.push(address);
-        word
-      });
-      assert_eq!(addresses, [0x0005_9954]);
-      assert_eq!(
-        readings,
-        [CpuCcdTemperature {
-          package_index: 0,
-          ccd_slot: 1,
-          temperature_celsius: expected,
-        }]
-      );
-    }
-  }
-
-  fn assert_fixed_slot_reads(target: &VermeerCcdTarget) {
     for (words, expected) in [
       ([Some(0x0ac8), Some(0x0b38)], [Some(40.0), Some(54.0)]),
+      // Slot 1 unavailable, slot 2 keeps its identity.
       ([None, Some(0x0b38)], [None, Some(54.0)]),
-      ([Some(0x0ac8), None], [Some(40.0), None]),
       ([Some(0x02c8), Some(0x0b38)], [None, Some(54.0)]),
       ([Some(0), Some(0x0b38)], [None, Some(54.0)]),
       ([Some(u32::MAX), Some(0x0b38)], [None, Some(54.0)]),
+      // The inverse, including the single-CCD pattern with bit 11 clear.
+      ([Some(0x0ac8), None], [Some(40.0), None]),
+      ([Some(0x0ac8), Some(0x02c8)], [Some(40.0), None]),
+      ([Some(0x0ac8), Some(0)], [Some(40.0), None]),
+      ([Some(0x0ac8), Some(u32::MAX)], [Some(40.0), None]),
       ([None, None], [None, None]),
     ] {
       let mut addresses = Vec::new();
@@ -435,5 +473,11 @@ mod tests {
         ]
       );
     }
+
+    assert_eq!(
+      target.unavailable_readings(),
+      target.read_with(|_| None),
+      "a missing module or mutex reports both slots unavailable without reads"
+    );
   }
 }
