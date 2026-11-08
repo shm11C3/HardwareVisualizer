@@ -75,7 +75,7 @@ pub(crate) fn vendor_id_from_leaf0(leaf: CpuidLeaf) -> String {
   String::from_utf8_lossy(&bytes).trim().to_string()
 }
 
-pub(crate) fn cpu_brand_bytes() -> Option<[u8; 48]> {
+fn cpu_brand_bytes() -> Option<[u8; 48]> {
   if cpuid_leaf(0x8000_0000)?.eax < 0x8000_0004 {
     return None;
   }
