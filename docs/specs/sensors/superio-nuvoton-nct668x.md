@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
+| Revision | 3 |
 | Status | Draft — not implementation-ready |
-| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
+| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence for two NCT6686D boards. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
 | Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520) |
 
 ## Sources
@@ -22,6 +22,10 @@
 | S9 | Dasharo/coreboot at `d08d5eaa98`, [Nuvoton diagnostic](https://github.com/Dasharo/coreboot/blob/d08d5eaa98/util/superiotool/nuvoton.c) and [common configuration operations](https://github.com/Dasharo/coreboot/blob/d08d5eaa98/util/superiotool/superiotool.c), pinned by the tool banner in S8 | **lead-only (copyleft)** for the operations used to obtain the OEM observation. The utility performs other hardware operations outside the project's read-only scope. |
 | S10 | Dasharo [MSI PRO B850-P firmware v0.9.0](https://docs.dasharo.com/variants/msi_b850/releases/), coreboot `713a0b76`, [board device tree](https://github.com/Dasharo/coreboot/blob/713a0b76/src/mainboard/msi/ms7e56/devicetree.cb), [chip configuration](https://github.com/Dasharo/coreboot/blob/713a0b76/src/superio/nuvoton/nct6687d/superio.c), [configuration mode](https://github.com/Dasharo/coreboot/blob/713a0b76/src/superio/common/conf_mode.c) and [firmware EC port](https://github.com/Dasharo/coreboot/blob/713a0b76/src/superio/nuvoton/nct6687d/nct6687d_ec.c) | **lead-only (copyleft)** for how separate firmware on the same board exits configuration mode and uses the firmware EC port. |
 | S11 | [Windows SMBIOS board identification report](https://xmrig.com/benchmark/5hgiH1) and MSI [B850 GAMING PLUS WIFI User Guide](https://download.msi.com/archive/mnu_exe/mb/B850GAMINGPLUSWIFI_German.pdf), Regulatory Notices | Windows reports the full PRO board product and manufacturer. MSI also uses MS-7E56 for a different product. |
+| S12 | Linux v7.0 [NCT6683-family identity and register ranges](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L37-L185), [read and refresh](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L503-L654), [fan input](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L718-L725), [temperature input](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L822-L831), [probe](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L1100-L1317), [chip match](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L1350-L1410) and [resource conflict check](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L1450-L1490) | **lead-only (copyleft)** for masked identity, customer admission, driver and attribute behavior, and the full input refresh read set. These sources describe driver accesses, with firmware address semantics still dependent on the EC build. |
+| S13 | Linux [BC-250 customer support commit](https://github.com/torvalds/linux/commit/f392611e268f5462b51d90857c72058c31282706), first in v6.15, and [v7.1-rc5 documentation](https://www.kernel.org/doc/html/v7.1-rc5/hwmon/nct6683.html#tested-boards-and-firmware-versions) | **lead-only (copyleft)** for native customer `0x162b` acceptance and reported NCT6686D EC 1.0 build 2021-07-28. |
+| S14 | ASRock AMD BC-250 [December 2024 Fedora 41 observation](https://github.com/mothenjoyer69/bc250-documentation/issues/3#issue-2734591172) and [separate Fedora CoreOS boot log](https://github.com/elektricM/amd-bc250-docs/blob/98e48d9a346cb04ba1cabc62e54a0ae5363357a6/docs/linux/fedora-coreos.md#L132-L150) | First-hand raw ID, live values and a separate firmware/version and platform-instance observation. The documented captures use the driver's force option. |
+| S15 | Linux [Z590 Taichi customer support commit](https://github.com/torvalds/linux/commit/c0fa7879c9850bd4597740a79d4fac5ebfcf69cc) and [stable submission with the author's two-board report](https://lists.openwall.net/linux-kernel/2026/02/28/1014) | **lead-only (copyleft)** for native customer `0x1621` acceptance and reported instantiation on EC 1.0 build 2021-01-25. |
 
 ## Detection
 
@@ -44,8 +48,42 @@
 | --- | --- | --- |
 | MSI PRO B850-P WIFI (MS-7E56), raw `0xD592`, customer `0x020D`, EC 0.0 (2025-04-18) | S8 pins OEM routing, identity bytes and sample readback. Decode relies on lead-only S3. The entry, exit and application-port sequence rely on lead-only S9 and S10 as described below. Safe selector handling and signed-transport confirmation remain open. | Disabled. Experimental candidate after the blocking questions are resolved and the spec is approved. |
 | Other MSI NCT6687D/-R deployments | S7 reports other builds, including MAG B850M MORTAR WIFI with EC 0.0 (2025-03-10). A separate profile needs raw ID, firmware identity and channel evidence. | Unsupported by this revision. Follow-up in #2520. |
-| NCT6686D, including ASRock deployments | S1 pins a host interface but the stated chip IDs conflict with S3; S7 names multiple firmware builds. | Unsupported by this revision. Follow-up in #2520. |
+| Direct-access NCT6686D, including ASRock deployments | S1 pins a host interface but the stated chip IDs conflict with S3. S7 names multiple firmware builds. | Unsupported by this revision. Follow-up in #2520. |
+| ASRock AMD BC-250, bound Linux `nct6683` | Lead-only S12/S13 document native admission of customer `0x162b` and the EC 1.0 (2021-07-28) build. Separate S14 observations provide raw `0xD441`, a bound instance and usable channel values under the force option. | Disabled. Firmware read safety and native endpoint qualification are unresolved. |
+| ASRock Z590 Taichi, bound Linux `nct6683` | Lead-only S12/S15 document native admission of customer `0x1621` and successful instantiation on two NCT6686D units with EC 1.0 (2021-01-25). | Disabled. Firmware read safety, exact endpoint and channel evidence are unresolved. |
 | NCT6683D, including Intel and ASRock deployments | S7 reports firmware-dependent differences and an Intel OEM layout outside the public specification. | Unsupported by this revision. Follow-up in #2520. |
+
+### Linux bound-hwmon research
+
+S14's BC-250 Fedora 41 observation reports `nct6686-isa-0a20` with
+fan input 2 at 2,877 RPM and `Thermistor 14` and `Thermistor 15` at
+45.5 °C and 45 °C. Those labels identify sensor sources and provide no
+physical temperature location. The separate CoreOS log reports
+configuration port `0x2e`, EC base `0x0a20`, platform instance
+`nct6683.2592` and EC 1.0 build 2021-07-28. The observations do not
+provide a same-unit board BIOS, firmware tuple and native unforced
+endpoint. The Z590 Taichi two-unit report in S15 gives no complete raw
+ID, EC base, BIOS version or individual channel values.
+
+S12 confirms the native kernel matches `0xD440` under mask `0xFFF0`
+and accepts both customer IDs without the force option. Normal binding
+checks for ACPI conflicts and claims the I/O region. Binding can also start hardware
+monitoring if it was disabled. A future Linux path would consume an
+already bound hwmon endpoint and request no module actions. The
+ordinary input attributes do not expose the raw ID, customer or EC
+build. The force option is not exported as a sysfs parameter (S12).
+
+Both input callbacks can refresh a shared cache. For the two customer
+IDs, the enabled-channel refresh reads voltages and their high/low
+limits, temperatures and their minimum, maximum, hysteresis and critical
+limits, RPM and fan minimums, and PWM readback. The reads lie in
+`0x0100`–`0x0167` and `0x0330`–`0x03D7`. The driver writes EC
+page/index selectors and reads EC data. It makes no EC data or host
+event writes during the refresh and does not select the driver's
+designated monitor/fan status addresses (S12). These are driver access
+facts. S1 §§7.2–7.3 and §8 place the underlying sensor semantics in the
+separate EC Space specification. The [MSI NCT6687D Linux evidence](superio-nuvoton-nct6687-linux-hwmon.md)
+covers its own OEM firmware profiles.
 
 ## Register map (facts)
 
@@ -183,6 +221,15 @@ EC addresses below are page in the high byte and index in the low byte.
   `0xC7` and differing lower bytes in its global table and detailed
   description. S3 attributes an `0xD440` family to the production
   NCT6686D. Do not resolve this conflict by masking or aliasing IDs.
+- **Linux BC-250 evidence remains blocking.** Pin an exact EC 1.0
+  (2021-07-28) firmware map or equivalent evidence that the full enabled
+  refresh, including limit and PWM readbacks, uses ordinary,
+  non-destructive fields. Obtain the board/BIOS and EC identity
+  association with a matching unforced kernel-owned hwmon endpoint.
+- **Linux Z590 Taichi evidence remains blocking.** Pin the equivalent
+  firmware semantics for EC 1.0 (2021-01-25). Associate that build with
+  a known board/BIOS, controller identity and native hwmon instance,
+  and establish at least one attributable published input.
 
 ## Revision history
 
@@ -190,3 +237,4 @@ EC addresses below are page in the high byte and index in the low byte.
 | --- | --- | --- |
 | 1 | 2026-11-07 | Initial draft of the MSI candidate and its firmware-dependent access, with unsupported scopes and unresolved read-only safety conditions. |
 | 2 | 2026-11-08 | Pin the exact OEM controller capture, a configuration exit candidate, and sample data. Narrow the fan proposal to verified positive RPM and retain transport, selector and fan validity blockers. |
+| 3 | 2026-11-09 | Record separate BC-250 and Z590 Taichi Linux hwmon research, native customer acceptance and unresolved firmware refresh evidence. |
