@@ -181,7 +181,7 @@ or unresolved blocking open question invalidates the flip.
 | --- | --- | --- | --- |
 | [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts (`IntelMSR`, `RyzenSMU`, `AMDFamily17`, `LpcIO`), mutex conventions, blob distribution (signed `.bin`), elevation requirement, licensing facts | Phase 1 | Implementation-ready (rev 7) |
 | [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel package digital thermal sensor via MSRs | Phase 1 | Implementation-ready (rev 3) |
-| [`cpu-intel-core-dts-msr.md`](cpu-intel-core-dts-msr.md) | Core DTS for exact Nehalem, Sandy Bridge and Atom C2000 models and two exact Alder Lake and Raptor Lake hybrid signatures. Single Windows group and package. | #2514 | Implementation-ready (rev 4) |
+| [`cpu-intel-core-dts-msr.md`](cpu-intel-core-dts-msr.md) | Core DTS for exact Nehalem, Sandy Bridge and Atom C2000 models and exact Alder Lake S/HX, Alder Lake H/P and PS, and Raptor Lake S/HX and S/HX Refresh hybrid signatures. Single Windows group and package. | #2514 | Implementation-ready (rev 5) |
 | [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 5) |
 | [`cpu-intel-rapl-msr.md`](cpu-intel-rapl-msr.md) | Intel CPU package power via RAPL energy MSRs (`0x606`/`0x611`), unit decode, 32-bit wraparound and wrap-safe gap handling, Silvermont-unit exclusion | Phase 5 | Implementation-ready (rev 4) |
 | [`cpu-amd-zen-rapl-msr.md`](cpu-amd-zen-rapl-msr.md) | AMD Zen (17h/19h/1Ah) CPU package power via RAPL energy MSRs (`0xC0010299`/`0xC001029B`), per-model counter widths, width-agnostic modular decode with wrap-safe gap handling, 1Ah 44h domain-semantics open question | Phase 5 | Implementation-ready (rev 4) |
