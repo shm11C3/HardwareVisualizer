@@ -7,7 +7,7 @@ use tokio::time::{Instant, timeout_at};
 
 use super::{providers::CPU_INTERVAL_MS, uptime_ms};
 use crate::infrastructure::providers::windows::cpu_core_temperature::{
-  CoreTopology, acquire, read_topology, supported_model,
+  CoreDtsProfile, CoreTopology, acquire, read_topology, supported_profile,
 };
 use crate::models::CpuCoreTemperature;
 use crate::sensor_service::protocol::Reading;
@@ -38,7 +38,7 @@ struct State {
 
 #[derive(PartialEq, Eq)]
 struct Context {
-  model: u32,
+  profile: CoreDtsProfile,
   topology: CoreTopology,
   epoch: u64,
 }
@@ -46,16 +46,21 @@ struct Context {
 impl CoreTemperatures {
   pub(super) async fn request(&self) -> Option<CoreReading> {
     self
-      .sample(supported_model()?, read_topology, acquire, CORE_WAIT_BUDGET)
+      .sample(
+        supported_profile()?,
+        read_topology,
+        acquire,
+        CORE_WAIT_BUDGET,
+      )
       .await
   }
 
   async fn sample(
     &self,
-    model: u32,
+    profile: CoreDtsProfile,
     read_topology: impl Fn() -> Option<CoreTopology>,
     acquire: impl FnOnce(
-      u32,
+      CoreDtsProfile,
       &CoreTopology,
       ThreadDeadline,
     ) -> Option<Vec<CpuCoreTemperature>>
@@ -84,7 +89,7 @@ impl CoreTemperatures {
       return None;
     };
     let context = Context {
-      model,
+      profile,
       topology,
       epoch,
     };
@@ -118,7 +123,7 @@ impl CoreTemperatures {
       .name("intel-core-dts".into())
       .spawn(move || {
         let result =
-          acquire(model, &target_topology, deadline.into_std()).map(|value| Reading {
+          acquire(profile, &target_topology, deadline.into_std()).map(|value| Reading {
             acquired_at_ms: uptime_ms(),
             value,
           });
@@ -179,7 +184,7 @@ mod tests {
     let request = || {
       let starts = starts.clone();
       sampler.sample(
-        0x1a,
+        CoreDtsProfile::LegacyModel(0x1a),
         topology,
         move |_, _, _| {
           starts.fetch_add(1, Ordering::Relaxed);
@@ -207,7 +212,7 @@ mod tests {
     let observations = Cell::new(0);
     let outcome = sampler
       .sample(
-        0x1a,
+        CoreDtsProfile::LegacyModel(0x1a),
         || {
           let previous = observations.replace(observations.get() + 1);
           Some(if previous == 0 {
@@ -227,7 +232,7 @@ mod tests {
     assert!(
       sampler
         .sample(
-          0x1a,
+          CoreDtsProfile::LegacyModel(0x1a),
           || Some(before.clone()),
           |_, _, _| Some(readings()),
           CORE_WAIT_BUDGET
@@ -238,7 +243,7 @@ mod tests {
     assert!(
       sampler
         .sample(
-          0x1a,
+          CoreDtsProfile::LegacyModel(0x1a),
           || Some(after.clone()),
           |_, _, _| {
             panic!("a changed topology does not bypass the CPU acquisition rate")
@@ -260,7 +265,7 @@ mod tests {
     let worker_id = first_worker.clone();
     let expired = sampler
       .sample(
-        0x1a,
+        CoreDtsProfile::LegacyModel(0x1a),
         topology,
         move |_, _, _| {
           *worker_id.lock().unwrap() = Some(thread::current().id());
@@ -277,7 +282,7 @@ mod tests {
     assert!(
       sampler
         .sample(
-          0x1a,
+          CoreDtsProfile::LegacyModel(0x1a),
           topology,
           |_, _, _| {
             panic!("a second pass cannot start before the expired thread exits")
@@ -295,7 +300,7 @@ mod tests {
 
     let fresh = sampler
       .sample(
-        0x1a,
+        CoreDtsProfile::LegacyModel(0x1a),
         topology,
         move |_, _, _| {
           assert_ne!(Some(thread::current().id()), *first_worker.lock().unwrap());
