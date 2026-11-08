@@ -101,28 +101,43 @@ pub async fn get_gpu_temperature()
 pub async fn get_gpu_info() -> Result<Vec<GraphicInfo>, PlatformError> {
   use infrastructure::providers::{directx, nvapi_provider};
 
-  let adapters = directx::get_gpu_inventory().await;
-  if let Err(error) = &adapters {
+  Ok(
+    collect_gpu_inventory(
+      directx::get_gpu_inventory().await,
+      nvapi_provider::get_nvidia_gpu_info(),
+    )
+    .await,
+  )
+}
+
+async fn collect_gpu_inventory(
+  adapters: Result<Vec<InventoryAdapter>, String>,
+  nvidia_inventory: impl Future<Output = Result<Vec<GraphicInfo>, String>>,
+) -> Vec<GraphicInfo> {
+  let adapters = adapters.unwrap_or_else(|error| {
     log_error!("dxgi_error", "get_gpu_info", Some(error));
-  }
-  let nvidia = if adapters
-    .as_ref()
-    .is_ok_and(|adapters| !adapters.iter().any(|a| a.vendor_id == NVIDIA_VENDOR_ID))
-  {
     Vec::new()
+  });
+  let has_dxgi_adapters = !adapters.is_empty();
+  // Filtering software adapters can leave a successful DXGI query empty.
+  let nvidia = if !has_dxgi_adapters
+    || adapters
+      .iter()
+      .any(|adapter| adapter.vendor_id == NVIDIA_VENDOR_ID)
+  {
+    nvidia_inventory.await.unwrap_or_default()
   } else {
-    nvapi_provider::get_nvidia_gpu_info()
-      .await
-      .unwrap_or_default()
+    Vec::new()
   };
 
-  Ok(match adapters {
-    Ok(adapters) => merge_gpu_inventory(adapters, &nvidia),
-    Err(_) => nvidia
+  if has_dxgi_adapters {
+    merge_gpu_inventory(adapters, &nvidia)
+  } else {
+    nvidia
       .into_iter()
       .filter(|info| !info.id.is_empty())
-      .collect(),
-  })
+      .collect()
+  }
 }
 
 fn merge_gpu_inventory(
@@ -204,6 +219,43 @@ mod inventory_tests {
       memory_size_dedicated: "N/A".into(),
       core_count: Some("3072".into()),
     }
+  }
+
+  #[tokio::test]
+  async fn no_dxgi_hardware_rows_preserves_nvapi_inventory() {
+    let name = "NVIDIA GeForce RTX 4060";
+    for adapters in [Ok(Vec::new()), Err("DXGI factory unavailable".into())] {
+      let inventory = collect_gpu_inventory(adapters, async {
+        Ok(vec![nvidia_info("272514048", name), nvidia_info("", "")])
+      })
+      .await;
+
+      assert_eq!(inventory.len(), 1);
+      assert_eq!(inventory[0].id, "272514048");
+      assert_eq!(inventory[0].name, name);
+      assert_eq!(inventory[0].core_count.as_deref(), Some("3072"));
+    }
+  }
+
+  #[tokio::test]
+  async fn healthy_non_nvidia_dxgi_inventory_skips_nvapi() {
+    let adapters = vec![adapter(42, 0x17cb, "Qualcomm Adreno")];
+    let inventory = collect_gpu_inventory(Ok(adapters), async {
+      panic!("A nonempty inventory without NVIDIA hardware does not need NVAPI");
+    })
+    .await;
+
+    assert_eq!(inventory.len(), 1);
+    assert_eq!(inventory[0].id, "dxgi:0:42");
+  }
+
+  #[tokio::test]
+  async fn empty_dxgi_inventory_with_nvapi_failure_stays_empty() {
+    let inventory =
+      collect_gpu_inventory(Ok(Vec::new()), async { Err("NVAPI unavailable".into()) })
+        .await;
+
+    assert!(inventory.is_empty());
   }
 
   #[test]

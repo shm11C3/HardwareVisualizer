@@ -1,10 +1,10 @@
-# Spec: AMD Ryzen 9 Vermeer B0 CCD temperatures via SMN
+# Spec: AMD Ryzen Vermeer B0 CCD temperatures via SMN
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
-| Status | Implementation-ready (rev 3) |
-| Scope | Experimental read-only CCD temperatures on the exact Ryzen 9 5900X and 5950X Vermeer B0 models through PawnIO `RyzenSMU` on Windows x86-64, with one OS-enumerated physical AM4 package. Package Tctl/Tdie has a separate specification. |
+| Revision | 4 |
+| Status | Implementation-ready (rev 4) |
+| Scope | Experimental read-only CCD temperatures on three exact Vermeer B0 models (Ryzen 7 5800X, Ryzen 9 5900X, Ryzen 9 5950X) through PawnIO `RyzenSMU` on Windows x86-64, with one OS-enumerated physical AM4 package. Package Tctl/Tdie has a separate specification. |
 | Issue phase | [#2515](https://github.com/shm11C3/HardwareVisualizer/issues/2515) |
 
 ## Sources
@@ -24,6 +24,12 @@
 | S11 | InstLatx64, [Ryzen 9 5950X CPUID dump at commit a7c87bf859a7](https://github.com/InstLatx64/InstLatx64/blob/a7c87bf859a71295dedab9629a9fbccae37b8301/AuthenticAMD/AuthenticAMD0A20F10_K19_Vermeer_CPUID1.txt), Git blob `901184c36c81fe8cfc0fd3da9cbe56c7ee8598ee`, lines 2–3 and 24–28 | Independent hardware identity observation. Pins the vendor, CPUID signature, AM4 package field and full processor name. Contains no CCD register readings. |
 | S12 | [lm-sensors issue #389, original report](https://github.com/lm-sensors/lm-sensors/issues/389), March 2022 | First-hand observation on one Ryzen 9 5950X with decimal family/model/stepping 25/33/0. The initial Manjaro 5.16.7 report shows `Tccd1` at 30.5 °C and `Tccd2` at 31.5 °C under `k10temp-pci-00c3`. This is output from the Linux sensor interface. |
 | S13 | Linux stable [v5.16.7 AMD hardware monitor](https://github.com/gregkh/linux/blob/v5.16.7/drivers/hwmon/k10temp.c), Git blob `3618a924e78e4a47dfb882c0c824e9a3e9c37b46`, lines 68–74, 183–194, 229–233, 379–389 and 449–454, GPL-2.0-or-later | **lead-only (copyleft)**. Pins the upstream address-to-label mapping, bit 11 check at channel discovery and scaling used to interpret S12. Stable v5.16.14 has the same blob. |
+| S14 | AMD, [Ryzen 7 5800X General Specifications](https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5800x.html) | Primary product name, Vermeer codename and AM4 package. |
+| S15 | [CPU-Z Validator record bxn060](https://valid.x86.fr/bxn060), January 14, 2026, Processor section | Independent 5800X identity observation. Records the full processor name, one CPU, VMR-B0, CPUID F.1.0 / 19.21, and AM4. |
+| S16 | Mitsuya Shibata, [Ubuntu Weekly Recipe 697](https://gihyo.jp/admin/serial/01/ubuntu-recipe/0697), December 22, 2021, inxi and Psensor sections | First-hand Ubuntu 21.10 observation of a Ryzen 7 5800X at revision 0 in the inxi report, with ASRock B550 Steel Legend UEFI P1.80 and Linux 5.13.0-22-generic. The same system's k10temp PCI output shows Tccd1 at 21.0 °C and package Tctl/Tdie at 20.2 °C. |
+| S17 | Canonical [Impish kernel mapping](https://people.canonical.com/~kernel/info/kernel-version-map.html) and [AMD hardware monitor at tag Ubuntu-5.13.0-22.22](https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/impish/plain/drivers/hwmon/k10temp.c?h=Ubuntu-5.13.0-22.22), Git blob `5ff3669c2b6084d63c247fb654da7dfee0624e3b`, lines 71–73, 184, 229–230, 390–391 and 452, GPL-2.0-or-later | **lead-only (copyleft)** for the mapping from Tccd1 to SMN `0x00059954` on family 19h model 21h, the bit 11 discovery gate and scaling. The source file matches Linux stable [v5.13.19](https://github.com/gregkh/linux/blob/v5.13.19/drivers/hwmon/k10temp.c) byte for byte. |
+| S18 | Igor Wallossek, [5800X and 5600X physical CCD variation report](https://www.igorslab.de/en/ryzen-5-5600x-und-ryzen-7-5700x-mit-2-ccds-aufgetaucht-laesst-sich-die-cpu-zum-ryzen-9-unlocken-2/), January 11, 2021 | Reports physical two-CCD variants with a CCD unavailable for normal operation. It does not establish the register state or exact stepping of those 5800X variants. |
+| S19 | InstLatx64, [Ryzen 7 5800X Vermeer B2 CPUID dump](https://raw.githubusercontent.com/InstLatx64/InstLatx64/master/AuthenticAMD/AuthenticAMD0A20F12_K19_Vermeer_03_CPUID.txt), Git blob `cb93d403b772007a311bea60c2e1c5e8edd0bf4b`, lines 11–19, 48–49 and 73–76 | Independent 5800X B2 identity observation. The processor name matches B0, while the raw signature is `0x00A20F12`. |
 
 ## Detection
 
@@ -33,6 +39,7 @@
   the following full processor names from CPUID leaves `0x80000002`
   through `0x80000004`, removing trailing ASCII spaces and NUL
   padding. All gates are required.
+  - `AMD Ryzen 7 5800X 8-Core Processor` (S7, S14–S16).
   - `AMD Ryzen 9 5900X 12-Core Processor` (S1, S2, S7).
   - `AMD Ryzen 9 5950X 16-Core Processor` (S7, S9, S11).
 - Require a successful `GetLogicalProcessorInformationEx` query for
@@ -46,32 +53,35 @@
 | --- | --- | --- |
 | Ryzen 9 5900X, CPUID `0x00A20F10`, AM4, single physical package, `RyzenSMU` 0.2.11 read interface | S1, S2, S6 and S7 pin model and package identification. S8 corroborates the two-CCD count. CCD addresses, bit 11, unavailable responses and scaling depend on lead-only S3. Lead-only S4 corroborates the first two addresses and the decode on words with bit 11 set, and names 5900X as tested. S5 pins the signed transport. | Experimental with the exact detection, access and plausibility gates. |
 | Ryzen 9 5950X, CPUID `0x00A20F10`, AM4, single physical package, `RyzenSMU` 0.2.11 read interface | S6, S7, S9 and S11 pin model and package identification. S10 establishes two CCDs. S12 reports both channels on a 5950X with stepping 0. Lead-only S13 establishes the upstream mapping to the two SMN addresses, bit 11 at channel discovery and scaling. Lead-only S3 supplies the unavailable-response behavior. S5 pins the signed transport. | Experimental with the exact detection, access and plausibility gates. |
-| Other Ryzen models or signatures, Threadripper, EPYC, multiple packages | Require separate scoped attribution and decode evidence. | Unsupported. Follow-up in #2515. |
+| Ryzen 7 5800X, CPUID `0x00A20F10`, AM4, single physical package, slot 1, `RyzenSMU` 0.2.11 read interface | S6, S7 and S14–S16 pin model and package identification. S16 observes the first slot on the exact SKU with stepping 0. Lead-only S17 ties the observed channel to the first SMN word, bit 11 at channel discovery and scaling. Lead-only S3 supplies the unavailable-response behavior. S5 pins the signed transport. | Experimental, first slot only, with the exact detection, access and plausibility gates. |
+| Other Ryzen models or signatures, including 5800X B2 (S19) and 5800X3D, Threadripper, EPYC, multiple packages | Require separate scoped attribution and decode evidence. | Unsupported. Follow-up in #2515. |
 
 ## Register map (facts)
 
 | Address | Meaning | Units / encoding | Source |
 | --- | --- | --- | --- |
-| SMN `0x00059954` | First CCD temperature slot | 32-bit read word | S3, S4 (5900X), S13 (5950X) |
-| SMN `0x00059958` | Second CCD temperature slot | 32-bit read word | S3, S4 (5900X), S13 (5950X) |
-| Both slots, bit 11 | Value is valid when set | Flag | S3, S13 |
-| Both slots, bits 10:0 | Raw CCD temperature field | Unsigned, 0.125 °C per increment with a −49 °C reference offset | S3, S13, corroborated when bit 11 is set by S4 for 5900X |
+| SMN `0x00059954` | First CCD temperature slot | 32-bit read word | S3, S4 (5900X), S13 (5950X), S17 (5800X) |
+| SMN `0x00059958` | Second CCD temperature slot for 5900X and 5950X | 32-bit read word | S3, S4 (5900X), S13 (5950X) |
+| Each authorized slot, bit 11 | Value is valid when set | Flag | S3, S13, S17 (5800X) |
+| Each authorized slot, bits 10:0 | Raw CCD temperature field | Unsigned, 0.125 °C per increment with a −49 °C reference offset | S3, S13, S17 (5800X), corroborated when bit 11 is set by S4 for 5900X |
 
 ## Read procedure and decode
 
 1. Confirm the detection gates and successful signed module load.
    On demand for CCD temperatures, make at most one read of each
-   enumerated word per sample through `ioctl_read_smu_register`
-   with the PCI mutex (S5). The addresses lie inside its
-   `0x56000`–`0x5AFFF` window. Do not scan other addresses or retry
-   failed reads within the sample.
+   authorized word per sample through `ioctl_read_smu_register`
+   with the PCI mutex (S5). Read `0x00059954` only for the 5800X
+   (S16, S17) and both listed words for the 5900X and 5950X
+   (S3, S4, S13). Each address lies inside the module's
+   `0x56000`–`0x5AFFF` window. Do not scan other addresses, remap
+   slots or retry failed reads within the sample.
 2. A failed read, all-zero or all-ones word, or clear validity bit
    means that slot is unavailable. A clear validity bit cannot
    establish whether a CCD is physically absent, disabled, or
-   temporarily unreadable. S3 and S13 use bit 11 when detecting channels.
-   Checking bit 11 on every sample is a defensive project gate.
+   temporarily unreadable. S3, S13 and S17 use bit 11 at channel
+   discovery. Checking it on every sample is a defensive project gate.
 3. For a valid word, temperature = bits 10:0 × 0.125 °C − 49 °C
-   (S3, S4, S13). Apply the existing package path's −40 to +120 °C
+   (S3, S4, S13, S17). Apply the existing package path's −40 to +120 °C
    plausibility interval to the CCD result as a defensive gate.
    Do not apply the model-specific package Tctl offset to a CCD.
 4. Identify each value by its physical package in the supported
@@ -88,6 +98,11 @@
   bit 11 and all-ones words. A failed sensor is never zero-filled.
 - The slot number identifies the reading, without a claimed mapping
   to OS core IDs or a persistent package identifier.
+- The 5800X scope identifies a fixed sensor register slot. It makes
+  no assertion about physically installed CCDs, active CCD count or
+  which cores are active. Physical two-CCD variants have been reported
+  (S18). A valid first-slot word retains the same identity. If that
+  slot is unavailable, preserve the package reading and skip slot 2.
 
 ## Safety notes
 
@@ -103,11 +118,13 @@
 
 | Case | Required result |
 | --- | --- |
-| Each exact model separately, with its own full processor name, B0 signature, AM4 and one package, raw words `0x0AC8` and `0x0B38` | Read only the two fixed SMN words. Slot 1 reports 40 °C, slot 2 reports 54 °C. Preserve the package reading. |
-| For each supported model, slot 1 has a failed read, clear bit 11, zero or all-ones | Slot 1 is unavailable, slot 2 retains its identity, and valid package temperature remains available. Exercise the inverse failure as well. |
+| Each of the 5900X and 5950X, with its own full processor name, B0 signature, AM4 and one package, raw words `0x0AC8` and `0x0B38` | Read only the two fixed SMN words. Slot 1 reports 40 °C, slot 2 reports 54 °C. Preserve the package reading. |
+| For each of the 5900X and 5950X, slot 1 has a failed read, clear bit 11, zero or all-ones | Slot 1 is unavailable, slot 2 retains its identity, and valid package temperature remains available. Exercise the inverse failure as well. |
+| Exact 5800X full name, B0 signature, AM4 and one package, slot 1 word `0x0AC8` | Read `0x00059954` once. Slot 1 reports 40 °C and the package reading remains available. No `0x00059958` request. |
+| Same 5800X with a failed read, clear bit 11, zero or all-ones slot 1 word, regardless of what slot 2 could return | Slot 1 is unavailable. No `0x00059958` request or remapping. Successful package or fallback readings remain independent. |
 | Valid zero Celsius, both plausibility limits, and one raw increment beyond either limit | Keep `0x0988` (0 °C), `0x0848` (−40 °C) and `0x0D48` (120 °C). Reject `0x0847` and `0x0D49`. |
 | Two packages, unreadable package topology, or a non-AM4 package field | Make no CCD access. Existing package temperature handling continues independently. |
-| Exact 5950X name with B2 signature `0x00A20F12`, or another SKU or an altered processor name with the accepted B0 signature | Make no CCD access. The signature and exact name must both match. Existing package temperature handling continues independently. |
+| Exact 5800X or 5950X name with B2 signature `0x00A20F12`, or a synthetic 5800X3D, 5800XT or otherwise different name with the accepted B0 signature | Make no CCD access. The signature and exact name must both match. Package temperature and its existing fallback continue independently. |
 | Module unavailable, mutex unavailable or timed out, or CCD readout not requested | Make no unauthorized reads or retries. Preserve other successful readings. |
 
 ## Open questions
@@ -120,6 +137,10 @@
   The 5950X observation is Linux output. The connection to the two
   addresses uses the corresponding upstream driver in S13. No raw words or
   Windows PawnIO measurements were recorded for that observation.
+- Non-blocking for the 5800X Experimental scope: S16 corroborates the first slot at stepping 0 and S5 authorizes its read on the signed Windows transport.
+  The Linux observation has no raw words or Windows PawnIO measurements.
+  S17 maps the observed channel to the register. The second slot lacks
+  a register-mapped observation on an identified 5800X B0 and is excluded.
 - Non-blocking for the Experimental scopes: only the exact Vermeer B0 products in single-socket AM4 configurations are admitted.
   Other revisions and packages need independent address, count,
   validity and attribution evidence in #2515. Multiple packages
@@ -132,3 +153,4 @@
 | 1 | 2026-11-07 | Initial fact-only draft for the Ryzen 9 5900X Vermeer B0 candidate. |
 | 2 | 2026-11-08 | Pin the AM4 package and bounded sampling gates and add synthetic acceptance cases. Transition the exact single-package 5900X B0 scope to Implementation-ready as Experimental under ADR 0023. |
 | 3 | 2026-11-08 | Add the exact single-package Ryzen 9 5950X B0 Experimental scope under ADR 0023. Record its own hardware identity, two-CCD topology and Linux channel observation. Reuse the two approved SMN addresses and signed Windows transport. |
+| 4 | 2026-11-09 | Propose Implementation-ready for the exact single-package Ryzen 7 5800X B0 first-slot Experimental scope under ADR 0023. Pin the independent hardware observation and its distribution's address-to-channel mapping. Keep the second slot outside the 5800X scope. |

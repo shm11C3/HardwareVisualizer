@@ -204,6 +204,7 @@ impl Providers {
 
     self.last_ccd_request_ms = Some(now);
     if let Some(cached) = &self.ccd_reading
+      && cached.value.len() == target.slot_count()
       && cached.is_fresh(now)
       && now - cached.acquired_at_ms < CPU_INTERVAL_MS
     {
@@ -251,6 +252,29 @@ mod tests {
 
   #[test]
   fn missing_ccd_module_returns_known_slots_and_keeps_the_package_cache() {
+    for first_slot_only in [false, true] {
+      assert_missing_ccd_module_keeps_package(first_slot_only);
+    }
+  }
+
+  #[test]
+  fn ccd_cache_requires_the_current_authorized_slot_count() {
+    let now = uptime_ms();
+    let mut providers = Providers::new();
+    providers.temperature.sampler =
+      Some((now, CpuTemperatureSampler::synthetic_unavailable()));
+
+    let both = providers
+      .sample_ccd_temperatures(Some(synthetic_target(false)), now)
+      .unwrap();
+    assert_eq!(both.value.len(), 2);
+    let first = providers
+      .sample_ccd_temperatures(Some(synthetic_target(true)), both.acquired_at_ms)
+      .unwrap();
+    assert_eq!(first.value.as_slice(), &both.value[..1]);
+  }
+
+  fn assert_missing_ccd_module_keeps_package(first_slot_only: bool) {
     let now = uptime_ms();
     let mut providers = Providers::new();
     providers.temperature.sampler =
@@ -275,29 +299,34 @@ mod tests {
         temperature_celsius: None,
       },
     ];
+    let expected = if first_slot_only {
+      &expected[..1]
+    } else {
+      &expected[..]
+    };
     let first = providers
-      .sample_ccd_temperatures(Some(synthetic_target()), now)
+      .sample_ccd_temperatures(Some(synthetic_target(first_slot_only)), now)
       .unwrap();
-    assert_eq!(first.value, expected);
+    assert_eq!(first.value.as_slice(), expected);
     assert!(providers.temperature.sampler.is_some());
 
     let cached = providers
       .sample_ccd_temperatures(
-        Some(synthetic_target()),
+        Some(synthetic_target(first_slot_only)),
         first.acquired_at_ms + CPU_INTERVAL_MS - 1,
       )
       .unwrap();
     assert_eq!(cached.acquired_at_ms, first.acquired_at_ms);
-    assert_eq!(cached.value, expected);
+    assert_eq!(cached.value.as_slice(), expected);
     assert!(providers.temperature.sampler.is_some());
 
     let retry_due = providers
       .sample_ccd_temperatures(
-        Some(synthetic_target()),
+        Some(synthetic_target(first_slot_only)),
         first.acquired_at_ms + REOPEN_FAILED_PROVIDER_MS,
       )
       .unwrap();
-    assert_eq!(retry_due.value, expected);
+    assert_eq!(retry_due.value.as_slice(), expected);
     assert!(providers.temperature.sampler.is_none());
 
     let package = providers.temperature.reading.as_ref().unwrap();
