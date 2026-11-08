@@ -17,7 +17,10 @@ use crate::models::CpuCcdTemperature;
 
 const VERMEER_B0_SIGNATURE: u32 = 0x00a2_0f10;
 const AM4_PACKAGE_FIELD: u32 = 0x2;
-const RYZEN_5900X_NAME: &[u8] = b"AMD Ryzen 9 5900X 12-Core Processor";
+const VERMEER_B0_NAMES: [&[u8]; 2] = [
+  b"AMD Ryzen 9 5900X 12-Core Processor",
+  b"AMD Ryzen 9 5950X 16-Core Processor",
+];
 const CCD_ADDRESSES: [u64; 2] = [0x0005_9954, 0x0005_9958];
 const MAX_PACKAGE_RECORD_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
@@ -71,9 +74,11 @@ fn matches_identity(vendor: &str, signature: u32, package: u32, name: &[u8]) -> 
   vendor == "AuthenticAMD"
     && signature == VERMEER_B0_SIGNATURE
     && package >> 28 == AM4_PACKAGE_FIELD
-    && name
-      .strip_prefix(RYZEN_5900X_NAME)
-      .is_some_and(|suffix| suffix.iter().all(|&byte| matches!(byte, b' ' | 0)))
+    && VERMEER_B0_NAMES.into_iter().any(|processor_name| {
+      name
+        .strip_prefix(processor_name)
+        .is_some_and(|suffix| suffix.iter().all(|&byte| matches!(byte, b' ' | 0)))
+    })
 }
 
 fn authorize_target(
@@ -175,32 +180,71 @@ pub(crate) fn synthetic_target() -> VermeerCcdTarget {
 mod tests {
   use super::*;
 
+  const FIXTURE_NAMES: [&[u8]; 2] = [
+    b"AMD Ryzen 9 5900X 12-Core Processor",
+    b"AMD Ryzen 9 5950X 16-Core Processor",
+  ];
+  const FIXTURE_B0: u32 = 0x00a2_0f10;
+  const FIXTURE_AM4: u32 = 0x2ff0_0000;
+
+  fn padded_brand(name: &[u8]) -> [u8; 48] {
+    let mut padded = [0; 48];
+    padded[..name.len()].copy_from_slice(name);
+    padded[name.len()] = b' ';
+    padded
+  }
+
   #[test]
-  fn only_the_exact_amd_5900x_signature_package_and_padded_brand_are_admitted() {
-    let mut name = [0; 48];
-    name[..RYZEN_5900X_NAME.len()].copy_from_slice(RYZEN_5900X_NAME);
-    name[RYZEN_5900X_NAME.len()] = b' ';
-    let vendor = "AuthenticAMD";
-    let signature = 0x00a2_0f10;
-    let am4 = 0x2ff0_0000;
-    assert!(matches_identity(vendor, signature, am4, &name));
-    assert!(!matches_identity("GenuineIntel", signature, am4, &name));
-    assert!(!matches_identity(vendor, signature | 2, am4, &name));
-    assert!(!matches_identity(vendor, signature, 0x3000_0000, &name));
-    assert!(!matches_identity(
-      vendor,
-      signature,
-      am4,
-      b"AMD Ryzen 9 5950X 16-Core Processor"
-    ));
-    assert!(!matches_identity(
-      vendor,
-      signature,
-      am4,
-      b" AMD Ryzen 9 5900X 12-Core Processor"
-    ));
-    name[47] = b'X';
-    assert!(!matches_identity(vendor, signature, am4, &name));
+  fn only_the_exact_approved_vermeer_b0_processors_are_admitted() {
+    for name in FIXTURE_NAMES {
+      let mut padded = padded_brand(name);
+      assert!(matches_identity(
+        "AuthenticAMD",
+        FIXTURE_B0,
+        FIXTURE_AM4,
+        &padded
+      ));
+      assert!(!matches_identity(
+        "GenuineIntel",
+        FIXTURE_B0,
+        FIXTURE_AM4,
+        &padded
+      ));
+      assert!(!matches_identity(
+        "AuthenticAMD",
+        0x00a2_0f12,
+        FIXTURE_AM4,
+        &padded
+      ));
+      assert!(!matches_identity(
+        "AuthenticAMD",
+        FIXTURE_B0,
+        0x3000_0000,
+        &padded
+      ));
+      padded[47] = b'X';
+      assert!(!matches_identity(
+        "AuthenticAMD",
+        FIXTURE_B0,
+        FIXTURE_AM4,
+        &padded
+      ));
+    }
+
+    for unsupported in [
+      b"AMD Ryzen 7 5800X 8-Core Processor".as_slice(),
+      b"AMD Ryzen 9 5950X 12-Core Processor",
+      b" AMD Ryzen 9 5900X 12-Core Processor",
+      b"AMD Ryzen 9 5950X 16-Core Processor (ES)",
+      b"AMD Ryzen 9 5950X 16-Core Processor\t",
+    ] {
+      assert!(!matches_identity(
+        "AuthenticAMD",
+        FIXTURE_B0,
+        FIXTURE_AM4,
+        &padded_brand(unsupported)
+      ));
+    }
   }
 
   // Synthetic byte records use the Windows bindings' ABI field offsets.
@@ -280,8 +324,20 @@ mod tests {
   }
 
   #[test]
-  fn read_failures_do_not_shift_slots_or_scan_extra_addresses() {
-    let target = synthetic_target();
+  fn both_models_preserve_fixed_slots_and_skip_extra_addresses_on_failures() {
+    let package = package_record(&[(0, 0b1111)]);
+    for name in FIXTURE_NAMES {
+      let target = authorize_target(
+        matches_identity("AuthenticAMD", FIXTURE_B0, FIXTURE_AM4, &padded_brand(name)),
+        || validate_single_package_record(&package),
+      )
+      .unwrap();
+
+      assert_fixed_slot_reads(&target);
+    }
+  }
+
+  fn assert_fixed_slot_reads(target: &VermeerCcdTarget) {
     for (words, expected) in [
       ([Some(0x0ac8), Some(0x0b38)], [Some(40.0), Some(54.0)]),
       ([None, Some(0x0b38)], [None, Some(54.0)]),
