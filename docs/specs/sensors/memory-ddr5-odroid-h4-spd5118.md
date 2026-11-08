@@ -25,6 +25,7 @@
 | S12 | AMD [*Ubuntu Tuning Guide for AMD EPYC 9005 Series Processors*](https://docs.amd.com/api/khub/documents/2tw6thFYsT7~8Hl2Cdo68g/content#page=30), document 58470 rev 1.0, §2.10.1, pp. 26–28 | First-hand Type 17 examples with eighteen hexadecimal digits and repeated Device Locators across distinct Bank Locators and handles. S5 supplies the byte order. The guide supplies no paired EEPROM dump or temperature. |
 | S13 | [Framework Laptop 13 AMD Linux hardware report](https://www.kamprad.net/hardwareinfo/framework13-amd-hardinfo2_report.html), SPD and hardware sensor sections | First-hand report of two bound `spd5118` clients for one part with distinct SPD serials and separate temperatures of 37.00 °C and 34.75 °C. The Type 17 records have distinct handles and banks but repeat Device Locator `DIMM 0`. The report omits Type 17 serials and its SPD and inventory size fields disagree. It corroborates multi-device telemetry and the locator collision only. |
 | S14 | Micron [*DDR5 SDRAM RDIMM Core*](https://www.mouser.com/datasheet/2/671/ddr5_rdimm_core-3310292.pdf), Serial Presence Detect section, SPD EEPROM block map | Primary for the base SPD CRC covering bytes 0–509 and manufacturing data starting at byte 512. |
+| S15 | dmidecode 3.5, upstream release tag `dmidecode-3-5` in the Git mirror. [Table decoding and diagnostics](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5538-L5622), [SMBIOS 3 result](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5752-L5776), [exit status](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5979-L5983), and [structure diagnostic output](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmioutput.c#L127-L137). Git blobs `54f59c163dafb8bd0902bcaf3a1ba5f1a0efd7f1` and `42f8d3218c433116b50e9856f86f8412c2dabf0e`. | **lead-only (copyleft)** for partial output on a successful exit, with a malformed structure diagnostic on stderr or a displayed truncated structure diagnostic on stdout. |
 
 ## Detection and scoped enablement
 
@@ -37,7 +38,7 @@
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Linux DDR5, already bound SPD5118 I²C ABI and one-to-one Type 17 identity | Best-evidenced configuration: DMI `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, one DDR5 SO-DIMM, client `0x52` under Intel I801 PCI `0000:00:1f.4` (`8086:54A3`). S1/S2/S8 corroborate the module and platform, with S3/S4/S8 (lead-only) pinning firmware, slot address, controller configuration and short serial format. S5/S6 define identity fields and the ABI. S7/S9/S10/S11 (lead-only) supply device registration, paging/locking and canonical ownership. S12 corroborates the long serial format in Type 17. S13 corroborates multiple bound temperature endpoints and duplicate device labels. | Experimental when the mechanism and safety gates pass. |
+| Linux DDR5, already bound SPD5118 I²C ABI and one-to-one Type 17 identity | Best-evidenced configuration: DMI `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, one DDR5 SO-DIMM, client `0x52` under Intel I801 PCI `0000:00:1f.4` (`8086:54A3`). S1/S2/S8 corroborate the module and platform, with S3/S4/S8 (lead-only) pinning firmware, slot address, controller configuration and short serial format. S5/S6 define identity fields and the ABI. S7/S9/S10/S11 (lead-only) supply device registration, paging/locking and canonical ownership. S12 corroborates the long serial format in Type 17. S13 corroborates multiple bound temperature endpoints and duplicate device labels. S15 (lead-only) pins the text path's partial-output diagnostic behavior. | Experimental when the mechanism and safety gates pass. |
 | Unbound hubs, other drivers or bus mechanisms, DDR4 `jc42`, and Windows routes | Separate scopes in [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526). | Unsupported by this revision. |
 
 ### Kernel ownership
@@ -86,7 +87,11 @@ serial at `0x18`, Device Locator at `0x10` and Bank Locator at
 `0x11`. An inventory text path requires complete Type 16 and Type 17
 records with equivalent handles, counts, presence, memory type and
 identity fields. A missing field in an otherwise structurally known
-candidate is handled by the uncertainty rule below (S5).
+candidate is handled by the uncertainty rule below (S5). The text path
+requires a successful process exit, empty stderr, and structurally
+complete stdout without a malformed or truncated inventory diagnostic.
+dmidecode 3.5 can stop on an invalid structure and return success
+after printing preceding records (S15, lead-only).
 
 ## Identity and temperature facts
 
@@ -153,8 +158,12 @@ under the kernel and firmware's inventory contract.
 1. Run only on a DIMM telemetry request. Use a directly readable
    local SMBIOS table or the raw result of the existing user-initiated
    Linux detailed inventory action (`pkexec dmidecode --type memory`).
-   The persisted aggregate `MemoryInfo` cache has no per-DIMM
-   identity. No background elevation, polling or serial persistence.
+   Retain the exit status, stdout and stderr through the attribution
+   decision. A success result that has already discarded stderr cannot
+   establish a usable text inventory. Keep the existing aggregate
+   inventory behavior separate. The persisted aggregate `MemoryInfo`
+   cache has no per-DIMM identity. No background elevation, polling or
+   serial persistence.
 2. Qualify kernel ownership before file reads. For each bound client
    with proven EEPROM ownership, read one bounded 39-byte identity slice at offsets
    512–550 through its direct read-only `eeprom` (S5–S7). A short or
@@ -201,6 +210,8 @@ under the kernel and firmware's inventory contract.
 | Legitimate canonical aliases or a duplicate NVMEM provider attribute | Count one client. Read only its direct `eeprom` and proven hwmon attributes. A distinct client with equal identity remains a competitor. |
 | Wrong driver, foreign or competing hwmon child, foreign `eeprom` parent, or adapter/client subsystem link missing, broken or resolving to `/sys/class/i2c-adapter` or `/sys/class/i2c-dev` | Do not read unqualified files or attribute a temperature from that node. A potentially competing bound client remains unresolved unless known facts rule it out. |
 | Non-DDR5 or empty Type 17 row, malformed binary table, duplicate handle, missing system-memory array or fewer Type 17 rows than declared slots | Known non-DDR5 or empty rows do not compete. An incomplete or structurally unreliable inventory provides no attributed reading. |
+| Text output contains a complete-looking Type 16 array and its matching Type 17 rows, then dmidecode stops at a malformed structure with a fatal stderr diagnostic and exits successfully | Withhold all temperature attribution. Later memory arrays could contain competing rows. Keep ordinary aggregate inventory behavior separate. |
+| Text output contains a truncation diagnostic in stdout even when stderr is empty and exit succeeds | Withhold all temperature attribution. |
 | Reversed, blank, zero, all-ones or malformed serial, truncated long form, prefix-only match, case-changed part or part with non-ASCII/control bytes | No match on that identity. Leading zeros and either hex case are preserved. The only ignored part padding is trailing ASCII space. |
 | Missing or disabled sensor, inaccessible sample, or a binding lost during collection | No temperature for the affected module. Preserve still-proven independent results. Requalify ownership and the join before using a new binding. No fallback probing, bus writes or background elevation. |
 | `temp1_input` values 0, 250, 125000, 125250 and 40251 m°C | Accept only 250 and 125000 m°C in this set. Keep absent readings distinct from measured zero. |
@@ -222,4 +233,4 @@ under the kernel and firmware's inventory contract.
 | --- | --- | --- |
 | 1 | 2026-11-08 | Propose Implementation-ready status for the exact Experimental Linux DIMM scope with a fail-closed runtime identity gate. |
 | 2 | 2026-11-08 | Pin the existing kernel-owned I²C subsystem identity check to Linux v6.18 and add wrong-subsystem fixture cases for the exact Experimental scope. |
-| 3 | 2026-11-09 | Propose Implementation-ready status for the Experimental SPD5118 mechanism under ADR 0031. Preserve ODROID-H4 as evidence and qualify each DIMM through canonical OS ownership and a one-to-one Type 17 join with bounded reads and partial results. |
+| 3 | 2026-11-09 | Propose Implementation-ready status for the Experimental SPD5118 mechanism under ADR 0031. Preserve ODROID-H4 as evidence and qualify each DIMM through canonical OS ownership and a one-to-one Type 17 join with bounded reads and partial results. Reject diagnostic or incomplete text inventories. |
