@@ -16,7 +16,7 @@ and fixtures below.
 
 | ID | Source | Notes |
 | --- | --- | --- |
-| S1 | Intel, [SDM Documentation Changes, 252046-076, June 2024](https://cdrdv2-public.intel.com/825745/252046-sdm-change-document.pdf), replacement Volume 4 §2.17 and Table 2-39 (pp. 2-332–2-333), §2.17.9 and Tables 2-53–2-55 | Primary display-model MSR applicability, core status scope, status bit fields, and separate P/E MSR lists. |
+| S1 | Intel, [SDM Documentation Changes, 252046-076, June 2024](https://cdrdv2-public.intel.com/825745/252046-sdm-change-document.pdf), replacement Volume 4 §2.17 and Table 2-39 (pp. 2-332–2-333), §2.17.9 and Tables 2-53–2-55 (`0x1A2` in Table 2-53, p. 2-413) | Primary display-model MSR applicability, core status scope, status bit fields, and separate P/E MSR lists. |
 | S2 | Intel, [Core Ultra Processor Datasheet Volume 1, 792044-008, May 2025](https://edc.intel.com/output/DownloadPdfDocument?id=8207), §§16.1.2.1–16.1.2.2 (pp. 179–182) and [Meteor Lake core and tile explanation, article 000099551](https://www.intel.com/content/www/us/en/support/articles/000099551/processors/intel-core-ultra-processors.html) | Primary H/U/U Type4 thermal reference, offset and readout semantics, and independent descriptions of compute-tile and SoC-tile core placement. |
 | S3 | Intel, [Core Ultra Processors (PS Series) Datasheet, 819636-001, April 2024](https://cdrdv2-public.intel.com/819636/819636_Intel_Core_Ultra_Proc_PS_Datasheet__Rev001.pdf), §§15.1.2.1–15.1.2.2 (pp. 142–145) | Primary PS thermal reference, offset and readout semantics. |
 | S4 | Intel, [Core Ultra Processor Specification Update, 792254-024, September 2026](https://edc.intel.com/content/www/us/en/design/products/platforms/details/meteor-lake-u-p/core-ultra-processor-specification-update/identification-information/), Table 2-1, [Errata Summary Table](https://edc.intel.com/content/www/us/en/design/products/platforms/details/meteor-lake-u-p/core-ultra-processor-specification-update/summary-tables-of-changes/) and [Errata Details](https://edc.intel.com/content/www/jp/ja/design/products/platforms/details/meteor-lake-u-p/core-ultra-processor-specification-update/errata-details/) | Primary exact H/U/U Type4 C0 signature and errata for those lines. |
@@ -52,8 +52,7 @@ and fixtures below.
 | MSR `0x19C` | `IA32_THERM_STATUS` | 31 | Valid core digital readout when set | Flag | S1 Table 2-39, S7 |
 | MSR `0x19C` | `IA32_THERM_STATUS` | 22:16 | Core digital readout below the calibrated Tjmax | Unsigned degrees Celsius | S1 Table 2-39, S2, S3 |
 | MSR `0x1A2` | `MSR_TEMPERATURE_TARGET` | 23:16 | Factory-calibrated Tjmax, the reference for the DTS readout | Degrees Celsius | S2, S3 |
-| MSR `0x1A2` | `MSR_TEMPERATURE_TARGET` | 29:24 | Thermal Control Circuit activation offset | Degrees Celsius | S2, S3 |
-| MSR `0x1A2` | `MSR_TEMPERATURE_TARGET` | 6:0 | Thermal-control averaging window parameter (Tau) | Encoded time parameter | S2, S3 |
+| MSR `0x1A2` | `MSR_TEMPERATURE_TARGET` | 6:0 | Thermal-control averaging window parameter (Tau) | Encoded time parameter | S1 Table 2-53, S2, S3 |
 
 ## Read procedure and decode
 
@@ -123,6 +122,17 @@ readback cited here and the public errata review in S4 covers H/U/U Type4.
 S3 and S5 provide the independent PS thermal and identity contract.
 The captures do not exercise the HardwareVisualizer service or its
 affinity restoration path.
+
+### TCC offset field width
+
+Non-blocking for #2514 Experimental core DTS: the temperature calculation uses the Tjmax byte and digital readout and ignores the TCC offset and Tau.
+
+For `MSR_TEMPERATURE_TARGET`, S1 Table 2-53 (p. 2-413) gives the
+TCC activation offset as bits 30:24. S2 §16.1.2.1 (p. 180) and S3
+§15.1.2.1 (p. 143) give bits 29:24. All three identify bits 23:16
+as the target and bits 6:0 as the averaging window. The product
+datasheets define the DTS readout relative to Tjmax regardless of
+the offset.
 
 ## Revision history
 
