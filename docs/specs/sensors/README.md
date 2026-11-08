@@ -212,7 +212,7 @@ or unresolved blocking open question invalidates the flip.
 | [`superio-ite-it8728f-ex-ga-b75m-d3h-fans.md`](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md) | Experimental FAN1–2 on the exact Gigabyte GA-B75M-D3H factory IT8728F/EX profile through primary PawnIO LPC | #2518 | Implementation-ready (rev 1) |
 | [`superio-ite-b75m-d3h-linux-hwmon.md`](superio-ite-b75m-d3h-linux-hwmon.md) | Gigabyte GA-B75M-D3H IT8728 Linux fan evidence and read-to-clear alarm refresh limit | #2518 | Draft — not implementation-ready |
 | [`superio-ite-primary-lpc-expansion.md`](superio-ite-primary-lpc-expansion.md) | Experimental temperatures and fans on exact IT8620E and IT8628E, fan readback on IT8716F D-version inputs with firmware-enabled 16-bit mode, and FAN2–3 on IT8772E FX. Primary LPC slot only. The separate GA-B75M-D3H specification owns its IT8728F/EX FAN1–2 profile. | #2517, #2518 | Implementation-ready (rev 5) |
-| [`superio-nuvoton-nct6687-linux-hwmon.md`](superio-nuvoton-nct6687-linux-hwmon.md) | Experimental Linux hwmon temperatures and fans on MSI PRO B850-P WIFI BIOS 2.A93 and SYS_FAN1 on MSI MAG B850M MORTAR WIFI BIOS 1.A68, each with its scoped native NCT6687D-family endpoint | #2520 | Implementation-ready (rev 3) |
+| [`superio-nuvoton-nct6687-linux-hwmon.md`](superio-nuvoton-nct6687-linux-hwmon.md) | Experimental Linux hwmon temperatures and fans on MSI PRO B850-P WIFI and SYS_FAN1 on MSI MAG B850M MORTAR WIFI, each through its bound native NCT6687D-family endpoint. The board identity selects the EC channel assignment (ADR 0031); BIOS 2.A93 and 1.A68 and the PRO EC base are recorded as evidence identities | #2520 | Implementation-ready (rev 4) |
 
 
 The Nuvoton Phase 3 document is implementation-ready only for the scoped
