@@ -296,6 +296,7 @@ fn build_specta_builder() -> Builder<Wry> {
       app_updates::install_update,
       hardware::get_process_list,
       hardware::get_cpu_usage,
+      hardware::get_cpu_detail_temperatures,
       hardware::get_hardware_info,
       hardware::get_hardware_compatibility_report,
       hardware::save_hardware_compatibility_report,

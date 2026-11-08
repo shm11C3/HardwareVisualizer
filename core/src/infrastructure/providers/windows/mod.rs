@@ -1,4 +1,6 @@
 pub mod adl_provider;
+pub(crate) mod cpu_ccd_temperature;
+pub(crate) mod cpu_core_temperature;
 mod cpu_identity;
 pub mod cpu_power;
 mod cpu_power_decode;

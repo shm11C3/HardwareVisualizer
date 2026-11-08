@@ -41,6 +41,23 @@ pub fn get_cpu_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> i32 {
 
 #[command]
 #[specta::specta]
+pub async fn get_cpu_detail_temperatures(
+  state: tauri::State<'_, settings::AppState>,
+) -> Result<models::hardware::CpuDetailTemperatures, String> {
+  let temperature_unit = state
+    .settings
+    .lock()
+    .map_err(|_| "settings lock was poisoned".to_string())?
+    .temperature_unit
+    .clone();
+
+  crate::services::hardware_service::fetch_cpu_detail_temperatures(temperature_unit)
+    .await
+    .map_err(|error| error.to_string())
+}
+
+#[command]
+#[specta::specta]
 pub fn get_processors_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> Vec<f32> {
   state.current_cpu_usage_per_processor()
 }

@@ -100,6 +100,21 @@ pub trait SensorPlatform: Send + Sync {
     false
   }
 
+  /// Request current physical-core readings in raw degrees Celsius. Unsupported
+  /// platforms may return an empty set. Transport failures are errors.
+  async fn cpu_core_temperatures(
+    &self,
+  ) -> Result<Vec<models::CpuCoreTemperature>, PlatformError> {
+    Ok(Vec::new())
+  }
+
+  /// Request current CPU chiplet (CCD) readings in raw degrees Celsius.
+  async fn cpu_ccd_temperatures(
+    &self,
+  ) -> Result<Vec<models::CpuCcdTemperature>, PlatformError> {
+    Ok(Vec::new())
+  }
+
   /// Sample CPU and named temperature sensors, always in raw degrees Celsius.
   fn sample_temperatures(&self) -> models::TemperatureSample;
 

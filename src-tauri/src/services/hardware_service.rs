@@ -1,8 +1,13 @@
-use crate::models::hardware::SysInfo;
+use crate::enums::settings::TemperatureUnit;
+use crate::models::hardware::{
+  CpuCcdTemperatureReading, CpuCoreTemperatureReading, CpuDetailTemperatures, SysInfo,
+};
 use crate::services::motherboard_service;
 use crate::{log_error, log_warn};
 use hardviz_core::collector::HistoryStore;
+use hardviz_core::enums::error::PlatformError;
 use hardviz_core::infrastructure::providers::sysinfo_provider;
+use hardviz_core::models::{CpuCcdTemperature, CpuCoreTemperature};
 use hardviz_core::platform::factory::PlatformFactory;
 
 ///
@@ -103,6 +108,56 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
     storage,
     motherboard,
   })
+}
+
+pub async fn fetch_cpu_detail_temperatures(
+  temperature_unit: TemperatureUnit,
+) -> Result<CpuDetailTemperatures, PlatformError> {
+  let platform = PlatformFactory::shared()?;
+  let (cores, ccds) = tokio::join!(
+    platform.cpu_core_temperatures(),
+    platform.cpu_ccd_temperatures(),
+  );
+  Ok(format_cpu_detail_temperatures(
+    cores?,
+    ccds?,
+    temperature_unit,
+  ))
+}
+
+fn format_cpu_detail_temperatures(
+  cores: Vec<CpuCoreTemperature>,
+  ccds: Vec<CpuCcdTemperature>,
+  temperature_unit: TemperatureUnit,
+) -> CpuDetailTemperatures {
+  let convert = |temperature: Option<f32>| {
+    temperature.map(|celsius| match temperature_unit {
+      TemperatureUnit::Celsius => celsius,
+      TemperatureUnit::Fahrenheit => celsius * 9.0 / 5.0 + 32.0,
+    })
+  };
+  let cores = cores
+    .into_iter()
+    .map(|reading| CpuCoreTemperatureReading {
+      processor_group: reading.processor_group,
+      logical_processor: reading.logical_processor,
+      temperature: convert(reading.temperature_celsius),
+    })
+    .collect();
+  let ccds = ccds
+    .into_iter()
+    .map(|reading| CpuCcdTemperatureReading {
+      package_index: reading.package_index,
+      ccd_slot: reading.ccd_slot,
+      temperature: convert(reading.temperature_celsius),
+    })
+    .collect();
+
+  CpuDetailTemperatures {
+    temperature_unit,
+    cores,
+    ccds,
+  }
 }
 
 pub async fn get_storage_health_latest_records() -> Result<
@@ -209,6 +264,67 @@ mod tests {
   use super::*;
   use hardviz_core::collector::LiveStorageHealthCollector;
   use std::sync::Arc;
+
+  #[test]
+  fn cpu_core_temperature_wire_values_preserve_ids_and_missing_readings() {
+    let readings = vec![
+      CpuCoreTemperature {
+        processor_group: 0,
+        logical_processor: 0,
+        temperature_celsius: Some(40.0),
+      },
+      CpuCoreTemperature {
+        processor_group: 0,
+        logical_processor: 2,
+        temperature_celsius: None,
+      },
+    ];
+
+    let formatted =
+      format_cpu_detail_temperatures(readings, Vec::new(), TemperatureUnit::Fahrenheit);
+
+    assert_eq!(
+      serde_json::to_value(formatted).unwrap(),
+      serde_json::json!({
+        "temperatureUnit": "F",
+        "ccds": [],
+        "cores": [
+          {"processorGroup": 0, "logicalProcessor": 0, "temperature": 104.0},
+          {"processorGroup": 0, "logicalProcessor": 2, "temperature": null}
+        ]
+      }),
+    );
+  }
+
+  #[test]
+  fn cpu_ccd_temperature_wire_values_preserve_slots_and_missing_readings() {
+    let readings = vec![
+      CpuCcdTemperature {
+        package_index: 0,
+        ccd_slot: 1,
+        temperature_celsius: None,
+      },
+      CpuCcdTemperature {
+        package_index: 0,
+        ccd_slot: 2,
+        temperature_celsius: Some(40.0),
+      },
+    ];
+
+    let formatted =
+      format_cpu_detail_temperatures(Vec::new(), readings, TemperatureUnit::Fahrenheit);
+    assert_eq!(
+      serde_json::to_value(formatted).unwrap(),
+      serde_json::json!({
+        "temperatureUnit": "F",
+        "cores": [],
+        "ccds": [
+          {"packageIndex": 0, "ccdSlot": 1, "temperature": null},
+          {"packageIndex": 0, "ccdSlot": 2, "temperature": 104.0}
+        ]
+      }),
+    );
+  }
 
   #[tokio::test]
   async fn live_storage_health_returns_empty_when_collector_is_absent() {

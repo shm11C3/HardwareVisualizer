@@ -213,6 +213,8 @@ impl PawnIoClient {
   }
 
   pub(crate) fn read_smu_register(&self, address: u64) -> Result<u64, String> {
+    // RyzenSMU does not serialize the host bridge index/data pair for callers.
+    let _mutex = NamedMutex::acquire(ACCESS_PCI_MUTEX, Duration::from_millis(50))?;
     self
       .execute("ioctl_read_smu_register", &[address])
       .map(|out| out[0])
