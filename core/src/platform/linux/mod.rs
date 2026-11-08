@@ -1,6 +1,7 @@
 use crate::enums::error::PlatformError;
 use crate::models::hardware::{
-  GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo, SuperIoChipIdDiagnostics,
+  GpuMemoryUsage, GraphicInfo, MemoryDetails, MemoryInfo, NetworkInfo,
+  SuperIoChipIdDiagnostics,
 };
 use crate::platform::traits::{
   ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform, GpuPlatform,
@@ -31,6 +32,10 @@ impl MemoryPlatform for LinuxPlatform {
 
   async fn get_memory_info_detail(&self) -> Result<MemoryInfo, PlatformError> {
     memory::get_memory_info_detail().await
+  }
+
+  async fn get_memory_details(&self) -> Result<MemoryDetails, PlatformError> {
+    memory::get_memory_details().await
   }
 }
 
