@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
+| Revision | 4 |
 | Status | Draft — not implementation-ready |
-| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. |
+| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
 
 ## Sources
@@ -25,6 +25,9 @@
 | S12 | Gigabyte, [GA-AB350-Gaming 3 rev. 1.x BIOS F54d release](https://www.gigabyte.com/Motherboard/GA-AB350-Gaming-3-rev-1x/Support#support-dl-bios) and [official F54d archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_ab350-gaming-3_8a06bg08_f54d.zip?v=9b00bc778a8a46e655182428ea1bbe5a) | Archive SHA-256 `5ad4baf65297f0a89da0f04da2f00fa0111bc5d634bde30ae9de53956df3f158`. Checksum-valid `GBT / GSWApp` SSDT (28,407 bytes) SHA-256 `0c5707bb1a0fdbe31f22f266695ab38c2b5fd5c2c39b2cc0c0048665ba4311ac`. The table starts at offset `0xA8F114` of the LZMA section decoded from BIOS image offset `0xA246F0`. |
 | S13 | Linux, [Gigabyte WMI temperature interface](https://gbmc.googlesource.com/linux/+/1f66f63c7312ee085dc989b3c5fa4b3d09fe9d52/drivers/platform/x86/gigabyte-wmi.c), commit `1f66f63c7312ee085dc989b3c5fa4b3d09fe9d52`, GPL-2.0-or-later | **lead-only (copyleft)**. Source for the WMI GUID and temperature method ID tested against the OEM table. |
 | S14 | [X470 AORUS ULTRA GAMING rev. 1.0 owner report](https://github.com/t-8ch/linux-gigabyte-wmi-driver/issues/1#issuecomment-814724928), [earlier sensor output](https://github.com/t-8ch/linux-gigabyte-wmi-driver/issues/1#issuecomment-814754053), and [follow-up captures](https://github.com/t-8ch/linux-gigabyte-wmi-driver/issues/2#issuecomment-814796061), April 2021 | Independent report and captures from the same owner. [Boot log](https://github.com/t-8ch/linux-gigabyte-wmi-driver/files/6270793/dmesg.txt) SHA-256 `91c93c2de7001fadd0cbf47e62cbc653303eec4e38dbc8e52060c89a6094da97`. [ACPI capture](https://github.com/t-8ch/linux-gigabyte-wmi-driver/files/6270794/acpidump.txt) SHA-256 `de25cfc02720d7668a240598f7cb54b4a9be553496f52781f0268f7408f16b0e`. |
+| S15 | Gigabyte [GA-Z87X-UD5H rev. 1.x specifications](https://www.gigabyte.com/Motherboard/GA-Z87X-UD5H-rev-1x/sp) and [GA-Z87X-UD5H R101 schematic](https://www.scribd.com/document/872779130/GA-Z87X-UD5H-R101) (public mirror) | Vendor board identity and schematic marking `IT8790E/LQFP64`. The schematic does not define register read effects. |
+| S16 | GA-Z87X-UD5H [owner boot and sysfs report, March 5, 2017](https://www.linux.org.ru/forum/linux-hardware/13265282) and [same author's sensor output, October 19, 2022](https://www.linux.org.ru/forum/talks/17004990#comment-17005247) | Independent observations of two separate controllers. The first identifies the board and shows an unbound secondary platform node. The later snapshot shows sensor readings at the same bases and omits the full hardware and software identity. |
+| S17 | Linux [v7.4-rc1 IT87 driver](https://github.com/torvalds/linux/blob/v7.4-rc1/drivers/hwmon/it87.c#L1118-L1121), Git blob `2757d428a23dba550756cb327c851dbcaa25c078`, and [Frank Crawford DKMS driver](https://github.com/frankcrawford/it87/blob/bd7a566c8a60fe0308d67e26761e16260368191a/it87.c#L3496-L3499), commit `bd7a566c8a60fe0308d67e26761e16260368191a`, Git blob `56148f202fee43436fa73a747a1bf465deb8721e`, both GPL-2.0-or-later. See also [IT87 driver documentation v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/it87.html#hardware-interface). | **lead-only (copyleft)** for the shared cache refresh, its alarm-status reads and their documented general effect. Neither driver revision is identified as the one in the positive S16 capture. |
 
 ## Detection
 
@@ -33,7 +36,8 @@
 | X470 AORUS ULTRA GAMING rev. 1.0, slot 1 pre-key raw `0x8733`, normal LPC | Candidate Experimental. S1 confirms PCB identity. S2 reports separate fan behavior. S6/S7 lead-only facts identify a possible direct EC at secondary base `0x0A60`, distinct from primary `0x0A40`. S14 corroborates the distinct bases in Linux without recording the pre-key state. | Disabled pending exact-board pre-key identity, successful Windows transport proof and sample evidence. Bases are observations to check, never defaults to substitute. |
 | X470 AORUS ULTRA GAMING rev. 1.0, BIOS F61a, OEM WMI | S14 advertises the GUID but lacks the S13 temperature method. The observed WMI values are all zero. | Disabled. No verified secondary read path. |
 | GA-AB350-Gaming 3 rev. 1.x, BIOS F54d, OEM WMI | S12 advertises the GUID but lacks the S13 temperature method. The table's visible monitor pair defaults to the primary controller. | Disabled. No verified secondary read path. |
-| Other `0x8733` boards, `0x8790`, `0x8695` | Diagnostic identities only under S5. The shared raw `0x8733` cannot distinguish the IT8792E and IT8795E models. | Disabled until independently scoped. |
+| GA-Z87X-UD5H, already-bound Linux `it8790` at observed base `0x0A40` | Candidate Experimental. S15 identifies the part. S16 records an unbound secondary and a later positive endpoint. Lead-only S17 establishes that the published inputs use a cache refresh that reads alarm status. | Disabled pending exact IT8790E read effects or a separate safe kernel input route, plus matching bound-endpoint evidence. |
+| Other board/transport combinations for `0x8733`, `0x8790` and `0x8695` | Diagnostic identities only under S5. The shared raw `0x8733` cannot distinguish the IT8792E and IT8795E models. | Disabled until independently scoped. |
 | Alternate `0x8883` report, unreadable, absent or changed pre-key ID | S5/S9 distinguish the alternate report from a usable pre-key identity. S4 records a real absent pre-key result. | Disabled. |
 | ECIO or ISA bridge | Separate access domains. See transport limits below. | Disabled. |
 
@@ -127,6 +131,41 @@ offset `0x2CEF` defaults to primary ports `0x0A45`/`0x0A46`.
 These tables do not establish a read-only secondary WMI path or
 serialization with concurrent firmware access. (S14, S13 lead-only)
 
+### GA-Z87X-UD5H IT8790E through Linux hwmon
+
+On March 5, 2017, the owner identified a GA-Z87X-UD5H running Debian
+Linux 4.9.6. Its boot log reports an IT8728F at `0x0A30`, revision 1,
+and an IT8790E at `0x0A40`, revision 3. The primary `it87.2608` had
+an `it87` driver link and a hwmon child. The secondary `it87.2624`
+platform node had neither, so detection alone did not make the
+secondary readable. (S16)
+
+On October 19, 2022, the same author reported `it8790-isa-0a40`
+alongside `it8728-isa-0a30` on a Z87 system. The IT8790E output shows
+three fan readings of 958, 540 and 309 RPM and three temperatures of
+29, 34 and 51 °C, including one PECI input. That capture does not repeat
+the board model or record its PCB revision, BIOS, kernel or canonical
+hwmon links. The readings do not verify physical connector labels.
+`0x0A40` is the observed secondary base in this case and the primary
+base in the X470 evidence above. A base alone cannot assign a
+controller's role or select a board profile. (S14, S16)
+
+A future Linux scope would require matching board identity and a
+canonical `it8790` hwmon child under platform device `it87.2624`,
+with the parent bound to `it87`. A detected but unbound node leaves
+the secondary unavailable. Restrict collection to an existing
+kernel-owned endpoint under ordinary driver settings. No module
+loading, rebinding, conflict overrides or raw I/O are part of this
+candidate. Preserve independent primary results. (S16, S17 lead-only)
+
+Both pinned drivers use the same refresh for `temp*_input` and
+`fan*_input`. An empty or expired cache causes reads of EC alarm
+registers `0x01`–`0x03` even if the application requests only a
+temperature or RPM value. The driver documentation describes latched
+alarms that can be lost after a read, but does not establish the read
+effects of these bytes on IT8790E. Neither pinned driver supplies a
+separate input path that avoids this refresh on IT8790E. (S17 lead-only)
+
 ## Quirks
 
 - A different X470 board reports primary `0x8686` at `0x0A40` and
@@ -162,6 +201,12 @@ boundary only.
 
 ## Open questions
 
+- For GA-Z87X-UD5H Linux hwmon, establish the exact IT8790E
+  alarm-status read effects for `0x01`–`0x03`, or pin a kernel
+  input path that avoids those registers. Obtain same-session board,
+  driver and canonical hwmon binding evidence with a valid secondary
+  sample before enabling this candidate. (S16, S17 lead-only)
+
 - Can the exact X470 AORUS ULTRA GAMING rev. 1.0 board and a named BIOS
   release demonstrate an active slot-1 `0x8733` with no mode keys and an
   LPC base separate from the primary? An accepted trace must give both
@@ -195,3 +240,4 @@ available. An absent pre-key response is itself an evidence result.
 | 1 | 2026-11-08 | Record the exact X470 rev. 1.0 research candidate, independent observations, and separate LPC, ECIO and bridge transport evidence requirements. |
 | 2 | 2026-11-08 | Pin the GA-AB350-Gaming 3 F54d OEM WMI evidence and the reason this route is disabled. |
 | 3 | 2026-11-08 | Corroborate the X470 rev. 1.0 dual-controller observation under F61a and record why its OEM WMI route is disabled. |
+| 4 | 2026-11-08 | Record GA-Z87X-UD5H IT8790E Linux endpoint observations and the alarm-refresh evidence that keeps collection disabled. |
