@@ -108,6 +108,12 @@ impl SensorPlatform for WindowsPlatform {
     crate::sensor_service::windows::cpu_core_temperatures().await
   }
 
+  async fn cpu_ccd_temperatures(
+    &self,
+  ) -> Result<Vec<crate::models::CpuCcdTemperature>, PlatformError> {
+    crate::sensor_service::windows::cpu_ccd_temperatures().await
+  }
+
   fn sample_temperatures(&self) -> crate::models::TemperatureSample {
     sensors::sample_temperatures()
   }

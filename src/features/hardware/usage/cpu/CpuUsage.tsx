@@ -5,7 +5,7 @@ import { LineChartComponent } from "@/components/charts/LineChart";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { InfoTable } from "@/components/InfoTable";
 import { chartConfig } from "@/consts/chart";
-import { CpuCoreTemperatures } from "@/features/hardware/components/CpuCoreTemperatures";
+import { CpuDetailTemperatures } from "@/features/hardware/components/CpuDetailTemperatures";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import {
@@ -67,7 +67,7 @@ const CpuUsageChart = memo(() => {
             }}
           />
         )}
-        <CpuCoreTemperatures />
+        <CpuDetailTemperatures />
       </div>
 
       <div className="mt-5 ml-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:w-4/6 xl:grid-cols-4">

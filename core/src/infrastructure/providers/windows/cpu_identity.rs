@@ -67,7 +67,7 @@ fn detect_cpu_identity_x86() -> Option<CpuIdentity> {
   })
 }
 
-fn vendor_id_from_leaf0(leaf: CpuidLeaf) -> String {
+pub(crate) fn vendor_id_from_leaf0(leaf: CpuidLeaf) -> String {
   let mut bytes = Vec::with_capacity(12);
   bytes.extend_from_slice(&leaf.ebx.to_le_bytes());
   bytes.extend_from_slice(&leaf.edx.to_le_bytes());
@@ -75,23 +75,28 @@ fn vendor_id_from_leaf0(leaf: CpuidLeaf) -> String {
   String::from_utf8_lossy(&bytes).trim().to_string()
 }
 
+pub(crate) fn cpu_brand_bytes() -> Option<[u8; 48]> {
+  if cpuid_leaf(0x8000_0000)?.eax < 0x8000_0004 {
+    return None;
+  }
+
+  let mut bytes = [0; 48];
+  for (leaf, chunk) in (0x8000_0002..=0x8000_0004).zip(bytes.as_chunks_mut::<16>().0) {
+    let result = cpuid_leaf_unchecked(leaf);
+    for (value, word) in [result.eax, result.ebx, result.ecx, result.edx]
+      .into_iter()
+      .zip(chunk.as_chunks_mut::<4>().0)
+    {
+      word.copy_from_slice(&value.to_le_bytes());
+    }
+  }
+  Some(bytes)
+}
+
 fn cpu_brand_string() -> String {
-  let Some(extended) = cpuid_leaf(0x8000_0000) else {
+  let Some(bytes) = cpu_brand_bytes() else {
     return String::new();
   };
-  if extended.eax < 0x8000_0004 {
-    return String::new();
-  }
-
-  let mut bytes = Vec::with_capacity(48);
-  for leaf in 0x8000_0002..=0x8000_0004 {
-    let result = cpuid_leaf_unchecked(leaf);
-    bytes.extend_from_slice(&result.eax.to_le_bytes());
-    bytes.extend_from_slice(&result.ebx.to_le_bytes());
-    bytes.extend_from_slice(&result.ecx.to_le_bytes());
-    bytes.extend_from_slice(&result.edx.to_le_bytes());
-  }
-
   String::from_utf8_lossy(&bytes)
     .trim_matches(char::from(0))
     .trim()

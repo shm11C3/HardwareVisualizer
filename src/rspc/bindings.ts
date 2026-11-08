@@ -23,7 +23,7 @@ export const commands = {
 	 *  - return: `i32` overall CPU usage (%)
 	 */
 	getCpuUsage: () => __TAURI_INVOKE<number>("get_cpu_usage"),
-	getCpuCoreTemperatures: () => typedError<CpuCoreTemperatures, string>(__TAURI_INVOKE("get_cpu_core_temperatures")),
+	getCpuDetailTemperatures: () => typedError<CpuDetailTemperatures, string>(__TAURI_INVOKE("get_cpu_detail_temperatures")),
 	// ## Get system information
 	getHardwareInfo: () => typedError<SysInfo, string>(__TAURI_INVOKE("get_hardware_info")),
 	getHardwareCompatibilityReport: () => typedError<string, string>(__TAURI_INVOKE("get_hardware_compatibility_report")),
@@ -892,15 +892,22 @@ export type CoolingRecentIdleSummary = {
 	sampleMinutes: number,
 };
 
+export type CpuCcdTemperatureReading = {
+	packageIndex: number,
+	ccdSlot: number,
+	temperature: number | null,
+};
+
 export type CpuCoreTemperatureReading = {
 	processorGroup: number,
 	logicalProcessor: number,
 	temperature: number | null,
 };
 
-export type CpuCoreTemperatures = {
+export type CpuDetailTemperatures = {
 	temperatureUnit: TemperatureUnit,
-	readings: CpuCoreTemperatureReading[],
+	cores: CpuCoreTemperatureReading[],
+	ccds: CpuCcdTemperatureReading[],
 };
 
 export type CpuInfo = {

@@ -153,9 +153,8 @@ async fn connection(
       Operation::CpuCoreTemperatures => {
         Payload::CpuCoreTemperatures(core_temperatures.request().await)
       }
-      Operation::Sample | Operation::Diagnostics => {
+      Operation::Sample | Operation::Diagnostics | Operation::CpuCcdTemperatures => {
         let owner = Arc::clone(&providers);
-        let diagnostics = matches!(request.operation, Operation::Diagnostics);
         tokio::task::spawn_blocking(move || {
           let mut providers = owner.lock().map_err(|_| "Sensor sampler unavailable")?;
 
@@ -163,10 +162,13 @@ async fn connection(
             providers.reset();
           }
 
-          Ok::<_, String>(if diagnostics {
-            Payload::Diagnostics(providers.diagnostics())
-          } else {
-            Payload::Snapshot(Box::new(providers.sample()))
+          Ok::<_, String>(match request.operation {
+            Operation::Sample => Payload::Snapshot(Box::new(providers.sample())),
+            Operation::Diagnostics => Payload::Diagnostics(providers.diagnostics()),
+            Operation::CpuCcdTemperatures => {
+              Payload::CpuCcdTemperatures(providers.cpu_ccd_temperatures())
+            }
+            Operation::Hello | Operation::CpuCoreTemperatures => unreachable!(),
           })
         })
         .await

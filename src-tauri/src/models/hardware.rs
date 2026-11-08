@@ -9,9 +9,10 @@ pub use generated::*;
 
 #[derive(Debug, serde::Serialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub struct CpuCoreTemperatures {
+pub struct CpuDetailTemperatures {
   pub temperature_unit: crate::enums::settings::TemperatureUnit,
-  pub readings: Vec<CpuCoreTemperatureReading>,
+  pub cores: Vec<CpuCoreTemperatureReading>,
+  pub ccds: Vec<CpuCcdTemperatureReading>,
 }
 
 #[derive(Debug, serde::Serialize, Type)]
@@ -19,6 +20,14 @@ pub struct CpuCoreTemperatures {
 pub struct CpuCoreTemperatureReading {
   pub processor_group: u16,
   pub logical_processor: u8,
+  pub temperature: Option<f32>,
+}
+
+#[derive(Debug, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CpuCcdTemperatureReading {
+  pub package_index: u8,
+  pub ccd_slot: u8,
   pub temperature: Option<f32>,
 }
 

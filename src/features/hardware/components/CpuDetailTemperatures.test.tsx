@@ -7,20 +7,20 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { commands } from "@/rspc/bindings";
-import { CpuCoreTemperatures } from "./CpuCoreTemperatures";
+import { CpuDetailTemperatures } from "./CpuDetailTemperatures";
 
 vi.mock("@/rspc/bindings", () => ({
-  commands: { getCpuCoreTemperatures: vi.fn() },
+  commands: { getCpuDetailTemperatures: vi.fn() },
 }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { processor: number }) =>
-      options ? `${key} ${options.processor}` : key,
+    t: (key: string, options?: { processor?: number; slot?: number }) =>
+      options ? `${key} ${options.processor ?? options.slot}` : key,
   }),
 }));
 
-const getTemperatures = vi.mocked(commands.getCpuCoreTemperatures);
+const getTemperatures = vi.mocked(commands.getCpuDetailTemperatures);
 
 const advance = async (ms: number) => {
   await act(async () => {
@@ -45,14 +45,15 @@ describe("CPU core temperatures", () => {
       status: "ok",
       data: {
         temperatureUnit: "F",
-        readings: [
+        ccds: [],
+        cores: [
           { processorGroup: 0, logicalProcessor: 0, temperature: 104 },
           { processorGroup: 0, logicalProcessor: 2, temperature: null },
         ],
       },
     });
 
-    render(<CpuCoreTemperatures />);
+    render(<CpuDetailTemperatures />);
     await advance(0);
 
     expect(screen.getByText("104 °F")).toBeVisible();
@@ -62,13 +63,40 @@ describe("CPU core temperatures", () => {
     ).toBeVisible();
   });
 
+  it("keeps the second CCD in its own slot when the first is missing", async () => {
+    getTemperatures.mockResolvedValue({
+      status: "ok",
+      data: {
+        temperatureUnit: "C",
+        cores: [],
+        ccds: [
+          { packageIndex: 0, ccdSlot: 1, temperature: null },
+          { packageIndex: 0, ccdSlot: 2, temperature: 54 },
+        ],
+      },
+    });
+
+    render(<CpuDetailTemperatures />);
+    await advance(0);
+
+    expect(screen.queryByText("pages.performance.coreTemperatures")).toBeNull();
+    expect(
+      screen.getByText("pages.performance.ccdTemperatureSlot 1"),
+    ).toBeVisible();
+    expect(
+      screen.getByText("pages.performance.ccdTemperatureSlot 2"),
+    ).toBeVisible();
+    expect(screen.getByText("shared.notAvailable")).toBeVisible();
+    expect(screen.getByText("54 °C")).toBeVisible();
+  });
+
   it("keeps an empty result out of the screen", async () => {
     getTemperatures.mockResolvedValue({
       status: "ok",
-      data: { temperatureUnit: "C", readings: [] },
+      data: { temperatureUnit: "C", cores: [], ccds: [] },
     });
 
-    render(<CpuCoreTemperatures />);
+    render(<CpuDetailTemperatures />);
     await advance(0);
 
     expect(getTemperatures).toHaveBeenCalledOnce();
@@ -82,10 +110,10 @@ describe("CPU core temperatures", () => {
       .mockResolvedValueOnce({ status: "error", error: "fixture failure" })
       .mockResolvedValueOnce({
         status: "ok",
-        data: { temperatureUnit: "C", readings: [] },
+        data: { temperatureUnit: "C", cores: [], ccds: [] },
       });
 
-    render(<CpuCoreTemperatures />);
+    render(<CpuDetailTemperatures />);
     await advance(0);
     expect(screen.getByRole("alert")).toBeVisible();
     expect(screen.queryByText("fixture failure")).toBeNull();
@@ -103,7 +131,7 @@ describe("CPU core temperatures", () => {
     vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
     getTemperatures.mockResolvedValue({
       status: "ok",
-      data: { temperatureUnit: "C", readings: [] },
+      data: { temperatureUnit: "C", cores: [], ccds: [] },
     });
     const changeVisibility = async (value: boolean) => {
       await act(async () => {
@@ -112,7 +140,7 @@ describe("CPU core temperatures", () => {
       });
     };
 
-    const { unmount } = render(<CpuCoreTemperatures />);
+    const { unmount } = render(<CpuDetailTemperatures />);
     await advance(6000);
     expect(getTemperatures).not.toHaveBeenCalled();
 

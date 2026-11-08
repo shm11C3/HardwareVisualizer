@@ -41,9 +41,9 @@ pub fn get_cpu_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> i32 {
 
 #[command]
 #[specta::specta]
-pub async fn get_cpu_core_temperatures(
+pub async fn get_cpu_detail_temperatures(
   state: tauri::State<'_, settings::AppState>,
-) -> Result<models::hardware::CpuCoreTemperatures, String> {
+) -> Result<models::hardware::CpuDetailTemperatures, String> {
   let temperature_unit = state
     .settings
     .lock()
@@ -51,7 +51,7 @@ pub async fn get_cpu_core_temperatures(
     .temperature_unit
     .clone();
 
-  crate::services::hardware_service::fetch_cpu_core_temperatures(temperature_unit)
+  crate::services::hardware_service::fetch_cpu_detail_temperatures(temperature_unit)
     .await
     .map_err(|error| error.to_string())
 }

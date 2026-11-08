@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { type CpuCoreTemperatures, commands } from "@/rspc/bindings";
+import { type CpuDetailTemperatures, commands } from "@/rspc/bindings";
 
-const CORE_TEMPERATURE_POLL_MS = 3000;
+const CPU_TEMPERATURE_POLL_MS = 3000;
 
-export const useCpuCoreTemperatures = () => {
-  const [sample, setSample] = useState<CpuCoreTemperatures | null>(null);
+export const useCpuDetailTemperatures = () => {
+  const [sample, setSample] = useState<CpuDetailTemperatures | null>(null);
   const [hasError, setHasError] = useState(false);
   const refresh = useRef<() => void>(() => {});
 
@@ -26,7 +26,7 @@ export const useCpuCoreTemperatures = () => {
         active && !document.hidden && requestGeneration === generation;
 
       try {
-        const result = await commands.getCpuCoreTemperatures();
+        const result = await commands.getCpuDetailTemperatures();
         if (result.status === "error") {
           throw new Error(result.error);
         }
@@ -38,14 +38,14 @@ export const useCpuCoreTemperatures = () => {
         if (isCurrent()) {
           setSample(null);
           setHasError(true);
-          console.error("Failed to fetch CPU core temperatures:", error);
+          console.error("Failed to fetch CPU detail temperatures:", error);
         }
       } finally {
         inFlight = false;
         if (active && !document.hidden) {
           timer = setTimeout(
             poll,
-            requestGeneration === generation ? CORE_TEMPERATURE_POLL_MS : 0,
+            requestGeneration === generation ? CPU_TEMPERATURE_POLL_MS : 0,
           );
         }
       }
