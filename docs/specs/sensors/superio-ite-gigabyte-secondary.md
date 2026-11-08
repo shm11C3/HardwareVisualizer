@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
+| Revision | 3 |
 | Status | Draft — not implementation-ready |
-| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions. |
+| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
 
 ## Sources
@@ -22,12 +22,17 @@
 | S9 | LibreHardwareMonitor [ECIO byte transport](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT879xEcioPort.cs), Git blob `cbb52c4b88c8fc606087220be6ad16cfd6315812`, and [secondary LPC discovery](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs), Git blob `3bb61abd9d86df2dcf388cc80689d4db61d16537`, MPL-2.0 | **lead-only (copyleft)**. Alternate ID after mode entry, selected ECIO mailbox transactions, and firmware transport selection. |
 | S10 | LibreHardwareMonitor [ISA bridge controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IsaBridgeGigabyteController.cs), Git blob `cc9398dc047347d6bfd19129cc00d6ee890e0143`, and [ECIO controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/EcioPortGigabyteController.cs), Git blob `e906f6aee3fda7c0b42f3900f3c69f41b6d4376a`, MPL-2.0 | **lead-only (copyleft)**. Confirms what the cited bridge and ECIO examples use the mapped RAM for. |
 | S11 | Intel, [82077AA floppy disk controller data sheet](https://www.alldatasheet.com/html-pdf/167793/INTEL/82077AA/1242/8/82077AA.html), §2.1 | Primary for the historical PC/AT or PS/2 port assignment. It establishes the possible address collision, with no claim about a floppy controller being present on the target board. |
+| S12 | Gigabyte, [GA-AB350-Gaming 3 rev. 1.x BIOS F54d release](https://www.gigabyte.com/Motherboard/GA-AB350-Gaming-3-rev-1x/Support#support-dl-bios) and [official F54d archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_ab350-gaming-3_8a06bg08_f54d.zip?v=9b00bc778a8a46e655182428ea1bbe5a) | Archive SHA-256 `5ad4baf65297f0a89da0f04da2f00fa0111bc5d634bde30ae9de53956df3f158`. Checksum-valid `GBT / GSWApp` SSDT (28,407 bytes) SHA-256 `0c5707bb1a0fdbe31f22f266695ab38c2b5fd5c2c39b2cc0c0048665ba4311ac`. The table starts at offset `0xA8F114` of the LZMA section decoded from BIOS image offset `0xA246F0`. |
+| S13 | Linux, [Gigabyte WMI temperature interface](https://gbmc.googlesource.com/linux/+/1f66f63c7312ee085dc989b3c5fa4b3d09fe9d52/drivers/platform/x86/gigabyte-wmi.c), commit `1f66f63c7312ee085dc989b3c5fa4b3d09fe9d52`, GPL-2.0-or-later | **lead-only (copyleft)**. Source for the WMI GUID and temperature method ID tested against the OEM table. |
+| S14 | [X470 AORUS ULTRA GAMING rev. 1.0 owner report](https://github.com/t-8ch/linux-gigabyte-wmi-driver/issues/1#issuecomment-814724928), [earlier sensor output](https://github.com/t-8ch/linux-gigabyte-wmi-driver/issues/1#issuecomment-814754053), and [follow-up captures](https://github.com/t-8ch/linux-gigabyte-wmi-driver/issues/2#issuecomment-814796061), April 2021 | Independent report and captures from the same owner. [Boot log](https://github.com/t-8ch/linux-gigabyte-wmi-driver/files/6270793/dmesg.txt) SHA-256 `91c93c2de7001fadd0cbf47e62cbc653303eec4e38dbc8e52060c89a6094da97`. [ACPI capture](https://github.com/t-8ch/linux-gigabyte-wmi-driver/files/6270794/acpidump.txt) SHA-256 `de25cfc02720d7668a240598f7cb54b4a9be553496f52781f0268f7408f16b0e`. |
 
 ## Detection
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| X470 AORUS ULTRA GAMING rev. 1.0, slot 1 pre-key raw `0x8733`, normal LPC | Candidate Experimental. S1 confirms PCB identity. S2 reports separate fan behavior. S6/S7 lead-only facts identify a possible direct EC at secondary base `0x0A60`, distinct from primary `0x0A40`. | Disabled pending exact-board pre-key identity, successful Windows transport proof and sample evidence. Bases are observations to check, never defaults to substitute. |
+| X470 AORUS ULTRA GAMING rev. 1.0, slot 1 pre-key raw `0x8733`, normal LPC | Candidate Experimental. S1 confirms PCB identity. S2 reports separate fan behavior. S6/S7 lead-only facts identify a possible direct EC at secondary base `0x0A60`, distinct from primary `0x0A40`. S14 corroborates the distinct bases in Linux without recording the pre-key state. | Disabled pending exact-board pre-key identity, successful Windows transport proof and sample evidence. Bases are observations to check, never defaults to substitute. |
+| X470 AORUS ULTRA GAMING rev. 1.0, BIOS F61a, OEM WMI | S14 advertises the GUID but lacks the S13 temperature method. The observed WMI values are all zero. | Disabled. No verified secondary read path. |
+| GA-AB350-Gaming 3 rev. 1.x, BIOS F54d, OEM WMI | S12 advertises the GUID but lacks the S13 temperature method. The table's visible monitor pair defaults to the primary controller. | Disabled. No verified secondary read path. |
 | Other `0x8733` boards, `0x8790`, `0x8695` | Diagnostic identities only under S5. The shared raw `0x8733` cannot distinguish the IT8792E and IT8795E models. | Disabled until independently scoped. |
 | Alternate `0x8883` report, unreadable, absent or changed pre-key ID | S5/S9 distinguish the alternate report from a usable pre-key identity. S4 records a real absent pre-key result. | Disabled. |
 | ECIO or ISA bridge | Separate access domains. See transport limits below. | Disabled. |
@@ -80,6 +85,47 @@ device. No Windows trace meeting those conditions is available. (S8)
 | --- | --- |
 | ECIO | S9 describes a firmware command/status and data mailbox, separate from the direct EC register pair. A read still writes the read command and offset to the mailbox. The cited implementation uses `LpcIO` at ports `0x03F4` and `0x03F0`. That window also contains the historical floppy-controller registers, including a write-only data-rate register at `0x03F4`. Authorization for a port range does not prove mailbox ownership. Firmware capability and fan-control state reads leave the telemetry offset map unresolved. Require exact-board port ownership, bounded waits and recovery, and a separately verified telemetry layout. (S8, S11, S9/S10 lead-only) |
 | ISA bridge | `IsaBridgeEC` module load checks architecture and CPU vendor. Its discovery IOCTL probes both slots and can issue a slot-1 enter sequence after `0xFFFF` during its own discovery, independently of a caller pre-check. The IOCTL can also restore prior bridge configuration. Mapping the window and programming the bridge are separate operations. The state-changing operation writes PCI bridge decode settings, and the cited consumer may use it even to read a firmware flag. A firmware-preconfigured window would still require safe discovery and validated sensor offsets. (S8, S10 lead-only) |
+
+### GA-AB350-Gaming 3 BIOS F54d OEM WMI
+
+The `GSWApp` SSDT advertises WMI GUID
+`DEADBEEF-2001-0000-00A0-C90629100000` as method object `BB`. Its
+serialized `WMBB` method, at table offset `0x6602`, has no dispatch
+branch for the S13 temperature method ID `0x125` (293 decimal). The
+table's decimal 125 branch uses method ID `0x7D`. (S12, S13 lead-only)
+
+The table declares primary Super I/O configuration ports
+`0x2E`/`0x2F` and a monitor index/data region defaulting to
+`0x0A45`/`0x0A46`. This identifies the primary monitor window. The
+inspected table does not establish a read-only route to the secondary
+controller, its EC firmware identity, or exclusion against concurrent
+firmware accesses. Other firmware paths remain unresolved. (S12)
+
+### X470 AORUS ULTRA GAMING BIOS F61a
+
+On April 7, 2021, the owner identified the board as rev. 1.0 and reported
+zero values for all six WMI channels. The follow-up boot log identifies
+`X470 AORUS ULTRA GAMING-CF` with BIOS `F61a` dated March 29, 2021.
+It shows a reservation at `0x0A40`–`0x0A4F`, an unsupported chip
+with raw ID `0x8686`, and Linux detection of `IT8733E` at
+`0x0A60`, revision 3. The log does not record the secondary response
+before mode keys or distinguish IT8792E from IT8795E by physical marking.
+The earlier sensor output uses `it8728-isa-0a60`, so its label and
+channel values cannot establish a matching sensor profile. (S14)
+
+The captured `ALASKA / A M I` DSDT (26,345 bytes, valid checksum,
+SHA-256 `0efdd94d8368dd56bb81124e724e57306ffeebf79fc73713580e232c9817c447`)
+declares constants `0x0A60` and `0x0A65`. The declarations do not
+show a method accessing either address. (S14)
+
+The captured `GBT / GSWApp` SSDT (27,785 bytes, valid checksum,
+SHA-256 `be4fd82b12fb13ccb74726778b29a69a564e47708505709c65d866cc4c9c94ba`)
+advertises the S13 WMI GUID. Its `WMBB` dispatcher at offset
+`0x65B6` lacks temperature method ID `0x125` (293 decimal).
+Its decimal 125 branch is `0x7D`. The SSDT monitor I/O region at
+offset `0x2CEF` defaults to primary ports `0x0A45`/`0x0A46`.
+These tables do not establish a read-only secondary WMI path or
+serialization with concurrent firmware access. (S14, S13 lead-only)
 
 ## Quirks
 
@@ -147,3 +193,5 @@ available. An absent pre-key response is itself an evidence result.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-08 | Record the exact X470 rev. 1.0 research candidate, independent observations, and separate LPC, ECIO and bridge transport evidence requirements. |
+| 2 | 2026-11-08 | Pin the GA-AB350-Gaming 3 F54d OEM WMI evidence and the reason this route is disabled. |
+| 3 | 2026-11-08 | Corroborate the X470 rev. 1.0 dual-controller observation under F61a and record why its OEM WMI route is disabled. |
