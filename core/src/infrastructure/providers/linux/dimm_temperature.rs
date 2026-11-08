@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, Metadata};
 use std::os::unix::fs::{FileExt, MetadataExt};
 use std::path::{Path, PathBuf};
@@ -58,6 +58,7 @@ fn collect_from(sys: &Path, raw_inventory: &str) -> DimmTemperature {
 #[derive(Default)]
 struct Dimm<'a> {
   heading: bool,
+  array_handle: Option<&'a str>,
   size: Option<&'a str>,
   form_factor: Option<&'a str>,
   memory_type: Option<&'a str>,
@@ -75,10 +76,11 @@ impl<'a> Dimm<'a> {
       return Some(());
     }
 
-    let Some((key, value)) = line.split_once(": ") else {
+    let Some((key, value)) = line.split_once(':') else {
       return Some(());
     };
     let field = match key {
+      "Array Handle" => &mut self.array_handle,
       "Size" => &mut self.size,
       "Form Factor" => &mut self.form_factor,
       "Type" => &mut self.memory_type,
@@ -87,7 +89,7 @@ impl<'a> Dimm<'a> {
       "Part Number" => &mut self.part,
       _ => return Some(()),
     };
-    if field.replace(value).is_some() {
+    if field.replace(value.strip_prefix(' ')?).is_some() {
       return None;
     }
     Some(())
@@ -146,46 +148,121 @@ fn is_reported(value: &str) -> bool {
     )
 }
 
-fn finish_record<'a>(
-  current: Option<Dimm<'a>>,
-  populated: &mut Option<Dimm<'a>>,
-) -> Option<()> {
-  if let Some(record) = current
-    && record.complete()?
-    && populated.replace(record).is_some()
-  {
+enum InventoryRecord<'a> {
+  Array {
+    handle: u16,
+    heading: bool,
+    slots: Option<u16>,
+  },
+  Device(Dimm<'a>),
+}
+
+impl<'a> InventoryRecord<'a> {
+  fn field(&mut self, line: &'a str) -> Option<()> {
+    match self {
+      Self::Device(device) => device.field(line),
+      Self::Array { heading, slots, .. } => {
+        if line == "Physical Memory Array" && std::mem::replace(heading, true) {
+          return None;
+        }
+        if let Some(raw) = line.strip_prefix("Number Of Devices:") {
+          let digits = raw.strip_prefix(' ')?;
+          if !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+          }
+          let count = digits.parse::<u16>().ok()?;
+          if count == 0 || slots.replace(count).is_some() {
+            return None;
+          }
+        }
+        Some(())
+      }
+    }
+  }
+}
+
+#[derive(Default)]
+struct Inventory<'a> {
+  array_slots: HashMap<u16, usize>,
+  device_counts: HashMap<u16, usize>,
+  populated: Option<Dimm<'a>>,
+}
+
+impl<'a> Inventory<'a> {
+  fn finish(&mut self, record: Option<InventoryRecord<'a>>) -> Option<()> {
+    match record {
+      Some(InventoryRecord::Array {
+        handle,
+        heading,
+        slots,
+      }) => {
+        if !heading {
+          return None;
+        }
+        self.array_slots.insert(handle, usize::from(slots?));
+      }
+      Some(InventoryRecord::Device(device)) => {
+        let populated = device.complete()?;
+        // Empty sockets also occupy a Type 16 slot. Count every Type 17
+        // record against the exact physical array it references.
+        let array = parse_handle(device.array_handle?)?;
+        *self.device_counts.entry(array).or_default() += 1;
+        if populated && self.populated.replace(device).is_some() {
+          return None;
+        }
+      }
+      None => {}
+    }
+    Some(())
+  }
+}
+
+fn parse_handle(value: &str) -> Option<u16> {
+  let digits = value.strip_prefix("0x")?;
+  if digits.len() != 4 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
     return None;
   }
-  Some(())
+  u16::from_str_radix(digits, 16).ok()
 }
 
 fn single_populated_dimm(raw: &str) -> Option<Dimm<'_>> {
-  let mut populated = None;
+  let mut inventory = Inventory::default();
   let mut current = None;
   let mut handles = HashSet::new();
   for line in raw.lines().map(str::trim_start) {
     if let Some(header) = line.strip_prefix("Handle ") {
-      finish_record(current.take(), &mut populated)?;
+      inventory.finish(current.take())?;
       let (handle, fields) = header.split_once(", DMI type ")?;
       let (kind, length) = fields.split_once(", ")?;
-      if kind.parse::<u8>().ok()? == 17 {
-        let handle = u16::from_str_radix(handle.strip_prefix("0x")?, 16).ok()?;
+      let kind = kind.parse::<u8>().ok()?;
+      if matches!(kind, 16 | 17) {
+        let handle = parse_handle(handle)?;
         let length = length.strip_suffix(" bytes")?.parse::<u8>().ok()?;
-        // Handles are scoped to this report. Repeated or truncated records
-        // cannot establish which physical module is being read.
-        if !handles.insert(handle) || length < 0x1b {
+        let minimum_length = if kind == 16 { 0x0f } else { 0x1b };
+        if !handles.insert(handle) || length < minimum_length {
           return None;
         }
-        current = Some(Dimm::default());
+        current = Some(if kind == 16 {
+          InventoryRecord::Array {
+            handle,
+            heading: false,
+            slots: None,
+          }
+        } else {
+          InventoryRecord::Device(Dimm::default())
+        });
       }
     } else if let Some(record) = current.as_mut() {
       record.field(line)?;
-    } else if line == "Memory Device" {
+    } else if matches!(line, "Physical Memory Array" | "Memory Device") {
       return None;
     }
   }
-  finish_record(current, &mut populated)?;
-  populated
+  inventory.finish(current)?;
+  if inventory.array_slots != inventory.device_counts {
+    return None;
+  }
+  inventory.populated
 }
 
 fn decode_serial(value: &str) -> Option<[u8; 4]> {
@@ -364,6 +441,7 @@ Physical Memory Array
 
 Handle 0x0010, DMI type 17, 92 bytes
 Memory Device
+	Array Handle: 0x000F
 	Size: 8 GB
 	Form Factor: SODIMM
 	Locator: DIMM 0
@@ -474,14 +552,58 @@ Memory Device
     let fixture = Fixture::new();
     fixture.add_client(7, "0052", 3);
     assert_eq!(fixture.collect(INVENTORY), available(40.25));
-    let with_empty = format!(
-      "{INVENTORY}
-Handle 0x0011, DMI type 17, 92 bytes
+  }
+
+  #[test]
+  fn physical_array_counts_require_complete_type17_inventory_including_empty_slots() {
+    let fixture = Fixture::new();
+    fixture.add_client(7, "0052", 3);
+    let (array, device) = INVENTORY.split_once("\n\n").unwrap();
+    let two_slots = INVENTORY.replace("Number Of Devices: 1", "Number Of Devices: 2");
+    let empty_slot = r#"Handle 0x0011, DMI type 17, 92 bytes
 Memory Device
+	Array Handle: 0x000F
 	Size: No Module Installed
-"
+"#;
+    assert_eq!(fixture.collect(&two_slots), DimmTemperature::Unavailable);
+    assert_eq!(
+      fixture.collect(&format!("{two_slots}\n{empty_slot}")),
+      available(40.25)
     );
-    assert_eq!(fixture.collect(&with_empty), available(40.25));
+
+    let other_array = array.replace("0x000F", "0x002F");
+    let other_array_empty_slot = empty_slot.replace("0x000F", "0x002F");
+    assert_eq!(
+      fixture.collect(&format!(
+        "{INVENTORY}\n{other_array}\n\n{other_array_empty_slot}"
+      )),
+      available(40.25)
+    );
+    for incomplete in [
+      device.to_owned(),
+      INVENTORY.replace("DMI type 16, 23 bytes", "DMI type 16, 14 bytes"),
+      INVENTORY.replace("Number Of Devices: 1", ""),
+      INVENTORY.replace("Number Of Devices: 1", "Number Of Devices: 0"),
+      INVENTORY.replace("Number Of Devices: 1", "Number Of Devices: +1"),
+      INVENTORY.replace(
+        "Number Of Devices: 1",
+        "Number Of Devices: 1\n\tNumber Of Devices: 1",
+      ),
+      INVENTORY.replace("Array Handle: 0x000F", ""),
+      INVENTORY.replace("Array Handle: 0x000F", "Array Handle: 0x002F"),
+      INVENTORY.replace("Array Handle: 0x000F", "Array Handle: 0x+00F"),
+      INVENTORY.replace(
+        "Array Handle: 0x000F",
+        "Array Handle: 0x000F\n\tArray Handle: 0x000F",
+      ),
+      INVENTORY.replace("Handle 0x0010, DMI type 17", "Handle 0x000F, DMI type 17"),
+      format!("{INVENTORY}\n{array}\n"),
+      format!("{INVENTORY}\n{other_array}\n"),
+      format!("{INVENTORY}\n{empty_slot}"),
+      format!("{two_slots}\n{other_array_empty_slot}"),
+    ] {
+      assert_eq!(fixture.collect(&incomplete), DimmTemperature::Unavailable);
+    }
   }
 
   #[test]
@@ -536,7 +658,9 @@ Memory Device
   fn a_second_module_or_incomplete_identity_leaves_the_temperature_unavailable() {
     let fixture = Fixture::new();
     fixture.add_client(7, "0052", 3);
-    let duplicate = format!("{INVENTORY}{}", INVENTORY.replace("0x0010", "0x0011"));
+    let (_, device) = INVENTORY.split_once("\n\n").unwrap();
+    let two_slots = INVENTORY.replace("Number Of Devices: 1", "Number Of Devices: 2");
+    let duplicate = format!("{two_slots}\n{}", device.replace("0x0010", "0x0011"));
     for invalid in [
       duplicate,
       INVENTORY.repeat(2),
