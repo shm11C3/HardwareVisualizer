@@ -2,10 +2,19 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
-| Status | Implementation-ready (rev 3) |
-| Scope | Experimental, read-only sampling through an already bound Linux NCT6683-family hwmon driver on exact MSI PRO B850-P WIFI (temperatures and fans) and MAG B850M MORTAR WIFI (SYS_FAN1 only) profiles. |
+| Revision | 4 |
+| Status | Implementation-ready (rev 4) |
+| Scope | Experimental, read-only sampling through an already bound Linux NCT6683-family hwmon driver on the MSI PRO B850-P WIFI (temperatures and fans) and MAG B850M MORTAR WIFI (SYS_FAN1 only) board profiles. The board identity selects the OEM EC channel assignment; the BIOS version and the EC base address are evidence identities. |
 | Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520) |
+
+Revision 4 applies
+[ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md).
+The exact BIOS version and the exact PRO platform instance number are no
+longer runtime gates; they are recorded in Status as the observed
+firmware and base. The board identity remains a mechanism gate because
+the OEM EC firmware of each board defines which hwmon channels carry
+which signals, and the per-channel label and type checks remain the
+gate that detects a changed assignment.
 
 ## Sources
 
@@ -26,36 +35,55 @@
 
 ## Detection
 
+| Condition | Gate kind | Source |
+| --- | --- | --- |
+| DMI `board_vendor` is `Micro-Star International Co., Ltd.` and `board_name` is exactly `PRO B850-P WIFI (MS-7E56)` or `MAG B850M MORTAR WIFI (MS-7E61)` | mechanism: the board's OEM EC firmware defines the channel assignment this document scopes (PRO: three temperature sources and fan inputs 1 and 2; MORTAR: fixed channel 16 `SYS_FAN1`) | S1, S2, S5, S8, S10, S11 |
+| One distinct canonical hwmon node with `name` equal to `nct6687`, platform parent `/sys/devices/platform/nct6683.<id>` with a canonical decimal instance suffix from 8 through 65528 divisible by 8, `subsystem` resolving to `/sys/bus/platform`, `driver` to `/sys/bus/platform/drivers/nct6683`, the class link resolving to the parent's `hwmon/hwmonN` child, the child's `device` link resolving to the parent, and the bus device link resolving to the same parent | mechanism: hwmon chip kind, owning driver and a unique bound endpoint | S4, S5, S11 |
+| Per temperature channel, `tempN_label` and `tempN_type` equal the scoped source metadata on the same node | mechanism: the ABI's own channel metadata detects a changed assignment | S2, S4, S5 |
+| Per input, the value is within the admitted bounds below | mechanism (plausibility) | S4, S5 |
+
+The BIOS version string and the EC base address (the decimal platform
+instance suffix) are evidence identities. They record which firmware
+build and base the observations came from and are the graduation
+candidates toward Verified. They do not gate a read.
+
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| MSI PRO B850-P WIFI (MS-7E56), BIOS 2.A93, already bound `nct6683.2592` with hwmon name `nct6687` | S1/S2/S3/S6 establish the named board and observed OEM firmware/controller tuple. Lead-only S5 establishes kernel device and driver names, the hwmon class link to the canonical child, the child's `device` link to the platform parent, resource ownership, firmware-customer acceptance, channel mapping and the cache refresh read set. Lead-only S7 corroborates the status addresses outside that set. Public ABI is S4. | Experimental for matching Linux endpoints. |
-| MSI MAG B850M MORTAR WIFI (MS-7E61), BIOS 1.A68, already bound native `nct6683` with hwmon name `nct6687` | S8/S9 identify the exact board, controller and BIOS. S10 records the EC customer/build, unforced driver and SYS_FAN1 sample. Lead-only S5/S11 establish the canonical sysfs child and parent links, platform instance association, chip-kind check, firmware-customer acceptance, ownership and override limits, fixed fan channel and stock cache refresh. Lead-only S7/S12 identify status addresses outside that refresh. Lead-only S12 also establishes that the development driver retains the stock RPM mapping. Public ABI is S4. | Experimental for SYS_FAN1 on the matching Linux endpoint. |
-| Other boards, firmware versions, NCT6686D/NCT6683D and direct Windows access | Require separate exact evidence in [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520). See [direct-access draft](superio-nuvoton-nct668x.md). | Unsupported by this revision. |
+| MSI PRO B850-P WIFI (MS-7E56), already bound `nct6683.<id>` with hwmon name `nct6687` | S1/S2/S3/S6 establish the named board and the observed OEM firmware/controller tuple: BIOS 2.A93, EC 0.0 build 2025-04-18, customer `0x020D`, raw chip `0xD592`, EC Space base `0x0A20` (instance `2592`). Lead-only S5 establishes kernel device and driver names, the hwmon class link to the canonical child, the child's `device` link to the platform parent, resource ownership, firmware-customer acceptance, channel mapping and the cache refresh read set. Lead-only S7 corroborates the status addresses outside that set. Public ABI is S4. Other BIOS builds and bases on this board have no observation yet. | Experimental for matching Linux endpoints. |
+| MSI MAG B850M MORTAR WIFI (MS-7E61), already bound native `nct6683.<id>` with hwmon name `nct6687` | S8/S9 identify the exact board and controller, with BIOS 1.A68 observed. S10 records the EC customer/build (`0x020D`, EC 0.0 build `03/10/25`), unforced driver and SYS_FAN1 sample. Lead-only S5/S11 establish the canonical sysfs child and parent links, platform instance association, chip-kind check, firmware-customer acceptance, ownership and override limits, fixed fan channel and stock cache refresh. Lead-only S7/S12 identify status addresses outside that refresh. Lead-only S12 also establishes that the development driver retains the stock RPM mapping. Public ABI is S4. Other BIOS builds on this board have no observation yet. | Experimental for SYS_FAN1 on the matching Linux endpoint. |
+| Other boards, NCT6686D/NCT6683D and direct Windows access | Require separate exact evidence in [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520). See [direct-access draft](superio-nuvoton-nct668x.md). | Unsupported by this revision. |
 
 ### MSI PRO B850-P WIFI
 
-- Require DMI baseboard vendor `Micro-Star International Co., Ltd.`,
-  board product `PRO B850-P WIFI (MS-7E56)`, and BIOS version `2.A93`.
-  Read Linux DMI identity attributes `board_vendor`, `board_name` and
-  `bios_version` under `/sys/class/dmi/id`. Compare full values after
-  trimming line endings. Treat missing identity as unavailable.
+- Require DMI baseboard vendor `Micro-Star International Co., Ltd.`
+  and board product `PRO B850-P WIFI (MS-7E56)`. Read Linux DMI
+  identity attributes `board_vendor` and `board_name` under
+  `/sys/class/dmi/id`. Compare full values after trimming line
+  endings. Treat missing identity as unavailable. `bios_version` is
+  not read for admission.
 - S2 observes raw chip `0xD592` at `0x4E`, EC Space base `0x0A20` and
   customer `0x020D`, firmware 0.0 build 2025-04-18. S3 ties that EC
   version to BIOS 2.A93. The Linux endpoint reports the `nct6687` kind,
-  not the complete raw ID or EC firmware build. The exact BIOS and
-  endpoint together select the evidenced profile.
+  not the complete raw ID or EC firmware build. The board identity and
+  the bound endpoint together select the evidenced profile; the per-
+  channel label and type checks below confirm the assignment on the
+  running firmware.
 - Require one distinct canonical hwmon node with `name` equal to
   `nct6687` and physical platform parent
-  `/sys/devices/platform/nct6683.2592`. Its `subsystem` must resolve
-  to `/sys/bus/platform` and `driver` to
-  `/sys/bus/platform/drivers/nct6683`. The device identifier uses the
-  decimal EC base `2592`. Resolve `/sys/class/hwmon/hwmonN` to the
-  canonical child `/sys/devices/platform/nct6683.2592/hwmon/hwmonN`.
-  Separately resolve the child's `device` link to the platform parent.
-  Reject a name-only match, mismatched ancestry, an unbound node,
-  duplicate distinct children or a changed binding. The `hwmonN` number is a session enumeration
-  detail, so a new number alone does not change channel identity.
-  (S4, S5)
+  `/sys/devices/platform/nct6683.<id>`. The upstream driver uses the
+  firmware-discovered EC base, aligned to eight bytes, as the decimal
+  platform instance ID (S5). Accept a canonical unsigned decimal
+  instance suffix from 8 through 65528 divisible by 8; the observed
+  base `0x0A20` gives `2592`. Its `subsystem` must resolve to
+  `/sys/bus/platform` and `driver` to
+  `/sys/bus/platform/drivers/nct6683`. Resolve `/sys/class/hwmon/hwmonN`
+  to the canonical child `/sys/devices/platform/nct6683.<id>/hwmon/hwmonN`.
+  Separately resolve the child's `device` link to the platform parent,
+  and the bus device link `/sys/bus/platform/devices/nct6683.<id>` to
+  the same parent. Reject a name-only match, mismatched ancestry, an
+  unbound node, duplicate distinct children or a changed binding. The
+  `hwmonN` number is a session enumeration detail, so a new number
+  alone does not change channel identity. (S4, S5)
 - A driver can accept unknown customer IDs when explicitly forced
   (S5). The upstream parameter is not exposed in sysfs and the endpoint
   does not attest the raw ID or kernel binary. These checks establish
@@ -66,29 +94,22 @@
 
 ### MSI MAG B850M MORTAR WIFI
 
-- Require the full DMI baseboard vendor `Micro-Star International Co., Ltd.`,
-  board product `MAG B850M MORTAR WIFI (MS-7E61)` and BIOS version
-  `1.A68`. Use the same identity attributes, comparisons and failure
-  handling as on the PRO profile. S8 and S9 establish the board identity.
-  S10 identifies the observed firmware as customer `0x020D`, EC version
-  0.0 build `03/10/25`. Require the full product string, including WIFI.
+- Require the full DMI baseboard vendor `Micro-Star International Co., Ltd.`
+  and board product `MAG B850M MORTAR WIFI (MS-7E61)`. Use the same
+  identity attributes, comparisons and failure handling as on the PRO
+  profile. S8 and S9 establish the board identity. S10 identifies the
+  observed firmware as customer `0x020D`, EC version 0.0 build
+  `03/10/25`, with BIOS 1.A68. Require the full product string,
+  including WIFI. `bios_version` is not read for admission.
 - Require one distinct canonical hwmon node with `name` equal to
   `nct6687` and physical platform parent
-  `/sys/devices/platform/nct6683.<id>`. The upstream driver uses the
-  firmware-discovered EC base, aligned to eight bytes, as the decimal
-  platform instance ID (S5, S11). Accept a canonical unsigned decimal
-  instance suffix from 8 through 65528 divisible by 8. Use the suffix only to
-  validate and identify the sysfs instance. This profile has no fixed base address.
-- The class link `/sys/class/hwmon/hwmonN` must resolve to
-  `/sys/devices/platform/nct6683.<id>/hwmon/hwmonN`. The child's
-  `device` link must resolve to that platform parent. Require the
-  parent's `subsystem` and `driver` links to resolve to
-  `/sys/bus/platform` and `/sys/bus/platform/drivers/nct6683`
-  respectively. The bus device link
-  `/sys/bus/platform/devices/nct6683.<id>` must resolve to the same
-  parent. Reject multiple distinct matching children, including across
-  platform instances, before selecting by attributes. An enumeration
-  number change by itself does not change channel identity. (S4, S5, S11)
+  `/sys/devices/platform/nct6683.<id>`, with the same canonical
+  instance suffix rule, class, device, subsystem, driver and bus
+  device link checks as the PRO profile (S4, S5, S11). This profile
+  has no observed base address. Reject multiple distinct matching
+  children, including across platform instances, before selecting by
+  attributes. An enumeration number change by itself does not change
+  channel identity.
 - The same trusted stock kernel and ordinary ownership policy apply.
   Treat a separately known modified driver, forced binding or
   resource-conflict override as outside this scope. The native
@@ -111,8 +132,9 @@ For PRO B850-P WIFI, S2 shows an AMD TSI source at EC slot 0, followed by
 assignment bytes `0x82`, `0x89` and `0x8C`. S5 compacts the assigned temperature sources
 in EC slot order and keeps fan indices tied to physical inputs. Check
 each temperature channel's label and type on the same bound node and
-skip only that channel on a mismatch. Keep generic labels tied to the
-scoped OS channel. The source labels identify signal kinds rather
+skip only that channel on a mismatch; this is the gate that detects a
+firmware build with a different assignment. Keep generic labels tied to
+the scoped OS channel. The source labels identify signal kinds rather
 than physical board connectors.
 
 Accept complete decimal temperature values from −55,000 through
@@ -173,37 +195,48 @@ and fixed channel. No other attributes are scoped on this board.
   sampling path. Loading, binding and driver initialization stay under
   the OS, independently of application sampling.
 - Preserve successful sibling attributes and provider results. A
-  missing or denied exact endpoint on an admitted board is unavailable.
-  A known different board or firmware is unsupported. Reuse the
-  motherboard collection models and avoid history or new settings.
-  Recheck identity when the bound device changes and keep channel
-  attribution within the same endpoint.
+  missing or denied endpoint on an admitted board is unavailable.
+  A known different board is unsupported. Reuse the motherboard
+  collection models and avoid history or new settings. Recheck
+  identity when the bound device changes and keep channel attribution
+  within the same endpoint.
 
 ## Synthetic fixture acceptance
 
 | Case | Expected result |
 | --- | --- |
-| Exact DMI and bound node, expected temperature metadata, inputs 26000/22000/26000 and 518/0 | Three temperatures in °C, fan input 1 active at 518 RPM, fan input 2 unavailable. |
-| Same MS-7E56 on a different product, wrong BIOS, wrong hwmon name/base/driver, wrong subsystem, duplicate canonical children | Unsupported for known out-of-profile identity or unavailable for absent/ambiguous binding. No input reads on a mismatched endpoint. |
+| PRO DMI and bound node on instance `2592`, expected temperature metadata, inputs 26000/22000/26000 and 518/0 | Three temperatures in °C, fan input 1 active at 518 RPM, fan input 2 unavailable. |
+| PRO DMI with `bios_version` `2.A94`, missing, or any other string, same bound node and metadata | Admitted identically. The BIOS version does not change admission. |
+| PRO DMI with the same bound node on another canonical instance (for example `nct6683.2600`) | Admitted identically. The instance suffix validates the endpoint; it does not select the profile. |
+| Same MS-7E56 on a different product (`B850 GAMING PLUS WIFI (MS-7E56)`), wrong hwmon name/driver, wrong subsystem, noncanonical or impossible instance suffix, duplicate canonical children | Unsupported for known out-of-profile board identity or unavailable for absent/ambiguous binding. No input reads on a mismatched endpoint. |
 | The class link resolves to the platform parent or another device's hwmon child, or the correct child's `device` link resolves elsewhere | Reject the endpoint before reading inputs. |
-| Missing node, missing DMI or driver, unreadable channel, missing type, bad label, malformed or overflowing integer | Unavailable at the affected scope. Keep independently valid readings. |
+| Missing node, missing DMI or driver, unreadable channel, missing type, bad label, malformed or overflowing integer | Unavailable at the affected scope. Keep independently valid readings. A changed label or type on one channel skips only that channel. |
 | Temperature −55000, 125000, −55001 and 125001; fan −1, 0, 1, 65534 and 65535 | Accept only the stated inclusive bounds. Negative or invalid fan values never become zero RPM. |
 | Transient hwmon enumeration index change or endpoint replacement | Identity uses the validated platform parent and channel. A read from a replaced endpoint is discarded until it independently qualifies. |
-| Exact MORTAR DMI and a unique correct bound instance, `fan16_input` = 926, with any other fan or temperature attributes present or absent | Report only `SYS_FAN1` at 926 RPM. Use a synthetic valid instance ID and repeat with another valid ID. Neither a fixed base nor earlier fan files are required. |
-| MORTAR without WIFI, wrong BIOS, wrong kind or driver, noncanonical or impossible instance suffix, duplicate matching children even if only one exposes `fan16_input` | No input read for the rejected or ambiguous profile. Check the platform bus link as well as the hwmon class and device links. |
-| Exact MORTAR profile with missing, denied, malformed or overflowing `fan16_input`, or value −1, 0 or 65535 | The MORTAR reading stays unavailable and independent provider results remain available. Accept inclusive boundary values 1 and 65534. |
+| MORTAR DMI and a unique correct bound instance, `fan16_input` = 926, with any other fan or temperature attributes present or absent, and with `bios_version` `1.A68`, `1.A69`, or missing | Report only `SYS_FAN1` at 926 RPM in every case. Use a synthetic valid instance ID and repeat with another valid ID. Neither a fixed base nor earlier fan files are required. |
+| MORTAR without WIFI (`MAG B850M MORTAR (MS-7E61)`), wrong kind or driver, noncanonical or impossible instance suffix, duplicate matching children even if only one exposes `fan16_input` | No input read for the rejected or ambiguous profile. Check the platform bus link as well as the hwmon class and device links. |
+| MORTAR profile with missing, denied, malformed or overflowing `fan16_input`, or value −1, 0 or 65535 | The MORTAR reading stays unavailable and independent provider results remain available. Accept inclusive boundary values 1 and 65534. |
 | MORTAR binding changes while collecting, or a forced/override binding is known | Discard the affected reading and require a qualifying binding before sampling again. A known override disqualifies it. |
 
 ## Open questions
 
 - Non-blocking for the Linux hwmon slice: the published read-only ABI delegates port and selector handling to the already bound Linux driver.
-  Direct Windows access, additional BIOS/EC builds and fan header
-  labels require separate evidence.
+  Direct Windows access, additional boards and fan header labels
+  require separate evidence.
 - Non-blocking for the Linux hwmon slice: only positive RPM words inside the admitted range are exposed.
   Distinguishing a physically stopped fan from an unpopulated header
   requires separate evidence. The Linux ABI does not expose a separate
   per-word freshness or hardware validity bit for these channels.
-
+- Non-blocking for the Linux hwmon slice: the BIOS version is an evidence identity under ADR 0031; a firmware build that changes the temperature assignment is detected by the per-channel label and type gate, and the fan channels are tied to physical inputs by the driver (lead-only S5, S11).
+  Only BIOS 2.A93 (PRO) and 1.A68 (MORTAR) have observations. A
+  Hardware Compatibility Report
+  ([#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500))
+  from another BIOS build on either board corroborates the path on that
+  build as compatibility evidence. Graduation to Verified still requires
+  primary documentation of the EC channel assignment or a
+  maintainer-accepted labeled capture, like S2, for every lead-only
+  mapping fact. A report of a changed fan assignment would move the fan
+  channels of that build to Open questions.
 - Non-blocking for the MAG B850M MORTAR WIFI fan slice: the positive exact-board sample and unchanged RPM path establish SYS_FAN1 for Experimental use.
   A stock-driver sample with full sysfs paths and independently observed
   raw controller and firmware IDs remains useful for verification. The
@@ -217,3 +250,4 @@ and fixed channel. No other attributes are scoped on this board.
 | 1 | 2026-11-08 | Propose exact Experimental Linux sysfs coverage, separate from direct Windows access. |
 | 2 | 2026-11-08 | Record the pinned MSI input-cache read set and selector-only writes during refresh. |
 | 3 | 2026-11-08 | Propose Implementation-ready Experimental SYS_FAN1 coverage on exact MAG B850M MORTAR WIFI BIOS 1.A68 through its native Linux hwmon endpoint. |
+| 4 | 2026-11-09 | Apply ADR 0031: the BIOS version and the PRO platform instance number become evidence identities in Status; the board identity stays a mechanism gate because it selects the OEM EC channel assignment, and the per-channel label/type checks detect a changed assignment. Add the gate-kind table, let the PRO profile accept any canonical instance suffix, and add BIOS-independence fixtures. A Compatibility Report corroborates a build; Verified still needs primary or labeled-capture evidence for every lead-only mapping fact. |
