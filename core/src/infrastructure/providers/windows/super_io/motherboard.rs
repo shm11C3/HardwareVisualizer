@@ -5,8 +5,9 @@ use super::super::pawn_io::{
 };
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
 use super::ite::{
-  IteEcProfile, decode_ite_fan_rpm, decode_ite_temperature_byte,
-  is_ite_temperature_channel_eligible, is_plausible_ite_temperature,
+  IteEcProfile, cached_ga_b75m_d3h_match, decode_ite_fan_rpm,
+  decode_ite_temperature_byte, is_ite_temperature_channel_eligible,
+  is_plausible_ite_temperature, poll_ga_b75m_d3h_match,
 };
 use super::nuvoton::{
   NuvotonHmBaseCheck, NuvotonHmProfile, decode_filtered_nuvoton_temperature_byte,
@@ -73,6 +74,7 @@ const ITE_EC_VENDOR_ID: u8 = 0x90;
 const ITE_EC_FAN_ENABLE_REGISTER: u8 = 0x13;
 const ITE_EC_FAN_MODE_REGISTER: u8 = 0x0C;
 const ITE_ABSENT_EC_BASE: u16 = 0x0FF8;
+const ITE_GA_B75M_D3H_EC_BASE: u16 = 0x0A30;
 const ITE_SAMPLE_MIN_INTERVAL: Duration = Duration::from_millis(1_500);
 
 const ITE_TEMPERATURE_REGISTERS: [(&str, u8, u8); 3] = [
@@ -88,6 +90,7 @@ const ITE_FAN_REGISTERS: [(&str, u8, u8); 3] = [
   ("FAN2", 0x0E, 0x19),
   ("FAN3", 0x0F, 0x1A),
 ];
+const ITE_GA_B75M_D3H_FAN_NAMES: [&str; 2] = ["Fan 1", "Fan 2"];
 
 /// A motherboard sample paired with the active provider path's fan capability.
 pub(crate) struct MotherboardSensorReadout {
@@ -105,11 +108,13 @@ pub(crate) struct MotherboardSensorReadout {
 /// - docs/specs/sensors/superio-access.md revision 4
 /// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
-/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 3
+/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 4
+/// - docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md revision 1
 ///
 /// No other external sensor implementation source was used.
 pub(crate) struct MotherboardSensorSampler {
   active: Option<ActiveMotherboardSensors<PawnIoClient>>,
+  ga_b75m_d3h_checked: bool,
   unavailable_reason: Option<String>,
   retry_unavailable: bool,
   sample_failure_logged: bool,
@@ -122,6 +127,8 @@ impl MotherboardSensorSampler {
       SensorSupport::Unknown,
       ActiveMotherboardSensors::fan_support,
     );
+    // Keep the completed reading independent of an optional profile recheck.
+    self.refresh_ga_b75m_d3h_profile();
     MotherboardSensorReadout {
       sample,
       fan_support,
@@ -131,6 +138,7 @@ impl MotherboardSensorSampler {
   pub(crate) fn new() -> Self {
     let mut sampler = Self {
       active: None,
+      ga_b75m_d3h_checked: false,
       unavailable_reason: None,
       retry_unavailable: false,
       sample_failure_logged: false,
@@ -176,7 +184,9 @@ impl MotherboardSensorSampler {
   }
 
   fn try_open(&mut self) -> Result<(), String> {
-    match ActiveMotherboardSensors::open() {
+    let board_match = cached_ga_b75m_d3h_match();
+    self.ga_b75m_d3h_checked = board_match.is_some();
+    match ActiveMotherboardSensors::open(board_match == Some(true)) {
       Ok(active) => {
         self.active = Some(active);
         self.unavailable_reason = None;
@@ -190,6 +200,40 @@ impl MotherboardSensorSampler {
         self.unavailable_reason = Some(reason.clone());
         Err(reason)
       }
+    }
+  }
+
+  fn refresh_ga_b75m_d3h_profile(&mut self) {
+    let Some(ActiveMotherboardSensors::Ite(active)) = self.active.as_mut() else {
+      return;
+    };
+    if self.ga_b75m_d3h_checked || !active.is_ga_b75m_d3h_candidate() {
+      return;
+    }
+    let Some(board_match) = poll_ga_b75m_d3h_match() else {
+      return;
+    };
+    if !board_match {
+      self.ga_b75m_d3h_checked = true;
+      return;
+    }
+
+    let Ok(_mutex) = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)
+    else {
+      return;
+    };
+    self.ga_b75m_d3h_checked = true;
+    if let Err(reason) = active.recheck_ga_b75m_d3h() {
+      // Selecting the slot invalidated the old allow-list. Return the sample
+      // already collected and require normal discovery before another EC read.
+      log_warn!(
+        "experimental_ite_ga_b75m_d3h_recheck_failed",
+        "windows::super_io::MotherboardSensorSampler::readout",
+        Some(reason.clone())
+      );
+      self.active = None;
+      self.unavailable_reason = Some(reason);
+      self.retry_unavailable = true;
     }
   }
 
@@ -282,7 +326,7 @@ enum ActiveMotherboardSensors<C: LpcIoOps> {
 }
 
 impl ActiveMotherboardSensors<PawnIoClient> {
-  fn open() -> Result<Self, String> {
+  fn open(ga_b75m_d3h_baseboard: bool) -> Result<Self, String> {
     let (client, _discovery) =
       PawnIoClient::open(PawnIoModule::LpcIo).map_err(|error| error.reason)?;
 
@@ -302,7 +346,11 @@ impl ActiveMotherboardSensors<PawnIoClient> {
         }
       }
 
-      match ActiveIteMotherboardSensors::discover_slot(&client, slot) {
+      match ActiveIteMotherboardSensors::discover_slot(
+        &client,
+        slot,
+        ga_b75m_d3h_baseboard,
+      ) {
         Ok(Some(discovered)) => {
           return Ok(Self::Ite(ActiveIteMotherboardSensors::new(
             client, discovered,
@@ -569,7 +617,46 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     }
   }
 
-  fn discover_slot(client: &C, slot: u8) -> Result<Option<DetectedIteSlot>, String> {
+  fn discover_slot(
+    client: &C,
+    slot: u8,
+    ga_b75m_d3h_baseboard: bool,
+  ) -> Result<Option<DetectedIteSlot>, String> {
+    let scope = if ga_b75m_d3h_baseboard {
+      IteDiscoveryScope::WithGaB75mD3h
+    } else {
+      IteDiscoveryScope::Standard
+    };
+    Self::discover_slot_in_scope(client, slot, scope)
+  }
+
+  fn is_ga_b75m_d3h_candidate(&self) -> bool {
+    self.profile == IteEcProfile::It8728f
+      && self.slot == 0
+      && self.ec_base == ITE_GA_B75M_D3H_EC_BASE
+  }
+
+  /// Recheck the same primary controller while the caller holds the ISA mutex.
+  /// The caller must discard this sampler if its port proof is not renewed.
+  fn recheck_ga_b75m_d3h(&mut self) -> Result<(), String> {
+    let detected =
+      Self::discover_slot_in_scope(&self.client, 0, IteDiscoveryScope::RecheckGaB75mD3h)?
+        .ok_or_else(|| {
+          ite_experimental_non_component_failure(
+            self.profile,
+            "the primary IT8728F controller or its EC base changed",
+          )
+        })?;
+    self.profile = detected.profile;
+    self.fan_routes = detected.fan_routes;
+    Ok(())
+  }
+
+  fn discover_slot_in_scope(
+    client: &C,
+    slot: u8,
+    scope: IteDiscoveryScope,
+  ) -> Result<Option<DetectedIteSlot>, String> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
       return Ok(None);
     };
@@ -585,8 +672,9 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       // None of them is the IT8728F, so there is no EC path on this slot.
       return Ok(None);
     }
-    let result = id_bytes
-      .and_then(|(id_high, id_low)| discover_ite_ec_base(client, slot, id_high, id_low));
+    let result = id_bytes.and_then(|(id_high, id_low)| {
+      discover_ite_ec_base(client, slot, id_high, id_low, scope)
+    });
     let exit_result = exit_ite(client);
 
     match (result, exit_result) {
@@ -814,12 +902,21 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     };
     let mut had_io_failure = false;
 
-    for (channel, (name, low_register, high_register)) in
-      ITE_FAN_REGISTERS.into_iter().enumerate()
-    {
+    let board_fans = self.profile == IteEcProfile::It8728fExGaB75mD3h;
+    let registers = if board_fans {
+      &ITE_FAN_REGISTERS[..ITE_GA_B75M_D3H_FAN_NAMES.len()]
+    } else {
+      &ITE_FAN_REGISTERS
+    };
+    for (channel, &(name, low_register, high_register)) in registers.iter().enumerate() {
       if !self.fan_routes[channel] || (enabled & mode & (1 << channel)) == 0 {
         continue;
       }
+      let name = if board_fans {
+        ITE_GA_B75M_D3H_FAN_NAMES[channel]
+      } else {
+        name
+      };
 
       let read_count = || {
         let low = self.read_ec_byte(low_register)?;
@@ -869,6 +966,13 @@ struct DetectedIteSlot {
   ec_base: u16,
   profile: IteEcProfile,
   fan_routes: [bool; 3],
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum IteDiscoveryScope {
+  Standard,
+  WithGaB75mD3h,
+  RecheckGaB75mD3h,
 }
 
 fn discover_nuvoton_hm_base(
@@ -980,11 +1084,18 @@ fn discover_ite_ec_base(
   slot: u8,
   id_high: u8,
   id_low: u8,
+  scope: IteDiscoveryScope,
 ) -> Result<Option<DetectedIteSlot>, String> {
-  let Some(profile) = IteEcProfile::from_slot_and_chip_id(slot, chip_id(id_high, id_low))
+  let Some(mut profile) =
+    IteEcProfile::from_slot_and_chip_id(slot, chip_id(id_high, id_low))
   else {
     return Ok(None);
   };
+  if scope == IteDiscoveryScope::RecheckGaB75mD3h
+    && (slot != 0 || profile != IteEcProfile::It8728f)
+  {
+    return Ok(None);
+  }
   if profile == IteEcProfile::It8716fD {
     let revision = client
       .superio_inb(ITE_REVISION_REGISTER)
@@ -1024,6 +1135,9 @@ fn discover_ite_ec_base(
     ite_experimental_failure(profile, format!("CR61 read failed: {reason}"))
   })?;
   let raw_base = u16::from_be_bytes([base_high, base_low]);
+  if scope == IteDiscoveryScope::RecheckGaB75mD3h && raw_base != ITE_GA_B75M_D3H_EC_BASE {
+    return Ok(None);
+  }
   let ec_base = if profile.is_modern() {
     raw_base
   } else {
@@ -1058,6 +1172,22 @@ fn discover_ite_ec_base(
       // and do not rely on the selected LDN after it.
       select_ec()?;
     }
+  } else if profile == IteEcProfile::It8728f
+    && slot == 0
+    && scope != IteDiscoveryScope::Standard
+    && raw_base == ITE_GA_B75M_D3H_EC_BASE
+    && client
+      .superio_inb(ITE_REVISION_REGISTER)
+      .is_ok_and(|revision| revision & 0x0F == 0x01)
+  {
+    profile = IteEcProfile::It8728fExGaB75mD3h;
+    fan_routes = [
+      true,
+      client
+        .superio_inb(ITE_FAN2_ROUTING_REGISTER)
+        .is_ok_and(|route| route & 0x04 == 0),
+      false,
+    ];
   }
   client.find_lpc_bars().map_err(|reason| {
     ite_experimental_failure(profile, format!("LpcIO BAR discovery failed: {reason}"))
@@ -1501,6 +1631,7 @@ mod tests {
     fail_config_exit: Cell<bool>,
     fail_gpio_selection: Cell<bool>,
     fail_ec_reselection: Cell<bool>,
+    fail_find_bars: Cell<bool>,
     selected_slot_calls: Cell<u32>,
     find_bars_calls: Cell<u32>,
     config_exit_calls: Cell<u32>,
@@ -1537,6 +1668,7 @@ mod tests {
         fail_config_exit: Cell::new(false),
         fail_gpio_selection: Cell::new(false),
         fail_ec_reselection: Cell::new(false),
+        fail_find_bars: Cell::new(false),
         selected_slot_calls: Cell::new(0),
         find_bars_calls: Cell::new(0),
         config_exit_calls: Cell::new(0),
@@ -1561,6 +1693,18 @@ mod tests {
       client
     }
 
+    fn for_ga_b75m_d3h() -> Self {
+      let client = Self::new();
+      client.base_high.set(0x0A);
+      client.base_low.set(0x30);
+      client.fan_counts.set([[450; 2], [900; 2], [1_350; 2]]);
+      client
+    }
+
+    fn ec_base(&self) -> u16 {
+      u16::from_be_bytes([self.base_high.get(), self.base_low.get()])
+    }
+
     fn require_ec_bars(&self) -> Result<(), String> {
       if self.ec_bars_authorized.get() {
         Ok(())
@@ -1581,6 +1725,9 @@ mod tests {
 
     fn find_lpc_bars(&self) -> Result<(), String> {
       self.find_bars_calls.set(self.find_bars_calls.get() + 1);
+      if self.fail_find_bars.get() {
+        return Err("simulated LPC BAR discovery failure".to_string());
+      }
       if self.selected_ldn.get() != Some(ITE_ENVIRONMENT_CONTROLLER_LDN) {
         return Err("find_lpc_bars called before ITE LDN 4 selection".to_string());
       }
@@ -1593,7 +1740,7 @@ mod tests {
     }
 
     fn pio_inb(&self, port: u16) -> Result<u8, String> {
-      if port != 0x0296 {
+      if port != self.ec_base() + 6 {
         return Err(format!("unexpected EC data port 0x{port:04X}"));
       }
       self.require_ec_bars()?;
@@ -1635,13 +1782,13 @@ mod tests {
 
     fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
       match port {
-        0x0295 => {
+        port if port == self.ec_base() + 5 => {
           self.require_ec_bars()?;
           assert!(self.config_exit_calls.get() > 0 && !self.fail_config_exit.get());
+          assert!(!(0x01..=0x03).contains(&value), "read-to-clear EC status");
           self.selected_ec_register.set(Some(value));
           Ok(())
         }
-        0x0296 => Err("ITE EC data port must remain read-only".to_string()),
         0x002E | 0x004E => {
           self.config_port_writes.borrow_mut().push((port, value));
           Ok(())
@@ -2484,7 +2631,7 @@ mod tests {
   fn discover_ite_fixture(
     client: FakeIteLpcIo,
   ) -> ActiveIteMotherboardSensors<FakeIteLpcIo> {
-    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
       .unwrap()
       .unwrap();
     client.read_registers.borrow_mut().clear();
@@ -2495,7 +2642,7 @@ mod tests {
   fn ite_discovery_authorizes_ec_ports_only_after_config_exit() {
     let client = FakeIteLpcIo::new();
 
-    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
       .unwrap()
       .unwrap();
 
@@ -2521,7 +2668,7 @@ mod tests {
   fn ite_discovery_uses_the_slot_one_entry_key() {
     let client = FakeIteLpcIo::new();
 
-    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1)
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1, false)
       .unwrap()
       .unwrap();
 
@@ -2544,7 +2691,7 @@ mod tests {
       client.chip_id_high.set((id >> 8) as u8);
       client.chip_id_low.set(id as u8);
 
-      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1);
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1, false);
 
       assert!(matches!(detected, Ok(None)), "id 0x{id:04X}");
       assert_eq!(client.config_exit_calls.get(), 0, "id 0x{id:04X}");
@@ -2558,7 +2705,7 @@ mod tests {
     let client = FakeIteLpcIo::new();
     client.chip_id_low.set(0x34);
 
-    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1).unwrap();
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 1, false).unwrap();
 
     assert!(detected.is_none());
     assert_eq!(client.config_exit_calls.get(), 1);
@@ -2569,7 +2716,7 @@ mod tests {
     let client = FakeIteLpcIo::new();
     client.chip_id_low.set(0x33);
 
-    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap();
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap();
 
     assert!(detected.is_none());
     assert_eq!(client.config_exit_calls.get(), 1);
@@ -2582,7 +2729,8 @@ mod tests {
       .failed_ec_register
       .set(Some(ITE_EC_CONFIGURATION_REGISTER));
 
-    let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error =
+      ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains("EC port authorization probe failed"));
@@ -2623,7 +2771,8 @@ mod tests {
     client.activation.set(0x00);
     client.fail_config_exit.set(true);
 
-    let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error =
+      ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT));
@@ -2636,7 +2785,7 @@ mod tests {
     let client = FakeIteLpcIo::new();
     client.chip_id_low.set(0x21);
 
-    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap();
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap();
 
     assert!(detected.is_none());
     assert_eq!(client.find_bars_calls.get(), 0);
@@ -2649,7 +2798,8 @@ mod tests {
     let client = FakeIteLpcIo::new();
     client.base_high.set(0xF2);
 
-    let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error =
+      ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains("CR60/61=0xF2/0x90"));
@@ -2679,7 +2829,7 @@ mod tests {
       let client = FakeIteLpcIo::with_chip_id(id);
 
       assert!(
-        ActiveIteMotherboardSensors::discover_slot(&client, slot)
+        ActiveIteMotherboardSensors::discover_slot(&client, slot, false)
           .unwrap()
           .is_none()
       );
@@ -2696,7 +2846,7 @@ mod tests {
       let client = FakeIteLpcIo::with_chip_id(0x8716);
       client.revision.set(revision);
 
-      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0);
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false);
 
       if revision.is_some() {
         assert!(detected.unwrap().is_none());
@@ -2772,13 +2922,325 @@ mod tests {
     }
   }
 
+  fn ga_b75m_d3h_active(
+    client: FakeIteLpcIo,
+  ) -> ActiveIteMotherboardSensors<FakeIteLpcIo> {
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, true)
+      .unwrap()
+      .unwrap();
+    assert_eq!(detected.profile, IteEcProfile::It8728fExGaB75mD3h);
+    assert_eq!(*client.read_registers.borrow(), [0x00]);
+    client.read_registers.borrow_mut().clear();
+    ActiveIteMotherboardSensors::new(client, detected)
+  }
+
+  #[test]
+  fn ga_b75m_d3h_proves_the_primary_ec_and_collects_two_exact_fan_slots() {
+    for revision in [0x01, 0x81] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      client.revision.set(Some(revision));
+      let mut active = ga_b75m_d3h_active(client);
+
+      assert_eq!(active.ec_base, 0x0A30);
+      assert_eq!(
+        *active.client.config_reads.borrow(),
+        [
+          (None, 0x20),
+          (None, 0x21),
+          (Some(0x04), 0x30),
+          (Some(0x04), 0x60),
+          (Some(0x04), 0x61),
+          (Some(0x04), 0x22),
+          (Some(0x04), 0x29),
+        ]
+      );
+      assert_eq!(
+        *active.client.config_writes.borrow(),
+        [(0x07, 0x04), (0x02, 0x02)]
+      );
+      assert_eq!(active.client.find_bars_calls.get(), 1);
+
+      let first_at = Instant::now();
+      let sample = active.sample_unlocked_at(first_at).unwrap();
+      assert_eq!(temperature_names(&sample), ["TMPIN1", "TMPIN3"]);
+      assert_eq!(fan_names(&sample), ["Fan 1", "Fan 2"]);
+      assert_eq!(sample.fan_speeds[0].rpm, Some(1500));
+      assert_eq!(sample.fan_speeds[1].rpm, Some(750));
+      assert_eq!(sample.fan_speeds[0].source, "IT8728F/EX / Super I/O");
+      assert_eq!(
+        active
+          .sample_unlocked_at(first_at + Duration::from_secs(1))
+          .unwrap(),
+        sample
+      );
+      // FAN3's firmware enable is set in the fixture. Its mode and count
+      // registers remain outside this board's allow-list.
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        [
+          0x00, 0x51, 0x29, 0x2B, 0x13, 0x0D, 0x18, 0x0D, 0x18, 0x0E, 0x19, 0x0E, 0x19
+        ]
+      );
+      active.client.fan_enable.set(0x40);
+      assert!(
+        active
+          .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+          .unwrap()
+          .fan_speeds
+          .is_empty()
+      );
+      assert_eq!(
+        ActiveMotherboardSensors::Ite(active).fan_support(),
+        SensorSupport::Supported
+      );
+    }
+  }
+
+  #[test]
+  fn ga_b75m_d3h_failed_fan_qualification_preserves_it8728_temperatures() {
+    for (qualified_board, slot, base, revision, reads_revision) in [
+      (false, 0, 0x0A30_u16, Some(0x01), false),
+      (true, 1, 0x0A30, Some(0x01), false),
+      (true, 0, 0x0290, Some(0x01), false),
+      (true, 0, 0x0A30, Some(0x00), true),
+      (true, 0, 0x0A30, Some(0x02), true),
+      (true, 0, 0x0A30, None, true),
+    ] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      let [high, low] = base.to_be_bytes();
+      client.base_high.set(high);
+      client.base_low.set(low);
+      client.revision.set(revision);
+
+      let detected =
+        ActiveIteMotherboardSensors::discover_slot(&client, slot, qualified_board)
+          .unwrap()
+          .unwrap();
+
+      assert_eq!(detected.profile, IteEcProfile::It8728f);
+      let mut active = ActiveIteMotherboardSensors::new(client, detected);
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+      assert_eq!(temperature_names(&sample), ["TMPIN1", "TMPIN3"]);
+      assert!(sample.fan_speeds.is_empty());
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        [0x00, 0x00, 0x51, 0x29, 0x2B]
+      );
+      let reads = active.client.config_reads.borrow();
+      assert_eq!(reads.contains(&(Some(0x04), 0x22)), reads_revision);
+      assert!(!reads.contains(&(Some(0x04), 0x29)));
+    }
+
+    let client = FakeIteLpcIo::for_ga_b75m_d3h();
+    client.chip_id_low.set(0x21);
+    assert!(
+      ActiveIteMotherboardSensors::discover_slot(&client, 0, true)
+        .unwrap()
+        .is_none()
+    );
+    assert_eq!(*client.config_reads.borrow(), [(None, 0x20), (None, 0x21)]);
+    assert!(client.read_registers.borrow().is_empty());
+  }
+
+  #[test]
+  fn ga_b75m_d3h_fan_profile_is_discarded_without_post_exit_port_proof() {
+    for (fail_bars, fail_exit, deny_index, deny_data, expected_reads) in [
+      (true, false, false, false, &[][..]),
+      (false, true, false, false, &[][..]),
+      (false, false, true, false, &[][..]),
+      (false, false, false, true, &[0x00][..]),
+    ] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      client.fail_find_bars.set(fail_bars);
+      client.fail_config_exit.set(fail_exit);
+      client.deny_ec_bars.set(deny_index);
+      client.failed_ec_register.set(deny_data.then_some(0x00));
+
+      let result = ActiveIteMotherboardSensors::discover_slot(&client, 0, true);
+
+      assert!(result.is_err());
+      assert_eq!(client.config_exit_calls.get(), 1);
+      assert_eq!(client.read_registers.borrow().as_slice(), expected_reads);
+    }
+  }
+
+  #[test]
+  fn ga_b75m_d3h_replacement_executor_needs_its_own_port_proof() {
+    let active = ga_b75m_d3h_active(FakeIteLpcIo::for_ga_b75m_d3h());
+    drop(active);
+    let replacement = FakeIteLpcIo::for_ga_b75m_d3h();
+    replacement.deny_ec_bars.set(true);
+
+    let error =
+      ActiveIteMotherboardSensors::discover_slot(&replacement, 0, true).unwrap_err();
+
+    assert!(error.contains(ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT));
+    assert_eq!(replacement.find_bars_calls.get(), 1);
+    assert!(replacement.selected_ec_register.get().is_none());
+  }
+
+  #[test]
+  fn ga_b75m_d3h_late_match_renews_the_temperature_only_proof_and_preserves_cadence() {
+    let client = FakeIteLpcIo::for_ga_b75m_d3h();
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+      .unwrap()
+      .unwrap();
+    let mut active = ActiveIteMotherboardSensors::new(client, detected);
+    assert!(active.is_ga_b75m_d3h_candidate());
+
+    let first_at = Instant::now();
+    let fallback = active.sample_unlocked_at(first_at).unwrap();
+    assert_eq!(temperature_names(&fallback), ["TMPIN1", "TMPIN3"]);
+    assert!(fallback.fan_speeds.is_empty());
+    active.client.read_registers.borrow_mut().clear();
+
+    active.recheck_ga_b75m_d3h().unwrap();
+
+    assert_eq!(active.client.find_bars_calls.get(), 2);
+    assert_eq!(active.client.config_exit_calls.get(), 2);
+    assert_eq!(*active.client.read_registers.borrow(), [0x00]);
+    assert!(!active.is_ga_b75m_d3h_candidate());
+    assert_eq!(
+      active
+        .sample_unlocked_at(first_at + Duration::from_secs(1))
+        .unwrap(),
+      fallback
+    );
+    assert_eq!(*active.client.read_registers.borrow(), [0x00]);
+
+    let next = active
+      .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+      .unwrap();
+    assert_eq!(temperature_names(&next), ["TMPIN1", "TMPIN3"]);
+    assert_eq!(fan_names(&next), ["Fan 1", "Fan 2"]);
+  }
+
+  #[test]
+  fn ga_b75m_d3h_late_match_cannot_probe_a_changed_controller_or_ec_base() {
+    for change_chip in [true, false] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+        .unwrap()
+        .unwrap();
+      let mut active = ActiveIteMotherboardSensors::new(client, detected);
+      active.client.config_reads.borrow_mut().clear();
+      active.client.read_registers.borrow_mut().clear();
+      if change_chip {
+        active.client.chip_id_high.set(0x86);
+      } else {
+        active.client.base_high.set(0x02);
+        active.client.base_low.set(0x90);
+      }
+
+      assert!(active.recheck_ga_b75m_d3h().is_err());
+      let reads = active.client.config_reads.borrow();
+      assert_eq!(reads.len(), if change_chip { 2 } else { 5 });
+      assert_eq!(active.client.find_bars_calls.get(), 1);
+      assert_eq!(active.client.config_exit_calls.get(), 2);
+      assert!(active.client.read_registers.borrow().is_empty());
+    }
+  }
+
+  #[test]
+  fn ga_b75m_d3h_sample_monitor_state_blocks_all_fan_reads() {
+    for state in [Some(0x00), Some(0x09), None] {
+      let mut active = ga_b75m_d3h_active(FakeIteLpcIo::for_ga_b75m_d3h());
+      if let Some(configuration) = state {
+        active.client.ec_configuration.set(configuration);
+      } else {
+        active.client.failed_ec_register.set(Some(0x00));
+      }
+
+      assert!(active.sample_unlocked_at(Instant::now()).is_err());
+      assert_eq!(*active.client.read_registers.borrow(), [0x00]);
+    }
+  }
+
+  #[test]
+  fn ga_b75m_d3h_fan_inputs_keep_their_names_when_a_sibling_is_disabled_or_routed() {
+    for (enable, route, expected_name, expected_counts) in [
+      (0x60, Some(0x00), "Fan 2", [0x0E, 0x19, 0x0E, 0x19]),
+      (0x70, Some(0x04), "Fan 1", [0x0D, 0x18, 0x0D, 0x18]),
+      (0x70, None, "Fan 1", [0x0D, 0x18, 0x0D, 0x18]),
+    ] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      client.fan_enable.set(enable);
+      client.routing.set([route, Some(0x00)]);
+      let mut active = ga_b75m_d3h_active(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(fan_names(&sample), [expected_name]);
+      assert_eq!(
+        &active.client.read_registers.borrow()[5..],
+        &expected_counts
+      );
+    }
+  }
+
+  #[test]
+  fn ga_b75m_d3h_sample_preserves_fans_and_temperatures_after_local_failures() {
+    for (failed_register, fan1_unstable, expected_fans, expected_temperature_count) in [
+      (Some(0x13), false, &[][..], 2),
+      (Some(0x18), false, &["Fan 2"][..], 2),
+      (None, true, &["Fan 2"][..], 2),
+      (Some(0x51), false, &["Fan 1", "Fan 2"][..], 0),
+    ] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      client.failed_ec_register.set(failed_register);
+      if fan1_unstable {
+        client.fan_counts.set([[450, 451], [900; 2], [1_350; 2]]);
+      }
+      let mut active = ga_b75m_d3h_active(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(sample.temperatures.len(), expected_temperature_count);
+      assert_eq!(fan_names(&sample), expected_fans);
+      if expected_fans.contains(&"Fan 2") {
+        assert_eq!(sample.fan_speeds.last().unwrap().rpm, Some(750));
+      }
+      let reads = active.client.read_registers.borrow();
+      if failed_register == Some(0x13) {
+        assert_eq!(*reads, [0x00, 0x51, 0x29, 0x2B, 0x13]);
+      }
+      assert!(
+        !reads
+          .iter()
+          .any(|register| [0x0C, 0x0F, 0x1A].contains(register))
+      );
+    }
+  }
+
+  #[test]
+  fn ga_b75m_d3h_fan_status_uses_the_shared_counter_boundaries() {
+    for (count, rpm, status) in [
+      (0x0000, None, FanSpeedStatus::Invalid),
+      (0x003F, None, FanSpeedStatus::Invalid),
+      (0x0040, Some(10_546), FanSpeedStatus::Active),
+      (0xFFFE, Some(10), FanSpeedStatus::Active),
+      (0xFFFF, Some(0), FanSpeedStatus::Inactive),
+    ] {
+      let client = FakeIteLpcIo::for_ga_b75m_d3h();
+      client.fan_enable.set(0x10);
+      client.fan_counts.set([[count; 2], [0; 2], [0; 2]]);
+      let mut active = ga_b75m_d3h_active(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(fan_names(&sample), ["Fan 1"]);
+      assert_eq!(sample.fan_speeds[0].rpm, rpm);
+      assert_eq!(sample.fan_speeds[0].status, status);
+    }
+  }
+
   #[test]
   fn ite_modern_profiles_check_gpio_ldn_and_report_exact_source_labels() {
     for (id, label) in [(0x8620, "IT8620E"), (0x8628, "IT8628E")] {
       let client = FakeIteLpcIo::with_chip_id(id);
       client.channel_configuration.set(0x94);
       client.temperature_values.set([0xC9, 0x19, 0x7D]);
-      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
         .unwrap()
         .unwrap();
       assert_eq!(detected.profile.chip_label(), label);
@@ -2990,7 +3452,8 @@ mod tests {
       client.base_high.set(high);
       client.base_low.set(low);
 
-      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+      let error =
+        ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
 
       assert!(error.contains("invalid Environment Controller base"));
       assert_eq!(client.find_bars_calls.get(), 0);
@@ -3003,7 +3466,8 @@ mod tests {
       client.activation.set(activation);
       client.fail_ec_reselection.set(true);
 
-      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+      let error =
+        ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
 
       assert!(error.contains(if activation == 0 {
         "logical device is inactive"
@@ -3058,7 +3522,8 @@ mod tests {
       client.ec_configuration.set(state);
       client.ec_vendor.set(vendor);
 
-      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+      let error =
+        ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
 
       assert!(error.contains(expected_error), "{error}");
       assert!(error.contains("IT8620E"));
