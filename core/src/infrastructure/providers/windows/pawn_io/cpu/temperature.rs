@@ -2,16 +2,16 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::{Mutex, OnceLock};
 
-use super::cpu_ccd_temperature::VermeerCcdTarget;
-pub use super::cpu_identity::{CpuIdentity, CpuVendor};
-use super::cpu_identity::{cpuid_leaf, detect_cpu_identity};
-use super::cpu_temperature_decode::{
+use super::super::client::{
+  PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
+};
+use super::ccd_temperature::VermeerCcdTarget;
+pub use super::identity::{CpuIdentity, CpuVendor};
+use super::identity::{cpuid_leaf, detect_cpu_identity};
+use super::temperature_decode::{
   CpuTemperatureDecodeError, decode_amd_zen_package_temperature,
   decode_intel_package_temperature, decode_intel_package_thermal_status,
   decode_intel_temperature_target,
-};
-use super::pawn_io::{
-  PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
 };
 use crate::models::{CpuCcdTemperature, CpuPackageThermalStatus, SensorEnablement};
 use crate::{log_debug, log_warn};

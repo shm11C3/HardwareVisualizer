@@ -14,11 +14,11 @@ use windows::Win32::{
 use windows::core::HRESULT;
 
 use super::{
-  cpu_identity::{cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
-  cpu_temperature_decode::{
+  super::client::{PawnIoClient, PawnIoModule},
+  identity::{cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
+  temperature_decode::{
     decode_intel_package_temperature, decode_intel_temperature_target,
   },
-  pawn_io::{PawnIoClient, PawnIoModule},
 };
 use crate::models::CpuCoreTemperature;
 

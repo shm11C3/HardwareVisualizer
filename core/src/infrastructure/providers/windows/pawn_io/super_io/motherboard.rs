@@ -1,8 +1,6 @@
 use std::time::{Duration, Instant};
 
-use super::super::pawn_io::{
-  ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule,
-};
+use super::super::client::{ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule};
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
 use super::ite::{
   IteEcProfile, cached_ga_b75m_d3h_match, decode_ite_fan_rpm,

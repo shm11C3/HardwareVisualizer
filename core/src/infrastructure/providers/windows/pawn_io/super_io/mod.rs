@@ -4,7 +4,7 @@
 //! [`access`] holds the configuration-access facts shared by every vendor,
 //! [`nuvoton`] and [`ite`] hold the vendor hardware-monitor decode facts, and
 //! [`diagnostics`] / [`motherboard`] perform the actual port I/O. This mirrors
-//! the `cpu_*_decode.rs` placement for the PawnIO CPU paths.
+//! the `pawn_io/cpu/*_decode.rs` placement for the PawnIO CPU paths.
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-access.md` revision 3 (revision 4 for the

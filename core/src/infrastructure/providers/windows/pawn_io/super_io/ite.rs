@@ -12,9 +12,9 @@ use std::sync::{
   mpsc::{Receiver, TryRecvError},
 };
 
-use super::{
-  super::wmi_provider::{Win32BaseBoard, start_baseboard_identity_query},
-  is_plausible_super_io_temperature,
+use super::is_plausible_super_io_temperature;
+use crate::infrastructure::providers::windows::wmi_provider::{
+  Win32BaseBoard, start_baseboard_identity_query,
 };
 use crate::{log_debug, log_warn};
 

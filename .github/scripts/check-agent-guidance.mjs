@@ -301,11 +301,7 @@ async function checkRules() {
   const cleanRoomScope =
     parsedByFile.get("clean-room-sensors.md")?.get("scope") ?? "";
   for (const requiredPath of [
-    "core/src/infrastructure/providers/windows/pawn_io.rs",
-    "core/src/infrastructure/providers/windows/cpu_temperature.rs",
-    "core/src/infrastructure/providers/windows/cpu_temperature_decode.rs",
-    "core/src/infrastructure/providers/windows/super_io/**",
-    "core/src/platform/windows/motherboard.rs",
+    "core/src/infrastructure/providers/windows/pawn_io/**",
     "core/src/platform/windows/sensors.rs",
   ]) {
     if (!cleanRoomScope.split(",").includes(requiredPath)) {

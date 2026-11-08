@@ -10,8 +10,8 @@ use windows::Win32::{
 use windows::core::HRESULT;
 
 use super::{
-  cpu_identity::{cpu_brand_bytes, cpuid_leaf, vendor_id_from_leaf0},
-  pawn_io::PawnIoClient,
+  super::client::PawnIoClient,
+  identity::{cpu_brand_bytes, cpuid_leaf, vendor_id_from_leaf0},
 };
 use crate::models::CpuCcdTemperature;
 

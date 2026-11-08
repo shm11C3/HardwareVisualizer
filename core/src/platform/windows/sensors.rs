@@ -1,9 +1,9 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::infrastructure::providers::windows::cpu_temperature::{
+use crate::infrastructure::providers::windows::pawn_io::cpu::temperature::{
   CpuPackageTemperature, CpuPackageTemperatureError, CpuTemperatureSource,
 };
-use crate::infrastructure::providers::windows::super_io::motherboard::MotherboardSensorReadout;
+use crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::MotherboardSensorReadout;
 use crate::log_warn;
 use crate::models::{
   ExternalComponentGuidanceCandidate, MotherboardSensorCollection,
@@ -64,7 +64,7 @@ pub(crate) fn motherboard_collection_from_readout(
 
       let availability =
         if reason
-          == crate::infrastructure::providers::windows::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
+          == crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
         {
           SensorAvailability::unsupported(reason.clone())
         } else {
@@ -75,7 +75,7 @@ pub(crate) fn motherboard_collection_from_readout(
         sample: Default::default(),
         availability,
         fan_support: if reason
-          == crate::infrastructure::providers::windows::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
+          == crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
         {
           SensorSupport::Unsupported
         } else {
@@ -91,12 +91,12 @@ fn motherboard_guidance_candidates_for_reason(
   reason: String,
 ) -> Vec<ExternalComponentGuidanceCandidate> {
   if reason
-    == crate::infrastructure::providers::windows::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
+    == crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
     || reason.starts_with(
-      crate::infrastructure::providers::windows::super_io::motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
+      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
     )
     || reason.starts_with(
-      crate::infrastructure::providers::windows::super_io::motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
+      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
     )
   {
     return Vec::new();
@@ -393,7 +393,7 @@ mod tests {
   #[test]
   fn motherboard_guidance_suppresses_unsupported_super_io_path() {
     let candidates = motherboard_guidance_candidates_for_reason(
-      crate::infrastructure::providers::windows::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
+      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
         .to_string(),
     );
 
@@ -421,7 +421,7 @@ mod tests {
   fn motherboard_guidance_suppresses_experimental_ite_hardware_state_failure() {
     let candidates = motherboard_guidance_candidates_for_reason(format!(
       "{}: no eligible physical TMPIN channels are enabled",
-      crate::infrastructure::providers::windows::super_io::motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
+      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
     ));
 
     assert!(candidates.is_empty());
@@ -431,7 +431,7 @@ mod tests {
   fn motherboard_guidance_suppresses_experimental_nuvoton_hardware_state_failure() {
     let candidates = motherboard_guidance_candidates_for_reason(format!(
       "{} (NCT6798D): Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)",
-      crate::infrastructure::providers::windows::super_io::motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
+      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
     ));
 
     assert!(candidates.is_empty());
@@ -455,7 +455,7 @@ mod tests {
   fn motherboard_guidance_remains_for_experimental_ite_runtime_failure() {
     let candidates = motherboard_guidance_candidates_for_reason(format!(
       "{}: EC port authorization probe failed: pawnio_execute ioctl_pio_inb failed",
-      crate::infrastructure::providers::windows::super_io::motherboard::ITE_EXPERIMENTAL_FAILURE_PREFIX
+      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::ITE_EXPERIMENTAL_FAILURE_PREFIX
     ));
 
     assert_eq!(candidates.len(), 1);
@@ -491,9 +491,9 @@ mod tests {
   fn temperature_sample_prefers_pawnio_cpu_package() {
     let sample = build_temperature_sample(
       Ok(
-        crate::infrastructure::providers::windows::cpu_temperature::CpuPackageTemperature {
+        crate::infrastructure::providers::windows::pawn_io::cpu::temperature::CpuPackageTemperature {
           temperature_celsius: 61.25,
-          source: crate::infrastructure::providers::windows::cpu_temperature::CpuTemperatureSource::IntelDtsPackageMsr,
+          source: crate::infrastructure::providers::windows::pawn_io::cpu::temperature::CpuTemperatureSource::IntelDtsPackageMsr,
           thermal_status: Some(crate::models::CpuPackageThermalStatus {
             thermal_status: true,
             prochot_or_forcepr_asserted: false,
@@ -660,7 +660,7 @@ mod tests {
   fn temperature_sample_suppresses_guidance_for_unsupported_cpu_path() {
     let sample = build_temperature_sample(
       Err(CpuPackageTemperatureError::Unsupported(
-        crate::infrastructure::providers::windows::cpu_temperature::CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x16),
+        crate::infrastructure::providers::windows::pawn_io::cpu::temperature::CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x16),
       )),
       Vec::new(),
     );

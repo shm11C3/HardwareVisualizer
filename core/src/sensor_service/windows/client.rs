@@ -75,7 +75,7 @@ pub fn motherboard() -> Result<MotherboardSensorCollection, SampleError> {
 }
 
 pub async fn cpu_core_temperatures() -> Result<Vec<CpuCoreTemperature>, PlatformError> {
-  use crate::infrastructure::providers::windows::cpu_core_temperature::supported_profile;
+  use crate::infrastructure::providers::windows::pawn_io::cpu::core_temperature::supported_profile;
 
   if supported_profile().is_none() {
     return Ok(Vec::new());
@@ -102,7 +102,7 @@ fn decode_cpu_core_temperature_response(
 }
 
 pub async fn cpu_ccd_temperatures() -> Result<Vec<CpuCcdTemperature>, PlatformError> {
-  use crate::infrastructure::providers::windows::cpu_ccd_temperature::is_supported_processor;
+  use crate::infrastructure::providers::windows::pawn_io::cpu::ccd_temperature::is_supported_processor;
 
   if !is_supported_processor() {
     return Ok(Vec::new());

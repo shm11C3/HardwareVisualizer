@@ -9,7 +9,7 @@ root_cause: verification confidence and runtime availability were collapsed into
 guardrail: docs/design-principles.md and docs/adr/0011-experimental-sensor-enablement.md
 canonical_refs: docs/design-principles.md, docs/adr/0011-experimental-sensor-enablement.md
 verification: confirm the path is recognized, read-only, uses an existing decode and plausibility gate, keeps verification status in sensor docs, identifies Experimental only on a surfaced failure, and does not guess an address, register map, or chip selection
-evidence: "issue #1824; core/src/models/metrics.rs; core/src/infrastructure/providers/windows/cpu_temperature.rs; core/src/platform/windows/sensors.rs"
+evidence: "issue #1824; core/src/models/metrics.rs; core/src/infrastructure/providers/windows/pawn_io/cpu/temperature.rs; core/src/platform/windows/sensors.rs"
 revalidate_when: sensor verification vocabulary, failure presentation policy, clean-room role boundaries, PawnIO module recognition, or native sensor wire models change
 ---
 
