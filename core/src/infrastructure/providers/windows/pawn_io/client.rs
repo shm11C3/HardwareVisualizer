@@ -49,6 +49,8 @@ pub(crate) enum PawnIoError {
   NoOutput { function: &'static str },
   #[error(transparent)]
   Mutex(#[from] MutexError),
+  #[error("shared IntelMSR client lock poisoned")]
+  SharedClientPoisoned,
 }
 
 /// A failure to take an ecosystem mutex shared with other monitoring tools.
@@ -67,21 +69,6 @@ pub(crate) enum MutexError {
     name: &'static str,
     wait: WAIT_EVENT,
   },
-}
-
-// Transitional bridges for callers that still carry `String` reasons. They
-// produce the same text as before; #2639 removes them once every caller
-// keeps the typed error.
-impl From<PawnIoError> for String {
-  fn from(error: PawnIoError) -> Self {
-    error.to_string()
-  }
-}
-
-impl From<MutexError> for String {
-  fn from(error: MutexError) -> Self {
-    error.to_string()
-  }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -389,6 +376,17 @@ pub(crate) fn open_shared_intel_msr() -> SharedIntelMsr {
     })
     .1
     .clone()
+}
+
+/// Read one MSR through the shared IntelMSR executor.
+pub(crate) fn read_shared_msr(
+  client: &Mutex<PawnIoClient>,
+  msr: u64,
+) -> Result<u64, PawnIoError> {
+  client
+    .lock()
+    .map_err(|_| PawnIoError::SharedClientPoisoned)?
+    .read_msr(msr)
 }
 
 /// Called only after the service's temperature/power owners have been dropped.
@@ -716,6 +714,14 @@ mod tests {
         &error.to_string()
       ),
       crate::models::ExternalComponentReasonKind::Permission
+    );
+  }
+
+  #[test]
+  fn poisoned_shared_client_keeps_its_surfaced_reason() {
+    assert_eq!(
+      PawnIoError::SharedClientPoisoned.to_string(),
+      "shared IntelMSR client lock poisoned"
     );
   }
 

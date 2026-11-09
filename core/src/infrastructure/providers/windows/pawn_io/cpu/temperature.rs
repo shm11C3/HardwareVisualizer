@@ -4,6 +4,7 @@ use std::sync::{Mutex, OnceLock};
 
 use super::super::client::{
   PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
+  read_shared_msr,
 };
 use super::ccd_temperature::AmdCcdTarget;
 pub use super::identity::{CpuIdentity, CpuVendor};
@@ -305,8 +306,8 @@ impl CpuTemperatureSampler {
         target_celsius,
         enablement: _,
       }) => read_shared_msr(client, IA32_PACKAGE_THERM_STATUS)
-        .map_err(|reason| CpuPackageTemperatureError::Unavailable {
-          reason,
+        .map_err(|error| CpuPackageTemperatureError::Unavailable {
+          reason: error.to_string(),
           enablement,
           thermal_status: None,
         })
@@ -319,7 +320,7 @@ impl CpuTemperatureSampler {
         enablement: _,
       }) => client
         .read_smu_register(AMD_THM_TCON_CUR_TMP)
-        .map_err(String::from)
+        .map_err(|error| error.to_string())
         .and_then(|value| {
           decode_amd_zen_package_temperature(value as u32, *tctl_offset_celsius)
             .map_err(format_decode_error)
@@ -398,7 +399,8 @@ impl ActiveCpuTemperatureSource {
         let (client, mut discovery) = open_shared_intel_msr()?;
         let target_msr = match read_shared_msr(&client, MSR_TEMPERATURE_TARGET) {
           Ok(value) => value,
-          Err(reason) => {
+          Err(error) => {
+            let reason = error.to_string();
             discovery.fallback_reason = Some(reason.clone());
             return Err(PawnIoInitError {
               discovery: Box::new(discovery),
@@ -439,14 +441,6 @@ impl ActiveCpuTemperatureSource {
       }
     }
   }
-}
-
-fn read_shared_msr(client: &Arc<Mutex<PawnIoClient>>, msr: u64) -> Result<u64, String> {
-  client
-    .lock()
-    .map_err(|_| "shared IntelMSR client lock poisoned".to_string())?
-    .read_msr(msr)
-    .map_err(String::from)
 }
 
 fn decode_intel_package_temperature_sample(
