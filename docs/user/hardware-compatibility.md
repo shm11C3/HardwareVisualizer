@@ -33,7 +33,7 @@ vendor or family.
 | AMD Family 1Ah | PawnIO package temperature | Experimental | No, report availability first | — |
 | AMD Vermeer | Windows PawnIO [CCD temperatures on qualified single-package AM4 models](../specs/sensors/cpu-amd-vermeer-ccd-smn.md) | Experimental | No | — |
 | Intel CPUs | PawnIO package temperature | Not yet verified by a public compatibility report | No | — |
-| Intel Core DTS | Windows PawnIO core temperatures on [selected Nehalem, Sandy Bridge, Atom C2000, and Alder Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) and [Meteor Lake C0](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | The legacy profiles include DTS-only CPUs. The scoped Alder Lake and Meteor Lake profiles are Experimental. | No | — |
+| Intel Core DTS | Windows PawnIO core temperatures on [selected Nehalem, Sandy Bridge, Atom C2000, Alder Lake, and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) and [Meteor Lake C0](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | The legacy profiles include DTS-only CPUs. The scoped hybrid profiles are Experimental. | No | — |
 | NVIDIA GPUs | NVAPI on Windows | Not yet verified by a public compatibility report | No | — |
 | NVIDIA GPUs | NVML usage, temperature, and dedicated VRAM usage for detected Linux DRM adapters with the system NVIDIA driver | Implemented. Native Linux compatibility report not yet recorded. | No | — |
 | AMD GPUs | ADL on Windows, DRM/hwmon on Linux | Not yet verified by a public compatibility report | No | — |
