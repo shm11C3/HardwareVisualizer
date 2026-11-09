@@ -2,15 +2,15 @@
 id: LRN-20261110-distinguish-dxgi-display-aliases
 status: promoted
 cause_status: confirmed
-scope: Windows GPU inventory and DXGI adapter identity
-trigger: a Windows inventory lists two adapters with the same name or hardware identifiers
-failure_signature: the backend inventory returned two RTX 5080 rows for one present PCI graphics device
+scope: Windows GPU inventory, PDH fallback and DXGI adapter identity
+trigger: Windows GPU results list two adapters with the same name or hardware identifiers
+failure_signature: the backend inventory and PDH-only sampling both returned two RTX 5080 entries for one present PCI graphics device
 root_cause: DXGI enumerated a physical renderer and an indirect display-only adapter with distinct LUIDs and one shared physical hardware key
 guardrail: filter only OS-identified indirect display aliases of a separately enumerated renderer
 canonical_refs: core/src/infrastructure/providers/windows/directx.rs, core/src/platform/windows/gpu.rs, docs/adr/0016-gpu-attribution-on-the-performance-screen.md
-verification: fixtures preserve the renderer id, separate renderers, an unmatched indirect adapter, and an adapter whose physical identity is unavailable
-evidence: "Issue #1990 follow-up. Two live EnumAdapters1 passes, present PnP display devices, and read-only D3DKMT type and physical hardware key queries"
-revalidate_when: Windows GPU inventory switches enumeration APIs or the OS identity evidence used for alias filtering changes
+verification: inventory and live discovery fixtures preserve the renderer identity, separate renderers, an unmatched indirect adapter, and an adapter whose physical identity is unavailable
+evidence: "Issue #1990 follow-up. Live DXGI and PnP enumeration, read-only D3DKMT identity queries, and a live PDH-only probe before and after the fix"
+revalidate_when: Windows GPU inventory or PDH discovery changes its enumeration API or alias identity evidence
 ---
 
 # Distinguish Indirect Display Aliases From Physical GPUs
@@ -21,7 +21,8 @@ render-capable adapter and one indirect display-only adapter. Each resolved to
 the same single physical hardware key. The physical NVIDIA device appeared
 once in the present PnP display inventory.
 
-Compare the OS adapter role and physical key before suppressing a row.
+Compare the OS adapter role and physical key before suppressing an inventory
+row or a live fallback entry.
 Two physical GPUs of the same model can share the DXGI descriptive fields.
 Keep the existing identifier assignment when hiding the extra row.
 The [inventory decision](../../adr/0016-gpu-attribution-on-the-performance-screen.md)

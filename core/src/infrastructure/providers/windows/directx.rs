@@ -93,7 +93,7 @@ pub struct GpuLuidInfo {
   pub bdf: Option<(i32, i32, i32)>,
 }
 
-/// LUID information for every hardware GPU adapter Windows exposes.
+/// LUID information for hardware GPU adapters, excluding proven display aliases.
 ///
 /// Deliberately vendor-agnostic: PDH is the only usage source left for an
 /// adapter whose vendor API is missing or refuses to answer — an AMD APU
@@ -111,28 +111,42 @@ pub async fn get_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
         .into_iter()
         .filter_map(|adapter| Some((adapter.adapter_luid?, adapter)))
         .collect();
-    let mut result = Vec::with_capacity(adapters.len());
-
-    for desc in adapters {
-      let luid = desc.AdapterLuid;
-      let pnp = pnp_by_luid.get(&(luid.HighPart, luid.LowPart));
-      result.push(GpuLuidInfo {
-        name: adapter_name(&desc),
-        luid_high: luid.HighPart,
-        luid_low: luid.LowPart,
-        device_instance_id: pnp.and_then(|a| a.device_instance_id.clone()),
-        vendor_id: desc.VendorId,
-        bdf: pnp.map(|a| (a.bus, a.device, a.function)),
-      });
-    }
-
-    Ok(result)
+    Ok(live_adapter_info(
+      adapters,
+      &pnp_by_luid,
+      physical_adapter_identity,
+    ))
   });
 
   handle.await.map_err(|e| {
     log_error!("join_error", "get_gpu_luid_info", Some(e.to_string()));
     "GPU LUID info retrieval failed".to_string()
   })?
+}
+
+fn live_adapter_info(
+  adapters: Vec<DXGI_ADAPTER_DESC1>,
+  pnp_by_luid: &HashMap<(i32, u32), setupdi_provider::DisplayAdapterBdf>,
+  identify: impl FnMut(LUID) -> Option<PhysicalAdapterIdentity>,
+) -> Vec<GpuLuidInfo> {
+  let indirect_aliases = identify_indirect_aliases(&adapters, identify);
+  adapters
+    .into_iter()
+    .zip(indirect_aliases)
+    .filter(|(_, is_indirect_alias)| !is_indirect_alias)
+    .map(|(desc, _)| {
+      let luid = desc.AdapterLuid;
+      let pnp = pnp_by_luid.get(&(luid.HighPart, luid.LowPart));
+      GpuLuidInfo {
+        name: adapter_name(&desc),
+        luid_high: luid.HighPart,
+        luid_low: luid.LowPart,
+        device_instance_id: pnp.and_then(|a| a.device_instance_id.clone()),
+        vendor_id: desc.VendorId,
+        bdf: pnp.map(|a| (a.bus, a.device, a.function)),
+      }
+    })
+    .collect()
 }
 
 /// Get GPU LUID information, cached for the process lifetime.
@@ -369,7 +383,7 @@ mod tests {
         ..Default::default()
       })
       .collect();
-    let aliases = identify_indirect_aliases(&adapters, |luid| {
+    let identify = |luid: LUID| {
       use PhysicalAdapterRole::*;
       let (role, hardware_key) = match luid.LowPart {
         1 => (IndirectDisplayOnly, r"\Registry\Machine\Fixture\GpuA"),
@@ -382,9 +396,32 @@ mod tests {
         role,
         hardware_key: hardware_key.encode_utf16().collect(),
       })
-    });
+    };
 
+    let aliases = identify_indirect_aliases(&adapters, identify);
     assert_eq!(aliases, [true, false, false, false, false]);
+
+    let instance_id = r"PCI\VEN_10DE&DEV_2C02\4&12345678&0&0008";
+    let pnp = HashMap::from([(
+      (0, 2),
+      setupdi_provider::DisplayAdapterBdf {
+        description: "Renderer".into(),
+        bus: 1,
+        device: 0,
+        function: 0,
+        adapter_luid: Some((0, 2)),
+        device_instance_id: Some(instance_id.into()),
+      },
+    )]);
+    let live = live_adapter_info(adapters, &pnp, identify);
+    let luids: Vec<_> = live
+      .iter()
+      .map(|gpu| (gpu.luid_high, gpu.luid_low))
+      .collect();
+    assert_eq!(luids, [(0, 2), (0, 3), (0, 4), (0, 5)]);
+    assert_eq!(live[0].device_instance_id.as_deref(), Some(instance_id));
+    assert_eq!(live[0].bdf, Some((1, 0, 0)));
+    assert_eq!(live[1].device_instance_id, None);
   }
 
   #[test]

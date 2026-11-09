@@ -48,10 +48,11 @@ preserves unambiguous legacy numeric ids
 (raw NVAPI id for an enriched NVIDIA adapter and device id for AMD/Intel)
 and otherwise uses `dxgi:<luid_high>:<luid_low>`. Live NVIDIA samples use
 `nvapi:<id>`. Windows AMD ADL samples use the PCI address as
-`pci:<bus>:<device>:<function>`. The Windows PDH fallback samples use
+`pci:<bus>:<device>:<function>`. The Windows PDH fallback excludes aliases
+under the same physical-key rule and keeps the renderer's identity. It uses
 the reboot-stable PnP device instance id as
 `pdh:instance:<device_instance_id>` when SetupDi can associate it with the
-DXGI adapter LUID and fall back to `pdh:<luid_high>:<luid_low>` otherwise.
+DXGI adapter LUID and falls back to `pdh:<luid_high>:<luid_low>` otherwise.
 macOS pairs `0x<registry_id>` with `iokit:<name>`. Linux pairs `card<n>` with the
 PCI BDF.
 The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
