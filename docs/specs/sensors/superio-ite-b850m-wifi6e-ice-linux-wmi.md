@@ -51,7 +51,7 @@ that base as a sampling address. (S1–S3, S7 lead-only)
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Primary ITE motherboard temperatures through the qualified existing WMI hwmon endpoint | Experimental. F4 owner sample corroborates five channels on the IT8696E board. F11 corroborates the same read contract statically. S4/S5 provide lead-only callback, units and ownership facts. S7 provides the lead-only conflicting binding identity. | Experimental for the qualifying Linux endpoint |
+| Primary ITE motherboard temperatures through the qualified existing WMI hwmon endpoint | Experimental. F4 owner sample corroborates five channels on the IT8696E board. F11 corroborates the same read contract statically. S4 provides lead-only GUID/driver binding, probe visibility, input callback, zero rejection and units. S5 provides lead-only passive DMI/WMI metadata and canonical ownership links. S7 provides the lead-only conflicting binding identity. | Experimental for the qualifying Linux endpoint |
 | Other boards, direct chip access, Windows WMI calls, fan RPM, and other firmware methods | Unsupported by this specification. | Disabled |
 
 ## Firmware and collection facts
