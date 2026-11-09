@@ -2,8 +2,17 @@ use crate::models::hardware::GraphicInfo;
 use crate::{log_error, log_warn};
 
 use super::setupdi_provider;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tokio::task::spawn_blocking;
+use windows::Wdk::Graphics::Direct3D::{
+  D3DKMT_ADAPTERTYPE, D3DKMT_CLOSEADAPTER, D3DKMT_OPENADAPTERFROMLUID,
+  D3DKMT_PHYSICAL_ADAPTER_COUNT, D3DKMT_PNP_KEY_HARDWARE,
+  D3DKMT_QUERY_PHYSICAL_ADAPTER_PNP_KEY, D3DKMT_QUERYADAPTERINFO, D3DKMTCloseAdapter,
+  D3DKMTOpenAdapterFromLuid, D3DKMTQueryAdapterInfo, KMTQAITYPE_ADAPTERTYPE,
+  KMTQAITYPE_PHYSICALADAPTERCOUNT, KMTQAITYPE_PHYSICALADAPTERPNPKEY,
+  KMTQUERYADAPTERINFOTYPE,
+};
+use windows::Win32::Foundation::{LUID, STATUS_SUCCESS};
 use windows::Win32::Graphics::Dxgi::{
   CreateDXGIFactory1, DXGI_ADAPTER_DESC1, DXGI_ADAPTER_FLAG_SOFTWARE,
   DXGI_ERROR_NOT_FOUND, IDXGIFactory1,
@@ -151,18 +160,141 @@ pub async fn get_gpu_luid_info_cached() -> &'static [GpuLuidInfo] {
 pub(crate) struct InventoryAdapter {
   pub(crate) info: GraphicInfo,
   pub(crate) vendor_id: u32,
+  pub(crate) is_indirect_alias: bool,
   // Older AMD/Intel inventory rows used only the device/model number.
   pub(crate) legacy_device_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PhysicalAdapterRole {
+  Renderer,
+  IndirectDisplayOnly,
+}
+
+struct PhysicalAdapterIdentity {
+  role: PhysicalAdapterRole,
+  hardware_key: Vec<u16>,
+}
+
+fn identify_indirect_aliases(
+  adapters: &[DXGI_ADAPTER_DESC1],
+  mut identify: impl FnMut(LUID) -> Option<PhysicalAdapterIdentity>,
+) -> Vec<bool> {
+  let identities: Vec<_> = adapters
+    .iter()
+    .map(|desc| identify(desc.AdapterLuid))
+    .collect();
+  let renderers: HashSet<_> = identities
+    .iter()
+    .flatten()
+    .filter(|identity| identity.role == PhysicalAdapterRole::Renderer)
+    .map(|identity| identity.hardware_key.as_slice())
+    .collect();
+  identities
+    .iter()
+    .map(|identity| {
+      // A different LUID can be an indirect display alias of a renderer.
+      // Only the OS-reported physical key can establish this relationship.
+      identity.as_ref().is_some_and(|identity| {
+        identity.role == PhysicalAdapterRole::IndirectDisplayOnly
+          && renderers.contains(identity.hardware_key.as_slice())
+      })
+    })
+    .collect()
+}
+
+fn physical_adapter_identity(luid: LUID) -> Option<PhysicalAdapterIdentity> {
+  let adapter = KmtAdapter::open(luid)?;
+  let mut adapter_type = D3DKMT_ADAPTERTYPE::default();
+  // SAFETY: The query kinds match the initialized SDK output structures.
+  unsafe { adapter.query(KMTQAITYPE_ADAPTERTYPE, &mut adapter_type) }?;
+  let role = physical_adapter_role(unsafe { adapter_type.Anonymous.Value })?;
+  let mut physical_count = D3DKMT_PHYSICAL_ADAPTER_COUNT::default();
+  unsafe { adapter.query(KMTQAITYPE_PHYSICALADAPTERCOUNT, &mut physical_count) }?;
+  if physical_count.Count != 1 {
+    return None;
+  }
+
+  let mut buffer = [0u16; 512];
+  let mut length = buffer.len() as u32;
+  let mut key = D3DKMT_QUERY_PHYSICAL_ADAPTER_PNP_KEY {
+    PhysicalAdapterIndex: 0,
+    PnPKeyType: D3DKMT_PNP_KEY_HARDWARE,
+    pDest: windows::core::PWSTR(buffer.as_mut_ptr()),
+    pCchDest: &mut length,
+  };
+  // SAFETY: The key request points to a writable buffer and its length.
+  unsafe { adapter.query(KMTQAITYPE_PHYSICALADAPTERPNPKEY, &mut key) }?;
+  let [hardware_key @ .., 0] = buffer.get(..length as usize)? else {
+    return None;
+  };
+  if hardware_key.is_empty() || hardware_key.contains(&0) {
+    return None;
+  }
+  Some(PhysicalAdapterIdentity {
+    role,
+    hardware_key: hardware_key.to_vec(),
+  })
+}
+
+fn physical_adapter_role(flags: u32) -> Option<PhysicalAdapterRole> {
+  // D3DKMT_ADAPTERTYPE exposes these SDK bitfields through its Value member.
+  const RENDER_SUPPORTED: u32 = 1 << 0;
+  const DISPLAY_SUPPORTED: u32 = 1 << 1;
+  const INDIRECT_DISPLAY_DEVICE: u32 = 1 << 6;
+  const COMPUTE_ONLY: u32 = 1 << 11;
+  const INDIRECT_DISPLAY: u32 = DISPLAY_SUPPORTED | INDIRECT_DISPLAY_DEVICE;
+
+  if flags & RENDER_SUPPORTED != 0 {
+    Some(PhysicalAdapterRole::Renderer)
+  } else if flags & INDIRECT_DISPLAY == INDIRECT_DISPLAY && flags & COMPUTE_ONLY == 0 {
+    Some(PhysicalAdapterRole::IndirectDisplayOnly)
+  } else {
+    None
+  }
+}
+
+struct KmtAdapter(u32);
+
+impl KmtAdapter {
+  fn open(luid: LUID) -> Option<Self> {
+    let mut open = D3DKMT_OPENADAPTERFROMLUID {
+      AdapterLuid: luid,
+      ..Default::default()
+    };
+    (unsafe { D3DKMTOpenAdapterFromLuid(&mut open) } == STATUS_SUCCESS)
+      .then(|| Self(open.hAdapter))
+  }
+
+  /// The caller pairs the query type with its SDK payload and valid pointers.
+  unsafe fn query<T>(&self, kind: KMTQUERYADAPTERINFOTYPE, data: &mut T) -> Option<()> {
+    let mut query = D3DKMT_QUERYADAPTERINFO {
+      hAdapter: self.0,
+      Type: kind,
+      pPrivateDriverData: std::ptr::from_mut(data).cast(),
+      PrivateDriverDataSize: size_of::<T>() as u32,
+    };
+    (unsafe { D3DKMTQueryAdapterInfo(&mut query) } == STATUS_SUCCESS).then_some(())
+  }
+}
+
+impl Drop for KmtAdapter {
+  fn drop(&mut self) {
+    let _ = unsafe { D3DKMTCloseAdapter(&D3DKMT_CLOSEADAPTER { hAdapter: self.0 }) };
+  }
 }
 
 pub(crate) async fn get_gpu_inventory()
 -> Result<AdapterDiscovery<InventoryAdapter>, String> {
   spawn_blocking(|| {
     let AdapterDiscovery { adapters, error } = hardware_adapter_descriptions()?;
+    let indirect_aliases =
+      identify_indirect_aliases(&adapters, physical_adapter_identity);
     Ok(AdapterDiscovery {
       adapters: adapters
         .into_iter()
-        .map(|desc| {
+        .zip(indirect_aliases)
+        .map(|(desc, is_indirect_alias)| {
           let vendor_id = desc.VendorId;
           let vendor_name = match vendor_id {
             0x1002 => "AMD".into(),
@@ -186,6 +318,7 @@ pub(crate) async fn get_gpu_inventory()
               core_count: None,
             },
             vendor_id,
+            is_indirect_alias,
             legacy_device_id: (matches!(vendor_id, 0x1002 | 0x8086)
               && desc.DeviceId != 0)
               .then(|| desc.DeviceId.to_string()),
@@ -202,7 +335,57 @@ pub(crate) async fn get_gpu_inventory()
 #[cfg(test)]
 mod tests {
   use super::*;
-  use windows::Win32::Foundation::{E_FAIL, LUID};
+  use windows::Win32::Foundation::E_FAIL;
+
+  #[test]
+  fn identifies_only_indirect_adapters_without_render_or_compute_support() {
+    assert_eq!(
+      physical_adapter_role(0x31b),
+      Some(PhysicalAdapterRole::Renderer)
+    );
+    assert_eq!(
+      physical_adapter_role(0x342),
+      Some(PhysicalAdapterRole::IndirectDisplayOnly)
+    );
+    assert_eq!(
+      physical_adapter_role(0x343),
+      Some(PhysicalAdapterRole::Renderer)
+    );
+    assert!(physical_adapter_role(0x342 | (1 << 11)).is_none());
+    assert!(physical_adapter_role(0x340).is_none());
+    assert!(physical_adapter_role(0x02).is_none());
+  }
+
+  #[test]
+  fn marks_only_indirect_display_aliases_with_a_matching_physical_renderer() {
+    let adapters: Vec<_> = (1..=5)
+      .map(|low| DXGI_ADAPTER_DESC1 {
+        AdapterLuid: LUID {
+          HighPart: 0,
+          LowPart: low,
+        },
+        VendorId: if low == 5 { 0x17cb } else { 0x10de },
+        DeviceId: 0x2c02,
+        ..Default::default()
+      })
+      .collect();
+    let aliases = identify_indirect_aliases(&adapters, |luid| {
+      use PhysicalAdapterRole::*;
+      let (role, hardware_key) = match luid.LowPart {
+        1 => (IndirectDisplayOnly, r"\Registry\Machine\Fixture\GpuA"),
+        2 => (Renderer, r"\Registry\Machine\Fixture\GpuA"),
+        3 => (Renderer, r"\Registry\Machine\Fixture\GpuB"),
+        4 => (IndirectDisplayOnly, r"\Registry\Machine\Fixture\GpuC"),
+        _ => return None,
+      };
+      Some(PhysicalAdapterIdentity {
+        role,
+        hardware_key: hardware_key.encode_utf16().collect(),
+      })
+    });
+
+    assert_eq!(aliases, [true, false, false, false, false]);
+  }
 
   #[test]
   fn excludes_the_software_bit_without_filtering_other_flags() {

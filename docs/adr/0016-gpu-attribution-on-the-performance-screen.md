@@ -39,7 +39,12 @@ there is no longer anything to honor.
 
 The `getHardwareInfo` inventory and the monitor stream key their GPUs in
 different namespaces on every platform. The Windows inventory enumerates DXGI
-hardware adapters. It preserves unambiguous legacy numeric inventory ids
+hardware adapters. It omits an indirect display-only adapter when Windows
+reports the same single physical hardware key for a render-capable adapter.
+Rows with unavailable identity remain in the inventory. The physical key is
+local to this check. Apply alias filtering after counting names and legacy
+ids so that the renderer keeps its existing inventory id. The inventory
+preserves unambiguous legacy numeric ids
 (raw NVAPI id for an enriched NVIDIA adapter and device id for AMD/Intel)
 and otherwise uses `dxgi:<luid_high>:<luid_low>`. Live NVIDIA samples use
 `nvapi:<id>`. Windows AMD ADL samples use the PCI address as
