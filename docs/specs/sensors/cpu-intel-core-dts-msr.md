@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 6 |
-| Status | Implementation-ready (rev 6) |
+| Revision | 7 |
+| Status | Implementation-ready (rev 7) |
 | Scope | Read-only core DTS for the listed Intel x86-64 display models and exact hybrid signatures in one Windows processor group and physical package. Includes DTS without package thermal management. |
 | Issue phase | [#2514](https://github.com/shm11C3/HardwareVisualizer/issues/2514) |
 
-Revision 6 proposes Experimental coverage for additional documented
-legacy MSR mechanisms. The maintainer approves the revision under the
+Revision 7 proposes a per-core readout check for the two exact Alder
+Lake signatures. The maintainer approves the revision under the
 [specification gate](README.md#status-transition-draft--implementation-ready).
 
 ## Sources
@@ -36,6 +36,8 @@ legacy MSR mechanisms. The maintainer approves the revision under the
 | S19 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`: [Clarkdale](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0020652_Clarkdale_CPUID.txt#L180-L183), [Gulftown](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00206C2_Gulftown_CPUID.txt#L468-L471), [Ivy Bridge](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306A9_IvyBridge_CPUID.txt#L350-L353), and [Ivy Bridge-E](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306E4_IvyBridgeE_CPUID.txt#L515-L518) | Independent register observations. They corroborate the model mechanisms and do not establish Windows PawnIO operation or the accuracy of individual readings. |
 | S20 | Intel, [6th Generation Intel Processor Family Specification Update, 332689-024](https://www.scribd.com/document/557109734/332689-024-6th-generation-intel-processor-family-spec-update) (Intel document mirror), erratum SKL135 | Primary erratum describing DDR4 systems with wider DTS error than specified. |
 | S21 | PawnIO 2.2.0 [driver read native](https://github.com/namazso/PawnIO/blob/5cdf470831fdfff3f7f1d06363ca6b230f3bf35a/PawnIO/src/natives_impl_windows.cpp#L437-L448) with [PawnIOLib status conversion](https://github.com/namazso/PawnIO/blob/5cdf470831fdfff3f7f1d06363ca6b230f3bf35a/PawnIOLib/PawnIOLib.cpp#L109-L115), and the [IntelMSR 0.2.11 read contract](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/IntelMSR.p#L102-L118) from S3 | Upstream interface behavior only. The documented signed read path returns a failing status when the native MSR read faults. |
+| S22 | Linux [Intel-authored thermal mask change](https://github.com/torvalds/linux/commit/6ae0092ca7adfce79336c6525cb0da561ecd4f04), June 2024, [author's v2 test summary](https://lkml.rescloud.iu.edu/2404.3/02686.html), and Linux v6.18 commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449` [model IDs](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/arch/x86/include/asm/intel-family.h#L137-L138), [mask](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L38-L43) and [model selection](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L96-L97) | **lead-only (copyleft)** for the conflicting eight-bit readout mask explicitly selected for `06_97` and `06_9A`. The author reports testing on Alder Lake without giving an exact CPUID or raw status words. |
+| S23 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`: [Core i9-12900K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0090672_AlderLake_01_LC_BC_CPUID.txt), [Core i7-12800HX](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0090672_AlderLake_03_CPUID.txt) and [Core i9-12900H](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00906A3_AlderLakeP_00_CPUID.txt) | Independent exact-signature P- and E-core CPUID and status observations. The captured words with Reading Valid set all have bit 23 clear. |
 
 ## Detection
 
@@ -94,8 +96,8 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 | Nehalem `06_1A`, `06_1E`, `06_1F`, `06_2E` | Verified by S1 §2.8 and Table 2-15 for signatures and target. S2 pins the core DTS and separate PTM bit. | Enabled with direct target decode and the capability, affinity and validity gates. |
 | Sandy Bridge `06_2A`, `06_2D` | Verified by S1 §2.11 and Table 2-20 for signatures and target. S2 pins the core DTS and separate PTM bit. | Enabled with direct target decode and the capability, affinity and validity gates. |
 | Silvermont Atom C2000 `06_4D` | Verified by S1 §2.4/§2.4.1 and Tables 2-6/2-10 for the signature, core DTS and package target. S2 pins the capability bits. | Enabled only with a zero target offset and the common gates. |
-| Hybrid Alder Lake S/HX `06_97`, full signature `0x00090672` (stepping ID 2) | S9/S10 pin the signature, P- and E-core status and reference. S12 corroborates hybrid identification. | Experimental, subject to the common gates and per-target core type below. |
-| Hybrid Alder Lake H/P and PS `06_9A`, full signature `0x000906A3` (stepping ID 3) | S13/S14 pin the H/P and PS identities and applicable errata. S9 documents core thermal status for `06_9A`, S10/S14 pin the reference for the respective products, and S12/S13 corroborate hybrid identification. | Experimental, subject to the common gates and per-target core type below. |
+| Hybrid Alder Lake S/HX `06_97`, full signature `0x00090672` (stepping ID 2) | S9/S10 pin the signature, P- and E-core status and reference. S12 corroborates hybrid identification. S23 observes bit 23 clear on both core types. S22 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
+| Hybrid Alder Lake H/P and PS `06_9A`, full signature `0x000906A3` (stepping ID 3) | S13/S14 pin the H/P and PS identities and applicable errata. S9 documents core thermal status for `06_9A`, S10/S14 pin the reference for the respective products, and S12/S13 corroborate hybrid identification. S23 observes bit 23 clear on both core types. S22 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
 | Hybrid Raptor Lake S/HX and S/HX Refresh `06_B7`, full signature `0x000B0671` (B-0) | S9/S11 pin the signature, P- and E-core status and reference. S11/S12 identify the non-hybrid signature overlap. | Experimental, subject to the common gates and per-target core type below. |
 | Westmere `06_25`, `06_2C`, `06_2F` | S15 §§2.9–2.10 (pp. 2-221–222) apply Table 2-15 (pp. 2-182–183). Core status, thread target, and no offset field in the target layout. S19 observes both MSRs on the Core i5-650 `0x00020652` and Core i7-990X `0x000206C2`. | Experimental. Direct target decode. |
 | Ivy Bridge `06_3A` | S15 §2.12 (p. 2-264) applies Table 2-20 (pp. 2-230, 2-232). S16 documents the offset-independent reference for desktop and mobile. S19 observes both MSRs on the Core i7-3770K `0x000306A9`. | Experimental. Direct target decode. |
@@ -143,8 +145,11 @@ core DTS. Separately approved core DTS scopes retain their own gates.
    signed `IntelMSR` module. Check the running group and processor
    again after the reads while still pinned, and discard the core
    result if either differs. Require successful reads, a target byte
-   in 50–120 °C inclusive and core status bit 31 set. For a zero-offset
-   row, reject the sample when the selected target mask is nonzero.
+   in 50–120 °C inclusive and core status bit 31 set. On exact
+   `0x00090672` and `0x000906A3`, leave the core unavailable if
+   status bit 23 is set. Apply this check before interpreting the
+   seven-bit readout (S15 Table 2-39, S22–S23, project gate). For a
+   zero-offset row, reject the sample when the selected target mask is nonzero.
    Use mask `0x0F000000` for `06_3E`, `06_4F` and `06_56`, and
    `0x3F000000` for the listed Atom models, including `06_4D`.
    Direct-decode rows apply no offset mask (S1–S3, S5, S15–S18).
@@ -226,6 +231,7 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 | Exact hybrid discovery succeeds, but an individual pinned target has a different full signature, no core DTS, no leaf 1AH, or an unknown core type | Skip that target before MSR access. Preserve eligible core siblings and the independent package/fallback result. |
 | Each hybrid signature with Tjmax 100 °C, TCC offset 10 °C, and valid digital readouts of 30 and 0 | 70 °C and 100 °C respectively. Changing the TCC offset or its averaging window does not change either decoded value. |
 | `0x000906A3` with valid P- and E-core targets and different per-target Tjmax words, each sampled with zero and nonzero TCC offsets | Use each target's own reference with the same 7-bit delta and validity gate on both core types. An invalid E-core status leaves its slot unavailable and preserves a valid P-core and independent package data. |
+| Exact `0x00090672` and `0x000906A3`, synthetic 100 °C target with status `0x889E0000` on one physical core and `0x881E0000` on another, both with Reading Valid set | Leave the bit-23-set sample unavailable and return 70 °C for the other core. Repeat with the two core types exchanged. |
 | One package with SMT siblings, reordered enumeration and one failed target or core read | One representative per physical core. Reordering alone preserves identities. The isolated failure leaves its position unavailable and preserves valid siblings. |
 | Topology changes during a fresh pass or between cache acquisition and reuse | No output from the mismatched core set. Invalidate the cached core set even if its age is acceptable. Verify that reused representative processor numbers do not inherit old values. |
 | Restore fails after one successful core and one attempted core | Discard the entire core set and cache. No subsequent reads on the disposable thread. A later pass uses a fresh thread. Package and ACPI results remain independent. |
@@ -294,6 +300,15 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 - Non-blocking for the Alder Lake H/P and PS scope: Intel documents the exact signature and both product lines' DTS semantics.
   The supported Windows PawnIO path has not been verified on real
   hardware for this signature.
+- Non-blocking for the exact Alder Lake scope: collection rejects core status bit 23 when set before applying Intel's seven-bit decode.
+  Intel SDM 335592-093US §2.17 Table 2-39 (pp. 2-359–2-361)
+  marks bit 23 reserved and the Alder Lake P/E-specific tables supply
+  no replacement for this register (§2.17.5, Tables 2-46–2-48).
+  Linux includes bit 23 in the two model masks (S22, lead-only).
+  S23 corroborates clear bit 23 on P and E targets for both supported
+  signatures. The meaning of a set bit remains unresolved. Reject
+  only the affected per-core sample on these two exact signatures. No
+  package-status interpretation is inferred from this discrepancy.
 
 ## Revision history
 
@@ -305,3 +320,4 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 | 4 | 2026-11-08 | Propose Implementation-ready scope for two exact Alder Lake and Raptor Lake hybrid signatures. Pin per-core qualification, Tjmax and its relationship to the TCC offset, and the existing single-group topology contract. |
 | 5 | 2026-11-08 | Propose Implementation-ready Experimental coverage for exact `0x000906A3` Alder Lake H/P and PS. Pin separate product evidence and reuse the existing hybrid and single-group topology gates. |
 | 6 | 2026-11-09 | Propose additional Experimental legacy DTS mechanisms with explicit target decoding and offset masks. Classify runtime gates under ADR 0031. |
+| 7 | 2026-11-10 | Propose a fail-closed core DTS status check for disputed bit 23 on exact Alder Lake signatures `0x00090672` and `0x000906A3`. |
