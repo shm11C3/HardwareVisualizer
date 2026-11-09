@@ -41,6 +41,12 @@ pub(crate) async fn sample(
   }
 
   static NVML: OnceCell<Nvml> = OnceCell::const_new();
+  // In the opt-in MPS view, multiple locality domains can share a physical
+  // PCI address. NVML returns the first domain's handle and memory readings.
+  let mps_enumeration = std::env::var("NVML_MPS_DEVICE_ENUMERATION").ok();
+  if !physical_nvml_view(mps_enumeration.as_deref()) {
+    return HashMap::new();
+  }
   // Keep successful initialization. Retry failures so a driver that becomes
   // available later can provide readings without restarting the app.
   let Ok(nvml) = NVML
@@ -73,6 +79,10 @@ pub(crate) async fn sample(
   .unwrap_or_default()
 }
 
+fn physical_nvml_view(mps_enumeration: Option<&str>) -> bool {
+  mps_enumeration != Some("1")
+}
+
 fn read_adapters(
   pci_addresses: Vec<String>,
   mut is_suspended: impl FnMut(&str) -> bool,
@@ -93,6 +103,14 @@ fn read_adapters(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn refuses_pci_attribution_in_the_opt_in_mps_view() {
+    assert!(!physical_nvml_view(Some("1")));
+    for physical_view in [None, Some(""), Some("0")] {
+      assert!(physical_nvml_view(physical_view));
+    }
+  }
 
   #[test]
   fn keeps_partial_readings_and_distinguishes_idle_from_unavailable() {
