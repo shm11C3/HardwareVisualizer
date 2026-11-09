@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 5 |
+| Revision | 6 |
 | Status | Draft — not implementation-ready |
-| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E and OEM ECIO evidence for X670E AORUS MASTER BIOS F41. |
+| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E and ECIO evidence for X670E AORUS MASTER BIOS F41 and B650E AORUS MASTER rev. 1.0. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
 
 ## Sources
@@ -31,6 +31,9 @@
 | S18 | Gigabyte, [X670E AORUS MASTER rev. 1.x BIOS F41 release](https://www.gigabyte.com/Motherboard/X670E-AORUS-MASTER-rev-1x/support#support-dl-bios) and [official F41 archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_x670e-aorus-master_8arpl002_f41.zip?v=5f0e5b9dc371d6536323fbf3445115d1), February 5, 2026, OEM checksum `B0E7` | Static OEM artifact. ZIP SHA-256 `8e44a623a41044e77cd961403e85144394a0fe36b5e4818ff0b5393da11bb8a7`. `X670EAORUSMASTER.F41` image SHA-256 `91df1bca4b0266fffe64bca9a68210f127ac952f6e7001d2566d03abe117d3aa`. |
 | S19 | [X670E AORUS MASTER rev. 1.x F41 owner report](https://github.com/frankcrawford/it87/issues/96), March 2026 | Independent DMI, BIOS and H2RAM detection observation with an opt-in driver branch. The secondary headers were unpopulated. |
 | S20 | [Separate X670E AORUS MASTER pump report](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/2582), October 2026 | First-hand pump RPM observation from a local modified monitor. The report gives no BIOS version or populated thermistor reading. Its chip and transport attribution is a research lead. |
+| S21 | Gigabyte [B650E AORUS MASTER rev. 1.0 Smart Fan 6 documentation](https://www.gigabyte.com/Motherboard/B650E-AORUS-MASTER-rev-10), [BIOS F37 release](https://www.gigabyte.com/Motherboard/B650E-AORUS-MASTER-rev-10/support#support-dl-bios) and [official F37 archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_b650e-aorus-master_8arpl102_f37.zip?v=0431d29bc3abda1187efea552dffc2fe), November 21, 2025, OEM checksum `2211` | Board identity, setup UI and static OEM artifact. ZIP SHA-256 `891581cd7d4c063323ed7f6ac1aee3332c3cdb3dc0d0b940883be5aa6b384257`. `B650EAORUSMASTER.F37` image SHA-256 `391edcc4480e3a413d5d996fc15572a568a222301e3ab88b7d41442db1d1dacd`. |
+| S22 | B650E AORUS MASTER [owner's DMI and discovery report](https://github.com/frankcrawford/it87/issues/80), [December 2025 ECIO dump](https://github.com/frankcrawford/it87/issues/80#issuecomment-3626863744), and [August 2026 driver log](https://github.com/frankcrawford/it87/issues/80#issuecomment-5407428995) | Independent observations on the same reported board with opt-in tooling. The posts do not identify BIOS F37 or the EC firmware build. |
+| S23 | Frank Crawford DKMS driver, commit `cbfeef4efbc3391624e15b1c9db4f893803eb9f2`, Git blob `56148f202fee43436fa73a747a1bf465deb8721e`, GPL-2.0-or-later. [G3 tachometer fields](https://github.com/frankcrawford/it87/blob/cbfeef4efbc3391624e15b1c9db4f893803eb9f2/it87.c#L450-L470), [RPM units](https://github.com/frankcrawford/it87/blob/cbfeef4efbc3391624e15b1c9db4f893803eb9f2/it87.c#L3919-L3924), [ECIO ports](https://github.com/frankcrawford/it87/blob/cbfeef4efbc3391624e15b1c9db4f893803eb9f2/it87.c#L144-L151), [read transaction](https://github.com/frankcrawford/it87/blob/cbfeef4efbc3391624e15b1c9db4f893803eb9f2/it87.c#L2240-L2348) and [error handling and serialization](https://github.com/frankcrawford/it87/blob/cbfeef4efbc3391624e15b1c9db4f893803eb9f2/it87.c#L2430-L2451) | **lead-only (copyleft)** for the H2RAM tachometer map, the host-side mailbox operations and their limits. The blob matches S17's DKMS blob. |
 
 ## Detection
 
@@ -41,6 +44,7 @@
 | GA-AB350-Gaming 3 rev. 1.x, BIOS F54d, OEM WMI | S12 advertises the GUID but lacks the S13 temperature method. The table's visible monitor pair defaults to the primary controller. | Disabled. No verified secondary read path. |
 | GA-Z87X-UD5H, already-bound Linux `it8790` at observed base `0x0A40` | Candidate Experimental. S15 identifies the part. S16 records an unbound secondary and a later positive endpoint. Lead-only S17 establishes that the published inputs use a cache refresh that reads alarm status. | Disabled pending exact IT8790E read effects or a separate safe kernel input route, plus matching bound-endpoint evidence. |
 | X670E AORUS MASTER rev. 1.x, BIOS F41, secondary ECIO | S18 establishes OEM boot-time mailbox access. S19 reports a separate H2RAM endpoint. S20's pump observation has no F41 identity. | Disabled pending an OS-owned read path, exact channel evidence and mailbox arbitration. |
+| B650E AORUS MASTER rev. 1.0, secondary H2RAM via ECIO and separate BIOS F37 WMI inspection | S22 records a slot-1 `0x8733` observation and a G3 v1.00 window with RPM data under the S23 lead-only map. S21's static F37 tables establish no matching secondary telemetry method. | Disabled pending temperature attribution and a read path with proven mailbox ownership, arbitration and side effects. |
 | Other board/transport combinations for `0x8733`, `0x8790` and `0x8695` | Diagnostic identities only under S5. The shared raw `0x8733` cannot distinguish the IT8792E and IT8795E models. | Disabled until independently scoped. |
 | Alternate `0x8883` report, unreadable, absent or changed pre-key ID | S5/S9 distinguish the alternate report from a usable pre-key identity. S4 records a real absent pre-key result. | Disabled. |
 | ECIO or ISA bridge | Separate access domains. See transport limits below. | Disabled. |
@@ -172,6 +176,52 @@ headers and do not qualify a firmware-matched temperature and RPM
 path. Firmware module names do not establish the pump controller's
 physical marking. (S18–S20)
 
+### B650E AORUS MASTER rev. 1.0 H2RAM and F37 WMI
+
+The owner reports DMI board name `B650E AORUS MASTER` and points to
+Gigabyte's rev. 1.0 product. The December 2025 detector reports
+slot-1 `0x8733` without entering that slot and reads a versioned
+H2RAM window through ECIO with SMFI inactive. The August 2026
+out-of-tree driver log identifies distinct runtime bases, primary
+IT8689E revision 2 at `0x0A40` and secondary raw-ID family revision 3
+at `0x0A60`. It reports H2RAM Smart Fan G3 v1.00 via ECIO and SIV ID
+`0x900A0909`. The raw ID and driver label do not distinguish IT8792E
+from IT8795E. The posts supply neither a PCB marking nor a BIOS or
+EC firmware revision. (S21, S22)
+
+S23 identifies three G3 tachometer pairs at H2RAM `0x916`/`0x917`,
+`0x918`/`0x919` and `0x91A`/`0x91B`, in little-endian RPM. The
+first pair in S22's December dump decodes to 859 RPM under that
+lead-only map. This supports a live RPM mirror without identifying
+its physical header. It does not establish a live temperature
+field, coherency of the word during sampling, or which controller
+owns the separate IT57xx extension. (S22, S23 lead-only)
+
+The S23 host-side read sends a command and offset to the ECIO
+mailbox, polls `0x03F4` and receives a byte from `0x03F0`. These
+operations do not directly read the HWM alarm registers. The
+controller's internal handling of the request and the ownership
+and arbitration of the mailbox ports remain unproven. The driver
+serializes access only among its own users and reports a failed
+byte read as zero. Its hwmon cold refresh still reads HWM alarm
+registers before returning individual input values. These routes
+therefore do not qualify for collection. (S11, S17/S23 lead-only)
+
+The separate static F37 inspection recovered a checksum-valid
+`GBT / GSWApp` SSDT of 43,036 bytes, SHA-256
+`c1470503b4123457702f650834809965e159f86800cbcdb0cba92bb6e7851c83`.
+The table starts at decoded offset `0xD44A8C` in the LZMA section
+at BIOS image offset `0x1076028`. The table advertises the S13 WMI
+GUID at offset `0x6B38`. The serialized `WMBB` dispatcher at
+`0x9C29` has no temperature method `0x125`. The indexed monitor
+region defaults to primary `0x0A45`/`0x0A46`. A bounded scan of
+simple named SystemIO declarations found no literal base at the
+observed secondary monitor or mailbox ports. The inspection did
+not establish an OS-callable secondary temperature or RPM query.
+It does not cover
+SMM handlers or tables generated or patched at boot. S22's live
+observations cannot be tied to F37. (S21, S22, S13 lead-only)
+
 ### GA-Z87X-UD5H IT8790E through Linux hwmon
 
 On March 5, 2017, the owner identified a GA-Z87X-UD5H running Debian
@@ -248,6 +298,12 @@ boundary only.
   Neither the recovered OEM tables nor the independent reports
   provide those facts. (S18–S20)
 
+- For B650E AORUS MASTER rev. 1.0, establish a temperature field
+  with exact attribution and valid samples, and a firmware-matched
+  OS-owned route for the temperature and RPM. The complete read
+  path needs evidence of mailbox ownership, arbitration, error
+  handling and absence of alarm reads or control writes. (S21–S23)
+
 - For GA-Z87X-UD5H Linux hwmon, establish the exact IT8790E
   alarm-status read effects for `0x01`–`0x03`, or pin a kernel
   input path that avoids those registers. Obtain same-session board,
@@ -289,3 +345,4 @@ available. An absent pre-key response is itself an evidence result.
 | 3 | 2026-11-08 | Corroborate the X470 rev. 1.0 dual-controller observation under F61a and record why its OEM WMI route is disabled. |
 | 4 | 2026-11-08 | Record GA-Z87X-UD5H IT8790E Linux endpoint observations and the alarm-refresh evidence that keeps collection disabled. |
 | 5 | 2026-11-08 | Record the exact X670E AORUS MASTER F41 boot-time ECIO mailbox and separate Linux and pump observations. Keep the ECIO candidate disabled. |
+| 6 | 2026-11-09 | Record the B650E AORUS MASTER rev. 1.0 RPM mirror and separate F37 WMI inspection. Keep the candidate disabled pending temperature and mailbox safety evidence. |
