@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental Windows physical-core temperatures on hybrid Raptor Lake H, H Refresh, P and PX with exact signature `0x000B06A2`, in one active Windows processor group and one physical package. |
 | Issue phase | [#2514](https://github.com/shm11C3/HardwareVisualizer/issues/2514) |
 
@@ -18,6 +18,7 @@
 | S5 | InstLatx64 raw observations at `17be9a9793c306cf96f8c286e34e705b780a0226`, [Core i7-1370P](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00B06A2_RaptorLakeP_03_CPUID.txt) and [Core i9-13900H](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00B06A2_RaptorLakeP_04_CPUID.txt) | Independent exact-signature, hybrid capability, local core types and per-logical-processor MSR observations. Each file associates CPUID and MSRs by logical processor number within that system. |
 | S6 | [Intel core DTS](https://github.com/shm11C3/HardwareVisualizer/blob/c16b2b2eea8ada07d43567116ed75bf2ed49af75/docs/specs/sensors/cpu-intel-core-dts-msr.md) revision 6, Detection, Read procedure and decode, Project collection constraints, and Safety notes | Common Windows topology, identity, affinity, request budget, cache, fault and partial-result contract. The signature selection in that document remains separate. |
 | S7 | [PawnIO interface](https://github.com/shm11C3/HardwareVisualizer/blob/2495a1b0fbe4a8048feac9d122b98201e7970cbb/docs/specs/sensors/pawnio-interface.md#intelmsr) revision 7, `IntelMSR` and signed release `0.2.11` | Existing synchronous calling-processor read interface and read allow-list for `0x19C` and `0x1A2`. |
+| S8 | Intel [SDM Volume 4](https://cdrdv2-public.intel.com/929363/335592-093-sdm-vol-4.pdf), 335592-093US, September 2026, §2.17 Table 2-39 (pp. 2-359–2-361), and Linux v6.18 commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449` [model identity](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/arch/x86/include/asm/intel-family.h#L139-L141) and [thermal mask](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L38-L43) and [model selection](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L96-L101) | Intel retains the seven-bit core readout and marks bit 23 reserved. Linux is **lead-only (copyleft)** for a conflicting eight-bit mask on display model `06_BA`. |
 
 ## Detection
 
@@ -31,7 +32,7 @@
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Hybrid Raptor Lake H, H Refresh, P and PX, exact J-0 `0x000B06A2` | Intel identifies the exact product lines and stepping (S1, S3, S4) and supplies a shared register contract (S1, S2). The Core i7-1370P and Core i9-13900H observations cover both core types (S5). | Experimental under the capability, topology, affinity and read-validity gates. |
+| Hybrid Raptor Lake H, H Refresh, P and PX, exact J-0 `0x000B06A2` | Intel identifies the exact product lines and stepping (S1, S3, S4) and supplies a shared register contract (S1, S2). The Core i7-1370P and Core i9-13900H observations cover both core types (S5). Collection rejects samples with the disputed status bit set (S8, Linux lead-only for the conflicting mask). | Experimental under the capability, topology, affinity and read-validity gates. |
 | Other signatures or a missing gate | U/U Refresh Q-0 `0x000B06A3` and other `06_BA` steppings require a separate disposition. Previously qualified signatures follow their own specifications (S1, S3, S4, S6). | Disabled under this specification. |
 
 Package thermal management (`CPUID.06H:EAX[6]`) is independent of core
@@ -53,7 +54,8 @@ Use the common revision 6 hybrid procedure and project constraints
 (S6). On the confirmed representative, read 64-bit `0x1A2` followed by
 `0x19C` through `IntelMSR` (S7). Check the representative after
 both reads and restore affinity. Require successful reads, a target in
-50–120 °C inclusive, and a set status bit 31. Subtract the unsigned
+50–120 °C inclusive, and a set status bit 31. Leave the core
+unavailable if status bit 23 is set. Subtract the unsigned
 readout from the target and accept only a positive result no greater
 than the target. A valid zero readout returns Tjmax. The calculation
 uses the calibrated target independently of the TCC activation offset
@@ -73,6 +75,7 @@ core set under S6.
 | `0x000B06A3`, `0x000B06A8`, any other full signature, wrong vendor, missing required leaf, or core DTS or hybrid bit clear at discovery | No core topology query or MSR requests under this scope, regardless of package thermal management. |
 | Discovery passes and a representative has an unexpected signature, missing core DTS or hybrid flag, or missing or unsupported core type | Skip both reads for that core and preserve sibling results. |
 | Valid readout 50 with target 100 °C and a zero or nonzero TCC offset, including differing averaging windows | Return 50 °C in each case. A valid readout of zero returns 100 °C. |
+| Synthetic target 100 °C, status `0x889E0000` on one physical core and `0x881E0000` on another, both with Reading Valid set | Leave the bit-23-set sample unavailable and return 70 °C for the other core. |
 | A read faults, target is zero, 49 °C or 121 °C, Reading Valid is clear, or readout is at least the target | Mark the affected core unavailable. Accept targets of 50 °C and 120 °C when the remaining fields qualify. |
 | Multi-group or multi-package discovery, changing topology during a pass, timeout, or failed affinity restoration | Apply the common revision 6 no-result and cache rules. Preserve independent package and fallback results. |
 
@@ -115,8 +118,18 @@ independent PX or H Refresh thermal capture and no HardwareVisualizer
 runtime trace. The common service, affinity and fault rules apply
 to every eligible target.
 
+Non-blocking for #2514 Experimental core DTS: collection rejects a sample with bit 23 set before applying Intel's seven-bit decode.
+
+Intel marks bit 23 reserved, while the pinned Linux model mask includes
+it (S8, Linux lead-only). All captured core status words have bit 23 clear
+on the captured P- and E-core targets in both S5 reports.
+When set, bit 23 could make an otherwise plausible seven-bit result
+ambiguous. The sample is unavailable under the project gate and the
+meaning of bit 23 on hardware remains unresolved.
+
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-10 | Proposes Implementation-ready status for exact hybrid Raptor Lake mobile J-0 core DTS, pending maintainer approval. Pins the H, H Refresh, P and PX mechanism and P/E register observations. |
+| 2 | 2026-11-10 | Reject a status word with bit 23 set before interpreting the digital readout. |
