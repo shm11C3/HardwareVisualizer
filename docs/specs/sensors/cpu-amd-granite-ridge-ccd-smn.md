@@ -108,11 +108,20 @@ name records evidence under
   generic register enumeration on p. 86 reserves values 0–3 and
   names SP5 at 4. S2 corroborates the AM5 product identity. The raw
   EBX values in S3 corroborate field 0, the only admitted value.
-- Non-blocking for the Experimental scope: the scoped full signature is observed on B0 and excludes the independently distinguished stepping-1 signature.
+- Non-blocking for the Experimental scope: revision 1 admits only the evidenced B0 signature.
   The S9 OEM notes repeat `0x00B40F40` for two microcode entries,
   but the named B1 patch `0x0B404102` encodes family 1Ah, model 44h,
   stepping 1 (`0x00B40F41`) under the Zen patch-ID contract pinned in S9.
-  The gate uses CPUID and does not read the active microcode revision.
+  The [MAXSUN BIOS guide](https://manual.holod.ru/manual/1559/1268209_7248225.pdf),
+  §3 Advanced, shows that signature and patch on a Ryzen 5 9500F.
+  [AMD's 9500F specifications](https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-5-9500F.html)
+  identify AM5, and an [independent hardware capture](https://browser.geekbench.com/v6/cpu/18655362)
+  reports one AM5 package with model 44h, stepping 1. These sources
+  establish identity. S5 selects the CCD map by model range. Raw B1
+  package-field evidence and an exact B1 CCD observation tied to the
+  SMN slots and validity flag remain unresolved. `0x00B40F41` is
+  outside revision 1. The gate uses CPUID and does not read the
+  active microcode revision.
 - Non-blocking for the Experimental scope: the register facts are independently scoped from the signed transport contract.
   S5 supplies the mapping and decode under ADR 0023. S4 corroborates
   both converted channels on a 9950X. S10 establishes a same-signature
@@ -126,4 +135,4 @@ name records evidence under
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-09 | Propose Experimental support for the exact AM5 stepping-0 signature and two fixed CCD slots using signed Windows SMN access. |
+| 1 | 2026-11-09 | Propose the transition to Implementation-ready (rev 1) for Experimental CCD temperatures on the exact AM5 stepping-0 signature via signed Windows SMN access. Maintainer sign-off is pending. |
