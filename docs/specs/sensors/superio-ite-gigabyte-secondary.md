@@ -16,7 +16,7 @@
 | S3 | [X470 AORUS GAMING 7 WIFI owner report](https://www.reddit.com/r/linuxmint/comments/1vu064e/fan_control_for_x470/), detector log dated 2026-08-20, and Gigabyte [rev. 1.0](https://www.gigabyte.com/Motherboard/X470-AORUS-GAMING-7-WIFI-rev-10/Support/sp) and [rev. 1.1](https://www.gigabyte.com/Motherboard/X470-AORUS-GAMING-7-WIFI-rev-11/sp) pages | Independent detection of two controllers. The log gives neither the PCB revision nor an identified OEM BIOS release. |
 | S4 | [TRX50 AI TOP owner report](https://github.com/frankcrawford/it87/issues/73) and [later observation on that machine](https://github.com/frankcrawford/it87/issues/73#issuecomment-3592587595) | Independent negative pre-key result and later OS sensor output on a different board. |
 | S5 | [Super I/O access rev. 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [PawnIO interface rev. 7](pawnio-interface.md#lpcio) | Existing project scope for the raw diagnostic, exact slot-1 exit withhold, ISA mutex and transport. |
-| S6 | Linux [v6.18 IT87 monitor](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, GPL-2.0-or-later | **lead-only (copyleft)**. Source for the active LDN, base and runtime register locations, fan and temperature formats, primary/secondary port separation, and the firmware-open discovery observation. |
+| S6 | Linux [v6.18 IT87 monitor](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, GPL-2.0-or-later, and [IT87 driver documentation v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/it87.html#supported-chips) | **lead-only (copyleft)**. Source for the active LDN, base and runtime register locations, fan and temperature formats, primary/secondary port separation, and the firmware-open discovery observation. The driver maps `0x8733` to the `it8792` prefix documented for IT8792E/IT8795E. |
 | S7 | lm-sensors [V3-6-2 X470 AORUS ULTRA GAMING profile](https://github.com/lm-sensors/lm-sensors/blob/V3-6-2/configs/Gigabyte/X470-AORUS-ULTRA-GAMING.conf), Git blob `1964faec4aa347715833da50b4188c1c2282a683`, GPL-2.0-or-later project | **lead-only (copyleft)**. Experimental configuration naming two LPC controllers and tentative channel labels. Its comments cite other board profiles and monitor output, so it supplies leads rather than independent board verification. |
 | S8 | PawnIO.Modules [`LpcIO`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p) and [`IsaBridgeEC`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/IsaBridgeEC.p), commit `52a7e536dff3e53c96917a28caac5e0fa6510696` | Upstream public PawnIO interface and audit of the transactions required by those calls. |
 | S9 | LibreHardwareMonitor [ECIO byte transport](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT879xEcioPort.cs), Git blob `cbb52c4b88c8fc606087220be6ad16cfd6315812`, and [secondary LPC discovery](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs), Git blob `3bb61abd9d86df2dcf388cc80689d4db61d16537`, MPL-2.0 | **lead-only (copyleft)**. Alternate ID after mode entry, selected ECIO mailbox transactions, and firmware transport selection. |
@@ -44,7 +44,7 @@
 | --- | --- | --- |
 | X470 AORUS ULTRA GAMING rev. 1.0, slot 1 pre-key raw `0x8733`, normal LPC | Candidate Experimental. S1 confirms PCB identity. S2 reports separate fan behavior. S6/S7 lead-only facts identify a possible direct EC at secondary base `0x0A60`, distinct from primary `0x0A40`. S14 corroborates the distinct bases in Linux without recording the pre-key state. | Disabled pending exact-board pre-key identity, successful Windows transport proof and sample evidence. Bases are observations to check, never defaults to substitute. |
 | X470 AORUS ULTRA GAMING rev. 1.0, BIOS F61a, OEM WMI | S14 advertises the GUID but lacks the S13 temperature method. The observed WMI values are all zero. | Disabled. No verified secondary read path. |
-| X470 AORUS GAMING 7 WIFI rev. 1.0, BIOS F64, OEM SMM | S24/S26 identify power-event handlers with hardware writes and no temperature or RPM output. S3 reports raw `0x8733`, which is shared by IT8792E and IT8795E. S25 shows an IT8792E marking on an unidentified PCB revision. No evidence links the photograph and raw ID to the same board. | Disabled. No verified OS-owned secondary read path. |
+| X470 AORUS GAMING 7 WIFI rev. 1.0, BIOS F64, OEM SMM | S24/S26 identify power-event handlers with hardware writes and no temperature or RPM output. S3 reports raw `0x8733`, which the S6 driver mapping groups under IT8792E/IT8795E (**lead-only (copyleft)**). S25 shows an IT8792E marking on an unidentified PCB revision. No evidence links the photograph and raw ID to the same board. | Disabled. No verified OS-owned secondary read path. |
 | GA-AB350-Gaming 3 rev. 1.x, BIOS F54d, OEM WMI | S12 advertises the GUID but lacks the S13 temperature method. The table's visible monitor pair defaults to the primary controller. | Disabled. No verified secondary read path. |
 | GA-Z87X-UD5H, already-bound Linux `it8790` at observed base `0x0A40` | Candidate Experimental. S15 identifies the part. S16 records an unbound secondary and a later positive endpoint. Lead-only S17 establishes that the published inputs use a cache refresh that reads alarm status. | Disabled pending exact IT8790E read effects or a separate safe kernel input route, plus matching bound-endpoint evidence. |
 | X670E AORUS MASTER rev. 1.x, BIOS F41, secondary ECIO | S18 establishes OEM boot-time mailbox access. S19 reports a separate H2RAM endpoint. S20's pump observation has no F41 identity. | Disabled pending an OS-owned read path, exact channel evidence and mailbox arbitration. |
@@ -150,11 +150,12 @@ IT8686E on a board of unidentified PCB revision. A separate August 20,
 2026 owner log identifies `X470 AORUS GAMING 7 WIFI-CF`. It reports
 primary ID `0x8686` at configuration index port `0x2E` and EC base
 `0x0A40`, and secondary ID `0x8733` at `0x4E` and EC base `0x0A60`.
-That secondary ID is shared by IT8792E and IT8795E. The detector lists
-both controllers as detection-only, with no temperature, RPM, or
-established pre-key response. Its board version is `Default string`
-and its reported BIOS version is `5.17`. No evidence ties the log to
-the photographed unit or either observation to rev. 1.0 running F64.
+S6 groups that raw ID under IT8792E/IT8795E (**lead-only (copyleft)**).
+The detector lists both controllers as detection-only, with no
+temperature, RPM, or established pre-key response. Its board version
+is `Default string` and its reported BIOS version is `5.17`. No
+evidence ties the log to the photographed unit or either observation
+to rev. 1.0 running F64.
 (S3, S5, S24, S25)
 
 Static inspection of the F64 image identified SMM firmware file
