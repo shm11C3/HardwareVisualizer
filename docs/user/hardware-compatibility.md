@@ -35,7 +35,7 @@ vendor or family.
 | Intel CPUs | PawnIO package temperature | Not yet verified by a public compatibility report | No | — |
 | Intel Core DTS | Windows PawnIO core temperatures on [selected Nehalem, Sandy Bridge, Atom C2000, Alder Lake, and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) and [Meteor Lake C0](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | The legacy profiles include DTS-only CPUs. The scoped hybrid profiles are Experimental. | No | — |
 | NVIDIA GPUs | NVAPI on Windows | Not yet verified by a public compatibility report | No | — |
-| NVIDIA GPUs | NVML usage, temperature, and dedicated VRAM usage for detected Linux DRM adapters with the system NVIDIA driver | Implemented. Native Linux compatibility report not yet recorded. | No | — |
+| NVIDIA GPUs | Linux NVML usage, temperature, and dedicated VRAM usage for DRM adapters and PCI display functions bound to the NVIDIA driver | Implemented. PCI-only readings require an active runtime state. Native Linux compatibility report not yet recorded. | No | — |
 | AMD GPUs | ADL on Windows, DRM/hwmon on Linux | Not yet verified by a public compatibility report | No | — |
 | Intel GPUs | intel_gpu_top on Linux | Not yet verified by a public compatibility report | No | — |
 | Nuvoton NCT6799D | Windows motherboard temperatures and fans | Reported working on one configuration ([validation record](../development/sensor-handoff/evidence/2026-09-26-pawnio-modules-0.2.11-validation.md)) | No | [@shm11C3](https://github.com/shm11C3) |
