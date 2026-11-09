@@ -176,21 +176,23 @@ Winget でのインストールでは PawnIO はセットアップされませ�
 | 機能                               | Windows                                | Linux                | macOS                                         |
 | ---------------------------------- | -------------------------------------- | -------------------- | --------------------------------------------- |
 | CPU / メモリ使用率、プロセス       | ✅                                     | ✅                   | ✅                                            |
-| GPU 使用率                         | ✅ NVIDIA、AMD、その他は PDH 経由      | ✅ AMD、Intel ¹      | ✅                                            |
-| GPU 温度                           | ✅ NVIDIA、AMD                         | ✅ AMD               | —                                             |
+| GPU 使用率                         | ✅ NVIDIA、AMD、その他は PDH 経由      | ✅ AMD、Intel、NVIDIA ¹ | ✅                                         |
+| GPU 温度                           | ✅ NVIDIA、AMD                         | ✅ AMD、NVIDIA ¹     | —                                             |
 | CPU 温度                           | ✅ PawnIO ² または ACPI サーマルゾーン | —                    | —                                             |
 | 消費電力                           | ✅ CPU パッケージ ²                    | —                    | ✅ CPU、GPU、ANE、パッケージ（Apple Silicon） |
-| マザーボードの温度とファン         | ✅ 対応する Super I/O チップ ²         | —                    | —                                             |
+| マザーボードの温度とファン         | ✅ 対応する Super I/O チップ ²         | ✅ 対象の MSI 基板 ⁵  | —                                             |
+| DIMM 温度                          | —                                      | ✅ 対象の ODROID-H4 構成 ⁵ | —                                         |
 | ストレージの健康状態（SMART）      | ✅                                     | ✅ `smartctl` 経由 ³ | ✅ `smartctl` 経由 ³                          |
 | ネットワークインターフェースの情報 | ✅                                     | ✅                   | ✅                                            |
 | 室温（SwitchBot）                  | ✅                                     | —                    | —                                             |
 | Cooling Insight                    | ✅ ⁴                                   | —                    | —                                             |
 | トレイウィジェット                 | ✅ フライアウト                        | ✅ トレイのタイトル  | ✅ メニューバー                               |
 
-1. Linux では NVIDIA GPU は一覧に表示されますが、値はまだ取得できません。Intel GPU の使用率の取得には `intel_gpu_top` が必要です。
-2. PawnIOとMSI同梱のWindowsセンサーサービスが必要です。導入時は管理者の承認が必要です。マザーボードのセンサーは Nuvoton NCT6799D に対応しています。Nuvoton NCT6779D、NCT6791D、NCT6792D、NCT6793D、NCT6795D、NCT6796D、NCT6796D-S、NCT6797D、NCT6798D、NCT6796D-R / NCT5585D、NCT6701D、これらの Nuvoton チップファミリーの未認識バージョン、および ITE IT8728F（温度のみ）は実験的な対応です。
+1. Linux で NVIDIA GPU の使用率、温度、専用 VRAM 使用量を取得するには、DRM が認識したアダプタと NVIDIA ドライバーの NVML ライブラリが必要です。取得できる項目は GPU とドライバーに依存します。Intel GPU の使用率の取得には `intel_gpu_top` が必要です。
+2. PawnIO 経由の計測には PawnIO と、MSI インストーラーに同梱の Windows センサーサービスが必要です。導入時は管理者の承認が必要です。対象の CPU とマザーボードは[互換性表](docs/user/hardware-compatibility.md#compatibility-table)を参照してください。
 3. smartmontools が必要です。
 4. CPU 温度が必要です。電力、ファン、室温の各レーンは、対応するセンサーがある場合に表示されます。
+5. Linux の実験的対応には、対象デバイスに対応する hwmon ドライバーがバインド済みであることが必要です。対象の基板と取得項目は[互換性表](docs/user/hardware-compatibility.md#compatibility-table)を参照してください。
 
 ## サポート OS
 
