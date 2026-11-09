@@ -100,6 +100,7 @@ shared enforcement surface.
 - [Validate future privileged file ACLs](validate-future-privileged-file-acls.md)
 
 - [Evidence before conclusions](evidence-before-conclusions.md)
+- [Bound NVML waits in the collector](bound-nvml-waits-in-the-collector.md)
 - [Keep agent guidance aligned with canonical architecture](guidance-follows-canonical-architecture.md)
 - [Persist application preferences through settings](persist-application-preferences-through-settings.md)
 - [Legacy GPU source display preference](legacy-gpu-source-display-preference.md)
