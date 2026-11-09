@@ -11,13 +11,13 @@
 
 | ID | Source | Notes |
 | --- | --- | --- |
-| S1 | AMD, [Family 17h Model 31h B0 PPR](https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/55803-ppr-family-17h-model-31h-b0-processors.pdf), 55803 rev 0.91, September 1, 2020, `1.6.1, 1.7.1 and 2.1.13.1 (extended CPUID EBX) and [Family 17h Models 30h–3Fh Revision Guide](https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/revision-guides/56323-PUB_1_01.pdf#page=8), 56323 rev 1.01, April 2023, Table 2 | Primary for signature structure and the read-only package field. The documents describe SP3 and do not assign the Castle Peak nibble or specify the eight CCD thermal words. |
+| S1 | AMD, [Family 17h Model 31h B0 PPR](https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/55803-ppr-family-17h-model-31h-b0-processors.pdf), 55803 rev 0.91, September 1, 2020, sections 1.6.1, 1.7.1 and 2.1.13.1 (extended CPUID EBX) and [Family 17h Models 30h–3Fh Revision Guide](https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/revision-guides/56323-PUB_1_01.pdf#page=8), 56323 rev 1.01, April 2023, Table 2 | Primary for signature structure and the read-only package field. The documents describe SP3 and do not assign the Castle Peak nibble or specify the eight CCD thermal words. |
 | S2 | AMD, specifications for [3960X](https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-3000-series/amd-ryzen-threadripper-3960x.html#amd_support_product_spec), [3970X](https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-3000-series/amd-ryzen-threadripper-3970x.html#amd_support_product_spec), and [3990X](https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-3000-series/amd-ryzen-threadripper-3990x.html#amd_support_product_spec), and [Ryzen Master 2.9 Reference Guide](https://www.amd.com/content/dam/amd/en/documents/products/software-tools/ryzen-master-quick-reference-guide.pdf#page=35), April 2022, pp. 34–35 and 40 | Primary for the Castle Peak product and sTRX4 scope. The guide shows eight CCD positions on the 3990X and describes disabling whole CCDs on multi-CCD products. |
 | S3 | InstLatx64 raw CPUID archive at `17be9a9793c306cf96f8c286e34e705b780a0226`, [3960X](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/AuthenticAMD/AuthenticAMD0830F10_K17_CastlePeak_CPUID2.txt#L5-L31), [3970X](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/AuthenticAMD/AuthenticAMD0830F10_K17_CastlePeak_CPUID.txt#L46-L72), [PRO 3955WX](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/AuthenticAMD/AuthenticAMD0830F10_K17_Rome_CPUID6.txt#L5-L31), [PRO 3975WX](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/AuthenticAMD/AuthenticAMD0830F10_K17_Rome_CPUID7.txt#L5-L31), and [EPYC 7742](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/AuthenticAMD/AuthenticAMD0830F10_K17_Rome_CPUID.txt#L5-L31) | Independent raw observations. All five report signature `0x00830F10`. The two sTRX4 units report extended EBX `0x70000000`. Both PRO units and EPYC report `0x40000000`. |
 | S4 | Guenter Roeck, [January 23, 2020 v4 hwmon submission and raw 3970X observations](https://lists.openwall.net/linux-kernel/2020/01/23/987) | First-hand 3970X idle and load words and a separate idle Linux temperature display on the same exact CPU model. The patch portion is **lead-only (copyleft)** for channel mapping and conversion. |
 | S5 | Independent first-hand reports for [3960X Linux temperatures](https://forums.unraid.net/topic/129653-power-consumption-threadripper-3960x/), [3990X Linux temperatures and CPU identification](https://lists.debian.org/debian-user/2021/10/msg00895.html), [3990X Windows CPUID and socket topology](https://forum.level1techs.com/t/windows-11-got-something-right-fixed-3990x-numa-issue/173932/10), and [3970X PCI inventory](https://forum.level1techs.com/t/threadripper-3970x-gpu-passthrough-issues/153567) | The 3960X displays slots 1, 3, 5 and 7. The 3990X displays slots 1–8 on Linux and independently reports exact signature `0x00830F10` and one Windows socket spanning two processor groups. The PCI observation locates AMD `1022:1480` at bus 0, device 0, function 0 on a 3970X with several root buses. |
 | S6 | Linux v6.18, commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449`, [AMD thermal monitor](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/hwmon/k10temp.c#L68-L74), lines 68–74, 172–176, 239–251, 399–420 and 467–486, and [AMD SMN transport](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/arch/x86/kernel/amd_node.c#L37-L51), lines 37–51, 86–126 and 257–300 | **Lead-only (copyleft)** for the model 31h eight-word map, label-to-address relation, channel-discovery validity, decode, and distinction between the Linux and signed Windows access paths. |
-| S7 | [PawnIO interface](pawnio-interface.md) rev 7, `RyzenSMU and Mutex conventions, and [signed RyzenSMU 0.2.11 interface source](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/RyzenSMU.p#L118-L119), lines 118–119, 246–282, 617–626, 793–814 and 865–908 | Upstream module contract. Family 17h model 31h with package field 7 selects Castle Peak. The signed read entry point admits all eight words and takes the normal fixed AMD host-bridge route. |
+| S7 | [PawnIO interface](pawnio-interface.md) rev 7, `RyzenSMU` and Mutex conventions, and [signed RyzenSMU 0.2.11 interface source](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/RyzenSMU.p#L118-L119), lines 118–119, 246–282, 617–626, 793–814 and 865–908 | Primary upstream contract for the signed read entry point, eight allowed words and fixed AMD host-bridge route. The module’s internal Castle Peak classification of family 17h model 31h with package field 7 is **lead-only (copyleft)**. |
 | S8 | Microsoft Learn, [GetLogicalProcessorInformationEx](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex) and [PROCESSOR_RELATIONSHIP](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-processor_relationship) | Primary OS contract for enumerating physical packages and their processor group masks. |
 
 ## Detection
@@ -25,13 +25,13 @@
 | Condition | Gate kind | Source |
 | --- | --- | --- |
 | Windows x86-64, CPUID leaf 0 vendor `AuthenticAMD` and CPUID.01H:EAX exactly `0x00830F10` (family `0x17`, model `0x31`, stepping 0) | mechanism (the evidenced die and revision) | S1, S3–S7 |
-| Extended CPUID leaf `0x80000001` available and EBX bits 31:28 equal `0x7` | mechanism (selects the sTRX4 Castle Peak module route and excludes the observed Rome and PRO package encoding) | S1–S3, S7 |
+| Extended CPUID leaf `0x80000001` available and EBX bits 31:28 equal `0x7` | mechanism (selects the observed sTRX4 encoding and excludes the observed Rome and PRO encoding) | S1–S3 |
 | Complete Windows physical processor package enumeration reports one nonempty package with valid group masks | safety (the fixed PCI target cannot select a socket) | S5, S7, S8 |
 | The existing signed `RyzenSMU` read transport is available and its caller-held PCI mutex can be acquired before a request | safety (signed bounded transaction and serialization) | S7 |
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Exact signature `0x00830F10`, package field `0x7`, one physical package, and signed `RyzenSMU` read interface | 3960X and 3970X supply exact raw identity (S3). The 3970X supplies raw thermal evidence (S4). The 3990X independently corroborates the same signature, eight channels and one physical package across groups (S2, S5). The eight-word map, absent-slot handling, validity and conversion rely on lead-only S4/S6. S7 pins the signed read transport. | Experimental with independent checks on eight fixed slots. |
+| Exact signature `0x00830F10`, package field `0x7`, one physical package, and signed `RyzenSMU` read interface | 3960X and 3970X supply exact raw identity (S3). The 3970X supplies raw thermal evidence (S4). The 3990X independently corroborates the same signature, eight channels and one physical package across groups (S2, S5). The eight-word map, absent-slot handling, validity and conversion rely on lead-only S4/S6. S7 pins the signed read transport. The internal family, model and package classification is lead-only (copyleft) corroboration from S7. | Experimental with independent checks on eight fixed slots. |
 | Other signature or stepping, any other or unavailable package field, or incomplete, ambiguous or multiple physical packages | No matching mechanism under this specification. | Disabled. |
 
 ## Register map (facts)
@@ -83,8 +83,8 @@
   every transaction selects its own address (S7).
 - The Linux observations support the SMN word identities and decode.
   Linux uses its node-owned `0x60`/`0x64` aperture (S6). The Windows
-  route is supported by the signed module's own exact Castle Peak
-  recognition and read contract (S7).
+  route uses the signed module's published fixed host-bridge read
+  contract (S7).
 - A failed identity or topology gate prevents CCD access. This profile
   uses the eight enumerated words only. It does not scan PCI or SMN,
   perform direct port access, issue mailbox commands, request a PM
@@ -104,7 +104,7 @@
 
 ## Open questions
 
-- Non-blocking for the Castle Peak B0 Experimental scope: the raw 3960X and 3970X identities and the signed module independently pin the positive package gate, and the 3990X establishes all eight thermal positions.
+- Non-blocking for the Castle Peak B0 Experimental scope: the raw 3960X and 3970X identities pin the positive package gate, and the 3990X establishes all eight thermal positions.
   The public 3990X evidence omits its raw package nibble and provides no
   Windows CCD sample through this module. A target still needs the
   positive nibble 7 gate. No SKU name substitutes for that check.
