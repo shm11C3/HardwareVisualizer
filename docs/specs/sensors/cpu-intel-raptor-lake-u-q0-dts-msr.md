@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental Windows physical-core DTS on hybrid Raptor Lake U and U Refresh with exact signature `0x000B06A3`, in one active processor group and one physical package. |
 | Issue phase | [#2514](https://github.com/shm11C3/HardwareVisualizer/issues/2514) |
 
@@ -22,6 +22,7 @@
 | S9 | [PawnIO interface](https://github.com/shm11C3/HardwareVisualizer/blob/2495a1b0fbe4a8048feac9d122b98201e7970cbb/docs/specs/sensors/pawnio-interface.md#intelmsr) revision 7, `IntelMSR` and signed release `0.2.11` | Existing calling-processor synchronous read interface and allow-list for `0x19C` and `0x1A2`. |
 | S10 | [OpenBSD 7.3 ThinkPad X1 Carbon Gen 11 log](https://gist.githubusercontent.com/reyk/82aaabe49add48d1afbd4920046b19b5/raw/2b6dfd2bba9684011447b40ef65c26bae814c5ac/openbsd-thinkpad-x1-carbon-gen11-2023), lines 22–83, and OpenBSD [flag decoding](https://github.com/openbsd/src/blob/d7fb83ec8e606829eabfddeca63857805f59d4fc/sys/arch/amd64/amd64/identcpu.c#L663-L664) and [bit definition](https://github.com/openbsd/src/blob/d7fb83ec8e606829eabfddeca63857805f59d4fc/sys/arch/amd64/include/specialreg.h#L253-L255) | Independent i7-1365U `06-ba-03` boot log with the DTS capability on all twelve logical CPUs, including the eight E-core targets. The log reports capabilities and topology. |
 | S11 | Independent XMRig Windows inventory reports for [Core i7-1365U](https://xmrig.com/benchmark/5PS6UY) and [Core 7 150U](https://xmrig.com/benchmark/6RebzH) | Corroborates exact `0x000B06A3` and ten cores/twelve threads on both U and U Refresh. These reports supply no thermal data. |
+| S12 | Intel [SDM Volume 4](https://cdrdv2-public.intel.com/929363/335592-093-sdm-vol-4.pdf), 335592-093US, September 2026, §2.17 Table 2-39 (pp. 2-359–2-361), and Linux v6.18 commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449` [model identity](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/arch/x86/include/asm/intel-family.h#L139-L141) and [thermal mask](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L38-L43) and [model selection](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L96-L101) | Intel retains the seven-bit core readout and marks bit 23 reserved. Linux is **lead-only (copyleft)** for a conflicting eight-bit mask on display model `06_BA`. |
 
 ## Detection
 
@@ -35,7 +36,7 @@
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Exact Q-0 `0x000B06A3` hybrid U and U Refresh | Intel supplies the exact signature-to-platform and thermal contracts (S1–S4). S5 captures P-core registers. S6 and S10 corroborate E-core enumeration, capability and Linux decoded readings. S7 establishes embedded U-series overlap with fewer active cores, and S11 corroborates the U Refresh signature. | Experimental under the mechanism and safety gates. |
+| Exact Q-0 `0x000B06A3` hybrid U and U Refresh | Intel supplies the exact signature-to-platform and thermal contracts (S1–S4). S5 captures P-core registers. S6 and S10 corroborate E-core enumeration, capability and Linux decoded readings. S7 establishes embedded U-series overlap with fewer active cores, and S11 corroborates the U Refresh signature. Collection rejects samples with the disputed status bit set (S12, Linux lead-only for the conflicting mask). | Experimental under the mechanism and safety gates. |
 | Other signatures or missing capability, topology or transport gates | J-0 `0x000B06A2`, `0x000B06A8` and other signatures are outside this scope. Other approved signatures follow their own specifications. | Disabled under this specification. |
 
 Product, board, firmware and core counts are evidence identities.
@@ -68,7 +69,8 @@ Use the common revision 6 hybrid procedure and project constraints
 (S8). On the confirmed representative, read 64-bit `0x1A2` and then
 `0x19C` through `IntelMSR` (S9). Check the representative after both
 reads and restore affinity. Require both reads to succeed, a target
-of 50–120 °C inclusive and a set status bit 31. Subtract the unsigned
+of 50–120 °C inclusive and a set status bit 31. Leave the core
+unavailable if status bit 23 is set. Subtract the unsigned
 readout from the target and accept only a positive result at most
 equal to the target. A valid zero readout returns Tjmax. The TCC
 activation offset and averaging window do not enter this conversion
@@ -89,6 +91,7 @@ core set under S8.
 | `0x000B06A2`, `0x000B06A8`, another signature, wrong vendor, missing required discovery leaf or clear core DTS/hybrid bit | Make no topology query or MSR request under this scope, regardless of package thermal management. |
 | Eligible discovery followed by unexpected signature, absent capability or unsupported type on a pinned representative | Make neither read on that target. Preserve independent eligible core results. |
 | Valid delta 50 and reference 100 °C with either zero or nonzero TCC offset, including a nonzero averaging window | Return 50 °C for each. A valid zero delta returns 100 °C. |
+| Synthetic target 100 °C, status `0x889E0000` on one physical core and `0x881E0000` on another, both with Reading Valid set | Leave the bit-23-set sample unavailable and return 70 °C for the other core. |
 | A register faults, target is zero, 49 °C or 121 °C, status bit 31 is clear, or delta is at least the target | Mark that core unavailable. Accept targets of 50 °C and 120 °C when the remaining fields qualify. |
 | Multiple groups or packages, inconsistent or changing topology, timeout or failed affinity restoration | Apply S8's no-result and cache rules. Preserve independent package and fallback results. |
 
@@ -130,8 +133,18 @@ neither raw Reading Valid nor the location of a sensor on the die.
 Retail Refresh and embedded observations do not include raw thermal
 register captures.
 
+Non-blocking for #2514 Experimental core DTS: collection rejects a sample with bit 23 set before applying Intel's seven-bit decode.
+
+Intel marks bit 23 reserved, while the pinned Linux model mask includes
+it (S12, Linux lead-only). All captured core status words have bit 23 clear
+in the i7-1365U P-core capture (S5). Q-0 E-core raw words remain unavailable.
+When set, bit 23 could make an otherwise plausible seven-bit result
+ambiguous. The sample is unavailable under the project gate and the
+meaning of bit 23 on hardware remains unresolved.
+
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-10 | Proposes Implementation-ready status for exact hybrid Raptor Lake U/U Refresh Q-0 core DTS, pending maintainer approval. Records the raw P-core, Linux E-core and embedded identity evidence boundaries. |
+| 2 | 2026-11-10 | Reject a status word with bit 23 set before interpreting the digital readout. |
