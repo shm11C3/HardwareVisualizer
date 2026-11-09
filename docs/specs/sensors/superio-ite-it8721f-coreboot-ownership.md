@@ -27,8 +27,8 @@ provider's named ISA mutex does not coordinate with this AML mutex.
 
 Windows ITE sensor discovery and chip-ID diagnostics can enter
 configuration mode on the primary pair before reading the chip ID. The
-shared-port concern therefore arises at discovery even with the IT8721F
-DX fan profile disabled. A subsequent chip-ID or revision check cannot
+shared-port concern therefore arises at discovery even with IT8721F
+fan collection disabled. A subsequent chip-ID or revision check cannot
 exclude access that has already occurred. This is a static overlap in
 access paths. Evidence of an actual concurrent transaction on Windows
 is unavailable. (S1–S3)
@@ -38,8 +38,8 @@ is unavailable. (S1–S3)
 IT8721F fan collection remains disabled. Admission would require a
 supported pre-entry ownership check or shared arbitration for the
 configuration ports. The release identifies the audited artifact only.
-Applicability to stock ASUS firmware, other Coreboot images, physical
-board revisions, and DX silicon remains unverified. (S1–S3)
+Applicability to stock ASUS firmware, other Coreboot images, and
+specific PCB revisions remains unverified. (S1–S3)
 
 ## Revision history
 
