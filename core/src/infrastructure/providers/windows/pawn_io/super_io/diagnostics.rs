@@ -43,7 +43,7 @@ pub fn read_super_io_chip_id_diagnostics() -> SuperIoChipIdDiagnostics {
         platform_supported: true,
         pawnio: Some(pawnio),
         slots: Vec::new(),
-        error: Some(reason),
+        error: Some(reason.to_string()),
       };
     }
   };

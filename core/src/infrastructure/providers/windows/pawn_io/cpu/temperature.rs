@@ -319,6 +319,7 @@ impl CpuTemperatureSampler {
         enablement: _,
       }) => client
         .read_smu_register(AMD_THM_TCON_CUR_TMP)
+        .map_err(String::from)
         .and_then(|value| {
           decode_amd_zen_package_temperature(value as u32, *tctl_offset_celsius)
             .map_err(format_decode_error)
@@ -445,6 +446,7 @@ fn read_shared_msr(client: &Arc<Mutex<PawnIoClient>>, msr: u64) -> Result<u64, S
     .lock()
     .map_err(|_| "shared IntelMSR client lock poisoned".to_string())?
     .read_msr(msr)
+    .map_err(String::from)
 }
 
 fn decode_intel_package_temperature_sample(

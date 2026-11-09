@@ -161,7 +161,7 @@ impl RuntimePowerSampler {
     energy_msr: u64,
   ) -> Result<Option<f64>, String> {
     let reading = match client.lock() {
-      Ok(client) => client.read_msr(energy_msr),
+      Ok(client) => client.read_msr(energy_msr).map_err(String::from),
       Err(_) => Err("shared IntelMSR client lock poisoned".to_string()),
     };
     let timestamp = self.clock_origin.elapsed().as_secs_f64();
@@ -173,7 +173,7 @@ impl RuntimePowerSampler {
     client: &PawnIoClient,
     energy_msr: u64,
   ) -> Result<Option<f64>, String> {
-    let reading = client.read_msr(energy_msr);
+    let reading = client.read_msr(energy_msr).map_err(String::from);
     let timestamp = self.clock_origin.elapsed().as_secs_f64();
     self.consume_public_reading(reading, timestamp)
   }
