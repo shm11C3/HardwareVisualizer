@@ -32,8 +32,10 @@ vendor or family.
 | AMD Family 19h | PawnIO package temperature | Reported working on a Ryzen 7 7800X3D ([validation record](../development/sensor-handoff/evidence/2026-09-26-pawnio-modules-0.2.11-validation.md)) | No | [@shm11C3](https://github.com/shm11C3) |
 | AMD Family 1Ah | PawnIO package temperature | Experimental | No, report availability first | — |
 | AMD Vermeer | Windows PawnIO [CCD temperatures on qualified single-package AM4 models](../specs/sensors/cpu-amd-vermeer-ccd-smn.md) | Experimental | No | — |
+| AMD Raphael and Granite Ridge | Windows PawnIO CCD temperatures on qualified single-package AM5 [Raphael](../specs/sensors/cpu-amd-raphael-ccd-smn.md) and [Granite Ridge](../specs/sensors/cpu-amd-granite-ridge-ccd-smn.md) profiles | Experimental | No | — |
 | Intel CPUs | PawnIO package temperature | Not yet verified by a public compatibility report | No | — |
-| Intel Core DTS | Windows PawnIO core temperatures on [selected Nehalem, Sandy Bridge, Atom C2000, Alder Lake, and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) and [Meteor Lake C0](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | The legacy profiles include DTS-only CPUs. The scoped hybrid profiles are Experimental. | No | — |
+| Intel Core DTS | Windows PawnIO core temperatures on [qualified legacy and Alder Lake / Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) | Includes selected DTS-only CPUs. The additional legacy and scoped hybrid profiles are Experimental. | No | — |
+| Intel Skylake, Meteor Lake, and Arrow Lake | Windows PawnIO core temperatures on qualified [Skylake U/U23e/Y](../specs/sensors/cpu-intel-skylake-mobile-dts-msr.md), [Meteor Lake C0](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md), and [Arrow Lake `0x000C0662`](../specs/sensors/cpu-intel-arrow-lake-dts-msr.md) profiles | Experimental | No | — |
 | NVIDIA GPUs | NVAPI on Windows | Not yet verified by a public compatibility report | No | — |
 | NVIDIA GPUs | NVML usage, temperature, and dedicated VRAM usage for detected Linux DRM adapters with the system NVIDIA driver | Implemented. Native Linux compatibility report not yet recorded. | No | — |
 | AMD GPUs | ADL on Windows, DRM/hwmon on Linux | Not yet verified by a public compatibility report | No | — |
