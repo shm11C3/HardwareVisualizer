@@ -38,7 +38,10 @@ const HEADER_SIZE: usize =
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CoreDtsProfile {
-  LegacyModel(u32),
+  Legacy {
+    signature: u32,
+    zero_offset_mask: u64,
+  },
   HybridSignature(u32),
 }
 
@@ -54,6 +57,9 @@ fn profile_from_cpuid(
   mut read_leaf: impl FnMut(u32) -> Option<CpuidLeaf>,
 ) -> Option<CoreDtsProfile> {
   let leaf0 = read_leaf(0)?;
+  if leaf0.eax < 6 {
+    return None;
+  }
   let vendor = vendor_id_from_leaf0(leaf0);
   let signature = read_leaf(1)?.eax;
   if signature == ARROW_LAKE_SIGNATURE && leaf0.eax < HYBRID_CORE_TYPE_LEAF {
@@ -87,13 +93,36 @@ fn select_profile(
     .then_some(CoreDtsProfile::HybridSignature(signature));
   }
 
+  Some(CoreDtsProfile::Legacy {
+    signature,
+    zero_offset_mask: legacy_zero_offset_mask(signature)?,
+  })
+}
+
+fn legacy_zero_offset_mask(signature: u32) -> Option<u64> {
   let (family, model) = effective_family_model(signature);
-  (family == 6
-    && matches!(
-      model,
-      0x1a | 0x1e | 0x1f | 0x2e | 0x2a | 0x2d | SILVERMONT_ATOM_C2000
-    ))
-  .then_some(CoreDtsProfile::LegacyModel(model))
+  if family != 6 {
+    return None;
+  }
+
+  Some(match model {
+    // The direct-decode rows do not condition the DTS reference on an offset.
+    0x1a | 0x1e | 0x1f | 0x25 | 0x2a | 0x2c | 0x2d | 0x2e | 0x2f | 0x3a | 0x3c | 0x3d
+    | 0x45 | 0x46 | 0x47 => 0,
+    0x3e | 0x4f | 0x56 => 0x0f00_0000,
+    0x37
+    | 0x4a
+    | 0x4c
+    | SILVERMONT_ATOM_C2000
+    | 0x5a
+    | 0x5c
+    | 0x5d
+    | 0x7a
+    | 0x86
+    | 0x96
+    | 0x9c => 0x3f00_0000,
+    _ => return None,
+  })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -374,14 +403,13 @@ fn decode_core_temperature(
   status: u64,
 ) -> Option<f32> {
   if status & (1 << 31) == 0
-    || (matches!(profile, CoreDtsProfile::LegacyModel(SILVERMONT_ATOM_C2000))
-      && (target >> 24) & 0x3f != 0)
+    || matches!(profile, CoreDtsProfile::Legacy { zero_offset_mask, .. } if target & zero_offset_mask != 0)
   {
     return None;
   }
 
-  // On the approved hybrid targets the DTS reference is factory Tjmax.
-  // The TCC offset affects the control threshold and does not enter this decode.
+  // The admitted target byte is the DTS reference. Do not subtract the
+  // TCC activation offset from it.
   let target = decode_intel_temperature_target(target).ok()?;
   decode_intel_package_temperature(target, status).ok()
 }
@@ -400,21 +428,29 @@ mod tests {
     RAPTOR_LAKE_S_HX,
     METEOR_LAKE_C0,
   ];
-  const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::LegacyModel(0x1a);
-  const SILVERMONT_PROFILE: CoreDtsProfile =
-    CoreDtsProfile::LegacyModel(SILVERMONT_ATOM_C2000);
+  const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: BLOOMFIELD_SIGNATURE,
+    zero_offset_mask: 0,
+  };
+  const SILVERMONT_PROFILE: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: 0x0004_06d8,
+    zero_offset_mask: 0x3f00_0000,
+  };
 
   #[test]
   fn core_model_gate_is_independent_of_package_capability() {
     // Synthetic leaf-6 values reflect the two DTS-only observations in the spec.
-    for (signature, model, leaf6) in [
-      (BLOOMFIELD_SIGNATURE, 0x1a, 0x03),
-      (0x0004_06d8, 0x4d, 0x05),
-      (0x0002_06a7, 0x2a, 0x41),
+    for (signature, zero_offset_mask, leaf6) in [
+      (BLOOMFIELD_SIGNATURE, 0, 0x03),
+      (0x0004_06d8, 0x3f00_0000, 0x05),
+      (0x0002_06a7, 0, 0x41),
     ] {
       assert_eq!(
         select_profile("GenuineIntel", signature, leaf6, 0),
-        Some(CoreDtsProfile::LegacyModel(model))
+        Some(CoreDtsProfile::Legacy {
+          signature,
+          zero_offset_mask
+        })
       );
     }
     for leaf6 in [0, 0x40] {
@@ -423,12 +459,115 @@ mod tests {
         None
       );
     }
-    assert_eq!(select_profile("GenuineIntel", 0x0004_06c8, 0x41, 0), None);
+    assert_eq!(select_profile("GenuineIntel", 0x0004_06e8, 0x41, 0), None);
     assert_eq!(select_profile("GenuineIntel", 0x0000_05d8, 0x41, 0), None);
     assert_eq!(
       select_profile("AuthenticAMD", BLOOMFIELD_SIGNATURE, 0x41, 0),
       None
     );
+  }
+
+  // Synthetic CPUID signatures for each additional display model. These
+  // fixtures intentionally do not identify observed processor products.
+  const ADDED_LEGACY_CASES: [(u32, u64); 22] = [
+    (0x0002_0651, 0),
+    (0x0002_06c1, 0),
+    (0x0002_06f1, 0),
+    (0x0003_06a1, 0),
+    (0x0003_06c1, 0),
+    (0x0004_0651, 0),
+    (0x0004_0661, 0),
+    (0x0003_06d1, 0),
+    (0x0004_0671, 0),
+    (0x0003_06e1, 0x0f00_0000),
+    (0x0004_06f1, 0x0f00_0000),
+    (0x0005_0661, 0x0f00_0000),
+    (0x0003_0671, 0x3f00_0000),
+    (0x0004_06a1, 0x3f00_0000),
+    (0x0004_06c1, 0x3f00_0000),
+    (0x0005_06a1, 0x3f00_0000),
+    (0x0005_06d1, 0x3f00_0000),
+    (0x0005_06c1, 0x3f00_0000),
+    (0x0007_06a1, 0x3f00_0000),
+    (0x0008_0661, 0x3f00_0000),
+    (0x0009_0661, 0x3f00_0000),
+    (0x0009_06c1, 0x3f00_0000),
+  ];
+
+  fn synthetic_legacy_profile(
+    signature: u32,
+    thermal_features: u32,
+  ) -> Option<CoreDtsProfile> {
+    let mut requested = Vec::new();
+    let profile = profile_from_cpuid(|leaf| {
+      requested.push(leaf);
+      let (eax, ebx, ecx, edx) = match leaf {
+        0 => (
+          7,
+          u32::from_le_bytes(*b"Genu"),
+          u32::from_le_bytes(*b"ntel"),
+          u32::from_le_bytes(*b"ineI"),
+        ),
+        1 => (signature, 0, 0, 0),
+        6 => (thermal_features, 0, 0, 0),
+        7 | 0x8000_0003..=0x8000_0004 => (0, 0, 0, 0),
+        0x8000_0000 => (0x8000_0004, 0, 0, 0),
+        0x8000_0002 => (
+          u32::from_le_bytes(*b"Synt"),
+          u32::from_le_bytes(*b"heti"),
+          u32::from_le_bytes(*b"c Le"),
+          u32::from_le_bytes(*b"gacy"),
+        ),
+        _ => return None,
+      };
+      Some(CpuidLeaf { eax, ebx, ecx, edx })
+    });
+    assert_eq!(requested, [0, 1, 6, 7]);
+    profile
+  }
+
+  #[test]
+  fn every_added_legacy_model_uses_its_offset_gate_without_a_brand_or_package_gate() {
+    let status = (1 << 31) | (30 << 16);
+    let target = 100 << 16;
+    for (signature, zero_offset_mask) in ADDED_LEGACY_CASES {
+      let expected = CoreDtsProfile::Legacy {
+        signature,
+        zero_offset_mask,
+      };
+      for thermal_features in [1, 0x41] {
+        let profile = synthetic_legacy_profile(signature, thermal_features).unwrap();
+        assert_eq!(profile, expected, "signature {signature:#x}");
+        assert_eq!(decode_core_temperature(profile, target, status), Some(70.0));
+        assert_eq!(
+          decode_core_temperature(profile, target, status & !(1 << 31)),
+          None
+        );
+        assert_eq!(decode_core_temperature(profile, 0, status), None);
+        for offset_bit in [1 << 24, 1 << 28] {
+          assert_eq!(
+            decode_core_temperature(profile, target | offset_bit, status),
+            (offset_bit & zero_offset_mask == 0).then_some(70.0),
+            "signature {signature:#x}, offset bit {offset_bit:#x}",
+          );
+        }
+      }
+      assert_eq!(synthetic_legacy_profile(signature, 0), None);
+      assert_eq!(synthetic_legacy_profile(signature, 0x40), None);
+    }
+  }
+
+  #[test]
+  fn undocumented_legacy_models_remain_ineligible_even_with_dts() {
+    for signature in [
+      0x0000_06f1,
+      0x0001_06c1,
+      0x0003_06f1,
+      0x0004_06e1,
+      0x0005_06e1,
+    ] {
+      assert_eq!(synthetic_legacy_profile(signature, 0x41), None);
+    }
   }
 
   #[test]
@@ -736,7 +875,9 @@ mod tests {
     fn profile(&self) -> Option<CoreDtsProfile> {
       let target = self.current.get().number;
       let signature = if self.failure == (target, Failure::DifferentSignature) {
-        if self.signature == ALDER_LAKE_S_HX {
+        if self.extended_features == 0 {
+          self.signature ^ 1
+        } else if self.signature == ALDER_LAKE_S_HX {
           RAPTOR_LAKE_S_HX
         } else {
           ALDER_LAKE_S_HX
@@ -995,6 +1136,51 @@ mod tests {
       if matches!(failure, Failure::Pin | Failure::NoDts) {
         assert!(!calls.iter().any(|call| matches!(call, Call::Read(0, _))));
       }
+    }
+  }
+
+  #[test]
+  fn legacy_rejects_mismatched_stepping_or_read_failure_per_core() {
+    let topology = synthetic_topology(&[1, 2]);
+    let signature = 0x0003_06e1;
+    let profile = synthetic_legacy_profile(signature, 1).unwrap();
+    for (failure, expected_calls) in [
+      (Failure::DifferentSignature, Vec::new()),
+      (Failure::Target, vec![MSR_TEMPERATURE_TARGET]),
+      (
+        Failure::Status,
+        vec![MSR_TEMPERATURE_TARGET, IA32_THERM_STATUS],
+      ),
+    ] {
+      let mut fixture = Fixture::new((0, failure));
+      fixture.signature = signature;
+      fixture.thermal_features = 1;
+      let results = collect(
+        profile,
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        results
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [(0, None), (1, Some(58.0))]
+      );
+      let calls = fixture.calls.into_inner();
+      assert!(calls.contains(&Call::Restore(0)));
+      assert_eq!(
+        calls
+          .iter()
+          .filter_map(|call| match call {
+            Call::Read(0, msr) => Some(*msr),
+            _ => None,
+          })
+          .collect::<Vec<_>>(),
+        expected_calls
+      );
     }
   }
 

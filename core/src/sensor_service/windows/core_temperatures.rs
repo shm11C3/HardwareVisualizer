@@ -151,6 +151,7 @@ impl CoreTemperatures {
 #[cfg(test)]
 mod tests {
   use super::*;
+
   use std::cell::Cell;
   use std::sync::{
     Arc,
@@ -159,6 +160,11 @@ mod tests {
   };
 
   use crate::infrastructure::providers::windows::pawn_io::cpu::core_temperature::synthetic_topology;
+
+  const FIXTURE_PROFILE: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: 0x0001_06a4,
+    zero_offset_mask: 0,
+  };
 
   fn readings() -> Vec<CpuCoreTemperature> {
     vec![
@@ -184,7 +190,7 @@ mod tests {
     let request = || {
       let starts = starts.clone();
       sampler.sample(
-        CoreDtsProfile::LegacyModel(0x1a),
+        FIXTURE_PROFILE,
         topology,
         move |_, _, _| {
           starts.fetch_add(1, Ordering::Relaxed);
@@ -212,7 +218,7 @@ mod tests {
     let observations = Cell::new(0);
     let outcome = sampler
       .sample(
-        CoreDtsProfile::LegacyModel(0x1a),
+        FIXTURE_PROFILE,
         || {
           let previous = observations.replace(observations.get() + 1);
           Some(if previous == 0 {
@@ -232,7 +238,7 @@ mod tests {
     assert!(
       sampler
         .sample(
-          CoreDtsProfile::LegacyModel(0x1a),
+          FIXTURE_PROFILE,
           || Some(before.clone()),
           |_, _, _| Some(readings()),
           CORE_WAIT_BUDGET
@@ -243,7 +249,7 @@ mod tests {
     assert!(
       sampler
         .sample(
-          CoreDtsProfile::LegacyModel(0x1a),
+          FIXTURE_PROFILE,
           || Some(after.clone()),
           |_, _, _| {
             panic!("a changed topology does not bypass the CPU acquisition rate")
@@ -265,7 +271,7 @@ mod tests {
     let worker_id = first_worker.clone();
     let expired = sampler
       .sample(
-        CoreDtsProfile::LegacyModel(0x1a),
+        FIXTURE_PROFILE,
         topology,
         move |_, _, _| {
           *worker_id.lock().unwrap() = Some(thread::current().id());
@@ -282,7 +288,7 @@ mod tests {
     assert!(
       sampler
         .sample(
-          CoreDtsProfile::LegacyModel(0x1a),
+          FIXTURE_PROFILE,
           topology,
           |_, _, _| {
             panic!("a second pass cannot start before the expired thread exits")
@@ -300,7 +306,7 @@ mod tests {
 
     let fresh = sampler
       .sample(
-        CoreDtsProfile::LegacyModel(0x1a),
+        FIXTURE_PROFILE,
         topology,
         move |_, _, _| {
           assert_ne!(Some(thread::current().id()), *first_worker.lock().unwrap());
