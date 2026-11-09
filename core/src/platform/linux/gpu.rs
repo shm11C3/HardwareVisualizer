@@ -77,9 +77,9 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, Platfo
 async fn get_amd_graphic_info(
   card_id: u8,
 ) -> Result<models::hardware::GraphicInfo, PlatformError> {
-  let lspci_name =
-    infrastructure::providers::drm_sys::get_card_bdf(card_id).and_then(|bdf| {
-      infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&bdf)
+  let lspci_name = infrastructure::providers::drm_sys::get_card_pci_address(card_id)
+    .and_then(|address| {
+      infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&address)
     });
   let identity = resolve_card_identity(
     infrastructure::providers::drm_sys::GpuVendor::Amd,
@@ -123,9 +123,9 @@ fn get_generic_graphic_info(
   card_id: u8,
   vendor: infrastructure::providers::drm_sys::GpuVendor,
 ) -> models::hardware::GraphicInfo {
-  let lspci_name =
-    infrastructure::providers::drm_sys::get_card_bdf(card_id).and_then(|bdf| {
-      infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&bdf)
+  let lspci_name = infrastructure::providers::drm_sys::get_card_pci_address(card_id)
+    .and_then(|address| {
+      infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&address)
     });
   let identity = resolve_card_identity(vendor, card_id, lspci_name.as_deref());
 
@@ -207,16 +207,12 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
   };
   let mut nvidia_samples = nvml_provider::sample(nvml_pci_addresses(&cards)).await;
 
-  for card in cards {
-    let DrmCard {
-      id: card_id,
-      vendor,
-      pci_address,
-      ..
-    } = card;
-    let bdf = pci_address.as_deref().map(drm_sys::domainless_bdf);
-    let lspci_name = bdf.and_then(|bdf| {
-      lspci_output.and_then(|out| lspci::parse_gpu_name_by_bdf(out, bdf))
+  for card in &cards {
+    let card_id = card.id;
+    let vendor = card.vendor;
+    let pci_address = unique_pci_address(card, &cards);
+    let lspci_name = pci_address.and_then(|address| {
+      lspci_output.and_then(|out| lspci::parse_gpu_name_by_bdf(out, address))
     });
     let identity = resolve_card_identity(vendor, card_id, lspci_name.as_deref());
     let mut source = identity.live_source;
@@ -241,9 +237,8 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
         (usage, None)
       }
       GpuVendor::Nvidia => {
-        if let Some(readings) = pci_address
-          .as_deref()
-          .and_then(|address| nvidia_samples.remove(address))
+        if let Some(readings) =
+          pci_address.and_then(|address| nvidia_samples.remove(address))
         {
           source = "NVML";
           dedicated_memory_kb = readings.dedicated_memory_kb;
@@ -255,12 +250,8 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
       GpuVendor::Unknown => (None, None),
     };
 
-    let gpu_id = bdf
-      .map(|bdf| format!("pci:{bdf}"))
-      .unwrap_or_else(|| format!("drm:card{card_id}"));
-
     metrics.push(models::GpuSample {
-      gpu_id,
+      gpu_id: linux_gpu_id(card_id, pci_address),
       name: identity.name,
       usage,
       temperature,
@@ -280,29 +271,35 @@ struct DrmCard {
   runtime_suspended: bool,
 }
 
+// An exact duplicate PCI address cannot identify a single DRM adapter.
+fn unique_pci_address<'a>(card: &'a DrmCard, cards: &[DrmCard]) -> Option<&'a str> {
+  let address = card.pci_address.as_deref()?;
+  (!cards.iter().any(|sibling| {
+    sibling.id != card.id && sibling.pci_address.as_deref() == Some(address)
+  }))
+  .then_some(address)
+}
+
+fn linux_gpu_id(card_id: u8, address: Option<&str>) -> String {
+  address.map_or_else(
+    || format!("drm:card{card_id}"),
+    |address| format!("pci:{address}"),
+  )
+}
+
 /// Select unambiguous NVIDIA DRM cards without querying a suspended device.
 fn nvml_pci_addresses(cards: &[DrmCard]) -> Vec<String> {
-  use infrastructure::providers::drm_sys::{GpuVendor, domainless_bdf};
+  use infrastructure::providers::drm_sys::GpuVendor;
 
-  // NVML can distinguish domains, but the shipped live pci:<BDF> keys
-  // omit the domain. Decline measurements when that key is ambiguous.
   cards
     .iter()
     // A device handle lookup can wake a GPU from runtime suspension.
     .filter(|card| card.vendor == GpuVendor::Nvidia && !card.runtime_suspended)
-    .filter_map(|card| {
-      let address = card.pci_address.as_ref()?;
-      let bdf = domainless_bdf(address);
-      let has_sibling = cards.iter().any(|sibling| {
-        sibling.id != card.id
-          && sibling.pci_address.as_deref().map(domainless_bdf) == Some(bdf)
-      });
-      (!has_sibling).then(|| address.clone())
-    })
+    .filter_map(|card| unique_pci_address(card, cards).map(str::to_owned))
     .collect()
 }
 
-/// The `lspci -nn` output, fetched once and cached for the process
+/// The `lspci -D -nn` output, fetched once and cached for the process
 /// lifetime.
 ///
 /// `sample_gpus` runs at the monitor cadence, and forking `lspci` every
@@ -402,7 +399,7 @@ mod tests {
   const NVIDIA_LSPCI_LINE: &str = "01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD107 [GeForce RTX 4060] [10de:2882]";
 
   #[test]
-  fn only_unambiguous_awake_nvidia_drm_slots_reach_nvml() {
+  fn full_pci_identity_preserves_nvidia_domains_and_declines_duplicate_addresses() {
     let card = |id, vendor, address: Option<&str>| DrmCard {
       id,
       vendor,
@@ -412,7 +409,7 @@ mod tests {
     let cards = [
       card(0, GpuVendor::Nvidia, Some("0000:01:00.0")),
       card(1, GpuVendor::Nvidia, Some("0003:04:00.1")),
-      card(2, GpuVendor::Amd, Some("0001:01:00.0")),
+      card(2, GpuVendor::Nvidia, Some("0001:01:00.0")),
       card(3, GpuVendor::Nvidia, None),
       card(4, GpuVendor::Intel, Some("0000:00:02.0")),
       card(5, GpuVendor::Nvidia, Some("0000:02:00.0")),
@@ -420,9 +417,33 @@ mod tests {
         runtime_suspended: true,
         ..card(6, GpuVendor::Nvidia, Some("0000:03:00.0"))
       },
+      card(7, GpuVendor::Nvidia, Some("0000:05:00.0")),
+      card(8, GpuVendor::Amd, Some("0000:05:00.0")),
     ];
 
-    assert_eq!(nvml_pci_addresses(&cards), ["0003:04:00.1", "0000:02:00.0"]);
+    assert_eq!(
+      nvml_pci_addresses(&cards),
+      [
+        "0000:01:00.0",
+        "0003:04:00.1",
+        "0001:01:00.0",
+        "0000:02:00.0"
+      ]
+    );
+    let live_id = |index: usize| {
+      let card = &cards[index];
+      linux_gpu_id(card.id, unique_pci_address(card, &cards))
+    };
+    assert_eq!(live_id(0), "pci:0000:01:00.0");
+    assert_eq!(live_id(2), "pci:0001:01:00.0");
+    assert_eq!(live_id(3), "drm:card3");
+    assert_eq!(live_id(6), "pci:0000:03:00.0");
+    assert_eq!(live_id(7), "drm:card7");
+    assert_eq!(live_id(8), "drm:card8");
+    assert_eq!(
+      linux_gpu_id(cards[2].id, unique_pci_address(&cards[2], &cards[1..])),
+      live_id(2)
+    );
   }
 
   #[test]

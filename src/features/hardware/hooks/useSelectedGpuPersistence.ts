@@ -4,6 +4,7 @@ import {
   findLiveGpuId,
   findNamedLiveGpuId,
   liveGpuSelection,
+  migrateLegacyLinuxGpuId,
   migrateLegacyPdhGpuId,
   unresolvedGpuSelection,
 } from "@/features/hardware/gpuIdentity";
@@ -89,15 +90,18 @@ export const useSelectedGpuPersistence = () => {
       return;
     }
 
-    const migratedPdhId = migrateLegacyPdhGpuId(unresolvedId, gpuNames);
-    if (migratedPdhId != null) {
-      setSelection(liveGpuSelection(migratedPdhId));
+    const migratedLiveId =
+      migrateLegacyPdhGpuId(unresolvedId, gpuNames) ??
+      migrateLegacyLinuxGpuId(unresolvedId, gpuNames);
+    if (migratedLiveId != null) {
+      setSelection(liveGpuSelection(migratedLiveId));
       return;
     }
-    // A PDH id is already in the live namespace. If it is not present, the
-    // inventory cannot resolve it, so preserve the intent without an
-    // unnecessary inventory fetch.
-    if (unresolvedId.startsWith("pdh:")) return;
+    // PDH and PCI ids are live ids. Preserve unresolved intent without
+    // fetching the inventory, which uses a separate namespace.
+    if (unresolvedId.startsWith("pdh:") || unresolvedId.startsWith("pci:")) {
+      return;
+    }
 
     // A restart can land on a view that never fetches the inventory (Monitor,
     // Compact), and the migration cannot read what nothing has fetched. Only

@@ -131,16 +131,7 @@ pub fn detect_gpu_vendor(card_id: u8) -> GpuVendor {
   }
 }
 
-/// Read the PCI BDF (bus:device.function) for a DRM card by following the
-/// `/sys/class/drm/card{N}/device` symlink.
-///
-/// Returns e.g. `"03:00.0"`.
-pub fn get_card_bdf(card_id: u8) -> Option<String> {
-  let address = get_card_pci_address(card_id)?;
-  Some(domainless_bdf(&address).to_string())
-}
-
-/// Read a DRM card's full PCI address for joining against a vendor API.
+/// Read a DRM card's full PCI address, including its domain, from its device link.
 pub(crate) fn get_card_pci_address(card_id: u8) -> Option<String> {
   let link = fs::read_link(format!("/sys/class/drm/card{card_id}/device")).ok()?;
   parse_pci_address_from_device_link(link.to_str()?).map(str::to_ascii_lowercase)
@@ -156,11 +147,6 @@ pub(crate) fn card_runtime_suspended(card_id: u8) -> bool {
 
 fn runtime_suspended(status: &str) -> bool {
   matches!(status.trim(), "suspended" | "suspending")
-}
-
-pub(crate) fn domainless_bdf(address: &str) -> &str {
-  // Callers hold an address already validated by get_card_pci_address.
-  address.split_once(':').map_or(address, |(_, bdf)| bdf)
 }
 
 fn parse_pci_address_from_device_link(symlink_target: &str) -> Option<&str> {
@@ -198,52 +184,48 @@ mod tests {
     }
   }
 
-  fn parse_bdf_from_device_link(symlink_target: &str) -> Option<String> {
-    parse_pci_address_from_device_link(symlink_target)
-      .map(domainless_bdf)
-      .map(str::to_string)
-  }
-
   #[test]
   fn parse_bdf_standard_pci_address() {
     assert_eq!(
-      parse_bdf_from_device_link("../../0000:03:00.0"),
-      Some("03:00.0".to_string())
+      parse_pci_address_from_device_link("../../0000:03:00.0"),
+      Some("0000:03:00.0")
     );
   }
 
   #[test]
   fn parse_bdf_different_domain() {
     assert_eq!(
-      parse_bdf_from_device_link("../../0001:0a:00.0"),
-      Some("0a:00.0".to_string())
+      parse_pci_address_from_device_link("../../0001:0a:00.0"),
+      Some("0001:0a:00.0")
     );
   }
 
   #[test]
   fn parse_bdf_non_zero_function() {
     assert_eq!(
-      parse_bdf_from_device_link("../../0000:06:00.1"),
-      Some("06:00.1".to_string())
+      parse_pci_address_from_device_link("../../0000:06:00.1"),
+      Some("0000:06:00.1")
     );
   }
 
   #[test]
   fn parse_bdf_absolute_path() {
     assert_eq!(
-      parse_bdf_from_device_link("/sys/devices/pci0000:00/0000:00:08.1/0000:0a:00.0"),
-      Some("0a:00.0".to_string())
+      parse_pci_address_from_device_link(
+        "/sys/devices/pci0000:00/0000:00:08.1/0000:0a:00.0"
+      ),
+      Some("0000:0a:00.0")
     );
   }
 
   #[test]
   fn parse_bdf_empty_string() {
-    assert!(parse_bdf_from_device_link("").is_none());
+    assert!(parse_pci_address_from_device_link("").is_none());
   }
 
   #[test]
   fn parse_bdf_invalid_format() {
-    assert!(parse_bdf_from_device_link("../../invalid").is_none());
+    assert!(parse_pci_address_from_device_link("../../invalid").is_none());
   }
 
   #[test]
