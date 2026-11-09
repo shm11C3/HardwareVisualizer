@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use libloading::Library;
 use windows::Win32::Foundation::{
-  CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
+  CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_EVENT, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 use windows::Win32::System::LibraryLoader::{
   LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, LOAD_LIBRARY_SEARCH_SYSTEM32,
@@ -31,6 +31,58 @@ const LPC_IO_LEGACY_MODULE_FILE: &str = "LpcIO.amx";
 
 pub(crate) const ACCESS_PCI_MUTEX: &str = "Global\\Access_PCI";
 pub(crate) const ACCESS_ISABUS_MUTEX: &str = "Global\\Access_ISABUS.HTP.Method";
+
+/// A failed request to a loaded PawnIO module.
+///
+/// The `Display` text is the surfaced reason: guidance classification and
+/// the service log read it, so keep it stable.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub(crate) enum PawnIoError {
+  #[error("invalid PawnIO function name: {0}")]
+  InvalidFunctionName(#[from] std::ffi::NulError),
+  #[error("pawnio_execute {function} failed: {}", format_hresult(*.hresult))]
+  Execute {
+    function: &'static str,
+    hresult: i32,
+  },
+  #[error("pawnio_execute {function} returned no output cells")]
+  NoOutput { function: &'static str },
+  #[error(transparent)]
+  Mutex(#[from] MutexError),
+}
+
+/// A failure to take an ecosystem mutex shared with other monitoring tools.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub(crate) enum MutexError {
+  #[error("failed to open/create mutex {name}: open={open:?}; create={create:?}")]
+  OpenOrCreate {
+    name: &'static str,
+    open: windows::core::Error,
+    create: windows::core::Error,
+  },
+  #[error("timed out waiting for mutex {name}")]
+  Timeout { name: &'static str },
+  #[error("failed waiting for mutex {name}: {wait:?}")]
+  Wait {
+    name: &'static str,
+    wait: WAIT_EVENT,
+  },
+}
+
+// Transitional bridges for callers that still carry `String` reasons. They
+// produce the same text as before; #2639 removes them once every caller
+// keeps the typed error.
+impl From<PawnIoError> for String {
+  fn from(error: PawnIoError) -> Self {
+    error.to_string()
+  }
+}
+
+impl From<MutexError> for String {
+  fn from(error: MutexError) -> Self {
+    error.to_string()
+  }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PawnIoModule {
@@ -208,11 +260,11 @@ impl PawnIoClient {
     Ok((Self { library, handle }, discovery))
   }
 
-  pub(crate) fn read_msr(&self, msr: u64) -> Result<u64, String> {
+  pub(crate) fn read_msr(&self, msr: u64) -> Result<u64, PawnIoError> {
     self.execute("ioctl_read_msr", &[msr]).map(|out| out[0])
   }
 
-  pub(crate) fn read_smu_register(&self, address: u64) -> Result<u64, String> {
+  pub(crate) fn read_smu_register(&self, address: u64) -> Result<u64, PawnIoError> {
     // RyzenSMU does not serialize the host bridge index/data pair for callers.
     let _mutex = NamedMutex::acquire(ACCESS_PCI_MUTEX, Duration::from_millis(50))?;
     self
@@ -220,55 +272,62 @@ impl PawnIoClient {
       .map(|out| out[0])
   }
 
-  pub(crate) fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+  pub(crate) fn select_lpc_slot(&self, slot: u64) -> Result<(), PawnIoError> {
     self.execute_no_output("ioctl_select_slot", &[slot])
   }
 
-  pub(crate) fn find_lpc_bars(&self) -> Result<(), String> {
+  pub(crate) fn find_lpc_bars(&self) -> Result<(), PawnIoError> {
     self.execute_no_output("ioctl_find_bars", &[])
   }
 
-  pub(crate) fn pio_inb(&self, port: u16) -> Result<u8, String> {
+  pub(crate) fn pio_inb(&self, port: u16) -> Result<u8, PawnIoError> {
     self
       .execute("ioctl_pio_inb", &[port as u64])
       .map(|out| out[0] as u8)
   }
 
-  pub(crate) fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+  pub(crate) fn pio_outb(&self, port: u16, value: u8) -> Result<(), PawnIoError> {
     self.execute_no_output("ioctl_pio_outb", &[port as u64, value as u64])
   }
 
-  pub(crate) fn superio_inb(&self, register: u8) -> Result<u8, String> {
+  pub(crate) fn superio_inb(&self, register: u8) -> Result<u8, PawnIoError> {
     self
       .execute("ioctl_superio_inb", &[register as u64])
       .map(|out| out[0] as u8)
   }
 
-  pub(crate) fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+  pub(crate) fn superio_outb(&self, register: u8, value: u8) -> Result<(), PawnIoError> {
     self.execute_no_output("ioctl_superio_outb", &[register as u64, value as u64])
   }
 
-  fn execute(&self, name: &str, input: &[u64]) -> Result<Vec<u64>, String> {
-    let output = self.execute_raw(name, input, 1)?;
+  fn execute(
+    &self,
+    function: &'static str,
+    input: &[u64],
+  ) -> Result<Vec<u64>, PawnIoError> {
+    let output = self.execute_raw(function, input, 1)?;
     if output.is_empty() {
-      return Err(format!("pawnio_execute {name} returned no output cells"));
+      return Err(PawnIoError::NoOutput { function });
     }
 
     Ok(output)
   }
 
-  fn execute_no_output(&self, name: &str, input: &[u64]) -> Result<(), String> {
-    self.execute_raw(name, input, 0).map(|_| ())
+  fn execute_no_output(
+    &self,
+    function: &'static str,
+    input: &[u64],
+  ) -> Result<(), PawnIoError> {
+    self.execute_raw(function, input, 0).map(|_| ())
   }
 
   fn execute_raw(
     &self,
-    name: &str,
+    function: &'static str,
     input: &[u64],
     output_cells: usize,
-  ) -> Result<Vec<u64>, String> {
-    let name =
-      CString::new(name).map_err(|e| format!("invalid PawnIO function name: {e}"))?;
+  ) -> Result<Vec<u64>, PawnIoError> {
+    let name = CString::new(function)?;
     // Always back the output pointer with at least one cell so PawnIOLib
     // receives a valid, aligned, non-null pointer even for no-output IOCTLs,
     // but tell it the true cell count (`output_cells`) so a 0-output IOCTL is
@@ -293,11 +352,10 @@ impl PawnIoClient {
       )
     };
     if hresult_failed(hr) {
-      return Err(format!(
-        "pawnio_execute {} failed: {}",
-        name.to_string_lossy(),
-        format_hresult(hr)
-      ));
+      return Err(PawnIoError::Execute {
+        function,
+        hresult: hr,
+      });
     }
 
     Ok(output[..return_size.min(output_cells)].to_vec())
@@ -466,7 +524,10 @@ pub(crate) struct NamedMutex {
 }
 
 impl NamedMutex {
-  pub(crate) fn acquire(name: &str, timeout: Duration) -> Result<Self, String> {
+  pub(crate) fn acquire(
+    name: &'static str,
+    timeout: Duration,
+  ) -> Result<Self, MutexError> {
     let wide_name = wide_null(name);
     let handle = open_or_create_mutex(name, PCWSTR(wide_name.as_ptr()))?;
     let wait = unsafe { WaitForSingleObject(handle, timeout.as_millis() as u32) };
@@ -478,9 +539,9 @@ impl NamedMutex {
     } else {
       let _ = unsafe { CloseHandle(handle) };
       if wait == WAIT_TIMEOUT {
-        Err(format!("timed out waiting for mutex {name}"))
+        Err(MutexError::Timeout { name })
       } else {
-        Err(format!("failed waiting for mutex {name}: {wait:?}"))
+        Err(MutexError::Wait { name, wait })
       }
     }
   }
@@ -495,15 +556,15 @@ impl Drop for NamedMutex {
   }
 }
 
-fn open_or_create_mutex(name: &str, wide_name: PCWSTR) -> Result<HANDLE, String> {
+fn open_or_create_mutex(
+  name: &'static str,
+  wide_name: PCWSTR,
+) -> Result<HANDLE, MutexError> {
   let access = MUTEX_MODIFY_STATE | SYNCHRONIZATION_SYNCHRONIZE;
   match unsafe { OpenMutexW(access, false, wide_name) } {
     Ok(handle) => Ok(handle),
-    Err(open_error) => unsafe { CreateMutexW(None, false, wide_name) }.map_err(|create_error| {
-      format!(
-        "failed to open/create mutex {name}: open={open_error:?}; create={create_error:?}"
-      )
-    }),
+    Err(open) => unsafe { CreateMutexW(None, false, wide_name) }
+      .map_err(|create| MutexError::OpenOrCreate { name, open, create }),
   }
 }
 
@@ -637,5 +698,55 @@ mod tests {
       ["AMDFamily17.bin", "AMDFamily17.amx"]
     );
     assert_eq!(PawnIoModule::LpcIo.file_names(), ["LpcIO.bin", "LpcIO.amx"]);
+  }
+
+  #[test]
+  fn execute_failure_keeps_the_surfaced_reason_and_its_guidance_kind() {
+    let error = PawnIoError::Execute {
+      function: "ioctl_pio_inb",
+      hresult: 0x8007_0005_u32 as i32,
+    };
+
+    assert_eq!(
+      error.to_string(),
+      "pawnio_execute ioctl_pio_inb failed: 0x80070005"
+    );
+    assert_eq!(
+      crate::models::external_component_guidance::classify_external_component_reason(
+        &error.to_string()
+      ),
+      crate::models::ExternalComponentReasonKind::Permission
+    );
+  }
+
+  #[test]
+  fn missing_output_names_the_function() {
+    assert_eq!(
+      PawnIoError::NoOutput {
+        function: "ioctl_read_msr"
+      }
+      .to_string(),
+      "pawnio_execute ioctl_read_msr returned no output cells"
+    );
+  }
+
+  #[test]
+  fn mutex_failures_keep_their_text_through_the_client_error() {
+    let timeout = MutexError::Timeout {
+      name: ACCESS_ISABUS_MUTEX,
+    };
+    let wait = MutexError::Wait {
+      name: ACCESS_PCI_MUTEX,
+      wait: WAIT_EVENT(u32::MAX),
+    };
+
+    assert_eq!(
+      PawnIoError::from(timeout).to_string(),
+      "timed out waiting for mutex Global\\Access_ISABUS.HTP.Method"
+    );
+    assert_eq!(
+      wait.to_string(),
+      "failed waiting for mutex Global\\Access_PCI: WAIT_EVENT(4294967295)"
+    );
   }
 }

@@ -261,27 +261,27 @@ pub(super) trait LpcIoOps {
 
 impl LpcIoOps for PawnIoClient {
   fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
-    PawnIoClient::select_lpc_slot(self, slot)
+    PawnIoClient::select_lpc_slot(self, slot).map_err(Into::into)
   }
 
   fn find_lpc_bars(&self) -> Result<(), String> {
-    PawnIoClient::find_lpc_bars(self)
+    PawnIoClient::find_lpc_bars(self).map_err(Into::into)
   }
 
   fn pio_inb(&self, port: u16) -> Result<u8, String> {
-    PawnIoClient::pio_inb(self, port)
+    PawnIoClient::pio_inb(self, port).map_err(Into::into)
   }
 
   fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
-    PawnIoClient::pio_outb(self, port, value)
+    PawnIoClient::pio_outb(self, port, value).map_err(Into::into)
   }
 
   fn superio_inb(&self, register: u8) -> Result<u8, String> {
-    PawnIoClient::superio_inb(self, register)
+    PawnIoClient::superio_inb(self, register).map_err(Into::into)
   }
 
   fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
-    PawnIoClient::superio_outb(self, register, value)
+    PawnIoClient::superio_outb(self, register, value).map_err(Into::into)
   }
 }
 
