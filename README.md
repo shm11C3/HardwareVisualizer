@@ -155,8 +155,10 @@ Winget installs do not set up PawnIO; use **Settings → Advanced** after instal
 >   sudo hardware-visualizer
 >   ```
 >
-> - CPU temperature, power draw, and motherboard sensors are not available on
->   Linux yet.
+> - Linux motherboard and DIMM readings require a
+>   [supported profile](docs/user/hardware-compatibility.md#compatibility-table)
+>   and the matching hwmon driver already bound. CPU temperature and power
+>   draw are currently unavailable on Linux.
 
 ### First-time Setup
 
@@ -184,21 +186,23 @@ After launching the app:
 | Feature                           | Windows                           | Linux               | macOS                                     |
 | --------------------------------- | --------------------------------- | ------------------- | ----------------------------------------- |
 | CPU / memory usage, processes     | ✅                                | ✅                  | ✅                                        |
-| GPU usage                         | ✅ NVIDIA, AMD, others via PDH    | ✅ AMD, Intel ¹     | ✅                                        |
-| GPU temperature                   | ✅ NVIDIA, AMD                    | ✅ AMD              | —                                         |
+| GPU usage                         | ✅ NVIDIA, AMD, others via PDH    | ✅ AMD, Intel, NVIDIA ¹ | ✅                                     |
+| GPU temperature                   | ✅ NVIDIA, AMD                    | ✅ AMD, NVIDIA ¹    | —                                         |
 | CPU temperature                   | ✅ PawnIO ² or ACPI thermal zones | —                   | —                                         |
 | Power draw                        | ✅ CPU package ²                  | —                   | ✅ CPU, GPU, ANE, package (Apple Silicon) |
-| Motherboard temperatures and fans | ✅ Supported Super I/O chips ²    | —                   | —                                         |
+| Motherboard temperatures and fans | ✅ Supported Super I/O chips ²    | ✅ Scoped MSI profiles ⁵ | —                                    |
+| DIMM temperature                  | —                                 | ✅ Scoped ODROID-H4 profile ⁵ | —                                 |
 | Storage Health (SMART)            | ✅                                | ✅ via `smartctl` ³ | ✅ via `smartctl` ³                       |
 | Network interface details         | ✅                                | ✅                  | ✅                                        |
 | Ambient temperature (SwitchBot)   | ✅                                | —                   | —                                         |
 | Cooling Insight                   | ✅ ⁴                              | —                   | —                                         |
 | Tray widget                       | ✅ Flyout                         | ✅ Tray title       | ✅ Menu bar                               |
 
-1. NVIDIA GPUs are listed on Linux, but their readings are not available yet. Intel GPU usage requires `intel_gpu_top`.
-2. Requires PawnIO and the MSI-bundled Windows sensor service; setup requires administrator approval. Motherboard sensors support Nuvoton NCT6799D. Nuvoton NCT6779D, NCT6791D, NCT6792D, NCT6793D, NCT6795D, NCT6796D, NCT6796D-S, NCT6797D, NCT6798D, NCT6796D-R / NCT5585D, and NCT6701D, unrecognized versions of those Nuvoton chip families, and ITE IT8728F (temperatures only) are experimental.
+1. Linux NVIDIA GPU usage, temperature, and dedicated VRAM usage require a detected DRM adapter and the system NVIDIA driver's NVML library. Metrics depend on the GPU and driver. Intel GPU usage requires `intel_gpu_top`.
+2. PawnIO readings require PawnIO and the Windows sensor service bundled with the MSI installer. Setup requires administrator approval. See the [compatibility table](docs/user/hardware-compatibility.md#compatibility-table) for the CPU and motherboard profiles.
 3. Requires smartmontools.
 4. Requires CPU temperature. Power, fan, and ambient lanes appear when those sensors are available.
+5. Experimental Linux support requires the matching, already bound hwmon driver. The [compatibility table](docs/user/hardware-compatibility.md#compatibility-table) lists the boards and available readings.
 
 ## Supported OS
 
