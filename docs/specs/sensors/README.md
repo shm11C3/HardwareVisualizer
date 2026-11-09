@@ -272,4 +272,5 @@ enablement. Their revisions remain outside the implementation gate.
 | --- | --- | --- |
 | [`superio-ite-gigabyte-secondary.md`](superio-ite-gigabyte-secondary.md) | Gigabyte secondary LPC, ECIO and ISA bridge limits, including B650E AORUS MASTER rev. 1.0 H2RAM and X470 AORUS GAMING 7 WIFI F64 SMM evidence | #2519 |
 | [`superio-ite-trx50-secondary-linux-hwmon.md`](superio-ite-trx50-secondary-linux-hwmon.md) | Gigabyte TRX50 AI TOP IT87952E Linux hwmon alarm-status blocker and separate OEM F11 ACPI/WMI findings | #2519 |
+| [`superio-ite-8s661fxmp-rz-f3-ownership.md`](superio-ite-8s661fxmp-rz-f3-ownership.md) | Gigabyte 8S661FXMP-RZ rev. 1.0 IT8705F/AF F3 ACPI monitor ownership and unresolved safe fan readback | #2518 |
 | [`superio-nuvoton-nct668x.md`](superio-nuvoton-nct668x.md) | MSI PRO B850-P WIFI direct EC Space evidence for raw ID `0xD592`, with open access and fan-validity questions. Separate safety research for bound Linux hwmon on ASRock NCT6686D and Intel NCT6683D boards. | #2520 |
