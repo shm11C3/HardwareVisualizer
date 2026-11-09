@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
+| Revision | 3 |
 | Status | Draft — not implementation-ready |
 | Scope | Read-only research for DDR4 DIMMs that advertise a TSE2004av sensor and have an already bound Linux `jc42` and `ee1004` pair. Slot attribution remains disabled until the active firmware identity mechanism is established. |
 | Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526) |
@@ -23,6 +23,7 @@
 | S10 | Upstream dmidecode tag `dmidecode-3-5`, [string sanitation](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L116-L159), [Type 127 output](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5338-L5340), [table traversal](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5525-L5622), [SMBIOS 3 entry point](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5721-L5776), [sysfs and fallback](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L6057-L6126), [record formatting](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmioutput.c#L47-L63), [diagnostic output](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmioutput.c#L127-L137) and [fallback device option](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmiopt.c#L270-L299). Git blobs `54f59c163dafb8bd0902bcaf3a1ba5f1a0efd7f1` and `42f8d3218c433116b50e9856f86f8412c2dabf0e` for the first two files. | **lead-only (copyleft)** for partial success, structural Type 127 output, field sanitation and fallback dispatch. |
 | S11 | Linux v6.18 [firmware DMI table ABI](https://github.com/torvalds/linux/blob/v6.18/Documentation/ABI/testing/sysfs-firmware-dmi-tables), [binary registration](https://github.com/torvalds/linux/blob/v6.18/drivers/firmware/dmi_scan.c#L722-L756) and [sysfs binary permissions](https://github.com/torvalds/linux/blob/v6.18/include/linux/sysfs.h#L358-L359) | Public fixed binary source paths. **lead-only (copyleft)** for administrator-read permissions. |
 | S12 | Protectli [VP2410 datasheet](https://eu.protectli.com/wp-content/uploads/2024/07/VP2410-Datasheet-20240628.pdf), *Memory Slot* entry, and Dasharo [VP2410 Hardware Configuration Matrix](https://docs.dasharo.com/variants/protectli_vp2410/hardware-matrix/) | Primary for the single `DIMM1` DDR4 SO-DIMM slot and validation module list. No native temperature binding or slot-to-sensor capture. |
+| S13 | OSADL [rack 0, slot 5 hardware profile](https://www.osadl.org/Profile-of-system-in-rack-0-slot-5.qa-profile-r0s5.0.html?id=1352), BIOS, DIMMs and DMI sections, and Shuttle [SH370200.106](https://global.shuttle.com/products/productsDownload?c=xpc-cube&pn=SH370R6+V2), build March 25, 2020, [OEM archive](https://download.shuttle.eu/Mirror/MiniPC%26AIO/cube/SH370R6_V2/Bios/SH370200.106.ZIP). Archive SHA-256 `b956d8ee95d93ba8d98c7def38b1a680bf9df6c2f2764bf3436b21d3281e5dfa`, 16 MiB image SHA-256 `664fc58cba98822fc17d586e8c77f7be54d7053910f5d80af993f1465605bca4`. | First-hand OSADL report on Shuttle SH370V2, AMI 1.06. Static vendor artifact for the Type 17 writer in `SiInitDxe`, FFS GUID `acd28235-075b-48b5-98a1-da04fcaf84f3`, PE SHA-256 `df1bc935a127b4132ee025c697896f2f96428f55ce258ba1dad7d554c4a5f560`, RVA `0xD37`–`0xD7D`. Research only. |
 
 ## Detection and scoped enablement
 
@@ -256,6 +257,16 @@ attribution requirements of this draft.
   relies on the kernel-owned binding and the affirmative module
   declaration. A known forced binding or bus ownership conflict
   excludes the affected pair.
+- The SH370V2 report (S13) shows two DDR4 SPD 1.1 modules of part
+  `BL16G32C16U4RL.M16FE` with the TSE2004 declaration. The serials
+  displayed for `ee1004` clients `7-0051` and `7-0053`, `E33ECD9A`
+  and `E33ED020`, agree with the serials and part in Type 17 handles
+  `0x003C` and `0x003E`, respectively. The pinned firmware's writer
+  renders four successive saved module serial bytes as hexadecimal
+  byte pairs in ascending address order. This evidence is confined to
+  that writer and the observed inventory. Physical SPD strap mapping,
+  a native bound `jc42` endpoint and a passive way to attest the
+  active writer remain open.
 - The Protectli VP2410 is a single-slot lead (S12). Its documented
   `DIMM1` connector does not supply a same-platform native `ee1004` and
   `jc42` binding or prove that an exact supported module supplies the
@@ -267,3 +278,4 @@ attribution requirements of this draft.
 | --- | --- | --- |
 | 1 | 2026-11-09 | Initial Linux DDR4 TSE2004av proposal with a same-adapter function pair and one-to-one Type 17 attribution. |
 | 2 | 2026-11-09 | Return to Draft. Require proof of the active firmware identity mechanism and a complete entry-point-verified binary inventory. Record the bounded dmidecode completion candidate separately. |
+| 3 | 2026-11-09 | Record the exact Shuttle firmware writer and matching OSADL inventory as research evidence. |
