@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental motherboard temperature readback on the Gigabyte B850M AORUS ELITE WIFI6E ICE through its already-bound Linux `gigabyte-wmi` hwmon endpoint. The initial profile covers the five independently observed temperature channels. |
 | Issue phase | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517) |
 
@@ -18,6 +18,7 @@
 | S5 | Same Arch Linux revision [DMI attributes](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/firmware/dmi-id.c#L44-L55), [boot DMI format](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/firmware/dmi_scan.c#L552-L569), [WMI passive metadata](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/platform/x86/wmi.c#L660-L684), [WMI device parent and naming](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/platform/x86/wmi.c#L1046-L1067), [mapper parent](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/platform/x86/wmi.c#L1275-L1291), [hwmon parent](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/hwmon/hwmon.c#L936-L950), and [class device link](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/base/core.c#L3422-L3450). | **lead-only (copyleft)** for the native sysfs device relationships and passive metadata. |
 | S6 | UEFI [ACPI 6.6 §19.6.64 IndexField](https://uefi.org/sites/default/files/resources/ACPI_Spec_6.6.pdf), Linux [ACPI WMI interface](https://docs.kernel.org/wmi/acpi-interface.html) and [hwmon input ABI](https://docs.kernel.org/hwmon/sysfs-interface.html#temperatures). | Public specifications for locked indexed access, the firmware WMI descriptor, and read-only temperature input attributes. |
 | S7 | Frank Crawford IT87 DKMS [driver name](https://github.com/frankcrawford/it87/blob/bd7a566c8a60fe0308d67e26761e16260368191a/it87.c#L107), [platform driver and I/O resource](https://github.com/frankcrawford/it87/blob/bd7a566c8a60fe0308d67e26761e16260368191a/it87.c#L7241-L7268), and [address-based device instance](https://github.com/frankcrawford/it87/blob/bd7a566c8a60fe0308d67e26761e16260368191a/it87.c#L7326-L7345), commit `bd7a566c8a60fe0308d67e26761e16260368191a`, GPL-2.0-or-later. See also the pinned Arch Linux [decimal platform instance naming](https://github.com/archlinux/linux/blob/5dd0d64a9efca31f7f4636bdb3fe0e478b2b9b32/drivers/base/platform.c#L657-L671). | **lead-only (copyleft)** for passive identification of the competing bound `it87` device at the base reported in S3. This pin explains the naming contract, with the S3 experiment on a separate build. |
+| S8 | Gigabyte [F12e release for the same board](https://www.gigabyte.com/jp/Motherboard/B850M-AORUS-ELITE-WIFI6E-ICE-rev-1x/support) and [OEM archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_b850m-a-elt-wf6e-ice_8arpl310_f12e.zip?v=e9f17fdd5d85db3673b8db3589c270e5), October 19, 2026, checksum `130B`. | ZIP SHA-256 `a5380258ab5e948d6e3dbbdc50d067f0649a89541ad3a526dac96fdab2d3b58e`, `B850MAELTWF6EICE.F12e` image `bea39a2d2defa9565bcce2c8710ddd931b450deb15eeb0c5e349e477ab27dc34`. Checksum-valid `GSWApp` SSDT SHA-256 `e41b5173f93b1286e645405fb9edeedb750b6466227bb088d1f914f1c676027c`, at offset `0x11F9634` in the LZMA payload decoded from image offset `0x107B980`. Static evidence only. |
 
 ## Detection
 
@@ -128,8 +129,13 @@ that base as a sampling address. (S1–S3, S7 lead-only)
 ## Open questions
 
 - Non-blocking for #2517 Linux temperature scope: RPM requires a
-  separately qualified owned endpoint. The audited firmware uses tach
-  counts internally, and its named fan WMI methods expose tuning state.
+  separately qualified owned endpoint. In F12e, the `GSWApp` table retains
+  F11's temperature dispatch and primary monitor address. Its scalar raw
+  tachometer helper has no caller in the extracted ACPI tables and no
+  WMI method dispatch. The thermal-zone `_TMP` returns a fixed temperature
+  and can reach fan control writes. Those paths supply no qualified RPM
+  endpoint. The static comparison does not establish a physically distinct
+  secondary controller or cover SMM handlers. (S2, S8)
 - Non-blocking for #2517 Linux temperature scope: A Windows provider
   would require independent callable instance and ownership evidence.
   Physical temperature labels and live F11 verification remain
@@ -141,3 +147,4 @@ that base as a sampling address. (S1–S3, S7 lead-only)
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-10 | Propose Implementation-ready for the exact Linux WMI temperature path only. Pin the F4 owner capture and the F4/F11 OEM method and ownership evidence. |
+| 2 | 2026-11-10 | Pin the F12e static comparison and document the limits of its tachometer and thermal-zone paths. Preserve the Experimental temperature scope. |
