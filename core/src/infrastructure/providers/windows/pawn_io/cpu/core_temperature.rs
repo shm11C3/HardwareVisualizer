@@ -27,6 +27,7 @@ const IA32_THERM_STATUS: u64 = 0x19c;
 const ARROW_LAKE_SIGNATURE: u32 = 0x000c_0662;
 const HYBRID_CORE_TYPE_LEAF: u32 = 0x1a;
 const SILVERMONT_ATOM_C2000: u32 = 0x4d;
+const SKYLAKE_U_Y_SIGNATURE: u32 = 0x0004_06e3;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
 const ALDER_LAKE_H_P_PS: u32 = 0x0009_06a3;
 const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
@@ -109,6 +110,7 @@ fn legacy_zero_offset_mask(signature: u32) -> Option<u64> {
     // The direct-decode rows do not condition the DTS reference on an offset.
     0x1a | 0x1e | 0x1f | 0x25 | 0x2a | 0x2c | 0x2d | 0x2e | 0x2f | 0x3a | 0x3c | 0x3d
     | 0x45 | 0x46 | 0x47 => 0,
+    0x4e if signature == SKYLAKE_U_Y_SIGNATURE => 0,
     0x3e | 0x4f | 0x56 => 0x0f00_0000,
     0x37
     | 0x4a
@@ -497,20 +499,22 @@ mod tests {
   fn synthetic_legacy_profile(
     signature: u32,
     thermal_features: u32,
+    leaf7_edx: Option<u32>,
   ) -> Option<CoreDtsProfile> {
     let mut requested = Vec::new();
     let profile = profile_from_cpuid(|leaf| {
       requested.push(leaf);
       let (eax, ebx, ecx, edx) = match leaf {
         0 => (
-          7,
+          if leaf7_edx.is_some() { 7 } else { 6 },
           u32::from_le_bytes(*b"Genu"),
           u32::from_le_bytes(*b"ntel"),
           u32::from_le_bytes(*b"ineI"),
         ),
         1 => (signature, 0, 0, 0),
         6 => (thermal_features, 0, 0, 0),
-        7 | 0x8000_0003..=0x8000_0004 => (0, 0, 0, 0),
+        7 => (0, 0, 0, leaf7_edx?),
+        0x8000_0003..=0x8000_0004 => (0, 0, 0, 0),
         0x8000_0000 => (0x8000_0004, 0, 0, 0),
         0x8000_0002 => (
           u32::from_le_bytes(*b"Synt"),
@@ -536,7 +540,8 @@ mod tests {
         zero_offset_mask,
       };
       for thermal_features in [1, 0x41] {
-        let profile = synthetic_legacy_profile(signature, thermal_features).unwrap();
+        let profile =
+          synthetic_legacy_profile(signature, thermal_features, Some(0)).unwrap();
         assert_eq!(profile, expected, "signature {signature:#x}");
         assert_eq!(decode_core_temperature(profile, target, status), Some(70.0));
         assert_eq!(
@@ -552,8 +557,8 @@ mod tests {
           );
         }
       }
-      assert_eq!(synthetic_legacy_profile(signature, 0), None);
-      assert_eq!(synthetic_legacy_profile(signature, 0x40), None);
+      assert_eq!(synthetic_legacy_profile(signature, 0, Some(0)), None);
+      assert_eq!(synthetic_legacy_profile(signature, 0x40, Some(0)), None);
     }
   }
 
@@ -566,7 +571,65 @@ mod tests {
       0x0004_06e1,
       0x0005_06e1,
     ] {
-      assert_eq!(synthetic_legacy_profile(signature, 0x41), None);
+      assert_eq!(synthetic_legacy_profile(signature, 0x41, Some(0)), None);
+    }
+  }
+
+  const SKYLAKE_FIXTURE: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: 0x0004_06e3,
+    zero_offset_mask: 0,
+  };
+
+  #[test]
+  fn skylake_u_y_requires_exact_signature_dts_and_no_hybrid_flag() {
+    for ptm in [0, 1 << 6] {
+      for leaf7_edx in [None, Some(0)] {
+        assert_eq!(
+          synthetic_legacy_profile(0x0004_06e3, 1 | ptm, leaf7_edx),
+          Some(SKYLAKE_FIXTURE)
+        );
+      }
+      assert_eq!(synthetic_legacy_profile(0x0004_06e3, ptm, Some(0)), None);
+      assert_eq!(
+        synthetic_legacy_profile(0x0004_06e3, 1 | ptm, Some(HYBRID_CAPABILITY)),
+        None
+      );
+    }
+    for excluded in [0x0004_06e2, 0x0004_06e4, 0x0005_06e3] {
+      assert_eq!(synthetic_legacy_profile(excluded, 0x41, Some(0)), None);
+    }
+  }
+
+  #[test]
+  fn skylake_u_y_decode_is_independent_of_bits_outside_the_target_byte() {
+    for (target, status, expected) in [
+      (0x0364_0000, 0x8820_0800, 68.0),
+      (0x0364_0000, 0x8838_0800, 44.0),
+      (0x8a64_0080, 0x8825_3800, 63.0),
+    ] {
+      // Start with the specification's observed words and vary the offset
+      // and neighboring metadata in the synthetic words.
+      let target_byte = target & 0x00ff_0000;
+      for word in [target, target_byte, target_byte | 0xbf00_5500] {
+        assert_eq!(
+          decode_core_temperature(SKYLAKE_FIXTURE, word, status),
+          Some(expected)
+        );
+      }
+    }
+    for (target, delta, expected) in [
+      (0, 0, None),
+      (49, 0, None),
+      (50, 0, Some(50.0)),
+      (120, 0, Some(120.0)),
+      (121, 0, None),
+      (100, 100, None),
+      (100, 101, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(SKYLAKE_FIXTURE, target << 16, (1 << 31) | (delta << 16)),
+        expected
+      );
     }
   }
 
@@ -809,6 +872,7 @@ mod tests {
     NoDts,
     DifferentSignature,
     NoHybridFlag,
+    UnexpectedHybridFlag,
     MissingCoreType,
     UnknownCoreType,
     MovedAfterStatus,
@@ -892,6 +956,8 @@ mod tests {
       };
       let extended_features = if self.failure == (target, Failure::NoHybridFlag) {
         0
+      } else if self.failure == (target, Failure::UnexpectedHybridFlag) {
+        HYBRID_CAPABILITY
       } else {
         self.extended_features
       };
@@ -1143,7 +1209,7 @@ mod tests {
   fn legacy_rejects_mismatched_stepping_or_read_failure_per_core() {
     let topology = synthetic_topology(&[1, 2]);
     let signature = 0x0003_06e1;
-    let profile = synthetic_legacy_profile(signature, 1).unwrap();
+    let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
     for (failure, expected_calls) in [
       (Failure::DifferentSignature, Vec::new()),
       (Failure::Target, vec![MSR_TEMPERATURE_TARGET]),
@@ -1181,6 +1247,67 @@ mod tests {
           .collect::<Vec<_>>(),
         expected_calls
       );
+    }
+  }
+
+  #[test]
+  fn skylake_u_y_keeps_physical_core_slots_and_checks_each_pinned_representative() {
+    let topology = synthetic_topology(&[0b0011, 0b1100]);
+    for (failure, second_core_reads) in [
+      (None, 2),
+      (Some(Failure::DifferentSignature), 0),
+      (Some(Failure::NoDts), 0),
+      (Some(Failure::UnexpectedHybridFlag), 0),
+      (Some(Failure::Target), 1),
+      (Some(Failure::Status), 2),
+      (Some(Failure::InvalidStatus), 2),
+    ] {
+      let mut fixture =
+        Fixture::new(failure.map_or((u8::MAX, Failure::Pin), |fault| (2, fault)));
+      fixture.signature = 0x0004_06e3;
+      fixture.thermal_features = 1;
+      fixture.target_by_core_type = [0x0364_0000, 0x8a6e_0080];
+
+      let readings = collect(
+        SKYLAKE_FIXTURE,
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (
+            reading.processor_group,
+            reading.logical_processor,
+            reading.temperature_celsius
+          ))
+          .collect::<Vec<_>>(),
+        [
+          (0, 0, Some(58.0)),
+          (0, 2, failure.is_none().then_some(68.0))
+        ]
+      );
+      let calls = fixture.calls.into_inner();
+      assert_eq!(
+        calls
+          .iter()
+          .filter_map(|call| match call {
+            Call::Pin(number) => Some(*number),
+            _ => None,
+          })
+          .collect::<Vec<_>>(),
+        [0, 2]
+      );
+      assert_eq!(
+        calls
+          .iter()
+          .filter(|call| matches!(call, Call::Read(2, _)))
+          .count(),
+        second_core_reads
+      );
+      assert!(calls.contains(&Call::Restore(2)));
     }
   }
 

@@ -1,6 +1,8 @@
 use std::time::{Duration, Instant};
 
-use super::super::client::{ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule};
+use super::super::client::{
+  ACCESS_ISABUS_MUTEX, MutexError, NamedMutex, PawnIoClient, PawnIoModule,
+};
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
 use super::ite::{
   IteEcProfile, cached_ga_b75m_d3h_match, decode_ite_fan_rpm,
@@ -10,7 +12,7 @@ use super::ite::{
 use super::nuvoton::{
   NuvotonHmBaseCheck, NuvotonHmProfile, decode_filtered_nuvoton_temperature_byte,
   decode_nuvoton_direct_rpm, fan_speed_status_from_rpm, is_nct6701d_usable_hm_base,
-  is_nuvoton_hm_io_space_locked, nuvoton_hm_profile, nuvoton_hm_profiles,
+  is_nuvoton_hm_io_space_locked, nuvoton_hm_profile,
 };
 use crate::models::{
   FanSpeedStatus, MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature,
@@ -19,11 +21,9 @@ use crate::models::{
 use crate::{log_debug, log_warn};
 
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
-pub(crate) const UNSUPPORTED_SUPER_IO_HM_PATH_REASON: &str =
-  "No supported Super I/O hardware-monitor path found";
-pub(crate) const ITE_EXPERIMENTAL_FAILURE_PREFIX: &str =
+const ITE_EXPERIMENTAL_FAILURE_PREFIX: &str =
   "Experimental ITE motherboard sensor path failed";
-pub(crate) const ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
+const ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
   "Experimental ITE motherboard sensor path failed: hardware state";
 /// Experimental Nuvoton failures read
 /// `Experimental <chip label> motherboard sensor path failed: <reason>`.
@@ -34,7 +34,7 @@ const NUVOTON_EXPERIMENTAL_FAILURE_TAIL: &str = "motherboard sensor path failed"
 /// inactive-LDN / unusable-base quirks). These read
 /// `<prefix> (<chip label>): <reason>` and must not produce PawnIO
 /// install/permission guidance.
-pub(crate) const NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
+const NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
   "Experimental Nuvoton motherboard sensor path failed: hardware state";
 const NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "Nuvoton config exit failed";
 /// A failed Experimental sub-scope read on an otherwise successful sample.
@@ -90,10 +90,210 @@ const ITE_FAN_REGISTERS: [(&str, u8, u8); 3] = [
 ];
 const ITE_GA_B75M_D3H_FAN_NAMES: [&str; 2] = ["Fan 1", "Fan 2"];
 
+/// Why the motherboard sensor path produced no sample.
+///
+/// Callers decide retry, support, and guidance from the variant. The `Display`
+/// text is the surfaced reason and stays stable for logs and guidance.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub(crate) enum MotherboardSensorError {
+  /// No scoped Nuvoton normal-HM or ITE Environment Controller path exists.
+  #[error("No supported Super I/O hardware-monitor path found")]
+  Unsupported,
+  #[error(transparent)]
+  Mutex(#[from] MutexError),
+  /// A failure before a chip profile was selected, or one that keeps its
+  /// plain text (PawnIO initialization, chip-ID reads, an exit with no match).
+  #[error("{0}")]
+  Unclassified(String),
+  #[error(transparent)]
+  Chip(#[from] ChipFailure),
+}
+
+impl From<String> for MotherboardSensorError {
+  fn from(detail: String) -> Self {
+    Self::Unclassified(detail)
+  }
+}
+
+impl MotherboardSensorError {
+  pub(crate) const fn is_unsupported(&self) -> bool {
+    matches!(self, Self::Unsupported)
+  }
+
+  /// Whether PawnIO install or permission guidance may explain this failure.
+  /// An Experimental chip's hardware state was read successfully through
+  /// PawnIO, so no PawnIO component can fix it.
+  pub(crate) const fn offers_pawnio_guidance(&self) -> bool {
+    !matches!(
+      self,
+      Self::Unsupported
+        | Self::Chip(ChipFailure {
+          experimental: true,
+          hardware_state: true,
+          ..
+        })
+    )
+  }
+
+  /// Whether a failed open should be retried on the next sample instead of
+  /// kept: the mutex was busy, or an Experimental chip's configuration exit or
+  /// port authorization did not complete and needs a fresh discovery.
+  fn is_retryable(&self) -> bool {
+    match self {
+      Self::Mutex(error) => {
+        matches!(error, MutexError::Timeout { .. } | MutexError::Wait { .. })
+      }
+      Self::Chip(failure) => failure.experimental && failure.requires_rediscovery,
+      Self::Unsupported | Self::Unclassified(_) => false,
+    }
+  }
+
+  /// Append the text of a configuration exit that also failed.
+  fn with_exit_failure(self, suffix: String, requires_rediscovery: bool) -> Self {
+    match self {
+      Self::Chip(mut failure) => {
+        failure.detail.push_str(&suffix);
+        failure.requires_rediscovery |= requires_rediscovery;
+        Self::Chip(failure)
+      }
+      other => Self::Unclassified(format!("{other}{suffix}")),
+    }
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SuperIoVendor {
+  Nuvoton,
+  Ite,
+}
+
+/// A failure on a selected chip profile.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub(crate) struct ChipFailure {
+  vendor: SuperIoVendor,
+  chip_label: &'static str,
+  /// Experimental failures name the path; Verified ones keep their plain text.
+  experimental: bool,
+  /// Firmware or hardware state that PawnIO read successfully.
+  hardware_state: bool,
+  requires_rediscovery: bool,
+  detail: String,
+}
+
+impl std::fmt::Display for ChipFailure {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let Self {
+      chip_label, detail, ..
+    } = self;
+    match (self.experimental, self.vendor, self.hardware_state) {
+      (false, ..) => f.write_str(detail),
+      (true, SuperIoVendor::Nuvoton, false) => write!(
+        f,
+        "{NUVOTON_EXPERIMENTAL_FAILURE_LEAD} {chip_label} {NUVOTON_EXPERIMENTAL_FAILURE_TAIL}: {detail}"
+      ),
+      (true, SuperIoVendor::Nuvoton, true) => write!(
+        f,
+        "{NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({chip_label}): {detail}"
+      ),
+      (true, SuperIoVendor::Ite, false) => {
+        write!(
+          f,
+          "{ITE_EXPERIMENTAL_FAILURE_PREFIX} ({chip_label}): {detail}"
+        )
+      }
+      (true, SuperIoVendor::Ite, true) => write!(
+        f,
+        "{ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({chip_label}): {detail}"
+      ),
+    }
+  }
+}
+
+impl ChipFailure {
+  fn nuvoton(profile: &NuvotonHmProfile, detail: impl Into<String>) -> Self {
+    Self {
+      vendor: SuperIoVendor::Nuvoton,
+      chip_label: profile.chip_label,
+      experimental: profile.is_experimental(),
+      hardware_state: false,
+      requires_rediscovery: false,
+      detail: detail.into(),
+    }
+  }
+
+  /// Every scoped ITE profile is Experimental.
+  fn ite(profile: IteEcProfile, detail: impl Into<String>) -> Self {
+    Self {
+      vendor: SuperIoVendor::Ite,
+      chip_label: profile.chip_label(),
+      experimental: true,
+      hardware_state: false,
+      requires_rediscovery: false,
+      detail: detail.into(),
+    }
+  }
+
+  fn hardware_state(self) -> Self {
+    Self {
+      hardware_state: true,
+      ..self
+    }
+  }
+
+  fn requiring_rediscovery(self) -> Self {
+    Self {
+      requires_rediscovery: true,
+      ..self
+    }
+  }
+}
+
+#[cfg(test)]
+impl MotherboardSensorError {
+  /// An Experimental IT8620E failure, for tests of consumers outside this module.
+  pub(crate) fn synthetic_ite_failure(hardware_state: bool, detail: &str) -> Self {
+    let failure = ChipFailure::ite(IteEcProfile::It8620e, detail);
+    if hardware_state {
+      failure.hardware_state()
+    } else {
+      failure
+    }
+    .into()
+  }
+
+  /// An Experimental NCT6798D failure, for tests of consumers outside this module.
+  pub(crate) fn synthetic_nuvoton_failure(hardware_state: bool, detail: &str) -> Self {
+    let profile = super::nuvoton::nuvoton_hm_profiles()
+      .find(|profile| profile.chip_label == "NCT6798D")
+      .expect("the NCT6798D row is scoped");
+    let failure = ChipFailure::nuvoton(profile, detail);
+    if hardware_state {
+      failure.hardware_state()
+    } else {
+      failure
+    }
+    .into()
+  }
+}
+
+/// Attribute a sample or discovery failure to an ITE profile, keeping one
+/// that is already attributed.
+fn ite_failure(
+  profile: IteEcProfile,
+  error: MotherboardSensorError,
+) -> MotherboardSensorError {
+  match error {
+    MotherboardSensorError::Unclassified(detail) => {
+      ChipFailure::ite(profile, detail).into()
+    }
+    other => other,
+  }
+}
+
 /// A motherboard sample paired with the active provider path's fan capability.
 pub(crate) struct MotherboardSensorReadout {
   /// The current reading attempt, which can fail independently of support.
-  pub(crate) sample: Result<MotherboardSensorSample, String>,
+  pub(crate) sample: Result<MotherboardSensorSample, MotherboardSensorError>,
   /// Fan support declared by the detected provider path, not inferred from rows.
   pub(crate) fan_support: SensorSupport,
 }
@@ -113,7 +313,7 @@ pub(crate) struct MotherboardSensorReadout {
 pub(crate) struct MotherboardSensorSampler {
   active: Option<ActiveMotherboardSensors<PawnIoClient>>,
   ga_b75m_d3h_checked: bool,
-  unavailable_reason: Option<String>,
+  unavailable_reason: Option<MotherboardSensorError>,
   retry_unavailable: bool,
   sample_failure_logged: bool,
 }
@@ -150,7 +350,9 @@ impl MotherboardSensorSampler {
     sampler
   }
 
-  pub(crate) fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
+  pub(crate) fn sample(
+    &mut self,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     if self.active.is_none()
       && (self.unavailable_reason.is_none() || self.retry_unavailable)
     {
@@ -159,12 +361,11 @@ impl MotherboardSensorSampler {
 
     let result = match self.active.as_mut() {
       Some(active) => active.sample(),
-      None => Err(
-        self
-          .unavailable_reason
-          .clone()
-          .unwrap_or_else(|| "Motherboard sensors unavailable".to_string()),
-      ),
+      None => Err(self.unavailable_reason.clone().unwrap_or_else(|| {
+        MotherboardSensorError::Unclassified(
+          "Motherboard sensors unavailable".to_string(),
+        )
+      })),
     };
 
     if let Err(reason) = &result
@@ -174,14 +375,14 @@ impl MotherboardSensorSampler {
       log_warn!(
         "super_io_motherboard_sensor_sample_failed",
         "windows::super_io_motherboard::MotherboardSensorSampler::sample",
-        Some(reason.clone())
+        Some(reason.to_string())
       );
     }
 
     result
   }
 
-  fn try_open(&mut self) -> Result<(), String> {
+  fn try_open(&mut self) -> Result<(), MotherboardSensorError> {
     let board_match = cached_ga_b75m_d3h_match();
     self.ga_b75m_d3h_checked = board_match.is_some();
     match ActiveMotherboardSensors::open(board_match == Some(true)) {
@@ -194,7 +395,7 @@ impl MotherboardSensorSampler {
       }
       Err(reason) => {
         self.active = None;
-        self.retry_unavailable = is_retryable_init_error(&reason);
+        self.retry_unavailable = reason.is_retryable();
         self.unavailable_reason = Some(reason.clone());
         Err(reason)
       }
@@ -227,7 +428,7 @@ impl MotherboardSensorSampler {
       log_warn!(
         "experimental_ite_ga_b75m_d3h_recheck_failed",
         "windows::super_io::MotherboardSensorSampler::readout",
-        Some(reason.clone())
+        Some(reason.to_string())
       );
       self.active = None;
       self.unavailable_reason = Some(reason);
@@ -243,8 +444,8 @@ impl MotherboardSensorSampler {
         self.retry_unavailable,
         self
           .unavailable_reason
-          .as_deref()
-          .unwrap_or("not attempted")
+          .as_ref()
+          .map_or_else(|| "not attempted".to_string(), ToString::to_string)
       ),
     }
   }
@@ -261,27 +462,27 @@ pub(super) trait LpcIoOps {
 
 impl LpcIoOps for PawnIoClient {
   fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
-    PawnIoClient::select_lpc_slot(self, slot)
+    PawnIoClient::select_lpc_slot(self, slot).map_err(|error| error.to_string())
   }
 
   fn find_lpc_bars(&self) -> Result<(), String> {
-    PawnIoClient::find_lpc_bars(self)
+    PawnIoClient::find_lpc_bars(self).map_err(|error| error.to_string())
   }
 
   fn pio_inb(&self, port: u16) -> Result<u8, String> {
-    PawnIoClient::pio_inb(self, port)
+    PawnIoClient::pio_inb(self, port).map_err(|error| error.to_string())
   }
 
   fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
-    PawnIoClient::pio_outb(self, port, value)
+    PawnIoClient::pio_outb(self, port, value).map_err(|error| error.to_string())
   }
 
   fn superio_inb(&self, register: u8) -> Result<u8, String> {
-    PawnIoClient::superio_inb(self, register)
+    PawnIoClient::superio_inb(self, register).map_err(|error| error.to_string())
   }
 
   fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
-    PawnIoClient::superio_outb(self, register, value)
+    PawnIoClient::superio_outb(self, register, value).map_err(|error| error.to_string())
   }
 }
 
@@ -314,7 +515,10 @@ struct ActiveIteMotherboardSensors<C: LpcIoOps> {
   profile: IteEcProfile,
   fan_routes: [bool; 3],
   source_label: String,
-  last_attempt: Option<(Instant, Result<MotherboardSensorSample, String>)>,
+  last_attempt: Option<(
+    Instant,
+    Result<MotherboardSensorSample, MotherboardSensorError>,
+  )>,
   partial_failure_logged: bool,
 }
 
@@ -324,12 +528,12 @@ enum ActiveMotherboardSensors<C: LpcIoOps> {
 }
 
 impl ActiveMotherboardSensors<PawnIoClient> {
-  fn open(ga_b75m_d3h_baseboard: bool) -> Result<Self, String> {
-    let (client, _discovery) =
-      PawnIoClient::open(PawnIoModule::LpcIo).map_err(|error| error.reason)?;
+  fn open(ga_b75m_d3h_baseboard: bool) -> Result<Self, MotherboardSensorError> {
+    let (client, _discovery) = PawnIoClient::open(PawnIoModule::LpcIo)
+      .map_err(|error| MotherboardSensorError::Unclassified(error.reason))?;
 
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
-    let mut last_error: Option<String> = None;
+    let mut last_error: Option<MotherboardSensorError> = None;
 
     for slot in [0_u8, 1] {
       match ActiveNuvotonMotherboardSensors::discover_slot(&client, slot) {
@@ -361,7 +565,7 @@ impl ActiveMotherboardSensors<PawnIoClient> {
       }
     }
 
-    Err(last_error.unwrap_or_else(|| UNSUPPORTED_SUPER_IO_HM_PATH_REASON.to_string()))
+    Err(last_error.unwrap_or(MotherboardSensorError::Unsupported))
   }
 }
 
@@ -375,7 +579,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
     }
   }
 
-  fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
+  fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     match self {
       Self::Nuvoton(active) => active.sample(),
       Self::Ite(active) => active.sample(),
@@ -399,7 +603,10 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
 }
 
 impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
-  fn discover_slot(client: &C, slot: u8) -> Result<Option<DetectedSlot>, String> {
+  fn discover_slot(
+    client: &C,
+    slot: u8,
+  ) -> Result<Option<DetectedSlot>, MotherboardSensorError> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
       return Ok(None);
     };
@@ -416,26 +623,30 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
           format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}");
         match value {
           Some(detected) if detected.profile.is_experimental() => Err(
-            nuvoton_experimental_failure(detected.profile.chip_label, reason),
+            ChipFailure::nuvoton(detected.profile, reason)
+              .requiring_rediscovery()
+              .into(),
           ),
-          _ => Err(reason),
+          _ => Err(reason.into()),
         }
       }
       (Err(reason), Ok(())) => Err(reason),
       (Err(reason), Err(exit_error)) => {
-        Err(format!("{reason}; exit failed: {exit_error}"))
+        Err(reason.with_exit_failure(format!("; exit failed: {exit_error}"), false))
       }
     }
   }
 
-  fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
+  fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
     self.sample_unlocked_logged()
   }
 
   /// Collect one sample and log its partial-sample diagnostics once per run
   /// of consecutive partial samples.
-  fn sample_unlocked_logged(&mut self) -> Result<MotherboardSensorSample, String> {
+  fn sample_unlocked_logged(
+    &mut self,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     let (sample, partial_failures) = self.collect_sample_unlocked()?;
 
     if partial_failures.is_empty() {
@@ -453,7 +664,7 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
   }
 
   #[cfg(test)]
-  fn sample_unlocked(&self) -> Result<MotherboardSensorSample, String> {
+  fn sample_unlocked(&self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     self
       .collect_sample_unlocked()
       .map(|(sample, _partial_failures)| sample)
@@ -464,10 +675,10 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
   /// rejections and a failed Experimental sub-scope read.
   fn collect_sample_unlocked(
     &self,
-  ) -> Result<(MotherboardSensorSample, Vec<String>), String> {
+  ) -> Result<(MotherboardSensorSample, Vec<String>), MotherboardSensorError> {
     self
       .collect_sample_unlocked_raw()
-      .map_err(|reason| self.surface_sample_failure(reason))
+      .map_err(|reason| ChipFailure::nuvoton(self.profile, reason).into())
   }
 
   fn collect_sample_unlocked_raw(
@@ -508,10 +719,15 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
       &mut fan_speeds,
       &mut partial_failures,
     ) {
-      partial_failures.push(nuvoton_experimental_failure(
-        profile.chip_label,
-        format!("{NUVOTON_EXPERIMENTAL_SUB_SCOPE_FAILURE_CONTEXT}: {reason}"),
-      ));
+      // The sub-scope is Experimental even on a Verified row.
+      let failure = ChipFailure {
+        experimental: true,
+        ..ChipFailure::nuvoton(
+          profile,
+          format!("{NUVOTON_EXPERIMENTAL_SUB_SCOPE_FAILURE_CONTEXT}: {reason}"),
+        )
+      };
+      partial_failures.push(failure.to_string());
     }
 
     Ok((
@@ -582,10 +798,6 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
     }
   }
 
-  fn surface_sample_failure(&self, reason: String) -> String {
-    surface_nuvoton_failure(self.profile, reason)
-  }
-
   fn write_hm_byte(&self, register: u8, value: u8) -> Result<(), String> {
     let index_port = self.hm_base + HM_INDEX_OFFSET;
     let data_port = self.hm_base + HM_DATA_OFFSET;
@@ -619,7 +831,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     client: &C,
     slot: u8,
     ga_b75m_d3h_baseboard: bool,
-  ) -> Result<Option<DetectedIteSlot>, String> {
+  ) -> Result<Option<DetectedIteSlot>, MotherboardSensorError> {
     let scope = if ga_b75m_d3h_baseboard {
       IteDiscoveryScope::WithGaB75mD3h
     } else {
@@ -636,7 +848,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
 
   /// Recheck the same primary controller while the caller holds the ISA mutex.
   /// The caller must discard this sampler if its port proof is not renewed.
-  fn recheck_ga_b75m_d3h(&mut self) -> Result<(), String> {
+  fn recheck_ga_b75m_d3h(&mut self) -> Result<(), MotherboardSensorError> {
     let detected =
       Self::discover_slot_in_scope(&self.client, 0, IteDiscoveryScope::RecheckGaB75mD3h)?
         .ok_or_else(|| {
@@ -654,7 +866,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     client: &C,
     slot: u8,
     scope: IteDiscoveryScope,
-  ) -> Result<Option<DetectedIteSlot>, String> {
+  ) -> Result<Option<DetectedIteSlot>, MotherboardSensorError> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
       return Ok(None);
     };
@@ -670,19 +882,23 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       // None of them is the IT8728F, so there is no EC path on this slot.
       return Ok(None);
     }
-    let result = id_bytes.and_then(|(id_high, id_low)| {
-      discover_ite_ec_base(client, slot, id_high, id_low, scope)
-    });
+    let result =
+      id_bytes
+        .map_err(MotherboardSensorError::from)
+        .and_then(|(id_high, id_low)| {
+          discover_ite_ec_base(client, slot, id_high, id_low, scope)
+        });
     let exit_result = exit_ite(client);
 
     match (result, exit_result) {
       (Ok(Some(discovered)), Ok(())) => {
         let probe = |register| {
           read_ite_ec_byte(client, discovered.ec_base, register).map_err(|reason| {
-            ite_experimental_failure(
+            ChipFailure::ite(
               discovered.profile,
               format!("{ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT}: {reason}"),
             )
+            .requiring_rediscovery()
           })
         };
         let configuration = probe(ITE_EC_CONFIGURATION_REGISTER)?;
@@ -705,19 +921,26 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         Ok(Some(discovered))
       }
       (Ok(None), Ok(())) => Ok(None),
-      (Ok(Some(discovered)), Err(exit_error)) => Err(ite_experimental_failure(
-        discovered.profile,
-        format!("{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"),
-      )),
-      (Ok(None), Err(exit_error)) => Err(format!("ITE config exit failed: {exit_error}")),
+      (Ok(Some(discovered)), Err(exit_error)) => Err(
+        ChipFailure::ite(
+          discovered.profile,
+          format!("{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"),
+        )
+        .requiring_rediscovery()
+        .into(),
+      ),
+      (Ok(None), Err(exit_error)) => {
+        Err(format!("ITE config exit failed: {exit_error}").into())
+      }
       (Err(reason), Ok(())) => Err(reason),
-      (Err(reason), Err(exit_error)) => Err(format!(
-        "{reason}; {ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"
+      (Err(reason), Err(exit_error)) => Err(reason.with_exit_failure(
+        format!("; {ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"),
+        true,
       )),
     }
   }
 
-  fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
+  fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     let now = Instant::now();
     if let Some(cached) = self.cached_result(now) {
       return cached;
@@ -732,7 +955,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
   fn sample_unlocked_at(
     &mut self,
     attempted_at: Instant,
-  ) -> Result<MotherboardSensorSample, String> {
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     if let Some(cached) = self.cached_result(attempted_at) {
       return cached;
     }
@@ -744,8 +967,8 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
   fn finish_attempt(
     &mut self,
     completed_at: Instant,
-    collected: Result<(MotherboardSensorSample, Vec<String>), String>,
-  ) -> Result<MotherboardSensorSample, String> {
+    collected: Result<(MotherboardSensorSample, Vec<String>), MotherboardSensorError>,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     let result = match collected {
       Ok((sample, partial_failures)) => {
         if partial_failures.is_empty() {
@@ -764,7 +987,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         }
         Ok(sample)
       }
-      Err(reason) => Err(ite_experimental_failure(self.profile, reason)),
+      Err(reason) => Err(ite_failure(self.profile, reason)),
     };
 
     self.last_attempt = Some((completed_at, result.clone()));
@@ -774,7 +997,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
   fn cached_result(
     &self,
     now: Instant,
-  ) -> Option<Result<MotherboardSensorSample, String>> {
+  ) -> Option<Result<MotherboardSensorSample, MotherboardSensorError>> {
     self
       .last_attempt
       .as_ref()
@@ -786,7 +1009,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
 
   fn collect_sample_unlocked(
     &self,
-  ) -> Result<(MotherboardSensorSample, Vec<String>), String> {
+  ) -> Result<(MotherboardSensorSample, Vec<String>), MotherboardSensorError> {
     let monitoring_state = self.read_ec_byte(ITE_EC_CONFIGURATION_REGISTER)?;
     if (monitoring_state & 0x01) == 0 {
       return Err(ite_experimental_non_component_failure(
@@ -839,7 +1062,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         format!("no usable sensor readings: {}", partial_failures.join("; "))
       };
       return if had_io_failure {
-        Err(reason)
+        Err(reason.into())
       } else {
         Err(ite_experimental_non_component_failure(self.profile, reason))
       };
@@ -979,7 +1202,7 @@ enum IteDiscoveryScope {
 fn discover_nuvoton_hm_base(
   client: &impl LpcIoOps,
   slot: u8,
-) -> Result<Option<DetectedSlot>, String> {
+) -> Result<Option<DetectedSlot>, MotherboardSensorError> {
   let id_high = client.superio_inb(CHIP_ID_HIGH_REGISTER)?;
   let id_low = client.superio_inb(CHIP_ID_LOW_REGISTER)?;
   if is_absent_id(id_high, id_low) {
@@ -1048,10 +1271,12 @@ fn discover_nuvoton_hm_base(
 
   result.map(Some).map_err(|failure| match failure {
     NuvotonDiscoveryFailure::Transport(reason) => {
-      surface_nuvoton_failure(profile, reason)
+      ChipFailure::nuvoton(profile, reason).into()
     }
     NuvotonDiscoveryFailure::HardwareState(reason) => {
-      surface_nuvoton_hardware_state_failure(profile, reason)
+      ChipFailure::nuvoton(profile, reason)
+        .hardware_state()
+        .into()
     }
   })
 }
@@ -1086,7 +1311,7 @@ fn discover_ite_ec_base(
   id_high: u8,
   id_low: u8,
   scope: IteDiscoveryScope,
-) -> Result<Option<DetectedIteSlot>, String> {
+) -> Result<Option<DetectedIteSlot>, MotherboardSensorError> {
   let Some(mut profile) =
     IteEcProfile::from_slot_and_chip_id(slot, chip_id(id_high, id_low))
   else {
@@ -1269,98 +1494,18 @@ fn is_valid_ite_ec_base(base_high: u8, base_low: u8, ec_base: u16) -> bool {
     && ec_base.checked_add(ITE_EC_DATA_OFFSET).is_some()
 }
 
-fn ite_experimental_failure(profile: IteEcProfile, reason: impl AsRef<str>) -> String {
-  let reason = reason.as_ref();
-  if reason.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX) {
-    reason.to_string()
-  } else {
-    format!(
-      "{ITE_EXPERIMENTAL_FAILURE_PREFIX} ({}): {reason}",
-      profile.chip_label()
-    )
-  }
+fn ite_experimental_failure(
+  profile: IteEcProfile,
+  reason: impl Into<String>,
+) -> MotherboardSensorError {
+  ChipFailure::ite(profile, reason).into()
 }
 
 fn ite_experimental_non_component_failure(
   profile: IteEcProfile,
-  reason: impl AsRef<str>,
-) -> String {
-  format!(
-    "{ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({}): {}",
-    profile.chip_label(),
-    reason.as_ref()
-  )
-}
-
-fn nuvoton_experimental_failure_prefix(chip_label: &str) -> String {
-  format!(
-    "{NUVOTON_EXPERIMENTAL_FAILURE_LEAD} {chip_label} {NUVOTON_EXPERIMENTAL_FAILURE_TAIL}"
-  )
-}
-
-fn nuvoton_experimental_failure(chip_label: &str, reason: impl AsRef<str>) -> String {
-  let reason = reason.as_ref();
-  let prefix = nuvoton_experimental_failure_prefix(chip_label);
-  if reason.starts_with(&prefix) {
-    reason.to_string()
-  } else {
-    format!("{prefix}: {reason}")
-  }
-}
-
-/// Identify a failure as experimental only for Experimental profiles; Verified
-/// failures keep their plain reason.
-fn surface_nuvoton_failure(profile: &NuvotonHmProfile, reason: String) -> String {
-  if profile.is_experimental() {
-    nuvoton_experimental_failure(profile.chip_label, reason)
-  } else {
-    reason
-  }
-}
-
-fn nuvoton_experimental_hardware_state_failure(
-  chip_label: &str,
-  reason: impl AsRef<str>,
-) -> String {
-  format!(
-    "{NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({chip_label}): {}",
-    reason.as_ref()
-  )
-}
-
-/// Hardware-state failures of Experimental profiles carry the non-component
-/// prefix so no PawnIO guidance is produced; Verified failures keep their
-/// plain reason.
-fn surface_nuvoton_hardware_state_failure(
-  profile: &NuvotonHmProfile,
-  reason: String,
-) -> String {
-  if profile.is_experimental() {
-    nuvoton_experimental_hardware_state_failure(profile.chip_label, reason)
-  } else {
-    reason
-  }
-}
-
-fn is_nuvoton_experimental_failure(reason: &str) -> bool {
-  nuvoton_hm_profiles()
-    .filter(|profile| profile.is_experimental())
-    .any(|profile| {
-      reason.starts_with(&nuvoton_experimental_failure_prefix(profile.chip_label))
-    })
-}
-
-fn is_retryable_init_error(reason: &str) -> bool {
-  let requires_nuvoton_rediscovery = is_nuvoton_experimental_failure(reason)
-    && reason.contains(NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT);
-  let requires_ite_rediscovery = reason.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX)
-    && (reason.contains(ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT)
-      || reason.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT));
-
-  reason.contains("timed out waiting for mutex")
-    || reason.contains("failed waiting for mutex")
-    || requires_nuvoton_rediscovery
-    || requires_ite_rediscovery
+  reason: impl Into<String>,
+) -> MotherboardSensorError {
+  ChipFailure::ite(profile, reason).hardware_state().into()
 }
 
 #[cfg(test)]
@@ -1387,6 +1532,7 @@ mod tests {
     temperature_override: Cell<Option<(u8, u8)>>,
     /// A bank 4 register whose data read fails (after the index write).
     failed_hm_register: Cell<Option<u8>>,
+    fail_config_exit: Cell<bool>,
     superio_reads: RefCell<Vec<u8>>,
     superio_writes: RefCell<Vec<(u8, u8)>>,
   }
@@ -1410,6 +1556,7 @@ mod tests {
         hm_base: Cell::new((0x02, 0x90)),
         temperature_override: Cell::new(None),
         failed_hm_register: Cell::new(None),
+        fail_config_exit: Cell::new(false),
         superio_reads: RefCell::new(Vec::new()),
         superio_writes: RefCell::new(Vec::new()),
       }
@@ -1509,6 +1656,9 @@ mod tests {
             self.selected_hm_bank.set(value);
           }
           Ok(())
+        }
+        _ if value == 0xAA && self.fail_config_exit.get() => {
+          Err("simulated Nuvoton config exit failure".to_string())
         }
         _ => Ok(()),
       }
@@ -1928,7 +2078,9 @@ mod tests {
     let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
     client.activation.set(0x00);
 
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
 
     assert!(error.starts_with(D421_FAILURE_PREFIX));
     assert!(error.contains("logical device is inactive"));
@@ -1939,7 +2091,9 @@ mod tests {
     let client = FakeLpcIo::new();
     client.activation.set(0x00);
 
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
 
     assert_eq!(error, "Nuvoton hardware monitor logical device is inactive");
   }
@@ -1971,7 +2125,7 @@ mod tests {
     client.failed_hm_register.set(Some(0xCE));
     let active = discovered_active(client);
 
-    let error = active.sample_unlocked().unwrap_err();
+    let error = active.sample_unlocked().unwrap_err().to_string();
 
     assert!(error.starts_with(D421_FAILURE_PREFIX), "{error}");
     assert!(error.contains("0xCE"));
@@ -2015,7 +2169,8 @@ mod tests {
 
     let locked = FakeLpcIo::with_chip_id(D421_CHIP_ID);
     locked.hm_io_space_lock.set(0x10);
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&locked, 0).unwrap_err();
+    let failure = ActiveNuvotonMotherboardSensors::discover_slot(&locked, 0).unwrap_err();
+    let error = failure.to_string();
     // An engaged lock is a hardware state, so no PawnIO guidance is implied.
     assert_eq!(
       error,
@@ -2024,7 +2179,7 @@ mod tests {
          Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)"
       )
     );
-    assert!(!is_retryable_init_error(&error));
+    assert!(!failure.is_retryable());
     assert_eq!(locked.selected_ldn.get(), None);
     assert!(locked.superio_writes.borrow().is_empty());
     assert_eq!(locked.find_bars_calls.get(), 0);
@@ -2035,7 +2190,7 @@ mod tests {
     let active = discovered_active(FakeLpcIo::with_chip_id(D421_CHIP_ID));
     active.client.hm_bars_authorized.set(false);
 
-    let error = active.sample_unlocked().unwrap_err();
+    let error = active.sample_unlocked().unwrap_err().to_string();
 
     assert!(error.starts_with(D421_FAILURE_PREFIX));
     assert!(error.contains("hm ports are not authorized"));
@@ -2132,7 +2287,7 @@ mod tests {
     let active = authorized_active(d802_profile());
     active.client.failed_hm_register.set(Some(0xC0));
 
-    let error = active.sample_unlocked().unwrap_err();
+    let error = active.sample_unlocked().unwrap_err().to_string();
 
     assert_eq!(error, "simulated HM register 0xC0 failure");
   }
@@ -2310,7 +2465,9 @@ mod tests {
     let client = FakeLpcIo::with_chip_id(0xD422);
     client.hm_io_space_lock.set(0x10);
 
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
 
     assert!(
       error.starts_with(&format!(
@@ -2340,7 +2497,9 @@ mod tests {
 
     let client = FakeLpcIo::with_chip_id(0xD803);
     client.hm_base.set((0x00, 0x90));
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
     assert!(
       error.contains("invalid Nuvoton hardware-monitor base"),
       "{error}"
@@ -2438,7 +2597,8 @@ mod tests {
     let client = FakeLpcIo::with_chip_id(0xD42B);
     client.hm_io_space_lock.set(0x10);
 
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let failure = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = failure.to_string();
 
     assert_eq!(
       error,
@@ -2446,7 +2606,7 @@ mod tests {
        Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)"
     );
     assert!(error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
-    assert!(!is_retryable_init_error(&error));
+    assert!(!failure.is_retryable());
     assert_eq!(client.selected_ldn.get(), None);
     assert!(client.superio_writes.borrow().is_empty());
     assert!(!client.hm_base_high_read.get());
@@ -2484,7 +2644,9 @@ mod tests {
 
     let client = FailingCr28(FakeLpcIo::with_chip_id(0xD42B));
 
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
 
     assert!(error.starts_with("Experimental NCT6798D motherboard sensor path failed: "));
     assert!(!error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
@@ -2542,7 +2704,9 @@ mod tests {
     let client = FakeLpcIo::with_chip_id(0xD806);
     client.activation.set(0x00);
 
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
 
     assert_eq!(
       error,
@@ -2563,7 +2727,9 @@ mod tests {
       let client = FakeLpcIo::with_chip_id(0xD806);
       client.hm_base.set((high, low));
 
-      let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+      let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+        .unwrap_err()
+        .to_string();
 
       assert!(
         error.starts_with(
@@ -2584,7 +2750,9 @@ mod tests {
     let client = FakeLpcIo::with_chip_id(0xD801);
     client.activation.set(0x00);
 
-    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+    let error = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
 
     assert!(
       error.starts_with("Experimental NCT6796D-S motherboard sensor path failed: ")
@@ -2606,19 +2774,57 @@ mod tests {
   }
 
   #[test]
-  fn lead_only_experimental_configuration_exit_failure_requires_rediscovery() {
-    let error = nuvoton_experimental_failure(
-      "NCT6796D-R / NCT5585D",
-      format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"),
-    );
+  fn experimental_nuvoton_configuration_exit_failure_requires_rediscovery() {
+    let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
+    client.fail_config_exit.set(true);
 
-    assert!(error.starts_with(
-      "Experimental NCT6796D-R / NCT5585D motherboard sensor path failed: "
-    ));
-    assert!(is_retryable_init_error(&error));
-    assert!(!is_retryable_init_error(&format!(
-      "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: verified D802 failure"
-    )));
+    let failure = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert_eq!(
+      failure.to_string(),
+      format!(
+        "{D421_FAILURE_PREFIX}: {NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: \
+         simulated Nuvoton config exit failure"
+      )
+    );
+    assert!(failure.is_retryable());
+    assert!(failure.offers_pawnio_guidance());
+  }
+
+  #[test]
+  fn only_a_timed_out_or_failed_mutex_wait_is_retryable() {
+    let retryable =
+      |error: MutexError| MotherboardSensorError::from(error).is_retryable();
+
+    assert!(retryable(MutexError::Timeout {
+      name: ACCESS_ISABUS_MUTEX
+    }));
+    assert!(retryable(MutexError::Wait {
+      name: ACCESS_ISABUS_MUTEX,
+      wait: windows::Win32::Foundation::WAIT_FAILED,
+    }));
+    let error = windows::core::Error::from_hresult(windows::core::HRESULT(-1));
+    assert!(!retryable(MutexError::OpenOrCreate {
+      name: ACCESS_ISABUS_MUTEX,
+      open: error.clone(),
+      create: error,
+    }));
+  }
+
+  #[test]
+  fn verified_nuvoton_configuration_exit_failure_keeps_its_plain_reason() {
+    let client = FakeLpcIo::new();
+    client.fail_config_exit.set(true);
+
+    let failure = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert_eq!(
+      failure.to_string(),
+      format!(
+        "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated Nuvoton config exit failure"
+      )
+    );
+    assert!(!failure.is_retryable());
   }
 
   #[test]
@@ -2746,40 +2952,36 @@ mod tests {
       .failed_ec_register
       .set(Some(ITE_EC_CONFIGURATION_REGISTER));
 
-    let error =
+    let failure =
       ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+    let error = failure.to_string();
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains("EC port authorization probe failed"));
-    assert!(is_retryable_init_error(&error));
+    assert!(failure.is_retryable());
     assert_eq!(client.find_bars_calls.get(), 1);
     assert_eq!(client.config_exit_calls.get(), 1);
     assert_eq!(client.read_registers.borrow().as_slice(), &[0x00]);
   }
 
   #[test]
-  fn ite_configuration_exit_failure_requires_rediscovery() {
-    let error = ite_experimental_failure(
-      IteEcProfile::It8728f,
-      format!("{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"),
+  fn ite_configuration_exit_failure_after_discovery_requires_rediscovery() {
+    let client = FakeIteLpcIo::new();
+    client.fail_config_exit.set(true);
+
+    let failure =
+      ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+    let error = failure.to_string();
+
+    assert!(
+      error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX),
+      "{error}"
     );
-
-    assert!(is_retryable_init_error(&error));
-  }
-
-  #[test]
-  fn nuvoton_experimental_configuration_exit_failure_requires_rediscovery() {
-    let error = nuvoton_experimental_failure(
-      d421_profile_label(),
-      format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"),
+    assert!(
+      error.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT),
+      "{error}"
     );
-
-    assert!(error.starts_with(D421_FAILURE_PREFIX));
-    assert!(is_retryable_init_error(&error));
-  }
-
-  fn d421_profile_label() -> &'static str {
-    nuvoton_hm_profile(D421_CHIP_ID).unwrap().chip_label
+    assert!(failure.is_retryable());
   }
 
   #[test]
@@ -2788,12 +2990,13 @@ mod tests {
     client.activation.set(0x00);
     client.fail_config_exit.set(true);
 
-    let error =
+    let failure =
       ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+    let error = failure.to_string();
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT));
-    assert!(is_retryable_init_error(&error));
+    assert!(failure.is_retryable());
     assert_eq!(client.config_exit_calls.get(), 1);
   }
 
@@ -2815,8 +3018,9 @@ mod tests {
     let client = FakeIteLpcIo::new();
     client.base_high.set(0xF2);
 
-    let error =
-      ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+    let error = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+      .unwrap_err()
+      .to_string();
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains("CR60/61=0xF2/0x90"));
@@ -2868,7 +3072,12 @@ mod tests {
       if revision.is_some() {
         assert!(detected.unwrap().is_none());
       } else {
-        assert!(detected.unwrap_err().contains("CR22 read failed"));
+        assert!(
+          detected
+            .unwrap_err()
+            .to_string()
+            .contains("CR22 read failed")
+        );
       }
       assert_eq!(
         *client.config_reads.borrow(),
@@ -2972,7 +3181,7 @@ mod tests {
       let result = ActiveIteMotherboardSensors::discover_slot(&client, slot, false);
 
       if revision.is_none() {
-        assert!(result.unwrap_err().contains("CR22 read failed"));
+        assert!(result.unwrap_err().to_string().contains("CR22 read failed"));
       } else {
         assert!(result.unwrap().is_none());
       }
@@ -3036,7 +3245,12 @@ mod tests {
       if let Some(name) = expected {
         assert_eq!(fan_names(&sample.unwrap()), [name]);
       } else {
-        assert!(sample.unwrap_err().contains("fan enable read failed"));
+        assert!(
+          sample
+            .unwrap_err()
+            .to_string()
+            .contains("fan enable read failed")
+        );
         assert_eq!(*active.client.read_registers.borrow(), [0x00, 0x13]);
       }
       assert_eq!(
@@ -3082,8 +3296,9 @@ mod tests {
       client.fail_config_exit.set(fail_exit);
       client.ec_vendor.set(vendor);
 
-      let error =
-        ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+        .unwrap_err()
+        .to_string();
 
       assert!(error.contains("IT8772E FX"));
       assert_eq!(client.config_exit_calls.get(), 1);
@@ -3283,8 +3498,9 @@ mod tests {
     let replacement = FakeIteLpcIo::for_ga_b75m_d3h();
     replacement.deny_ec_bars.set(true);
 
-    let error =
-      ActiveIteMotherboardSensors::discover_slot(&replacement, 0, true).unwrap_err();
+    let error = ActiveIteMotherboardSensors::discover_slot(&replacement, 0, true)
+      .unwrap_err()
+      .to_string();
 
     assert!(error.contains(ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT));
     assert_eq!(replacement.find_bars_calls.get(), 1);
@@ -3650,7 +3866,10 @@ mod tests {
     client.failed_ec_register.set(Some(0x0C));
     let mut active = discover_ite_fixture(client);
 
-    let error = active.sample_unlocked_at(Instant::now()).unwrap_err();
+    let error = active
+      .sample_unlocked_at(Instant::now())
+      .unwrap_err()
+      .to_string();
 
     assert!(error.contains("fan counter mode read failed"));
     assert_eq!(*active.client.read_registers.borrow(), [0x00, 0x13, 0x0C]);
@@ -3664,8 +3883,9 @@ mod tests {
       client.base_high.set(high);
       client.base_low.set(low);
 
-      let error =
-        ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+        .unwrap_err()
+        .to_string();
 
       assert!(error.contains("invalid Environment Controller base"));
       assert_eq!(client.find_bars_calls.get(), 0);
@@ -3678,8 +3898,9 @@ mod tests {
       client.activation.set(activation);
       client.fail_ec_reselection.set(true);
 
-      let error =
-        ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
+        .unwrap_err()
+        .to_string();
 
       assert!(error.contains(if activation == 0 {
         "logical device is inactive"
@@ -3734,12 +3955,13 @@ mod tests {
       client.ec_configuration.set(state);
       client.ec_vendor.set(vendor);
 
-      let error =
+      let failure =
         ActiveIteMotherboardSensors::discover_slot(&client, 0, false).unwrap_err();
+      let error = failure.to_string();
 
       assert!(error.contains(expected_error), "{error}");
       assert!(error.contains("IT8620E"));
-      assert_eq!(is_retryable_init_error(&error), fail_exit || deny_ports);
+      assert_eq!(failure.is_retryable(), fail_exit || deny_ports);
       assert_eq!(*client.read_registers.borrow(), expected_reads);
     }
   }
@@ -3754,7 +3976,10 @@ mod tests {
         active.client.failed_ec_register.set(Some(0x00));
       }
 
-      let error = active.sample_unlocked_at(Instant::now()).unwrap_err();
+      let error = active
+        .sample_unlocked_at(Instant::now())
+        .unwrap_err()
+        .to_string();
 
       assert!(error.contains("IT8628E"));
       assert_eq!(
@@ -3798,7 +4023,10 @@ mod tests {
     client.ec_configuration.set(0x09);
     let mut active = discover_ite_fixture(client);
 
-    let error = active.sample_unlocked_at(Instant::now()).unwrap_err();
+    let error = active
+      .sample_unlocked_at(Instant::now())
+      .unwrap_err()
+      .to_string();
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains("stopped by INT_Clear"));
