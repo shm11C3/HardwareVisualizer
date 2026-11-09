@@ -15,7 +15,7 @@ use windows::core::HRESULT;
 
 use super::{
   super::client::{PawnIoClient, PawnIoModule},
-  identity::{cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
+  identity::{CpuidLeaf, cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
   temperature_decode::{
     decode_intel_package_temperature, decode_intel_temperature_target,
   },
@@ -24,6 +24,8 @@ use crate::models::CpuCoreTemperature;
 
 const MSR_TEMPERATURE_TARGET: u64 = 0x1a2;
 const IA32_THERM_STATUS: u64 = 0x19c;
+const ARROW_LAKE_SIGNATURE: u32 = 0x000c_0662;
+const HYBRID_CORE_TYPE_LEAF: u32 = 0x1a;
 const SILVERMONT_ATOM_C2000: u32 = 0x4d;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
 const ALDER_LAKE_H_P_PS: u32 = 0x0009_06a3;
@@ -45,11 +47,21 @@ pub(crate) fn supported_profile() -> Option<CoreDtsProfile> {
     return None;
   }
 
-  let vendor = vendor_id_from_leaf0(cpuid_leaf(0)?);
-  let signature = cpuid_leaf(1)?.eax;
-  let thermal_features = cpuid_leaf(6)?.eax;
+  profile_from_cpuid(cpuid_leaf)
+}
+
+fn profile_from_cpuid(
+  mut read_leaf: impl FnMut(u32) -> Option<CpuidLeaf>,
+) -> Option<CoreDtsProfile> {
+  let leaf0 = read_leaf(0)?;
+  let vendor = vendor_id_from_leaf0(leaf0);
+  let signature = read_leaf(1)?.eax;
+  if signature == ARROW_LAKE_SIGNATURE && leaf0.eax < HYBRID_CORE_TYPE_LEAF {
+    return None;
+  }
+  let thermal_features = read_leaf(6)?.eax;
   // cpuid_leaf selects subleaf 0.
-  let extended_features = cpuid_leaf(7).map_or(0, |leaf| leaf.edx);
+  let extended_features = read_leaf(7).map_or(0, |leaf| leaf.edx);
   select_profile(&vendor, signature, thermal_features, extended_features)
 }
 
@@ -61,6 +73,10 @@ fn select_profile(
 ) -> Option<CoreDtsProfile> {
   if vendor != "GenuineIntel" || thermal_features & 1 == 0 {
     return None;
+  }
+
+  if signature == ARROW_LAKE_SIGNATURE && extended_features & HYBRID_CAPABILITY != 0 {
+    return Some(CoreDtsProfile::HybridSignature(signature));
   }
 
   if extended_features & HYBRID_CAPABILITY != 0 {
@@ -280,7 +296,7 @@ impl CoreAccess for PawnIoClient {
   }
 
   fn hybrid_core_type(&self) -> Option<u8> {
-    Some((cpuid_leaf(0x1a)?.eax >> 24) as u8)
+    Some((cpuid_leaf(HYBRID_CORE_TYPE_LEAF)?.eax >> 24) as u8)
   }
 
   fn read_msr(&self, msr: u64) -> Option<u64> {
@@ -1023,5 +1039,121 @@ mod tests {
       .is_none()
     );
     assert!(fixture.calls.into_inner().is_empty());
+  }
+
+  #[test]
+  fn arrow_lake_uses_the_exact_signature_and_basic_cpuid_leaves() {
+    let profile = CoreDtsProfile::HybridSignature(0x000c_0662);
+    for (maximum_leaf, thermal_features, missing_leaf, expected) in [
+      (0x1a, 1, None, Some(profile)),
+      (0x1f, 0x41, None, Some(profile)),
+      (0x19, 0x41, None, None),
+      (0x1a, 0x41, Some(1), None),
+      (0x1a, 0x41, Some(6), None),
+      (0x1a, 0x41, Some(7), None),
+    ] {
+      let actual = profile_from_cpuid(|leaf| {
+        if missing_leaf == Some(leaf) {
+          return None;
+        }
+        let (eax, ebx, ecx, edx) = match leaf {
+          0 => (
+            maximum_leaf,
+            u32::from_le_bytes(*b"Genu"),
+            u32::from_le_bytes(*b"ntel"),
+            u32::from_le_bytes(*b"ineI"),
+          ),
+          1 => (0x000c_0662, 0, 0, 0),
+          6 => (thermal_features, 0, 0, 0),
+          7 => (0, 0, 0, HYBRID_CAPABILITY),
+          _ => panic!("Arrow Lake discovery only requests the required basic leaves"),
+        };
+        Some(CpuidLeaf { eax, ebx, ecx, edx })
+      });
+      assert_eq!(actual, expected);
+    }
+
+    for (vendor, signature, thermal_features, extended_features) in [
+      ("AuthenticAMD", 0x000c_0662, 0x41, HYBRID_CAPABILITY),
+      ("GenuineIntel", 0x000c_0661, 0x41, HYBRID_CAPABILITY),
+      ("GenuineIntel", 0x000c_0664, 0x41, HYBRID_CAPABILITY),
+      ("GenuineIntel", 0x000c_0652, 0x41, HYBRID_CAPABILITY),
+      ("GenuineIntel", 0x000c_0662, 0x40, HYBRID_CAPABILITY),
+      ("GenuineIntel", 0x000c_0662, 0x41, 0),
+    ] {
+      assert_eq!(
+        select_profile(vendor, signature, thermal_features, extended_features),
+        None
+      );
+    }
+  }
+
+  #[test]
+  fn arrow_lake_uses_calibrated_tjmax_and_valid_delta() {
+    let profile = CoreDtsProfile::HybridSignature(0x000c_0662);
+    let valid = 1 << 31;
+    for target in [0x0069_1400, 0x8269_0000] {
+      assert_eq!(
+        decode_core_temperature(profile, target, 0x8835_2800),
+        Some(52.0)
+      );
+      assert_eq!(decode_core_temperature(profile, target, valid), Some(105.0));
+    }
+    for (target, expected) in [
+      (49, None),
+      (50, Some(50.0)),
+      (120, Some(120.0)),
+      (121, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(profile, target << 16, valid),
+        expected
+      );
+    }
+    assert_eq!(decode_core_temperature(profile, 105 << 16, 53 << 16), None);
+    assert_eq!(
+      decode_core_temperature(profile, 105 << 16, valid | (105 << 16)),
+      None
+    );
+  }
+
+  #[test]
+  fn arrow_lake_retains_the_eligible_core_when_its_sibling_is_unavailable() {
+    let profile = CoreDtsProfile::HybridSignature(0x000c_0662);
+    let topology = synthetic_topology(&[0b0001, 0b0100]);
+    for (failure, expected_e_core, should_read) in [
+      ((u8::MAX, Failure::Pin), Some(63.0), true),
+      ((2, Failure::DifferentSignature), None, false),
+      ((2, Failure::NoDts), None, false),
+      ((2, Failure::NoHybridFlag), None, false),
+      ((2, Failure::MissingCoreType), None, false),
+      ((2, Failure::UnknownCoreType), None, false),
+      ((2, Failure::Status), None, true),
+      ((2, Failure::InvalidStatus), None, true),
+      ((2, Failure::MovedAfterStatus), None, true),
+    ] {
+      let mut fixture = Fixture::hybrid(0x000c_0662, failure);
+      fixture.target_by_core_type = [0x0069_1400, 0x8269_0000];
+      let readings = collect(
+        profile,
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [(0, Some(63.0)), (2, expected_e_core)]
+      );
+      let calls = fixture.calls.into_inner();
+      assert!(calls.contains(&Call::Restore(2)));
+      assert_eq!(
+        calls.iter().any(|call| matches!(call, Call::Read(2, _))),
+        should_read
+      );
+    }
   }
 }
