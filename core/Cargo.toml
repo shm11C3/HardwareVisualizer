@@ -73,17 +73,18 @@ zip = { version = "9.0.2", default-features = false, features = [
     "deflate-flate2-zlib-rs",
 ] }
 wmi = "0.18.4"
-dxgi = "0.1.7"
 winapi = { version = "0.3", features = [
-    "dxgi",
     "setupapi",
     "devguid",
     "devpkey",
     "devpropdef",
+    "errhandlingapi",
+    "winerror",
 ] }
 windows = { version = "0.62.2", features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
     "Win32_Security",
     "Win32_Security_Authorization",
     "Win32_Storage_FileSystem",

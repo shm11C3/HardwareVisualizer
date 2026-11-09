@@ -2180,7 +2180,6 @@ dependencies = [
  "core-foundation 0.10.1",
  "dirs 7.0.0",
  "duckdb",
- "dxgi",
  "futures",
  "getrandom 0.4.3",
  "hmac 0.13.0",
