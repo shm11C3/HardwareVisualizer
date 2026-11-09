@@ -1,7 +1,7 @@
 use crate::enums::error::PlatformError;
 use crate::infrastructure;
 use crate::infrastructure::providers::adl_provider::AdlAdapterMetric;
-use crate::infrastructure::providers::directx::InventoryAdapter;
+use crate::infrastructure::providers::directx::{AdapterDiscovery, InventoryAdapter};
 use crate::models::GpuSample;
 use crate::models::hardware::GraphicInfo;
 use crate::{log_error, log_warn};
@@ -111,13 +111,21 @@ pub async fn get_gpu_info() -> Result<Vec<GraphicInfo>, PlatformError> {
 }
 
 async fn collect_gpu_inventory(
-  adapters: Result<Vec<InventoryAdapter>, String>,
+  discovery: Result<AdapterDiscovery<InventoryAdapter>, String>,
   nvidia_inventory: impl Future<Output = Result<Vec<GraphicInfo>, String>>,
 ) -> Vec<GraphicInfo> {
-  let adapters = adapters.unwrap_or_else(|error| {
+  let AdapterDiscovery { adapters, error } =
+    discovery.unwrap_or_else(|error| AdapterDiscovery {
+      adapters: Vec::new(),
+      error: Some(error),
+    });
+  if let Some(error) = error {
     log_error!("dxgi_error", "get_gpu_info", Some(error));
-    Vec::new()
-  });
+    // A missing adapter can make both a name and a legacy id look unique.
+    if !adapters.is_empty() {
+      return adapters.into_iter().map(|adapter| adapter.info).collect();
+    }
+  }
   let has_dxgi_adapters = !adapters.is_empty();
   // Filtering software adapters can leave a successful DXGI query empty.
   let nvidia = if !has_dxgi_adapters
@@ -221,10 +229,26 @@ mod inventory_tests {
     }
   }
 
+  fn complete_inventory(
+    adapters: Vec<InventoryAdapter>,
+  ) -> AdapterDiscovery<InventoryAdapter> {
+    AdapterDiscovery {
+      adapters,
+      error: None,
+    }
+  }
+
   #[tokio::test]
   async fn no_dxgi_hardware_rows_preserves_nvapi_inventory() {
     let name = "NVIDIA GeForce RTX 4060";
-    for adapters in [Ok(Vec::new()), Err("DXGI factory unavailable".into())] {
+    for adapters in [
+      Ok(complete_inventory(Vec::new())),
+      Ok(AdapterDiscovery {
+        adapters: Vec::new(),
+        error: Some("DXGI enumeration interrupted".into()),
+      }),
+      Err("DXGI factory unavailable".into()),
+    ] {
       let inventory = collect_gpu_inventory(adapters, async {
         Ok(vec![nvidia_info("272514048", name), nvidia_info("", "")])
       })
@@ -240,7 +264,7 @@ mod inventory_tests {
   #[tokio::test]
   async fn healthy_non_nvidia_dxgi_inventory_skips_nvapi() {
     let adapters = vec![adapter(42, 0x17cb, "Qualcomm Adreno")];
-    let inventory = collect_gpu_inventory(Ok(adapters), async {
+    let inventory = collect_gpu_inventory(Ok(complete_inventory(adapters)), async {
       panic!("A nonempty inventory without NVIDIA hardware does not need NVAPI");
     })
     .await;
@@ -251,11 +275,33 @@ mod inventory_tests {
 
   #[tokio::test]
   async fn empty_dxgi_inventory_with_nvapi_failure_stays_empty() {
-    let inventory =
-      collect_gpu_inventory(Ok(Vec::new()), async { Err("NVAPI unavailable".into()) })
-        .await;
+    let inventory = collect_gpu_inventory(Ok(complete_inventory(Vec::new())), async {
+      Err("NVAPI unavailable".into())
+    })
+    .await;
 
     assert!(inventory.is_empty());
+  }
+
+  #[tokio::test]
+  async fn partial_dxgi_inventory_keeps_rows_without_guessing_unique_ids() {
+    let mut amd = adapter(41, 0x1002, "AMD Radeon");
+    amd.legacy_device_id = Some("29884".into());
+    let discovery = AdapterDiscovery {
+      adapters: vec![
+        amd,
+        adapter(42, NVIDIA_VENDOR_ID, "NVIDIA GeForce RTX 4060"),
+      ],
+      error: Some("One adapter description is unavailable".into()),
+    };
+    let inventory = collect_gpu_inventory(Ok(discovery), async {
+      panic!("A partial DXGI inventory cannot prove a unique NVAPI name match");
+    })
+    .await;
+
+    assert_eq!(inventory.len(), 2);
+    assert_eq!(inventory[0].id, "dxgi:0:41");
+    assert_eq!(inventory[1].id, "dxgi:0:42");
   }
 
   #[test]
