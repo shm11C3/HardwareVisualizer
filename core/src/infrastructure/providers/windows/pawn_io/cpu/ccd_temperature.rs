@@ -1,5 +1,5 @@
-//! Experimental CCD monitoring from the approved Vermeer rev 5 and Raphael
-//! rev 1 specifications under `docs/specs/sensors/`.
+//! Experimental CCD monitoring from the approved Vermeer rev 5, Raphael
+//! rev 1, and Granite Ridge rev 1 specifications under `docs/specs/sensors/`.
 
 use std::collections::HashSet;
 
@@ -24,6 +24,7 @@ const AMD_VENDOR_ID: &str = "AuthenticAMD";
 const VERMEER_FAMILY_MODEL: (u32, u32) = (0x19, 0x21);
 const AM4_PACKAGE_FIELD: u32 = 0x2;
 const RAPHAEL_SIGNATURE: u32 = 0x00A6_0F12;
+const GRANITE_RIDGE_SIGNATURE: u32 = 0x00B4_0F40;
 const AM5_PACKAGE_FIELD: u32 = 0x0;
 const MAX_PACKAGE_RECORD_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
@@ -33,6 +34,7 @@ const HEADER_SIZE: usize =
 enum CcdRegisterMap {
   Vermeer,
   Raphael,
+  GraniteRidge,
 }
 
 impl CcdRegisterMap {
@@ -40,7 +42,8 @@ impl CcdRegisterMap {
   const fn slots(self) -> [u64; 2] {
     match self {
       Self::Vermeer => [0x0005_9954, 0x0005_9958],
-      Self::Raphael => [0x0005_9B08, 0x0005_9B0C],
+      // The two specifications independently pin these same addresses.
+      Self::Raphael | Self::GraniteRidge => [0x0005_9B08, 0x0005_9B0C],
     }
   }
 }
@@ -106,12 +109,13 @@ fn select_register_map(
   }
 
   let signature = read_leaf(1)?.eax;
-  let (map, package_field) = if signature == RAPHAEL_SIGNATURE {
-    (CcdRegisterMap::Raphael, AM5_PACKAGE_FIELD)
-  } else if effective_family_model(signature) == VERMEER_FAMILY_MODEL {
-    (CcdRegisterMap::Vermeer, AM4_PACKAGE_FIELD)
-  } else {
-    return None;
+  let (map, package_field) = match signature {
+    RAPHAEL_SIGNATURE => (CcdRegisterMap::Raphael, AM5_PACKAGE_FIELD),
+    GRANITE_RIDGE_SIGNATURE => (CcdRegisterMap::GraniteRidge, AM5_PACKAGE_FIELD),
+    signature if effective_family_model(signature) == VERMEER_FAMILY_MODEL => {
+      (CcdRegisterMap::Vermeer, AM4_PACKAGE_FIELD)
+    }
+    _ => return None,
   };
   (read_leaf(0x8000_0001)?.ebx >> 28 == package_field).then_some(map)
 }
@@ -225,9 +229,10 @@ mod tests {
   const VERMEER_B2: u32 = 0x00a2_0f12;
   const CEZANNE: u32 = 0x00a5_0f00;
   const RAPHAEL_B2: u32 = 0x00a6_0f12;
-  // Family 0x17 and 0x1A signatures built from the extended-field encoding.
+  const GRANITE_RIDGE_B0: u32 = 0x00b4_0f40;
+  // Unsupported family 0x17 and adjacent family 0x1A signatures.
   const FAMILY_17H: u32 = (0x8 << 20) | (0x7 << 16) | 0x0f10;
-  const FAMILY_1AH: u32 = (0xb << 20) | (0x4 << 16) | 0x0f40;
+  const OTHER_FAMILY_1AH: u32 = 0x00b4_0f50;
   const AM4: u32 = 0x2ff0_0000;
   const NOT_AM4: u32 = 0x3000_0000;
   const BRAND_LEAVES: std::ops::RangeInclusive<u32> = 0x8000_0002..=0x8000_0004;
@@ -358,11 +363,31 @@ mod tests {
   }
 
   #[test]
+  fn exact_granite_ridge_am5_signature_selects_its_map_without_reading_the_name() {
+    for brand in [
+      Some(b"AMD Ryzen 9 9950X 16-Core Processor".as_slice()),
+      Some(b"AMD Ryzen 9 9950X3D 16-Core Processor".as_slice()),
+      Some(b"AMD EPYC 4565P 16-Core Processor".as_slice()),
+      None,
+    ] {
+      let (map, requested) = identify(&Identity {
+        vendor: AMD,
+        signature: GRANITE_RIDGE_B0,
+        package: 0,
+        brand,
+      });
+      assert_eq!(map, Some(CcdRegisterMap::GraniteRidge));
+      assert_eq!(requested, [0, 1, 0x8000_0001]);
+    }
+  }
+
+  #[test]
   fn other_dies_vendors_and_packages_are_rejected_regardless_of_name() {
     assert_eq!(effective_family_model(CEZANNE), (0x19, 0x50));
     assert_eq!(effective_family_model(RAPHAEL_B2), (0x19, 0x61));
     assert_eq!(effective_family_model(FAMILY_17H).0, 0x17);
-    assert_eq!(effective_family_model(FAMILY_1AH).0, 0x1a);
+    assert_eq!(effective_family_model(GRANITE_RIDGE_B0), (0x1a, 0x44));
+    assert_eq!(effective_family_model(OTHER_FAMILY_1AH), (0x1a, 0x45));
 
     for (vendor, signature, package) in [
       (AMD, CEZANNE, AM4),
@@ -372,8 +397,12 @@ mod tests {
       (AMD, 0x00a6_0f11, 0), // Different stepping of model 0x61
       (AMD, 0x00a6_0f22, 0), // Adjacent model 0x62
       (INTEL, RAPHAEL_B2, 0),
+      (AMD, GRANITE_RIDGE_B0, 0x1000_0000), // Fire Range FL1
+      (AMD, GRANITE_RIDGE_B0, NOT_AM4),
+      (AMD, 0x00b4_0f41, 0), // Granite Ridge B1
+      (INTEL, GRANITE_RIDGE_B0, 0),
       (AMD, FAMILY_17H, AM4),
-      (AMD, FAMILY_1AH, AM4),
+      (AMD, OTHER_FAMILY_1AH, 0),
       (INTEL, VERMEER_B0, AM4),
       (AMD, VERMEER_B0, NOT_AM4),
       (AMD, VERMEER_B0, 0),
@@ -397,7 +426,9 @@ mod tests {
 
   #[test]
   fn missing_cpuid_leaves_refuse_admission() {
-    for (signature, package) in [(VERMEER_B0, AM4), (RAPHAEL_B2, 0)] {
+    for (signature, package) in
+      [(VERMEER_B0, AM4), (RAPHAEL_B2, 0), (GRANITE_RIDGE_B0, 0)]
+    {
       let identity = Identity {
         vendor: AMD,
         signature,
@@ -458,7 +489,11 @@ mod tests {
       package_record(&[]),
       Vec::new(),
     ];
-    for map in [CcdRegisterMap::Vermeer, CcdRegisterMap::Raphael] {
+    for map in [
+      CcdRegisterMap::Vermeer,
+      CcdRegisterMap::Raphael,
+      CcdRegisterMap::GraniteRidge,
+    ] {
       assert!(
         authorize_target(Some(map), || validate_single_package_record(&first)).is_some()
       );
@@ -517,6 +552,7 @@ mod tests {
     for (map, expected_addresses) in [
       (CcdRegisterMap::Vermeer, [0x0005_9954, 0x0005_9958]),
       (CcdRegisterMap::Raphael, [0x0005_9B08, 0x0005_9B0C]),
+      (CcdRegisterMap::GraniteRidge, [0x0005_9B08, 0x0005_9B0C]),
     ] {
       let target =
         authorize_target(Some(map), || validate_single_package_record(&package)).unwrap();
