@@ -188,12 +188,16 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
     .into_iter()
     .map(|id| {
       let vendor = drm_sys::detect_gpu_vendor(id);
+      let pci_address = drm_sys::get_card_pci_address(id);
+      let runtime_suspended = vendor == GpuVendor::Nvidia
+        && pci_address
+          .as_deref()
+          .is_some_and(drm_sys::pci_runtime_suspended);
       DrmCard {
         id,
         vendor,
-        pci_address: drm_sys::get_card_pci_address(id),
-        runtime_suspended: vendor == GpuVendor::Nvidia
-          && drm_sys::card_runtime_suspended(id),
+        pci_address,
+        runtime_suspended,
       }
     })
     .collect();

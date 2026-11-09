@@ -2,6 +2,8 @@ use nvml_wrapper::{Nvml, enum_wrappers::device::TemperatureSensor};
 use std::collections::HashMap;
 use tokio::{sync::OnceCell, task::spawn_blocking};
 
+use super::drm_sys;
+
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct NvidiaReadings {
   pub(crate) usage: Option<f32>,
@@ -55,7 +57,7 @@ pub(crate) async fn sample(
   };
 
   spawn_blocking(move || {
-    read_adapters(pci_addresses, |address| {
+    read_adapters(pci_addresses, drm_sys::pci_runtime_suspended, |address| {
       let device = nvml.device_by_pci_bus_id(address).ok()?;
       NvidiaReadings::from_nvml(
         device.utilization_rates().ok().map(|value| value.gpu),
@@ -73,11 +75,18 @@ pub(crate) async fn sample(
 
 fn read_adapters(
   pci_addresses: Vec<String>,
+  mut is_suspended: impl FnMut(&str) -> bool,
   mut read: impl FnMut(&str) -> Option<NvidiaReadings>,
 ) -> HashMap<String, NvidiaReadings> {
   pci_addresses
     .into_iter()
-    .filter_map(|address| read(&address).map(|readings| (address, readings)))
+    .filter_map(|address| {
+      // Initialization and earlier lookups can outlast the DRM snapshot.
+      if is_suspended(&address) {
+        return None;
+      }
+      read(&address).map(|readings| (address, readings))
+    })
     .collect()
 }
 
@@ -130,6 +139,7 @@ mod tests {
       ["0001:01:00.0", "0000:01:00.0", "0000:01:00.1"]
         .map(str::to_string)
         .to_vec(),
+      |_| false,
       |address| match address {
         "0000:01:00.0" => NvidiaReadings::from_nvml(Some(12), Some(51), None),
         "0000:01:00.1" => NvidiaReadings::from_nvml(None, Some(62), None),
@@ -142,5 +152,23 @@ mod tests {
     assert_eq!(samples["0000:01:00.0"].usage, Some(12.0));
     assert_eq!(samples["0000:01:00.1"].temperature, Some(62.0));
     assert!(!samples.contains_key("0001:01:00.0"));
+  }
+
+  #[test]
+  fn skips_a_card_that_suspended_after_selection() {
+    let addresses = vec!["0000:01:00.0".into(), "0000:02:00.0".into()];
+    let mut queried = Vec::new();
+    let samples = read_adapters(
+      addresses,
+      |address| address == "0000:01:00.0",
+      |address| {
+        queried.push(address.to_owned());
+        NvidiaReadings::from_nvml(Some(12), None, None)
+      },
+    );
+
+    assert_eq!(queried, ["0000:02:00.0"]);
+    assert_eq!(samples.len(), 1);
+    assert_eq!(samples["0000:02:00.0"].usage, Some(12.0));
   }
 }
