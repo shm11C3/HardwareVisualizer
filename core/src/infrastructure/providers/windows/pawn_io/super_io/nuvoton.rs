@@ -355,7 +355,8 @@ const NUVOTON_UNRECOGNIZED_VERSION_PROFILES: [NuvotonFamilyEntry; 8] = [
 ];
 
 /// Every scoped Nuvoton profile (named rows first, then the unrecognized-version
-/// range profiles), for callers that recognize profile failure text.
+/// range profiles), for tests that check a property of every row.
+#[cfg(test)]
 pub fn nuvoton_hm_profiles() -> impl Iterator<Item = &'static NuvotonHmProfile> {
   NUVOTON_HM_PROFILES
     .iter()

@@ -3,7 +3,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::infrastructure::providers::windows::pawn_io::cpu::temperature::{
   CpuPackageTemperature, CpuPackageTemperatureError, CpuTemperatureSource,
 };
-use crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::MotherboardSensorReadout;
+use crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::{
+  MotherboardSensorError, MotherboardSensorReadout,
+};
 use crate::log_warn;
 use crate::models::{
   ExternalComponentGuidanceCandidate, MotherboardSensorCollection,
@@ -53,7 +55,8 @@ pub(crate) fn motherboard_collection_from_readout(
       availability: SensorAvailability::Available,
       guidance_candidates: Vec::new(),
     },
-    Err(reason) => {
+    Err(error) => {
+      let reason = error.to_string();
       if !MOTHERBOARD_SENSOR_FALLBACK_LOGGED.swap(true, Ordering::Relaxed) {
         log_warn!(
           "motherboard_sensor_sampling_failed",
@@ -62,47 +65,33 @@ pub(crate) fn motherboard_collection_from_readout(
         );
       }
 
-      let availability =
-        if reason
-          == crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
-        {
-          SensorAvailability::unsupported(reason.clone())
-        } else {
-          SensorAvailability::unavailable(reason.clone())
-        };
+      let (availability, fan_support) = if error.is_unsupported() {
+        (
+          SensorAvailability::unsupported(reason.clone()),
+          SensorSupport::Unsupported,
+        )
+      } else {
+        (SensorAvailability::unavailable(reason.clone()), fan_support)
+      };
 
       MotherboardSensorCollection {
         sample: Default::default(),
         availability,
-        fan_support: if reason
-          == crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
-        {
-          SensorSupport::Unsupported
-        } else {
-          fan_support
-        },
-        guidance_candidates: motherboard_guidance_candidates_for_reason(reason),
+        fan_support,
+        guidance_candidates: motherboard_guidance_candidates(&error),
       }
     }
   }
 }
 
-fn motherboard_guidance_candidates_for_reason(
-  reason: String,
+fn motherboard_guidance_candidates(
+  error: &MotherboardSensorError,
 ) -> Vec<ExternalComponentGuidanceCandidate> {
-  if reason
-    == crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
-    || reason.starts_with(
-      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
-    )
-    || reason.starts_with(
-      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
-    )
-  {
+  if !error.offers_pawnio_guidance() {
     return Vec::new();
   }
 
-  vec![ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(reason)]
+  vec![ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(error.to_string())]
 }
 
 /// Read the latest CPU / sensor temperatures.
@@ -391,19 +380,26 @@ mod tests {
   }
 
   #[test]
-  fn motherboard_guidance_suppresses_unsupported_super_io_path() {
-    let candidates = motherboard_guidance_candidates_for_reason(
-      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
-        .to_string(),
-    );
+  fn unsupported_super_io_path_is_unsupported_without_guidance() {
+    let collection = motherboard_collection_from_readout(MotherboardSensorReadout {
+      sample: Err(MotherboardSensorError::Unsupported),
+      fan_support: SensorSupport::Unknown,
+    });
 
-    assert!(candidates.is_empty());
+    assert_eq!(
+      collection.availability,
+      SensorAvailability::unsupported(
+        "No supported Super I/O hardware-monitor path found".to_string()
+      )
+    );
+    assert_eq!(collection.fan_support, SensorSupport::Unsupported);
+    assert!(collection.guidance_candidates.is_empty());
   }
 
   #[test]
   fn motherboard_guidance_remains_for_pawnio_access_failure() {
-    let candidates = motherboard_guidance_candidates_for_reason(
-      "pawnio_open failed: 0x80070005".to_string(),
+    let candidates = motherboard_guidance_candidates(
+      &MotherboardSensorError::Unclassified("pawnio_open failed: 0x80070005".to_string()),
     );
 
     assert_eq!(candidates.len(), 1);
@@ -419,29 +415,34 @@ mod tests {
 
   #[test]
   fn motherboard_guidance_suppresses_experimental_ite_hardware_state_failure() {
-    let candidates = motherboard_guidance_candidates_for_reason(format!(
-      "{}: no eligible physical TMPIN channels are enabled",
-      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
-    ));
+    let candidates =
+      motherboard_guidance_candidates(&MotherboardSensorError::synthetic_ite_failure(
+        true,
+        "no eligible physical TMPIN channels are enabled",
+      ));
 
     assert!(candidates.is_empty());
   }
 
   #[test]
   fn motherboard_guidance_suppresses_experimental_nuvoton_hardware_state_failure() {
-    let candidates = motherboard_guidance_candidates_for_reason(format!(
-      "{} (NCT6798D): Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)",
-      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
-    ));
+    let candidates = motherboard_guidance_candidates(
+      &MotherboardSensorError::synthetic_nuvoton_failure(
+        true,
+        "Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)",
+      ),
+    );
 
     assert!(candidates.is_empty());
   }
 
   #[test]
   fn motherboard_guidance_remains_for_experimental_nuvoton_runtime_failure() {
-    let candidates = motherboard_guidance_candidates_for_reason(
-      "Experimental NCT6798D motherboard sensor path failed: pawnio_execute ioctl_pio_inb failed"
-        .to_string(),
+    let candidates = motherboard_guidance_candidates(
+      &MotherboardSensorError::synthetic_nuvoton_failure(
+        false,
+        "pawnio_execute ioctl_pio_inb failed",
+      ),
     );
 
     assert_eq!(candidates.len(), 1);
@@ -449,14 +450,22 @@ mod tests {
       candidates[0].key,
       crate::models::external_component_guidance::PAWNIO_MOTHERBOARD_SENSORS_KEY
     );
+    assert_eq!(
+      candidates[0].diagnostic_detail.as_deref(),
+      Some(
+        "Experimental NCT6798D motherboard sensor path failed: \
+         pawnio_execute ioctl_pio_inb failed"
+      )
+    );
   }
 
   #[test]
   fn motherboard_guidance_remains_for_experimental_ite_runtime_failure() {
-    let candidates = motherboard_guidance_candidates_for_reason(format!(
-      "{}: EC port authorization probe failed: pawnio_execute ioctl_pio_inb failed",
-      crate::infrastructure::providers::windows::pawn_io::super_io::motherboard::ITE_EXPERIMENTAL_FAILURE_PREFIX
-    ));
+    let candidates =
+      motherboard_guidance_candidates(&MotherboardSensorError::synthetic_ite_failure(
+        false,
+        "EC port authorization probe failed: pawnio_execute ioctl_pio_inb failed",
+      ));
 
     assert_eq!(candidates.len(), 1);
     assert_eq!(
@@ -479,7 +488,9 @@ mod tests {
   #[test]
   fn failed_sample_preserves_detected_provider_support() {
     let collection = motherboard_collection_from_readout(MotherboardSensorReadout {
-      sample: Err("temporary fan read failure".to_string()),
+      sample: Err(MotherboardSensorError::Unclassified(
+        "temporary fan read failure".to_string(),
+      )),
       fan_support: SensorSupport::Supported,
     });
 
