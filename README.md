@@ -155,8 +155,10 @@ Winget installs do not set up PawnIO; use **Settings → Advanced** after instal
 >   sudo hardware-visualizer
 >   ```
 >
-> - CPU temperature, power draw, and motherboard sensors are not available on
->   Linux yet.
+> - Linux motherboard and DIMM readings require a
+>   [supported profile](docs/user/hardware-compatibility.md#compatibility-table)
+>   and the matching hwmon driver already bound. CPU temperature and power
+>   draw are currently unavailable on Linux.
 
 ### First-time Setup
 

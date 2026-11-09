@@ -148,7 +148,9 @@ Winget でのインストールでは PawnIO はセットアップされませ�
 >   sudo hardware-visualizer
 >   ```
 >
-> - CPU 温度、消費電力、マザーボードのセンサーは、Linux ではまだ取得できません。
+> - Linux でマザーボードや DIMM のセンサー値を取得するには、
+>   [対応する構成](docs/user/hardware-compatibility.md#compatibility-table)で
+>   対応する hwmon ドライバーがバインド済みである必要があります。Linux の CPU 温度と消費電力は現在取得できません。
 
 ### 初期設定
 
