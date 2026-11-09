@@ -1,7 +1,7 @@
 use crate::infrastructure::providers::windows::pawn_io::{
   client::release_shared_intel_msr,
   cpu::{
-    ccd_temperature::VermeerCcdTarget, power::CpuPowerSampler,
+    ccd_temperature::AmdCcdTarget, power::CpuPowerSampler,
     temperature::CpuTemperatureSampler,
   },
   super_io::{
@@ -72,7 +72,7 @@ impl<S, T: Clone> Slot<S, T> {
 
 pub(super) struct Providers {
   temperature: Slot<CpuTemperatureSampler, TemperatureSample>,
-  ccd_reading: Option<Reading<Vec<CpuCcdTemperature>>>,
+  ccd_reading: Option<(AmdCcdTarget, Reading<Vec<CpuCcdTemperature>>)>,
   last_ccd_request_ms: Option<u64>,
   power: Slot<CpuPowerSampler, CpuPower>,
   motherboard: Slot<MotherboardSensorSampler, MotherboardSensorCollection>,
@@ -189,12 +189,12 @@ impl Providers {
   pub(super) fn cpu_ccd_temperatures(
     &mut self,
   ) -> Option<Reading<Vec<CpuCcdTemperature>>> {
-    self.sample_ccd_temperatures(VermeerCcdTarget::detect(), uptime_ms())
+    self.sample_ccd_temperatures(AmdCcdTarget::detect(), uptime_ms())
   }
 
   fn sample_ccd_temperatures(
     &mut self,
-    target: Option<VermeerCcdTarget>,
+    target: Option<AmdCcdTarget>,
     now: u64,
   ) -> Option<Reading<Vec<CpuCcdTemperature>>> {
     let Some(target) = target else {
@@ -203,7 +203,8 @@ impl Providers {
     };
 
     self.last_ccd_request_ms = Some(now);
-    if let Some(cached) = &self.ccd_reading
+    if let Some((cached_target, cached)) = &self.ccd_reading
+      && *cached_target == target
       && cached.is_fresh(now)
       && now - cached.acquired_at_ms < CPU_INTERVAL_MS
     {
@@ -225,7 +226,7 @@ impl Providers {
       acquired_at_ms: uptime_ms(),
       value,
     };
-    self.ccd_reading = Some(reading.clone());
+    self.ccd_reading = Some((target, reading.clone()));
     Some(reading)
   }
 
@@ -247,7 +248,9 @@ impl Providers {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::infrastructure::providers::windows::pawn_io::cpu::ccd_temperature::synthetic_target;
+  use crate::infrastructure::providers::windows::pawn_io::cpu::ccd_temperature::{
+    synthetic_raphael_target, synthetic_target,
+  };
 
   #[test]
   fn missing_ccd_module_returns_both_slots_and_keeps_the_package_cache() {
@@ -305,6 +308,37 @@ mod tests {
     assert_eq!(package.value.cpu_temperature, Some(63.0));
     assert!(providers.sample_ccd_temperatures(None, now).is_none());
     assert!(providers.ccd_reading.is_none());
+  }
+
+  #[test]
+  fn ccd_cache_is_scoped_to_the_selected_register_map() {
+    let now = uptime_ms();
+    let vermeer = synthetic_target();
+    let raphael = synthetic_raphael_target();
+    let mut providers = Providers::new();
+    providers.temperature.sampler =
+      Some((now, CpuTemperatureSampler::synthetic_unavailable()));
+
+    let mut previous = vermeer.unavailable_readings();
+    previous[0].temperature_celsius = Some(40.0);
+    previous[1].temperature_celsius = Some(54.0);
+    providers.ccd_reading = Some((
+      vermeer,
+      Reading {
+        acquired_at_ms: now,
+        value: previous,
+      },
+    ));
+
+    let reading = providers
+      .sample_ccd_temperatures(Some(raphael), now)
+      .unwrap();
+    assert_eq!(reading.value, raphael.unavailable_readings());
+    assert!(
+      providers
+        .ccd_reading
+        .is_some_and(|(cached, _)| cached == raphael)
+    );
   }
 
   #[test]

@@ -5,7 +5,7 @@ use std::sync::{Mutex, OnceLock};
 use super::super::client::{
   PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
 };
-use super::ccd_temperature::VermeerCcdTarget;
+use super::ccd_temperature::AmdCcdTarget;
 pub use super::identity::{CpuIdentity, CpuVendor};
 use super::identity::{cpuid_leaf, detect_cpu_identity};
 use super::temperature_decode::{
@@ -356,7 +356,7 @@ impl CpuTemperatureSampler {
 
   pub(crate) fn sample_ccd(
     &self,
-    target: VermeerCcdTarget,
+    target: AmdCcdTarget,
   ) -> (Vec<CpuCcdTemperature>, bool) {
     let Some(ActiveCpuTemperatureSource::Amd { client, .. }) = &self.active else {
       // Keep the authorized slots visible when the module did not open.
