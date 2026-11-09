@@ -1,4 +1,8 @@
-use nvml_wrapper::{Nvml, enum_wrappers::device::TemperatureSensor};
+use nvml_wrapper::{
+  Device, Nvml,
+  enum_wrappers::device::TemperatureSensor,
+  error::{NvmlError, nvml_try},
+};
 use std::collections::HashMap;
 use tokio::{sync::OnceCell, task::spawn_blocking};
 
@@ -62,10 +66,7 @@ pub(crate) async fn sample(
       NvidiaReadings::from_nvml(
         device.utilization_rates().ok().map(|value| value.gpu),
         device.temperature(TemperatureSensor::Gpu).ok(),
-        device
-          .memory_info()
-          .ok()
-          .map(|memory| (memory.used, memory.total)),
+        read_memory(&device),
       )
     })
   })
@@ -88,6 +89,38 @@ fn read_adapters(
       read(&address).map(|readings| (address, readings))
     })
     .collect()
+}
+
+fn read_memory(device: &Device<'_>) -> Option<(u64, u64)> {
+  memory_with_legacy_fallback(
+    device
+      .memory_info()
+      .map(|memory| (memory.used, memory.total)),
+    || {
+      let read = device.nvml().lib().nvmlDeviceGetMemoryInfo.as_ref().ok()?;
+      let mut memory = std::mem::MaybeUninit::zeroed();
+      // SAFETY: The handle belongs to this NVML instance and the generated
+      // binding accepts the zeroed v1 integer-only memory record.
+      let memory = unsafe {
+        nvml_try(read(device.handle(), memory.as_mut_ptr())).ok()?;
+        memory.assume_init()
+      };
+      Some((memory.used, memory.total))
+    },
+  )
+}
+
+fn memory_with_legacy_fallback(
+  modern: Result<(u64, u64), NvmlError>,
+  legacy: impl FnOnce() -> Option<(u64, u64)>,
+) -> Option<(u64, u64)> {
+  match modern {
+    Ok(memory) => Some(memory),
+    // Drivers before R510 only export the v1 entry point. An error from
+    // an available v2 query still describes that device's availability.
+    Err(NvmlError::FailedToLoadSymbol(_)) => legacy(),
+    Err(_) => None,
+  }
 }
 
 #[cfg(test)]
@@ -170,5 +203,29 @@ mod tests {
     assert_eq!(queried, ["0000:02:00.0"]);
     assert_eq!(samples.len(), 1);
     assert_eq!(samples["0000:02:00.0"].usage, Some(12.0));
+  }
+
+  #[test]
+  fn uses_legacy_memory_only_if_the_modern_symbol_is_missing() {
+    let legacy = || Some((4096, 8192));
+    let missing = || Err(NvmlError::FailedToLoadSymbol("synthetic missing v2".into()));
+    let unexpected_fallback = || panic!("v2 was available");
+
+    assert_eq!(
+      memory_with_legacy_fallback(Ok((0, 8192)), unexpected_fallback),
+      Some((0, 8192))
+    );
+    assert_eq!(memory_with_legacy_fallback(missing(), legacy), legacy());
+    assert_eq!(memory_with_legacy_fallback(missing(), || None), None);
+    for error in [
+      NvmlError::NotSupported,
+      NvmlError::NoPermission,
+      NvmlError::GpuLost,
+    ] {
+      assert_eq!(
+        memory_with_legacy_fallback(Err(error), unexpected_fallback),
+        None
+      );
+    }
   }
 }
