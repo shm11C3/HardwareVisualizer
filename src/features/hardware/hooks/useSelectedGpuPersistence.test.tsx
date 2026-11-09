@@ -91,21 +91,24 @@ describe("useSelectedGpuPersistence", () => {
     expect(result.current.kind).toBe("unresolved");
   });
 
-  it("promotes a restored id to live once the stream reports it, without a write", () => {
-    mocks.storeValue = "nvapi:12345";
+  it.each(["nvapi:12345", "pci:0001:01:00.0"])(
+    "promotes a restored %s to live once the stream reports it, without a write",
+    (storedId) => {
+      mocks.storeValue = storedId;
 
-    const { result } = renderHook(() => useHarness(), { wrapper });
-    act(() =>
-      result.current.setNames(
-        liveMap({ "nvapi:12345": "NVIDIA GeForce RTX 4080" }),
-      ),
-    );
+      const { result } = renderHook(() => useHarness(), { wrapper });
+      act(() =>
+        result.current.setNames(
+          liveMap({ [storedId]: "NVIDIA GeForce RTX 4080" }),
+        ),
+      );
 
-    expect(result.current.selected).toBe("nvapi:12345");
-    expect(result.current.kind).toBe("live");
-    expect(mocks.setStored).not.toHaveBeenCalled();
-    expect(mocks.init).not.toHaveBeenCalled();
-  });
+      expect(result.current.selected).toBe(storedId);
+      expect(result.current.kind).toBe("live");
+      expect(mocks.setStored).not.toHaveBeenCalled();
+      expect(mocks.init).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not write the pre-hydration value back over the restored one", () => {
     // The write-back effect runs in the same commit as hydration, where the
@@ -116,6 +119,64 @@ describe("useSelectedGpuPersistence", () => {
     renderHook(() => useHarness(), { wrapper });
 
     expect(mocks.setStored).not.toHaveBeenCalled();
+  });
+
+  it.each(["0000", "10000"])(
+    "migrates a legacy Linux slot to its unique live PCI domain %s",
+    (domain) => {
+      mocks.storeValue = "pci:01:00.1";
+      const fullId = `pci:${domain}:01:00.1`;
+      const { result } = renderHook(() => useHarness(), { wrapper });
+
+      act(() =>
+        result.current.setNames(
+          liveMap({
+            [fullId]: "NVIDIA GeForce RTX 4060",
+            "pci:0002:01:00.0": "AMD Radeon RX 7600",
+          }),
+        ),
+      );
+
+      expect(result.current.selected).toBe(fullId);
+      expect(result.current.kind).toBe("live");
+      expect(mocks.setStored).toHaveBeenCalledWith(fullId);
+      expect(mocks.init).not.toHaveBeenCalled();
+    },
+  );
+
+  it("leaves an ambiguous legacy Linux PCI slot unresolved", () => {
+    mocks.storeValue = "pci:01:00.0";
+    const { result } = renderHook(() => useHarness(), { wrapper });
+
+    act(() =>
+      result.current.setNames(
+        liveMap({
+          "pci:0000:01:00.0": "AMD Radeon RX 7600",
+          "pci:0001:01:00.0": "NVIDIA GeForce RTX 4060",
+        }),
+      ),
+    );
+
+    expect(result.current.selected).toBe("pci:01:00.0");
+    expect(result.current.kind).toBe("unresolved");
+    expect(mocks.setStored).not.toHaveBeenCalled();
+    expect(mocks.init).not.toHaveBeenCalled();
+  });
+
+  it("keeps a full Linux PCI id when its adapter is absent", () => {
+    mocks.storeValue = "pci:0001:01:00.0";
+    const { result } = renderHook(() => useHarness(), { wrapper });
+
+    act(() =>
+      result.current.setNames(
+        liveMap({ "pci:0000:01:00.0": "AMD Radeon RX 7600" }),
+      ),
+    );
+
+    expect(result.current.selected).toBe("pci:0001:01:00.0");
+    expect(result.current.kind).toBe("unresolved");
+    expect(mocks.setStored).not.toHaveBeenCalled();
+    expect(mocks.init).not.toHaveBeenCalled();
   });
 
   it("persists an explicit change", () => {

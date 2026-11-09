@@ -359,6 +359,23 @@ export const migrateLegacyPdhGpuId = (
   return matches.length === 1 ? matches[0][0] : undefined;
 };
 
+const LEGACY_LINUX_PCI_GPU_ID = /^pci:([0-9a-f]{2}:[0-9a-f]{2}\.[0-7])$/;
+const LINUX_PCI_GPU_ID = /^pci:[0-9a-f]{4,8}:([0-9a-f]{2}:[0-9a-f]{2}\.[0-7])$/;
+
+/** Resolve a domainless Linux id only when one detected PCI adapter matches. */
+export const migrateLegacyLinuxGpuId = (
+  storedGpuId: string,
+  gpuNames: Record<LiveGpuId, string>,
+): LiveGpuId | undefined => {
+  const slot = LEGACY_LINUX_PCI_GPU_ID.exec(storedGpuId)?.[1];
+  if (slot == null) return undefined;
+
+  const matches = liveKeys(gpuNames).filter(
+    (id) => LINUX_PCI_GPU_ID.exec(id)?.[1] === slot,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+};
+
 /**
  * The live id the stream currently reports for a selection, found by lookup
  * among the detected ids and the live map keys. An unresolved selection

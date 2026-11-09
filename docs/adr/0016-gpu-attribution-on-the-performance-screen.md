@@ -66,10 +66,12 @@ must keep its inventory and live ids distinct the way every platform does, and
 `selectedGpuIdAtom` may only be reached by an allowlisted set of resolution
 owners — by named or namespace import alike.
 
-Linux live keys keep the existing domainless `pci:<bus>:<device>.<function>`
-format or the `drm:card<n>` fallback. NVML queries use the full PCI address,
-including the domain. The provider skips readings when a domainless live key
-is shared by multiple DRM cards in the current sample.
+Linux uses `pci:<domain>:<bus>:<device>.<function>` as the live key and the
+full PCI address for NVML and lspci lookups. A missing or shared full PCI
+address falls back to `drm:card<n>`. NVML requires a unique full address.
+The app-level selection migration translates a legacy domainless PCI key
+only when it matches one detected live adapter. An ambiguous key remains
+unresolved. The archive retains the ids originally recorded.
 
 The adapter list is therefore built from the live side alone: every id the
 stream reported, named by the `gpuName` each sample carries, plus any id that
