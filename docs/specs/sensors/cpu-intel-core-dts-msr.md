@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 7 |
-| Status | Implementation-ready (rev 7) |
-| Scope | Read-only core DTS for the listed Intel x86-64 display models and exact hybrid signatures in one Windows processor group and physical package. Includes DTS without package thermal management. |
+| Revision | 8 |
+| Status | Implementation-ready (rev 8) |
+| Scope | Read-only core DTS for the listed Intel x86-64 display models and full signatures in one Windows processor group and physical package. Includes DTS without package thermal management. |
 | Issue phase | [#2514](https://github.com/shm11C3/HardwareVisualizer/issues/2514) |
 
-Revision 7 proposes a per-core readout check for the three exact Alder Lake
+Revision 8 proposes a per-core readout check for the three exact Alder Lake
 and Raptor Lake hybrid signatures. Implementation requires maintainer
 approval under the
 [specification gate](README.md#status-transition-draft--implementation-ready).
@@ -37,9 +37,14 @@ approval under the
 | S19 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`: [Clarkdale](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0020652_Clarkdale_CPUID.txt#L180-L183), [Gulftown](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00206C2_Gulftown_CPUID.txt#L468-L471), [Ivy Bridge](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306A9_IvyBridge_CPUID.txt#L350-L353), and [Ivy Bridge-E](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306E4_IvyBridgeE_CPUID.txt#L515-L518) | Independent register observations. They corroborate the model mechanisms and do not establish Windows PawnIO operation or the accuracy of individual readings. |
 | S20 | Intel, [6th Generation Intel Processor Family Specification Update, 332689-024](https://www.scribd.com/document/557109734/332689-024-6th-generation-intel-processor-family-spec-update) (Intel document mirror), erratum SKL135 | Primary erratum describing DDR4 systems with wider DTS error than specified. |
 | S21 | PawnIO 2.2.0 [driver read native](https://github.com/namazso/PawnIO/blob/5cdf470831fdfff3f7f1d06363ca6b230f3bf35a/PawnIO/src/natives_impl_windows.cpp#L437-L448) with [PawnIOLib status conversion](https://github.com/namazso/PawnIO/blob/5cdf470831fdfff3f7f1d06363ca6b230f3bf35a/PawnIOLib/PawnIOLib.cpp#L109-L115), and the [IntelMSR 0.2.11 read contract](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/IntelMSR.p#L102-L118) from S3 | Upstream interface behavior only. The documented signed read path returns a failing status when the native MSR read faults. |
-| S22 | Linux [Intel-authored thermal mask change](https://github.com/torvalds/linux/commit/6ae0092ca7adfce79336c6525cb0da561ecd4f04), June 2024, [author's v2 test summary](https://lkml.rescloud.iu.edu/2404.3/02686.html), and Linux v6.18 commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449` [model IDs](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/arch/x86/include/asm/intel-family.h#L137-L140), [mask](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L38-L43) and [model selection](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L96-L98) | **lead-only (copyleft)** for the conflicting eight-bit readout mask explicitly selected for `06_97`, `06_9A` and `06_B7`. The author reports testing on Alder Lake without giving an exact CPUID or raw status words. That test summary does not identify Raptor Lake. |
-| S23 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`: [Core i9-12900K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0090672_AlderLake_01_LC_BC_CPUID.txt), [Core i7-12800HX](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0090672_AlderLake_03_CPUID.txt) and [Core i9-12900H](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00906A3_AlderLakeP_00_CPUID.txt) | Independent exact-signature P- and E-core CPUID and status observations. The captured words with Reading Valid set all have bit 23 clear. |
-| S24 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`: [Core i9-13900K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00B0671_RaptorLake_01_CPUID.txt) and [Core i9-14900K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00B0671_RaptorLake_13_CPUID.txt) | Independent desktop `0x000B0671` CPUID and P- and E-core status observations. Both captures have bit 23 clear in every captured status word with Reading Valid set. HX coverage comes from S11 and S15. |
+| S22 | Intel, [Core i7 LGA2011-v3 Specification Update, 330841-001, August 2014](https://images-na.ssl-images-amazon.com/images/I/71JArr6MenL.pdf), Table 2 (p. 7) and errata HSH11 and HSH18 (pp. 13–14), and [Core i7 LGA2011-3 Thermal Guide, 330842-001, August 2014](https://szarka.ssgg.sk/Vyuka/2014/HighEnd-LGA2011/core-i7-lga2011-3-tmsdg.pdf), §§4.1.1, 4.2.5 and 4.3.2 (pp. 27, 31–32) (Intel document mirrors) | Primary desktop stepping, errata, DTS reference and TCC offset field. |
+| S23 | Intel, [Xeon E5 v3 Specification Update, 330785-011, September 2017](https://www.mouser.com/pdfdocs/xeon-e5-v3-spec-update.pdf), Table 1 (pp. 7–8), and [330785-014US, April 2022](https://discuss.88.io/uploads/short-url/mACN9UgMYkSAc3qJfZ0dMtSc4VA.pdf), Table 1 (pp. 7–8) and HSE14 and HSE22 (pp. 20, 22) (Intel document mirrors). Intel [microcode update guidance, August 2018](https://www.intel.com/content/dam/www/public/us/en/documents/sa00115-microcode-update-guidance.pdf), Haswell E, Server EP/EP4S and Server EX rows. | Primary signature overlap and errata. The 2017 revision includes embedded and four-socket models as well as the E5-1600/2600 v3 lines. The microcode table distinguishes E7 v3 Server EX at `0x000306F4`. |
+| S24 | Intel, [Xeon E5-1600/2600/4600 v3 Thermal Guide, 330786-003, October 2015](https://cdrdv2-public.intel.com/330786/xeon-e5-v3-thermal-guide.pdf), §§4.1.1, 4.2.1 and 4.3.2 (pp. 34, 36–37), and [Xeon E5-2400 v3 Thermal Guide, 331593-001US, January 2015](https://manualzz.com/doc/10867174/intel-xeon-e5-2400-v3-processor-thermal-mechanical-specif...), §§5.3.2, 5.4 Table 6 and 5.8.4 (pp. 38, 41, 46) (Intel document mirror) | Primary server thermal reference. The first guide locates the offset field. The second defines the target-plus-signed-DTS relationship for the embedded products, includes E5-1428L v3 in its thermal table and refers to the shared Xeon E5/E7 v3 register specification. |
+| S25 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`, [Core i7-5820K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306F2_HaswellE2_CPUID.txt#L564-L567), [Xeon E5-2630 v3](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306F2_HaswellEP_00_CPUID.txt#L765-L770), [Xeon E5-2660 v3](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306F2_HaswellEP2_CPUID.txt#L1774-L1779), and [Xeon E5-4669 v3](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00306F2_HaswellEP_05_CPUID.txt#L1624-L1629) | Independent CPUID and register observations on the full signature with DTS capability, a valid core delta and a zero-offset target. They do not verify the Windows PawnIO path. |
+| S26 | Linux commit [6ae0092ca7ad](https://github.com/torvalds/linux/commit/6ae0092ca7adfce79336c6525cb0da561ecd4f04), Intel-authored [model masks](https://github.com/torvalds/linux/blob/6ae0092ca7adfce79336c6525cb0da561ecd4f04/drivers/thermal/intel/intel_tcc.c#L34-L77) and [CPUID model mapping](https://github.com/torvalds/linux/blob/6ae0092ca7adfce79336c6525cb0da561ecd4f04/arch/x86/include/asm/intel-family.h#L87-L92) | **lead-only (copyleft)**. Corroborates the four-bit offset and seven-bit core delta for display model `06_3F`, including the offset width for embedded E5 v3 parts whose public guide refers to the shared register specification. |
+| S27 | Linux [Intel-authored thermal mask change](https://github.com/torvalds/linux/commit/6ae0092ca7adfce79336c6525cb0da561ecd4f04), June 2024, [author's v2 test summary](https://lkml.rescloud.iu.edu/2404.3/02686.html), and Linux v6.18 commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449` [model IDs](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/arch/x86/include/asm/intel-family.h#L137-L140), [mask](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L38-L43) and [model selection](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L96-L98) | **lead-only (copyleft)** for the conflicting eight-bit readout mask explicitly selected for `06_97`, `06_9A` and `06_B7`. The author reports testing on Alder Lake without giving an exact CPUID or raw status words. That test summary does not identify Raptor Lake. |
+| S28 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`: [Core i9-12900K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0090672_AlderLake_01_LC_BC_CPUID.txt), [Core i7-12800HX](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel0090672_AlderLake_03_CPUID.txt) and [Core i9-12900H](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00906A3_AlderLakeP_00_CPUID.txt) | Independent exact-signature P- and E-core CPUID and status observations. The captured words with Reading Valid set all have bit 23 clear. |
+| S29 | InstLatx64, commit `17be9a9793c306cf96f8c286e34e705b780a0226`: [Core i9-13900K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00B0671_RaptorLake_01_CPUID.txt) and [Core i9-14900K](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00B0671_RaptorLake_13_CPUID.txt) | Independent desktop `0x000B0671` CPUID and P- and E-core status observations. Both captures have bit 23 clear in every captured status word with Reading Valid set. HX coverage comes from S11 and S15. |
 
 ## Detection
 
@@ -57,6 +62,10 @@ approval under the
   core. A `RelationProcessorPackage` record identifies the logical
   processors of a physical package. Use the group number and
   group-relative processor number together (S4, S5).
+- Haswell-E and Xeon E5 v3 qualify only at full signature
+  `0x000306F2` on discovery and on the pinned processor (S15, S22,
+  S23). The signature also covers embedded Xeon E5-1428L v3 and
+  E5-2400 v3 parts. S24 documents their thermal reference separately.
 - The hybrid rows require the full CPUID.01H:EAX signature below and
   CPUID.07H.00H:EDX[15] set. Apply these gates before topology discovery
   and check them again on each pinned representative. A shared signature
@@ -77,34 +86,35 @@ The runtime gates follow [ADR 0031](../../adr/0031-runtime-sensor-gates-follow-h
 
 | Condition | Gate kind | Source |
 | --- | --- | --- |
-| Intel x86-64, available CPUID leaves, and a listed display family/model or full hybrid signature | mechanism | S1, S9–S15. Selects the applicable core status and target MSRs. |
+| Intel x86-64, available CPUID leaves, and a listed display family/model or required full signature | mechanism | S1, S9–S15, S22–S23. Selects the applicable core status and target MSRs. |
 | Core DTS bit set on discovery and on the pinned processor | mechanism | S2. Package thermal management independently gates the package path. |
 | For a listed hybrid signature, hybrid flag set and the pinned processor reports a supported core type | mechanism | S9–S14. Selects the applicable hybrid status and reference mechanism. |
 | Validated single active Windows group/package, with non-overlapping physical-core masks covering all active processors | mechanism | S4, S5 and project attribution policy. |
 | Pinned processor and expected CPUID signature match before reads, processor still matches after reads, and topology still matches before publication | safety | S4, S5 and project attribution policy. Rejects samples with unconfirmed attribution. |
 | Existing signed IntelMSR transport is available, and the dedicated sampling thread successfully restores affinity | safety | S3, S5, S6. Restricts privileged access and prevents further work on a thread with uncertain affinity. |
-| Reading Valid is set and the row's offset condition passes | mechanism | S1, S2, S9–S11, S14–S18. Qualifies the applicable DTS reference and status. |
+| Reading Valid is set and the row's offset condition passes | mechanism | S1, S2, S9–S11, S14–S18, S22, S24, S26. Qualifies the applicable DTS reference and status. |
 | Both reads succeed and the reference and result pass the existing plausibility bounds | safety | S3, S21 and project sample policy in the read procedure. |
 
-The legacy rows use display family/model to select the documented
-mechanism and confirm the full discovered signature on each pinned
-representative for attribution. Observed product names are evidence
-identities. For a family/model with no applicable row in this scope,
-skip both core MSRs before topology discovery even if CPUID advertises
-core DTS. Separately approved core DTS scopes retain their own gates.
+The legacy rows select the documented mechanism by display family/model
+or an explicitly required full signature. Each pinned representative
+must match the full discovered signature for attribution. Observed
+product names are evidence identities. For a signature with no
+applicable row in this scope, skip both core MSRs before topology
+discovery even if CPUID advertises core DTS. Separately approved core DTS scopes retain their own gates.
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | Nehalem `06_1A`, `06_1E`, `06_1F`, `06_2E` | Verified by S1 §2.8 and Table 2-15 for signatures and target. S2 pins the core DTS and separate PTM bit. | Enabled with direct target decode and the capability, affinity and validity gates. |
 | Sandy Bridge `06_2A`, `06_2D` | Verified by S1 §2.11 and Table 2-20 for signatures and target. S2 pins the core DTS and separate PTM bit. | Enabled with direct target decode and the capability, affinity and validity gates. |
 | Silvermont Atom C2000 `06_4D` | Verified by S1 §2.4/§2.4.1 and Tables 2-6/2-10 for the signature, core DTS and package target. S2 pins the capability bits. | Enabled only with a zero target offset and the common gates. |
-| Hybrid Alder Lake S/HX `06_97`, full signature `0x00090672` (stepping ID 2) | S9/S10 pin the signature, P- and E-core status and reference. S12 corroborates hybrid identification. S23 observes bit 23 clear on both core types. S22 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
-| Hybrid Alder Lake H/P and PS `06_9A`, full signature `0x000906A3` (stepping ID 3) | S13/S14 pin the H/P and PS identities and applicable errata. S9 documents core thermal status for `06_9A`, S10/S14 pin the reference for the respective products, and S12/S13 corroborate hybrid identification. S23 observes bit 23 clear on both core types. S22 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
-| Hybrid Raptor Lake S/HX and S/HX Refresh `06_B7`, full signature `0x000B0671` (B-0) | S9/S11 pin the signature, P- and E-core status and reference. S11/S12 identify the non-hybrid signature overlap. S24 observes bit 23 clear on both core types on desktop. S22 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
+| Hybrid Alder Lake S/HX `06_97`, full signature `0x00090672` (stepping ID 2) | S9/S10 pin the signature, P- and E-core status and reference. S12 corroborates hybrid identification. S28 observes bit 23 clear on both core types. S27 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
+| Hybrid Alder Lake H/P and PS `06_9A`, full signature `0x000906A3` (stepping ID 3) | S13/S14 pin the H/P and PS identities and applicable errata. S9 documents core thermal status for `06_9A`, S10/S14 pin the reference for the respective products, and S12/S13 corroborate hybrid identification. S28 observes bit 23 clear on both core types. S27 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
+| Hybrid Raptor Lake S/HX and S/HX Refresh `06_B7`, full signature `0x000B0671` (B-0) | S9/S11 pin the signature, P- and E-core status and reference. S11/S12 identify the non-hybrid signature overlap. S29 observes bit 23 clear on both core types on desktop. S27 is Linux lead-only for the conflicting status width addressed in the read procedure. | Experimental, subject to the common gates and per-target core type below. |
 | Westmere `06_25`, `06_2C`, `06_2F` | S15 §§2.9–2.10 (pp. 2-221–222) apply Table 2-15 (pp. 2-182–183). Core status, thread target, and no offset field in the target layout. S19 observes both MSRs on the Core i5-650 `0x00020652` and Core i7-990X `0x000206C2`. | Experimental. Direct target decode. |
 | Ivy Bridge `06_3A` | S15 §2.12 (p. 2-264) applies Table 2-20 (pp. 2-230, 2-232). S16 documents the offset-independent reference for desktop and mobile. S19 observes both MSRs on the Core i7-3770K `0x000306A9`. | Experimental. Direct target decode. |
 | Ivy Bridge-E `06_3E` | S15 §§2.12.1–2.12.2 (pp. 2-267, 2-279) apply Tables 2-20 and 2-26 (p. 2-269 for target). S16 corroborates the reference for Xeon E5 v2. S19 observes both MSRs with zero target offset on the Core i7-4930K `0x000306E4`. | Experimental. Zero offset in bits 27:24. |
 | Haswell client `06_3C`, `06_45`, `06_46` | S15 §2.13 (p. 2-287) applies Table 2-20. S17 documents the offset-independent reference for desktop and mobile. | Experimental. Direct target decode. |
+| Haswell-E and Xeon E5 v3, full signature `0x000306F2` | S15 Table 2-1 and §2.14 apply the core status and target fields from Table 2-20 (pp. 2-230–232, 2-305). S22–S24 pin the desktop and server scope and thermal reference. Lead-only S26 corroborates the offset width. S25 observes the mechanism on a Core i7-5820K and Xeon E5-2630, E5-2660 and E5-4669 v3. | Experimental. Zero offset in bits 27:24. |
 | Broadwell client `06_3D`, `06_47` | S15 §2.15 (p. 2-333) applies Table 2-20. S18 documents the offset-independent reference for desktop, mobile and Core M. | Experimental. Direct target decode. |
 | Broadwell Xeon `06_4F`, `06_56` | S15 §§2.16–2.16.2 (pp. 2-337, 2-348, 2-351) document the E5/E7 v4 and Xeon D layout in Table 2-36 (pp. 2-340–341). Both the core status and package target are explicit. | Experimental. Zero offset in bits 27:24. |
 | Silvermont `06_37`, `06_4A`, `06_5A`, `06_5D` and Airmont `06_4C` | S15 §§2.4 and 2.4.2 (pp. 2-123, 2-142) apply Table 2-6 (p. 2-127) with core status and package target. | Experimental. Zero offset in bits 29:24, as for the existing `06_4D` mechanism. |
@@ -121,6 +131,7 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 | MSR `0x1A2`, listed legacy models | `MSR_TEMPERATURE_TARGET` | 23:16 | Reference temperature for the row's applicable offset condition | Degrees Celsius | S15 Tables 2-6, 2-15, 2-20, 2-26 and 2-36. S16–S18 specify offset independence for the direct-decode client rows. |
 | MSR `0x1A2`, listed Atom models | `MSR_TEMPERATURE_TARGET` | 29:24 | Target offset field in the inherited register definition | Degrees Celsius | S1 and S15 Table 2-6 |
 | MSR `0x1A2`, models `06_3E`, `06_4F`, `06_56` | `MSR_TEMPERATURE_TARGET` | 27:24 | Programmable TCC activation offset | Degrees Celsius | S15 Tables 2-26 and 2-36 |
+| MSR `0x1A2`, exact `0x000306F2` | `MSR_TEMPERATURE_TARGET` | 27:24 | Programmable TCC activation offset | Degrees Celsius | Product-specific S22 and S24, with lead-only S26 for the embedded width. The generic Table 2-20 in S15 marks bits 63:24 reserved and does not define the product offset. |
 | MSR `0x1A2`, the listed hybrid signatures | `MSR_TEMPERATURE_TARGET` | 23:16 | Factory-calibrated Tjmax, the DTS reference | Degrees Celsius | S10/S11/S14 §§4.1.3.1–4.1.3.2 |
 | MSR `0x1A2`, the listed hybrid signatures | `MSR_TEMPERATURE_TARGET` | 29:24 | Programmable TCC activation offset, which affects the thermal control threshold | Degrees Celsius | S10/S11/S14 §4.1.3.1 |
 
@@ -150,11 +161,12 @@ core DTS. Separately approved core DTS scopes retain their own gates.
    in 50–120 °C inclusive and core status bit 31 set. On exact
    `0x00090672`, `0x000906A3` and `0x000B0671`, leave the core
    unavailable if status bit 23 is set. Apply this check before interpreting
-   the seven-bit readout (S15 Table 2-39, S22–S24, project gate). For a
+   the seven-bit readout (S15 Table 2-39, S27–S29, project gate). For a
    zero-offset row, reject the sample when the selected target mask is nonzero.
-   Use mask `0x0F000000` for `06_3E`, `06_4F` and `06_56`, and
-   `0x3F000000` for the listed Atom models, including `06_4D`.
-   Direct-decode rows apply no offset mask (S1–S3, S5, S15–S18).
+   Use mask `0x0F000000` for `06_3E`, exact `0x000306F2`,
+   `06_4F` and `06_56`, and `0x3F000000` for the listed Atom models,
+   including `06_4D`. Direct-decode rows apply no offset mask
+   (S1–S3, S5, S15–S18, S22, S24, S26).
 4. Subtract the unsigned digital readout from the target. Apply the
    existing plausibility gate `0 < temperature ≤ target`. A valid
    digital readout of zero returns the target temperature. The
@@ -226,7 +238,11 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 | Unsupported signature, otherwise valid capabilities and topology, including Core 2, earlier Atom, or deferred Skylake | No core topology query or core MSR reads. Core DTS alone does not qualify a target read. |
 | Each added legacy display model with a valid target of 100 °C and a valid 30 °C digital readout | 70 °C under its documented mechanism. Use an unobserved synthetic brand and repeat with PTM clear to verify that neither a product name nor PTM gates core collection. |
 | Ivy Bridge, Haswell client and Broadwell client with a valid nonzero activation offset, 100 °C target and valid 30 °C digital readout | 70 °C. The activation offset does not change the reference. |
-| Zero-offset legacy rows with bit 24 set, then only bit 28 set, with otherwise valid reads | Bit 24 rejects all zero-offset rows. Bit 28 rejects the Atom rows only. Ivy Bridge-E and Broadwell Xeon ignore bits outside their 27:24 mask. |
+| Zero-offset legacy rows with bit 24 set, then only bit 28 set, with otherwise valid reads | Bit 24 rejects all zero-offset rows. Bit 28 rejects the Atom rows only. Ivy Bridge-E, exact Haswell-E/Xeon E5 v3 and Broadwell Xeon ignore bits outside their 27:24 mask. |
+| Exact `0x000306F2` with DTS, one active package and group, and S25 Core i7-5820K or Xeon E5-2630 v3 words. Repeat with an unobserved brand and PTM clear. | Decode 31 °C and 27 °C respectively. The full signature and capability select the core mechanism. The brand is fixture evidence, and PTM controls only the independent package path. |
+| Exact `0x000306F2` with a successful all-zero target read, another out-of-range target, bit 27 set, invalid status, or a fault, with a valid sibling | Leave only the failing core unavailable. Preserve its sibling and independent package or ACPI data. In particular, HSH18/HSE22's all-zero target cannot pass the range gate. |
+| Exact `0x000306F2` with valid Windows topology masks and an inconsistent CPUID.0BH core-level count, then malformed Windows masks or a second active group/package | Select only the Windows core records in the first case. Reject the invalid or unsupported topology before core MSR access. |
+| `0x000306F4` or any other `06_3F` signature with core DTS set, or discovery at `0x000306F2` and a pinned signature that differs | No core MSR reads for those targets. Discovery of an unsupported signature also skips core topology enumeration. |
 | Supported legacy discovery, pinned representative reports a different signature or either MSR read fails | For a signature mismatch, skip both MSRs on that target. For a transport failure, omit that core even if an output cell is zero or populated. Preserve valid core siblings and independent package/ACPI results. |
 | Each exact hybrid signature with one SMT P-core and multiple E-cores in one group and package, all advertising core DTS | One temperature per Windows physical-core record. The P-core's second logical processor adds no channel. Each E-core keeps its own slot even when several E-cores share other hardware resources. |
 | Hybrid full signature `0x000B0671` or `0x000906A3` with hybrid flag clear, or another full signature such as `0x00090675`, `0x000906A2`, `0x000906A4` or `0x000B06F2` | No new core topology query or core MSR reads, even if an unsupported stepping advertises DTS and the hybrid flag. |
@@ -244,10 +260,10 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 
 - The same-target read follows the model-specific scope in S1 and S15.
   Table 2-15 labels `0x1A2` Thread for Nehalem and Westmere.
-  Table 2-20 labels it Unique for Sandy Bridge and the legacy client
-  rows that inherit that layout. Tables 2-6, 2-26 and 2-36 label it
-  Package for the corresponding Atom, Ivy Bridge-E and Broadwell Xeon
-  rows. S3 documents calling-processor execution for the signed module.
+  Table 2-20 labels it Unique for Sandy Bridge and the rows that
+  inherit its target definition, including `0x000306F2`. Tables 2-6,
+  2-26 and 2-36 label it Package for the corresponding Atom, Ivy Bridge-E
+  and Broadwell Xeon rows. S3 documents calling-processor execution for the signed module.
   Its package-scope wording applies where S1 or S15 documents a
   package-scope target.
 - S9 specifies core scope for hybrid `IA32_THERM_STATUS` and lists
@@ -259,6 +275,13 @@ core DTS. Separately approved core DTS scopes retain their own gates.
   The H/P and PS errata tables list no exception to the scoped DTS
   reads (S9, S10, S13, S14).
   Core numbering and labeling remain based on Windows core records (S4).
+- Intel errata HSH18 and HSE22 document an erroneous all-zero
+  `0x1A2` result. Reject it through the per-read target range even if
+  the transport succeeds. HSH11 and HSE14 affect the CPUID.0BH
+  core-level EBX[15:0] logical processor count. Attribution uses
+  validated Windows active-core, package and group masks and confirms
+  the running processor. It does not use that CPUID count (S4, S5,
+  S22, S23).
 - No universal TjMax is assumed. Pre-Nehalem Core and earlier Atom
   signatures that lack an evidenced target MSR need a separate
   processor-specific temperature reference before they can be enabled.
@@ -290,11 +313,13 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 - Non-blocking for the legacy extension: each zero-offset row rejects a nonzero offset within its specified mask.
   Wider nonzero-offset coverage requires a model-specific DTS reference.
   The signed Windows path has no real-hardware validation for the new rows.
-- Non-blocking for the legacy extension: Skylake `06_4E` and `06_5E` and Haswell-E `06_3F` are outside the enablement table.
-  S20 records an asymmetric DTS error on DDR4. Establish the applicable
-  Skylake steppings and readout consequences before extending coverage.
-  For `06_3F`, reconcile the target and offset behavior for the product
-  lines sharing that model before specifying a decode.
+- Non-blocking for the legacy extension: Skylake `06_4E` and `06_5E` remain outside this table.
+  S20 records an asymmetric DTS error on DDR4. Separate approved
+  specifications define any admitted scope.
+- Non-blocking for Haswell-E and Xeon E5 v3: this scope requires exact `0x000306F2` and zero activation offset.
+  Other `06_3F` signatures and nonzero offsets require applicable
+  product evidence. Windows PawnIO operation has not been verified on
+  this signature.
 - Non-blocking for #2514 initial scope: topology attribution uses matching validated observations and confirmed read targets.
   The Windows topology interface cannot distinguish a topology change
   that occurs and reverses between observations.
@@ -307,8 +332,8 @@ core DTS. Separately approved core DTS scopes retain their own gates.
   marks bit 23 reserved for `06_97`, `06_9A` and `06_B7`. The applicable
   hybrid common and core-type tables supply no replacement for this
   register (§2.17.5, Tables 2-46–2-48).
-  Linux includes bit 23 in its masks for all three display models (S22,
-  lead-only). S23 and S24 corroborate clear bit 23 on P and E targets
+  Linux includes bit 23 in its masks for all three display models (S27,
+  lead-only). S28 and S29 corroborate clear bit 23 on P and E targets
   across the three exact signatures, including desktop Raptor Lake.
   The meaning of a set bit remains unresolved. Reject only the affected
   per-core sample on these exact signatures. Package status follows the
@@ -324,4 +349,5 @@ core DTS. Separately approved core DTS scopes retain their own gates.
 | 4 | 2026-11-08 | Propose Implementation-ready scope for two exact Alder Lake and Raptor Lake hybrid signatures. Pin per-core qualification, Tjmax and its relationship to the TCC offset, and the existing single-group topology contract. |
 | 5 | 2026-11-08 | Propose Implementation-ready Experimental coverage for exact `0x000906A3` Alder Lake H/P and PS. Pin separate product evidence and reuse the existing hybrid and single-group topology gates. |
 | 6 | 2026-11-09 | Propose additional Experimental legacy DTS mechanisms with explicit target decoding and offset masks. Classify runtime gates under ADR 0031. |
-| 7 | 2026-11-10 | Propose a fail-closed core DTS status check for disputed bit 23 on exact hybrid signatures `0x00090672`, `0x000906A3` and `0x000B0671`. |
+| 7 | 2026-11-10 | Propose Implementation-ready Experimental coverage for exact `0x000306F2` at zero TCC activation offset. Pin desktop, server and embedded product evidence, the zero-target errata and the topology count exclusion. |
+| 8 | 2026-11-10 | Propose a fail-closed core DTS status check for disputed bit 23 on exact hybrid signatures `0x00090672`, `0x000906A3` and `0x000B0671`. |
