@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Proposed Experimental Windows core DTS for `0x000906E9` on the factory ASUS STRIX Z270F GAMING LGA1151/Z270 platform, with one active processor group and one physical package. |
 | Issue phase | [#2514](https://github.com/shm11C3/HardwareVisualizer/issues/2514) |
 
@@ -20,7 +20,7 @@
 | S7 | Intel [Xeon E3-1200 v6 Datasheet Vol. 1](https://www.intel.vn/content/dam/www/public/us/en/documents/datasheets/xeon-e3-1200v6-vol-1-datasheet.pdf), §§1.4 and 5.1.5.1–5.1.5.2.1, and [Specification Update 730694-029US, May 2023](https://cdrdv2-public.intel.com/730694/730694_Intel%C2%AE%20Xeon%C2%AE%20E3-1200%20v6%20Processor%20Family%20Specification%20Update_Rev029US.pdf), Summary Tables of Changes and KBW70, KBW71, KBW73, KBW104 and KBW106, printed pp. 33–34 and 40–41 | Primary socketed Xeon overlap, equivalent calibrated decode and errata. Specification Update SHA-256 `b19c906a4e6c71902cf91b00d36f354ca3ca854d79bcfdf5c700ed3ab9d3db40`. |
 | S8 | [First-hand Windows i7-7700K CPUID and MSR report, May 2017](https://github.com/openhardwaremonitor/openhardwaremonitor/issues/981#issuecomment-304824870), CPUID, SMBIOS and four MSR Core sections | Independent hardware data. ASUS STRIX Z270F GAMING, BIOS 0604, Windows 10, one four-core package with SMT and DDR4. The source is a report from the running hardware. |
 | S9 | [Intel core DTS](cpu-intel-core-dts-msr.md) rev 6 at `c16b2b2eea8ada07d43567116ed75bf2ed49af75` and [PawnIO interface](pawnio-interface.md#intelmsr) rev 7 at `2495a1b0fbe4a8048feac9d122b98201e7970cbb`, [signed IntelMSR 0.2.11 allow-list](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/IntelMSR.p#L102-L118) | Approved shared non-hybrid procedure, affinity, request bounds and failure handling. The signed transport permits both reads on the calling processor. |
-| S10 | Microsoft [Win32_BaseBoard](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-baseboard), Manufacturer and Product, and [Windows Sensor Service architecture](../../adr/0029-windows-sensor-service.md), current local [board query](https://github.com/shm11C3/HardwareVisualizer/blob/25217ab627390c68fb59da80787789fbea26ac00/core/src/infrastructure/providers/windows/wmi_provider.rs#L173-L175) and [board-dependent sampler](https://github.com/shm11C3/HardwareVisualizer/blob/25217ab627390c68fb59da80787789fbea26ac00/core/src/infrastructure/providers/windows/pawn_io/super_io/motherboard.rs#L404-L422) in the [service process](https://github.com/shm11C3/HardwareVisualizer/blob/25217ab627390c68fb59da80787789fbea26ac00/core/src/sensor_service/windows/providers.rs#L175-L183) | Public local Windows identity contract and repository evidence of asynchronous WMI access from the sampling host. |
+| S10 | Microsoft [Win32_BaseBoard](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-baseboard), Manufacturer and Product, and [Windows Sensor Service architecture](../../adr/0029-windows-sensor-service.md), current local [board query](https://github.com/shm11C3/HardwareVisualizer/blob/25217ab627390c68fb59da80787789fbea26ac00/core/src/infrastructure/providers/windows/wmi_provider.rs#L173-L175), [one-retry board lookup](https://github.com/shm11C3/HardwareVisualizer/blob/25217ab627390c68fb59da80787789fbea26ac00/core/src/infrastructure/providers/windows/pawn_io/super_io/ite.rs#L47-L96) and [board-dependent sampler](https://github.com/shm11C3/HardwareVisualizer/blob/25217ab627390c68fb59da80787789fbea26ac00/core/src/infrastructure/providers/windows/pawn_io/super_io/motherboard.rs#L404-L422) in the [service process](https://github.com/shm11C3/HardwareVisualizer/blob/25217ab627390c68fb59da80787789fbea26ac00/core/src/sensor_service/windows/providers.rs#L175-L183) | Public local Windows identity contract and repository evidence of asynchronous WMI access from the sampling host. |
 | S11 | [Independent i7-8809G/NUC8i7HVK report](https://gihyo.jp/admin/serial/01/ubuntu-recipe/0523), Linux sensor output | Observed four core readings and a 100 °C critical value on one G system. The report contains no raw MSR words and supplies no enablement for this scope. |
 
 ## Detection
@@ -47,13 +47,14 @@ evidence identities.
 
 On demand, use the existing local asynchronous board inventory query
 from the Windows Sensor Service before per-core affinity or MSR access
-(S10). Cache the board decision in the service independently of
-motherboard sampling demand and preferences. Keep one query in flight,
-reuse the decision for the service lifetime and keep other providers
-unblocked while it is pending. Pending, malformed, unavailable, zero or
-multiple records yield no reads under this scope. The IPC caller cannot
-supply board eligibility. This contract reuses the existing WMI path independently of other CPU
-profiles.
+(S10). Keep at most one query in flight without blocking other providers.
+On a query error or worker disconnection, retry once on demand. Cache
+the decision from a completed response or the unavailable result of a
+failed retry for the service lifetime, independently of motherboard
+sampling demand and preferences. Qualify only a complete response with
+exactly one record matching the required identity. The IPC caller cannot
+supply board eligibility. Other CPU profiles remain independent of this
+decision.
 
 ## Register map (facts)
 
@@ -112,8 +113,9 @@ Service verification are separate.
 | Fixture | Expected behavior |
 | --- | --- |
 | Exact board and signature, supported topology, SMT and the four S8 core words | One channel per physical core. Report 34, 35, 35 and 48 °C. Changing the synthetic TCC offset or Tau, or the brand or PTM bit, leaves the core decode unchanged. |
-| `STRIX Z270E GAMING`, another board, wrong or missing Manufacturer/Product, duplicate or multiple board records, or caller-supplied identity | Zero reads under this scope. Other CPU profiles and package fallback are independent. |
-| Pending or failed board lookup across repeated requests | No core reads under this scope while unresolved. Reuse the in-flight query or cached result, even if motherboard sampling is off. Preserve unrelated readings. |
+| `STRIX Z270E GAMING`, another board, wrong or missing Manufacturer/Product, empty, duplicate or multiple board records, or caller-supplied identity | Zero reads under this scope. Cache a completed nonmatching response without retry. Other CPU profiles and package fallback are independent. |
+| Pending board lookup, then a query error or worker disconnection followed by an exact match | Reuse the pending query across repeated requests and allow one retry, even if motherboard sampling is off. No scoped core reads before the match. After the match, apply the other gates and reuse the decision. Preserve unrelated readings. |
+| Initial and retry queries both fail | Cache unavailability for the service lifetime. Later requests issue no more board queries or scoped core reads. Preserve unrelated readings. |
 | Exact board with a neighboring signature, unavailable DTS bit, hybrid flag, malformed topology, or multiple processor groups or packages | Zero reads under this scope. |
 | A core read faults or has invalid status. Target values are 49, 50, 120 and 121 °C at zero delta, or delta equals or exceeds target. | Preserve valid siblings. Accept the two inclusive target boundaries and reject nonpositive results. |
 | Topology changes or affinity restoration fails | Apply revision 6 whole-pass rejection and cache rules. Keep independent package and ACPI results. |
@@ -133,3 +135,4 @@ Service verification are separate.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-10 | Propose Implementation-ready status for the exact Kaby Lake-S board mechanism, pending maintainer approval. |
+| 2 | 2026-11-11 | Reuse the existing one-retry board lookup behavior for query errors and worker disconnection. Pin fail-closed recovery and final cache fixtures. |
