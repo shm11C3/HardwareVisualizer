@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental CCD temperatures on exact Castle Peak B0 signature `0x00830F10` and sTRX4 package field with one physical package, through the signed Windows PawnIO `RyzenSMU` read interface. |
 | Issue phase | [#2515](https://github.com/shm11C3/HardwareVisualizer/issues/2515) |
 
@@ -17,7 +17,7 @@
 | S4 | Guenter Roeck, [January 23, 2020 v4 hwmon submission and raw 3970X observations](https://lists.openwall.net/linux-kernel/2020/01/23/987) | First-hand 3970X idle and load words and a separate idle Linux temperature display on the same exact CPU model. The patch portion is **lead-only (copyleft)** for channel mapping and conversion. |
 | S5 | Independent first-hand reports for [3960X Linux temperatures](https://forums.unraid.net/topic/129653-power-consumption-threadripper-3960x/), [3990X Linux temperatures and CPU identification](https://lists.debian.org/debian-user/2021/10/msg00895.html), [3990X Windows CPUID and socket topology](https://forum.level1techs.com/t/windows-11-got-something-right-fixed-3990x-numa-issue/173932/10), and [3970X PCI inventory](https://forum.level1techs.com/t/threadripper-3970x-gpu-passthrough-issues/153567) | The 3960X displays slots 1, 3, 5 and 7. The 3990X displays slots 1–8 on Linux and independently reports exact signature `0x00830F10` and one Windows socket spanning two processor groups. The PCI observation locates AMD `1022:1480` at bus 0, device 0, function 0 on a 3970X with several root buses. |
 | S6 | Linux v6.18, commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449`, [AMD thermal monitor](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/hwmon/k10temp.c#L68-L74), lines 68–74, 172–176, 239–251, 399–420 and 467–486, and [AMD SMN transport](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/arch/x86/kernel/amd_node.c#L37-L51), lines 37–51, 86–126 and 257–300 | **Lead-only (copyleft)** for the model 31h eight-word map, label-to-address relation, channel-discovery validity, decode, and distinction between the Linux and signed Windows access paths. |
-| S7 | [PawnIO interface](pawnio-interface.md) rev 7, `RyzenSMU` and Mutex conventions, and [signed RyzenSMU 0.2.11 interface source](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/RyzenSMU.p#L118-L119), lines 118–119, 246–282, 617–626, 793–814 and 865–908 | Primary upstream contract for the signed read entry point, eight allowed words and fixed AMD host-bridge route. The module’s internal Castle Peak classification of family 17h model 31h with package field 7 is **lead-only (copyleft)**. |
+| S7 | [PawnIO interface](pawnio-interface.md) rev 7, `RyzenSMU` and Mutex conventions, and [signed RyzenSMU 0.2.11 interface source](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/RyzenSMU.p#L118-L119), lines 118–119, 246–282, 617–626, 793–814 and 865–908 | Primary upstream contract for the signed read entry point, allow-list covering the eight words, and caller-held mutex. The module’s internal fixed AMD host-bridge route and Castle Peak classification of family 17h model 31h with package field 7 are **lead-only (copyleft)**. |
 | S8 | Microsoft Learn, [GetLogicalProcessorInformationEx](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex) and [PROCESSOR_RELATIONSHIP](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-processor_relationship) | Primary OS contract for enumerating physical packages and their processor group masks. |
 
 ## Detection
@@ -26,12 +26,12 @@
 | --- | --- | --- |
 | Windows x86-64, CPUID leaf 0 vendor `AuthenticAMD` and CPUID.01H:EAX exactly `0x00830F10` (family `0x17`, model `0x31`, stepping 0) | mechanism (the evidenced die and revision) | S1, S3–S7 |
 | Extended CPUID leaf `0x80000001` available and EBX bits 31:28 equal `0x7` | mechanism (selects the observed sTRX4 encoding and excludes the observed Rome and PRO encoding) | S1–S3 |
-| Complete Windows physical processor package enumeration reports one nonempty package with valid group masks | safety (the fixed PCI target cannot select a socket) | S5, S7, S8 |
+| Complete Windows physical processor package enumeration reports one nonempty package with valid group masks | safety (the fixed PCI target cannot select a socket) | S5, S7 (lead-only for the fixed route), S8 |
 | The existing signed `RyzenSMU` read transport is available and its caller-held PCI mutex can be acquired before a request | safety (signed bounded transaction and serialization) | S7 |
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Exact signature `0x00830F10`, package field `0x7`, one physical package, and signed `RyzenSMU` read interface | 3960X and 3970X supply exact raw identity (S3). The 3970X supplies raw thermal evidence (S4). The 3990X independently corroborates the same signature, eight channels and one physical package across groups (S2, S5). The eight-word map, absent-slot handling, validity and conversion rely on lead-only S4/S6. S7 pins the signed read transport. The internal family, model and package classification is lead-only (copyleft) corroboration from S7. | Experimental with independent checks on eight fixed slots. |
+| Exact signature `0x00830F10`, package field `0x7`, one physical package, and signed `RyzenSMU` read interface | 3960X and 3970X supply exact raw identity (S3). The 3970X supplies raw thermal evidence (S4). The 3990X independently corroborates the same signature, eight channels and one physical package across groups (S2, S5). The eight-word map, absent-slot handling, validity and conversion rely on lead-only S4/S6. S7 pins the signed read transport. The fixed host-bridge route and the internal family, model and package classification are lead-only (copyleft) facts from S7. | Experimental with independent checks on eight fixed slots. |
 | Other signature or stepping, any other or unavailable package field, or incomplete, ambiguous or multiple physical packages | No matching mechanism under this specification. | Disabled. |
 
 ## Register map (facts)
@@ -70,21 +70,20 @@
 - Package count is independent of processor group and NUMA node count.
   A single package can span more than one Windows processor group
   (S5, S8). The read path targets the package SMN endpoint and requires
-  no thread affinity or assignment of a CCD to OS cores (S7).
+  no thread affinity or assignment of a CCD to OS cores
+  (S7, lead-only for the fixed route).
 
 ## Safety notes
 
 - The signed module accepts the eight words within its `0x56000`–`0x5AFFF`
-  read window. Its normal route selects the SMN address through
-  offset `0xC4` of PCI bus 0, device 0, function 0 and reads the
-  result from offset `0xC8`. It checks the AMD vendor at the fixed
-  function on load. The module makes no selector restoration guarantee.
-  The caller holds the existing PCI mutex for every transaction and
-  every transaction selects its own address (S7).
+  read window. The caller holds the existing PCI mutex for each
+  transaction. The interface makes no selector restoration guarantee (S7).
+- The pinned module selects the SMN address on each read through
+  offset `0xC4` of PCI bus 0, device 0, function 0 and reads the result
+  from offset `0xC8`. It checks the AMD vendor at that function on load
+  (S7, lead-only for the fixed route and internal access details).
 - The Linux observations support the SMN word identities and decode.
-  Linux uses its node-owned `0x60`/`0x64` aperture (S6). The Windows
-  route uses the signed module's published fixed host-bridge read
-  contract (S7).
+  Linux uses its node-owned `0x60`/`0x64` aperture (S6, lead-only).
 - A failed identity or topology gate prevents CCD access. This profile
   uses the eight enumerated words only. It does not scan PCI or SMN,
   perform direct port access, issue mailbox commands, request a PM
@@ -118,3 +117,4 @@
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-10 | Proposes Implementation-ready status for the exact single-package Castle Peak B0 sTRX4 Experimental scope, pending maintainer approval. Pins the eight slot positions, per-read validity, and signed RyzenSMU route. |
+| 2 | 2026-11-11 | Classify the signed module’s internal fixed host-bridge route as lead-only for the Experimental single-package scope. |
