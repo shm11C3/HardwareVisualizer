@@ -19,39 +19,69 @@ use super::{
 use crate::models::CpuCcdTemperature;
 
 const AMD_VENDOR_ID: &str = "AuthenticAMD";
-/// Family `0x19` model `0x21` is the Vermeer die. Every stepping shares the
-/// CCD register map, so the stepping field takes no part in admission.
-const VERMEER_FAMILY_MODEL: (u32, u32) = (0x19, 0x21);
 const AM4_PACKAGE_FIELD: u32 = 0x2;
-const RAPHAEL_SIGNATURE: u32 = 0x00A6_0F12;
-const GRANITE_RIDGE_SIGNATURE: u32 = 0x00B4_0F40;
 const AM5_PACKAGE_FIELD: u32 = 0x0;
 const MAX_PACKAGE_RECORD_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
   std::mem::offset_of!(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, Anonymous);
 
+/// How a row recognizes its processor from the CPUID leaf 1 signature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CcdRegisterMap {
-  Vermeer,
-  Raphael,
-  GraniteRidge,
+enum ProcessorMatch {
+  /// The exact signature, stepping included.
+  Signature(u32),
+  /// The effective family and model. Every stepping shares the register map,
+  /// so the stepping field takes no part in admission.
+  FamilyModel(u32, u32),
 }
 
-impl CcdRegisterMap {
-  /// Authorized SMN words in fixed slot order for this mechanism.
-  const fn slots(self) -> [u64; 2] {
+impl ProcessorMatch {
+  fn matches(self, signature: u32) -> bool {
     match self {
-      Self::Vermeer => [0x0005_9954, 0x0005_9958],
-      // The two specifications independently pin these same addresses.
-      Self::Raphael | Self::GraniteRidge => [0x0005_9B08, 0x0005_9B0C],
+      Self::Signature(expected) => signature == expected,
+      Self::FamilyModel(family, model) => {
+        effective_family_model(signature) == (family, model)
+      }
     }
   }
 }
 
+/// One CCD mechanism, as its own specification admits it.
+#[derive(Debug, PartialEq, Eq)]
+struct CcdRegisterMap {
+  processor: ProcessorMatch,
+  /// The required CPUID `Fn8000_0001_EBX[31:28]` package type.
+  package_field: u32,
+  /// Authorized SMN words in fixed slot order.
+  slots: [u64; 2],
+}
+
+const VERMEER: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::FamilyModel(0x19, 0x21),
+  package_field: AM4_PACKAGE_FIELD,
+  slots: [0x0005_9954, 0x0005_9958],
+};
+
+// The Raphael and Granite Ridge specifications independently pin the same
+// SMN words.
+const RAPHAEL: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::Signature(0x00A6_0F12),
+  package_field: AM5_PACKAGE_FIELD,
+  slots: [0x0005_9B08, 0x0005_9B0C],
+};
+
+const GRANITE_RIDGE: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::Signature(0x00B4_0F40),
+  package_field: AM5_PACKAGE_FIELD,
+  slots: [0x0005_9B08, 0x0005_9B0C],
+};
+
+const CCD_REGISTER_MAPS: [&CcdRegisterMap; 3] = [&VERMEER, &RAPHAEL, &GRANITE_RIDGE];
+
 /// Experimental target admitted by the CPU mechanism and a single physical
 /// package. The processor name is not read for admission.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) struct AmdCcdTarget(CcdRegisterMap);
+pub(crate) struct AmdCcdTarget(&'static CcdRegisterMap);
 
 impl AmdCcdTarget {
   pub(crate) fn detect() -> Option<Self> {
@@ -75,7 +105,7 @@ impl AmdCcdTarget {
   ) -> Vec<CpuCcdTemperature> {
     self
       .0
-      .slots()
+      .slots
       .into_iter()
       .enumerate()
       .map(|(index, address)| CpuCcdTemperature {
@@ -93,7 +123,7 @@ pub(crate) fn is_supported_processor() -> bool {
   processor_register_map().is_some()
 }
 
-fn processor_register_map() -> Option<CcdRegisterMap> {
+fn processor_register_map() -> Option<&'static CcdRegisterMap> {
   if !cfg!(target_arch = "x86_64") {
     return None;
   }
@@ -102,26 +132,21 @@ fn processor_register_map() -> Option<CcdRegisterMap> {
 
 fn select_register_map(
   read_leaf: impl Fn(u32) -> Option<CpuidLeaf>,
-) -> Option<CcdRegisterMap> {
+) -> Option<&'static CcdRegisterMap> {
   let leaf0 = read_leaf(0)?;
   if vendor_id_from_leaf0(leaf0) != AMD_VENDOR_ID {
     return None;
   }
 
   let signature = read_leaf(1)?.eax;
-  let (map, package_field) = match signature {
-    RAPHAEL_SIGNATURE => (CcdRegisterMap::Raphael, AM5_PACKAGE_FIELD),
-    GRANITE_RIDGE_SIGNATURE => (CcdRegisterMap::GraniteRidge, AM5_PACKAGE_FIELD),
-    signature if effective_family_model(signature) == VERMEER_FAMILY_MODEL => {
-      (CcdRegisterMap::Vermeer, AM4_PACKAGE_FIELD)
-    }
-    _ => return None,
-  };
-  (read_leaf(0x8000_0001)?.ebx >> 28 == package_field).then_some(map)
+  let map = CCD_REGISTER_MAPS
+    .into_iter()
+    .find(|map| map.processor.matches(signature))?;
+  (read_leaf(0x8000_0001)?.ebx >> 28 == map.package_field).then_some(map)
 }
 
 fn authorize_target(
-  map: Option<CcdRegisterMap>,
+  map: Option<&'static CcdRegisterMap>,
   single_package: impl FnOnce() -> Option<()>,
 ) -> Option<AmdCcdTarget> {
   let map = map?;
@@ -209,12 +234,12 @@ fn decode_ccd_temperature(value: u32) -> Option<f32> {
 
 #[cfg(test)]
 pub(crate) fn synthetic_target() -> AmdCcdTarget {
-  authorize_target(Some(CcdRegisterMap::Vermeer), || Some(())).unwrap()
+  authorize_target(Some(&VERMEER), || Some(())).unwrap()
 }
 
 #[cfg(test)]
 pub(crate) fn synthetic_raphael_target() -> AmdCcdTarget {
-  authorize_target(Some(CcdRegisterMap::Raphael), || Some(())).unwrap()
+  authorize_target(Some(&RAPHAEL), || Some(())).unwrap()
 }
 
 #[cfg(test)]
@@ -222,6 +247,24 @@ mod tests {
   use std::cell::RefCell;
 
   use super::*;
+
+  #[test]
+  fn no_signature_selects_more_than_one_register_map() {
+    for (index, map) in CCD_REGISTER_MAPS.iter().enumerate() {
+      for other in &CCD_REGISTER_MAPS[index + 1..] {
+        let overlaps = match (map.processor, other.processor) {
+          (ProcessorMatch::Signature(signature), processor)
+          | (processor, ProcessorMatch::Signature(signature)) => {
+            processor.matches(signature)
+          }
+          (ProcessorMatch::FamilyModel(..), ProcessorMatch::FamilyModel(..)) => {
+            map.processor == other.processor
+          }
+        };
+        assert!(!overlaps, "{map:?} overlaps {other:?}");
+      }
+    }
+  }
 
   const AMD: &[u8; 12] = b"AuthenticAMD";
   const INTEL: &[u8; 12] = b"GenuineIntel";
@@ -315,7 +358,7 @@ mod tests {
   }
 
   /// Runs the identity gate and records which CPUID leaves it requested.
-  fn identify(identity: &Identity) -> (Option<CcdRegisterMap>, Vec<u32>) {
+  fn identify(identity: &Identity) -> (Option<&'static CcdRegisterMap>, Vec<u32>) {
     let requested = RefCell::new(Vec::new());
     let map = select_register_map(|leaf| {
       requested.borrow_mut().push(leaf);
@@ -336,7 +379,7 @@ mod tests {
         });
         assert_eq!(
           map,
-          Some(CcdRegisterMap::Vermeer),
+          Some(&VERMEER),
           "signature {signature:#010x}, name {brand:?}"
         );
         assert_eq!(requested, [0, 1, 0x8000_0001]);
@@ -357,7 +400,7 @@ mod tests {
         package: 0,
         brand,
       });
-      assert_eq!(map, Some(CcdRegisterMap::Raphael));
+      assert_eq!(map, Some(&RAPHAEL));
       assert_eq!(requested, [0, 1, 0x8000_0001]);
     }
   }
@@ -376,7 +419,7 @@ mod tests {
         package: 0,
         brand,
       });
-      assert_eq!(map, Some(CcdRegisterMap::GraniteRidge));
+      assert_eq!(map, Some(&GRANITE_RIDGE));
       assert_eq!(requested, [0, 1, 0x8000_0001]);
     }
   }
@@ -489,11 +532,7 @@ mod tests {
       package_record(&[]),
       Vec::new(),
     ];
-    for map in [
-      CcdRegisterMap::Vermeer,
-      CcdRegisterMap::Raphael,
-      CcdRegisterMap::GraniteRidge,
-    ] {
+    for map in [&VERMEER, &RAPHAEL, &GRANITE_RIDGE] {
       assert!(
         authorize_target(Some(map), || validate_single_package_record(&first)).is_some()
       );
@@ -550,9 +589,9 @@ mod tests {
     ];
 
     for (map, expected_addresses) in [
-      (CcdRegisterMap::Vermeer, [0x0005_9954, 0x0005_9958]),
-      (CcdRegisterMap::Raphael, [0x0005_9B08, 0x0005_9B0C]),
-      (CcdRegisterMap::GraniteRidge, [0x0005_9B08, 0x0005_9B0C]),
+      (&VERMEER, [0x0005_9954, 0x0005_9958]),
+      (&RAPHAEL, [0x0005_9B08, 0x0005_9B0C]),
+      (&GRANITE_RIDGE, [0x0005_9B08, 0x0005_9B0C]),
     ] {
       let target =
         authorize_target(Some(map), || validate_single_package_record(&package)).unwrap();

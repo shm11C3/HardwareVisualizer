@@ -5,9 +5,9 @@ use super::super::client::{
 };
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
 use super::ite::{
-  IteEcProfile, cached_ga_b75m_d3h_match, decode_ite_fan_rpm,
+  IteEcBaseRule, IteEcProfile, cached_ga_b75m_d3h_match, decode_ite_fan_rpm,
   decode_ite_temperature_byte, is_ite_temperature_channel_eligible,
-  is_plausible_ite_temperature, poll_ga_b75m_d3h_match,
+  is_plausible_ite_temperature, ite_ec_profile, poll_ga_b75m_d3h_match,
 };
 use super::nuvoton::{
   NuvotonHmBaseCheck, NuvotonHmProfile, decode_filtered_nuvoton_temperature_byte,
@@ -70,25 +70,15 @@ const ITE_EC_CHANNEL_ENABLE_REGISTER: u8 = 0x51;
 const ITE_EC_VENDOR_REGISTER: u8 = 0x58;
 const ITE_EC_VENDOR_ID: u8 = 0x90;
 const ITE_EC_FAN_ENABLE_REGISTER: u8 = 0x13;
-const ITE_EC_FAN_MODE_REGISTER: u8 = 0x0C;
 const ITE_ABSENT_EC_BASE: u16 = 0x0FF8;
-const ITE_GA_B75M_D3H_EC_BASE: u16 = 0x0A30;
 const ITE_SAMPLE_MIN_INTERVAL: Duration = Duration::from_millis(1_500);
 
-const ITE_TEMPERATURE_REGISTERS: [(&str, u8, u8); 3] = [
-  ("TMPIN1", 0x29, 1),
-  ("TMPIN2", 0x2A, 2),
-  ("TMPIN3", 0x2B, 3),
+/// FAN2 and FAN3 routing registers and the bit that, when clear, routes the
+/// pin to its tachometer input.
+const ITE_FAN_ROUTE_REGISTERS: [(u8, u8); 2] = [
+  (ITE_FAN2_ROUTING_REGISTER, 0x04),
+  (ITE_FAN3_ROUTING_REGISTER, 0x80),
 ];
-
-// The fan name is the key in the live display and archive. A missing input
-// must not shift the names of its siblings.
-const ITE_FAN_REGISTERS: [(&str, u8, u8); 3] = [
-  ("FAN1", 0x0D, 0x18),
-  ("FAN2", 0x0E, 0x19),
-  ("FAN3", 0x0F, 0x1A),
-];
-const ITE_GA_B75M_D3H_FAN_NAMES: [&str; 2] = ["Fan 1", "Fan 2"];
 
 /// Why the motherboard sensor path produced no sample.
 ///
@@ -222,10 +212,10 @@ impl ChipFailure {
   }
 
   /// Every scoped ITE profile is Experimental.
-  fn ite(profile: IteEcProfile, detail: impl Into<String>) -> Self {
+  fn ite(profile: &IteEcProfile, detail: impl Into<String>) -> Self {
     Self {
       vendor: SuperIoVendor::Ite,
-      chip_label: profile.chip_label(),
+      chip_label: profile.chip_label,
       experimental: true,
       hardware_state: false,
       requires_rediscovery: false,
@@ -252,7 +242,7 @@ impl ChipFailure {
 impl MotherboardSensorError {
   /// An Experimental IT8620E failure, for tests of consumers outside this module.
   pub(crate) fn synthetic_ite_failure(hardware_state: bool, detail: &str) -> Self {
-    let failure = ChipFailure::ite(IteEcProfile::It8620e, detail);
+    let failure = ChipFailure::ite(&super::ite::IT8620E, detail);
     if hardware_state {
       failure.hardware_state()
     } else {
@@ -279,7 +269,7 @@ impl MotherboardSensorError {
 /// Attribute a sample or discovery failure to an ITE profile, keeping one
 /// that is already attributed.
 fn ite_failure(
-  profile: IteEcProfile,
+  profile: &IteEcProfile,
   error: MotherboardSensorError,
 ) -> MotherboardSensorError {
   match error {
@@ -512,7 +502,7 @@ struct ActiveIteMotherboardSensors<C: LpcIoOps> {
   client: C,
   slot: u8,
   ec_base: u16,
-  profile: IteEcProfile,
+  profile: &'static IteEcProfile,
   fan_routes: [bool; 3],
   source_label: String,
   last_attempt: Option<(
@@ -574,7 +564,9 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   fn fan_support(&self) -> SensorSupport {
     match self {
       Self::Nuvoton(_) => SensorSupport::Supported,
-      Self::Ite(active) if active.profile.has_fans() => SensorSupport::Supported,
+      Self::Ite(active) if !active.profile.fan_registers.is_empty() => {
+        SensorSupport::Supported
+      }
       Self::Ite(_) => SensorSupport::Unsupported,
     }
   }
@@ -594,9 +586,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
       ),
       Self::Ite(active) => format!(
         "active chip={} slot={} ec_base=0x{:04X}",
-        active.profile.chip_label(),
-        active.slot,
-        active.ec_base
+        active.profile.chip_label, active.slot, active.ec_base
       ),
     }
   }
@@ -821,7 +811,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       ec_base: detected.ec_base,
       profile: detected.profile,
       fan_routes: detected.fan_routes,
-      source_label: format!("{} / Super I/O", detected.profile.chip_label()),
+      source_label: format!("{} / Super I/O", detected.profile.chip_label),
       last_attempt: None,
       partial_failure_logged: false,
     }
@@ -841,9 +831,10 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
   }
 
   fn is_ga_b75m_d3h_candidate(&self) -> bool {
-    self.profile == IteEcProfile::It8728f
-      && self.slot == 0
-      && self.ec_base == ITE_GA_B75M_D3H_EC_BASE
+    self
+      .profile
+      .board_variant
+      .is_some_and(|variant| variant.slot == self.slot && variant.ec_base == self.ec_base)
   }
 
   /// Recheck the same primary controller while the caller holds the ISA mutex.
@@ -902,14 +893,15 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
           })
         };
         let configuration = probe(ITE_EC_CONFIGURATION_REGISTER)?;
-        if discovered.profile.is_modern() && configuration & 0x80 != 0 {
+        if discovered.profile.discovery_rejects_configuration_bit7
+          && configuration & 0x80 != 0
+        {
           return Err(ite_experimental_non_component_failure(
             discovered.profile,
             "Environment Controller configuration bit 7 is set",
           ));
         }
-        if discovered.profile.is_modern() || discovered.profile == IteEcProfile::It8772eFx
-        {
+        if discovered.profile.checks_vendor_byte {
           let vendor = probe(ITE_EC_VENDOR_REGISTER)?;
           if vendor != ITE_EC_VENDOR_ID {
             return Err(ite_experimental_non_component_failure(
@@ -980,7 +972,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
             "windows::super_io_motherboard::ActiveIteMotherboardSensors::sample",
             Some(format!(
               "{}: {}",
-              self.profile.chip_label(),
+              self.profile.chip_label,
               partial_failures.join("; ")
             ))
           );
@@ -1023,9 +1015,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         "Environment Controller monitoring is stopped by INT_Clear",
       ));
     }
-    if (self.profile.is_modern() || self.profile == IteEcProfile::It8772eFx)
-      && monitoring_state & 0x80 != 0
-    {
+    if self.profile.sampling_rejects_configuration_bit7 && monitoring_state & 0x80 != 0 {
       return Err(ite_experimental_non_component_failure(
         self.profile,
         "Environment Controller configuration bit 7 is set",
@@ -1036,7 +1026,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     let mut partial_failures = Vec::new();
     let mut had_io_failure = false;
 
-    if self.profile.has_temperatures() {
+    if !self.profile.temperature_registers.is_empty() {
       match self.read_temperatures(&mut sample.temperatures, &mut partial_failures) {
         Ok(input_io_failure) => had_io_failure |= input_io_failure,
         Err(reason) => {
@@ -1045,7 +1035,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         }
       }
     }
-    if self.profile.has_fans() {
+    if !self.profile.fan_registers.is_empty() {
       match self.read_fans(&mut sample.fan_speeds, &mut partial_failures) {
         Ok(input_io_failure) => had_io_failure |= input_io_failure,
         Err(reason) => {
@@ -1079,7 +1069,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     let channel_config = self.read_ec_byte(ITE_EC_CHANNEL_ENABLE_REGISTER)?;
     let mut had_io_failure = false;
 
-    for (name, register, channel) in ITE_TEMPERATURE_REGISTERS {
+    for &(name, register, channel) in self.profile.temperature_registers {
       if !is_ite_temperature_channel_eligible(channel_config, channel) {
         continue;
       }
@@ -1117,30 +1107,21 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       .read_ec_byte(ITE_EC_FAN_ENABLE_REGISTER)
       .map_err(|reason| format!("fan enable read failed: {reason}"))?
       >> 4;
-    let mode = if self.profile == IteEcProfile::It8716fD {
-      self
-        .read_ec_byte(ITE_EC_FAN_MODE_REGISTER)
-        .map_err(|reason| format!("fan counter mode read failed: {reason}"))?
-    } else {
-      0x07
+    // Without a mode register every channel counts.
+    let mode = match self.profile.fan_mode_register {
+      Some(register) => self
+        .read_ec_byte(register)
+        .map_err(|reason| format!("fan counter mode read failed: {reason}"))?,
+      None => 0x07,
     };
     let mut had_io_failure = false;
 
-    let board_fans = self.profile == IteEcProfile::It8728fExGaB75mD3h;
-    let registers = if board_fans {
-      &ITE_FAN_REGISTERS[..ITE_GA_B75M_D3H_FAN_NAMES.len()]
-    } else {
-      &ITE_FAN_REGISTERS
-    };
-    for (channel, &(name, low_register, high_register)) in registers.iter().enumerate() {
+    for (channel, &(name, low_register, high_register)) in
+      self.profile.fan_registers.iter().enumerate()
+    {
       if !self.fan_routes[channel] || (enabled & mode & (1 << channel)) == 0 {
         continue;
       }
-      let name = if board_fans {
-        ITE_GA_B75M_D3H_FAN_NAMES[channel]
-      } else {
-        name
-      };
 
       let read_count = || {
         let low = self.read_ec_byte(low_register)?;
@@ -1188,7 +1169,7 @@ struct DetectedSlot {
 struct DetectedIteSlot {
   slot: u8,
   ec_base: u16,
-  profile: IteEcProfile,
+  profile: &'static IteEcProfile,
   fan_routes: [bool; 3],
 }
 
@@ -1312,17 +1293,17 @@ fn discover_ite_ec_base(
   id_low: u8,
   scope: IteDiscoveryScope,
 ) -> Result<Option<DetectedIteSlot>, MotherboardSensorError> {
-  let Some(mut profile) =
-    IteEcProfile::from_slot_and_chip_id(slot, chip_id(id_high, id_low))
-  else {
+  let Some(mut profile) = ite_ec_profile(slot, chip_id(id_high, id_low)) else {
     return Ok(None);
   };
   if scope == IteDiscoveryScope::RecheckGaB75mD3h
-    && (slot != 0 || profile != IteEcProfile::It8728f)
+    && !profile
+      .board_variant
+      .is_some_and(|variant| variant.slot == slot)
   {
     return Ok(None);
   }
-  if let Some(required_revision) = profile.required_revision() {
+  if let Some(required_revision) = profile.required_revision {
     let revision = client
       .superio_inb(ITE_REVISION_REGISTER)
       .map_err(|reason| {
@@ -1361,19 +1342,15 @@ fn discover_ite_ec_base(
     ite_experimental_failure(profile, format!("CR61 read failed: {reason}"))
   })?;
   let raw_base = u16::from_be_bytes([base_high, base_low]);
-  if scope == IteDiscoveryScope::RecheckGaB75mD3h && raw_base != ITE_GA_B75M_D3H_EC_BASE {
+  if scope == IteDiscoveryScope::RecheckGaB75mD3h
+    && profile
+      .board_variant
+      .is_some_and(|variant| variant.ec_base != raw_base)
+  {
     return Ok(None);
   }
-  let ec_base = if profile.is_modern() {
-    raw_base
-  } else {
-    raw_base & 0x0FF8
-  };
-  let valid_base = if profile.is_modern() {
-    (0x0100..=0x0FF0).contains(&raw_base) && raw_base & 0x07 == 0 && raw_base != 0x0CF8
-  } else {
-    is_valid_ite_ec_base(base_high, base_low, ec_base)
-  };
+  let (ec_base, valid_base) =
+    derive_ite_ec_base(profile.ec_base_rule, base_high, base_low);
   if !valid_base {
     return Err(ite_experimental_non_component_failure(
       profile,
@@ -1383,42 +1360,37 @@ fn discover_ite_ec_base(
     ));
   }
 
-  // FX has only the FAN2 and FAN3 tachometer inputs, regardless of EC 0x13[4].
-  let mut fan_routes = [
-    profile.has_fans() && profile != IteEcProfile::It8772eFx,
-    false,
-    false,
-  ];
-  if profile.has_fans() {
-    if !profile.is_modern() || select_ldn(ITE_GPIO_LDN).is_ok() {
-      fan_routes[1] = client
-        .superio_inb(ITE_FAN2_ROUTING_REGISTER)
-        .is_ok_and(|route| route & 0x04 == 0);
-      fan_routes[2] = client
-        .superio_inb(ITE_FAN3_ROUTING_REGISTER)
-        .is_ok_and(|route| route & 0x80 == 0);
+  // A board variant is admitted only after the board identity is known, and
+  // only when the controller shows the board's own base and revision.
+  if let Some(variant) = profile.board_variant
+    && slot == variant.slot
+    && scope != IteDiscoveryScope::Standard
+    && raw_base == variant.ec_base
+    && client
+      .superio_inb(ITE_REVISION_REGISTER)
+      .is_ok_and(|revision| revision & 0x0F == variant.revision)
+  {
+    profile = variant.profile;
+  }
+
+  let mut fan_routes = [profile.fan1_routed, false, false];
+  if !profile.fan_registers.is_empty() {
+    if !profile.routes_in_gpio_ldn || select_ldn(ITE_GPIO_LDN).is_ok() {
+      // Only the routes of channels the profile reads.
+      let routed_channels = &mut fan_routes[1..profile.fan_registers.len()];
+      for (route, (register, input_bit)) in
+        routed_channels.iter_mut().zip(ITE_FAN_ROUTE_REGISTERS)
+      {
+        *route = client
+          .superio_inb(register)
+          .is_ok_and(|value| value & input_bit == 0);
+      }
     }
-    if profile.is_modern() {
+    if profile.routes_in_gpio_ldn {
       // BAR discovery scans LDNs. Restore the EC selection before that scan
       // and do not rely on the selected LDN after it.
       select_ec()?;
     }
-  } else if profile == IteEcProfile::It8728f
-    && slot == 0
-    && scope != IteDiscoveryScope::Standard
-    && raw_base == ITE_GA_B75M_D3H_EC_BASE
-    && client
-      .superio_inb(ITE_REVISION_REGISTER)
-      .is_ok_and(|revision| revision & 0x0F == 0x01)
-  {
-    profile = IteEcProfile::It8728fExGaB75mD3h;
-    fan_routes = [
-      true,
-      client
-        .superio_inb(ITE_FAN2_ROUTING_REGISTER)
-        .is_ok_and(|route| route & 0x04 == 0),
-      false,
-    ];
   }
   client.find_lpc_bars().map_err(|reason| {
     ite_experimental_failure(profile, format!("LpcIO BAR discovery failed: {reason}"))
@@ -1485,6 +1457,21 @@ fn is_valid_nuvoton_hm_base(check: NuvotonHmBaseCheck, base: u16) -> bool {
     }
 }
 
+/// The EC base a profile's rule derives from CR60/61, and whether it is valid.
+fn derive_ite_ec_base(rule: IteEcBaseRule, base_high: u8, base_low: u8) -> (u16, bool) {
+  let raw_base = u16::from_be_bytes([base_high, base_low]);
+  match rule {
+    IteEcBaseRule::Modern => (
+      raw_base,
+      (0x0100..=0x0FF0).contains(&raw_base) && raw_base & 0x07 == 0 && raw_base != 0x0CF8,
+    ),
+    IteEcBaseRule::Legacy => {
+      let ec_base = raw_base & 0x0FF8;
+      (ec_base, is_valid_ite_ec_base(base_high, base_low, ec_base))
+    }
+  }
+}
+
 fn is_valid_ite_ec_base(base_high: u8, base_low: u8, ec_base: u16) -> bool {
   (base_high & 0xF0) == 0
     && (base_low & 0x07) == 0
@@ -1495,14 +1482,14 @@ fn is_valid_ite_ec_base(base_high: u8, base_low: u8, ec_base: u16) -> bool {
 }
 
 fn ite_experimental_failure(
-  profile: IteEcProfile,
+  profile: &IteEcProfile,
   reason: impl Into<String>,
 ) -> MotherboardSensorError {
   ChipFailure::ite(profile, reason).into()
 }
 
 fn ite_experimental_non_component_failure(
-  profile: IteEcProfile,
+  profile: &IteEcProfile,
   reason: impl Into<String>,
 ) -> MotherboardSensorError {
   ChipFailure::ite(profile, reason).hardware_state().into()
@@ -1512,6 +1499,9 @@ fn ite_experimental_non_component_failure(
 mod tests {
   use std::cell::{Cell, RefCell};
 
+  use super::super::ite::{
+    IT8728F, IT8728F_EX_GA_B75M_D3H, IT8772E_FX, ITE_EC_FAN_MODE_REGISTER,
+  };
   use super::*;
 
   struct FakeLpcIo {
@@ -3129,7 +3119,7 @@ mod tests {
       let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
         .unwrap()
         .unwrap();
-      assert_eq!(detected.profile, IteEcProfile::It8772eFx);
+      assert_eq!(detected.profile, &IT8772E_FX);
       assert_eq!(detected.ec_base, 0x0700);
       assert_eq!(
         *client.config_reads.borrow(),
@@ -3355,7 +3345,7 @@ mod tests {
     let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, true)
       .unwrap()
       .unwrap();
-    assert_eq!(detected.profile, IteEcProfile::It8728fExGaB75mD3h);
+    assert_eq!(detected.profile, &IT8728F_EX_GA_B75M_D3H);
     assert_eq!(*client.read_registers.borrow(), [0x00]);
     client.read_registers.borrow_mut().clear();
     ActiveIteMotherboardSensors::new(client, detected)
@@ -3444,7 +3434,7 @@ mod tests {
           .unwrap()
           .unwrap();
 
-      assert_eq!(detected.profile, IteEcProfile::It8728f);
+      assert_eq!(detected.profile, &IT8728F);
       let mut active = ActiveIteMotherboardSensors::new(client, detected);
       let sample = active.sample_unlocked_at(Instant::now()).unwrap();
       assert_eq!(temperature_names(&sample), ["TMPIN1", "TMPIN3"]);
@@ -3671,7 +3661,7 @@ mod tests {
       let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0, false)
         .unwrap()
         .unwrap();
-      assert_eq!(detected.profile.chip_label(), label);
+      assert_eq!(detected.profile.chip_label, label);
       assert_eq!(
         *client.config_writes.borrow(),
         [(0x07, 0x04), (0x07, 0x07), (0x07, 0x04), (0x02, 0x02)]
