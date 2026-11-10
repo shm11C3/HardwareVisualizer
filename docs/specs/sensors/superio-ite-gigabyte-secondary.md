@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 7 |
+| Revision | 8 |
 | Status | Draft — not implementation-ready |
-| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E and ECIO evidence for X670E AORUS MASTER BIOS F41 and B650E AORUS MASTER rev. 1.0. Separate X470 AORUS GAMING 7 WIFI rev. 1.0 BIOS F64 SMM evidence and unresolved secondary controller attribution. |
+| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E and ECIO evidence for X670E AORUS MASTER BIOS F41 and B650E AORUS MASTER rev. 1.0. Separate X470 AORUS GAMING 7 WIFI rev. 1.0 BIOS F64 SMM evidence and unresolved secondary controller attribution. Separate X870E AORUS MASTER F12 secondary endpoint observations and static firmware evidence. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
 
 ## Sources
@@ -37,6 +37,10 @@
 | S24 | Gigabyte [X470 AORUS GAMING 7 WIFI rev. 1.0 BIOS F64 release](https://www.gigabyte.com/Motherboard/X470-AORUS-GAMING-7-WIFI-rev-10/Support#support-dl-bios) and [official F64 archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_x470-aorus-gaming-7-wifi_8a06bg0_f64.zip?v=56486d580062e1031e8dce5358ac8ae5), March 22, 2024, OEM checksum `C055` | Static OEM artifact. ZIP SHA-256 `2412e1bc94ccff695dfcecdcfae836ec24a8fb720c883f575cea8d7e11451ee0`. `X470AORUSGAMING7WIFI.F64` image SHA-256 `ebd24b8e697d082f55470f47d0f1d58c673599f2b005dac014ab63a6436982ee`. |
 | S25 | [X470 AORUS GAMING 7 WIFI board teardown, circuit analysis](https://www.tweaktown.com/reviews/8605/gigabyte-x470-aorus-gaming-7-wifi-motherboard-review/index.html) | Independent photographs show IT8792E and IT8686E markings on a board of unidentified PCB revision. The teardown also reports a partly hidden embedded controller. The photographs have no verified link to the S3 unit or to a board running F64. |
 | S26 | UEFI Platform Initialization Specification 1.8, volume IV, [§7.3 MM Sx Dispatch Protocol](https://uefi.org/specs/PI/1.8/V4_MM_Child_Dispatch_Protocols.html#mm-sx-dispatch-protocol) and [§7.8 MM Power Button Dispatch Protocol](https://uefi.org/specs/PI/1.8/V4_MM_Child_Dispatch_Protocols.html#mm-power-button-dispatch-protocol) | Primary definitions of dispatch GUIDs and their hardware event types and phases. |
+| S27 | Gigabyte [X870E AORUS MASTER BIOS F12 release](https://www.gigabyte.com/Motherboard/X870E-AORUS-MASTER/support#support-dl-bios) and [official F12 archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_x870e-aorus-master_8arpl302_f12.zip?v=885ef7049c0794810c59e62df7e2b4a9), February 5, 2026, OEM checksum `BCCF` | Static OEM artifact. ZIP SHA-256 `4b2c2ddb7dcf230b6f3b638a6dc8996e22d4af88075f1f86ced9d5fcfd28d493`. `X870EAORUSMASTER.F12` image SHA-256 `8e1f81f404505c47ef470a08a66fed64028f096066e03a86818bc8fe5a4f0be1`. |
+| S28 | [X870E AORUS MASTER owner report and readings](https://github.com/frankcrawford/it87/issues/103), BIOS F12 and kernel `6.19.14-1-liquorix-amd64` | Independent live temperature and RPM observations on two reported endpoints. The report identifies its DKMS build and leaves PCB revision and chip marking unconfirmed. |
+| S29 | Frank Crawford DKMS driver, commit `20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8`, Git blob `e7cc39fddf72a4ad42d5d190b7a15e7d9c12a512`, GPL-2.0-or-later. [Temperature input](https://github.com/frankcrawford/it87/blob/20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8/it87.c#L2640-L2646), [fan input](https://github.com/frankcrawford/it87/blob/20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8/it87.c#L2932-L2939), and [cold refresh](https://github.com/frankcrawford/it87/blob/20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8/it87.c#L2524-L2527). | **lead-only (copyleft)** for the common cache and alarm register reads in the reported build. |
+| S30 | UEFI PI 1.8 [MM protocol notification](https://uefi.org/specs/PI/1.8/V4_Management_Mode_System_Table.html#mmregisterprotocolnotify), and TianoCore [EDK II stable 202511 package protocol declarations](https://github.com/tianocore/edk2/blob/edk2-stable202511/MdeModulePkg/MdeModulePkg.dec#L670) | Public interface definitions for protocol notification and the SMM ExitBootServices GUID. |
 
 ## Detection
 
@@ -48,6 +52,7 @@
 | GA-AB350-Gaming 3 rev. 1.x, BIOS F54d, OEM WMI | S12 advertises the GUID but lacks the S13 temperature method. The table's visible monitor pair defaults to the primary controller. | Disabled. No verified secondary read path. |
 | GA-Z87X-UD5H, already-bound Linux `it8790` at observed base `0x0A40` | Candidate Experimental. S15 identifies the part. S16 records an unbound secondary and a later positive endpoint. Lead-only S17 establishes that the published inputs use a cache refresh that reads alarm status. | Disabled pending exact IT8790E read effects or a separate safe kernel input route, plus matching bound-endpoint evidence. |
 | X670E AORUS MASTER rev. 1.x, BIOS F41, secondary ECIO | S18 establishes OEM boot-time mailbox access. S19 reports a separate H2RAM endpoint. S20's pump observation has no F41 identity. | Disabled pending an OS-owned read path, exact channel evidence and mailbox arbitration. |
+| X870E AORUS MASTER, BIOS F12, secondary Linux hwmon and separate OEM firmware inspection | S28 observes temperature and RPM on the reported secondary endpoint. The reported driver build refreshes both inputs with alarm reads (S29 lead-only). The inspected firmware paths establish no independent secondary telemetry endpoint (S27, S30). | Disabled pending an owned read path without alarm reads and exact controller attribution. |
 | B650E AORUS MASTER rev. 1.0, secondary H2RAM via ECIO and separate BIOS F37 WMI inspection | S22 records a slot-1 `0x8733` observation and a G3 v1.00 window with RPM data under the S23 lead-only map. S21's static F37 tables establish no matching secondary telemetry method. | Disabled pending temperature attribution and a read path with proven mailbox ownership, arbitration and side effects. |
 | Other board/transport combinations for `0x8733`, `0x8790` and `0x8695` | Diagnostic identities only under S5. The shared raw `0x8733` cannot distinguish the IT8792E and IT8795E models. | Disabled until independently scoped. |
 | Alternate `0x8883` report, unreadable, absent or changed pre-key ID | S5/S9 distinguish the alternate report from a usable pre-key identity. S4 records a real absent pre-key result. | Disabled. |
@@ -202,6 +207,44 @@ headers and do not qualify a firmware-matched temperature and RPM
 path. Firmware module names do not establish the pump controller's
 physical marking. (S18–S20)
 
+### X870E AORUS MASTER BIOS F12 secondary endpoint evidence
+
+The F12 owner report shows separate `it8696-isa-0a40` and
+`it87952-isa-0a60` endpoints. The latter reports 37°C, 3,096 RPM
+and 497 RPM. The temperature location labels are provisional.
+The stated DKMS build uses a shared refresh for both input types,
+including reads of all three alarm-status registers on a cold cache.
+(S28, S29 lead-only)
+
+Static F12 inspection recovered four checksum-valid DSDTs and 71
+checksum-valid SSDTs from the image and standard LZMA regions. The
+recovered tables contain no `_FST`, standard ACPI fan or embedded
+controller device identity, or ECDT. Three AMD SSDTs define `_TMP`
+for CPU/APU thermal zones. The AMD MPMS SSDT at decoded offset
+`0x5BB780` presents temperature and fan records with counter-generated
+values. Its SHA-256 is
+`e443530f5be170ff7ad9e11a488e408584b6b3b3426b0b16bffccba2ea28ae46`.
+(S27)
+
+The `GBT / GSWApp` SSDT is 45,533 bytes with SHA-256
+`6d81dda24096c802bd91f4d32655cdb1a0315bc7548866d8f521dc249ab4ef72`.
+It begins at decoded offset `0x1322904` in the LZMA section at image
+offset `0x1079C58`. It advertises the S13 GUID, and its dispatcher
+has no temperature method `0x125`. Its indexed monitor region defaults
+to `0x0A45`/`0x0A46`. The recovered DSDTs separately declare `0x0A65`.
+No recovered method references those declarations. (S13 lead-only, S27)
+
+The inspected SMM handlers supply no temperature or RPM endpoint.
+The power event handlers in FFS `CB3C180C-CF14-4165-BC6D-2116FF8D8BEA` write
+hardware and return no temperature or RPM. Its x86-64 PE SHA-256 is
+`a38dface1c5177c87fa9d745f56473d8d3e62b067e2861a213ff68bc33cc6248`.
+The ExitBootServices notification in FFS
+`471D888A-AB93-4663-A24D-24FA32F3FC82` returns status only. Its
+x86-64 PE SHA-256 is
+`c1230b69a9d8d8a9533db00df7eb5477b995f49ab4fc694933da542b03bbf839`.
+The static findings cover the recovered tables and inspected handlers.
+(S26, S27, S30)
+
 ### B650E AORUS MASTER rev. 1.0 H2RAM and F37 WMI
 
 The owner reports DMI board name `B650E AORUS MASTER` and points to
@@ -328,6 +371,12 @@ boundary only.
   Neither the recovered OEM tables nor the independent reports
   provide those facts. (S18–S20)
 
+- For X870E AORUS MASTER F12, establish a safe, OS-owned endpoint for
+  temperature and RPM with exact secondary controller and channel
+  attribution. The observed DKMS input path includes alarm reads.
+  The recovered firmware evidence does not establish an independent
+  endpoint or its ownership contract. (S27–S30, S29 lead-only)
+
 - For B650E AORUS MASTER rev. 1.0, establish a temperature field
   with exact attribution and valid samples, and a firmware-matched
   OS-owned route for the temperature and RPM. The complete read
@@ -377,3 +426,4 @@ available. An absent pre-key response is itself an evidence result.
 | 5 | 2026-11-08 | Record the exact X670E AORUS MASTER F41 boot-time ECIO mailbox and separate Linux and pump observations. Keep the ECIO candidate disabled. |
 | 6 | 2026-11-09 | Record the B650E AORUS MASTER rev. 1.0 RPM mirror and separate F37 WMI inspection. Keep the candidate disabled pending temperature and mailbox safety evidence. |
 | 7 | 2026-11-09 | Record the X470 AORUS GAMING 7 WIFI F64 SMM findings and separate board marking and raw-ID observations. Keep collection disabled pending exact controller attribution and a safe OS-owned read path. |
+| 8 | 2026-11-09 | Record X870E AORUS MASTER F12 secondary readings, the reported driver read effects, and the static firmware findings. Keep the candidate disabled. |
