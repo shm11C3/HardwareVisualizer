@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
+| Revision | 4 |
 | Status | Draft — not implementation-ready |
 | Scope | Read-only research for DDR4 DIMMs that advertise a TSE2004av sensor and have an already bound Linux `jc42` and `ee1004` pair. Slot attribution remains disabled until the active firmware identity mechanism is established. |
 | Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526) |
@@ -24,6 +24,8 @@
 | S11 | Linux v6.18 [firmware DMI table ABI](https://github.com/torvalds/linux/blob/v6.18/Documentation/ABI/testing/sysfs-firmware-dmi-tables), [binary registration](https://github.com/torvalds/linux/blob/v6.18/drivers/firmware/dmi_scan.c#L722-L756) and [sysfs binary permissions](https://github.com/torvalds/linux/blob/v6.18/include/linux/sysfs.h#L358-L359) | Public fixed binary source paths. **lead-only (copyleft)** for administrator-read permissions. |
 | S12 | Protectli [VP2410 datasheet](https://eu.protectli.com/wp-content/uploads/2024/07/VP2410-Datasheet-20240628.pdf), *Memory Slot* entry, and Dasharo [VP2410 Hardware Configuration Matrix](https://docs.dasharo.com/variants/protectli_vp2410/hardware-matrix/) | Primary for the single `DIMM1` DDR4 SO-DIMM slot and validation module list. No native temperature binding or slot-to-sensor capture. |
 | S13 | OSADL [rack 0, slot 5 hardware profile](https://www.osadl.org/Profile-of-system-in-rack-0-slot-5.qa-profile-r0s5.0.html?id=1352), BIOS, DIMMs and DMI sections, and Shuttle [SH370200.106](https://global.shuttle.com/products/productsDownload?c=xpc-cube&pn=SH370R6+V2), build March 25, 2020, [OEM archive](https://download.shuttle.eu/Mirror/MiniPC%26AIO/cube/SH370R6_V2/Bios/SH370200.106.ZIP). Archive SHA-256 `b956d8ee95d93ba8d98c7def38b1a680bf9df6c2f2764bf3436b21d3281e5dfa`, 16 MiB image SHA-256 `664fc58cba98822fc17d586e8c77f7be54d7053910f5d80af993f1465605bca4`. | First-hand OSADL report on Shuttle SH370V2, AMI 1.06. Static vendor artifact for the Type 17 writer in `SiInitDxe`, FFS GUID `acd28235-075b-48b5-98a1-da04fcaf84f3`, PE SHA-256 `df1bc935a127b4132ee025c697896f2f96428f55ce258ba1dad7d554c4a5f560`, RVA `0xD37`–`0xD7D`. Research only. |
+| S14 | Dasharo [MSI PRO Z690-A v1.1.7 DDR4 release and SBOM](https://docs.dasharo.com/variants/msi_z690/releases/#v117-2026-08-13), Intel FSP RPL-S C.0.C8.50 and Dasharo coreboot `c96f0b7a79ec196b3034e9d3550451a16450bd00`. Pinned [board SPD map](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/mainboard/msi/ms7d25/romstage_fsp_params.c#L51-L63), [FSP memory inventory definition](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/vendorcode/intel/fsp/fsp2_0/raptorlake/MemInfoHob.h#L187-L209), [DIMM metadata collection](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/soc/intel/alderlake/romstage/romstage.c#L111-L168), [serial rendering](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/lib/smbios.c#L204-L214) and [Type 16 and 17 generation](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/lib/smbios.c#L817-L890). | **lead-only (copyleft)** for the static firmware behavior. No live inventory or endpoint capture for this image. |
+| S15 | Fedora [ABRT report 961050](https://retrace.fedoraproject.org/faf/reports/961050/), MSI `PRO Z690-A DDR4(MS-7D25)`, BIOS 1.10 (2021-12-13), kernel `6.8.7-300.fc40.x86_64`. | First-hand report for the OEM BIOS. It lists the loaded `i2c_i801`, `ee1004` and `jc42` modules. It provides no per-device bindings, SPD or Type 17 data, or DIMM temperature. |
 
 ## Detection and scoped enablement
 
@@ -271,6 +273,21 @@ attribution requirements of this draft.
   `DIMM1` connector does not supply a same-platform native `ee1004` and
   `jc42` binding or prove that an exact supported module supplies the
   thermal endpoint. No single-slot profile is qualified.
+- The MSI PRO Z690-A DDR4 Dasharo v1.1.7 source (S14, lead-only)
+  maps the two physical channels to SPD addresses `0x50`/`0x51` and
+  `0x52`/`0x53`. The collector records only DIMMs reported present by
+  Intel FSP. The default Type 16 count and the Type 17 records are
+  derived from that same inventory. Count agreement therefore does
+  not independently establish physical slot completeness. Without a
+  board part-number override, later Type 17 records can reuse the
+  first detected DIMM's part number. The writer renders the four
+  saved serial bytes in received order, but the pinned FSP interface
+  does not specify that these are in raw SPD address order. The board
+  address map alone cannot establish the active Type 17 slot mapping.
+  The separate OEM BIOS report (S15) supplies only module-load evidence.
+  A complete same-boot inventory, a native same-adapter `ee1004`/`jc42`
+  pair with a live sample, and proof of the active attribution
+  mechanism remain missing for the Dasharo firmware.
 
 ## Revision history
 
@@ -279,3 +296,4 @@ attribution requirements of this draft.
 | 1 | 2026-11-09 | Initial Linux DDR4 TSE2004av proposal with a same-adapter function pair and one-to-one Type 17 attribution. |
 | 2 | 2026-11-09 | Return to Draft. Require proof of the active firmware identity mechanism and a complete entry-point-verified binary inventory. Record the bounded dmidecode completion candidate separately. |
 | 3 | 2026-11-09 | Record the exact Shuttle firmware writer and matching OSADL inventory as research evidence. |
+| 4 | 2026-11-10 | Record Dasharo v1.1.7 DDR4 Type 17 attribution limits on the MSI PRO Z690-A DDR4 as research evidence. |
