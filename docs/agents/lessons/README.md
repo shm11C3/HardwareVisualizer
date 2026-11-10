@@ -144,3 +144,4 @@ shared enforcement surface.
 
 - [Match macOS native opacity to Transparent UI](macos-native-window-opacity.md)
 - [Audit OS-owned sensor read effects](audit-os-owned-sensor-read-effects.md)
+- [Distinguish indirect display aliases from physical GPUs](distinguish-dxgi-display-aliases.md)
