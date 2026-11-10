@@ -137,9 +137,11 @@ shared enforcement surface.
 - [Correct inherited WinGet license metadata](correct-inherited-winget-license-metadata.md)
 - [Keep hardware knowledge out of utils](keep-hardware-knowledge-out-of-utils.md)
 - [Gate on the hardware mechanism, not on the observation](gate-on-hardware-mechanism-not-observation.md)
+- [Prefer types and tables over strings and branches](prefer-types-and-tables-over-strings-and-branches.md)
 
 - [Cache native E2E compilation, not only its driver](cache-native-e2e-compilation.md)
 - [Re-measure before the next slice](remeasure-before-the-next-slice.md)
 
 - [Match macOS native opacity to Transparent UI](macos-native-window-opacity.md)
 - [Audit OS-owned sensor read effects](audit-os-owned-sensor-read-effects.md)
+- [Distinguish indirect display aliases from physical GPUs](distinguish-dxgi-display-aliases.md)

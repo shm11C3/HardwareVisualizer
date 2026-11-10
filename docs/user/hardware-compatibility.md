@@ -32,8 +32,13 @@ vendor or family.
 | AMD Family 19h | PawnIO package temperature | Reported working on a Ryzen 7 7800X3D ([validation record](../development/sensor-handoff/evidence/2026-09-26-pawnio-modules-0.2.11-validation.md)) | No | [@shm11C3](https://github.com/shm11C3) |
 | AMD Family 1Ah | PawnIO package temperature | Experimental | No, report availability first | — |
 | AMD Vermeer | Windows PawnIO [CCD temperatures on qualified single-package AM4 models](../specs/sensors/cpu-amd-vermeer-ccd-smn.md) | Experimental | No | — |
+| AMD Raphael | Windows PawnIO [CCD temperatures on single-package AM5 with signature `0x00A60F12`](../specs/sensors/cpu-amd-raphael-ccd-smn.md) | Experimental | No | — |
+| AMD Granite Ridge | Windows PawnIO [CCD temperatures on single-package AM5 with signature `0x00B40F40`](../specs/sensors/cpu-amd-granite-ridge-ccd-smn.md) | Experimental | No | — |
 | Intel CPUs | PawnIO package temperature | Not yet verified by a public compatibility report | No | — |
-| Intel Core DTS | Windows PawnIO core temperatures on [selected Nehalem, Sandy Bridge, Atom C2000, Alder Lake, and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) and [Meteor Lake C0](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | The legacy profiles include DTS-only CPUs. The scoped hybrid profiles are Experimental. | No | — |
+| Intel Core DTS | Windows PawnIO core temperatures on [selected legacy Core and Atom models, plus Alder Lake and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) | Includes DTS-only CPUs. The specification lists the status of each profile. | No | — |
+| Intel Skylake U, U23e, and Y | Windows PawnIO [core temperatures with signature `0x000406E3`](../specs/sensors/cpu-intel-skylake-mobile-dts-msr.md) | Experimental | No | — |
+| Intel Meteor Lake C0 | Windows PawnIO [core temperatures with signature `0x000A06A4`](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | Experimental | No | — |
+| Intel Arrow Lake 200S, 200S Plus, 200HX, and 200HX Plus | Windows PawnIO [core temperatures with signature `0x000C0662`](../specs/sensors/cpu-intel-arrow-lake-dts-msr.md) | Experimental | No | — |
 | NVIDIA GPUs | NVAPI on Windows | Not yet verified by a public compatibility report | No | — |
 | NVIDIA GPUs | Linux NVML usage, temperature, and dedicated VRAM usage for DRM adapters and PCI display functions bound to the NVIDIA driver | Implemented. PCI-only readings require an active runtime state. Native Linux compatibility report not yet recorded. | No | — |
 | AMD GPUs | ADL on Windows, DRM/hwmon on Linux | Not yet verified by a public compatibility report | No | — |
