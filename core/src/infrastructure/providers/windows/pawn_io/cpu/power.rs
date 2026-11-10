@@ -2,7 +2,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use super::super::client::{
-  PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
+  PawnIoClient, PawnIoDiscovery, PawnIoError, PawnIoInitError, PawnIoModule,
+  open_shared_intel_msr, read_shared_msr,
 };
 pub use super::identity::CpuIdentity;
 use super::identity::{CpuVendor, detect_amd_rapl_support, detect_cpu_identity};
@@ -139,8 +140,8 @@ impl RuntimePowerSampler {
     // This timestamp is captured immediately after the probe energy read so
     // the successful probe itself is the decoder baseline.
     let probe_timestamp = clock_origin.elapsed().as_secs_f64();
-    let unit_register = unit_result?;
-    let energy_register = energy_result?;
+    let unit_register = unit_result.map_err(|error| error.to_string())?;
+    let energy_register = energy_result.map_err(|error| error.to_string())?;
     let decoder = PowerDecoder::from_unit_register_with_baseline(
       unit_register,
       energy_register,
@@ -160,10 +161,7 @@ impl RuntimePowerSampler {
     client: &Arc<Mutex<PawnIoClient>>,
     energy_msr: u64,
   ) -> Result<Option<f64>, String> {
-    let reading = match client.lock() {
-      Ok(client) => client.read_msr(energy_msr),
-      Err(_) => Err("shared IntelMSR client lock poisoned".to_string()),
-    };
+    let reading = read_shared_msr(client, energy_msr);
     let timestamp = self.clock_origin.elapsed().as_secs_f64();
     self.consume_public_reading(reading, timestamp)
   }
@@ -180,7 +178,7 @@ impl RuntimePowerSampler {
 
   fn consume_public_reading(
     &mut self,
-    reading: Result<u64, String>,
+    reading: Result<u64, PawnIoError>,
     timestamp_seconds: f64,
   ) -> Result<Option<f64>, String> {
     let suppress_public_sample = self.skip_first_public_sample;
@@ -196,14 +194,14 @@ impl RuntimePowerSampler {
 
   fn consume_reading(
     &mut self,
-    reading: Result<u64, String>,
+    reading: Result<u64, PawnIoError>,
     timestamp_seconds: f64,
   ) -> Result<Option<f64>, String> {
     match reading {
       Ok(value) => Ok(self.decoder.sample(Some(value), timestamp_seconds)),
-      Err(reason) => {
+      Err(error) => {
         self.decoder.sample(None, timestamp_seconds);
-        Err(reason)
+        Err(error.to_string())
       }
     }
   }
@@ -317,7 +315,7 @@ fn open_power_source(
           MSR_RAPL_POWER_UNIT,
           MSR_PKG_ENERGY_STATUS,
         ),
-        Err(_) => Err("shared IntelMSR client lock poisoned".to_string()),
+        Err(_) => Err(PawnIoError::SharedClientPoisoned.to_string()),
       };
       match sampler {
         Ok(sampler) => Ok((ActivePowerSource::Intel { client, sampler }, discovery)),
@@ -504,8 +502,13 @@ mod tests {
     };
 
     assert_eq!(
-      sampler.consume_reading(Err("read failed".to_string()), 1.0),
-      Err("read failed".to_string())
+      sampler.consume_reading(
+        Err(PawnIoError::NoOutput {
+          function: "ioctl_read_msr"
+        }),
+        1.0
+      ),
+      Err("pawnio_execute ioctl_read_msr returned no output cells".to_string())
     );
     assert_eq!(sampler.consume_reading(Ok(65_536), 2.0), Ok(None));
     assert_eq!(sampler.consume_reading(Ok(131_072), 3.0), Ok(Some(1.0)));
@@ -522,8 +525,13 @@ mod tests {
     };
 
     assert_eq!(
-      sampler.consume_public_reading(Err("read failed".to_string()), 1.0),
-      Err("read failed".to_string())
+      sampler.consume_public_reading(
+        Err(PawnIoError::NoOutput {
+          function: "ioctl_read_msr"
+        }),
+        1.0
+      ),
+      Err("pawnio_execute ioctl_read_msr returned no output cells".to_string())
     );
     assert_eq!(sampler.consume_public_reading(Ok(65_536), 2.0), Ok(None));
     assert_eq!(

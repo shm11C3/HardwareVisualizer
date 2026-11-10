@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
+| Revision | 4 |
 | Status | Draft — not implementation-ready |
 | Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence for ASRock NCT6686D and Intel NCT6683D boards. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
 | Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520) |
@@ -28,6 +28,10 @@
 | S15 | Linux [Z590 Taichi customer support commit](https://github.com/torvalds/linux/commit/c0fa7879c9850bd4597740a79d4fac5ebfcf69cc) and [stable submission with the author's two-board report](https://lists.openwall.net/linux-kernel/2026/02/28/1014) | **lead-only (copyleft)** for native customer `0x1621` acceptance and reported instantiation on EC 1.0 build 2021-01-25. |
 | S16 | Linux v7.0 [Intel firmware note and tested boards](https://www.kernel.org/doc/html/v7.0/hwmon/nct6683.html#usage-note), [fan attribute visibility](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c#L746-L769) and [v3.16 refresh](https://github.com/torvalds/linux/blob/v3.16/drivers/hwmon/nct6683.c#L629-L636) | **lead-only (copyleft)** for the reported Intel EC builds, firmware-dependent limits, and fan-minimum reads in both kernel versions. |
 | S17 | [DH87MC contributed sensor configuration](https://github.com/sqrdevl/nct6683/blob/4c57b3c54f60f73cf23f5bd0e612e6c6921136d0/conf/intel-dh87mc.conf#L1-L17), credited to Adam Nielsen, and Intel [DH87MC Technical Product Specification G94453-003](https://gzhls.at/blob/ldb/8/f/2/5/188cfe3a34e80c2326718304c43d92d324fe.pdf), §§1.10 and 1.11.2.2 (Intel document mirror) | **lead-only (copyleft)** for the configuration's device name, base and channel labels. Intel is the primary source for physical fan headers and lists the controller as NCT6883D-T. |
+| S18 | ASRock [X670E Steel Legend manual](https://download.asrock.com/Manual/X670E%20Steel%20Legend.pdf#page=14), §1.5 p. 10, [Arch Linux report](https://github.com/lm-sensors/lm-sensors/issues/499), [probe follow-up](https://github.com/lm-sensors/lm-sensors/issues/499#issuecomment-2145526709) and [separate forced Ubuntu capture](https://github.com/lm-sensors/lm-sensors/issues/499#issuecomment-2338377717) | OEM block diagram identifies NCT6686D. The Arch report gives exact board and BIOS identity and raw chip ID. The separate Ubuntu report gives EC build and live values with force enabled. |
+| S19 | ASRock [X670E Steel Legend BIOS 3.01 ZIP](https://download.asrock.com/BIOS/AM5/X670E%20Steel%20Legend%283.01%29ROM.zip), SHA-256 `61ab1b123f6a21336b7946283976b9eb45ea765277b30525c8563280c983f29e`. Extracted 32 MiB `X670ESL3.01.ROM`, SHA-256 `47601a2767e5ae7a38ca2e649bf78bafd48eb16a47ba5702fb74fe8d52419f34`. OEM [BIOS setup guide](https://download.asrock.com/Manual/Software/AMD%20X670/Software_BIOS%20Setup%20Guide_English.pdf), §§2.3.2 and 3.6 | Static firmware evidence limited to the extracted checksum-valid tables. The guide describes the UEFI monitoring UI. |
+| S20 | Intel [DZ87KLT-75K Technical Product Specification G89979-001](https://manualzz.com/doc/48591817/intel-dz87klt-75k-specification), p. iii and §§1.11, 1.12.2.2, [Intel BIOS 0459 release notes](https://ftp.infania.net/pub/Windows%20Drivers/Intel/downloadmirror.intel.com/KL_0459_ReleaseNotes.pdf), BIOS 0446 entry, and [independent board inspection](https://techplayboy.com/754/intel-dz87klt-75k-lga1150-desktop-motherboard-review/) | OEM board and firmware family identity, monitoring ASIC wiring, and threshold corrections. The independent inspection identifies NCT6683D. |
+| S21 | [Original driver test record](https://github.com/sqrdevl/nct6683/blob/89c8ec9ac2749b579af6436a2073f5effef10ae0/README), May 17, 2014, and stock Linux [v7.3 refresh](https://github.com/torvalds/linux/blob/v7.3/drivers/hwmon/nct6683.c#L633-L646) and [v7.4-rc2 refresh](https://github.com/torvalds/linux/blob/v7.4-rc2/drivers/hwmon/nct6683.c#L632-L645) | **lead-only (copyleft)** for the older DZ87KLT test and the generic fan-minimum read retained in the stock refresh. |
 
 ## Detection
 
@@ -108,6 +112,32 @@ Intel and documents that its Intel address and encoding are unknown.
 The generic minimum read also occurs in v3.16. The v7.0 refresh
 writes selectors and has no EC data write or explicit monitor/fan
 status access (S12, S16).
+
+### Additional exact-board research
+
+- **ASRock X670E Steel Legend, BIOS 3.01.** The Arch report identifies
+  raw `0xD441` at the primary configuration port `0x2E`. Its follow-up
+  reports EC base `0x0A20` and no new sensor entries after the driver
+  found the chip. A separate Ubuntu unit exposes fan and thermistor
+  values from EC 1.0 build 2022-07-19 with force enabled (S18). The
+  static audit of the exact 3.01 ROM found 50 distinct checksum-valid
+  AML tables. The only tables with `_WDG` were AMD CPMTBASL and
+  AMD AOD. The extraction yielded no valid ECDT, recognized ACPI EC region
+  or `PNP0C09` device, `_FST`, `_FPS`, `_FSL`, or attributable
+  board-monitor query (S19). This finding is limited to the extracted
+  tables. A native unforced binding with exact firmware identity and
+  documented read effects, or a safe firmware-owned input path,
+  remains unverified.
+- **Intel DZ87KLT-75K.** Intel documents AA `G74721-003` and BIOS
+  family `KLZ8711D.86A`. The OEM's BIOS 0446 notes identify corrections
+  to two fan under-speed thresholds. The board inspection identifies
+  NCT6683D (S20). The older driver test records EC 1.0 build 2013-04-03
+  on DZ87KLT without a paired BIOS version, raw customer ID or live
+  sensor values (S21, lead-only). Linux v7.3 and v7.4-rc2 retain the
+  generic fan-minimum reads in the shared Intel refresh described
+  above (S21, lead-only). The exact firmware's read effects and an
+  independently attributable read-only firmware endpoint remain
+  unverified. Both board candidates remain disabled.
 
 ## Register map (facts)
 
@@ -268,3 +298,4 @@ EC addresses below are page in the high byte and index in the low byte.
 | 1 | 2026-11-07 | Initial draft of the MSI candidate and its firmware-dependent access, with unsupported scopes and unresolved read-only safety conditions. |
 | 2 | 2026-11-08 | Pin the exact OEM controller capture, a configuration exit candidate, and sample data. Narrow the fan proposal to verified positive RPM and retain transport, selector and fan validity blockers. |
 | 3 | 2026-11-09 | Record separate BC-250, Z590 Taichi and Intel DH87MC/DH87RL Linux hwmon research, native customer acceptance and unresolved firmware refresh evidence. |
+| 4 | 2026-11-10 | Record ASRock X670E Steel Legend BIOS 3.01 and Intel DZ87KLT-75K evidence and their unresolved read paths. |

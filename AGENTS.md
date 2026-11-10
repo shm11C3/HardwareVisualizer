@@ -62,6 +62,22 @@ complex design that remains clear, cohesive, testable, and maintainable; do not
 use simplicity to justify brittle code, avoidable duplication, or misplaced
 responsibility.
 
+Before using a string or a bare number, check whether a type can state the
+meaning more precisely: an enum, a newtype, a typed error (`thiserror` in Rust),
+or a union or literal type in TypeScript. A string is the last resort. Use it
+for text that is only displayed, logged, or passed through without
+interpretation. Never decide behavior by matching a message (`starts_with`,
+`contains`, `==`). Carry the decision in the type and render text at the
+boundary.
+
+When `if` or `match` branches accumulate, first ask whether each branch is
+required. If the remaining branches select data, such as a chip, model,
+profile, or parameter set, write them as table rows and iterate the table. Keep
+ordered protocol steps, safety gates, and error handling as code. Turning a
+procedure into data hides it from the type checker and from review against its
+specification. See
+[LRN-20261110](docs/agents/lessons/prefer-types-and-tables-over-strings-and-branches.md).
+
 Place a new file with the owner of what it checks, generates, or operates on.
 A script does not belong in `.github/scripts/` because it is a script or runs
 in CI; that directory is only for GitHub Actions plumbing, as its
