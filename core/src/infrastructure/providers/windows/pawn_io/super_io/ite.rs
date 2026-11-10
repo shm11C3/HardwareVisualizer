@@ -108,59 +108,178 @@ pub(super) fn poll_ga_b75m_d3h_match() -> Option<bool> {
     .poll(start_baseboard_identity_query)
 }
 
+/// TMPIN byte registers with their one-based channel for the CR51 eligibility
+/// check.
+const ITE_TEMPERATURE_REGISTERS: &[(&str, u8, u8)] = &[
+  ("TMPIN1", 0x29, 1),
+  ("TMPIN2", 0x2A, 2),
+  ("TMPIN3", 0x2B, 3),
+];
+
+/// Fan counter low / high registers in channel order. The fan name is the key
+/// in the live display and archive, so a missing input must not shift the
+/// names of its siblings.
+const ITE_FAN_REGISTERS: &[(&str, u8, u8)] = &[
+  ("FAN1", 0x0D, 0x18),
+  ("FAN2", 0x0E, 0x19),
+  ("FAN3", 0x0F, 0x1A),
+];
+
+/// The GA-B75M-D3H factory board reads the first two counters under its board
+/// labels.
+const ITE_GA_B75M_D3H_FAN_REGISTERS: &[(&str, u8, u8)] =
+  &[("Fan 1", 0x0D, 0x18), ("Fan 2", 0x0E, 0x19)];
+
+const ITE_GA_B75M_D3H_EC_BASE: u16 = 0x0A30;
+pub(super) const ITE_EC_FAN_MODE_REGISTER: u8 = 0x0C;
+
+/// How the Environment Controller base is derived from CR60/61 and validated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum IteEcProfile {
-  It8620e,
-  It8628e,
-  It8716fD,
-  It8728f,
-  It8728fExGaB75mD3h,
-  It8772eFx,
+pub(super) enum IteEcBaseRule {
+  /// The raw CR60/61 value, 8-byte aligned inside `0x0100..=0x0FF0` and not
+  /// `0x0CF8`.
+  Modern,
+  /// CR60/61 masked to `0x0FF8`, with the legacy validity checks.
+  Legacy,
 }
 
-impl IteEcProfile {
-  /// Match the raw chip ID exactly. A profile with a required revision still
-  /// needs the CR22 check before logical-device selection.
-  pub(super) const fn from_slot_and_chip_id(slot: u8, id: u16) -> Option<Self> {
-    match (slot, id) {
-      (0, 0x8620) => Some(Self::It8620e),
-      (0, 0x8628) => Some(Self::It8628e),
-      (0, 0x8716) => Some(Self::It8716fD),
-      (0 | 1, 0x8728) => Some(Self::It8728f),
-      (0, 0x8772) => Some(Self::It8772eFx),
-      _ => None,
-    }
-  }
+/// A board whose own mechanism selects a profile with more inputs than the
+/// chip row alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct IteBoardVariant {
+  pub(super) slot: u8,
+  /// The raw CR60/61 value the board firmware programs.
+  pub(super) ec_base: u16,
+  /// The CR22 low nibble the board's chip reports.
+  pub(super) revision: u8,
+  pub(super) profile: &'static IteEcProfile,
+}
 
-  pub(super) const fn required_revision(self) -> Option<u8> {
-    match self {
-      Self::It8716fD => Some(0x01),
-      Self::It8772eFx => Some(0x02),
-      _ => None,
-    }
-  }
+/// One scoped ITE Environment Controller read profile, selected by raw chip ID.
+/// Every scoped ITE profile is Experimental.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct IteEcProfile {
+  /// Chip label surfaced in diagnostics, failure text and the source label.
+  pub(super) chip_label: &'static str,
+  /// Slots on which the raw chip ID selects this row.
+  pub(super) slots: &'static [u8],
+  pub(super) chip_id: u16,
+  /// CR22 low nibble that must match before logical-device selection.
+  pub(super) required_revision: Option<u8>,
+  pub(super) ec_base_rule: IteEcBaseRule,
+  /// Whether EC `0x00` bit 7 rejects the controller during discovery.
+  pub(super) discovery_rejects_configuration_bit7: bool,
+  /// Whether EC `0x00` bit 7 rejects a sample.
+  pub(super) sampling_rejects_configuration_bit7: bool,
+  /// Whether discovery requires EC `0x58` to hold the ITE vendor byte.
+  pub(super) checks_vendor_byte: bool,
+  /// Whether the FAN2 / FAN3 routing registers are read with the GPIO logical
+  /// device selected, after which the EC logical device is reselected.
+  pub(super) routes_in_gpio_ldn: bool,
+  /// Temperature inputs; empty when the profile reads none.
+  pub(super) temperature_registers: &'static [(&'static str, u8, u8)],
+  /// Fan inputs in channel order; empty when the profile reads none.
+  pub(super) fan_registers: &'static [(&'static str, u8, u8)],
+  /// Whether FAN1 is a tachometer input. FAN2 and FAN3 follow their routing
+  /// registers.
+  pub(super) fan1_routed: bool,
+  /// The EC register gating counters per channel, if the profile has one.
+  pub(super) fan_mode_register: Option<u8>,
+  pub(super) board_variant: Option<IteBoardVariant>,
+}
 
-  pub(super) const fn chip_label(self) -> &'static str {
-    match self {
-      Self::It8620e => "IT8620E",
-      Self::It8628e => "IT8628E",
-      Self::It8716fD => "IT8716F D",
-      Self::It8728f | Self::It8728fExGaB75mD3h => "IT8728F/EX",
-      Self::It8772eFx => "IT8772E FX",
-    }
-  }
+const MODERN: IteEcProfile = IteEcProfile {
+  chip_label: "",
+  slots: &[0],
+  chip_id: 0,
+  required_revision: None,
+  ec_base_rule: IteEcBaseRule::Modern,
+  discovery_rejects_configuration_bit7: true,
+  sampling_rejects_configuration_bit7: true,
+  checks_vendor_byte: true,
+  routes_in_gpio_ldn: true,
+  temperature_registers: ITE_TEMPERATURE_REGISTERS,
+  fan_registers: ITE_FAN_REGISTERS,
+  fan1_routed: true,
+  fan_mode_register: None,
+  board_variant: None,
+};
 
-  pub(super) const fn is_modern(self) -> bool {
-    matches!(self, Self::It8620e | Self::It8628e)
-  }
+const LEGACY: IteEcProfile = IteEcProfile {
+  ec_base_rule: IteEcBaseRule::Legacy,
+  discovery_rejects_configuration_bit7: false,
+  sampling_rejects_configuration_bit7: false,
+  checks_vendor_byte: false,
+  routes_in_gpio_ldn: false,
+  ..MODERN
+};
 
-  pub(super) const fn has_temperatures(self) -> bool {
-    !matches!(self, Self::It8716fD | Self::It8772eFx)
-  }
+pub(super) const IT8620E: IteEcProfile = IteEcProfile {
+  chip_label: "IT8620E",
+  chip_id: 0x8620,
+  ..MODERN
+};
 
-  pub(super) const fn has_fans(self) -> bool {
-    !matches!(self, Self::It8728f)
-  }
+pub(super) const IT8628E: IteEcProfile = IteEcProfile {
+  chip_label: "IT8628E",
+  chip_id: 0x8628,
+  ..MODERN
+};
+
+pub(super) const IT8716F_D: IteEcProfile = IteEcProfile {
+  chip_label: "IT8716F D",
+  chip_id: 0x8716,
+  required_revision: Some(0x01),
+  temperature_registers: &[],
+  fan_mode_register: Some(ITE_EC_FAN_MODE_REGISTER),
+  ..LEGACY
+};
+
+pub(super) const IT8728F: IteEcProfile = IteEcProfile {
+  chip_label: "IT8728F/EX",
+  slots: &[0, 1],
+  chip_id: 0x8728,
+  fan_registers: &[],
+  fan1_routed: false,
+  board_variant: Some(IteBoardVariant {
+    slot: 0,
+    ec_base: ITE_GA_B75M_D3H_EC_BASE,
+    revision: 0x01,
+    profile: &IT8728F_EX_GA_B75M_D3H,
+  }),
+  ..LEGACY
+};
+
+/// Reached only through [`IT8728F`]'s board variant.
+pub(super) const IT8728F_EX_GA_B75M_D3H: IteEcProfile = IteEcProfile {
+  chip_label: "IT8728F/EX",
+  slots: &[0],
+  chip_id: 0x8728,
+  fan_registers: ITE_GA_B75M_D3H_FAN_REGISTERS,
+  ..LEGACY
+};
+
+/// FX has only the FAN2 and FAN3 tachometer inputs, regardless of EC 0x13[4].
+pub(super) const IT8772E_FX: IteEcProfile = IteEcProfile {
+  chip_label: "IT8772E FX",
+  chip_id: 0x8772,
+  required_revision: Some(0x02),
+  sampling_rejects_configuration_bit7: true,
+  checks_vendor_byte: true,
+  temperature_registers: &[],
+  fan1_routed: false,
+  ..LEGACY
+};
+
+const ITE_EC_PROFILES: [&IteEcProfile; 5] =
+  [&IT8620E, &IT8628E, &IT8716F_D, &IT8728F, &IT8772E_FX];
+
+/// Match the raw chip ID exactly. A profile with a required revision still
+/// needs the CR22 check before logical-device selection.
+pub(super) fn ite_ec_profile(slot: u8, id: u16) -> Option<&'static IteEcProfile> {
+  ITE_EC_PROFILES
+    .into_iter()
+    .find(|profile| profile.chip_id == id && profile.slots.contains(&slot))
 }
 
 /// Check cardinality before considering any field. The inventory API's first
@@ -221,6 +340,33 @@ pub(super) const fn decode_ite_fan_rpm(count: u16) -> Option<u32> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn profiles_are_selected_by_slot_and_exact_chip_id() {
+    let label = |slot, id| ite_ec_profile(slot, id).map(|profile| profile.chip_label);
+
+    assert_eq!(label(0, 0x8620), Some("IT8620E"));
+    assert_eq!(label(0, 0x8628), Some("IT8628E"));
+    assert_eq!(label(0, 0x8716), Some("IT8716F D"));
+    assert_eq!(label(0, 0x8728), Some("IT8728F/EX"));
+    assert_eq!(label(1, 0x8728), Some("IT8728F/EX"));
+    assert_eq!(label(0, 0x8772), Some("IT8772E FX"));
+    assert_eq!(label(1, 0x8620), None);
+    assert_eq!(label(0, 0x8721), None);
+  }
+
+  #[test]
+  fn the_board_variant_is_reached_only_through_its_chip_row() {
+    assert!(
+      ITE_EC_PROFILES
+        .iter()
+        .all(|profile| **profile != IT8728F_EX_GA_B75M_D3H)
+    );
+    let variant = IT8728F.board_variant.expect("IT8728F has a board variant");
+    assert_eq!(variant.profile, &IT8728F_EX_GA_B75M_D3H);
+    assert_eq!(variant.profile.chip_label, IT8728F.chip_label);
+    assert_eq!(variant.ec_base, ITE_GA_B75M_D3H_EC_BASE);
+  }
 
   #[test]
   fn late_ga_b75m_d3h_identity_remains_pending_until_the_existing_worker_replies() {
