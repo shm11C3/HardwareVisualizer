@@ -123,7 +123,11 @@ async fn collect_gpu_inventory(
     log_error!("dxgi_error", "get_gpu_info", Some(error));
     // A missing adapter can make both a name and a legacy id look unique.
     if !adapters.is_empty() {
-      return adapters.into_iter().map(|adapter| adapter.info).collect();
+      return adapters
+        .into_iter()
+        .filter(|adapter| !adapter.is_indirect_alias)
+        .map(|adapter| adapter.info)
+        .collect();
     }
   }
   let has_dxgi_adapters = !adapters.is_empty();
@@ -183,6 +187,9 @@ fn merge_gpu_inventory(
   }
   adapters
     .into_iter()
+    // Keep the original name and legacy-id counts so hiding a display alias
+    // cannot change the inventory id of its physical renderer.
+    .filter(|adapter| !adapter.is_indirect_alias)
     .map(|mut adapter| {
       if let Some(id) = adapter.legacy_device_id
         && legacy_id_counts[&id] == 1
@@ -213,6 +220,7 @@ mod inventory_tests {
         core_count: None,
       },
       vendor_id,
+      is_indirect_alias: false,
       legacy_device_id: None,
     }
   }
@@ -302,6 +310,29 @@ mod inventory_tests {
     assert_eq!(inventory.len(), 2);
     assert_eq!(inventory[0].id, "dxgi:0:41");
     assert_eq!(inventory[1].id, "dxgi:0:42");
+  }
+
+  #[tokio::test]
+  async fn hiding_an_indirect_display_preserves_the_renderers_inventory_id() {
+    let name = "NVIDIA GeForce RTX 5080";
+    for error in [
+      None,
+      Some("A different DXGI descriptor was unavailable".into()),
+    ] {
+      let mut alias = adapter(43, NVIDIA_VENDOR_ID, name);
+      alias.is_indirect_alias = true;
+      let discovery = AdapterDiscovery {
+        adapters: vec![alias, adapter(42, NVIDIA_VENDOR_ID, name)],
+        error,
+      };
+      let inventory = collect_gpu_inventory(Ok(discovery), async {
+        Ok(vec![nvidia_info("256", name)])
+      })
+      .await;
+
+      assert_eq!(inventory.len(), 1);
+      assert_eq!(inventory[0].id, "dxgi:0:42");
+    }
   }
 
   #[test]
