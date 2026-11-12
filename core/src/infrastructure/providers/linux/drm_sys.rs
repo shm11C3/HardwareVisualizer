@@ -149,7 +149,7 @@ fn runtime_suspended(status: &str) -> bool {
   matches!(status.trim(), "suspended" | "suspending")
 }
 
-fn parse_pci_address_from_device_link(symlink_target: &str) -> Option<&str> {
+pub(crate) fn parse_pci_address_from_device_link(symlink_target: &str) -> Option<&str> {
   let segment = symlink_target.rsplit('/').next()?;
   let (domain, bdf) = segment.split_once(':')?;
   let (bus, devfn) = bdf.split_once(':')?;
