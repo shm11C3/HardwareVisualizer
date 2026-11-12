@@ -10,6 +10,7 @@ const SOURCE: &str = "NCT6687D (hwmon)";
 const BOARD_VENDOR: &str = "Micro-Star International Co., Ltd.";
 const PRO_BOARD: &str = "PRO B850-P WIFI (MS-7E56)";
 const MORTAR_BOARD: &str = "MAG B850M MORTAR WIFI (MS-7E61)";
+const CARBON_BOARD: &str = "MPG X870E CARBON WIFI (MS-7E49)";
 
 /// The board whose OEM EC firmware defines the scoped hwmon channel
 /// assignment. The BIOS version and the EC base address are evidence
@@ -18,13 +19,16 @@ const MORTAR_BOARD: &str = "MAG B850M MORTAR WIFI (MS-7E61)";
 enum BoardProfile {
   Pro,
   Mortar,
+  Carbon,
 }
 
-const TEMPERATURE_CHANNELS: [(u8, &str, &str); 3] = [
-  (2, "Diode 0 (curr)", "3"),
+const DIODE_CHANNEL: (u8, &str, &str) = (2, "Diode 0 (curr)", "3");
+const PRO_TEMPERATURE_CHANNELS: [(u8, &str, &str); 3] = [
+  DIODE_CHANNEL,
   (3, "Thermistor 15", "4"),
   (4, "Thermistor 1", "4"),
 ];
+const FAN_INPUTS_1_AND_2: [(u8, &str); 2] = [(1, "Fan 1"), (2, "Fan 2")];
 
 pub(crate) fn sample() -> MotherboardSensorCollection {
   sample_at(Path::new("/sys"))
@@ -49,6 +53,7 @@ fn identify_profile(dmi: &Path) -> Result<BoardProfile, MotherboardSensorCollect
   {
     PRO_BOARD => Ok(BoardProfile::Pro),
     MORTAR_BOARD => Ok(BoardProfile::Mortar),
+    CARBON_BOARD => Ok(BoardProfile::Carbon),
     _ => Err(unsupported()),
   }
 }
@@ -64,26 +69,25 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
     );
   };
 
-  let (temperatures, fan_speeds) = match profile {
-    BoardProfile::Pro => (
-      TEMPERATURE_CHANNELS
-        .into_iter()
-        .filter_map(|(channel, label, kind)| {
-          read_temperature(&endpoint.path, channel, label, kind)
-        })
-        .collect(),
-      [(1, "Fan 1"), (2, "Fan 2")]
-        .into_iter()
-        .filter_map(|(channel, name)| read_fan(&endpoint.path, channel, name))
-        .collect(),
-    ),
-    BoardProfile::Mortar => (
-      Vec::new(),
-      read_fan(&endpoint.path, 16, "SYS_FAN1")
-        .into_iter()
-        .collect(),
-    ),
+  let temperature_channels: &[_] = match profile {
+    BoardProfile::Pro => &PRO_TEMPERATURE_CHANNELS,
+    BoardProfile::Mortar => &[],
+    BoardProfile::Carbon => std::slice::from_ref(&DIODE_CHANNEL),
   };
+  let fan_channels: &[_] = match profile {
+    BoardProfile::Pro | BoardProfile::Carbon => &FAN_INPUTS_1_AND_2,
+    BoardProfile::Mortar => &[(16, "SYS_FAN1")],
+  };
+  let temperatures = temperature_channels
+    .iter()
+    .filter_map(|&(channel, label, kind)| {
+      read_temperature(&endpoint.path, channel, label, kind)
+    })
+    .collect();
+  let fan_speeds = fan_channels
+    .iter()
+    .filter_map(|&(channel, name)| read_fan(&endpoint.path, channel, name))
+    .collect();
   finish_sample(
     sysfs,
     &endpoint,
@@ -292,7 +296,7 @@ mod tests {
     /// degrees Celsius and 518/0 RPM.
     fn pro(bios: Option<&str>, instance: &str) -> Self {
       let fixture = Self::with_binding(PRO_BOARD, bios, instance);
-      for ((channel, label, kind), reading) in TEMPERATURE_CHANNELS
+      for ((channel, label, kind), reading) in PRO_TEMPERATURE_CHANNELS
         .into_iter()
         .zip([26_000, 22_000, 26_000])
       {
@@ -312,6 +316,20 @@ mod tests {
     fn mortar_with_bios(bios: Option<&str>, instance: &str) -> Self {
       let fixture = Self::with_binding(MORTAR_BOARD, bios, instance);
       fixture.write("fan16_input", "926\n");
+      fixture
+    }
+
+    fn carbon(instance: &str) -> Self {
+      let fixture = Self::with_binding(CARBON_BOARD, None, instance);
+      for (attribute, value) in [
+        ("temp2_label", "Diode 0 (curr)"),
+        ("temp2_type", "3"),
+        ("temp2_input", "56000"),
+        ("fan1_input", "747"),
+        ("fan2_input", "745"),
+      ] {
+        fixture.write(attribute, value);
+      }
       fixture
     }
 
@@ -673,6 +691,116 @@ mod tests {
     assert_unavailable(&finish_sample(&fixture.sysfs, &old, sample));
     fixture.write("fan16_input", "1000");
     assert_mortar_fan(&fixture.sample(), 1000);
+  }
+
+  #[test]
+  fn carbon_reports_only_the_diode_and_two_fan_inputs() {
+    for instance in ["nct6683.2592", "nct6683.2600"] {
+      let fixture = Fixture::carbon(instance);
+      fs::create_dir(fixture.sysfs.join("class/dmi/id/bios_version")).unwrap();
+      for (attribute, value) in [
+        ("temp1_label", "AMD TSI Addr 98h"),
+        ("temp1_type", "6"),
+        ("temp1_input", "42000"),
+        ("temp3_label", "Thermistor 15"),
+        ("temp3_type", "4"),
+        ("temp3_input", "25000"),
+        ("temp4_label", "Thermistor 1"),
+        ("temp4_type", "4"),
+        ("temp4_input", "23000"),
+        ("fan3_input", "1200"),
+      ] {
+        fixture.write(attribute, value);
+      }
+
+      let collection = fixture.sample();
+      assert_eq!(collection.availability, SensorAvailability::Available);
+      assert_eq!(collection.fan_support, SensorSupport::Supported);
+      assert_eq!(
+        collection.sample.temperatures,
+        [MotherboardTemperature {
+          name: "Temperature 2".to_owned(),
+          temperature: 56.0,
+          source: SOURCE.to_owned(),
+        }]
+      );
+      assert_eq!(
+        collection.sample.fan_speeds,
+        [
+          MotherboardFanSpeed {
+            name: "Fan 1".to_owned(),
+            rpm: Some(747),
+            status: FanSpeedStatus::Active,
+            source: SOURCE.to_owned(),
+          },
+          MotherboardFanSpeed {
+            name: "Fan 2".to_owned(),
+            rpm: Some(745),
+            status: FanSpeedStatus::Active,
+            source: SOURCE.to_owned(),
+          },
+        ]
+      );
+    }
+  }
+
+  #[test]
+  fn carbon_preserves_valid_siblings_when_a_channel_is_unavailable() {
+    let fixture = Fixture::carbon("nct6683.2592");
+    fixture.write("temp3_label", "Diode 0 (curr)");
+    fixture.write("temp3_type", "3");
+    fixture.write("temp3_input", "57000");
+    fixture.write("temp2_label", "Thermistor 15");
+    let collection = fixture.sample();
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert!(collection.sample.temperatures.is_empty());
+    assert_eq!(collection.sample.fan_speeds.len(), 2);
+
+    fixture.write("temp2_label", "Diode 0 (curr)");
+    fs::remove_file(fixture.node.join("temp2_type")).unwrap();
+    assert!(fixture.sample().sample.temperatures.is_empty());
+    fixture.write("temp2_type", "3");
+    for unavailable in ["0", "65535", "747 RPM"] {
+      fixture.write("fan1_input", unavailable);
+      let collection = fixture.sample();
+      assert_eq!(collection.availability, SensorAvailability::Available);
+      assert_eq!(collection.sample.temperatures[0].temperature, 56.0);
+      assert_eq!(collection.sample.fan_speeds.len(), 1);
+      assert_eq!(collection.sample.fan_speeds[0].name, "Fan 2");
+      assert_eq!(collection.sample.fan_speeds[0].rpm, Some(745));
+    }
+
+    fixture.write("fan1_input", "65534");
+    fs::remove_file(fixture.node.join("fan2_input")).unwrap();
+    let collection = fixture.sample();
+    assert_eq!(collection.sample.temperatures[0].temperature, 56.0);
+    assert_eq!(collection.sample.fan_speeds.len(), 1);
+    assert_eq!(collection.sample.fan_speeds[0].rpm, Some(65_534));
+  }
+
+  #[test]
+  fn carbon_requires_exact_dmi_and_a_unique_native_binding() {
+    let fixture = Fixture::carbon("nct6683.2592");
+    let board = fixture.sysfs.join("class/dmi/id/board_name");
+    fs::write(&board, "MPG X870E CARBON MAX WIFI (MS-7E49)").unwrap();
+    assert!(matches!(
+      fixture.sample().availability,
+      SensorAvailability::Unsupported { .. }
+    ));
+    fs::remove_file(&board).unwrap();
+    assert_unavailable(&fixture.sample());
+    fs::write(board, CARBON_BOARD).unwrap();
+    let driver_link = fixture.parent().join("driver");
+    let driver = fs::read_link(&driver_link).unwrap();
+    fs::remove_file(&driver_link).unwrap();
+    let dkms_driver = fixture.sysfs.join("bus/platform/drivers/nct6687");
+    fs::create_dir(&dkms_driver).unwrap();
+    symlink(dkms_driver, &driver_link).unwrap();
+    assert_unavailable(&fixture.sample());
+    fs::remove_file(&driver_link).unwrap();
+    symlink(driver, driver_link).unwrap();
+    add_binding(&fixture.sysfs, "nct6683.2600", "hwmon6");
+    assert_unavailable(&fixture.sample());
   }
 
   fn assert_pro_sample(collection: &MotherboardSensorCollection) {
