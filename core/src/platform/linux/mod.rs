@@ -97,7 +97,14 @@ impl SensorPlatform for LinuxPlatform {
   }
 
   fn sample_motherboard_sensors(&self) -> crate::models::MotherboardSensorCollection {
-    crate::infrastructure::providers::nct6687_hwmon::sample()
+    use crate::infrastructure::providers::{it8696e_wmi, nct6687_hwmon};
+    use crate::models::SensorAvailability;
+
+    let sample = it8696e_wmi::sample();
+    match sample.availability {
+      SensorAvailability::Unsupported { .. } => nct6687_hwmon::sample(),
+      _ => sample,
+    }
   }
 }
 

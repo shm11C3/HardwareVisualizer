@@ -2,6 +2,7 @@ pub(crate) mod dimm_temperature;
 pub mod dmidecode;
 pub mod drm_sys;
 pub mod hwmon;
+pub(crate) mod it8696e_wmi;
 pub mod kernel;
 pub mod lspci;
 pub(crate) mod nct6687_hwmon;
