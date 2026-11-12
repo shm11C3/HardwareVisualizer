@@ -37,11 +37,13 @@ const TIGER_LAKE_B1_SIGNATURE: u32 = 0x0008_06c1;
 const ROCKET_LAKE_SIGNATURE: u32 = 0x000a_0671;
 const RAPTOR_LAKE_J0_SIGNATURE: u32 = 0x000b_06a2;
 const LUNAR_LAKE_B0_SIGNATURE: u32 = 0x000b_06d1;
+const GRACEMONT_N0_SIGNATURE: u32 = 0x000b_06e0;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
 const ALDER_LAKE_H_P_PS: u32 = 0x0009_06a3;
 const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
 const METEOR_LAKE_C0: u32 = 0x000a_06a4;
 const HYBRID_CAPABILITY: u32 = 1 << 15;
+const THERMAL_STATUS_CAPABILITY: u32 = 1 << 22;
 const MAX_TOPOLOGY_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
   std::mem::offset_of!(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, Anonymous);
@@ -102,16 +104,22 @@ fn profile_from_cpuid(
     return None;
   }
   let vendor = vendor_id_from_leaf0(leaf0);
-  let signature = read_leaf(1)?.eax;
+  let leaf1 = read_leaf(1)?;
+  let signature = leaf1.eax;
   if signature == ARROW_LAKE_SIGNATURE && leaf0.eax < HYBRID_CORE_TYPE_LEAF {
     return None;
   }
   let thermal_features = read_leaf(6)?.eax;
   // cpuid_leaf selects subleaf 0.
   let extended_features = read_leaf(7);
-  if signature == KABY_LAKE_Z270F_SIGNATURE
-    && (leaf0.eax < 7 || extended_features.is_none())
+  if matches!(
+    signature,
+    KABY_LAKE_Z270F_SIGNATURE | GRACEMONT_N0_SIGNATURE
+  ) && (leaf0.eax < 7 || extended_features.is_none())
   {
+    return None;
+  }
+  if signature == GRACEMONT_N0_SIGNATURE && leaf1.edx & THERMAL_STATUS_CAPABILITY == 0 {
     return None;
   }
   select_profile(
@@ -166,6 +174,7 @@ const EXACT_LEGACY_OFFSETS: &[(u32, u64)] = &[
   (ICE_LAKE_D1_SIGNATURE, 0),
   (TIGER_LAKE_B1_SIGNATURE, 0),
   (ROCKET_LAKE_SIGNATURE, 0),
+  (GRACEMONT_N0_SIGNATURE, 0),
 ];
 
 fn legacy_zero_offset_mask(signature: u32) -> Option<u64> {
@@ -602,19 +611,34 @@ mod tests {
     thermal_features: u32,
     leaf7_edx: Option<u32>,
   ) -> Option<CoreDtsProfile> {
+    synthetic_profile(signature, 0, thermal_features, leaf7_edx, None)
+  }
+
+  fn synthetic_profile(
+    signature: u32,
+    leaf1_edx: u32,
+    thermal_features: u32,
+    leaf7_edx: Option<u32>,
+    leaf1a_eax: Option<u32>,
+  ) -> Option<CoreDtsProfile> {
     let mut requested = Vec::new();
     let profile = profile_from_cpuid(|leaf| {
       requested.push(leaf);
       let (eax, ebx, ecx, edx) = match leaf {
         0 => (
-          if leaf7_edx.is_some() { 7 } else { 6 },
+          match (leaf1a_eax, leaf7_edx) {
+            (Some(_), _) => 0x1a,
+            (None, Some(_)) => 7,
+            (None, None) => 6,
+          },
           u32::from_le_bytes(*b"Genu"),
           u32::from_le_bytes(*b"ntel"),
           u32::from_le_bytes(*b"ineI"),
         ),
-        1 => (signature, 0, 0, 0),
+        1 => (signature, 0, 0, leaf1_edx),
         6 => (thermal_features, 0, 0, 0),
         7 => (0, 0, 0, leaf7_edx?),
+        0x1a => (leaf1a_eax?, 0, 0, 0),
         0x8000_0003..=0x8000_0004 => (0, 0, 0, 0),
         0x8000_0000 => (0x8000_0004, 0, 0, 0),
         0x8000_0002 => (
@@ -871,12 +895,75 @@ mod tests {
       0x000b_06a8,
       0x000b_06d0,
       0x000b_06d2,
-      0x000b_06e0,
+      0x000b_06e0, // The separate non-hybrid Gracemont scope rejects hybrid.
       BLOOMFIELD_SIGNATURE,
     ] {
       assert_eq!(
         select_profile("GenuineIntel", other_signature, 0x41, HYBRID_CAPABILITY),
         None
+      );
+    }
+  }
+
+  const GRACEMONT_FIXTURE: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: 0x000b_06e0,
+    zero_offset_mask: 0,
+  };
+
+  #[test]
+  fn gracemont_requires_exact_nonhybrid_cpuid_with_thermal_status_and_dts() {
+    let signature = 0x000b_06e0;
+    let thermal_status = 1 << 22;
+    for ptm in [0, 1 << 6] {
+      for core_type in [None, Some(0x2000_0001)] {
+        assert_eq!(
+          synthetic_profile(signature, thermal_status, ptm | 1, Some(0), core_type),
+          Some(GRACEMONT_FIXTURE)
+        );
+      }
+      for (signature, leaf1, leaf6, leaf7) in [
+        (0x000b_06e1, thermal_status, ptm | 1, Some(0)),
+        (0x000b_06f0, thermal_status, ptm | 1, Some(0)),
+        (signature, 0, ptm | 1, Some(0)),
+        (signature, thermal_status, ptm, Some(0)),
+        (signature, thermal_status, ptm | 1, Some(HYBRID_CAPABILITY)),
+        (signature, thermal_status, ptm | 1, None),
+      ] {
+        assert_eq!(
+          synthetic_profile(signature, leaf1, leaf6, leaf7, None),
+          None
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn gracemont_uses_seven_bit_delta_with_the_bounded_offset_independent_target() {
+    for (target, status, expected) in [
+      (0x9169_0000, 0x8841_0000, Some(40.0)),
+      (0x9169_0000, 0x882c_0800, Some(61.0)),
+      (0x8069_0000, 0x8835_2000, Some(52.0)),
+      (0xbf69_007f, 0x8835_2000, Some(52.0)),
+      (0x8069_0000, 0x88b5_2000, Some(52.0)),
+      (0x8069_0000, 0x8869_0000, None),
+      (0x8069_0000, 0x886e_0000, None),
+      (0x8069_0000, 0x0835_2000, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(GRACEMONT_FIXTURE, target, status),
+        expected
+      );
+    }
+    for (target, expected) in [
+      (0, None),
+      (49, None),
+      (50, Some(50.0)),
+      (120, Some(120.0)),
+      (121, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(GRACEMONT_FIXTURE, target << 16, 1 << 31),
+        expected
       );
     }
   }
@@ -1077,7 +1164,9 @@ mod tests {
     Status,
     InvalidStatus,
     AmbiguousStatusBit,
+    NoThermalStatus,
     NoDts,
+    MissingLeaf7,
     DifferentSignature,
     NoHybridFlag,
     UnexpectedHybridFlag,
@@ -1171,11 +1260,20 @@ mod tests {
       } else {
         self.extended_features
       };
-      select_profile(
-        "GenuineIntel",
+      let leaf1_edx = if self.failure == (target, Failure::NoThermalStatus) {
+        0
+      } else {
+        1 << 22
+      };
+      let leaf7_edx =
+        (self.failure != (target, Failure::MissingLeaf7)).then_some(extended_features);
+      let leaf1a_eax = (self.extended_features != 0).then_some(0x2000_0001);
+      synthetic_profile(
         signature,
+        leaf1_edx,
         thermal_features,
-        extended_features,
+        leaf7_edx,
+        leaf1a_eax,
       )
     }
 
@@ -1556,6 +1654,61 @@ mod tests {
           expected_calls
         );
       }
+    }
+  }
+
+  #[test]
+  fn gracemont_rechecks_capabilities_on_pinned_cores_and_keeps_valid_siblings() {
+    let topology = synthetic_topology(&[1, 2, 4, 8]);
+    for (failure, reads_on_core_zero) in [
+      (None, 2),
+      (Some(Failure::DifferentSignature), 0),
+      (Some(Failure::NoThermalStatus), 0),
+      (Some(Failure::NoDts), 0),
+      (Some(Failure::MissingLeaf7), 0),
+      (Some(Failure::UnexpectedHybridFlag), 0),
+      (Some(Failure::Target), 1),
+      (Some(Failure::Status), 2),
+      (Some(Failure::InvalidStatus), 2),
+    ] {
+      let mut fixture =
+        Fixture::new(failure.map_or((u8::MAX, Failure::Pin), |fault| (0, fault)));
+      fixture.signature = 0x000b_06e0;
+      fixture.thermal_features = 1;
+      fixture.target_by_core_type = [0x9169_0000, 0x8069_0000];
+      assert_eq!(fixture.profile(), Some(GRACEMONT_FIXTURE));
+      let readings = collect(
+        GRACEMONT_FIXTURE,
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (
+            reading.processor_group,
+            reading.logical_processor,
+            reading.temperature_celsius,
+          ))
+          .collect::<Vec<_>>(),
+        [
+          (0, 0, failure.is_none().then_some(63.0)),
+          (0, 1, Some(63.0)),
+          (0, 2, Some(63.0)),
+          (0, 3, Some(63.0)),
+        ]
+      );
+      let calls = fixture.calls.into_inner();
+      assert_eq!(
+        calls
+          .iter()
+          .filter(|call| matches!(call, Call::Read(0, _)))
+          .count(),
+        reads_on_core_zero
+      );
+      assert!(calls.contains(&Call::Restore(0)));
     }
   }
 
