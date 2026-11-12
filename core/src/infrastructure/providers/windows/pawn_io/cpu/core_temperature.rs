@@ -640,6 +640,7 @@ mod tests {
         0 => (
           match (leaf1a_eax, leaf7_edx) {
             (Some(_), _) => 0x1a,
+            (None, Some(_)) if signature == 0x0003_06f2 => 0x0b,
             (None, Some(_)) => 7,
             (None, None) => 6,
           },
@@ -650,6 +651,8 @@ mod tests {
         1 => (signature, 0, 0, leaf1_edx),
         6 => (thermal_features, 0, 0, 0),
         7 => (0, 0, 0, leaf7_edx?),
+        // Synthetic Haswell-E core-level count inconsistent with the Windows masks.
+        0x0b if signature == 0x0003_06f2 => (0, 1, 2 << 8, 0),
         0x1a => (leaf1a_eax?, 0, 0, 0),
         0x8000_0003..=0x8000_0004 => (0, 0, 0, 0),
         0x8000_0000 => (0x8000_0004, 0, 0, 0),
@@ -791,7 +794,9 @@ mod tests {
   #[test]
   fn additional_legacy_decode_respects_calibrated_targets_and_exact_offset_scope() {
     for (signature, target, status, expected) in [
+      // Synthetic pairs for the two Haswell-E/Xeon E5 v3 decode outcomes.
       (0x0003_06f2, 0x0064_0000, 0x8845_0000, 31.0),
+      (0x0003_06f2, 0x0064_0000, 0x8849_0000, 27.0),
       (0x0005_06e3, 0x0064_1400, 0x8849_0008, 27.0),
       (0x0009_06e9, 0x0064_140d, 0x8842_0800, 34.0),
       (0x0009_06e9, 0x0064_140d, 0x8841_0800, 35.0),
@@ -1742,6 +1747,59 @@ mod tests {
       if matches!(failure, Failure::Pin | Failure::NoDts) {
         assert!(!calls.iter().any(|call| matches!(call, Call::Read(0, _))));
       }
+    }
+  }
+
+  #[test]
+  fn haswell_e_uses_windows_masks_without_consulting_cpuid_topology() {
+    let signature = 0x0003_06f2;
+    // The CPUID fixture asserts the queried leaves exclude 0BH, even though
+    // it advertises a synthetic count that disagrees with this Windows topology.
+    let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
+    let group = group_record(1, 0b1111);
+    let package = processor_record(RelationProcessorPackage.0, 0, 0b1111);
+    let first = processor_record(RelationProcessorCore.0, 0, 0b0101);
+    let second = processor_record(RelationProcessorCore.0, 0, 0b1010);
+    let topology = parse_topology(
+      &[
+        group.clone(),
+        package.clone(),
+        first.clone(),
+        second.clone(),
+      ]
+      .concat(),
+    )
+    .unwrap();
+    let mut fixture = Fixture::new((u8::MAX, Failure::Pin));
+    fixture.signature = signature;
+    fixture.thermal_features = 1;
+    let readings = collect(
+      profile,
+      &topology,
+      Instant::now() + Duration::from_secs(1),
+      &fixture,
+    )
+    .unwrap();
+    assert_eq!(
+      readings
+        .iter()
+        .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+        .collect::<Vec<_>>(),
+      [(0, Some(58.0)), (1, Some(58.0))]
+    );
+    let invalid = [
+      [group.clone(), package.clone(), first.clone(), first.clone()].concat(),
+      [
+        group_record(2, 0b1111),
+        package.clone(),
+        first.clone(),
+        second.clone(),
+      ]
+      .concat(),
+      [group, package.clone(), package, first, second].concat(),
+    ];
+    for records in invalid {
+      assert_eq!(parse_topology(&records), None);
     }
   }
 
