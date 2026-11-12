@@ -12,11 +12,11 @@ const DIMM_PART: &str = "M425R1GB4BB0-CWMOD";
 const CONTROLLER_ADDRESS: &str = "0000:00:1f.4";
 const SPD_SERIAL_OFFSET: u64 = 517;
 
-pub(crate) fn collect(raw_inventory: &str) -> DimmTemperature {
-  collect_from(Path::new("/sys"), raw_inventory)
+pub(crate) fn collect(raw_inventory: &str, stderr_empty: bool) -> DimmTemperature {
+  collect_from(Path::new("/sys"), raw_inventory, stderr_empty)
 }
 
-fn collect_from(sys: &Path, raw_inventory: &str) -> DimmTemperature {
+fn collect_from(sys: &Path, raw_inventory: &str, stderr_empty: bool) -> DimmTemperature {
   let dmi = sys.join("class/dmi/id");
   let vendor = attribute(&dmi, "board_vendor");
   let board = attribute(&dmi, "board_name");
@@ -33,6 +33,9 @@ fn collect_from(sys: &Path, raw_inventory: &str) -> DimmTemperature {
     None => return DimmTemperature::Unavailable,
   }
 
+  if !stderr_empty {
+    return DimmTemperature::Unavailable;
+  }
   let Some(dimm) = single_populated_dimm(raw_inventory) else {
     return DimmTemperature::Unavailable;
   };
@@ -57,7 +60,6 @@ fn collect_from(sys: &Path, raw_inventory: &str) -> DimmTemperature {
 /// Raw Type 17 fields are used only during this request and never cached.
 #[derive(Default)]
 struct Dimm<'a> {
-  heading: bool,
   array_handle: Option<&'a str>,
   size: Option<&'a str>,
   form_factor: Option<&'a str>,
@@ -69,13 +71,6 @@ struct Dimm<'a> {
 
 impl<'a> Dimm<'a> {
   fn field(&mut self, line: &'a str) -> Option<()> {
-    if line == "Memory Device" {
-      if std::mem::replace(&mut self.heading, true) {
-        return None;
-      }
-      return Some(());
-    }
-
     let Some((key, value)) = line.split_once(':') else {
       return Some(());
     };
@@ -96,9 +91,6 @@ impl<'a> Dimm<'a> {
   }
 
   fn complete(&self) -> Option<bool> {
-    if !self.heading {
-      return None;
-    }
     let size = self.size?;
     if size == "No Module Installed" {
       return Some(false);
@@ -149,11 +141,7 @@ fn is_reported(value: &str) -> bool {
 }
 
 enum InventoryRecord<'a> {
-  Array {
-    handle: u16,
-    heading: bool,
-    slots: Option<u16>,
-  },
+  Array { handle: u16, slots: Option<u16> },
   Device(Dimm<'a>),
 }
 
@@ -161,10 +149,7 @@ impl<'a> InventoryRecord<'a> {
   fn field(&mut self, line: &'a str) -> Option<()> {
     match self {
       Self::Device(device) => device.field(line),
-      Self::Array { heading, slots, .. } => {
-        if line == "Physical Memory Array" && std::mem::replace(heading, true) {
-          return None;
-        }
+      Self::Array { slots, .. } => {
         if let Some(raw) = line.strip_prefix("Number Of Devices:") {
           let digits = raw.strip_prefix(' ')?;
           if !digits.bytes().all(|byte| byte.is_ascii_digit()) {
@@ -191,14 +176,7 @@ struct Inventory<'a> {
 impl<'a> Inventory<'a> {
   fn finish(&mut self, record: Option<InventoryRecord<'a>>) -> Option<()> {
     match record {
-      Some(InventoryRecord::Array {
-        handle,
-        heading,
-        slots,
-      }) => {
-        if !heading {
-          return None;
-        }
+      Some(InventoryRecord::Array { handle, slots }) => {
         self.array_slots.insert(handle, usize::from(slots?));
       }
       Some(InventoryRecord::Device(device)) => {
@@ -229,40 +207,104 @@ fn single_populated_dimm(raw: &str) -> Option<Dimm<'_>> {
   let mut inventory = Inventory::default();
   let mut current = None;
   let mut handles = HashSet::new();
-  for line in raw.lines().map(str::trim_start) {
+  let mut lines = raw.lines();
+  while let Some(line) = lines.next() {
+    if line.trim().is_empty() {
+      continue;
+    }
     if let Some(header) = line.strip_prefix("Handle ") {
       inventory.finish(current.take())?;
       let (handle, fields) = header.split_once(", DMI type ")?;
       let (kind, length) = fields.split_once(", ")?;
-      let kind = kind.parse::<u8>().ok()?;
-      if matches!(kind, 16 | 17) {
-        let handle = parse_handle(handle)?;
-        let length = length.strip_suffix(" bytes")?.parse::<u8>().ok()?;
-        let minimum_length = if kind == 16 { 0x0f } else { 0x1b };
-        if !handles.insert(handle) || length < minimum_length {
+      let handle = parse_handle(handle)?;
+      if !handles.insert(handle) {
+        return None;
+      }
+
+      let heading = lines.next()?;
+      if kind == "127" {
+        // Type counts alone cannot distinguish a clean SMBIOS 3 prefix
+        // from a complete table. Require the decoder's terminal record.
+        if length != "4 bytes"
+          || heading != "End Of Table"
+          || lines.any(|line| !line.trim().is_empty())
+          || inventory.array_slots != inventory.device_counts
+        {
           return None;
         }
-        current = Some(if kind == 16 {
-          InventoryRecord::Array {
-            handle,
-            heading: false,
-            slots: None,
-          }
-        } else {
-          InventoryRecord::Device(Dimm::default())
-        });
+        return inventory.populated;
       }
-    } else if let Some(record) = current.as_mut() {
-      record.field(line)?;
-    } else if matches!(line, "Physical Memory Array" | "Memory Device") {
-      return None;
+
+      let length = length.strip_suffix(" bytes")?.parse::<u8>().ok()?;
+      current = match (kind, heading) {
+        ("5", "Memory Controller Information") | ("6", "Memory Module Information")
+          if length >= 4 =>
+        {
+          None
+        }
+        ("16", "Physical Memory Array") if length >= 0x0f => {
+          Some(InventoryRecord::Array {
+            handle,
+            slots: None,
+          })
+        }
+        ("17", "Memory Device") if length >= 0x1b => {
+          Some(InventoryRecord::Device(Dimm::default()))
+        }
+        _ => return None,
+      };
+    } else if handles.is_empty() {
+      if !is_inventory_notice(line) {
+        return None;
+      }
+    } else {
+      // Attribute lines start with a tab, and nested values with two.
+      // Reject diagnostic lines without inspecting firmware field values.
+      let field = line.strip_prefix('\t')?;
+      if field.trim_start().starts_with('<')
+        || (!field.starts_with('\t') && !field.contains(": "))
+      {
+        return None;
+      }
+      if !field.starts_with('\t')
+        && let Some(record) = current.as_mut()
+      {
+        record.field(field)?;
+      }
     }
   }
-  inventory.finish(current)?;
-  if inventory.array_slots != inventory.device_counts {
-    return None;
+  None
+}
+
+fn is_inventory_notice(line: &str) -> bool {
+  if matches!(
+    line,
+    "Getting SMBIOS data from sysfs." | "Scanning /dev/mem for entry point."
+  ) {
+    return true;
   }
-  inventory.populated
+  if let Some(version) = line.strip_prefix("# dmidecode ").or_else(|| {
+    line
+      .strip_prefix("SMBIOS ")
+      .or_else(|| line.strip_prefix("Legacy DMI "))?
+      .strip_suffix(" present.")
+  }) {
+    return version.split('.').all(is_decimal);
+  }
+  if let Some(address) = line
+    .strip_prefix("Table at 0x")
+    .and_then(|value| value.strip_suffix('.'))
+  {
+    return !address.is_empty() && address.bytes().all(|byte| byte.is_ascii_hexdigit());
+  }
+  line
+    .strip_suffix(" bytes.")
+    .and_then(|value| value.split_once(" structures occupying "))
+    .is_some_and(|(count, size)| is_decimal(count) && is_decimal(size))
+}
+
+fn is_decimal(value: &str) -> bool {
+  !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn decode_serial(value: &str) -> Option<[u8; 4]> {
@@ -434,6 +476,7 @@ mod tests {
   use tempfile::TempDir;
 
   const SERIAL: [u8; 4] = [0x01, 0x23, 0x45, 0x67];
+  const END_OF_TABLE: &str = "Handle 0x007F, DMI type 127, 4 bytes\nEnd Of Table\n";
 
   const INVENTORY: &str = r#"Handle 0x000F, DMI type 16, 23 bytes
 Physical Memory Array
@@ -531,8 +574,8 @@ Memory Device
       hwmon
     }
 
-    fn collect(&self, raw: &str) -> DimmTemperature {
-      collect_from(&self.sys, raw)
+    fn collect(&self, records: &str) -> DimmTemperature {
+      collect_from(&self.sys, &format!("{records}\n{END_OF_TABLE}"), true)
     }
   }
 
@@ -552,6 +595,61 @@ Memory Device
     let fixture = Fixture::new();
     fixture.add_client(7, "0052", 3);
     assert_eq!(fixture.collect(INVENTORY), available(40.25));
+  }
+
+  #[test]
+  fn requires_a_terminal_record_and_clean_decoder_output_for_attribution() {
+    use super::super::dmidecode::parse_dmidecode_memory_info;
+
+    let fixture = Fixture::new();
+    fixture.add_client(7, "0052", 3);
+    let prefix = format!(
+      "# dmidecode 3.5\nGetting SMBIOS data from sysfs.\nSMBIOS 3.5.0 present.\n\n{INVENTORY}\n"
+    );
+    let complete = format!("{prefix}{END_OF_TABLE}\n\t\n");
+    assert_eq!(
+      collect_from(&fixture.sys, &complete, true),
+      available(40.25)
+    );
+    assert_eq!(
+      parse_dmidecode_memory_info(&prefix),
+      parse_dmidecode_memory_info(&complete)
+    );
+    assert_eq!(parse_dmidecode_memory_info(&prefix).memory_count, 1);
+
+    for (raw, stderr_empty) in [
+      (prefix.clone(), true),
+      (
+        format!("{prefix}{}", END_OF_TABLE.lines().next().unwrap()),
+        true,
+      ),
+      (complete.replace("127, 4 bytes", "127, 5 bytes"), true),
+      (complete.replace("127, 4 bytes", "127, +4 bytes"), true),
+      (complete.replace("0x007F", "0x+07F"), true),
+      (complete.replace("0x007F", "0x0010"), true),
+      (format!("{prefix}{END_OF_TABLE}{END_OF_TABLE}"), true),
+      (format!("{prefix}{END_OF_TABLE}{INVENTORY}"), true),
+      (
+        format!("{prefix}\tBank Locator: {}", END_OF_TABLE.trim()),
+        true,
+      ),
+      (format!("Invalid entry point\n{complete}"), true),
+      (format!("{prefix}\t<TRUNCATED>\n{END_OF_TABLE}"), true),
+      (complete.clone(), false),
+    ] {
+      assert_eq!(
+        collect_from(&fixture.sys, &raw, stderr_empty),
+        DimmTemperature::Unavailable,
+        "{raw:?}, stderr_empty={stderr_empty}"
+      );
+    }
+
+    let firmware_value =
+      format!("{prefix}\tBank Locator: Error: <TRUNCATED>\n{END_OF_TABLE}");
+    assert_eq!(
+      collect_from(&fixture.sys, &firmware_value, true),
+      available(40.25)
+    );
   }
 
   #[test]

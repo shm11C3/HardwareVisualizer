@@ -34,10 +34,11 @@ pub async fn get_memory_info_detail() -> Result<MemoryInfo, PlatformError> {
 
 pub async fn get_memory_details() -> Result<MemoryDetails, PlatformError> {
   let (memory, raw) = read_detail_and_cache().await?;
-  let dimm_temperature =
-    tokio::task::spawn_blocking(move || providers::dimm_temperature::collect(&raw))
-      .await
-      .unwrap_or(DimmTemperature::Unavailable);
+  let dimm_temperature = tokio::task::spawn_blocking(move || {
+    providers::dimm_temperature::collect(&raw.stdout, raw.stderr_empty)
+  })
+  .await
+  .unwrap_or(DimmTemperature::Unavailable);
 
   Ok(MemoryDetails {
     memory,
@@ -45,11 +46,12 @@ pub async fn get_memory_details() -> Result<MemoryDetails, PlatformError> {
   })
 }
 
-async fn read_detail_and_cache() -> Result<(MemoryInfo, String), PlatformError> {
+async fn read_detail_and_cache()
+-> Result<(MemoryInfo, providers::dmidecode::DmidecodeOutput), PlatformError> {
   let raw = providers::dmidecode::get_raw_dmidecode()
     .await
     .map_err(PlatformError::fault)?;
-  let parsed = providers::dmidecode::parse_dmidecode_memory_info(&raw);
+  let parsed = providers::dmidecode::parse_dmidecode_memory_info(&raw.stdout);
 
   if let Err(e) =
     linux::cache::write_cache(&parsed, &linux::cache::get_memory_cache_path())
