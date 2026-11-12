@@ -100,6 +100,7 @@ shared enforcement surface.
 - [Validate future privileged file ACLs](validate-future-privileged-file-acls.md)
 
 - [Evidence before conclusions](evidence-before-conclusions.md)
+- [Verify the exact sysfs device node](verify-exact-sysfs-device-node.md)
 - [Keep agent guidance aligned with canonical architecture](guidance-follows-canonical-architecture.md)
 - [Persist application preferences through settings](persist-application-preferences-through-settings.md)
 - [Legacy GPU source display preference](legacy-gpu-source-display-preference.md)
@@ -144,3 +145,4 @@ shared enforcement surface.
 
 - [Match macOS native opacity to Transparent UI](macos-native-window-opacity.md)
 - [Audit OS-owned sensor read effects](audit-os-owned-sensor-read-effects.md)
+- [Distinguish indirect display aliases from physical GPUs](distinguish-dxgi-display-aliases.md)

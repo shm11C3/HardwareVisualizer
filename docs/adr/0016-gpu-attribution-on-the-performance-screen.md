@@ -39,16 +39,24 @@ there is no longer anything to honor.
 
 The `getHardwareInfo` inventory and the monitor stream key their GPUs in
 different namespaces on every platform. The Windows inventory enumerates DXGI
-hardware adapters. It preserves unambiguous legacy numeric inventory ids
+hardware adapters. It omits an indirect display-only adapter when Windows
+reports the same single physical hardware key for a render-capable adapter.
+Rows with unavailable identity remain in the inventory. The physical key is
+local to this check. Apply alias filtering after counting names and legacy
+ids so that the renderer keeps its existing inventory id. The inventory
+preserves unambiguous legacy numeric ids
 (raw NVAPI id for an enriched NVIDIA adapter and device id for AMD/Intel)
 and otherwise uses `dxgi:<luid_high>:<luid_low>`. Live NVIDIA samples use
 `nvapi:<id>`. Windows AMD ADL samples use the PCI address as
-`pci:<bus>:<device>:<function>`. The Windows PDH fallback samples use
+`pci:<bus>:<device>:<function>`. The Windows PDH fallback excludes aliases
+under the same physical-key rule and keeps the renderer's identity. It uses
 the reboot-stable PnP device instance id as
 `pdh:instance:<device_instance_id>` when SetupDi can associate it with the
-DXGI adapter LUID and fall back to `pdh:<luid_high>:<luid_low>` otherwise.
-macOS pairs `0x<registry_id>` with `iokit:<name>`. Linux pairs `card<n>` with the
-PCI BDF.
+DXGI adapter LUID and falls back to `pdh:<luid_high>:<luid_low>` otherwise.
+macOS pairs `0x<registry_id>` with `iokit:<name>`. Linux DRM inventory uses
+`card<n>`. An NVIDIA display function bound to the kernel driver with no DRM
+row uses `pci-device:<domain>:<bus>:<device>.<function>` in the inventory.
+Both Linux paths use the full PCI BDF for the live ID when it is unique.
 The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
 across. The frontend enforces this at compile time: live ids carry the branded
 `LiveGpuId` type, minted only where samples enter (`useHardwareEventListener`),
@@ -68,7 +76,11 @@ owners — by named or namespace import alike.
 
 Linux uses `pci:<domain>:<bus>:<device>.<function>` as the live key and the
 full PCI address for NVML and lspci lookups. A missing or shared full PCI
-address falls back to `drm:card<n>`. NVML requires a unique full address.
+address falls back to `drm:card<n>`. NVML requires a unique full address. A PCI
+function already represented by DRM retains its DRM row. For PCI-only NVIDIA
+functions, inventory and live samples share the display name
+`NVIDIA GPU (<domain>:<bus>:<device>.<function>)`. The live ID remains stable if
+DRM appears later for the same address.
 The app-level selection migration translates a legacy domainless PCI key
 only when it matches one detected live adapter. An ambiguous key remains
 unresolved. The archive retains the ids originally recorded.

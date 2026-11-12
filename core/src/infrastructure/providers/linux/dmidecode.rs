@@ -2,16 +2,22 @@ use crate::models;
 use crate::utils;
 use std;
 
-pub async fn get_raw_dmidecode() -> Result<String, String> {
+pub(crate) struct DmidecodeOutput {
+  pub(crate) stdout: String,
+  pub(crate) stderr_empty: bool,
+}
+
+pub(crate) async fn get_raw_dmidecode() -> Result<DmidecodeOutput, String> {
   let output = std::process::Command::new("pkexec")
-    .arg("dmidecode")
-    .arg("--type")
-    .arg("memory")
+    .args(["dmidecode", "--type", "memory", "--type", "127"])
     .output()
     .map_err(|e| format!("Failed to execute pkexec dmidecode: {e}"))?;
 
   if output.status.success() {
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(DmidecodeOutput {
+      stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+      stderr_empty: output.stderr.is_empty(),
+    })
   } else {
     Err(String::from_utf8_lossy(&output.stderr).to_string())
   }
