@@ -101,6 +101,7 @@ shared enforcement surface.
 
 - [Evidence before conclusions](evidence-before-conclusions.md)
 - [Bound NVML waits in the collector](bound-nvml-waits-in-the-collector.md)
+- [Verify the exact sysfs device node](verify-exact-sysfs-device-node.md)
 - [Keep agent guidance aligned with canonical architecture](guidance-follows-canonical-architecture.md)
 - [Persist application preferences through settings](persist-application-preferences-through-settings.md)
 - [Legacy GPU source display preference](legacy-gpu-source-display-preference.md)

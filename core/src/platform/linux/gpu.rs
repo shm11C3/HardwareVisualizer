@@ -1,5 +1,6 @@
 use crate::enums::error::PlatformError;
 use crate::infrastructure;
+use crate::infrastructure::providers::drm_sys::GpuVendor;
 use crate::models;
 
 pub async fn get_gpu_usage() -> Result<(f32, String), PlatformError> {
@@ -32,32 +33,29 @@ pub async fn get_gpu_usage() -> Result<(f32, String), PlatformError> {
   ))
 }
 
-/// Build the GPU inventory from every DRM card, whatever its vendor.
+/// Build the GPU inventory from DRM and NVIDIA display functions without DRM.
 ///
 /// ADR 0016 defines the System Specifications sheet as an inventory of
-/// every detected adapter. A vendor with no Linux reading provider
-/// (NVIDIA, unrecognized vendors) still gets a named row; ending the
-/// vendor match with a wildcard `None` is how those cards used to vanish
-/// from the sheet entirely.
+/// every detected adapter. A device still gets a named row when readings
+/// are unavailable.
 pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, PlatformError> {
-  use crate::infrastructure::providers::drm_sys::GpuVendor;
+  use infrastructure::providers::nvml_provider;
   use tokio::task::JoinSet;
 
-  let card_ids = infrastructure::providers::drm_sys::get_all_card_ids();
+  let cards = drm_cards();
+  let pci_only =
+    pci_only_nvidia_addresses(&cards, nvml_provider::pci_display_addresses());
   let mut join_set = JoinSet::new();
 
-  for card_id in card_ids {
+  for card in cards {
     join_set.spawn(async move {
-      let vendor = infrastructure::providers::drm_sys::detect_gpu_vendor(card_id);
-      match vendor {
-        GpuVendor::Amd => get_amd_graphic_info(card_id).await.ok(),
-        GpuVendor::Intel => get_intel_graphic_info(card_id).await.ok(),
+      match card.vendor {
+        GpuVendor::Amd => get_amd_graphic_info(&card).await.ok(),
+        GpuVendor::Intel => get_intel_graphic_info(card.id).await.ok(),
         // A named row with unsupported values, not a missing row.
-        GpuVendor::Nvidia | GpuVendor::Unknown => {
-          Some(get_generic_graphic_info(card_id, vendor))
-        }
+        GpuVendor::Nvidia | GpuVendor::Unknown => Some(get_generic_graphic_info(&card)),
       }
-      .map(|info| (card_id, info)) // Attach card_id for sorting
+      .map(|info| (card.id, info)) // Attach card_id for sorting
     });
   }
 
@@ -71,16 +69,31 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, Platfo
   // Sort by original card_id in ascending order
   infos.sort_by_key(|(id, _)| *id);
 
-  Ok(infos.into_iter().map(|(_, info)| info).collect())
+  let mut inventory: Vec<_> = infos.into_iter().map(|(_, info)| info).collect();
+  inventory.extend(
+    pci_only
+      .iter()
+      .map(|address| models::hardware::GraphicInfo {
+        id: format!("pci-device:{address}"),
+        name: pci_only_nvidia_name(address),
+        vendor_name: "NVIDIA".into(),
+        clock: 0,
+        memory_size: "N/A".into(),
+        memory_size_dedicated: "N/A".into(),
+        core_count: None,
+      }),
+  );
+  Ok(inventory)
 }
 
 async fn get_amd_graphic_info(
-  card_id: u8,
+  card: &DrmCard,
 ) -> Result<models::hardware::GraphicInfo, PlatformError> {
-  let lspci_name = infrastructure::providers::drm_sys::get_card_pci_address(card_id)
-    .and_then(|address| {
-      infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&address)
-    });
+  let card_id = card.id;
+  let lspci_name = card
+    .pci_address
+    .as_deref()
+    .and_then(infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf);
   let identity = resolve_card_identity(
     infrastructure::providers::drm_sys::GpuVendor::Amd,
     card_id,
@@ -116,18 +129,15 @@ pub async fn get_intel_graphic_info(
   })
 }
 
-/// Inventory entry for a card no Linux reading provider covers (NVIDIA and
-/// unrecognized vendors): named through `lspci` like the AMD path, with
+/// Inventory entry for a generic DRM card, named through `lspci` like the AMD path, with
 /// clock and memory reported as unsupported rather than invented.
-fn get_generic_graphic_info(
-  card_id: u8,
-  vendor: infrastructure::providers::drm_sys::GpuVendor,
-) -> models::hardware::GraphicInfo {
-  let lspci_name = infrastructure::providers::drm_sys::get_card_pci_address(card_id)
-    .and_then(|address| {
-      infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&address)
-    });
-  let identity = resolve_card_identity(vendor, card_id, lspci_name.as_deref());
+fn get_generic_graphic_info(card: &DrmCard) -> models::hardware::GraphicInfo {
+  let card_id = card.id;
+  let lspci_name = card
+    .pci_address
+    .as_deref()
+    .and_then(infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf);
+  let identity = resolve_card_identity(card.vendor, card_id, lspci_name.as_deref());
 
   models::hardware::GraphicInfo {
     id: format!("card{card_id}"),
@@ -175,41 +185,24 @@ pub async fn get_gpu_temperature()
   }
 }
 
-/// Collect GPU metrics on Linux for every DRM card.
-///
-/// DRM detection decides presence. AMD (sysfs/hwmon), Intel (intel_gpu_top),
-/// and NVIDIA (NVML) providers only decide which readings are available.
+/// Collect GPU metrics for DRM cards and PCI-only NVIDIA display functions.
 pub async fn sample_gpus() -> Vec<models::GpuSample> {
-  use drm_sys::GpuVendor;
   use infrastructure::providers::{drm_sys, hwmon, lspci, nvml_provider};
 
   let mut metrics: Vec<models::GpuSample> = Vec::new();
-  let cards: Vec<_> = drm_sys::get_all_card_ids()
-    .into_iter()
-    .map(|id| {
-      let vendor = drm_sys::detect_gpu_vendor(id);
-      let pci_address = drm_sys::get_card_pci_address(id);
-      let runtime_suspended = vendor == GpuVendor::Nvidia
-        && pci_address
-          .as_deref()
-          .is_some_and(drm_sys::pci_runtime_suspended);
-      DrmCard {
-        id,
-        vendor,
-        pci_address,
-        runtime_suspended,
-      }
-    })
-    .collect();
+  let cards = drm_cards();
+  let nvml_addresses = nvml_pci_addresses(&cards, drm_sys::pci_runtime_suspended);
+  let pci_only =
+    pci_only_nvidia_addresses(&cards, nvml_provider::pci_display_addresses());
 
-  // lspci is the name source for every vendor except Intel, whose live
-  // name is fixed — an Intel-only machine never touches the cache.
+  // Keep lspci on the existing DRM paths. PCI-only inventory is based on
+  // cached kernel attributes and does not need a PCI configuration scan.
   let lspci_output = if cards.iter().any(|card| card.vendor != GpuVendor::Intel) {
     lspci_output_cached().await
   } else {
     None
   };
-  let mut nvidia_samples = nvml_provider::sample(nvml_pci_addresses(&cards)).await;
+  let mut nvidia_samples = nvml_provider::sample(nvml_addresses, &pci_only).await;
 
   for card in &cards {
     let card_id = card.id;
@@ -264,15 +257,31 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
       source: source.to_string(),
     });
   }
+  metrics.extend(pci_only.into_iter().map(|address| {
+    let readings = nvidia_samples.remove(&address);
+    pci_only_nvidia_sample(&address, readings)
+  }));
 
   metrics
 }
 
 struct DrmCard {
   id: u8,
-  vendor: infrastructure::providers::drm_sys::GpuVendor,
+  vendor: GpuVendor,
   pci_address: Option<String>,
-  runtime_suspended: bool,
+}
+
+fn drm_cards() -> Vec<DrmCard> {
+  use infrastructure::providers::drm_sys;
+
+  drm_sys::get_all_card_ids()
+    .into_iter()
+    .map(|id| DrmCard {
+      id,
+      vendor: drm_sys::detect_gpu_vendor(id),
+      pci_address: drm_sys::get_card_pci_address(id),
+    })
+    .collect()
 }
 
 // An exact duplicate PCI address cannot identify a single DRM adapter.
@@ -285,21 +294,68 @@ fn unique_pci_address<'a>(card: &'a DrmCard, cards: &[DrmCard]) -> Option<&'a st
 }
 
 fn linux_gpu_id(card_id: u8, address: Option<&str>) -> String {
-  address.map_or_else(
-    || format!("drm:card{card_id}"),
-    |address| format!("pci:{address}"),
-  )
+  address.map_or_else(|| format!("drm:card{card_id}"), pci_gpu_id)
+}
+
+fn pci_gpu_id(address: &str) -> String {
+  format!("pci:{address}")
+}
+
+fn pci_only_nvidia_addresses(
+  cards: &[DrmCard],
+  pci_addresses: Vec<String>,
+) -> Vec<String> {
+  if cards
+    .iter()
+    .any(|card| card.vendor == GpuVendor::Nvidia && card.pci_address.is_none())
+  {
+    // The PCI-only functions cannot be distinguished from this DRM row.
+    return Vec::new();
+  }
+  // A DRM row owns its address even if another DRM row makes it ambiguous.
+  pci_addresses
+    .into_iter()
+    .filter(|address| {
+      !cards
+        .iter()
+        .any(|card| card.pci_address.as_ref() == Some(address))
+    })
+    .collect()
+}
+
+fn pci_only_nvidia_name(address: &str) -> String {
+  format!("NVIDIA GPU ({address})")
+}
+
+fn pci_only_nvidia_sample(
+  address: &str,
+  readings: Option<infrastructure::providers::nvml_provider::NvidiaReadings>,
+) -> models::GpuSample {
+  let source = if readings.is_some() { "NVML" } else { "PCI" };
+  let readings = readings.unwrap_or_default();
+  models::GpuSample {
+    gpu_id: pci_gpu_id(address),
+    name: pci_only_nvidia_name(address),
+    usage: readings.usage,
+    temperature: readings.temperature,
+    dedicated_memory_kb: readings.dedicated_memory_kb,
+    cooler_level: None,
+    source: source.into(),
+  }
 }
 
 /// Select unambiguous NVIDIA DRM cards without querying a suspended device.
-fn nvml_pci_addresses(cards: &[DrmCard]) -> Vec<String> {
-  use infrastructure::providers::drm_sys::GpuVendor;
-
+fn nvml_pci_addresses(
+  cards: &[DrmCard],
+  is_suspended: impl Fn(&str) -> bool,
+) -> Vec<String> {
   cards
     .iter()
+    .filter(|card| card.vendor == GpuVendor::Nvidia)
+    .filter_map(|card| unique_pci_address(card, cards))
     // A device handle lookup can wake a GPU from runtime suspension.
-    .filter(|card| card.vendor == GpuVendor::Nvidia && !card.runtime_suspended)
-    .filter_map(|card| unique_pci_address(card, cards).map(str::to_owned))
+    .filter(|address| !is_suspended(address))
+    .map(str::to_owned)
     .collect()
 }
 
@@ -408,7 +464,6 @@ mod tests {
       id,
       vendor,
       pci_address: address.map(str::to_string),
-      runtime_suspended: false,
     };
     let cards = [
       card(0, GpuVendor::Nvidia, Some("0000:01:00.0")),
@@ -417,16 +472,13 @@ mod tests {
       card(3, GpuVendor::Nvidia, None),
       card(4, GpuVendor::Intel, Some("0000:00:02.0")),
       card(5, GpuVendor::Nvidia, Some("0000:02:00.0")),
-      DrmCard {
-        runtime_suspended: true,
-        ..card(6, GpuVendor::Nvidia, Some("0000:03:00.0"))
-      },
+      card(6, GpuVendor::Nvidia, Some("0000:03:00.0")),
       card(7, GpuVendor::Nvidia, Some("0000:05:00.0")),
       card(8, GpuVendor::Amd, Some("0000:05:00.0")),
     ];
 
     assert_eq!(
-      nvml_pci_addresses(&cards),
+      nvml_pci_addresses(&cards, |address| address == "0000:03:00.0"),
       [
         "0000:01:00.0",
         "0003:04:00.1",
@@ -448,6 +500,54 @@ mod tests {
       linux_gpu_id(cards[2].id, unique_pci_address(&cards[2], &cards[1..])),
       live_id(2)
     );
+  }
+
+  #[test]
+  fn pci_only_nvidia_preserves_full_identity_and_partial_or_missing_readings() {
+    use crate::infrastructure::providers::nvml_provider::NvidiaReadings;
+
+    let card = |id, address: &str| DrmCard {
+      id,
+      vendor: GpuVendor::Nvidia,
+      pci_address: Some(address.into()),
+    };
+    let cards = [
+      card(0, "0000:01:00.0"),
+      card(1, "0000:01:00.0"),
+      card(2, "0000:03:00.0"),
+    ];
+    let discovered = ["0000:01:00.0", "0001:01:00.0", "0002:01:00.0"];
+    let pci_only =
+      pci_only_nvidia_addresses(&cards, discovered.map(str::to_owned).to_vec());
+    assert_eq!(pci_only, ["0001:01:00.0", "0002:01:00.0"]);
+
+    let unavailable = pci_only_nvidia_sample(&pci_only[0], None);
+    assert_eq!(unavailable.gpu_id, "pci:0001:01:00.0");
+    assert_eq!(unavailable.name, "NVIDIA GPU (0001:01:00.0)");
+    assert_eq!(unavailable.source, "PCI");
+    assert_eq!(unavailable.usage, None);
+    assert_eq!(unavailable.temperature, None);
+    assert_eq!(unavailable.dedicated_memory_kb, None);
+
+    let partial = pci_only_nvidia_sample(
+      &pci_only[1],
+      Some(NvidiaReadings {
+        temperature: Some(42.0),
+        ..NvidiaReadings::default()
+      }),
+    );
+    assert_eq!(partial.gpu_id, linux_gpu_id(7, Some("0002:01:00.0")));
+    assert_eq!(partial.source, "NVML");
+    assert_eq!(partial.usage, None);
+    assert_eq!(partial.temperature, Some(42.0));
+    assert_eq!(partial.dedicated_memory_kb, None);
+
+    let nvidia_without_address = DrmCard {
+      id: 4,
+      vendor: GpuVendor::Nvidia,
+      pci_address: None,
+    };
+    assert!(pci_only_nvidia_addresses(&[nvidia_without_address], pci_only).is_empty());
   }
 
   #[test]
