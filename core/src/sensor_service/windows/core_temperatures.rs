@@ -319,7 +319,14 @@ mod tests {
           .value,
         readings()
       );
-      sampler.state.lock().await.last_attempt_ms = None;
+      // The worker sends the sample just before it exits. Finish that
+      // synthetic acquisition before switching to the board-gated profile.
+      let worker = {
+        let mut state = sampler.state.lock().await;
+        state.last_attempt_ms = None;
+        state.worker.take().unwrap()
+      };
+      worker.join().unwrap();
 
       sender.send(Ok(vec![matching_board(product)])).unwrap();
       let sampled = sampler

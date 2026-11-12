@@ -505,7 +505,7 @@ fn decode_core_temperature(
     return None;
   }
 
-  // These two exact profiles have conflicting evidence about status bit 23.
+  // These exact profiles have conflicting evidence about status bit 23.
   // Reject an ambiguous sample before applying the documented seven-bit decode.
   if status & (1 << 23) != 0
     && matches!(
@@ -513,7 +513,13 @@ fn decode_core_temperature(
       CoreDtsProfile::Legacy {
         signature: TIGER_LAKE_B1_SIGNATURE,
         ..
-      } | CoreDtsProfile::HybridSignature(RAPTOR_LAKE_J0_SIGNATURE)
+      } | CoreDtsProfile::HybridSignature(
+        ALDER_LAKE_S_HX
+          | ALDER_LAKE_H_P_PS
+          | RAPTOR_LAKE_S_HX
+          | METEOR_LAKE_C0
+          | RAPTOR_LAKE_J0_SIGNATURE
+      )
     )
   {
     return None;
@@ -1191,6 +1197,7 @@ mod tests {
     thermal_features: u32,
     extended_features: u32,
     target_by_core_type: [u64; 2],
+    status_word: u64,
     performance_mask: usize,
   }
 
@@ -1207,6 +1214,7 @@ mod tests {
         thermal_features: 0x41,
         extended_features: 0,
         target_by_core_type: [100 << 16; 2],
+        status_word: (1 << 31) | (42 << 16),
         performance_mask: 1,
       }
     }
@@ -1313,9 +1321,16 @@ mod tests {
               ..processor
             });
           }
-          let valid = self.failure != (processor.number, Failure::InvalidStatus);
-          let ambiguous = self.failure == (processor.number, Failure::AmbiguousStatusBit);
-          Some((u64::from(valid) << 31) | (u64::from(ambiguous) << 23) | (42 << 16))
+          let status = self.status_word;
+          Some(match self.failure {
+            (number, Failure::InvalidStatus) if number == processor.number => {
+              status & !(1 << 31)
+            }
+            (number, Failure::AmbiguousStatusBit) if number == processor.number => {
+              status | (1 << 23)
+            }
+            _ => status,
+          })
         }
         MSR_TEMPERATURE_TARGET | IA32_THERM_STATUS => None,
         _ => panic!("Core DTS must never read the package status MSR"),
@@ -1438,7 +1453,7 @@ mod tests {
       (0x0008_06c1, 0, None),
       (0x000b_06a2, HYBRID_CAPABILITY, None),
       (0x0007_06e5, 0, Some(58.0)),
-      (0x000b_0671, HYBRID_CAPABILITY, Some(58.0)),
+      (0x000c_0662, HYBRID_CAPABILITY, Some(58.0)),
     ] {
       let mut fixture = Fixture::new((0, Failure::AmbiguousStatusBit));
       fixture.signature = signature;
@@ -1459,6 +1474,45 @@ mod tests {
           .collect::<Vec<_>>(),
         [(0, expected_first), (2, Some(58.0))]
       );
+    }
+  }
+
+  #[test]
+  fn ambiguous_hybrid_status_rejects_only_the_affected_p_e_or_low_power_e_slot() {
+    // The P-core has an SMT sibling. On Meteor Lake the last core models an
+    // LP E-core, which reports the same type as a compute-tile E-core.
+    let topology = synthetic_topology(&[0b0011, 0b0100, 0b1000]);
+    for signature in [0x0009_0672, 0x0009_06a3, 0x000b_0671, 0x000a_06a4] {
+      for affected in [0, 2, 3] {
+        let mut fixture =
+          Fixture::hybrid(signature, (affected, Failure::AmbiguousStatusBit));
+        fixture.thermal_features = 1;
+        fixture.status_word = 0x881e_0000;
+        let readings = collect(
+          fixture.profile().unwrap(),
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          readings
+            .iter()
+            .map(|reading| (
+              reading.processor_group,
+              reading.logical_processor,
+              reading.temperature_celsius,
+            ))
+            .collect::<Vec<_>>(),
+          [0, 2, 3].map(|processor| (
+            0,
+            processor,
+            (processor != affected).then_some(70.0)
+          )),
+          "signature {signature:#x}, affected processor {affected}",
+        );
+        assert!(fixture.calls.borrow().contains(&Call::Restore(affected)));
+      }
     }
   }
 
