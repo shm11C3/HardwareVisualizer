@@ -30,12 +30,14 @@ const SILVERMONT_ATOM_C2000: u32 = 0x4d;
 const SKYLAKE_U_Y_SIGNATURE: u32 = 0x0004_06e3;
 const SKYLAKE_Z170_P_D3_SIGNATURE: u32 = 0x0005_06e3;
 const KABY_LAKE_Z270F_SIGNATURE: u32 = 0x0009_06e9;
+const COFFEE_LAKE_R0_SIGNATURE: u32 = 0x0009_06ed;
 const HASWELL_E_SIGNATURE: u32 = 0x0003_06f2;
 const COMET_LAKE_Q0_SIGNATURE: u32 = 0x000a_0655;
 const ICE_LAKE_D1_SIGNATURE: u32 = 0x0007_06e5;
 const TIGER_LAKE_B1_SIGNATURE: u32 = 0x0008_06c1;
 const ROCKET_LAKE_SIGNATURE: u32 = 0x000a_0671;
 const RAPTOR_LAKE_J0_SIGNATURE: u32 = 0x000b_06a2;
+const RAPTOR_LAKE_U_Q0_SIGNATURE: u32 = 0x000b_06a3;
 const LUNAR_LAKE_B0_SIGNATURE: u32 = 0x000b_06d1;
 const GRACEMONT_N0_SIGNATURE: u32 = 0x000b_06e0;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
@@ -152,6 +154,7 @@ fn select_profile(
         | RAPTOR_LAKE_S_HX
         | METEOR_LAKE_C0
         | RAPTOR_LAKE_J0_SIGNATURE
+        | RAPTOR_LAKE_U_Q0_SIGNATURE
         | LUNAR_LAKE_B0_SIGNATURE
     )
     .then_some(CoreDtsProfile::HybridSignature(signature));
@@ -170,6 +173,7 @@ const EXACT_LEGACY_OFFSETS: &[(u32, u64)] = &[
   (SKYLAKE_U_Y_SIGNATURE, 0),
   (SKYLAKE_Z170_P_D3_SIGNATURE, 0),
   (KABY_LAKE_Z270F_SIGNATURE, 0),
+  (COFFEE_LAKE_R0_SIGNATURE, 0),
   (COMET_LAKE_Q0_SIGNATURE, 0),
   (ICE_LAKE_D1_SIGNATURE, 0),
   (TIGER_LAKE_B1_SIGNATURE, 0),
@@ -519,6 +523,7 @@ fn decode_core_temperature(
           | RAPTOR_LAKE_S_HX
           | METEOR_LAKE_C0
           | RAPTOR_LAKE_J0_SIGNATURE
+          | RAPTOR_LAKE_U_Q0_SIGNATURE
       )
     )
   {
@@ -539,12 +544,13 @@ mod tests {
   use windows::Win32::System::SystemInformation::PROCESSOR_GROUP_INFO;
 
   const BLOOMFIELD_SIGNATURE: u32 = 0x0001_06a4;
-  const HYBRID_SIGNATURES: [u32; 5] = [
+  const HYBRID_SIGNATURES: [u32; 6] = [
     ALDER_LAKE_S_HX,
     ALDER_LAKE_H_P_PS,
     RAPTOR_LAKE_S_HX,
     METEOR_LAKE_C0,
     RAPTOR_LAKE_J0_SIGNATURE,
+    RAPTOR_LAKE_U_Q0_SIGNATURE,
   ];
   const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::Legacy {
     signature: BLOOMFIELD_SIGNATURE,
@@ -731,10 +737,11 @@ mod tests {
     }
   }
 
-  const NEW_LEGACY_SIGNATURES: [u32; 7] = [
+  const NEW_LEGACY_SIGNATURES: [u32; 8] = [
     0x0003_06f2,
     0x0005_06e3,
     0x0009_06e9,
+    0x0009_06ed,
     0x000a_0655,
     0x0007_06e5,
     0x0008_06c1,
@@ -761,6 +768,8 @@ mod tests {
       0x0005_06e4,
       0x0009_06e8,
       0x0009_06ea,
+      0x0009_06eb,
+      0x0009_06ec,
       0x000a_0652,
       0x000a_0653,
       0x000a_0654,
@@ -787,6 +796,8 @@ mod tests {
       (0x0009_06e9, 0x0064_140d, 0x8842_0800, 34.0),
       (0x0009_06e9, 0x0064_140d, 0x8841_0800, 35.0),
       (0x0009_06e9, 0x0064_140d, 0x8834_0800, 48.0),
+      (0x0009_06ed, 0x0064_0e41, 0x8842_0800, 34.0),
+      (0x0009_06ed, 0x0064_0e41, 0x8841_0800, 35.0),
       (0x000a_0655, 0x0064_1200, 0x883d_0000, 39.0),
       (0x0007_06e5, 0x0564_0000, 0x8830_0a82, 52.0),
       (0x0008_06c1, 0x8064_0000, 0x8822_8282, 66.0),
@@ -827,6 +838,14 @@ mod tests {
         );
       }
     }
+  }
+
+  #[test]
+  fn coffee_lake_r0_does_not_inherit_kaby_lakes_board_gate() {
+    let r0 = synthetic_legacy_profile(0x0009_06ed, 1, Some(0)).unwrap();
+    assert_eq!(r0.required_board(), None);
+    let kaby = synthetic_legacy_profile(0x0009_06e9, 1, Some(0)).unwrap();
+    assert_eq!(kaby.required_board(), Some(CoreDtsBoard::KabyLakeZ270F));
   }
 
   #[test]
@@ -897,7 +916,6 @@ mod tests {
       0x000a_06a5,
       0x000b_06f2,
       0x000b_0672,
-      0x000b_06a3,
       0x000b_06a8,
       0x000b_06d0,
       0x000b_06d2,
@@ -1385,6 +1403,62 @@ mod tests {
   }
 
   #[test]
+  fn raptor_lake_u_q0_uses_the_exact_signature_and_reported_core_masks() {
+    let signature = 0x000b_06a3;
+    let profile = CoreDtsProfile::HybridSignature(signature);
+    assert_eq!(
+      synthetic_profile(signature, 0, 1, Some(HYBRID_CAPABILITY), None),
+      Some(profile)
+    );
+    assert_eq!(synthetic_profile(signature, 0, 1, None, None), None);
+    assert_eq!(
+      synthetic_profile(0x000b_06a2, 0, 1, Some(HYBRID_CAPABILITY), None),
+      Some(CoreDtsProfile::HybridSignature(0x000b_06a2))
+    );
+    for (status, expected) in [(0x8818_0a82, 76.0), (0x881b_0a82, 73.0)] {
+      assert_eq!(
+        decode_core_temperature(profile, 0x0364_0000, status),
+        Some(expected)
+      );
+    }
+
+    // This synthetic topology has only one P-core with SMT and one E-core.
+    // Both remain eligible with package thermal management clear.
+    let topology = synthetic_topology(&[0b0011, 0b0100]);
+    let mut fixture = Fixture::hybrid(signature, (u8::MAX, Failure::Pin));
+    fixture.thermal_features = 1;
+    fixture.target_by_core_type = [0x0064_0000, 0x0364_007f];
+    fixture.status_word = 0x8832_0000;
+    let readings = collect(
+      profile,
+      &topology,
+      Instant::now() + Duration::from_secs(1),
+      &fixture,
+    )
+    .unwrap();
+    assert_eq!(
+      readings
+        .iter()
+        .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+        .collect::<Vec<_>>(),
+      [(0, Some(50.0)), (2, Some(50.0))]
+    );
+    assert_eq!(
+      fixture.calls.into_inner(),
+      [
+        Call::Pin(0),
+        Call::Read(0, MSR_TEMPERATURE_TARGET),
+        Call::Read(0, IA32_THERM_STATUS),
+        Call::Restore(0),
+        Call::Pin(2),
+        Call::Read(2, MSR_TEMPERATURE_TARGET),
+        Call::Read(2, IA32_THERM_STATUS),
+        Call::Restore(2),
+      ]
+    );
+  }
+
+  #[test]
   fn lunar_lake_keeps_lp_e_core_identities_without_reading_their_msrs() {
     let topology = synthetic_topology(&[1, 2, 4, 8, 16, 32, 64, 128]);
     let profile = CoreDtsProfile::HybridSignature(0x000b_06d1);
@@ -1482,7 +1556,13 @@ mod tests {
     // The P-core has an SMT sibling. On Meteor Lake the last core models an
     // LP E-core, which reports the same type as a compute-tile E-core.
     let topology = synthetic_topology(&[0b0011, 0b0100, 0b1000]);
-    for signature in [0x0009_0672, 0x0009_06a3, 0x000b_0671, 0x000a_06a4] {
+    for signature in [
+      0x0009_0672,
+      0x0009_06a3,
+      0x000b_0671,
+      0x000a_06a4,
+      0x000b_06a3,
+    ] {
       for affected in [0, 2, 3] {
         let mut fixture =
           Fixture::hybrid(signature, (affected, Failure::AmbiguousStatusBit));
@@ -1667,14 +1747,19 @@ mod tests {
 
   #[test]
   fn legacy_rejects_mismatched_stepping_or_read_failure_per_core() {
-    let topology = synthetic_topology(&[1, 2]);
+    let topology = synthetic_topology(&[0b0101, 0b1010]);
     for signature in NEW_LEGACY_SIGNATURES.into_iter().chain([0x0003_06e1]) {
       let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
       for (failure, expected_calls) in [
         (Failure::DifferentSignature, Vec::new()),
+        (Failure::NoDts, Vec::new()),
         (Failure::Target, vec![MSR_TEMPERATURE_TARGET]),
         (
           Failure::Status,
+          vec![MSR_TEMPERATURE_TARGET, IA32_THERM_STATUS],
+        ),
+        (
+          Failure::InvalidStatus,
           vec![MSR_TEMPERATURE_TARGET, IA32_THERM_STATUS],
         ),
       ] {
