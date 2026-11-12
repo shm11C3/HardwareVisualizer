@@ -26,7 +26,7 @@
 | Windows x86-64 and `AuthenticAMD`, CPUID leaf 1 EAX exactly `0x00A60F12` | mechanism | S1–S5 |
 | Extended CPUID leaf `0x80000001` present with EBX bits 31:28 equal to 1 | mechanism | S1–S3, S6. S3 and S6 contain lead-only classification facts. |
 | Complete OS topology identifies exactly one nonempty physical processor package with valid group masks | safety (fixed root without socket selection) | S4, S6 (lead-only root), S7 |
-| Approved signed RyzenSMU available and the caller can acquire `Global\Access_PCI` within the existing timeout | safety | S6 |
+| Approved signed RyzenSMU read interface is available | safety | S6 |
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
@@ -42,7 +42,7 @@
 
 ## Read procedure and decode
 
-1. After admission, sample on demand through the existing Windows acquisition path. Make at most one signed read request per fixed slot per sample. Hold the existing PCI mutex for each request and skip requests whose mutex cannot be acquired (S6).
+1. After admission, sample on demand through the existing Windows acquisition path. For each fixed slot, independently acquire `Global\Access_PCI` with the existing timeout, hold it across the signed read, and release it when that request ends (S6). If acquisition is denied or times out, leave only that slot unavailable and continue with the other slot. Make at most one attempt per slot per sample.
 2. Reject a failed read, zero, all ones, or clear bit 11 for the affected slot. Decode bits 10:0 as 0.125 °C per count minus 49 °C (S5). Accept only −40 °C through +120 °C, inclusive. The driver in S5 checks validity at discovery. Per-read validity and the plausibility bounds are defensive project policy shared with the [Raphael scope](cpu-amd-raphael-ccd-smn.md).
 3. Keep an unavailable slot at its original one-based position in the sole package. Preserve an independently valid sibling, the separate package temperature result, and its fallbacks.
 
@@ -53,7 +53,7 @@
 ## Safety notes
 
 - Both scoped addresses are within the signed module's `0x56000`–`0x5AFFF` window. The module uses its fixed host bridge's selector/data interface, with a selector write intrinsic to each read. The module offers no selector-restoration guarantee (S6, lead-only for the internal route). The app calls the approved read interface and performs no direct PCI/SMN operations, data writes, mailbox commands, or PM-table requests.
-- Missing identity, malformed package topology, a missing signed module, or a mutex timeout prevents the corresponding read. Do not scan additional addresses or try another package map after a failure.
+- Missing identity, malformed package topology, or a missing signed module prevents admission. A mutex acquisition failure prevents only that slot's read. Do not scan additional addresses or try another package map after a failure.
 
 ## Synthetic acceptance cases
 
@@ -63,7 +63,8 @@
 | AM5 package field 0, unknown field, leaf missing, wrong stepping, wrong vendor, duplicate or malformed package records, or multiple packages | No Dragon Range target and no Dragon Range read. Separately admitted AM5 and package-temperature paths retain their own checks. |
 | Either slot faults or returns zero, all ones, clear validity despite a plausible field, or a value beyond the supported bounds | That fixed slot is unavailable. A valid sibling and independent package result survive. Exercise a later invalid result after a valid result. |
 | Valid words `0x0988`, `0x0848` and `0x0D48`, with one-increment values outside the bounds | Accept 0, −40 and +120 °C. Reject the adjacent out-of-range values. |
-| Signed module missing, mutex denied or timeout | No direct or alternate CCD access. A successfully acquired sibling sample remains available. |
+| Signed module missing | No Dragon Range target or read. |
+| Either slot fails to acquire the mutex and the other slot succeeds | Do not issue or retry the failed slot's read. Preserve the successful sibling in its fixed position. Exercise both slot orders and acquisition denial and timeout. |
 
 ## Open questions
 
