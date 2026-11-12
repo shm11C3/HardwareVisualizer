@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental read-only Windows core DTS for hybrid Intel Meteor Lake H, U, U Type4 and PS with full CPUID signature `0x000A06A4`, one active processor group and one physical package. |
 | Issue phase | #2514 |
 
@@ -24,12 +24,13 @@ and fixtures below.
 | S6 | InstLatx64, raw CPUID and MSR captures at commit `17be9a9793c306cf96f8c286e34e705b780a0226`, [Core Ultra 5 125H](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00A06A4_MeteorLake_07_CPUID.txt), [Core Ultra 7 155H](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00A06A4_MeteorLake_10_CPUID.txt) and [Core Ultra 7 155U](https://github.com/InstLatx64/InstLatx64/blob/17be9a9793c306cf96f8c286e34e705b780a0226/GenuineIntel/GenuineIntel00A06A4_MeteorLake_09_CPUID.txt) | Independent same-system observations of per-logical-processor CPUID and register readback. Each file documents one system. |
 | S7 | [Intel core DTS](cpu-intel-core-dts-msr.md) revision 4 (`38643ed9c9d38e8ee744de58208d8c71e267f84b`), sources S2–S6 and S9, Detection, Read procedure and decode, and Project collection constraints | Primary CPUID bit and core-type definitions, Windows affinity/topology contract, and shared project constraints. |
 | S8 | [PawnIO interface](pawnio-interface.md#intelmsr) revision 7 (`2495a1b0fbe4a8048feac9d122b98201e7970cbb`), `IntelMSR`, signed module release `0.2.11` | Existing vendor gate, synchronous calling-processor read and allow-list for `0x19C` and `0x1A2`. |
+| S9 | Intel [SDM Volume 4](https://cdrdv2-public.intel.com/929363/335592-093-sdm-vol-4.pdf), 335592-093US, September 2026, §2.17 Table 2-39 (pp. 2-359–2-361) and §2.17.9 Tables 2-53–2-55, plus Linux [Intel-authored change](https://github.com/torvalds/linux/commit/6ae0092ca7adfce79336c6525cb0da561ecd4f04), June 2024, [author's v2 test summary](https://lkml.rescloud.iu.edu/2404.3/02686.html), and Linux v6.18 commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449` [default mask](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L45-L50) and [model selection](https://github.com/torvalds/linux/blob/7d0a66e4bb9081d75c82ec4957c50034cb0ea449/drivers/thermal/intel/intel_tcc.c#L96-L135) | Primary seven-bit Intel core status, with bit 23 reserved. Linux is **lead-only (copyleft)** for the conflicting eight-bit default used by `06_AA`, which has no dedicated thermal mask entry. The author reports testing Meteor Lake without exact CPUID or raw words. |
 
 ## Detection
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Hybrid Meteor Lake H, U, U Type4 and PS, display family/model `06_AA`, full signature `0x000A06A4` | S4 and S5 identify the exact stepping and product lines. S1–S3 define the MSR contract. S6 independently observes P-, E- and low-power E-core readbacks on H and U. | Experimental under the per-target capability, affinity, validity and topology gates. |
+| Hybrid Meteor Lake H, U, U Type4 and PS, display family/model `06_AA`, full signature `0x000A06A4` | S4 and S5 identify the exact stepping and product lines. S1–S3 define the MSR contract. S6 independently observes P-, E- and low-power E-core readbacks on H and U. S9 documents Intel's field and the conflicting Linux lead-only default addressed in the read procedure. | Experimental under the per-target capability, affinity, validity and topology gates. |
 | Other signatures, absent DTS or hybrid flag, unrecognized target core type, or multiple active groups/packages | Outside this supplement's eligibility scope (S1, S4, S5, S7). | Disabled for this core path. |
 
 - Require `GenuineIntel`, full `CPUID.01H:EAX = 0x000A06A4`,
@@ -60,6 +61,7 @@ Use the common revision 4 hybrid procedure (S7). Validate one active
 Windows processor group and one physical package. Confirm one pinned
 representative per core record. Use the same representative for both
 64-bit MSR reads, `0x1A2` followed by `0x19C`, via `IntelMSR` (S8).
+Leave the core unavailable if status bit 23 is set (S9, project gate).
 The resulting temperature in degrees Celsius is the target byte minus
 the unsigned digital readout. Decode independently of TCC offset and
 Tau. The target byte is the reference and can vary. The project accepts
@@ -80,6 +82,7 @@ package and ACPI paths available (S7).
 | Exact eligible signature with package thermal management clear | Core reads remain eligible. This path never requests `0x1B1`. |
 | Eligible pass with one low-power E target lacking leaf 1AH, reporting an unknown type, faulting on a read or returning clear Reading Valid | Reject that core only. For an unsupported target type, skip both reads. Preserve the other positions and the independent package/fallback result. |
 | Same valid readout with nonzero versus zero TCC offset, and different Tau; target 110 °C and digital readouts 59 and 0 | Return 51 °C and 110 °C respectively in each case. |
+| Synthetic target 100 °C, status `0x889E0000` on one physical core and `0x881E0000` on another, both with Reading Valid set | Leave the bit-23-set sample unavailable and return 70 °C for the other core. Exercise P, E and low-power E records. |
 | Target 49/50/120/121 °C, digital readout equal to target, or changed topology or affinity restore failure | Reject out-of-bounds targets and a decoded zero. Follow the common revision 4 rules to reject the whole core set and cache on a topology mismatch or restore failure. |
 
 ## Quirks
@@ -134,8 +137,20 @@ as the target and bits 6:0 as the averaging window. The product
 datasheets define the DTS readout relative to Tjmax regardless of
 the offset.
 
+### Core status readout width
+
+Non-blocking for #2514 Experimental core DTS: collection rejects core status bit 23 when set before applying Intel's seven-bit decode.
+
+The September 2026 SDM retains bits 22:16 for `0x19C` and marks
+bit 23 reserved. The Meteor Lake-specific tables supply no override.
+The Linux eight-bit default is a lead-only conflicting interpretation
+(S9). The S6 capture sets contain only words with bit 23 clear on P,
+compute-tile E and low-power E targets. The meaning of a set bit
+remains unresolved. Reject only the affected per-core sample.
+
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-08 | Initial Experimental readiness proposal for exact Meteor Lake C0 H, U, U Type4 and PS core DTS. |
+| 2 | 2026-11-10 | Propose a fail-closed core DTS status check for disputed bit 23 on exact Meteor Lake signature `0x000A06A4`. |
