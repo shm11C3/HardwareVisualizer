@@ -1,5 +1,5 @@
-//! Experimental CCD monitoring from the approved Vermeer rev 5, Raphael
-//! rev 1, and Granite Ridge rev 1 specifications under `docs/specs/sensors/`.
+//! Experimental CCD monitoring from the approved AMD CCD specifications
+//! under `docs/specs/sensors/`.
 
 use std::collections::HashSet;
 
@@ -21,6 +21,7 @@ use crate::models::CpuCcdTemperature;
 const AMD_VENDOR_ID: &str = "AuthenticAMD";
 const AM4_PACKAGE_FIELD: u32 = 0x2;
 const AM5_PACKAGE_FIELD: u32 = 0x0;
+const STRX4_PACKAGE_FIELD: u32 = 0x7;
 const MAX_PACKAGE_RECORD_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
   std::mem::offset_of!(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, Anonymous);
@@ -53,13 +54,34 @@ struct CcdRegisterMap {
   /// The required CPUID `Fn8000_0001_EBX[31:28]` package type.
   package_field: u32,
   /// Authorized SMN words in fixed slot order.
-  slots: [u64; 2],
+  slots: &'static [u64],
 }
 
 const VERMEER: CcdRegisterMap = CcdRegisterMap {
   processor: ProcessorMatch::FamilyModel(0x19, 0x21),
   package_field: AM4_PACKAGE_FIELD,
-  slots: [0x0005_9954, 0x0005_9958],
+  slots: &[0x0005_9954, 0x0005_9958],
+};
+
+const MATISSE: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::Signature(0x0087_0F10),
+  package_field: AM4_PACKAGE_FIELD,
+  slots: &[0x0005_9954, 0x0005_9958],
+};
+
+const CASTLE_PEAK: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::Signature(0x0083_0F10),
+  package_field: STRX4_PACKAGE_FIELD,
+  slots: &[
+    0x0005_9954,
+    0x0005_9958,
+    0x0005_995C,
+    0x0005_9960,
+    0x0005_9964,
+    0x0005_9968,
+    0x0005_996C,
+    0x0005_9970,
+  ],
 };
 
 // The Raphael and Granite Ridge specifications independently pin the same
@@ -67,16 +89,17 @@ const VERMEER: CcdRegisterMap = CcdRegisterMap {
 const RAPHAEL: CcdRegisterMap = CcdRegisterMap {
   processor: ProcessorMatch::Signature(0x00A6_0F12),
   package_field: AM5_PACKAGE_FIELD,
-  slots: [0x0005_9B08, 0x0005_9B0C],
+  slots: &[0x0005_9B08, 0x0005_9B0C],
 };
 
 const GRANITE_RIDGE: CcdRegisterMap = CcdRegisterMap {
   processor: ProcessorMatch::Signature(0x00B4_0F40),
   package_field: AM5_PACKAGE_FIELD,
-  slots: [0x0005_9B08, 0x0005_9B0C],
+  slots: &[0x0005_9B08, 0x0005_9B0C],
 };
 
-const CCD_REGISTER_MAPS: [&CcdRegisterMap; 3] = [&VERMEER, &RAPHAEL, &GRANITE_RIDGE];
+const CCD_REGISTER_MAPS: [&CcdRegisterMap; 5] =
+  [&VERMEER, &RAPHAEL, &GRANITE_RIDGE, &MATISSE, &CASTLE_PEAK];
 
 /// Experimental target admitted by the CPU mechanism and a single physical
 /// package. The processor name is not read for admission.
@@ -97,8 +120,7 @@ impl AmdCcdTarget {
   }
 
   /// Reads each authorized word once, in slot order, with no retries. A slot
-  /// that fails stays unavailable in its own position; slot 2 is never
-  /// remapped onto slot 1.
+  /// that fails stays unavailable in its own position.
   fn read_with(
     &self,
     mut read: impl FnMut(u64) -> Option<u32>,
@@ -106,7 +128,8 @@ impl AmdCcdTarget {
     self
       .0
       .slots
-      .into_iter()
+      .iter()
+      .copied()
       .enumerate()
       .map(|(index, address)| CpuCcdTemperature {
         package_index: 0,
@@ -273,8 +296,9 @@ mod tests {
   const CEZANNE: u32 = 0x00a5_0f00;
   const RAPHAEL_B2: u32 = 0x00a6_0f12;
   const GRANITE_RIDGE_B0: u32 = 0x00b4_0f40;
-  // Unsupported family 0x17 and adjacent family 0x1A signatures.
-  const FAMILY_17H: u32 = (0x8 << 20) | (0x7 << 16) | 0x0f10;
+  const MATISSE_B0: u32 = 0x0087_0f10;
+  const CASTLE_PEAK_B0: u32 = 0x0083_0f10;
+  const STRX4: u32 = 0x7000_0000;
   const OTHER_FAMILY_1AH: u32 = 0x00b4_0f50;
   const AM4: u32 = 0x2ff0_0000;
   const NOT_AM4: u32 = 0x3000_0000;
@@ -428,7 +452,7 @@ mod tests {
   fn other_dies_vendors_and_packages_are_rejected_regardless_of_name() {
     assert_eq!(effective_family_model(CEZANNE), (0x19, 0x50));
     assert_eq!(effective_family_model(RAPHAEL_B2), (0x19, 0x61));
-    assert_eq!(effective_family_model(FAMILY_17H).0, 0x17);
+    assert_eq!(effective_family_model(MATISSE_B0), (0x17, 0x71));
     assert_eq!(effective_family_model(GRANITE_RIDGE_B0), (0x1a, 0x44));
     assert_eq!(effective_family_model(OTHER_FAMILY_1AH), (0x1a, 0x45));
 
@@ -444,7 +468,13 @@ mod tests {
       (AMD, GRANITE_RIDGE_B0, NOT_AM4),
       (AMD, 0x00b4_0f41, 0), // Granite Ridge B1
       (INTEL, GRANITE_RIDGE_B0, 0),
-      (AMD, FAMILY_17H, AM4),
+      (AMD, 0x0087_0f11, AM4), // Matisse with a different stepping
+      (AMD, MATISSE_B0, STRX4),
+      (INTEL, MATISSE_B0, AM4),
+      (AMD, 0x0083_0f11, STRX4), // Castle Peak with a different stepping
+      (AMD, CASTLE_PEAK_B0, 0x4000_0000), // sWRX8 / SP3 encoding
+      (AMD, CASTLE_PEAK_B0, 0),
+      (INTEL, CASTLE_PEAK_B0, STRX4),
       (AMD, OTHER_FAMILY_1AH, 0),
       (INTEL, VERMEER_B0, AM4),
       (AMD, VERMEER_B0, NOT_AM4),
@@ -469,9 +499,13 @@ mod tests {
 
   #[test]
   fn missing_cpuid_leaves_refuse_admission() {
-    for (signature, package) in
-      [(VERMEER_B0, AM4), (RAPHAEL_B2, 0), (GRANITE_RIDGE_B0, 0)]
-    {
+    for (signature, package) in [
+      (VERMEER_B0, AM4),
+      (RAPHAEL_B2, 0),
+      (GRANITE_RIDGE_B0, 0),
+      (MATISSE_B0, AM4),
+      (CASTLE_PEAK_B0, STRX4),
+    ] {
       let identity = Identity {
         vendor: AMD,
         signature,
@@ -532,7 +566,7 @@ mod tests {
       package_record(&[]),
       Vec::new(),
     ];
-    for map in [&VERMEER, &RAPHAEL, &GRANITE_RIDGE] {
+    for map in CCD_REGISTER_MAPS {
       assert!(
         authorize_target(Some(map), || validate_single_package_record(&first)).is_some()
       );
@@ -571,6 +605,130 @@ mod tests {
   }
 
   #[test]
+  fn matisse_am4_reads_two_fixed_ccd_words() {
+    let (map, requested) = identify(&Identity {
+      vendor: AMD,
+      signature: MATISSE_B0,
+      package: AM4,
+      brand: Some(b"AMD Ryzen 9 3900X 12-Core Processor"),
+    });
+    assert_eq!(map, Some(&MATISSE));
+    assert_eq!(requested, [0, 1, 0x8000_0001]);
+    let package = package_record(&[(0, 0b1111)]);
+    let target =
+      authorize_target(map, || validate_single_package_record(&package)).unwrap();
+    let mut addresses = Vec::new();
+    let values = target.read_with(|address| {
+      addresses.push(address);
+      match address {
+        0x0005_9954 => Some(0x0B76),
+        0x0005_9958 => Some(0x0BEC),
+        _ => panic!("unexpected Matisse address: {address:#x}"),
+      }
+    });
+    assert_eq!(addresses, [0x0005_9954, 0x0005_9958]);
+    assert_eq!(
+      values
+        .iter()
+        .map(|value| (
+          value.package_index,
+          value.ccd_slot,
+          value.temperature_celsius
+        ))
+        .collect::<Vec<_>>(),
+      [(0, 1, Some(61.75)), (0, 2, Some(76.5))]
+    );
+  }
+
+  #[test]
+  fn castle_peak_strx4_keeps_eight_slots_on_one_package_across_groups() {
+    let (map, requested) = identify(&Identity {
+      vendor: AMD,
+      signature: CASTLE_PEAK_B0,
+      package: STRX4,
+      brand: None,
+    });
+    assert_eq!(map, Some(&CASTLE_PEAK));
+    assert_eq!(requested, [0, 1, 0x8000_0001]);
+    let package = package_record(&[(0, usize::MAX), (1, usize::MAX)]);
+    let target =
+      authorize_target(map, || validate_single_package_record(&package)).unwrap();
+    let expected_addresses = [
+      0x0005_9954,
+      0x0005_9958,
+      0x0005_995C,
+      0x0005_9960,
+      0x0005_9964,
+      0x0005_9968,
+      0x0005_996C,
+      0x0005_9970,
+    ];
+    let mut addresses = Vec::new();
+    let mut words = [
+      Some(0x0ABC),
+      Some(0),
+      Some(0x0AD8),
+      None,
+      Some(0x0ADE),
+      Some(u32::MAX),
+      Some(0x0AE4),
+      Some(0x02C8),
+    ]
+    .into_iter();
+    let values = target.read_with(|address| {
+      addresses.push(address);
+      words.next().expect("only the eight scoped words")
+    });
+    assert_eq!(addresses, expected_addresses);
+    assert_eq!(
+      values
+        .iter()
+        .map(|value| (
+          value.package_index,
+          value.ccd_slot,
+          value.temperature_celsius
+        ))
+        .collect::<Vec<_>>(),
+      [
+        (0, 1, Some(38.5)),
+        (0, 2, None),
+        (0, 3, Some(42.0)),
+        (0, 4, None),
+        (0, 5, Some(42.75)),
+        (0, 6, None),
+        (0, 7, Some(43.5)),
+        (0, 8, None),
+      ]
+    );
+    let mut all_valid = (0x0AC8..0x0AD0).map(Some);
+    let values = target.read_with(|_| all_valid.next().expect("one word per slot"));
+    assert_eq!(
+      values
+        .iter()
+        .map(|value| value.temperature_celsius)
+        .collect::<Vec<_>>(),
+      [
+        Some(40.0),
+        Some(40.125),
+        Some(40.25),
+        Some(40.375),
+        Some(40.5),
+        Some(40.625),
+        Some(40.75),
+        Some(40.875),
+      ]
+    );
+    let unavailable = target.unavailable_readings();
+    assert_eq!(unavailable.len(), 8);
+    assert_eq!(unavailable[7].ccd_slot, 8);
+    assert!(
+      unavailable
+        .iter()
+        .all(|value| value.temperature_celsius.is_none())
+    );
+  }
+
+  #[test]
   fn both_slots_are_read_once_in_fixed_order_and_fail_independently() {
     let package = package_record(&[(0, 0b1111)]);
     let samples = [
@@ -590,6 +748,7 @@ mod tests {
 
     for (map, expected_addresses) in [
       (&VERMEER, [0x0005_9954, 0x0005_9958]),
+      (&MATISSE, [0x0005_9954, 0x0005_9958]),
       (&RAPHAEL, [0x0005_9B08, 0x0005_9B0C]),
       (&GRANITE_RIDGE, [0x0005_9B08, 0x0005_9B0C]),
     ] {
