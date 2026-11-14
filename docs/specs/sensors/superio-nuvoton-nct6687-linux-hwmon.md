@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 5 |
-| Status | Implementation-ready (rev 5) |
-| Scope | Experimental, read-only sampling through an already bound Linux NCT6683-family hwmon driver on MSI PRO B850-P WIFI (temperatures and fans), MAG B850M MORTAR WIFI (SYS_FAN1 only), and MPG X870E CARBON WIFI (one diode temperature and two fan inputs). Board identity selects the OEM EC channel assignment. BIOS version and EC base address are evidence identities. |
+| Revision | 6 |
+| Status | Implementation-ready (rev 6) |
+| Scope | Experimental, read-only sampling through an already bound Linux NCT6683-family hwmon driver on MSI PRO B850-P WIFI (temperatures and fans), MAG B850M MORTAR WIFI (SYS_FAN1 only), MPG X870E CARBON WIFI (one diode temperature and two fan inputs), and MAG B850 TOMAHAWK MAX WIFI (one diode temperature and fan input 1). Board identity selects the OEM EC channel assignment. BIOS version and EC base address are evidence identities. |
 | Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520) |
 
 Revision 4 applies
@@ -37,14 +37,18 @@ gate that detects a changed assignment.
 | S15 | John Audia, [January 1, 2025 sensor report and follow-up thread](https://lore-kernel.gnuweeb.org/linux-hwmon/RHgpMv2vm9aouIOCtyVI2mjH9atCSSL2Zo7fO9QqQwapyOv1ATQhPQGgITlRHcXcEGY_PcyxUPmbXmbPlqCGyFgaEjhuPeaCGvWY4UdB1uA=@proton.me/T/) and [January 6 v2 report](https://lore-kernel.gnuweeb.org/linux-hwmon/KY1Lwa2kjE7V78ZKOvQv0IavCNAQXJMIL4LYAALEUI52yxCxzzucAifFH8Y1wRFUm38ZZsBvCM0poaJL6bIqnjS1tL1o9K-h_h5-JJAe2rk=@proton.me/) | First-hand `nct6683` readings with the admission patch applied on MPG X870E CARBON WIFI (MS-7E49), EC 0.0 build 2024-11-13, customer `0x020D`. The reported hwmon name and base are `nct6687-isa-0a20`. The tester reports the unplugged external thermistor separately. |
 | S16 | [Linux DMI attribute capture](https://gitlab.com/CalcProgrammer1/OpenRGB/-/merge_requests/3067), November 12, 2025, and [independent Linux SMBIOS observation](https://iommu.info/mainboard/?board_name=MPG+X870E+CARBON+WIFI+%28MS-7E49%29&board_vendor=Micro-Star+International+Co.%2C+Ltd.+%5BMSI%5D) | Exact baseboard vendor and product strings. The latter records BIOS 1.A42 on a separate system and does not establish the sensor test's BIOS version. |
 | S17 | lm-sensors [V3-6-0 feature ordering](https://github.com/lm-sensors/lm-sensors/blob/V3-6-0/lib/sysfs.c#L391-L525) and [text report formatting](https://github.com/lm-sensors/lm-sensors/blob/V3-6-0/prog/sensors/chips.c#L790-L823) | **lead-only (copyleft)** for ordering temperature features by sysfs channel number in the standard report format. S15 provides converted output rather than raw sysfs paths. |
+| S18 | MSI [MAG B850 TOMAHAWK MAX WIFI user guide](https://download.msi.com/archive/mnu_exe/mb/MAGB850TOMAHAWKMAXWIFI_English.pdf), Specifications p. 20 and Regulatory Notices p. 67, and [MSI BIOS release list](https://hk.msi.com/Motherboard/MAG-B850-TOMAHAWK-MAX-WIFI/support), 7E62v2A44 | Primary exact board, NCT6687-R designation and A44 release identity. |
+| S19 | [MAG B850 TOMAHAWK MAX WIFI owner report](https://www.computerbase.de/forum/threads/temperaturen-unter-linux-ubuntu-mit-aktueller-hardware-abfragen.2251518/), posts 1 and 7, and [September 13, 2025 sensor capture](https://www.computerbase.de/forum/threads/temperaturen-unter-linux-ubuntu-mit-aktueller-hardware-abfragen.2251518/page-2#post-30911495), posts 28 and 29 | First-hand board, native `nct6683.2592` on Ubuntu 24.04 HWE `6.14.0-29-generic`, EC 0.0 build 2024-11-13, EC base `0x0A20`, and positive diode and fan inputs. The separate `nct6687` module was absent during the sample and first installed later in post 38. |
+| S20 | Ubuntu [HWE source package 6.14.0-29.29~24.04.1](https://launchpad.net/ubuntu/+source/linux-hwe-6.14/6.14.0-29.29~24.04.1) and [pinned driver](https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/noble/tree/drivers/hwmon/nct6683.c?id=a9d4b16ce430cf30ff423db0f3f87d0fd9c43049), tag `Ubuntu-hwe-6.14-6.14.0-29.29_24.04.1`, commit `a9d4b16ce430cf30ff423db0f3f87d0fd9c43049`, lines 39–41, 501–651, 716–724, 765–772, 788–860 and 1166–1267 | **lead-only (copyleft)** for native customer admission, ordinary I/O resource ownership, chip kind, platform instance, channel enumeration and cold refresh. The driver is byte-identical to S14's upstream v6.14 driver (file SHA-256 `4e48d8d24a8ad050c460250effc265752698b2d4fd338337bc40946e900ffc23`). |
+| S21 | [Ubuntu hardware report 2162643](https://bugs.launchpad.net/bugs/2162643) and its [boot log](https://bugs.launchpad.net/bugs/2162643/+attachment/5988556/+files/dmesg.txt), DMI row | Independent exact DMI baseboard name and vendor from a different unit with BIOS 2.A60. |
 
 ## Detection
 
 | Condition | Gate kind | Source |
 | --- | --- | --- |
-| DMI `board_vendor` is `Micro-Star International Co., Ltd.` and `board_name` is exactly `PRO B850-P WIFI (MS-7E56)`, `MAG B850M MORTAR WIFI (MS-7E61)` or `MPG X870E CARBON WIFI (MS-7E49)` | mechanism: the OEM EC firmware defines the scoped channel assignment (PRO: three temperature sources and fan inputs 1 and 2, MORTAR: fixed `SYS_FAN1`, CARBON: one diode temperature and fan inputs 1 and 2) | S1, S2, S5, S8, S10, S11, S13–S16 |
-| One distinct canonical hwmon node with `name` equal to `nct6687`, platform parent `/sys/devices/platform/nct6683.<id>` with a canonical decimal instance suffix from 8 through 65528 divisible by 8, `subsystem` resolving to `/sys/bus/platform`, `driver` to `/sys/bus/platform/drivers/nct6683`, the class link resolving to the parent's `hwmon/hwmonN` child, the child's `device` link resolving to the parent, and the bus device link resolving to the same parent | mechanism: hwmon chip kind, owning driver and a unique bound endpoint | S4, S5, S11 |
-| Per temperature channel, `tempN_label` and `tempN_type` equal the scoped source metadata on the same node | mechanism: the ABI's own channel metadata detects a changed assignment | S2, S4, S5, S14, S15, S17 |
+| DMI `board_vendor` is `Micro-Star International Co., Ltd.` and `board_name` is exactly `PRO B850-P WIFI (MS-7E56)`, `MAG B850M MORTAR WIFI (MS-7E61)`, `MPG X870E CARBON WIFI (MS-7E49)` or `MAG B850 TOMAHAWK MAX WIFI (MS-7E62)` | mechanism: the OEM EC firmware defines the scoped channel assignment (PRO: three temperatures and fan inputs 1 and 2, MORTAR: fixed `SYS_FAN1`, CARBON: one diode and fan inputs 1 and 2, TOMAHAWK MAX: one diode and fan input 1) | S1, S2, S5, S8, S10, S11, S13–S16, S18–S21 |
+| One distinct canonical hwmon node with `name` equal to `nct6687`, platform parent `/sys/devices/platform/nct6683.<id>` with a canonical decimal instance suffix from 8 through 65528 divisible by 8, `subsystem` resolving to `/sys/bus/platform`, `driver` to `/sys/bus/platform/drivers/nct6683`, the class link resolving to the parent's `hwmon/hwmonN` child, the child's `device` link resolving to the parent, and the bus device link resolving to the same parent | mechanism: hwmon chip kind, owning driver and a unique bound endpoint | S4, S5, S11, S20 |
+| Per temperature channel, `tempN_label` and `tempN_type` equal the scoped source metadata on the same node | mechanism: the ABI's own channel metadata detects a changed assignment | S2, S4, S5, S14, S15, S17, S19, S20 |
 | Per input, the value is within the admitted bounds below | mechanism (plausibility) | S4, S5 |
 
 The BIOS version string and the EC base address (the decimal platform
@@ -57,6 +61,7 @@ candidates toward Verified. They do not gate a read.
 | MSI PRO B850-P WIFI (MS-7E56), already bound `nct6683.<id>` with hwmon name `nct6687` | S1/S2/S3/S6 establish the named board and the observed OEM firmware/controller tuple: BIOS 2.A93, EC 0.0 build 2025-04-18, customer `0x020D`, raw chip `0xD592`, EC Space base `0x0A20` (instance `2592`). Lead-only S5 establishes kernel device and driver names, the hwmon class link to the canonical child, the child's `device` link to the platform parent, resource ownership, firmware-customer acceptance, channel mapping and the cache refresh read set. Lead-only S7 corroborates the status addresses outside that set. Public ABI is S4. Other BIOS builds and bases on this board have no observation yet. | Experimental for matching Linux endpoints. |
 | MSI MAG B850M MORTAR WIFI (MS-7E61), already bound native `nct6683.<id>` with hwmon name `nct6687` | S8/S9 identify the exact board and controller, with BIOS 1.A68 observed. S10 records the EC customer/build (`0x020D`, EC 0.0 build `03/10/25`), unforced driver and SYS_FAN1 sample. Lead-only S5/S11 establish the canonical sysfs child and parent links, platform instance association, chip-kind check, firmware-customer acceptance, ownership and override limits, fixed fan channel and stock cache refresh. Lead-only S7/S12 identify status addresses outside that refresh. Lead-only S12 also establishes that the development driver retains the stock RPM mapping. Public ABI is S4. Other BIOS builds on this board have no observation yet. | Experimental for SYS_FAN1 on the matching Linux endpoint. |
 | MSI MPG X870E CARBON WIFI (MS-7E49), already bound native `nct6683.<id>` with hwmon name `nct6687` | S13 and S16 establish the exact board identity and the OEM controller designation. S15 reports the observed EC 0.0 build 2024-11-13, customer `0x020D` and base `0x0A20` (instance `2592`), plus positive diode and RPM samples. Lead-only S5/S11/S14 establish the canonical sysfs child and parent links, chip-kind match, normal customer admission, resource ownership, channel mapping and full cache refresh. Lead-only S7/S12 identify known status addresses outside that refresh. Lead-only S17 corroborates the report's channel order. The sensor report leaves BIOS version and raw chip ID unrecorded. | Experimental for the one diode temperature and fan inputs 1 and 2 on the matching Linux endpoint. |
+| MSI MAG B850 TOMAHAWK MAX WIFI (MS-7E62), already bound native `nct6683.<id>` with hwmon name `nct6687` | S18/S21 identify the exact board, OEM controller designation and DMI strings. S19 reports the native bind, EC 0.0 build 2024-11-13, base `0x0A20` (instance `2592`) and positive diode and RPM readings. Lead-only S5/S11/S20 establish the canonical hwmon child and parent links, driver, resource ownership, inferred default-admitted non-Intel customer class, fixed fan channel and cache refresh. Lead-only S7/S12 identify known status addresses outside that refresh. Lead-only S17 corroborates report order. S19 leaves the numeric customer and contemporaneous BIOS string unrecorded. | Experimental for one diode temperature and fan input 1 on the matching Linux endpoint. |
 | Other boards, NCT6686D/NCT6683D and direct Windows access | Require separate exact evidence in [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520). See [direct-access draft](superio-nuvoton-nct668x.md). | Unsupported by this revision. |
 
 ### MSI PRO B850-P WIFI
@@ -144,6 +149,25 @@ candidates toward Verified. They do not gate a read.
   The raw chip ID, EC identity and module force parameter are outside
   this sysfs ABI (S5, S11, S14).
 
+### MSI MAG B850 TOMAHAWK MAX WIFI
+
+- Require the exact DMI vendor and full product string listed above and
+  the same unique native endpoint, canonical links and ownership checks
+  as the existing profiles (S18–S21). Reject known forced, modified or
+  resource-conflict override bindings before reading input or metadata.
+- S19 reports a plain native module load and its NCT-filtered kernel log
+  without an unknown-customer warning. The exact S20 driver emits that
+  warning if a forced unknown customer reaches registration. The voltage
+  and temperature limit fields in the sample also identify the non-Intel
+  callback branch. Together these establish an inferred default-admitted
+  non-Intel customer class for the captured controller. The numeric
+  customer remains unrecorded. The endpoint has no visible force parameter
+  or exact customer field (S5, S19, S20).
+- The owner had reported returning to A44 earlier in the same thread.
+  S18 identifies that release as 7E62v2A44. The positive post does not
+  print a contemporaneous BIOS version. BIOS, EC build and instance
+  `2592` record the observation and do not gate reads (S18–S21).
+
 ## Published attributes and sample gates
 
 | Attribute | Meaning | Units and selection | Source |
@@ -155,6 +179,8 @@ candidates toward Verified. They do not gate a read.
 | `fan16_input` | MAG B850M MORTAR WIFI `SYS_FAN1` | Integral RPM. The driver exposes the fixed channel only if firmware enables it. | S8, S10, S4, S11/S12 (lead-only mapping and encoding) |
 | `temp2_input` with `temp2_label` = `Diode 0 (curr)` and `temp2_type` = `3` | MPG X870E CARBON WIFI diode temperature | Signed millidegrees Celsius. The runtime metadata identifies the diode source. | S4, S15, S11/S14/S17 (lead-only metadata and channel order) |
 | `fan1_input` and `fan2_input` | MPG X870E CARBON WIFI fan inputs 1 and 2 | Integral RPM. Each fixed suffix is visible only if its firmware input is enabled. | S4, S15, S11/S14 (lead-only visibility and encoding) |
+| `temp2_input` with `temp2_label` = `Diode 0 (curr)` and `temp2_type` = `3` | MAG B850 TOMAHAWK MAX WIFI diode temperature | Signed millidegrees Celsius. The runtime metadata confirms the diode source. | S4, S19, S17/S20 (lead-only metadata and channel order) |
+| `fan1_input` | MAG B850 TOMAHAWK MAX WIFI fan input 1 | Integral RPM. The fixed suffix is visible when its firmware input is enabled. | S4, S19, S20 (lead-only visibility and encoding) |
 
 For PRO B850-P WIFI, S2 shows an AMD TSI source at EC slot 0, followed by
 assignment bytes `0x82`, `0x89` and `0x8C`. S5 compacts the assigned temperature sources
@@ -194,6 +220,12 @@ claim. The samples report fan inputs 1 and 2 at 747/745 and 635/647 RPM.
 Keep generic fan input labels and the common positive RPM bounds. The
 other readings are outside this profile, including the duplicate
 Thermistor 15 source, unconnected external probe and AMD TSI source.
+
+S19 reports `Diode 0 (curr)` as the second temperature after AMD TSI,
+with type thermal diode and a sample of 36 °C. S17 and S20 establish the
+ordering and type `3`. S19 reports fan input 1 at 605 RPM and later
+655 RPM. Keep the generic diode and fan input 1 labels and the common
+value bounds. Leave all other channels outside this profile.
 
 ## Collection and safety
 
@@ -243,6 +275,15 @@ Thermistor 15 source, unconnected external probe and AMD TSI source.
   `0x0170`–`0x017F`, fan-engine status `0x0CF8`, the separate host-event
   port. The intrusion/alarm callback is separate from this refresh
   (S7, S11, S12, S14).
+- TOMAHAWK MAX's `temp2_label`, `temp2_type`, `temp2_input` and
+  `fan1_input` callbacks may each trigger the same cold or expired-cache
+  refresh. The observed non-Intel branch in the pinned Ubuntu driver
+  reads enabled voltage and temperature values and limits, fan RPM and
+  minima, and configured PWM readback within `0x0100`–`0x0167` and
+  `0x0330`–`0x03D7` under the kernel update mutex. Only EC page/index
+  selectors are written. Known monitor and fan status/error registers,
+  fan-engine status, host-event ports and the separate intrusion and
+  control callbacks are outside this refresh (S7, S12, S19, S20).
 - Preserve successful sibling attributes and provider results. A
   missing or denied endpoint on an admitted board is unavailable.
   A known different board is unsupported. Reuse the motherboard
@@ -269,6 +310,9 @@ Thermistor 15 source, unconnected external probe and AMD TSI source.
 | Carbon DMI and one qualifying native endpoint, `temp2` label/type `Diode 0 (curr)`/`3`, temperature 56000 and fan values 747/745 | Report 56 °C and two generic fan inputs at 747 and 745 RPM. The application reads only the scoped inputs and metadata, skipping the external probe and repeated thermistor label. A different or unreadable BIOS version and a different canonical instance ID do not change eligibility. |
 | Carbon DMI and one qualifying endpoint, missing or different `temp2` metadata, or diode label moved to another channel | Temperature stays unavailable. Preserve independently valid fan inputs and never substitute another temperature channel. Also cover either fan missing, zero, malformed or out of range with valid siblings. |
 | Similar Carbon MAX or other MSI product, missing or unreadable required DMI or owner, DKMS `nct6687` owner, mismatched or duplicate canonical nodes, changed binding or known forced/override binding | Reject the affected endpoint before input and temperature metadata reads, or discard a sample if binding changed during collection. Preserve other providers. |
+| TOMAHAWK MAX DMI and one qualifying native endpoint, `temp2` label/type `Diode 0 (curr)`/`3`, temperature 36000 and fan input 1 at 605 RPM | Report 36 °C and generic fan input 1 at 605 RPM. Read only the scoped inputs and metadata. Repeat with a different canonical instance and absent or different BIOS string. |
+| TOMAHAWK MAX diode metadata absent, moved or incorrect, or either input missing, inaccessible, malformed or out of bounds | Omit only the affected reading and preserve independently valid results. Use the common RPM and temperature bounds. |
+| Different full DMI product sharing MS-7E62, missing identity, known forced binding, external driver, duplicate or changed canonical endpoint | Reject before reading inputs or metadata, or discard affected results if the binding changes during sampling. Preserve independent provider results. |
 
 ## Open questions
 
@@ -304,6 +348,12 @@ Thermistor 15 source, unconnected external probe and AMD TSI source.
   A complete same-unit native sysfs and firmware identity record would
   corroborate the path and its source mapping for Verified review.
 
+- Non-blocking for the MAG B850 TOMAHAWK MAX WIFI slice: S19 and S20 establish ordinary native admission and the scoped positive readings.
+  Numeric customer ID, the BIOS string during the positive sample and a
+  complete symlink capture remain unrecorded. The runtime gate verifies
+  the canonical owner and scoped source metadata directly. A separate
+  hardware capture could corroborate those facts for Verified review.
+
 ## Revision history
 
 | Revision | Date | Change |
@@ -313,3 +363,4 @@ Thermistor 15 source, unconnected external probe and AMD TSI source.
 | 3 | 2026-11-08 | Propose Implementation-ready Experimental SYS_FAN1 coverage on exact MAG B850M MORTAR WIFI BIOS 1.A68 through its native Linux hwmon endpoint. |
 | 4 | 2026-11-09 | Apply ADR 0031: the BIOS version and the PRO platform instance number become evidence identities in Status; the board identity stays a mechanism gate because it selects the OEM EC channel assignment, and the per-channel label/type checks detect a changed assignment. Add the gate-kind table, let the PRO profile accept any canonical instance suffix, and add BIOS-independence fixtures. A Compatibility Report corroborates a build; Verified still needs primary or labeled-capture evidence for every lead-only mapping fact. |
 | 5 | 2026-11-09 | Propose the Implementation-ready transition for Experimental MPG X870E CARBON WIFI diode temperature and fan inputs 1 and 2 through the existing native Linux hwmon endpoint, pending maintainer sign-off. |
+| 6 | 2026-11-13 | Propose Implementation-ready status for Experimental MAG B850 TOMAHAWK MAX WIFI diode temperature and fan input 1 through the existing native endpoint, pending maintainer sign-off. |
