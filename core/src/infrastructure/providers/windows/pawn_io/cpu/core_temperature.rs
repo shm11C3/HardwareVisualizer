@@ -28,11 +28,24 @@ const ARROW_LAKE_SIGNATURE: u32 = 0x000c_0662;
 const HYBRID_CORE_TYPE_LEAF: u32 = 0x1a;
 const SILVERMONT_ATOM_C2000: u32 = 0x4d;
 const SKYLAKE_U_Y_SIGNATURE: u32 = 0x0004_06e3;
+const SKYLAKE_Z170_P_D3_SIGNATURE: u32 = 0x0005_06e3;
+const KABY_LAKE_Z270F_SIGNATURE: u32 = 0x0009_06e9;
+const COFFEE_LAKE_R0_SIGNATURE: u32 = 0x0009_06ed;
+const HASWELL_E_SIGNATURE: u32 = 0x0003_06f2;
+const COMET_LAKE_Q0_SIGNATURE: u32 = 0x000a_0655;
+const ICE_LAKE_D1_SIGNATURE: u32 = 0x0007_06e5;
+const TIGER_LAKE_B1_SIGNATURE: u32 = 0x0008_06c1;
+const ROCKET_LAKE_SIGNATURE: u32 = 0x000a_0671;
+const RAPTOR_LAKE_J0_SIGNATURE: u32 = 0x000b_06a2;
+const RAPTOR_LAKE_U_Q0_SIGNATURE: u32 = 0x000b_06a3;
+const LUNAR_LAKE_B0_SIGNATURE: u32 = 0x000b_06d1;
+const GRACEMONT_N0_SIGNATURE: u32 = 0x000b_06e0;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
 const ALDER_LAKE_H_P_PS: u32 = 0x0009_06a3;
 const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
 const METEOR_LAKE_C0: u32 = 0x000a_06a4;
 const HYBRID_CAPABILITY: u32 = 1 << 15;
+const THERMAL_STATUS_CAPABILITY: u32 = 1 << 22;
 const MAX_TOPOLOGY_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
   std::mem::offset_of!(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, Anonymous);
@@ -44,6 +57,37 @@ pub(crate) enum CoreDtsProfile {
     zero_offset_mask: u64,
   },
   HybridSignature(u32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CoreDtsBoard {
+  SkylakeZ170PD3,
+  KabyLakeZ270F,
+}
+
+impl CoreDtsBoard {
+  pub(crate) fn product(self) -> &'static str {
+    match self {
+      Self::SkylakeZ170PD3 => "Z170-P D3",
+      Self::KabyLakeZ270F => "STRIX Z270F GAMING",
+    }
+  }
+}
+
+impl CoreDtsProfile {
+  pub(crate) fn required_board(self) -> Option<CoreDtsBoard> {
+    match self {
+      Self::Legacy {
+        signature: SKYLAKE_Z170_P_D3_SIGNATURE,
+        ..
+      } => Some(CoreDtsBoard::SkylakeZ170PD3),
+      Self::Legacy {
+        signature: KABY_LAKE_Z270F_SIGNATURE,
+        ..
+      } => Some(CoreDtsBoard::KabyLakeZ270F),
+      _ => None,
+    }
+  }
 }
 
 pub(crate) fn supported_profile() -> Option<CoreDtsProfile> {
@@ -62,14 +106,30 @@ fn profile_from_cpuid(
     return None;
   }
   let vendor = vendor_id_from_leaf0(leaf0);
-  let signature = read_leaf(1)?.eax;
+  let leaf1 = read_leaf(1)?;
+  let signature = leaf1.eax;
   if signature == ARROW_LAKE_SIGNATURE && leaf0.eax < HYBRID_CORE_TYPE_LEAF {
     return None;
   }
   let thermal_features = read_leaf(6)?.eax;
   // cpuid_leaf selects subleaf 0.
-  let extended_features = read_leaf(7).map_or(0, |leaf| leaf.edx);
-  select_profile(&vendor, signature, thermal_features, extended_features)
+  let extended_features = read_leaf(7);
+  if matches!(
+    signature,
+    KABY_LAKE_Z270F_SIGNATURE | GRACEMONT_N0_SIGNATURE
+  ) && (leaf0.eax < 7 || extended_features.is_none())
+  {
+    return None;
+  }
+  if signature == GRACEMONT_N0_SIGNATURE && leaf1.edx & THERMAL_STATUS_CAPABILITY == 0 {
+    return None;
+  }
+  select_profile(
+    &vendor,
+    signature,
+    thermal_features,
+    extended_features.map_or(0, |leaf| leaf.edx),
+  )
 }
 
 fn select_profile(
@@ -89,7 +149,13 @@ fn select_profile(
   if extended_features & HYBRID_CAPABILITY != 0 {
     return matches!(
       signature,
-      ALDER_LAKE_S_HX | ALDER_LAKE_H_P_PS | RAPTOR_LAKE_S_HX | METEOR_LAKE_C0
+      ALDER_LAKE_S_HX
+        | ALDER_LAKE_H_P_PS
+        | RAPTOR_LAKE_S_HX
+        | METEOR_LAKE_C0
+        | RAPTOR_LAKE_J0_SIGNATURE
+        | RAPTOR_LAKE_U_Q0_SIGNATURE
+        | LUNAR_LAKE_B0_SIGNATURE
     )
     .then_some(CoreDtsProfile::HybridSignature(signature));
   }
@@ -100,7 +166,29 @@ fn select_profile(
   })
 }
 
+// Full signatures have their own target offset policy. The board-gated rows
+// also require local baseboard qualification in the Windows Sensor Service.
+const EXACT_LEGACY_OFFSETS: &[(u32, u64)] = &[
+  (HASWELL_E_SIGNATURE, 0x0f00_0000),
+  (SKYLAKE_U_Y_SIGNATURE, 0),
+  (SKYLAKE_Z170_P_D3_SIGNATURE, 0),
+  (KABY_LAKE_Z270F_SIGNATURE, 0),
+  (COFFEE_LAKE_R0_SIGNATURE, 0),
+  (COMET_LAKE_Q0_SIGNATURE, 0),
+  (ICE_LAKE_D1_SIGNATURE, 0),
+  (TIGER_LAKE_B1_SIGNATURE, 0),
+  (ROCKET_LAKE_SIGNATURE, 0),
+  (GRACEMONT_N0_SIGNATURE, 0),
+];
+
 fn legacy_zero_offset_mask(signature: u32) -> Option<u64> {
+  if let Some(&(_, mask)) = EXACT_LEGACY_OFFSETS
+    .iter()
+    .find(|&&(candidate, _)| candidate == signature)
+  {
+    return Some(mask);
+  }
+
   let (family, model) = effective_family_model(signature);
   if family != 6 {
     return None;
@@ -110,7 +198,6 @@ fn legacy_zero_offset_mask(signature: u32) -> Option<u64> {
     // The direct-decode rows do not condition the DTS reference on an offset.
     0x1a | 0x1e | 0x1f | 0x25 | 0x2a | 0x2c | 0x2d | 0x2e | 0x2f | 0x3a | 0x3c | 0x3d
     | 0x45 | 0x46 | 0x47 => 0,
-    0x4e if signature == SKYLAKE_U_Y_SIGNATURE => 0,
     0x3e | 0x4f | 0x56 => 0x0f00_0000,
     0x37
     | 0x4a
@@ -380,8 +467,7 @@ fn sample_core(
 ) -> Option<f32> {
   if access.current_processor() != processor
     || access.profile() != Some(profile)
-    || (matches!(profile, CoreDtsProfile::HybridSignature(_))
-      && !matches!(access.hybrid_core_type(), Some(0x40 | 0x20)))
+    || !core_type_is_supported(profile, access)
     || Instant::now() >= deadline
   {
     return None;
@@ -399,6 +485,19 @@ fn sample_core(
   decode_core_temperature(profile, target, status)
 }
 
+fn core_type_is_supported(profile: CoreDtsProfile, access: &impl CoreAccess) -> bool {
+  match profile {
+    CoreDtsProfile::Legacy { .. } => true,
+    // The LP E cores share a module. Independent readings are not established.
+    CoreDtsProfile::HybridSignature(LUNAR_LAKE_B0_SIGNATURE) => {
+      access.hybrid_core_type() == Some(0x40)
+    }
+    CoreDtsProfile::HybridSignature(_) => {
+      matches!(access.hybrid_core_type(), Some(0x40 | 0x20))
+    }
+  }
+}
+
 fn decode_core_temperature(
   profile: CoreDtsProfile,
   target: u64,
@@ -406,6 +505,27 @@ fn decode_core_temperature(
 ) -> Option<f32> {
   if status & (1 << 31) == 0
     || matches!(profile, CoreDtsProfile::Legacy { zero_offset_mask, .. } if target & zero_offset_mask != 0)
+  {
+    return None;
+  }
+
+  // These exact profiles have conflicting evidence about status bit 23.
+  // Reject an ambiguous sample before applying the documented seven-bit decode.
+  if status & (1 << 23) != 0
+    && matches!(
+      profile,
+      CoreDtsProfile::Legacy {
+        signature: TIGER_LAKE_B1_SIGNATURE,
+        ..
+      } | CoreDtsProfile::HybridSignature(
+        ALDER_LAKE_S_HX
+          | ALDER_LAKE_H_P_PS
+          | RAPTOR_LAKE_S_HX
+          | METEOR_LAKE_C0
+          | RAPTOR_LAKE_J0_SIGNATURE
+          | RAPTOR_LAKE_U_Q0_SIGNATURE
+      )
+    )
   {
     return None;
   }
@@ -424,11 +544,13 @@ mod tests {
   use windows::Win32::System::SystemInformation::PROCESSOR_GROUP_INFO;
 
   const BLOOMFIELD_SIGNATURE: u32 = 0x0001_06a4;
-  const HYBRID_SIGNATURES: [u32; 4] = [
+  const HYBRID_SIGNATURES: [u32; 6] = [
     ALDER_LAKE_S_HX,
     ALDER_LAKE_H_P_PS,
     RAPTOR_LAKE_S_HX,
     METEOR_LAKE_C0,
+    RAPTOR_LAKE_J0_SIGNATURE,
+    RAPTOR_LAKE_U_Q0_SIGNATURE,
   ];
   const LEGACY_PROFILE: CoreDtsProfile = CoreDtsProfile::Legacy {
     signature: BLOOMFIELD_SIGNATURE,
@@ -501,19 +623,37 @@ mod tests {
     thermal_features: u32,
     leaf7_edx: Option<u32>,
   ) -> Option<CoreDtsProfile> {
+    synthetic_profile(signature, 0, thermal_features, leaf7_edx, None)
+  }
+
+  fn synthetic_profile(
+    signature: u32,
+    leaf1_edx: u32,
+    thermal_features: u32,
+    leaf7_edx: Option<u32>,
+    leaf1a_eax: Option<u32>,
+  ) -> Option<CoreDtsProfile> {
     let mut requested = Vec::new();
     let profile = profile_from_cpuid(|leaf| {
       requested.push(leaf);
       let (eax, ebx, ecx, edx) = match leaf {
         0 => (
-          if leaf7_edx.is_some() { 7 } else { 6 },
+          match (leaf1a_eax, leaf7_edx) {
+            (Some(_), _) => 0x1a,
+            (None, Some(_)) if signature == 0x0003_06f2 => 0x0b,
+            (None, Some(_)) => 7,
+            (None, None) => 6,
+          },
           u32::from_le_bytes(*b"Genu"),
           u32::from_le_bytes(*b"ntel"),
           u32::from_le_bytes(*b"ineI"),
         ),
-        1 => (signature, 0, 0, 0),
+        1 => (signature, 0, 0, leaf1_edx),
         6 => (thermal_features, 0, 0, 0),
         7 => (0, 0, 0, leaf7_edx?),
+        // Synthetic Haswell-E core-level count inconsistent with the Windows masks.
+        0x0b if signature == 0x0003_06f2 => (0, 1, 2 << 8, 0),
+        0x1a => (leaf1a_eax?, 0, 0, 0),
         0x8000_0003..=0x8000_0004 => (0, 0, 0, 0),
         0x8000_0000 => (0x8000_0004, 0, 0, 0),
         0x8000_0002 => (
@@ -595,9 +735,122 @@ mod tests {
         None
       );
     }
-    for excluded in [0x0004_06e2, 0x0004_06e4, 0x0005_06e3] {
+    for excluded in [0x0004_06e2, 0x0004_06e4, 0x0005_06e2] {
       assert_eq!(synthetic_legacy_profile(excluded, 0x41, Some(0)), None);
     }
+  }
+
+  const NEW_LEGACY_SIGNATURES: [u32; 8] = [
+    0x0003_06f2,
+    0x0005_06e3,
+    0x0009_06e9,
+    0x0009_06ed,
+    0x000a_0655,
+    0x0007_06e5,
+    0x0008_06c1,
+    0x000a_0671,
+  ];
+
+  #[test]
+  fn additional_legacy_signatures_require_dts_and_reject_adjacent_signatures() {
+    for signature in NEW_LEGACY_SIGNATURES {
+      for ptm in [0, 1 << 6] {
+        let profile = synthetic_legacy_profile(signature, ptm | 1, Some(0)).unwrap();
+        assert!(matches!(profile, CoreDtsProfile::Legacy { .. }));
+        assert_eq!(synthetic_legacy_profile(signature, ptm, Some(0)), None);
+        assert_eq!(
+          synthetic_legacy_profile(signature, ptm | 1, Some(HYBRID_CAPABILITY)),
+          None
+        );
+      }
+    }
+    for excluded in [
+      0x0003_06f1,
+      0x0003_06f4,
+      0x0005_06e2,
+      0x0005_06e4,
+      0x0009_06e8,
+      0x0009_06ea,
+      0x0009_06eb,
+      0x0009_06ec,
+      0x000a_0652,
+      0x000a_0653,
+      0x000a_0654,
+      0x000a_0660,
+      0x0007_06e4,
+      0x0007_06e6,
+      0x0006_06a6,
+      0x0008_06c0,
+      0x0008_06c2,
+      0x0008_06d1,
+      0x000a_0670,
+      0x000a_0672,
+    ] {
+      assert_eq!(synthetic_legacy_profile(excluded, 1, Some(0)), None);
+    }
+    assert_eq!(synthetic_legacy_profile(0x0009_06e9, 1, None), None);
+  }
+
+  #[test]
+  fn additional_legacy_decode_respects_calibrated_targets_and_exact_offset_scope() {
+    for (signature, target, status, expected) in [
+      // Synthetic pairs for the two Haswell-E/Xeon E5 v3 decode outcomes.
+      (0x0003_06f2, 0x0064_0000, 0x8845_0000, 31.0),
+      (0x0003_06f2, 0x0064_0000, 0x8849_0000, 27.0),
+      (0x0005_06e3, 0x0064_1400, 0x8849_0008, 27.0),
+      (0x0009_06e9, 0x0064_140d, 0x8842_0800, 34.0),
+      (0x0009_06e9, 0x0064_140d, 0x8841_0800, 35.0),
+      (0x0009_06e9, 0x0064_140d, 0x8834_0800, 48.0),
+      (0x0009_06ed, 0x0064_0e41, 0x8842_0800, 34.0),
+      (0x0009_06ed, 0x0064_0e41, 0x8841_0800, 35.0),
+      (0x000a_0655, 0x0064_1200, 0x883d_0000, 39.0),
+      (0x0007_06e5, 0x0564_0000, 0x8830_0a82, 52.0),
+      (0x0008_06c1, 0x8064_0000, 0x8822_8282, 66.0),
+      (0x000a_0671, 0x8064_1000, 0x884d_0000, 23.0),
+      (0x000a_0671, 0x8064_0a00, 0x8845_8800, 31.0),
+    ] {
+      let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
+      assert_eq!(
+        decode_core_temperature(profile, target, status),
+        Some(expected)
+      );
+      assert_eq!(decode_core_temperature(profile, 0, status), None);
+      assert_eq!(decode_core_temperature(profile, u64::MAX, status), None);
+      assert_eq!(decode_core_temperature(profile, target, u64::MAX), None);
+      assert_eq!(
+        decode_core_temperature(profile, target, status & !(1 << 31)),
+        None
+      );
+      assert_eq!(
+        decode_core_temperature(profile, target | (1 << 27), status),
+        (signature != 0x0003_06f2).then_some(expected)
+      );
+      assert_eq!(
+        decode_core_temperature(profile, target | (1 << 28) | 0x7f, status),
+        Some(expected)
+      );
+      for (reference, delta, result) in [
+        (49, 0, None),
+        (50, 0, Some(50.0)),
+        (100, 0, Some(100.0)),
+        (120, 0, Some(120.0)),
+        (121, 0, None),
+        (100, 100, None),
+      ] {
+        assert_eq!(
+          decode_core_temperature(profile, reference << 16, (1 << 31) | (delta << 16)),
+          result
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn coffee_lake_r0_does_not_inherit_kaby_lakes_board_gate() {
+    let r0 = synthetic_legacy_profile(0x0009_06ed, 1, Some(0)).unwrap();
+    assert_eq!(r0.required_board(), None);
+    let kaby = synthetic_legacy_profile(0x0009_06e9, 1, Some(0)).unwrap();
+    assert_eq!(kaby.required_board(), Some(CoreDtsBoard::KabyLakeZ270F));
   }
 
   #[test]
@@ -635,7 +888,10 @@ mod tests {
 
   #[test]
   fn hybrid_gate_requires_the_exact_full_signature_and_flag() {
-    for signature in HYBRID_SIGNATURES {
+    for signature in HYBRID_SIGNATURES
+      .into_iter()
+      .chain([LUNAR_LAKE_B0_SIGNATURE])
+    {
       for thermal_features in [1, 0x41] {
         assert_eq!(
           select_profile(
@@ -665,11 +921,78 @@ mod tests {
       0x000a_06a5,
       0x000b_06f2,
       0x000b_0672,
+      0x000b_06a8,
+      0x000b_06d0,
+      0x000b_06d2,
+      0x000b_06e0, // The separate non-hybrid Gracemont scope rejects hybrid.
       BLOOMFIELD_SIGNATURE,
     ] {
       assert_eq!(
         select_profile("GenuineIntel", other_signature, 0x41, HYBRID_CAPABILITY),
         None
+      );
+    }
+  }
+
+  const GRACEMONT_FIXTURE: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: 0x000b_06e0,
+    zero_offset_mask: 0,
+  };
+
+  #[test]
+  fn gracemont_requires_exact_nonhybrid_cpuid_with_thermal_status_and_dts() {
+    let signature = 0x000b_06e0;
+    let thermal_status = 1 << 22;
+    for ptm in [0, 1 << 6] {
+      for core_type in [None, Some(0x2000_0001)] {
+        assert_eq!(
+          synthetic_profile(signature, thermal_status, ptm | 1, Some(0), core_type),
+          Some(GRACEMONT_FIXTURE)
+        );
+      }
+      for (signature, leaf1, leaf6, leaf7) in [
+        (0x000b_06e1, thermal_status, ptm | 1, Some(0)),
+        (0x000b_06f0, thermal_status, ptm | 1, Some(0)),
+        (signature, 0, ptm | 1, Some(0)),
+        (signature, thermal_status, ptm, Some(0)),
+        (signature, thermal_status, ptm | 1, Some(HYBRID_CAPABILITY)),
+        (signature, thermal_status, ptm | 1, None),
+      ] {
+        assert_eq!(
+          synthetic_profile(signature, leaf1, leaf6, leaf7, None),
+          None
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn gracemont_uses_seven_bit_delta_with_the_bounded_offset_independent_target() {
+    for (target, status, expected) in [
+      (0x9169_0000, 0x8841_0000, Some(40.0)),
+      (0x9169_0000, 0x882c_0800, Some(61.0)),
+      (0x8069_0000, 0x8835_2000, Some(52.0)),
+      (0xbf69_007f, 0x8835_2000, Some(52.0)),
+      (0x8069_0000, 0x88b5_2000, Some(52.0)),
+      (0x8069_0000, 0x8869_0000, None),
+      (0x8069_0000, 0x886e_0000, None),
+      (0x8069_0000, 0x0835_2000, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(GRACEMONT_FIXTURE, target, status),
+        expected
+      );
+    }
+    for (target, expected) in [
+      (0, None),
+      (49, None),
+      (50, Some(50.0)),
+      (120, Some(120.0)),
+      (121, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(GRACEMONT_FIXTURE, target << 16, 1 << 31),
+        expected
       );
     }
   }
@@ -869,7 +1192,10 @@ mod tests {
     Target,
     Status,
     InvalidStatus,
+    AmbiguousStatusBit,
+    NoThermalStatus,
     NoDts,
+    MissingLeaf7,
     DifferentSignature,
     NoHybridFlag,
     UnexpectedHybridFlag,
@@ -894,6 +1220,8 @@ mod tests {
     thermal_features: u32,
     extended_features: u32,
     target_by_core_type: [u64; 2],
+    status_word: u64,
+    performance_mask: usize,
   }
 
   impl Fixture {
@@ -909,6 +1237,8 @@ mod tests {
         thermal_features: 0x41,
         extended_features: 0,
         target_by_core_type: [100 << 16; 2],
+        status_word: (1 << 31) | (42 << 16),
+        performance_mask: 1,
       }
     }
 
@@ -961,11 +1291,20 @@ mod tests {
       } else {
         self.extended_features
       };
-      select_profile(
-        "GenuineIntel",
+      let leaf1_edx = if self.failure == (target, Failure::NoThermalStatus) {
+        0
+      } else {
+        1 << 22
+      };
+      let leaf7_edx =
+        (self.failure != (target, Failure::MissingLeaf7)).then_some(extended_features);
+      let leaf1a_eax = (self.extended_features != 0).then_some(0x2000_0001);
+      synthetic_profile(
         signature,
+        leaf1_edx,
         thermal_features,
-        extended_features,
+        leaf7_edx,
+        leaf1a_eax,
       )
     }
 
@@ -980,7 +1319,11 @@ mod tests {
       } else if self.failure == (target, Failure::UnknownCoreType) {
         Some(0x30)
       } else {
-        Some(if target == 0 { 0x40 } else { 0x20 })
+        Some(if self.performance_mask & (1 << target) != 0 {
+          0x40
+        } else {
+          0x20
+        })
       }
     }
 
@@ -1001,8 +1344,16 @@ mod tests {
               ..processor
             });
           }
-          let valid = self.failure != (processor.number, Failure::InvalidStatus);
-          Some((u64::from(valid) << 31) | (42 << 16))
+          let status = self.status_word;
+          Some(match self.failure {
+            (number, Failure::InvalidStatus) if number == processor.number => {
+              status & !(1 << 31)
+            }
+            (number, Failure::AmbiguousStatusBit) if number == processor.number => {
+              status | (1 << 23)
+            }
+            _ => status,
+          })
         }
         MSR_TEMPERATURE_TARGET | IA32_THERM_STATUS => None,
         _ => panic!("Core DTS must never read the package status MSR"),
@@ -1053,6 +1404,200 @@ mod tests {
         );
       }
       assert_eq!(calls.len(), 12);
+    }
+  }
+
+  #[test]
+  fn raptor_lake_u_q0_uses_the_exact_signature_and_reported_core_masks() {
+    let signature = 0x000b_06a3;
+    let profile = CoreDtsProfile::HybridSignature(signature);
+    assert_eq!(
+      synthetic_profile(signature, 0, 1, Some(HYBRID_CAPABILITY), None),
+      Some(profile)
+    );
+    assert_eq!(synthetic_profile(signature, 0, 1, None, None), None);
+    assert_eq!(
+      synthetic_profile(0x000b_06a2, 0, 1, Some(HYBRID_CAPABILITY), None),
+      Some(CoreDtsProfile::HybridSignature(0x000b_06a2))
+    );
+    for (status, expected) in [(0x8818_0a82, 76.0), (0x881b_0a82, 73.0)] {
+      assert_eq!(
+        decode_core_temperature(profile, 0x0364_0000, status),
+        Some(expected)
+      );
+    }
+
+    // This synthetic topology has only one P-core with SMT and one E-core.
+    // Both remain eligible with package thermal management clear.
+    let topology = synthetic_topology(&[0b0011, 0b0100]);
+    let mut fixture = Fixture::hybrid(signature, (u8::MAX, Failure::Pin));
+    fixture.thermal_features = 1;
+    fixture.target_by_core_type = [0x0064_0000, 0x0364_007f];
+    fixture.status_word = 0x8832_0000;
+    let readings = collect(
+      profile,
+      &topology,
+      Instant::now() + Duration::from_secs(1),
+      &fixture,
+    )
+    .unwrap();
+    assert_eq!(
+      readings
+        .iter()
+        .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+        .collect::<Vec<_>>(),
+      [(0, Some(50.0)), (2, Some(50.0))]
+    );
+    assert_eq!(
+      fixture.calls.into_inner(),
+      [
+        Call::Pin(0),
+        Call::Read(0, MSR_TEMPERATURE_TARGET),
+        Call::Read(0, IA32_THERM_STATUS),
+        Call::Restore(0),
+        Call::Pin(2),
+        Call::Read(2, MSR_TEMPERATURE_TARGET),
+        Call::Read(2, IA32_THERM_STATUS),
+        Call::Restore(2),
+      ]
+    );
+  }
+
+  #[test]
+  fn lunar_lake_keeps_lp_e_core_identities_without_reading_their_msrs() {
+    let topology = synthetic_topology(&[1, 2, 4, 8, 16, 32, 64, 128]);
+    let profile = CoreDtsProfile::HybridSignature(0x000b_06d1);
+    for failure in [
+      Failure::Pin,
+      Failure::MissingCoreType,
+      Failure::DifferentSignature,
+      Failure::Target,
+    ] {
+      let mut fixture = Fixture::hybrid(0x000b_06d1, (1, failure));
+      fixture.thermal_features = 1;
+      fixture.performance_mask = 0b0000_1111;
+      fixture.current.set(Processor {
+        group: 0,
+        number: 7,
+      });
+      assert_eq!(fixture.hybrid_core_type(), Some(0x20));
+      assert_eq!(fixture.profile(), Some(profile));
+      fixture.target_by_core_type = [0x8564_0000, 0x0064_007f];
+      let readings = collect(
+        profile,
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (
+            reading.processor_group,
+            reading.logical_processor,
+            reading.temperature_celsius
+          ))
+          .collect::<Vec<_>>(),
+        [
+          (0, 0, Some(58.0)),
+          (0, 1, None),
+          (0, 2, Some(58.0)),
+          (0, 3, Some(58.0)),
+          (0, 4, None),
+          (0, 5, None),
+          (0, 6, None),
+          (0, 7, None),
+        ]
+      );
+      let calls = fixture.calls.into_inner();
+      assert!(!calls.iter().any(|call| matches!(
+        call,
+        Call::Read(4..=7, _) | Call::Read(1, IA32_THERM_STATUS)
+      )));
+      assert_eq!(
+        calls
+          .iter()
+          .filter(|call| matches!(call, Call::Read(1, MSR_TEMPERATURE_TARGET)))
+          .count(),
+        usize::from(failure == Failure::Target)
+      );
+    }
+  }
+
+  #[test]
+  fn tiger_lake_b1_and_raptor_lake_j0_reject_only_the_ambiguous_core_sample() {
+    let topology = synthetic_topology(&[0b0011, 0b0100]);
+    for (signature, extended_features, expected_first) in [
+      (0x0008_06c1, 0, None),
+      (0x000b_06a2, HYBRID_CAPABILITY, None),
+      (0x0007_06e5, 0, Some(58.0)),
+      (0x000c_0662, HYBRID_CAPABILITY, Some(58.0)),
+    ] {
+      let mut fixture = Fixture::new((0, Failure::AmbiguousStatusBit));
+      fixture.signature = signature;
+      fixture.extended_features = extended_features;
+      fixture.thermal_features = 1;
+      let profile = fixture.profile().unwrap();
+      let readings = collect(
+        profile,
+        &topology,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .unwrap();
+      assert_eq!(
+        readings
+          .iter()
+          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .collect::<Vec<_>>(),
+        [(0, expected_first), (2, Some(58.0))]
+      );
+    }
+  }
+
+  #[test]
+  fn ambiguous_hybrid_status_rejects_only_the_affected_p_e_or_low_power_e_slot() {
+    // The P-core has an SMT sibling. On Meteor Lake the last core models an
+    // LP E-core, which reports the same type as a compute-tile E-core.
+    let topology = synthetic_topology(&[0b0011, 0b0100, 0b1000]);
+    for signature in [
+      0x0009_0672,
+      0x0009_06a3,
+      0x000b_0671,
+      0x000a_06a4,
+      0x000b_06a3,
+    ] {
+      for affected in [0, 2, 3] {
+        let mut fixture =
+          Fixture::hybrid(signature, (affected, Failure::AmbiguousStatusBit));
+        fixture.thermal_features = 1;
+        fixture.status_word = 0x881e_0000;
+        let readings = collect(
+          fixture.profile().unwrap(),
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          readings
+            .iter()
+            .map(|reading| (
+              reading.processor_group,
+              reading.logical_processor,
+              reading.temperature_celsius,
+            ))
+            .collect::<Vec<_>>(),
+          [0, 2, 3].map(|processor| (
+            0,
+            processor,
+            (processor != affected).then_some(70.0)
+          )),
+          "signature {signature:#x}, affected processor {affected}",
+        );
+        assert!(fixture.calls.borrow().contains(&Call::Restore(affected)));
+      }
     }
   }
 
@@ -1206,47 +1751,161 @@ mod tests {
   }
 
   #[test]
-  fn legacy_rejects_mismatched_stepping_or_read_failure_per_core() {
-    let topology = synthetic_topology(&[1, 2]);
-    let signature = 0x0003_06e1;
+  fn haswell_e_uses_windows_masks_without_consulting_cpuid_topology() {
+    let signature = 0x0003_06f2;
+    // The CPUID fixture asserts the queried leaves exclude 0BH, even though
+    // it advertises a synthetic count that disagrees with this Windows topology.
     let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
-    for (failure, expected_calls) in [
-      (Failure::DifferentSignature, Vec::new()),
-      (Failure::Target, vec![MSR_TEMPERATURE_TARGET]),
-      (
-        Failure::Status,
-        vec![MSR_TEMPERATURE_TARGET, IA32_THERM_STATUS],
-      ),
+    let group = group_record(1, 0b1111);
+    let package = processor_record(RelationProcessorPackage.0, 0, 0b1111);
+    let first = processor_record(RelationProcessorCore.0, 0, 0b0101);
+    let second = processor_record(RelationProcessorCore.0, 0, 0b1010);
+    let topology = parse_topology(
+      &[
+        group.clone(),
+        package.clone(),
+        first.clone(),
+        second.clone(),
+      ]
+      .concat(),
+    )
+    .unwrap();
+    let mut fixture = Fixture::new((u8::MAX, Failure::Pin));
+    fixture.signature = signature;
+    fixture.thermal_features = 1;
+    let readings = collect(
+      profile,
+      &topology,
+      Instant::now() + Duration::from_secs(1),
+      &fixture,
+    )
+    .unwrap();
+    assert_eq!(
+      readings
+        .iter()
+        .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+        .collect::<Vec<_>>(),
+      [(0, Some(58.0)), (1, Some(58.0))]
+    );
+    let invalid = [
+      [group.clone(), package.clone(), first.clone(), first.clone()].concat(),
+      [
+        group_record(2, 0b1111),
+        package.clone(),
+        first.clone(),
+        second.clone(),
+      ]
+      .concat(),
+      [group, package.clone(), package, first, second].concat(),
+    ];
+    for records in invalid {
+      assert_eq!(parse_topology(&records), None);
+    }
+  }
+
+  #[test]
+  fn legacy_rejects_mismatched_stepping_or_read_failure_per_core() {
+    let topology = synthetic_topology(&[0b0101, 0b1010]);
+    for signature in NEW_LEGACY_SIGNATURES.into_iter().chain([0x0003_06e1]) {
+      let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
+      for (failure, expected_calls) in [
+        (Failure::DifferentSignature, Vec::new()),
+        (Failure::NoDts, Vec::new()),
+        (Failure::Target, vec![MSR_TEMPERATURE_TARGET]),
+        (
+          Failure::Status,
+          vec![MSR_TEMPERATURE_TARGET, IA32_THERM_STATUS],
+        ),
+        (
+          Failure::InvalidStatus,
+          vec![MSR_TEMPERATURE_TARGET, IA32_THERM_STATUS],
+        ),
+      ] {
+        let mut fixture = Fixture::new((0, failure));
+        fixture.signature = signature;
+        fixture.thermal_features = 1;
+        let results = collect(
+          profile,
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          results
+            .iter()
+            .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+            .collect::<Vec<_>>(),
+          [(0, None), (1, Some(58.0))]
+        );
+        let calls = fixture.calls.into_inner();
+        assert!(calls.contains(&Call::Restore(0)));
+        assert_eq!(
+          calls
+            .iter()
+            .filter_map(|call| match call {
+              Call::Read(0, msr) => Some(*msr),
+              _ => None,
+            })
+            .collect::<Vec<_>>(),
+          expected_calls
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn gracemont_rechecks_capabilities_on_pinned_cores_and_keeps_valid_siblings() {
+    let topology = synthetic_topology(&[1, 2, 4, 8]);
+    for (failure, reads_on_core_zero) in [
+      (None, 2),
+      (Some(Failure::DifferentSignature), 0),
+      (Some(Failure::NoThermalStatus), 0),
+      (Some(Failure::NoDts), 0),
+      (Some(Failure::MissingLeaf7), 0),
+      (Some(Failure::UnexpectedHybridFlag), 0),
+      (Some(Failure::Target), 1),
+      (Some(Failure::Status), 2),
+      (Some(Failure::InvalidStatus), 2),
     ] {
-      let mut fixture = Fixture::new((0, failure));
-      fixture.signature = signature;
+      let mut fixture =
+        Fixture::new(failure.map_or((u8::MAX, Failure::Pin), |fault| (0, fault)));
+      fixture.signature = 0x000b_06e0;
       fixture.thermal_features = 1;
-      let results = collect(
-        profile,
+      fixture.target_by_core_type = [0x9169_0000, 0x8069_0000];
+      assert_eq!(fixture.profile(), Some(GRACEMONT_FIXTURE));
+      let readings = collect(
+        GRACEMONT_FIXTURE,
         &topology,
         Instant::now() + Duration::from_secs(1),
         &fixture,
       )
       .unwrap();
       assert_eq!(
-        results
+        readings
           .iter()
-          .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+          .map(|reading| (
+            reading.processor_group,
+            reading.logical_processor,
+            reading.temperature_celsius,
+          ))
           .collect::<Vec<_>>(),
-        [(0, None), (1, Some(58.0))]
+        [
+          (0, 0, failure.is_none().then_some(63.0)),
+          (0, 1, Some(63.0)),
+          (0, 2, Some(63.0)),
+          (0, 3, Some(63.0)),
+        ]
       );
       let calls = fixture.calls.into_inner();
-      assert!(calls.contains(&Call::Restore(0)));
       assert_eq!(
         calls
           .iter()
-          .filter_map(|call| match call {
-            Call::Read(0, msr) => Some(*msr),
-            _ => None,
-          })
-          .collect::<Vec<_>>(),
-        expected_calls
+          .filter(|call| matches!(call, Call::Read(0, _)))
+          .count(),
+        reads_on_core_zero
       );
+      assert!(calls.contains(&Call::Restore(0)));
     }
   }
 

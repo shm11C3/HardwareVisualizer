@@ -161,16 +161,27 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub(super) struct Win32BaseBoard {
+pub(crate) struct Win32BaseBoard {
   pub(super) manufacturer: Option<String>,
   pub(super) product: Option<String>,
   pub(super) version: Option<String>,
   serial_number: Option<String>,
 }
 
+impl Win32BaseBoard {
+  pub(crate) fn matches_manufacturer_product(
+    &self,
+    manufacturer: &str,
+    product: &str,
+  ) -> bool {
+    self.manufacturer.as_deref().map(str::trim) == Some(manufacturer)
+      && self.product.as_deref().map(str::trim) == Some(product)
+  }
+}
+
 /// Preserve the complete query result for sensor profiles that require a
 /// single unambiguous baseboard. The sampler polls the receiver without waiting.
-pub(super) fn start_baseboard_identity_query()
+pub(crate) fn start_baseboard_identity_query()
 -> Receiver<Result<Vec<Win32BaseBoard>, String>> {
   spawn_wmi_query("SELECT Manufacturer, Product, Version FROM Win32_BaseBoard".into())
 }
