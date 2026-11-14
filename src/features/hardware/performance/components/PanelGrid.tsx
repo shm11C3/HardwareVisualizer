@@ -61,7 +61,7 @@ const PanelBody = ({
   }
 
   if (panel === "processTable") {
-    return <ProcessesTable headingStyle="panel" />;
+    return <ProcessesTable headingStyle="panel" fillHeight />;
   }
 
   if (panel === "perCore") {
@@ -125,7 +125,12 @@ const SortablePanel = ({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={chromeless ? undefined : "overflow-hidden rounded-2xl bg-card"}
+      // A flex column lets a body fill the row height the grid stretches the
+      // panel to (the Live Process Table uses it to show more rows).
+      className={cn(
+        "flex flex-col",
+        !chromeless && "overflow-hidden rounded-2xl bg-card",
+      )}
       data-testid={`performance-panel-${panel}`}
     >
       <div
@@ -227,11 +232,15 @@ export const PanelGrid = ({
           }
         >
           {/* Two columns are a maximum: below the xl breakpoint the panels
-              would be too narrow to read, so the grid collapses to one. */}
+              would be too narrow to read, so the grid collapses to one.
+              Panels side by side stretch to their row's height so a shorter
+              panel does not leave a bare gap under itself. */}
           <div
             className={cn(
-              "grid items-start gap-4",
-              isTwoColumn ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1",
+              "grid gap-4",
+              isTwoColumn
+                ? "grid-cols-1 items-start xl:grid-cols-2 xl:items-stretch"
+                : "grid-cols-1 items-start",
             )}
             data-panel-columns={columns}
           >
