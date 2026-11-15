@@ -26,6 +26,7 @@ import type { ProcessInfo } from "@/rspc/bindings";
 
 export const ProcessesTable = ({
   headingStyle = "card",
+  fillHeight = false,
 }: {
   /**
    * "card" keeps the classic Hardware Dashboard heading. "panel" matches the
@@ -33,6 +34,11 @@ export const ProcessesTable = ({
    * differently-styled block among its neighbours.
    */
   headingStyle?: "card" | "panel";
+  /**
+   * Grow the table to the height the parent gives the card, keeping the
+   * default height as the minimum. The parent must be a flex column.
+   */
+  fillHeight?: boolean;
 } = {}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -98,6 +104,7 @@ export const ProcessesTable = ({
       className={cn(
         "bg-card-non-transparent p-4",
         isPanelHeading ? "rounded-2xl" : "rounded-md",
+        fillHeight && "flex flex-1 flex-col",
       )}
       data-testid="live-process-table"
       style={{
@@ -147,9 +154,25 @@ export const ProcessesTable = ({
 
         {hasError ? (
           <LoadFailure
-            className="h-64"
+            className={fillHeight ? "min-h-64 flex-1" : "h-64"}
             message={t("shared.processListLoadFailed")}
           />
+        ) : fillHeight ? (
+          // The table is taken out of flow so its row count never grows the
+          // card; the card height comes from its grid row, at least h-64. The
+          // Radix ScrollArea root forces an inline `position: relative`, so a
+          // plain div is the absolutely positioned layer.
+          <div className="relative min-h-64 flex-1">
+            <div className="absolute inset-0">
+              <InfoTable
+                className="h-full"
+                processes={sortedProcesses}
+                sortConfig={sortConfig}
+                requestSort={requestSort}
+                isTruncate
+              />
+            </div>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <InfoTable
