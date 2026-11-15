@@ -50,6 +50,31 @@ test.describe("cpu detail captures", () => {
     await saveCapture(page, "cpu-core-temperatures-compact");
   });
 
+  test("CPU core temperatures show both processor groups on desktop and compact windows", async ({
+    page,
+  }) => {
+    await gotoApp(page, {
+      path: "/?navigationLayout=classic&cpuCoreTemperatures=2",
+    });
+    await seedHardwareHistory(page);
+    await navigateTo(page, "cpuDetail");
+
+    const panel = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "CPU core temperatures" }),
+    });
+    const first = panel.getByText("Core at group 0, P0");
+    const second = panel.getByText("Core at group 1, P0");
+    await expect(first.locator("..").getByText("37 °C")).toBeVisible();
+    await expect(second.locator("..").getByText("N/A")).toBeVisible();
+    await saveCapture(page, "cpu-two-group-temperatures-desktop");
+
+    await page.setViewportSize({ width: 520, height: 800 });
+    await expect(first).toBeVisible();
+    await expect(second).toBeVisible();
+    await expect(second.locator("..").getByText("N/A")).toBeVisible();
+    await saveCapture(page, "cpu-two-group-temperatures-compact");
+  });
+
   test("CPU detail displays CCD slots independently of core temperatures", async ({
     page,
   }) => {

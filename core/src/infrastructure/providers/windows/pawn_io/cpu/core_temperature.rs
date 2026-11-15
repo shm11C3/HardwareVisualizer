@@ -5,10 +5,14 @@ use windows::Win32::{
   System::{
     SystemInformation::{
       GROUP_AFFINITY, GROUP_RELATIONSHIP, GetLogicalProcessorInformationEx,
-      PROCESSOR_RELATIONSHIP, RelationAll, RelationGroup, RelationProcessorCore,
-      RelationProcessorPackage, SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
+      PROCESSOR_GROUP_INFO, PROCESSOR_RELATIONSHIP, RelationAll, RelationGroup,
+      RelationProcessorCore, RelationProcessorPackage,
+      SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
     },
-    Threading::{GetCurrentProcessorNumberEx, GetCurrentThread, SetThreadGroupAffinity},
+    Threading::{
+      GetCurrentProcessorNumberEx, GetCurrentThread, GetThreadGroupAffinity,
+      SetThreadGroupAffinity,
+    },
   },
 };
 use windows::core::HRESULT;
@@ -77,6 +81,17 @@ impl CoreDtsBoard {
 }
 
 impl CoreDtsProfile {
+  pub(crate) fn supports_topology(self, topology: &CoreTopology) -> bool {
+    !topology.is_two_group()
+      || matches!(
+        self,
+        Self::Legacy {
+          signature: SAPPHIRE_RAPIDS_SIGNATURE,
+          ..
+        }
+      )
+  }
+
   pub(crate) fn required_board(self) -> Option<CoreDtsBoard> {
     match self {
       Self::Legacy {
@@ -226,56 +241,86 @@ struct Processor {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CoreTopology {
-  group: u16,
-  active_mask: usize,
-  package_mask: usize,
-  // Sorted by representative processor, so enumeration order has no effect.
-  core_masks: Vec<usize>,
+  // The active and package masks are equal after validation. Index is group ID.
+  group_masks: Vec<usize>,
+  // Sorted by group and representative processor, independent of record order.
+  core_masks: Vec<(u16, usize)>,
 }
 
 #[cfg(test)]
 pub(crate) fn synthetic_topology(core_masks: &[usize]) -> CoreTopology {
-  let active = core_masks.iter().copied().fold(0, |mask, core| mask | core);
-  CoreTopology::validate(
-    0,
-    active,
-    (0, active),
-    core_masks.iter().map(|mask| (0, *mask)).collect(),
-  )
-  .expect("fixture topology is valid")
+  synthetic_grouped_topology(core_masks.iter().map(|&mask| (0, mask)).collect())
+}
+
+#[cfg(test)]
+pub(crate) fn synthetic_grouped_topology(cores: Vec<(u16, usize)>) -> CoreTopology {
+  let group_count = usize::from(cores.iter().map(|&(group, _)| group).max().unwrap()) + 1;
+  let mut active = vec![0; group_count];
+  for &(group, mask) in &cores {
+    active[usize::from(group)] |= mask;
+  }
+  let package = active
+    .iter()
+    .enumerate()
+    .map(|(group, &mask)| (group as u16, mask))
+    .collect();
+  CoreTopology::validate(active, package, cores).expect("fixture topology is valid")
 }
 
 impl CoreTopology {
   fn validate(
-    group: u16,
-    active_mask: usize,
-    package: (u16, usize),
+    group_masks: Vec<usize>,
+    package_masks: Vec<(u16, usize)>,
     mut cores: Vec<(u16, usize)>,
   ) -> Option<Self> {
-    if active_mask == 0 || package != (group, active_mask) {
+    if !(1..=2).contains(&group_masks.len()) || package_masks.len() != group_masks.len() {
       return None;
     }
 
-    let mut seen = 0;
-    for &(core_group, mask) in &cores {
-      if core_group != group || mask == 0 || mask & !active_mask != 0 || mask & seen != 0
-      {
+    let mut package = vec![0; group_masks.len()];
+    for (group, mask) in package_masks {
+      let index = usize::from(group);
+      if mask == 0 || mask != *group_masks.get(index)? || package[index] != 0 {
         return None;
       }
-      seen |= mask;
+      package[index] = mask;
     }
-
-    if seen != active_mask {
+    if package != group_masks {
       return None;
     }
 
-    cores.sort_unstable_by_key(|(_, mask)| mask.trailing_zeros());
+    let mut seen = vec![0; group_masks.len()];
+    for &(group, mask) in &cores {
+      let index = usize::from(group);
+      if mask == 0 || mask & !group_masks.get(index)? != 0 || mask & seen[index] != 0 {
+        return None;
+      }
+      seen[index] |= mask;
+    }
+    if seen != group_masks {
+      return None;
+    }
+
+    cores.sort_unstable_by_key(|&(group, mask)| (group, mask.trailing_zeros()));
     Some(Self {
-      group,
-      active_mask,
-      package_mask: package.1,
-      core_masks: cores.into_iter().map(|(_, mask)| mask).collect(),
+      group_masks,
+      core_masks: cores,
     })
+  }
+
+  pub(crate) fn is_two_group(&self) -> bool {
+    self.group_masks.len() == 2
+  }
+
+  fn contains_processor(&self, processor: Processor) -> bool {
+    self
+      .group_masks
+      .get(usize::from(processor.group))
+      .is_some_and(|mask| {
+        1usize
+          .checked_shl(u32::from(processor.number))
+          .is_some_and(|bit| mask & bit != 0)
+      })
   }
 }
 
@@ -311,7 +356,7 @@ pub(crate) fn read_topology() -> Option<CoreTopology> {
 }
 
 fn parse_topology(mut bytes: &[u8]) -> Option<CoreTopology> {
-  let mut group_mask = None;
+  let mut groups = None;
   let mut package = None;
   let mut cores = Vec::new();
 
@@ -322,39 +367,69 @@ fn parse_topology(mut bytes: &[u8]) -> Option<CoreTopology> {
     bytes = bytes.get(size..)?;
 
     if relationship == RelationGroup.0 {
-      // Only one active group is supported. Its GroupInfo array index is 0.
-      let groups = unsafe { read_record::<GROUP_RELATIONSHIP>(data) }?;
-      let [group] = groups.GroupInfo;
-      if group_mask.is_some()
-        || groups.ActiveGroupCount != 1
-        || groups.MaximumGroupCount == 0
-        || u32::from(group.ActiveProcessorCount) != group.ActiveProcessorMask.count_ones()
-        || group.ActiveProcessorCount > group.MaximumProcessorCount
-        || u32::from(group.MaximumProcessorCount) > usize::BITS
-      {
+      if groups.replace(active_group_masks(data)?).is_some() {
         return None;
       }
-      group_mask = Some(group.ActiveProcessorMask);
-    } else if relationship == RelationProcessorCore.0
-      || relationship == RelationProcessorPackage.0
-    {
-      let processors = unsafe { read_record::<PROCESSOR_RELATIONSHIP>(data) }?;
-      if processors.GroupCount != 1 {
+    } else if relationship == RelationProcessorPackage.0 {
+      if package.replace(processor_masks(data)?).is_some() {
         return None;
       }
-      let [affinity] = processors.GroupMask;
-      let mask = (affinity.Group, affinity.Mask);
-      if relationship == RelationProcessorPackage.0 {
-        if package.replace(mask).is_some() {
-          return None;
-        }
-      } else {
-        cores.push(mask);
-      }
+    } else if relationship == RelationProcessorCore.0 {
+      let masks = processor_masks(data)?;
+      let [mask] = masks.as_slice() else {
+        return None;
+      };
+      cores.push(*mask);
     }
   }
 
-  CoreTopology::validate(0, group_mask?, package?, cores)
+  CoreTopology::validate(groups?, package?, cores)
+}
+
+fn active_group_masks(data: &[u8]) -> Option<Vec<usize>> {
+  let relation = unsafe { read_record::<GROUP_RELATIONSHIP>(data) }?;
+  let count = usize::from(relation.ActiveGroupCount);
+  let entries = data.get(std::mem::offset_of!(GROUP_RELATIONSHIP, GroupInfo)..)?;
+  if !(1..=2).contains(&count)
+    || relation.ActiveGroupCount > relation.MaximumGroupCount
+    || entries.len() != count * size_of::<PROCESSOR_GROUP_INFO>()
+  {
+    return None;
+  }
+
+  entries
+    .as_chunks::<{ size_of::<PROCESSOR_GROUP_INFO>() }>()
+    .0
+    .iter()
+    .map(|entry| {
+      let group = unsafe { read_record::<PROCESSOR_GROUP_INFO>(entry) }?;
+      let active = group.ActiveProcessorMask;
+      (active != 0
+        && u32::from(group.ActiveProcessorCount) == active.count_ones()
+        && group.ActiveProcessorCount <= group.MaximumProcessorCount
+        && u32::from(group.MaximumProcessorCount) <= usize::BITS)
+        .then_some(active)
+    })
+    .collect()
+}
+
+fn processor_masks(data: &[u8]) -> Option<Vec<(u16, usize)>> {
+  let relation = unsafe { read_record::<PROCESSOR_RELATIONSHIP>(data) }?;
+  let count = usize::from(relation.GroupCount);
+  let entries = data.get(std::mem::offset_of!(PROCESSOR_RELATIONSHIP, GroupMask)..)?;
+  if !(1..=2).contains(&count) || entries.len() != count * size_of::<GROUP_AFFINITY>() {
+    return None;
+  }
+
+  entries
+    .as_chunks::<{ size_of::<GROUP_AFFINITY>() }>()
+    .0
+    .iter()
+    .map(|entry| {
+      let affinity = unsafe { read_record::<GROUP_AFFINITY>(entry) }?;
+      Some((affinity.Group, affinity.Mask))
+    })
+    .collect()
 }
 
 /// The caller may use only integer-only FFI records valid for every bit pattern.
@@ -370,7 +445,7 @@ pub(crate) fn acquire(
   topology: &CoreTopology,
   deadline: Instant,
 ) -> Option<Vec<CpuCoreTemperature>> {
-  if Instant::now() >= deadline {
+  if Instant::now() >= deadline || !profile.supports_topology(topology) {
     return None;
   }
   // A synchronous request can outlive its wait budget. Give this disposable
@@ -383,6 +458,7 @@ trait CoreAccess {
   type PreviousAffinity;
 
   fn pin(&self, processor: Processor) -> Option<Self::PreviousAffinity>;
+  fn establish_singleton(&self, processor: Processor) -> bool;
   fn current_processor(&self) -> Processor;
   fn profile(&self) -> Option<CoreDtsProfile>;
   fn hybrid_core_type(&self) -> Option<u8>;
@@ -390,19 +466,34 @@ trait CoreAccess {
   fn restore(&self, previous: Self::PreviousAffinity) -> bool;
 }
 
+fn singleton_affinity(processor: Processor) -> GROUP_AFFINITY {
+  GROUP_AFFINITY {
+    Mask: 1usize << processor.number,
+    Group: processor.group,
+    Reserved: [0; 3],
+  }
+}
+
 impl CoreAccess for PawnIoClient {
   type PreviousAffinity = GROUP_AFFINITY;
 
   fn pin(&self, processor: Processor) -> Option<Self::PreviousAffinity> {
     let mut previous = GROUP_AFFINITY::default();
-    let affinity = GROUP_AFFINITY {
-      Mask: 1usize << processor.number,
-      Group: processor.group,
-      Reserved: [0; 3],
-    };
+    let affinity = singleton_affinity(processor);
     unsafe { SetThreadGroupAffinity(GetCurrentThread(), &affinity, Some(&mut previous)) }
       .as_bool()
       .then_some(previous)
+  }
+
+  fn establish_singleton(&self, processor: Processor) -> bool {
+    let thread = unsafe { GetCurrentThread() };
+    let expected = singleton_affinity(processor);
+    let mut actual = GROUP_AFFINITY::default();
+    unsafe { SetThreadGroupAffinity(thread, &expected, None) }.as_bool()
+      && unsafe { GetThreadGroupAffinity(thread, &mut actual) }.as_bool()
+      && actual.Group == expected.Group
+      && actual.Mask == expected.Mask
+      && self.current_processor() == processor
   }
 
   fn current_processor(&self) -> Processor {
@@ -436,18 +527,37 @@ fn collect(
   deadline: Instant,
   access: &impl CoreAccess,
 ) -> Option<Vec<CpuCoreTemperature>> {
+  if !profile.supports_topology(topology) || Instant::now() >= deadline {
+    return None;
+  }
+  let baseline = if topology.is_two_group() {
+    // The initial implicit multi-group state has no restorable group mask.
+    // Establish a known singleton baseline on this disposable thread.
+    let processor = access.current_processor();
+    if !topology.contains_processor(processor) || !access.establish_singleton(processor) {
+      return None;
+    }
+    Some(processor)
+  } else {
+    None
+  };
+
   let mut readings = Vec::with_capacity(topology.core_masks.len());
-  for mask in &topology.core_masks {
+  for &(group, mask) in &topology.core_masks {
     if Instant::now() >= deadline {
       return None;
     }
     let processor = Processor {
-      group: topology.group,
+      group,
       number: mask.trailing_zeros() as u8,
     };
     let temperature_celsius = if let Some(previous) = access.pin(processor) {
-      let reading = sample_core(profile, processor, deadline, access);
-      if !access.restore(previous) {
+      let reading = sample_core(profile, processor, deadline, access, baseline.is_some());
+      let restored = match baseline {
+        Some(processor) => access.establish_singleton(processor),
+        None => access.restore(previous),
+      };
+      if !restored {
         return None;
       }
       reading
@@ -468,17 +578,20 @@ fn sample_core(
   processor: Processor,
   deadline: Instant,
   access: &impl CoreAccess,
+  two_group: bool,
 ) -> Option<f32> {
   if access.current_processor() != processor
     || access.profile() != Some(profile)
     || !core_type_is_supported(profile, access)
     || Instant::now() >= deadline
+    || (two_group && access.current_processor() != processor)
   {
     return None;
   }
 
   let target = access.read_msr(MSR_TEMPERATURE_TARGET)?;
-  if Instant::now() >= deadline {
+  if Instant::now() >= deadline || (two_group && access.current_processor() != processor)
+  {
     return None;
   }
   let status = access.read_msr(IA32_THERM_STATUS)?;
@@ -545,7 +658,6 @@ mod tests {
   use super::*;
   use std::cell::{Cell, RefCell};
   use std::time::Duration;
-  use windows::Win32::System::SystemInformation::PROCESSOR_GROUP_INFO;
 
   const BLOOMFIELD_SIGNATURE: u32 = 0x0001_06a4;
   const HYBRID_SIGNATURES: [u32; 6] = [
@@ -1136,7 +1248,7 @@ mod tests {
 
   #[cfg(target_pointer_width = "64")]
   #[test]
-  fn sapphire_rapids_rejects_two_groups_with_72_active_logical_processors() {
+  fn sapphire_rapids_parses_two_groups_with_72_active_logical_processors() {
     assert!(synthetic_legacy_profile(0x0008_06f8, 1, Some(0)).is_some());
 
     // RelationGroup supplies a variable-length GroupInfo array. Model 64
@@ -1157,17 +1269,123 @@ mod tests {
     package[group_count..group_count + size_of::<u16>()]
       .copy_from_slice(&2u16.to_ne_bytes());
 
-    let mut topology = [group, record(RelationProcessorPackage.0, &package)].concat();
+    let mut core_records = Vec::new();
     for (group, physical_cores) in [(0, 32), (1, 4)] {
       for core in 0..physical_cores {
-        topology.extend(processor_record(
+        core_records.push(processor_record(
           RelationProcessorCore.0,
           group,
           0b11 << (2 * core),
         ));
       }
     }
-    assert_eq!(parse_topology(&topology), None);
+    let package = record(RelationProcessorPackage.0, &package);
+    let normal = [&group[..], &package[..], &core_records.concat()[..]].concat();
+    let reversed_cores = core_records
+      .iter()
+      .rev()
+      .flatten()
+      .copied()
+      .collect::<Vec<_>>();
+    let reordered = [&reversed_cores[..], &package[..], &group[..]].concat();
+    let topology = parse_topology(&normal).unwrap();
+    assert_eq!(parse_topology(&reordered), Some(topology.clone()));
+
+    // Retain the declared two-element counts when truncating the records.
+    let short_group = record(RelationGroup.0, &first[HEADER_SIZE..]);
+    let short_package = record(
+      RelationProcessorPackage.0,
+      &package[HEADER_SIZE..package.len() - size_of::<GROUP_AFFINITY>()],
+    );
+    for bytes in [
+      [&short_group[..], &package[..], &core_records.concat()[..]].concat(),
+      [&group[..], &short_package[..], &core_records.concat()[..]].concat(),
+      [
+        &group[..],
+        &package[..],
+        &package[..],
+        &core_records.concat()[..],
+      ]
+      .concat(),
+    ] {
+      assert_eq!(parse_topology(&bytes), None);
+    }
+    assert_eq!(topology.group_masks, [usize::MAX, 0xff]);
+    assert_eq!(topology.core_masks.len(), 36);
+    let sapphire = synthetic_legacy_profile(0x0008_06f8, 1, Some(0)).unwrap();
+    assert!(sapphire.supports_topology(&topology));
+    assert!(!LEGACY_PROFILE.supports_topology(&topology));
+
+    let mut fixture = Fixture::grouped();
+    let deadline = Instant::now() + Duration::from_secs(1);
+    assert_eq!(collect(LEGACY_PROFILE, &topology, deadline, &fixture), None);
+    assert!(fixture.calls.borrow().is_empty());
+    fixture.fault_group_one = true;
+    let readings = collect(sapphire, &topology, deadline, &fixture).unwrap();
+    assert_eq!(readings.len(), 36);
+    assert_eq!(readings[0].processor_group, 0);
+    assert_eq!(readings[0].logical_processor, 0);
+    assert_eq!(readings[0].temperature_celsius, Some(58.0));
+    assert_eq!(readings[32].processor_group, 1);
+    assert_eq!(readings[32].logical_processor, 0);
+    assert_eq!(readings[32].temperature_celsius, None);
+    let expected = (0..32)
+      .map(|core| (0, core * 2))
+      .chain((0..4).map(|core| (1, core * 2)))
+      .flat_map(|(group, number)| {
+        [MSR_TEMPERATURE_TARGET, IA32_THERM_STATUS]
+          .map(|msr| (Processor { group, number }, msr))
+      })
+      .collect::<Vec<_>>();
+    let calls = fixture.calls.borrow();
+    assert_eq!(
+      calls
+        .iter()
+        .filter_map(|call| match call {
+          Call::ReadGroup(processor, msr) => Some((*processor, *msr)),
+          _ => None,
+        })
+        .collect::<Vec<_>>(),
+      expected
+    );
+  }
+
+  #[test]
+  fn two_group_windows_masks_must_be_complete_disjoint_and_order_independent() {
+    let expected = synthetic_grouped_topology(vec![(0, 0b11), (1, 0b01), (1, 0b10)]);
+    let groups = vec![0b11, 0b11];
+    let package = vec![(0, 0b11), (1, 0b11)];
+    let cores = vec![(0, 0b11), (1, 0b01), (1, 0b10)];
+    assert_eq!(
+      CoreTopology::validate(
+        groups.clone(),
+        package.iter().copied().rev().collect(),
+        cores.iter().copied().rev().collect(),
+      ),
+      Some(expected)
+    );
+    for invalid_package in [
+      vec![(0, 0b11), (0, 0b11)],
+      vec![(0, 0b11), (2, 0b11)],
+      vec![(0, 0b11), (1, 0b01)],
+      vec![(0, 0b11), (1, 0)],
+    ] {
+      assert_eq!(
+        CoreTopology::validate(groups.clone(), invalid_package, cores.clone()),
+        None
+      );
+    }
+    for invalid_cores in [
+      vec![(0, 0b11), (1, 0b01), (1, 0b01)],
+      vec![(0, 0b11), (1, 0b01)],
+      vec![(0, 0b11), (1, 0b111)],
+    ] {
+      assert_eq!(
+        CoreTopology::validate(groups.clone(), package.clone(), invalid_cores),
+        None
+      );
+    }
+    assert_eq!(CoreTopology::validate(vec![3, 3, 1], package, cores), None);
   }
 
   #[test]
@@ -1265,6 +1483,8 @@ mod tests {
     Pin(u8),
     Read(u8, u64),
     Restore(u8),
+    Singleton(Processor),
+    ReadGroup(Processor, u64),
   }
 
   struct Fixture {
@@ -1277,6 +1497,11 @@ mod tests {
     target_by_core_type: [u64; 2],
     status_word: u64,
     performance_mask: usize,
+    grouped: bool,
+    singleton_failure: Option<usize>,
+    restrict_group_one: bool,
+    fault_group_one: bool,
+    move_group_one_after_target: bool,
   }
 
   impl Fixture {
@@ -1294,7 +1519,24 @@ mod tests {
         target_by_core_type: [100 << 16; 2],
         status_word: (1 << 31) | (42 << 16),
         performance_mask: 1,
+        grouped: false,
+        singleton_failure: None,
+        restrict_group_one: false,
+        fault_group_one: false,
+        move_group_one_after_target: false,
       }
+    }
+
+    fn grouped() -> Self {
+      let mut fixture = Self::new((u8::MAX, Failure::Pin));
+      fixture.signature = 0x0008_06f8;
+      fixture.thermal_features = 1;
+      fixture.grouped = true;
+      fixture.current.set(Processor {
+        group: 0,
+        number: 0,
+      });
+      fixture
     }
 
     fn hybrid(signature: u32, failure: (u8, Failure)) -> Self {
@@ -1311,7 +1553,9 @@ mod tests {
 
     fn pin(&self, processor: Processor) -> Option<Self::PreviousAffinity> {
       self.calls.borrow_mut().push(Call::Pin(processor.number));
-      if self.failure == (processor.number, Failure::Pin) {
+      if self.failure == (processor.number, Failure::Pin)
+        || (self.restrict_group_one && processor.group == 1)
+      {
         return None;
       }
       let current = if self.failure == (processor.number, Failure::WrongProcessorAfterPin)
@@ -1324,6 +1568,20 @@ mod tests {
         processor
       };
       Some((processor.number, self.current.replace(current)))
+    }
+
+    fn establish_singleton(&self, processor: Processor) -> bool {
+      let mut calls = self.calls.borrow_mut();
+      calls.push(Call::Singleton(processor));
+      let singleton_count = calls
+        .iter()
+        .filter(|call| matches!(call, Call::Singleton(_)))
+        .count();
+      if self.singleton_failure == Some(singleton_count) {
+        return false;
+      }
+      self.current.set(processor);
+      true
     }
 
     fn current_processor(&self) -> Processor {
@@ -1393,10 +1651,22 @@ mod tests {
 
     fn read_msr(&self, msr: u64) -> Option<u64> {
       let processor = self.current.get();
-      self
-        .calls
-        .borrow_mut()
-        .push(Call::Read(processor.number, msr));
+      self.calls.borrow_mut().push(if self.grouped {
+        Call::ReadGroup(processor, msr)
+      } else {
+        Call::Read(processor.number, msr)
+      });
+      if processor.group == 1 {
+        if self.fault_group_one && msr == IA32_THERM_STATUS {
+          return None;
+        }
+        if self.move_group_one_after_target && msr == MSR_TEMPERATURE_TARGET {
+          self.current.set(Processor {
+            group: 0,
+            number: processor.number,
+          });
+        }
+      }
       match msr {
         MSR_TEMPERATURE_TARGET if self.failure != (processor.number, Failure::Target) => {
           Some(self.target_by_core_type[usize::from(processor.number != 0)])
@@ -1432,6 +1702,68 @@ mod tests {
       self.current.set(previous);
       true
     }
+  }
+
+  #[test]
+  fn sapphire_rapids_requires_and_restores_the_explicit_baseline_between_groups() {
+    let topology = synthetic_grouped_topology(vec![(0, 1), (1, 1)]);
+    let baseline = Processor {
+      group: 0,
+      number: 0,
+    };
+    let other = Processor {
+      group: 1,
+      number: 0,
+    };
+    let profile = synthetic_legacy_profile(0x0008_06f8, 1, Some(0)).unwrap();
+    let time = || Instant::now() + Duration::from_secs(1);
+
+    let mut fixture = Fixture::grouped();
+    fixture.singleton_failure = Some(1);
+    assert_eq!(collect(profile, &topology, time(), &fixture), None);
+    assert_eq!(*fixture.calls.borrow(), [Call::Singleton(baseline)]);
+
+    for (restricted, moved) in [(true, false), (false, true)] {
+      let mut fixture = Fixture::grouped();
+      fixture.restrict_group_one = restricted;
+      fixture.move_group_one_after_target = moved;
+      let readings = collect(profile, &topology, time(), &fixture).unwrap();
+      assert_eq!(readings[0].temperature_celsius, Some(58.0));
+      assert_eq!(readings[1].temperature_celsius, None);
+      assert_eq!(fixture.current_processor(), baseline);
+      let calls = fixture.calls.borrow();
+      assert_eq!(
+        calls.contains(&Call::ReadGroup(other, MSR_TEMPERATURE_TARGET)),
+        !restricted
+      );
+      assert!(!calls.contains(&Call::ReadGroup(other, IA32_THERM_STATUS)));
+      assert!(
+        calls
+          .iter()
+          .filter(|call| **call == Call::Singleton(baseline))
+          .count()
+          >= 2
+      );
+    }
+
+    let mut fixture = Fixture::grouped();
+    fixture.fault_group_one = true;
+    fixture.singleton_failure = Some(3);
+    assert_eq!(collect(profile, &topology, time(), &fixture), None);
+    assert_eq!(
+      *fixture.calls.borrow(),
+      [
+        Call::Singleton(baseline),
+        Call::Pin(0),
+        Call::ReadGroup(baseline, MSR_TEMPERATURE_TARGET),
+        Call::ReadGroup(baseline, IA32_THERM_STATUS),
+        Call::Singleton(baseline),
+        Call::Pin(0),
+        Call::ReadGroup(other, MSR_TEMPERATURE_TARGET),
+        Call::ReadGroup(other, IA32_THERM_STATUS),
+        Call::Singleton(baseline),
+      ]
+    );
   }
 
   #[test]

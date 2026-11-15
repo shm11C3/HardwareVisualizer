@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::{Arc, OnceLock};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant as ThreadDeadline};
 
@@ -11,7 +12,9 @@ use crate::infrastructure::providers::windows::{
   pawn_io::cpu::core_temperature::{
     CoreDtsBoard, CoreDtsProfile, CoreTopology, acquire, read_topology, supported_profile,
   },
-  wmi_provider::{Win32BaseBoard, start_baseboard_identity_query},
+  wmi_provider::{
+    Win32BaseBoard, query_windows_11_client, start_baseboard_identity_query,
+  },
 };
 use crate::models::CpuCoreTemperature;
 use crate::sensor_service::protocol::Reading;
@@ -98,6 +101,7 @@ pub(super) struct CoreTemperatures {
   // A pending WMI worker outlives the request. This decision belongs to the
   // service and is independent of motherboard sensor preferences or demand.
   board: Mutex<BoardLookup>,
+  windows_11_client: Arc<OnceLock<bool>>,
 }
 
 #[derive(Default)]
@@ -122,6 +126,7 @@ impl CoreTemperatures {
         start_baseboard_identity_query,
         read_topology,
         acquire,
+        query_windows_11_client,
         CORE_WAIT_BUDGET,
       )
       .await
@@ -139,6 +144,7 @@ impl CoreTemperatures {
     ) -> Option<Vec<CpuCoreTemperature>>
     + Send
     + 'static,
+    query_os: impl FnOnce() -> Result<bool, String> + Send + 'static,
     budget: Duration,
   ) -> Option<CoreReading> {
     let deadline = Instant::now() + budget;
@@ -163,7 +169,8 @@ impl CoreTemperatures {
       }
     };
     let epoch = INVALIDATION_EPOCH.load(Ordering::Acquire);
-    let Some(topology) = topology else {
+    let Some(topology) = topology.filter(|topology| profile.supports_topology(topology))
+    else {
       state.cache = None;
       return None;
     };
@@ -198,14 +205,31 @@ impl CoreTemperatures {
 
     let (sender, receiver) = oneshot::channel();
     let target_topology = context.topology.clone();
+    let windows_11_client = self.windows_11_client.clone();
     let worker = thread::Builder::new()
       .name("intel-core-dts".into())
       .spawn(move || {
-        let result =
-          acquire(profile, &target_topology, deadline.into_std()).map(|value| Reading {
+        let result = (|| {
+          if target_topology.is_two_group() {
+            let allowed = if let Some(&cached) = windows_11_client.get() {
+              cached
+            } else {
+              let result = query_os().ok()?;
+              // Successful WMI results describe this boot. A failed query may
+              // be retried at the existing acquisition cadence.
+              let _ = windows_11_client.set(result);
+              result
+            };
+            if !allowed || ThreadDeadline::now() >= deadline.into_std() {
+              return None;
+            }
+          }
+          let value = acquire(profile, &target_topology, deadline.into_std())?;
+          Some(Reading {
             acquired_at_ms: uptime_ms(),
             value,
-          });
+          })
+        })();
         let _ = sender.send(result);
       })
       .ok()?;
@@ -238,13 +262,19 @@ mod tests {
     mpsc,
   };
 
-  use crate::infrastructure::providers::windows::pawn_io::cpu::core_temperature::synthetic_topology;
+  use crate::infrastructure::providers::windows::pawn_io::cpu::core_temperature::{
+    synthetic_grouped_topology, synthetic_topology,
+  };
 
   const FIXTURE_PROFILE: CoreDtsProfile = CoreDtsProfile::Legacy {
     signature: 0x0001_06a4,
     zero_offset_mask: 0,
   };
 
+  const SAPPHIRE_RAPIDS: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: 0x0008_06f8,
+    zero_offset_mask: 0,
+  };
   const SKYLAKE_Z170_P_D3: CoreDtsProfile = CoreDtsProfile::Legacy {
     signature: 0x0005_06e3,
     zero_offset_mask: 0,
@@ -253,6 +283,10 @@ mod tests {
     signature: 0x0009_06e9,
     zero_offset_mask: 0,
   };
+
+  fn unexpected_os_query() -> Result<bool, String> {
+    panic!("unexpected OS qualification query")
+  }
 
   fn unexpected_board_query() -> BaseboardQuery {
     panic!("unexpected baseboard query")
@@ -286,6 +320,7 @@ mod tests {
           start_query,
           || panic!("topology discovery before board admission"),
           |_, _, _| panic!("MSR acquisition before board admission"),
+          unexpected_os_query,
           CORE_WAIT_BUDGET,
         )
         .await
@@ -312,6 +347,7 @@ mod tests {
             unexpected_board_query,
             fixture_topology,
             |_, _, _| Some(readings()),
+            unexpected_os_query,
             CORE_WAIT_BUDGET,
           )
           .await
@@ -338,6 +374,7 @@ mod tests {
             assert_eq!(admitted, profile);
             Some(readings())
           },
+          unexpected_os_query,
           CORE_WAIT_BUDGET,
         )
         .await
@@ -348,6 +385,7 @@ mod tests {
           unexpected_board_query,
           fixture_topology,
           |_, _, _| panic!("fresh board-qualified sample should be reused"),
+          unexpected_os_query,
           CORE_WAIT_BUDGET,
         )
         .await
@@ -412,6 +450,7 @@ mod tests {
             unexpected_board_query,
             fixture_topology,
             |_, _, _| Some(readings()),
+            unexpected_os_query,
             CORE_WAIT_BUDGET,
           )
           .await
@@ -455,6 +494,195 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn two_group_requests_qualify_only_exact_sapphire_and_cache_os_facts() {
+    let sampler = CoreTemperatures::default();
+    let first = synthetic_grouped_topology(vec![(0, 0b01), (1, 0b01), (1, 0b10)]);
+    let reordered = synthetic_grouped_topology(vec![(1, 0b10), (0, 0b01), (1, 0b01)]);
+    let changed = synthetic_grouped_topology(vec![(0, 0b01), (1, 0b11)]);
+    let expected = vec![
+      CpuCoreTemperature {
+        processor_group: 0,
+        logical_processor: 0,
+        temperature_celsius: Some(37.0),
+      },
+      CpuCoreTemperature {
+        processor_group: 1,
+        logical_processor: 0,
+        temperature_celsius: None,
+      },
+      CpuCoreTemperature {
+        processor_group: 1,
+        logical_processor: 1,
+        temperature_celsius: Some(34.0),
+      },
+    ];
+    assert!(
+      sampler
+        .sample(
+          FIXTURE_PROFILE,
+          unexpected_board_query,
+          || Some(first.clone()),
+          |_, _, _| panic!("unexpected two-group acquisition"),
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
+        )
+        .await
+        .is_none()
+    );
+    let acquired = expected.clone();
+    let initial = sampler
+      .sample(
+        SAPPHIRE_RAPIDS,
+        unexpected_board_query,
+        || Some(first.clone()),
+        move |_, _, _| Some(acquired),
+        || Ok(true),
+        CORE_WAIT_BUDGET,
+      )
+      .await
+      .unwrap();
+    assert_eq!(initial.value, expected);
+    let cached = sampler
+      .sample(
+        SAPPHIRE_RAPIDS,
+        unexpected_board_query,
+        || Some(reordered.clone()),
+        |_, _, _| panic!("reordered equivalent topology must reuse the cache"),
+        unexpected_os_query,
+        CORE_WAIT_BUDGET,
+      )
+      .await
+      .unwrap();
+    assert_eq!(cached.acquired_at_ms, initial.acquired_at_ms);
+    assert_eq!(cached.value, expected);
+
+    assert!(
+      sampler
+        .sample(
+          SAPPHIRE_RAPIDS,
+          unexpected_board_query,
+          || Some(changed.clone()),
+          |_, _, _| panic!("changed topology must not bypass the acquisition rate"),
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
+        )
+        .await
+        .is_none()
+    );
+    assert!(sampler.state.lock().await.cache.is_none());
+    let worker = {
+      let mut state = sampler.state.lock().await;
+      state.last_attempt_ms = None;
+      state.worker.take().unwrap()
+    };
+    worker.join().unwrap();
+
+    let snapshots = Cell::new(0);
+    assert!(
+      sampler
+        .sample(
+          SAPPHIRE_RAPIDS,
+          unexpected_board_query,
+          || {
+            let calls = snapshots.replace(snapshots.get() + 1);
+            Some(if calls == 0 {
+              first.clone()
+            } else {
+              changed.clone()
+            })
+          },
+          |_, _, _| Some(readings()),
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
+        )
+        .await
+        .is_none()
+    );
+    assert_eq!(snapshots.get(), 2);
+    assert!(sampler.state.lock().await.cache.is_none());
+
+    let single_group = CoreTemperatures::default();
+    assert!(
+      single_group
+        .sample(
+          SAPPHIRE_RAPIDS,
+          unexpected_board_query,
+          fixture_topology,
+          |_, _, _| Some(readings()),
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
+        )
+        .await
+        .is_some()
+    );
+  }
+
+  #[tokio::test]
+  async fn two_group_unqualified_or_unavailable_os_never_acquires() {
+    for os in [Ok(false), Err("WMI unavailable".to_owned())] {
+      let sampler = CoreTemperatures::default();
+      let topology = || Some(synthetic_grouped_topology(vec![(0, 1), (1, 1)]));
+      assert!(
+        sampler
+          .sample(
+            SAPPHIRE_RAPIDS,
+            unexpected_board_query,
+            topology,
+            |_, _, _| panic!("an unqualified or unavailable OS must not read MSRs"),
+            move || os,
+            CORE_WAIT_BUDGET,
+          )
+          .await
+          .is_none()
+      );
+      let worker = sampler.state.lock().await.worker.take().unwrap();
+      worker.join().unwrap();
+      assert!(sampler.state.lock().await.cache.is_none());
+    }
+  }
+
+  #[tokio::test]
+  async fn late_os_qualification_never_reads_msrs_or_starts_a_second_worker() {
+    let sampler = CoreTemperatures::default();
+    let topology = || Some(synthetic_grouped_topology(vec![(0, 1), (1, 1)]));
+    let (release, blocked) = mpsc::channel();
+    assert!(
+      sampler
+        .sample(
+          SAPPHIRE_RAPIDS,
+          unexpected_board_query,
+          topology,
+          |_, _, _| panic!("deadline expired while looking up the OS"),
+          move || {
+            blocked.recv_timeout(Duration::from_secs(5)).unwrap();
+            Ok(true)
+          },
+          Duration::from_millis(100),
+        )
+        .await
+        .is_none()
+    );
+    sampler.state.lock().await.last_attempt_ms = None;
+    assert!(
+      sampler
+        .sample(
+          SAPPHIRE_RAPIDS,
+          unexpected_board_query,
+          topology,
+          |_, _, _| panic!("a second worker must wait for the previous one to exit"),
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
+        )
+        .await
+        .is_none()
+    );
+    release.send(()).unwrap();
+    let worker = sampler.state.lock().await.worker.take().unwrap();
+    worker.join().unwrap();
+    assert!(sampler.state.lock().await.cache.is_none());
+  }
+
+  #[tokio::test]
   async fn concurrent_demand_shares_one_acquisition_and_preserves_its_time() {
     let sampler = CoreTemperatures::default();
     let topology = || Some(synthetic_topology(&[0b0101, 0b1010]));
@@ -470,6 +698,7 @@ mod tests {
           starts.fetch_add(1, Ordering::Relaxed);
           Some(readings())
         },
+        unexpected_os_query,
         CORE_WAIT_BUDGET,
       )
     };
@@ -503,6 +732,7 @@ mod tests {
           })
         },
         |_, _, _| Some(readings()),
+        unexpected_os_query,
         CORE_WAIT_BUDGET,
       )
       .await;
@@ -517,7 +747,8 @@ mod tests {
           unexpected_board_query,
           || Some(before.clone()),
           |_, _, _| Some(readings()),
-          CORE_WAIT_BUDGET
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
         )
         .await
         .is_some()
@@ -531,7 +762,8 @@ mod tests {
           |_, _, _| {
             panic!("a changed topology does not bypass the CPU acquisition rate")
           },
-          CORE_WAIT_BUDGET
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
         )
         .await
         .is_none()
@@ -556,6 +788,7 @@ mod tests {
           blocked.recv_timeout(Duration::from_secs(5)).unwrap();
           Some(readings())
         },
+        unexpected_os_query,
         Duration::from_millis(100),
       )
       .await;
@@ -572,7 +805,8 @@ mod tests {
           |_, _, _| {
             panic!("a second pass cannot start before the expired thread exits")
           },
-          CORE_WAIT_BUDGET
+          unexpected_os_query,
+          CORE_WAIT_BUDGET,
         )
         .await
         .is_none()
@@ -592,6 +826,7 @@ mod tests {
           assert_ne!(Some(thread::current().id()), *first_worker.lock().unwrap());
           Some(readings())
         },
+        unexpected_os_query,
         CORE_WAIT_BUDGET,
       )
       .await;

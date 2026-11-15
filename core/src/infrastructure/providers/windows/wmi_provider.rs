@@ -188,6 +188,30 @@ pub(crate) fn start_baseboard_identity_query()
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+struct Win32OperatingSystem {
+  build_number: Option<String>,
+  product_type: Option<u32>,
+}
+
+/// Called by the disposable core worker so WMI shares that pass's deadline and in-flight limit.
+pub(crate) fn query_windows_11_client() -> Result<bool, String> {
+  let systems = query_wmi("SELECT BuildNumber, ProductType FROM Win32_OperatingSystem")?;
+  Ok(is_windows_11_client(&systems))
+}
+
+fn is_windows_11_client(systems: &[Win32OperatingSystem]) -> bool {
+  let [system] = systems else {
+    return false;
+  };
+  system.product_type == Some(1)
+    && system.build_number.as_deref().is_some_and(|build| {
+      build.bytes().all(|byte| byte.is_ascii_digit())
+        && build.parse::<u32>().is_ok_and(|number| number >= 22000)
+    })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 struct Win32Bios {
   manufacturer: Option<String>,
   #[serde(rename = "SMBIOSBIOSVersion")]
@@ -264,23 +288,19 @@ where
 
   // Spawn separate thread to execute WMI query
   thread::spawn(move || {
-    let result = (|| {
-      let wmi_con = WMIConnection::new()
-        .map_err(|e| format!("Failed to create WMI connection: {e:?}"))?;
-
-      // Execute WMI query to get memory information
-      let results: Vec<T> = wmi_con
-        .raw_query(query)
-        .map_err(|e| format!("Failed to execute query: {e:?}"))?;
-
-      Ok(results)
-    })();
-
     // The optional identity consumer may shut down before WMI returns.
-    let _ = tx.send(result);
+    let _ = tx.send(query_wmi(&query));
   });
 
   rx
+}
+
+fn query_wmi<T: DeserializeOwned>(query: &str) -> Result<Vec<T>, String> {
+  let connection = WMIConnection::new()
+    .map_err(|e| format!("Failed to create WMI connection: {e:?}"))?;
+  connection
+    .raw_query(query)
+    .map_err(|e| format!("Failed to execute query: {e:?}"))
 }
 
 ///
@@ -495,5 +515,38 @@ mod tests {
       describe_memory_type_with_fallback(Some(24), Some(34)),
       "DDR3"
     );
+  }
+}
+
+#[cfg(test)]
+mod windows_11_client_tests {
+  use super::*;
+
+  #[test]
+  fn qualifies_only_a_single_workstation_with_an_exact_decimal_windows_11_build() {
+    let row = |build: Option<&str>, product_type| Win32OperatingSystem {
+      build_number: build.map(str::to_owned),
+      product_type,
+    };
+    assert!(!is_windows_11_client(&[]));
+    assert!(!is_windows_11_client(&[
+      row(Some("22000"), Some(1)),
+      row(Some("26100"), Some(1))
+    ]));
+    for (build, product_type, expected) in [
+      (None, Some(1), false),
+      (Some("22000"), None, false),
+      (Some("21999"), Some(1), false),
+      (Some("22000"), Some(1), true),
+      (Some("26100"), Some(1), true),
+      (Some("26100"), Some(3), false),
+      (Some("26100"), Some(2), false),
+      (Some("+22000"), Some(1), false),
+      (Some(" 22000"), Some(1), false),
+      (Some("22000.1"), Some(1), false),
+      (Some("4294967296"), Some(1), false),
+    ] {
+      assert_eq!(is_windows_11_client(&[row(build, product_type)]), expected);
+    }
   }
 }

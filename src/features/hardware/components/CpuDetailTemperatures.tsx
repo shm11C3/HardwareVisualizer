@@ -19,6 +19,10 @@ export const CpuDetailTemperatures = memo(() => {
     return null;
   }
 
+  const firstGroup = sample.cores[0]?.processorGroup;
+  const hasMultipleGroups = sample.cores.some(
+    ({ processorGroup }) => processorGroup !== firstGroup,
+  );
   const groups = [
     {
       title: t("pages.performance.coreTemperatures"),
@@ -26,9 +30,14 @@ export const CpuDetailTemperatures = memo(() => {
       // has its own order and is never joined here.
       readings: sample.cores.map((reading) => ({
         key: `${reading.processorGroup}:${reading.logicalProcessor}`,
-        label: t("pages.performance.coreTemperatureProcessor", {
-          processor: reading.logicalProcessor,
-        }),
+        label: hasMultipleGroups
+          ? t("pages.performance.coreTemperatureGroupProcessor", {
+              group: reading.processorGroup,
+              processor: reading.logicalProcessor,
+            })
+          : t("pages.performance.coreTemperatureProcessor", {
+              processor: reading.logicalProcessor,
+            }),
         temperature: reading.temperature,
       })),
     },
