@@ -12,6 +12,21 @@ const DIMM_PART: &str = "M425R1GB4BB0-CWMOD";
 const CONTROLLER_ADDRESS: &str = "0000:00:1f.4";
 const SPD_SERIAL_OFFSET: u64 = 517;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BoardProfile {
+  OdroidH4,
+  ProtectliVp2430,
+}
+
+impl BoardProfile {
+  fn slot_address(self) -> &'static str {
+    match self {
+      Self::OdroidH4 => "0052",
+      Self::ProtectliVp2430 => "0050",
+    }
+  }
+}
+
 pub(crate) fn collect(raw_inventory: &str, stderr_empty: bool) -> DimmTemperature {
   collect_from(Path::new("/sys"), raw_inventory, stderr_empty)
 }
@@ -20,34 +35,48 @@ fn collect_from(sys: &Path, raw_inventory: &str, stderr_empty: bool) -> DimmTemp
   let dmi = sys.join("class/dmi/id");
   let vendor = attribute(&dmi, "board_vendor");
   let board = attribute(&dmi, "board_name");
-  match (vendor.as_deref(), board.as_deref()) {
-    (Some(BOARD_VENDOR), Some(BOARD_NAME)) => {}
-    (Some(BOARD_VENDOR), None) | (None, Some(BOARD_NAME)) | (None, None) => {
+  let profile = match (vendor.as_deref(), board.as_deref()) {
+    (Some(BOARD_VENDOR), Some(BOARD_NAME)) => BoardProfile::OdroidH4,
+    (Some("Protectli"), Some("VP2430")) => BoardProfile::ProtectliVp2430,
+    (Some(BOARD_VENDOR | "Protectli"), None)
+    | (None, Some(BOARD_NAME | "VP2430"))
+    | (None, None) => {
       return DimmTemperature::Unavailable;
     }
     _ => return DimmTemperature::Unsupported,
-  }
-  match attribute(&dmi, "bios_version").as_deref() {
-    Some(BIOS_VERSION) => {}
-    Some(_) => return DimmTemperature::Unsupported,
-    None => return DimmTemperature::Unavailable,
+  };
+  if profile == BoardProfile::OdroidH4 {
+    match attribute(&dmi, "bios_version").as_deref() {
+      Some(BIOS_VERSION) => {}
+      Some(_) => return DimmTemperature::Unsupported,
+      None => return DimmTemperature::Unavailable,
+    }
   }
 
   if !stderr_empty {
     return DimmTemperature::Unavailable;
   }
-  let Some(dimm) = single_populated_dimm(raw_inventory) else {
+  let Some(dimm) = single_populated_dimm(raw_inventory, profile) else {
     return DimmTemperature::Unavailable;
   };
-  if !dimm.supported() {
+  if !dimm.supported(profile) {
     return DimmTemperature::Unsupported;
   }
-  let Some((locator, serial)) = dimm.identity() else {
+  let Some(locator) = dimm.locator() else {
     return DimmTemperature::Unavailable;
   };
 
-  let reading =
-    find_endpoint(sys).and_then(|endpoint| read_temperature(sys, &endpoint, serial));
+  let serial = match profile {
+    BoardProfile::OdroidH4 => {
+      let Some(serial) = dimm.serial.and_then(decode_serial) else {
+        return DimmTemperature::Unavailable;
+      };
+      Some(serial)
+    }
+    BoardProfile::ProtectliVp2430 => None,
+  };
+  let reading = find_endpoint(sys, profile)
+    .and_then(|endpoint| read_temperature(sys, profile, &endpoint, serial));
   match reading {
     Some(temperature_celsius) => DimmTemperature::Available {
       locator: locator.to_owned(),
@@ -90,7 +119,7 @@ impl<'a> Dimm<'a> {
     Some(())
   }
 
-  fn complete(&self) -> Option<bool> {
+  fn complete(&self, profile: BoardProfile) -> Option<bool> {
     let size = self.size?;
     if size == "No Module Installed" {
       return Some(false);
@@ -99,35 +128,35 @@ impl<'a> Dimm<'a> {
     if amount.parse::<u64>().ok()? == 0 || !matches!(unit, "kB" | "MB" | "GB" | "TB") {
       return None;
     }
-    for value in [
-      self.form_factor?,
-      self.memory_type?,
-      self.locator?,
-      self.serial?,
-      self.part?,
-    ] {
+    for value in [self.form_factor?, self.memory_type?, self.locator?] {
       if !is_reported(value) {
         return None;
       }
     }
+    if profile == BoardProfile::OdroidH4
+      && (!is_reported(self.serial?) || !is_reported(self.part?))
+    {
+      return None;
+    }
     Some(true)
   }
 
-  fn supported(&self) -> bool {
-    matches!(self.size, Some("8 GB" | "8192 MB"))
-      && self.form_factor == Some("SODIMM")
+  fn supported(&self, profile: BoardProfile) -> bool {
+    self.form_factor == Some("SODIMM")
       && self.memory_type == Some("DDR5")
-      && self.part == Some(DIMM_PART)
+      && (profile == BoardProfile::ProtectliVp2430
+        || (matches!(self.size, Some("8 GB" | "8192 MB"))
+          && self.part == Some(DIMM_PART)))
   }
 
-  fn identity(&self) -> Option<(&'a str, [u8; 4])> {
+  fn locator(&self) -> Option<&'a str> {
     let locator = self.locator?;
     if locator.trim() != locator
       || locator.chars().any(|c| c.is_control() || c == '\u{fffd}')
     {
       return None;
     }
-    Some((locator, decode_serial(self.serial?)?))
+    Some(locator)
   }
 }
 
@@ -174,13 +203,17 @@ struct Inventory<'a> {
 }
 
 impl<'a> Inventory<'a> {
-  fn finish(&mut self, record: Option<InventoryRecord<'a>>) -> Option<()> {
+  fn finish(
+    &mut self,
+    record: Option<InventoryRecord<'a>>,
+    profile: BoardProfile,
+  ) -> Option<()> {
     match record {
       Some(InventoryRecord::Array { handle, slots }) => {
         self.array_slots.insert(handle, usize::from(slots?));
       }
       Some(InventoryRecord::Device(device)) => {
-        let populated = device.complete()?;
+        let populated = device.complete(profile)?;
         // Empty sockets also occupy a Type 16 slot. Count every Type 17
         // record against the exact physical array it references.
         let array = parse_handle(device.array_handle?)?;
@@ -203,7 +236,7 @@ fn parse_handle(value: &str) -> Option<u16> {
   u16::from_str_radix(digits, 16).ok()
 }
 
-fn single_populated_dimm(raw: &str) -> Option<Dimm<'_>> {
+fn single_populated_dimm(raw: &str, profile: BoardProfile) -> Option<Dimm<'_>> {
   let mut inventory = Inventory::default();
   let mut current = None;
   let mut handles = HashSet::new();
@@ -213,7 +246,7 @@ fn single_populated_dimm(raw: &str) -> Option<Dimm<'_>> {
       continue;
     }
     if let Some(header) = line.strip_prefix("Handle ") {
-      inventory.finish(current.take())?;
+      inventory.finish(current.take(), profile)?;
       let (handle, fields) = header.split_once(", DMI type ")?;
       let (kind, length) = fields.split_once(", ")?;
       let handle = parse_handle(handle)?;
@@ -229,6 +262,9 @@ fn single_populated_dimm(raw: &str) -> Option<Dimm<'_>> {
           || heading != "End Of Table"
           || lines.any(|line| !line.trim().is_empty())
           || inventory.array_slots != inventory.device_counts
+          || (profile == BoardProfile::ProtectliVp2430
+            && (inventory.array_slots.len() != 1
+              || inventory.array_slots.values().next() != Some(&1)))
         {
           return None;
         }
@@ -327,11 +363,11 @@ fn decode_serial(value: &str) -> Option<[u8; 4]> {
 struct Endpoint {
   client: PathBuf,
   hwmon: PathBuf,
-  eeprom: PathBuf,
+  eeprom: Option<(PathBuf, (u64, u64))>,
   identity: [(u64, u64); 3],
 }
 
-fn find_endpoint(sys: &Path) -> Option<Endpoint> {
+fn find_endpoint(sys: &Path, profile: BoardProfile) -> Option<Endpoint> {
   let pci = sys.join("bus/pci");
   let controller_link = pci.join("devices").join(CONTROLLER_ADDRESS);
   let controller = fs::canonicalize(&controller_link).ok()?;
@@ -351,7 +387,8 @@ fn find_endpoint(sys: &Path) -> Option<Endpoint> {
   let i2c = sys.join("bus/i2c");
   for entry in fs::read_dir(&class).ok()? {
     let entry = entry.ok()?;
-    if let Some(endpoint) = qualify_endpoint(&entry.path(), &class, &i2c, &controller)
+    if let Some(endpoint) =
+      qualify_endpoint(&entry.path(), &class, &i2c, &controller, profile)
       && match_found.replace(endpoint).is_some()
     {
       return None;
@@ -365,6 +402,7 @@ fn qualify_endpoint(
   class: &Path,
   i2c: &Path,
   controller: &Path,
+  profile: BoardProfile,
 ) -> Option<Endpoint> {
   let hwmon = fs::canonicalize(class_entry).ok()?;
   let client = fs::canonicalize(hwmon.join("device")).ok()?;
@@ -374,7 +412,8 @@ fn qualify_endpoint(
   }
   let adapter_name = adapter.file_name()?.to_str()?;
   let bus = adapter_name.strip_prefix("i2c-")?.parse::<u32>().ok()?;
-  if client.file_name()?.to_str()? != format!("{bus}-0052")
+  if adapter_name != format!("i2c-{bus}")
+    || client.file_name()?.to_str()? != format!("{bus}-{}", profile.slot_address())
     || hwmon.parent()? != client.join("hwmon")
     || !links_to(class_entry, &hwmon)
     || !links_to(&hwmon.join("device"), &client)
@@ -387,18 +426,20 @@ fn qualify_endpoint(
     return None;
   }
 
-  let eeprom = fs::canonicalize(client.join("eeprom")).ok()?;
-  if eeprom.parent()? != client {
-    return None;
-  }
-  let eeprom_metadata = fs::metadata(&eeprom).ok()?;
-  if !eeprom_metadata.is_file() {
-    return None;
-  }
+  let eeprom = if profile == BoardProfile::OdroidH4 {
+    let path = fs::canonicalize(client.join("eeprom")).ok()?;
+    let metadata = fs::metadata(&path).ok()?;
+    if path.parent()? != client || !metadata.is_file() {
+      return None;
+    }
+    Some((path, file_identity(&metadata)))
+  } else {
+    None
+  };
   let identity = [
     file_identity(&fs::metadata(&client).ok()?),
     file_identity(&fs::metadata(&hwmon).ok()?),
-    file_identity(&eeprom_metadata),
+    file_identity(&fs::symlink_metadata(client.join("driver")).ok()?),
   ];
   Some(Endpoint {
     client,
@@ -408,15 +449,25 @@ fn qualify_endpoint(
   })
 }
 
-fn read_temperature(sys: &Path, endpoint: &Endpoint, serial: [u8; 4]) -> Option<f32> {
-  let eeprom = File::open(&endpoint.eeprom).ok()?;
-  let mut identity = [0; 34];
-  if file_identity(&eeprom.metadata().ok()?) != endpoint.identity[2]
-    || find_endpoint(sys).as_ref() != Some(endpoint)
-    || eeprom.read_at(&mut identity, SPD_SERIAL_OFFSET).ok()? != identity.len()
-    || !matches_spd_identity(&identity, serial)
-    || find_endpoint(sys).as_ref() != Some(endpoint)
-  {
+fn read_temperature(
+  sys: &Path,
+  profile: BoardProfile,
+  endpoint: &Endpoint,
+  serial: Option<[u8; 4]>,
+) -> Option<f32> {
+  if let Some(serial) = serial {
+    let (path, expected_identity) = endpoint.eeprom.as_ref()?;
+    let eeprom = File::open(path).ok()?;
+    let mut identity = [0; 34];
+    if file_identity(&eeprom.metadata().ok()?) != *expected_identity
+      || find_endpoint(sys, profile).as_ref() != Some(endpoint)
+      || eeprom.read_at(&mut identity, SPD_SERIAL_OFFSET).ok()? != identity.len()
+      || !matches_spd_identity(&identity, serial)
+    {
+      return None;
+    }
+  }
+  if find_endpoint(sys, profile).as_ref() != Some(endpoint) {
     return None;
   }
 
@@ -428,7 +479,7 @@ fn read_temperature(sys: &Path, endpoint: &Endpoint, serial: [u8; 4]) -> Option<
     decode_temperature(&read_hwmon_attribute(&endpoint.hwmon, "temp1_input")?)?;
   // A request may overlap driver detach or re-enumeration. Never publish
   // readings from a replacement binding under the previous DIMM identity.
-  (find_endpoint(sys).as_ref() == Some(endpoint)).then_some(temperature)
+  (find_endpoint(sys, profile).as_ref() == Some(endpoint)).then_some(temperature)
 }
 
 fn matches_spd_identity(data: &[u8; 34], serial: [u8; 4]) -> bool {
@@ -577,6 +628,15 @@ Memory Device
     fn collect(&self, records: &str) -> DimmTemperature {
       collect_from(&self.sys, &format!("{records}\n{END_OF_TABLE}"), true)
     }
+
+    fn protectli() -> Self {
+      let fixture = Self::new();
+      let dmi = fixture.sys.join("class/dmi/id");
+      write_attr(&dmi, "board_vendor", "Protectli");
+      write_attr(&dmi, "board_name", "VP2430");
+      write_attr(&dmi, "bios_version", "Dasharo (coreboot+UEFI) v0.9.0");
+      fixture
+    }
   }
 
   fn write_attr(directory: &Path, name: &str, value: &str) {
@@ -588,6 +648,96 @@ Memory Device
       locator: "DIMM 0".into(),
       temperature_celsius,
     }
+  }
+
+  #[test]
+  fn protectli_uses_the_physical_slot_without_reading_eeprom_or_firmware_identity() {
+    let fixture = Fixture::protectli();
+    let client = fixture.add_client(7, "0050", 0);
+    fs::remove_file(client.join("eeprom")).unwrap();
+    let inventory = INVENTORY
+      .replace("8 GB", "16 GB")
+      .replace("M425R1GB4BB0-CWMOD", "Different DDR5 part");
+    for serial in [
+      "\tSerial Number: 00000000\n",
+      "\tSerial Number: 67452301\n",
+      "",
+    ] {
+      let records = inventory.replace("\tSerial Number: 01234567\n", serial);
+      assert_eq!(fixture.collect(&records), available(40.25));
+    }
+    write_attr(&fixture.sys.join("class/dmi/id"), "bios_version", "Other");
+    assert_eq!(fixture.collect(&inventory), available(40.25));
+    write_attr(&fixture.sys.join("class/dmi/id"), "board_name", "VP2430e");
+    assert_eq!(fixture.collect(&inventory), DimmTemperature::Unsupported);
+  }
+
+  #[test]
+  fn protectli_requires_a_complete_single_slot_inventory() {
+    let fixture = Fixture::protectli();
+    fixture.add_client(7, "0050", 0);
+    for inventory in [
+      INVENTORY.replace("Number Of Devices: 1", "Number Of Devices: 2"),
+      INVENTORY.replace("Array Handle: 0x000F", "Array Handle: 0x000E"),
+      INVENTORY.replace("Locator: DIMM 0", "Locator: Unknown"),
+      INVENTORY.replace("Size: 8 GB", "Size: No Module Installed"),
+      INVENTORY.replace("Handle 0x0010", "Handle 0x000F"),
+      format!(
+        "{INVENTORY}{}",
+        INVENTORY
+          .replace("0x000F", "0x000E")
+          .replace("0x0010", "0x0011")
+      ),
+    ] {
+      assert_eq!(fixture.collect(&inventory), DimmTemperature::Unavailable);
+    }
+    assert_eq!(
+      fixture.collect(&INVENTORY.replace("DDR5", "DDR4")),
+      DimmTemperature::Unsupported
+    );
+    assert_eq!(
+      collect_from(&fixture.sys, INVENTORY, true),
+      DimmTemperature::Unavailable
+    );
+    assert_eq!(
+      collect_from(&fixture.sys, &format!("{INVENTORY}{END_OF_TABLE}"), false),
+      DimmTemperature::Unavailable
+    );
+  }
+
+  #[test]
+  fn protectli_requires_a_unique_qualified_enabled_hub_and_valid_input() {
+    let fixture = Fixture::protectli();
+    let wrong = fixture.add_client(6, "0052", 1);
+    assert_eq!(fixture.collect(INVENTORY), DimmTemperature::Unavailable);
+    let client = fixture.add_client(7, "0050", 0);
+    let hwmon = client.join("hwmon/hwmon0");
+    for (reading, expected) in [
+      ("0", DimmTemperature::Unavailable),
+      ("250", available(0.25)),
+      ("125000", available(125.0)),
+      ("125250", DimmTemperature::Unavailable),
+      ("40251", DimmTemperature::Unavailable),
+      ("bad", DimmTemperature::Unavailable),
+    ] {
+      write_attr(&hwmon, "temp1_input", reading);
+      assert_eq!(fixture.collect(INVENTORY), expected);
+    }
+    write_attr(&hwmon, "temp1_input", "40250");
+    write_attr(&hwmon, "temp1_enable", "0");
+    assert_eq!(fixture.collect(INVENTORY), DimmTemperature::Unavailable);
+    write_attr(&hwmon, "temp1_enable", "1");
+    fs::remove_file(client.join("driver")).unwrap();
+    symlink(wrong, client.join("driver")).unwrap();
+    assert_eq!(fixture.collect(INVENTORY), DimmTemperature::Unavailable);
+    fs::remove_file(client.join("driver")).unwrap();
+    symlink(
+      fixture.sys.join("bus/i2c/drivers/spd5118"),
+      client.join("driver"),
+    )
+    .unwrap();
+    fixture.add_hwmon(&client, 2);
+    assert_eq!(fixture.collect(INVENTORY), DimmTemperature::Unavailable);
   }
 
   #[test]
@@ -856,13 +1006,16 @@ Memory Device
   fn a_recreated_hwmon_node_requires_a_fresh_qualification() {
     let fixture = Fixture::new();
     let client = fixture.add_client(7, "0052", 3);
-    let first = find_endpoint(&fixture.sys).unwrap();
+    let first = find_endpoint(&fixture.sys, BoardProfile::OdroidH4).unwrap();
     fs::rename(&first.hwmon, first.hwmon.with_extension("detached")).unwrap();
     fs::remove_file(fixture.sys.join("class/hwmon/hwmon3")).unwrap();
     let replacement = fixture.add_hwmon(&client, 3);
     write_attr(&replacement, "temp1_input", "41000");
 
-    assert_eq!(read_temperature(&fixture.sys, &first, SERIAL), None);
+    assert_eq!(
+      read_temperature(&fixture.sys, BoardProfile::OdroidH4, &first, Some(SERIAL)),
+      None
+    );
     assert_eq!(fixture.collect(INVENTORY), available(41.0));
   }
 }
