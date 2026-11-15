@@ -51,6 +51,7 @@ vendor or family.
 | ITE IT8620E, IT8628E, IT8716F D, IT8772E FX | Windows [primary LPC profiles](../specs/sensors/superio-ite-primary-lpc-expansion.md) for TMPIN1–3 and FAN1–3 on IT8620E and IT8628E, FAN1–3 on IT8716F D, and FAN2–3 on IT8772E FX | Experimental for qualifying channels | Yes, especially when readings are missing | — |
 | MSI PRO B850-P WIFI, MAG B850M MORTAR WIFI, and MPG X870E CARBON WIFI | Linux [NCT6687-family hwmon profiles](../specs/sensors/superio-nuvoton-nct6687-linux-hwmon.md) for temperatures and fans on PRO, SYS_FAN1 on MORTAR, and one diode temperature and two fan inputs on CARBON | Experimental with the already bound native driver | No, report availability first | — |
 | HARDKERNEL ODROID-H4 | Linux [DDR5 DIMM temperature for the exact Dasharo firmware and Samsung SO-DIMM profile](../specs/sensors/memory-ddr5-odroid-h4-spd5118.md) using a bound SPD5118 hub | Experimental when the live DIMM identity matches | No, report availability first | — |
+| Protectli VP2430 | Linux [DDR5 temperature for the physical DIMM1 slot](../specs/sensors/memory-ddr5-protectli-vp2430-spd5118.md) using a bound SPD5118 hub | Experimental with complete inventory and the qualified slot endpoint | No, report availability first | — |
 
 When a report is added to the table, link its public evidence and credit the
 contributor by GitHub login.
