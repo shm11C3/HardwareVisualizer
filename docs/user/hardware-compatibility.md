@@ -35,6 +35,7 @@ vendor or family.
 | AMD Castle Peak B0 | Windows PawnIO [eight CCD slots on single-package sTRX4 with signature `0x00830F10`](../specs/sensors/cpu-amd-castle-peak-ccd-smn.md) | Experimental | No | — |
 | AMD Vermeer | Windows PawnIO [CCD temperatures on qualified single-package AM4 models](../specs/sensors/cpu-amd-vermeer-ccd-smn.md) | Experimental | No | — |
 | AMD Raphael | Windows PawnIO [CCD temperatures on single-package AM5 with signature `0x00A60F12`](../specs/sensors/cpu-amd-raphael-ccd-smn.md) | Experimental | No | — |
+| AMD Dragon Range | Windows PawnIO [two CCD temperatures on single-package FL1 with signature `0x00A60F12`](../specs/sensors/cpu-amd-dragon-range-ccd-smn.md) | Experimental | No | — |
 | AMD Granite Ridge | Windows PawnIO [CCD temperatures on single-package AM5 with signature `0x00B40F40`](../specs/sensors/cpu-amd-granite-ridge-ccd-smn.md) | Experimental | No | — |
 | Intel CPUs | PawnIO package temperature | Not yet verified by a public compatibility report | No | — |
 | Intel Core DTS | Windows PawnIO core temperatures on [selected legacy Core and Atom models, plus Alder Lake and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) | Includes DTS-only CPUs. The specification lists the status of each profile. | No | — |
