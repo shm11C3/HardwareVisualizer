@@ -11,6 +11,7 @@ const BOARD_VENDOR: &str = "Micro-Star International Co., Ltd.";
 const PRO_BOARD: &str = "PRO B850-P WIFI (MS-7E56)";
 const MORTAR_BOARD: &str = "MAG B850M MORTAR WIFI (MS-7E61)";
 const CARBON_BOARD: &str = "MPG X870E CARBON WIFI (MS-7E49)";
+const TOMAHAWK_MAX_BOARD: &str = "MAG B850 TOMAHAWK MAX WIFI (MS-7E62)";
 
 /// The board whose OEM EC firmware defines the scoped hwmon channel
 /// assignment. The BIOS version and the EC base address are evidence
@@ -20,6 +21,7 @@ enum BoardProfile {
   Pro,
   Mortar,
   Carbon,
+  TomahawkMax,
 }
 
 const DIODE_CHANNEL: (u8, &str, &str) = (2, "Diode 0 (curr)", "3");
@@ -54,6 +56,7 @@ fn identify_profile(dmi: &Path) -> Result<BoardProfile, MotherboardSensorCollect
     PRO_BOARD => Ok(BoardProfile::Pro),
     MORTAR_BOARD => Ok(BoardProfile::Mortar),
     CARBON_BOARD => Ok(BoardProfile::Carbon),
+    TOMAHAWK_MAX_BOARD => Ok(BoardProfile::TomahawkMax),
     _ => Err(unsupported()),
   }
 }
@@ -72,11 +75,14 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
   let temperature_channels: &[_] = match profile {
     BoardProfile::Pro => &PRO_TEMPERATURE_CHANNELS,
     BoardProfile::Mortar => &[],
-    BoardProfile::Carbon => std::slice::from_ref(&DIODE_CHANNEL),
+    BoardProfile::Carbon | BoardProfile::TomahawkMax => {
+      std::slice::from_ref(&DIODE_CHANNEL)
+    }
   };
   let fan_channels: &[_] = match profile {
     BoardProfile::Pro | BoardProfile::Carbon => &FAN_INPUTS_1_AND_2,
     BoardProfile::Mortar => &[(16, "SYS_FAN1")],
+    BoardProfile::TomahawkMax => &FAN_INPUTS_1_AND_2[..1],
   };
   let temperatures = temperature_channels
     .iter()
@@ -799,6 +805,134 @@ mod tests {
     assert_unavailable(&fixture.sample());
     fs::remove_file(&driver_link).unwrap();
     symlink(driver, driver_link).unwrap();
+    add_binding(&fixture.sysfs, "nct6683.2600", "hwmon6");
+    assert_unavailable(&fixture.sample());
+  }
+
+  fn tomahawk_max_fixture(bios: Option<&str>, instance: &str) -> Fixture {
+    let fixture = Fixture::with_binding(TOMAHAWK_MAX_BOARD, bios, instance);
+    for (attribute, value) in [
+      ("temp2_label", "Diode 0 (curr)"),
+      ("temp2_type", "3"),
+      ("temp2_input", "36000"),
+      ("fan1_input", "605"),
+      ("fan2_input", "745"),
+      ("temp3_label", "Thermistor 15"),
+      ("temp3_type", "4"),
+      ("temp3_input", "25000"),
+    ] {
+      fixture.write(attribute, value);
+    }
+    fixture
+  }
+
+  #[test]
+  fn tomahawk_max_reports_only_temperature_2_and_fan_1_on_the_native_binding() {
+    for (bios, instance) in [(None, "nct6683.2592"), (Some("2.A60"), "nct6683.2600")] {
+      let fixture = tomahawk_max_fixture(bios, instance);
+      let collection = fixture.sample();
+      assert_eq!(collection.availability, SensorAvailability::Available);
+      assert_eq!(collection.fan_support, SensorSupport::Supported);
+      assert_eq!(
+        collection.sample.temperatures,
+        [MotherboardTemperature {
+          name: "Temperature 2".to_owned(),
+          temperature: 36.0,
+          source: SOURCE.to_owned(),
+        }]
+      );
+      assert_eq!(
+        collection.sample.fan_speeds,
+        [MotherboardFanSpeed {
+          name: "Fan 1".to_owned(),
+          rpm: Some(605),
+          status: FanSpeedStatus::Active,
+          source: SOURCE.to_owned(),
+        }]
+      );
+    }
+  }
+
+  #[test]
+  fn tomahawk_max_preserves_either_valid_reading_when_the_other_is_unavailable() {
+    for (attribute, value) in [
+      ("temp2_label", "Thermistor 15"),
+      ("temp2_type", "4"),
+      ("temp2_input", "36000 mC"),
+      ("temp2_input", "-55001"),
+      ("temp2_input", "125001"),
+    ] {
+      let fixture = tomahawk_max_fixture(None, "nct6683.2592");
+      fixture.write("temp3_label", "Diode 0 (curr)");
+      fixture.write("temp3_type", "3");
+      fixture.write(attribute, value);
+      let sample = fixture.sample().sample;
+      assert!(sample.temperatures.is_empty());
+      assert_eq!(sample.fan_speeds[0].rpm, Some(605));
+    }
+
+    for (attribute, missing_temperature) in [
+      ("temp2_type", true),
+      ("temp2_input", true),
+      ("fan1_input", false),
+    ] {
+      let fixture = tomahawk_max_fixture(None, "nct6683.2592");
+      fs::remove_file(fixture.node.join(attribute)).unwrap();
+      for inaccessible in [false, true] {
+        if inaccessible {
+          fs::create_dir(fixture.node.join(attribute)).unwrap();
+        }
+        let collection = fixture.sample();
+        assert_eq!(collection.availability, SensorAvailability::Available);
+        assert_eq!(
+          collection.sample.temperatures.is_empty(),
+          missing_temperature
+        );
+        assert_eq!(
+          collection.sample.fan_speeds.is_empty(),
+          !missing_temperature
+        );
+      }
+    }
+
+    let fixture = tomahawk_max_fixture(None, "nct6683.2592");
+    for raw in ["-1", "0", "65535", "605 RPM"] {
+      fixture.write("fan1_input", raw);
+      let sample = fixture.sample().sample;
+      assert_eq!(sample.temperatures[0].temperature, 36.0);
+      assert!(sample.fan_speeds.is_empty());
+    }
+    fixture.write("temp2_input", "invalid");
+    assert_unavailable(&fixture.sample());
+  }
+
+  #[test]
+  fn tomahawk_max_requires_exact_dmi_and_a_unique_native_binding() {
+    let fixture = tomahawk_max_fixture(None, "nct6683.2592");
+    let board = fixture.sysfs.join("class/dmi/id/board_name");
+    fs::write(&board, "MAG B850 TOMAHAWK WIFI (MS-7E62)").unwrap();
+    assert!(matches!(
+      fixture.sample().availability,
+      SensorAvailability::Unsupported { .. }
+    ));
+    fs::remove_file(&board).unwrap();
+    assert_unavailable(&fixture.sample());
+    fs::write(board, TOMAHAWK_MAX_BOARD).unwrap();
+
+    let endpoint = find_endpoint(&fixture.sysfs).unwrap();
+    let sample = fixture.sample().sample;
+    let driver_link = fixture.parent().join("driver");
+    let native_driver = fs::read_link(&driver_link).unwrap();
+    fs::rename(&driver_link, fixture.parent().join("previous-driver")).unwrap();
+    let external = fixture.sysfs.join("bus/platform/drivers/nct6687");
+    fs::create_dir(&external).unwrap();
+    symlink(external, &driver_link).unwrap();
+    assert_unavailable(&fixture.sample());
+    assert_unavailable(&finish_sample(&fixture.sysfs, &endpoint, sample.clone()));
+
+    fs::remove_file(&driver_link).unwrap();
+    symlink(native_driver, &driver_link).unwrap();
+    assert_unavailable(&finish_sample(&fixture.sysfs, &endpoint, sample));
     add_binding(&fixture.sysfs, "nct6683.2600", "hwmon6");
     assert_unavailable(&fixture.sample());
   }

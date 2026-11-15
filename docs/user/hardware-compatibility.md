@@ -35,10 +35,13 @@ vendor or family.
 | AMD Castle Peak B0 | Windows PawnIO [eight CCD slots on single-package sTRX4 with signature `0x00830F10`](../specs/sensors/cpu-amd-castle-peak-ccd-smn.md) | Experimental | No | — |
 | AMD Vermeer | Windows PawnIO [CCD temperatures on qualified single-package AM4 models](../specs/sensors/cpu-amd-vermeer-ccd-smn.md) | Experimental | No | — |
 | AMD Raphael | Windows PawnIO [CCD temperatures on single-package AM5 with signature `0x00A60F12`](../specs/sensors/cpu-amd-raphael-ccd-smn.md) | Experimental | No | — |
+| AMD Dragon Range | Windows PawnIO [two CCD temperatures on single-package FL1 with signature `0x00A60F12`](../specs/sensors/cpu-amd-dragon-range-ccd-smn.md) | Experimental | No | — |
 | AMD Granite Ridge | Windows PawnIO [CCD temperatures on single-package AM5 with signature `0x00B40F40`](../specs/sensors/cpu-amd-granite-ridge-ccd-smn.md) | Experimental | No | — |
 | Intel CPUs | PawnIO package temperature | Not yet verified by a public compatibility report | No | — |
 | Intel Core DTS | Windows PawnIO core temperatures on [selected legacy Core and Atom models, plus Alder Lake and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) | Includes DTS-only CPUs. The specification lists the status of each profile. | No | — |
 | Intel Skylake U, U23e, and Y | Windows PawnIO [core temperatures with signature `0x000406E3`](../specs/sensors/cpu-intel-skylake-mobile-dts-msr.md) | Experimental | No | — |
+| Intel Tiger Lake-H R0 | Windows PawnIO [core temperatures with signature `0x000806D1` on one processor group and package](../specs/sensors/cpu-intel-tiger-lake-h-r0-dts-msr.md) | Experimental | No | — |
+| Intel Sapphire Rapids | Windows PawnIO [core temperatures with signature `0x000806F8` on one processor group and package](../specs/sensors/cpu-intel-sapphire-rapids-dts-msr.md) | Experimental | No | — |
 | Intel Meteor Lake C0 | Windows PawnIO [core temperatures with signature `0x000A06A4`](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | Experimental | No | — |
 | Intel Arrow Lake 200S, 200S Plus, 200HX, and 200HX Plus | Windows PawnIO [core temperatures with signature `0x000C0662`](../specs/sensors/cpu-intel-arrow-lake-dts-msr.md) | Experimental | No | — |
 | NVIDIA GPUs | NVAPI on Windows | Not yet verified by a public compatibility report | No | — |
@@ -50,7 +53,9 @@ vendor or family.
 | ITE IT8728F/EX | Windows motherboard temperatures and [FAN1–2 on the qualified GA-B75M-D3H profile](../specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md) | Experimental | Yes, especially when readings are missing | — |
 | ITE IT8620E, IT8628E, IT8716F D, IT8772E FX | Windows [primary LPC profiles](../specs/sensors/superio-ite-primary-lpc-expansion.md) for TMPIN1–3 and FAN1–3 on IT8620E and IT8628E, FAN1–3 on IT8716F D, and FAN2–3 on IT8772E FX | Experimental for qualifying channels | Yes, especially when readings are missing | — |
 | MSI PRO B850-P WIFI, MAG B850M MORTAR WIFI, and MPG X870E CARBON WIFI | Linux [NCT6687-family hwmon profiles](../specs/sensors/superio-nuvoton-nct6687-linux-hwmon.md) for temperatures and fans on PRO, SYS_FAN1 on MORTAR, and one diode temperature and two fan inputs on CARBON | Experimental with the already bound native driver | No, report availability first | — |
+| MSI MAG B850 TOMAHAWK MAX WIFI (MS-7E62) | Linux [NCT6687-family hwmon profile](../specs/sensors/superio-nuvoton-nct6687-linux-hwmon.md) for one diode temperature and fan input 1 | Experimental with the already bound native driver | No, report availability first | — |
 | HARDKERNEL ODROID-H4 | Linux [DDR5 DIMM temperature for the exact Dasharo firmware and Samsung SO-DIMM profile](../specs/sensors/memory-ddr5-odroid-h4-spd5118.md) using a bound SPD5118 hub | Experimental when the live DIMM identity matches | No, report availability first | — |
+| Protectli VP2430 | Linux [DDR5 temperature for the physical DIMM1 slot](../specs/sensors/memory-ddr5-protectli-vp2430-spd5118.md) using a bound SPD5118 hub | Experimental with complete inventory and the qualified slot endpoint | No, report availability first | — |
 
 When a report is added to the table, link its public evidence and credit the
 contributor by GitHub login.

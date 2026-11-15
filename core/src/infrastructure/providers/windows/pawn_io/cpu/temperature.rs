@@ -359,13 +359,12 @@ impl CpuTemperatureSampler {
   pub(crate) fn sample_ccd(
     &self,
     target: AmdCcdTarget,
-  ) -> (Vec<CpuCcdTemperature>, bool) {
+  ) -> (Option<Vec<CpuCcdTemperature>>, bool) {
     let Some(ActiveCpuTemperatureSource::Amd { client, .. }) = &self.active else {
-      // Keep the authorized slots visible when the module did not open.
-      return (target.unavailable_readings(), true);
+      return (target.readings_without_module(), true);
     };
 
-    (target.read(client), false)
+    (Some(target.read(client)), false)
   }
 
   #[cfg(test)]
