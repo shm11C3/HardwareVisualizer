@@ -253,7 +253,8 @@ impl Providers {
 mod tests {
   use super::*;
   use crate::infrastructure::providers::windows::pawn_io::cpu::ccd_temperature::{
-    synthetic_dragon_range_target, synthetic_raphael_target, synthetic_target,
+    synthetic_dragon_range_target, synthetic_genoa_target, synthetic_raphael_target,
+    synthetic_target,
   };
 
   #[test]
@@ -315,30 +316,31 @@ mod tests {
   }
 
   #[test]
-  fn dragon_range_requires_the_module_without_invalidating_package_temperature() {
-    let now = uptime_ms();
-    let mut providers = Providers::new();
-    providers.temperature.sampler =
-      Some((now, CpuTemperatureSampler::synthetic_unavailable()));
-    providers.temperature.reading = Some(Reading {
-      acquired_at_ms: now,
-      value: TemperatureSample {
-        cpu_temperature: Some(63.0),
-        ..Default::default()
-      },
-    });
+  fn module_required_profiles_do_not_invalidate_package_temperature() {
+    for target in [synthetic_dragon_range_target(), synthetic_genoa_target()] {
+      let now = uptime_ms();
+      let mut providers = Providers::new();
+      providers.temperature.sampler =
+        Some((now, CpuTemperatureSampler::synthetic_unavailable()));
+      providers.temperature.reading = Some(Reading {
+        acquired_at_ms: now,
+        value: TemperatureSample {
+          cpu_temperature: Some(63.0),
+          ..Default::default()
+        },
+      });
 
-    let target = synthetic_dragon_range_target();
-    assert!(
-      providers
-        .sample_ccd_temperatures(Some(target), now)
-        .is_none()
-    );
-    assert!(providers.ccd_reading.is_none());
-    assert_eq!(
-      providers.temperature.reading.unwrap().value.cpu_temperature,
-      Some(63.0)
-    );
+      assert!(
+        providers
+          .sample_ccd_temperatures(Some(target), now)
+          .is_none()
+      );
+      assert!(providers.ccd_reading.is_none());
+      assert_eq!(
+        providers.temperature.reading.unwrap().value.cpu_temperature,
+        Some(63.0)
+      );
+    }
   }
 
   #[test]
