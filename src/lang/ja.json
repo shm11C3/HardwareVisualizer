@@ -352,6 +352,7 @@
       "perCoreUnavailable": "このシステムではコア別使用率を利用できません。",
       "coreTemperatures": "CPU コア別温度",
       "coreTemperatureProcessor": "P{{processor}} のコア",
+      "coreTemperatureGroupProcessor": "グループ{{group}}の P{{processor}} のコア",
       "ccdTemperatures": "CPU CCD 別温度",
       "ccdTemperatureSlot": "CCD {{slot}}",
       "motherboardSensorsUnavailable": "このシステムではマザーボードセンサーを検出できません。",

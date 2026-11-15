@@ -15,8 +15,15 @@ vi.mock("@/rspc/bindings", () => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { processor?: number; slot?: number }) =>
-      options ? `${key} ${options.processor ?? options.slot}` : key,
+    t: (
+      key: string,
+      options?: { group?: number; processor?: number; slot?: number },
+    ) => {
+      if (options?.group !== undefined) {
+        return `${key} ${options.group}:${options.processor}`;
+      }
+      return options ? `${key} ${options.processor ?? options.slot}` : key;
+    },
   }),
 }));
 
@@ -61,6 +68,35 @@ describe("CPU core temperatures", () => {
     expect(
       screen.getByText("pages.performance.coreTemperatureProcessor 2"),
     ).toBeVisible();
+  });
+
+  it("distinguishes the same logical processor number in two groups", async () => {
+    getTemperatures.mockResolvedValue({
+      status: "ok",
+      data: {
+        temperatureUnit: "C",
+        ccds: [],
+        cores: [
+          { processorGroup: 0, logicalProcessor: 0, temperature: 37 },
+          { processorGroup: 1, logicalProcessor: 0, temperature: null },
+        ],
+      },
+    });
+
+    render(<CpuDetailTemperatures />);
+    await advance(0);
+
+    const available = screen.getByText(
+      "pages.performance.coreTemperatureGroupProcessor 0:0",
+    ).parentElement;
+    const unavailable = screen.getByText(
+      "pages.performance.coreTemperatureGroupProcessor 1:0",
+    ).parentElement;
+    expect(available).toHaveTextContent("37 °C");
+    expect(unavailable).toHaveTextContent("shared.notAvailable");
+    expect(
+      screen.queryByText("pages.performance.coreTemperatureProcessor 0"),
+    ).toBeNull();
   });
 
   it("keeps the second CCD in its own slot when the first is missing", async () => {

@@ -110,7 +110,7 @@ type FixtureOverrides = {
   nsisMigrationNotice: boolean;
   classicNavigation: boolean;
   /** A synthetic mixed-availability result for the core temperature panel. */
-  cpuCoreTemperatures: boolean;
+  cpuCoreTemperatures: string | null;
   cpuCcdTemperatures: boolean;
   dimmTemperature: string | null;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
@@ -295,9 +295,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
     classicNavigation:
       new URLSearchParams(window.location.search).get("navigationLayout") ===
       "classic",
-    cpuCoreTemperatures:
-      new URLSearchParams(window.location.search).get("cpuCoreTemperatures") ===
-      "1",
+    cpuCoreTemperatures: new URLSearchParams(window.location.search).get(
+      "cpuCoreTemperatures",
+    ),
     cpuCcdTemperatures:
       new URLSearchParams(window.location.search).get("cpuCcdTemperatures") ===
       "1",
@@ -591,18 +591,24 @@ const buildInvokeHandlers = (
           { packageIndex: 0, ccdSlot: 2, temperature: 54 },
         ]
       : [],
-    cores: fixtureOverrides.cpuCoreTemperatures
-      ? [
-          { processorGroup: 0, logicalProcessor: 0, temperature: 43 },
-          { processorGroup: 0, logicalProcessor: 1, temperature: 42 },
-          { processorGroup: 0, logicalProcessor: 2, temperature: null },
-          { processorGroup: 0, logicalProcessor: 3, temperature: 47 },
-          { processorGroup: 0, logicalProcessor: 4, temperature: 46 },
-          { processorGroup: 0, logicalProcessor: 5, temperature: 45 },
-          { processorGroup: 0, logicalProcessor: 6, temperature: 41 },
-          { processorGroup: 0, logicalProcessor: 7, temperature: 44 },
-        ]
-      : [],
+    cores:
+      fixtureOverrides.cpuCoreTemperatures === "2"
+        ? [
+            { processorGroup: 0, logicalProcessor: 0, temperature: 37 },
+            { processorGroup: 1, logicalProcessor: 0, temperature: null },
+          ]
+        : fixtureOverrides.cpuCoreTemperatures === "1"
+          ? [
+              { processorGroup: 0, logicalProcessor: 0, temperature: 43 },
+              { processorGroup: 0, logicalProcessor: 1, temperature: 42 },
+              { processorGroup: 0, logicalProcessor: 2, temperature: null },
+              { processorGroup: 0, logicalProcessor: 3, temperature: 47 },
+              { processorGroup: 0, logicalProcessor: 4, temperature: 46 },
+              { processorGroup: 0, logicalProcessor: 5, temperature: 45 },
+              { processorGroup: 0, logicalProcessor: 6, temperature: 41 },
+              { processorGroup: 0, logicalProcessor: 7, temperature: 44 },
+            ]
+          : [],
   }),
   get_hardware_compatibility_report: () =>
     [

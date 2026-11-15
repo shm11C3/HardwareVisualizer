@@ -42,7 +42,7 @@ vendor or family.
 | Intel Core DTS | Windows PawnIO core temperatures on [selected legacy Core and Atom models, plus Alder Lake and Raptor Lake profiles](../specs/sensors/cpu-intel-core-dts-msr.md) | Includes DTS-only CPUs. The specification lists the status of each profile. | No | — |
 | Intel Skylake U, U23e, and Y | Windows PawnIO [core temperatures with signature `0x000406E3`](../specs/sensors/cpu-intel-skylake-mobile-dts-msr.md) | Experimental | No | — |
 | Intel Tiger Lake-H R0 | Windows PawnIO [core temperatures with signature `0x000806D1` on one processor group and package](../specs/sensors/cpu-intel-tiger-lake-h-r0-dts-msr.md) | Experimental | No | — |
-| Intel Sapphire Rapids | Windows PawnIO [core temperatures with signature `0x000806F8` on one processor group and package](../specs/sensors/cpu-intel-sapphire-rapids-dts-msr.md) | Experimental | No | — |
+| Intel Sapphire Rapids | Windows PawnIO [core temperatures with signature `0x000806F8` on one package, including two processor groups on Windows 11 x64](../specs/sensors/cpu-intel-sapphire-rapids-dts-msr.md) | Experimental | No | — |
 | Intel Meteor Lake C0 | Windows PawnIO [core temperatures with signature `0x000A06A4`](../specs/sensors/cpu-intel-meteor-lake-dts-msr.md) | Experimental | No | — |
 | Intel Arrow Lake 200S, 200S Plus, 200HX, and 200HX Plus | Windows PawnIO [core temperatures with signature `0x000C0662`](../specs/sensors/cpu-intel-arrow-lake-dts-msr.md) | Experimental | No | — |
 | NVIDIA GPUs | NVAPI on Windows | Not yet verified by a public compatibility report | No | — |
