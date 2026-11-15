@@ -4,6 +4,7 @@ import type { SysInfo } from "@/rspc/bindings";
 import { SystemSpecifications } from "./SystemSpecifications";
 
 const state = vi.hoisted(() => ({
+  os: "windows",
   hardwareInfo: {
     cpu: null,
     memory: null,
@@ -20,7 +21,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
-  platform: () => "windows",
+  platform: () => state.os,
   version: () => "10.0.26100",
   arch: () => "x86_64",
 }));
@@ -56,6 +57,7 @@ vi.mock("@/features/hardware/dashboard/components/ExportHardwareInfo", () => ({
 
 describe("SystemSpecifications", () => {
   beforeEach(() => {
+    state.os = "windows";
     state.hardwareInfo = {
       cpu: null,
       memory: null,
@@ -110,5 +112,34 @@ describe("SystemSpecifications", () => {
     expect(screen.getByText("shared.motherboard")).toBeVisible();
     expect(screen.getByText("HV Fixture Board")).toBeVisible();
     expect(screen.getByText("E2E-0000")).toBeVisible();
+  });
+
+  const gpu = {
+    id: "dxgi:0:1",
+    name: "HV Fixture GPU",
+    vendorName: "FixtureVendor",
+    clock: 0,
+    memorySize: "32768 MB",
+    memorySizeDedicated: "8192 MB",
+    coreCount: null,
+  } as unknown as NonNullable<SysInfo["gpus"]>[number];
+
+  it("labels the Windows GPU memory size as shared system memory", () => {
+    state.hardwareInfo = { ...state.hardwareInfo, gpus: [gpu] };
+
+    render(<SystemSpecifications />);
+
+    expect(screen.getByText("shared.memorySizeShared")).toBeVisible();
+    expect(screen.queryByText("shared.memorySize")).toBeNull();
+  });
+
+  it("keeps the generic GPU memory size label outside Windows", () => {
+    state.os = "linux";
+    state.hardwareInfo = { ...state.hardwareInfo, gpus: [gpu] };
+
+    render(<SystemSpecifications />);
+
+    expect(screen.getByText("shared.memorySize")).toBeVisible();
+    expect(screen.queryByText("shared.memorySizeShared")).toBeNull();
   });
 });
