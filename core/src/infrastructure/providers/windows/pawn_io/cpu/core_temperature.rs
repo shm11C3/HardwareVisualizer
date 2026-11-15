@@ -35,6 +35,8 @@ const HASWELL_E_SIGNATURE: u32 = 0x0003_06f2;
 const COMET_LAKE_Q0_SIGNATURE: u32 = 0x000a_0655;
 const ICE_LAKE_D1_SIGNATURE: u32 = 0x0007_06e5;
 const TIGER_LAKE_B1_SIGNATURE: u32 = 0x0008_06c1;
+const TIGER_LAKE_H_R0_SIGNATURE: u32 = 0x0008_06d1;
+const SAPPHIRE_RAPIDS_SIGNATURE: u32 = 0x0008_06f8;
 const ROCKET_LAKE_SIGNATURE: u32 = 0x000a_0671;
 const RAPTOR_LAKE_J0_SIGNATURE: u32 = 0x000b_06a2;
 const RAPTOR_LAKE_U_Q0_SIGNATURE: u32 = 0x000b_06a3;
@@ -116,7 +118,7 @@ fn profile_from_cpuid(
   let extended_features = read_leaf(7);
   if matches!(
     signature,
-    KABY_LAKE_Z270F_SIGNATURE | GRACEMONT_N0_SIGNATURE
+    KABY_LAKE_Z270F_SIGNATURE | GRACEMONT_N0_SIGNATURE | SAPPHIRE_RAPIDS_SIGNATURE
   ) && (leaf0.eax < 7 || extended_features.is_none())
   {
     return None;
@@ -177,6 +179,8 @@ const EXACT_LEGACY_OFFSETS: &[(u32, u64)] = &[
   (COMET_LAKE_Q0_SIGNATURE, 0),
   (ICE_LAKE_D1_SIGNATURE, 0),
   (TIGER_LAKE_B1_SIGNATURE, 0),
+  (TIGER_LAKE_H_R0_SIGNATURE, 0),
+  (SAPPHIRE_RAPIDS_SIGNATURE, 0),
   (ROCKET_LAKE_SIGNATURE, 0),
   (GRACEMONT_N0_SIGNATURE, 0),
 ];
@@ -515,7 +519,7 @@ fn decode_core_temperature(
     && matches!(
       profile,
       CoreDtsProfile::Legacy {
-        signature: TIGER_LAKE_B1_SIGNATURE,
+        signature: TIGER_LAKE_B1_SIGNATURE | TIGER_LAKE_H_R0_SIGNATURE,
         ..
       } | CoreDtsProfile::HybridSignature(
         ALDER_LAKE_S_HX
@@ -740,7 +744,7 @@ mod tests {
     }
   }
 
-  const NEW_LEGACY_SIGNATURES: [u32; 8] = [
+  const NEW_LEGACY_SIGNATURES: [u32; 10] = [
     0x0003_06f2,
     0x0005_06e3,
     0x0009_06e9,
@@ -748,6 +752,8 @@ mod tests {
     0x000a_0655,
     0x0007_06e5,
     0x0008_06c1,
+    0x0008_06d1,
+    0x0008_06f8,
     0x000a_0671,
   ];
 
@@ -782,13 +788,19 @@ mod tests {
       0x0006_06a6,
       0x0008_06c0,
       0x0008_06c2,
-      0x0008_06d1,
+      0x0008_06d0,
+      0x0008_06d2,
+      0x0008_06f5,
+      0x0008_06f6,
+      0x0008_06f7,
+      0x000c_06f2,
       0x000a_0670,
       0x000a_0672,
     ] {
       assert_eq!(synthetic_legacy_profile(excluded, 1, Some(0)), None);
     }
     assert_eq!(synthetic_legacy_profile(0x0009_06e9, 1, None), None);
+    assert_eq!(synthetic_legacy_profile(0x0008_06f8, 1, None), None);
   }
 
   #[test]
@@ -806,6 +818,12 @@ mod tests {
       (0x000a_0655, 0x0064_1200, 0x883d_0000, 39.0),
       (0x0007_06e5, 0x0564_0000, 0x8830_0a82, 52.0),
       (0x0008_06c1, 0x8064_0000, 0x8822_8282, 66.0),
+      (0x0008_06d1, 0x8364_0000, 0x8843_8808, 33.0),
+      (0x0008_06d1, 0x8364_0000, 0x883f_8808, 37.0),
+      (0x0008_06f8, 0x045e_0800, 0x8845_0800, 25.0),
+      (0x0008_06f8, 0x045e_0800, 0x8846_0800, 24.0),
+      (0x0008_06f8, 0x805f_0800, 0x883a_0400, 37.0),
+      (0x0008_06f8, 0x805f_0800, 0x883d_0400, 34.0),
       (0x000a_0671, 0x8064_1000, 0x884d_0000, 23.0),
       (0x000a_0671, 0x8064_0a00, 0x8845_8800, 31.0),
     ] {
@@ -1116,6 +1134,42 @@ mod tests {
     bytes
   }
 
+  #[cfg(target_pointer_width = "64")]
+  #[test]
+  fn sapphire_rapids_rejects_two_groups_with_72_active_logical_processors() {
+    assert!(synthetic_legacy_profile(0x0008_06f8, 1, Some(0)).is_some());
+
+    // RelationGroup supplies a variable-length GroupInfo array. Model 64
+    // active logical processors in the first group and eight in the second.
+    let first = group_record(2, usize::MAX);
+    let second = group_record(1, 0xff);
+    let group_info = HEADER_SIZE + std::mem::offset_of!(GROUP_RELATIONSHIP, GroupInfo);
+    let group = record(
+      RelationGroup.0,
+      &[&first[HEADER_SIZE..], &second[group_info..]].concat(),
+    );
+    let package = processor_record(RelationProcessorPackage.0, 0, usize::MAX);
+    let second_mask = processor_record(RelationProcessorPackage.0, 1, 0xff);
+    let group_count = std::mem::offset_of!(PROCESSOR_RELATIONSHIP, GroupCount);
+    let group_mask =
+      HEADER_SIZE + std::mem::offset_of!(PROCESSOR_RELATIONSHIP, GroupMask);
+    let mut package = [&package[HEADER_SIZE..], &second_mask[group_mask..]].concat();
+    package[group_count..group_count + size_of::<u16>()]
+      .copy_from_slice(&2u16.to_ne_bytes());
+
+    let mut topology = [group, record(RelationProcessorPackage.0, &package)].concat();
+    for (group, physical_cores) in [(0, 32), (1, 4)] {
+      for core in 0..physical_cores {
+        topology.extend(processor_record(
+          RelationProcessorCore.0,
+          group,
+          0b11 << (2 * core),
+        ));
+      }
+    }
+    assert_eq!(parse_topology(&topology), None);
+  }
+
   #[test]
   fn windows_records_require_one_complete_disjoint_package_in_one_active_group() {
     let group = group_record(1, 0b1111);
@@ -1199,6 +1253,7 @@ mod tests {
     DifferentSignature,
     NoHybridFlag,
     UnexpectedHybridFlag,
+    WrongProcessorAfterPin,
     MissingCoreType,
     UnknownCoreType,
     MovedAfterStatus,
@@ -1259,7 +1314,16 @@ mod tests {
       if self.failure == (processor.number, Failure::Pin) {
         return None;
       }
-      Some((processor.number, self.current.replace(processor)))
+      let current = if self.failure == (processor.number, Failure::WrongProcessorAfterPin)
+      {
+        Processor {
+          group: 1,
+          ..processor
+        }
+      } else {
+        processor
+      };
+      Some((processor.number, self.current.replace(current)))
     }
 
     fn current_processor(&self) -> Processor {
@@ -1522,6 +1586,49 @@ mod tests {
           .count(),
         usize::from(failure == Failure::Target)
       );
+    }
+  }
+
+  #[test]
+  fn tiger_lake_h_and_sapphire_rapids_follow_their_exact_status_width_rules() {
+    // Cover both SMT and single-threaded core masks without a nominal core count.
+    for masks in [[0b0011, 0b0100], [0b0001, 0b0100]] {
+      let topology = synthetic_topology(&masks);
+      for (signature, expected_first) in [(0x0008_06d1, None), (0x0008_06f8, Some(70.0))]
+      {
+        let mut fixture = Fixture::new((0, Failure::AmbiguousStatusBit));
+        fixture.signature = signature;
+        fixture.thermal_features = 1;
+        fixture.status_word = 0x881e_0000;
+        fixture.target_by_core_type = [0x0064_0000, 0x0464_0000];
+        let readings = collect(
+          fixture.profile().unwrap(),
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          readings
+            .iter()
+            .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+            .collect::<Vec<_>>(),
+          [(0, expected_first), (2, Some(70.0))]
+        );
+        assert_eq!(
+          fixture.calls.into_inner(),
+          [
+            Call::Pin(0),
+            Call::Read(0, MSR_TEMPERATURE_TARGET),
+            Call::Read(0, IA32_THERM_STATUS),
+            Call::Restore(0),
+            Call::Pin(2),
+            Call::Read(2, MSR_TEMPERATURE_TARGET),
+            Call::Read(2, IA32_THERM_STATUS),
+            Call::Restore(2),
+          ]
+        );
+      }
     }
   }
 
@@ -1810,6 +1917,7 @@ mod tests {
       let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
       for (failure, expected_calls) in [
         (Failure::DifferentSignature, Vec::new()),
+        (Failure::WrongProcessorAfterPin, Vec::new()),
         (Failure::NoDts, Vec::new()),
         (Failure::Target, vec![MSR_TEMPERATURE_TARGET]),
         (
