@@ -1,13 +1,15 @@
 //! Experimental CCD monitoring from the approved AMD CCD specifications
 //! under `docs/specs/sensors/`.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use windows::Win32::{
   Foundation::ERROR_INSUFFICIENT_BUFFER,
   System::SystemInformation::{
-    GROUP_AFFINITY, GetLogicalProcessorInformationEx, PROCESSOR_RELATIONSHIP,
-    RelationProcessorPackage, SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
+    GROUP_AFFINITY, GROUP_RELATIONSHIP, GetLogicalProcessorInformationEx,
+    LOGICAL_PROCESSOR_RELATIONSHIP, PROCESSOR_GROUP_INFO, PROCESSOR_RELATIONSHIP,
+    RelationAll, RelationGroup, RelationProcessorPackage,
+    SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
   },
 };
 use windows::core::HRESULT;
@@ -22,6 +24,7 @@ const AMD_VENDOR_ID: &str = "AuthenticAMD";
 const AM4_PACKAGE_FIELD: u32 = 0x2;
 const AM5_PACKAGE_FIELD: u32 = 0x0;
 const FL1_PACKAGE_FIELD: u32 = 0x1;
+const SP5_PACKAGE_FIELD: u32 = 0x4;
 const STRX4_PACKAGE_FIELD: u32 = 0x7;
 const MAX_PACKAGE_RECORD_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
@@ -104,13 +107,33 @@ const GRANITE_RIDGE: CcdRegisterMap = CcdRegisterMap {
   slots: &[0x0005_9B08, 0x0005_9B0C],
 };
 
-const CCD_REGISTER_MAPS: [&CcdRegisterMap; 6] = [
+const GENOA_B1: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::Signature(0x00A1_0F11),
+  package_field: SP5_PACKAGE_FIELD,
+  slots: &[
+    0x0005_9B00,
+    0x0005_9B04,
+    0x0005_9B08,
+    0x0005_9B0C,
+    0x0005_9B10,
+    0x0005_9B14,
+    0x0005_9B18,
+    0x0005_9B1C,
+    0x0005_9B20,
+    0x0005_9B24,
+    0x0005_9B28,
+    0x0005_9B2C,
+  ],
+};
+
+const CCD_REGISTER_MAPS: [&CcdRegisterMap; 7] = [
   &VERMEER,
   &RAPHAEL,
   &DRAGON_RANGE,
   &GRANITE_RIDGE,
   &MATISSE,
   &CASTLE_PEAK,
+  &GENOA_B1,
 ];
 
 /// Experimental target admitted by the CPU mechanism and a single physical
@@ -120,7 +143,16 @@ pub(crate) struct AmdCcdTarget(&'static CcdRegisterMap);
 
 impl AmdCcdTarget {
   pub(crate) fn detect() -> Option<Self> {
-    authorize_target(processor_register_map(), query_single_package)
+    let map = processor_register_map()?;
+    authorize_target(Some(map), || {
+      if *map == GENOA_B1 {
+        // The fixed boot-package route is only authorized if that package
+        // covers every active processor group in the same OS snapshot.
+        query_relationships(RelationAll, validate_active_single_package)
+      } else {
+        query_relationships(RelationProcessorPackage, validate_single_package_record)
+      }
+    })
   }
 
   pub(crate) fn read(&self, client: &PawnIoClient) -> Vec<CpuCcdTemperature> {
@@ -132,8 +164,8 @@ impl AmdCcdTarget {
   }
 
   pub(crate) fn readings_without_module(&self) -> Option<Vec<CpuCcdTemperature>> {
-    // The Dragon Range specification requires the signed module for admission.
-    (*self.0 != DRAGON_RANGE).then(|| self.unavailable_readings())
+    // Dragon Range and Genoa require a loaded module before exposing slots.
+    (*self.0 != DRAGON_RANGE && *self.0 != GENOA_B1).then(|| self.unavailable_readings())
   }
 
   /// Reads each authorized word once, in slot order, with no retries. A slot
@@ -194,12 +226,13 @@ fn authorize_target(
   Some(AmdCcdTarget(map))
 }
 
-fn query_single_package() -> Option<()> {
+fn query_relationships(
+  relationship: LOGICAL_PROCESSOR_RELATIONSHIP,
+  validate: impl FnOnce(&[u8]) -> Option<()>,
+) -> Option<()> {
   let mut length = 0;
-  let error = unsafe {
-    GetLogicalProcessorInformationEx(RelationProcessorPackage, None, &mut length)
-  }
-  .err()?;
+  let error =
+    unsafe { GetLogicalProcessorInformationEx(relationship, None, &mut length) }.err()?;
   if error.code() != HRESULT::from_win32(ERROR_INSUFFICIENT_BUFFER.0)
     || !(HEADER_SIZE..=MAX_PACKAGE_RECORD_BYTES).contains(&(length as usize))
   {
@@ -211,7 +244,7 @@ fn query_single_package() -> Option<()> {
   let mut words = vec![0usize; (length as usize).div_ceil(size_of::<usize>())];
   unsafe {
     GetLogicalProcessorInformationEx(
-      RelationProcessorPackage,
+      relationship,
       Some(words.as_mut_ptr().cast()),
       &mut length,
     )
@@ -224,10 +257,14 @@ fn query_single_package() -> Option<()> {
   // The allocation is initialized and covers the returned byte count.
   let bytes =
     unsafe { std::slice::from_raw_parts(words.as_ptr().cast(), length as usize) };
-  validate_single_package_record(bytes)
+  validate(bytes)
 }
 
 fn validate_single_package_record(bytes: &[u8]) -> Option<()> {
+  parse_single_package_masks(bytes).map(|_| ())
+}
+
+fn parse_single_package_masks(bytes: &[u8]) -> Option<HashMap<u16, usize>> {
   let relationship = i32::from_ne_bytes(bytes.get(..4)?.try_into().ok()?);
   let size = u32::from_ne_bytes(bytes.get(4..8)?.try_into().ok()?) as usize;
   if relationship != RelationProcessorPackage.0 || size != bytes.len() {
@@ -249,16 +286,82 @@ fn validate_single_package_record(bytes: &[u8]) -> Option<()> {
     return None;
   }
 
-  let mut seen = HashSet::with_capacity(group_count);
+  let mut masks = HashMap::with_capacity(group_count);
   for group in groups.as_chunks::<{ size_of::<GROUP_AFFINITY>() }>().0 {
     // GROUP_AFFINITY contains only integer fields and the chunk covers the
     // entire record. The source buffer may be unaligned at this offset.
     let affinity = unsafe { group.as_ptr().cast::<GROUP_AFFINITY>().read_unaligned() };
-    if affinity.Mask == 0 || !seen.insert(affinity.Group) {
+    if affinity.Mask == 0 || masks.insert(affinity.Group, affinity.Mask).is_some() {
       return None;
     }
   }
-  Some(())
+  Some(masks)
+}
+
+fn validate_active_single_package(mut bytes: &[u8]) -> Option<()> {
+  let mut package = None;
+  let mut active = None;
+  while !bytes.is_empty() {
+    let relationship = i32::from_ne_bytes(bytes.get(..4)?.try_into().ok()?);
+    let size = u32::from_ne_bytes(bytes.get(4..8)?.try_into().ok()?) as usize;
+    let record = bytes.get(..size)?;
+    let data = record.get(HEADER_SIZE..)?;
+    bytes = &bytes[size..];
+    if relationship == RelationProcessorPackage.0 {
+      if package
+        .replace(parse_single_package_masks(record)?)
+        .is_some()
+      {
+        return None;
+      }
+    } else if relationship == RelationGroup.0
+      && active.replace(parse_active_group_masks(data)?).is_some()
+    {
+      return None;
+    }
+  }
+  (package? == active?).then_some(())
+}
+
+fn parse_active_group_masks(data: &[u8]) -> Option<HashMap<u16, usize>> {
+  let count_offset = std::mem::offset_of!(GROUP_RELATIONSHIP, ActiveGroupCount);
+  let active =
+    u16::from_ne_bytes(data.get(count_offset..count_offset + 2)?.try_into().ok()?);
+  let maximum = u16::from_ne_bytes(data.get(..2)?.try_into().ok()?);
+  let groups = data.get(std::mem::offset_of!(GROUP_RELATIONSHIP, GroupInfo)..)?;
+  if active == 0
+    || active > maximum
+    || groups.len() != usize::from(active) * size_of::<PROCESSOR_GROUP_INFO>()
+  {
+    return None;
+  }
+
+  let mut masks = HashMap::with_capacity(usize::from(active));
+  for (index, group) in groups
+    .as_chunks::<{ size_of::<PROCESSOR_GROUP_INFO>() }>()
+    .0
+    .iter()
+    .enumerate()
+  {
+    // GroupInfo is indexed by group number. Each chunk contains a complete
+    // integer-only record, but it may be unaligned in this byte slice.
+    let info = unsafe {
+      group
+        .as_ptr()
+        .cast::<PROCESSOR_GROUP_INFO>()
+        .read_unaligned()
+    };
+    let count = u32::from(info.ActiveProcessorCount);
+    if count == 0
+      || count != info.ActiveProcessorMask.count_ones()
+      || info.ActiveProcessorCount > info.MaximumProcessorCount
+      || u32::from(info.MaximumProcessorCount) > usize::BITS
+    {
+      return None;
+    }
+    masks.insert(index as u16, info.ActiveProcessorMask);
+  }
+  Some(masks)
 }
 
 fn decode_ccd_temperature(value: u32) -> Option<f32> {
@@ -285,6 +388,11 @@ pub(crate) fn synthetic_raphael_target() -> AmdCcdTarget {
 #[cfg(test)]
 pub(crate) fn synthetic_dragon_range_target() -> AmdCcdTarget {
   authorize_target(Some(&DRAGON_RANGE), || Some(())).unwrap()
+}
+
+#[cfg(test)]
+pub(crate) fn synthetic_genoa_target() -> AmdCcdTarget {
+  authorize_target(Some(&GENOA_B1), || Some(())).unwrap()
 }
 
 #[cfg(test)]
@@ -325,6 +433,8 @@ mod tests {
   const MATISSE_B0: u32 = 0x0087_0f10;
   const CASTLE_PEAK_B0: u32 = 0x0083_0f10;
   const STRX4: u32 = 0x7000_0000;
+  const GENOA_B1_SIGNATURE: u32 = 0x00a1_0f11;
+  const SP5: u32 = 0x4000_0000;
   const OTHER_FAMILY_1AH: u32 = 0x00b4_0f50;
   const AM4: u32 = 0x2ff0_0000;
   const NOT_AM4: u32 = 0x3000_0000;
@@ -503,6 +613,9 @@ mod tests {
       (AMD, 0x00a6_0f11, 0), // Different stepping of model 0x61
       (AMD, 0x00a6_0f11, FL1),
       (AMD, 0x00a6_0f22, 0), // Adjacent model 0x62
+      (AMD, GENOA_B1_SIGNATURE, STRX4),
+      (AMD, 0x00a1_0f12, SP5), // Genoa B2
+      (INTEL, GENOA_B1_SIGNATURE, SP5),
       (INTEL, RAPHAEL_B2, 0),
       (INTEL, RAPHAEL_B2, FL1),
       (AMD, GRANITE_RIDGE_B0, 0x1000_0000), // Fire Range FL1
@@ -547,6 +660,7 @@ mod tests {
       (GRANITE_RIDGE_B0, 0),
       (MATISSE_B0, AM4),
       (CASTLE_PEAK_B0, STRX4),
+      (GENOA_B1_SIGNATURE, SP5),
     ] {
       let identity = Identity {
         vendor: AMD,
@@ -626,6 +740,127 @@ mod tests {
       ))
       .is_none()
     );
+  }
+
+  fn active_group_record(masks: &[usize]) -> Vec<u8> {
+    let group_offset = HEADER_SIZE + std::mem::offset_of!(GROUP_RELATIONSHIP, GroupInfo);
+    let length = group_offset + masks.len() * size_of::<PROCESSOR_GROUP_INFO>();
+    let mut bytes = vec![0; length];
+    bytes[..4].copy_from_slice(&RelationGroup.0.to_ne_bytes());
+    bytes[4..8].copy_from_slice(&(length as u32).to_ne_bytes());
+    for offset in [
+      std::mem::offset_of!(GROUP_RELATIONSHIP, MaximumGroupCount),
+      std::mem::offset_of!(GROUP_RELATIONSHIP, ActiveGroupCount),
+    ] {
+      let start = HEADER_SIZE + offset;
+      bytes[start..start + 2].copy_from_slice(&(masks.len() as u16).to_ne_bytes());
+    }
+    for (&mask, group) in masks.iter().zip(
+      bytes[group_offset..]
+        .as_chunks_mut::<{ size_of::<PROCESSOR_GROUP_INFO>() }>()
+        .0,
+    ) {
+      group[std::mem::offset_of!(PROCESSOR_GROUP_INFO, MaximumProcessorCount)] =
+        usize::BITS as u8;
+      group[std::mem::offset_of!(PROCESSOR_GROUP_INFO, ActiveProcessorCount)] =
+        mask.count_ones() as u8;
+      let start = std::mem::offset_of!(PROCESSOR_GROUP_INFO, ActiveProcessorMask);
+      group[start..start + size_of::<usize>()].copy_from_slice(&mask.to_ne_bytes());
+    }
+    bytes
+  }
+
+  #[test]
+  fn genoa_package_must_cover_every_active_group_mask() {
+    let groups = active_group_record(&[usize::MAX, 0xff]);
+    let package = package_record(&[(1, 0xff), (0, usize::MAX)]);
+    let extra_package = package_record(&[(1, 1)]);
+    let missing_bits = package_record(&[(1, 0x0f), (0, usize::MAX)]);
+    let wrong_bits = package_record(&[(1, 0xff00), (0, usize::MAX)]);
+    let wrong_group = package_record(&[(2, 0xff), (0, usize::MAX)]);
+    let malformed_groups = &groups[..groups.len() - 1];
+
+    for records in [
+      [groups.as_slice(), package.as_slice()].concat(),
+      [package.as_slice(), groups.as_slice()].concat(),
+    ] {
+      assert_eq!(validate_active_single_package(&records), Some(()));
+    }
+    for records in [
+      groups.clone(),
+      package.clone(),
+      [&groups[..], &package[..], &extra_package[..]].concat(),
+      [&groups[..], &groups[..], &package[..]].concat(),
+      [&groups[..], &missing_bits[..]].concat(),
+      [&groups[..], &wrong_bits[..]].concat(),
+      [&groups[..], &wrong_group[..]].concat(),
+      [&package[..], malformed_groups].concat(),
+    ] {
+      assert!(validate_active_single_package(&records).is_none());
+    }
+  }
+
+  #[test]
+  fn genoa_b1_sp5_keeps_twelve_fixed_slots_and_rechecks_validity() {
+    let (map, requested) = identify(&Identity {
+      vendor: AMD,
+      signature: GENOA_B1_SIGNATURE,
+      package: SP5,
+      brand: None,
+    });
+    assert_eq!(map, Some(&GENOA_B1));
+    assert_eq!(requested, [0, 1, 0x8000_0001]);
+    let package = package_record(&[(0, usize::MAX), (1, 0xff)]);
+    let topology = [package, active_group_record(&[usize::MAX, 0xff])].concat();
+    let target =
+      authorize_target(map, || validate_active_single_package(&topology)).unwrap();
+    let expected = [
+      0x0005_9B00,
+      0x0005_9B04,
+      0x0005_9B08,
+      0x0005_9B0C,
+      0x0005_9B10,
+      0x0005_9B14,
+      0x0005_9B18,
+      0x0005_9B1C,
+      0x0005_9B20,
+      0x0005_9B24,
+      0x0005_9B28,
+      0x0005_9B2C,
+    ];
+    for (slot_3_word, slot_3_temperature) in [(0x0ac4, Some(39.5)), (0x02c4, None)] {
+      let mut requested = Vec::new();
+      let readings = target.read_with(|address| {
+        requested.push(address);
+        match address {
+          0x0005_9B00 => Some(0x0848),
+          0x0005_9B04 => None,
+          0x0005_9B08 => Some(slot_3_word),
+          0x0005_9B0C => Some(u32::MAX),
+          0x0005_9B10 => Some(0x0847),
+          0x0005_9B14 => Some(0x0d49),
+          0x0005_9B20 => Some(0x0d48),
+          0x0005_9B2C => Some(0x0b00),
+          _ => Some(0),
+        }
+      });
+      assert_eq!(requested, expected);
+      assert_eq!(readings.len(), expected.len());
+      for (index, reading) in readings.iter().enumerate() {
+        assert_eq!(reading.package_index, 0);
+        assert_eq!(usize::from(reading.ccd_slot), index + 1);
+        assert_eq!(
+          reading.temperature_celsius,
+          match reading.ccd_slot {
+            1 => Some(-40.0),
+            3 => slot_3_temperature,
+            9 => Some(120.0),
+            12 => Some(47.0),
+            _ => None,
+          }
+        );
+      }
+    }
   }
 
   #[test]

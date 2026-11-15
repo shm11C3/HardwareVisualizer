@@ -33,6 +33,7 @@ vendor or family.
 | AMD Family 1Ah | PawnIO package temperature | Experimental | No, report availability first | — |
 | AMD Matisse B0 | Windows PawnIO [two CCD temperatures on single-package AM4 with signature `0x00870F10`](../specs/sensors/cpu-amd-matisse-ccd-smn.md) | Experimental | No | — |
 | AMD Castle Peak B0 | Windows PawnIO [eight CCD slots on single-package sTRX4 with signature `0x00830F10`](../specs/sensors/cpu-amd-castle-peak-ccd-smn.md) | Experimental | No | — |
+| AMD Genoa B1 | Windows PawnIO [twelve CCD slots on single-package SP5 with signature `0x00A10F11`](../specs/sensors/cpu-amd-genoa-b1-ccd-smn.md) | Experimental | No | — |
 | AMD Vermeer | Windows PawnIO [CCD temperatures on qualified single-package AM4 models](../specs/sensors/cpu-amd-vermeer-ccd-smn.md) | Experimental | No | — |
 | AMD Raphael | Windows PawnIO [CCD temperatures on single-package AM5 with signature `0x00A60F12`](../specs/sensors/cpu-amd-raphael-ccd-smn.md) | Experimental | No | — |
 | AMD Dragon Range | Windows PawnIO [two CCD temperatures on single-package FL1 with signature `0x00A60F12`](../specs/sensors/cpu-amd-dragon-range-ccd-smn.md) | Experimental | No | — |
