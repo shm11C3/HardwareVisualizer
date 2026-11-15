@@ -38,6 +38,7 @@ import {
   findLiveGpuId,
   liveGpuSelection,
 } from "@/features/hardware/gpuIdentity";
+import { gpuMemorySizeLabelKey } from "@/features/hardware/gpuMemorySizeLabel";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
@@ -408,7 +409,7 @@ const GpuSpecifications = ({
       ? (formattedMemoryUsage ?? "N/A")
       : "N/A";
   const memorySizeLabel = hasMemorySize
-    ? t("shared.memorySize")
+    ? t(gpuMemorySizeLabelKey(os))
     : hasMemoryUsage
       ? t("shared.memorySizeSharedUsage")
       : t("shared.memorySize");

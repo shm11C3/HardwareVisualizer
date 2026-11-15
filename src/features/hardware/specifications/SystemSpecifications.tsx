@@ -18,6 +18,7 @@ import {
   StorageDataInfo,
 } from "@/features/hardware/dashboard/components/DashboardItems";
 import { ExportHardwareInfo } from "@/features/hardware/dashboard/components/ExportHardwareInfo";
+import { gpuMemorySizeLabelKey } from "@/features/hardware/gpuMemorySizeLabel";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { SpecList } from "./components/SpecList";
@@ -70,7 +71,7 @@ export const SystemSpecifications = () => {
           rows={[
             { label: t("shared.name"), value: gpu.name },
             { label: t("shared.vendor"), value: gpu.vendorName },
-            { label: t("shared.memorySize"), value: gpu.memorySize },
+            { label: t(gpuMemorySizeLabelKey(os)), value: gpu.memorySize },
             showCoreCount
               ? { label: t("shared.coreCount"), value: gpu.coreCount ?? "N/A" }
               : {
