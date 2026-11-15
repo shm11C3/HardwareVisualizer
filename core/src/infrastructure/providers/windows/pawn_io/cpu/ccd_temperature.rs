@@ -21,6 +21,7 @@ use crate::models::CpuCcdTemperature;
 const AMD_VENDOR_ID: &str = "AuthenticAMD";
 const AM4_PACKAGE_FIELD: u32 = 0x2;
 const AM5_PACKAGE_FIELD: u32 = 0x0;
+const FL1_PACKAGE_FIELD: u32 = 0x1;
 const STRX4_PACKAGE_FIELD: u32 = 0x7;
 const MAX_PACKAGE_RECORD_BYTES: usize = 64 * 1024;
 const HEADER_SIZE: usize =
@@ -84,11 +85,16 @@ const CASTLE_PEAK: CcdRegisterMap = CcdRegisterMap {
   ],
 };
 
-// The Raphael and Granite Ridge specifications independently pin the same
-// SMN words.
+// Each specification independently pins these SMN words.
 const RAPHAEL: CcdRegisterMap = CcdRegisterMap {
   processor: ProcessorMatch::Signature(0x00A6_0F12),
   package_field: AM5_PACKAGE_FIELD,
+  slots: &[0x0005_9B08, 0x0005_9B0C],
+};
+
+const DRAGON_RANGE: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::Signature(0x00A6_0F12),
+  package_field: FL1_PACKAGE_FIELD,
   slots: &[0x0005_9B08, 0x0005_9B0C],
 };
 
@@ -98,8 +104,14 @@ const GRANITE_RIDGE: CcdRegisterMap = CcdRegisterMap {
   slots: &[0x0005_9B08, 0x0005_9B0C],
 };
 
-const CCD_REGISTER_MAPS: [&CcdRegisterMap; 5] =
-  [&VERMEER, &RAPHAEL, &GRANITE_RIDGE, &MATISSE, &CASTLE_PEAK];
+const CCD_REGISTER_MAPS: [&CcdRegisterMap; 6] = [
+  &VERMEER,
+  &RAPHAEL,
+  &DRAGON_RANGE,
+  &GRANITE_RIDGE,
+  &MATISSE,
+  &CASTLE_PEAK,
+];
 
 /// Experimental target admitted by the CPU mechanism and a single physical
 /// package. The processor name is not read for admission.
@@ -117,6 +129,11 @@ impl AmdCcdTarget {
 
   pub(crate) fn unavailable_readings(&self) -> Vec<CpuCcdTemperature> {
     self.read_with(|_| None)
+  }
+
+  pub(crate) fn readings_without_module(&self) -> Option<Vec<CpuCcdTemperature>> {
+    // The Dragon Range specification requires the signed module for admission.
+    (*self.0 != DRAGON_RANGE).then(|| self.unavailable_readings())
   }
 
   /// Reads each authorized word once, in slot order, with no retries. A slot
@@ -162,10 +179,10 @@ fn select_register_map(
   }
 
   let signature = read_leaf(1)?.eax;
-  let map = CCD_REGISTER_MAPS
+  let package_field = read_leaf(0x8000_0001)?.ebx >> 28;
+  CCD_REGISTER_MAPS
     .into_iter()
-    .find(|map| map.processor.matches(signature))?;
-  (read_leaf(0x8000_0001)?.ebx >> 28 == map.package_field).then_some(map)
+    .find(|map| map.processor.matches(signature) && map.package_field == package_field)
 }
 
 fn authorize_target(
@@ -266,13 +283,18 @@ pub(crate) fn synthetic_raphael_target() -> AmdCcdTarget {
 }
 
 #[cfg(test)]
+pub(crate) fn synthetic_dragon_range_target() -> AmdCcdTarget {
+  authorize_target(Some(&DRAGON_RANGE), || Some(())).unwrap()
+}
+
+#[cfg(test)]
 mod tests {
   use std::cell::RefCell;
 
   use super::*;
 
   #[test]
-  fn no_signature_selects_more_than_one_register_map() {
+  fn no_processor_and_package_select_more_than_one_register_map() {
     for (index, map) in CCD_REGISTER_MAPS.iter().enumerate() {
       for other in &CCD_REGISTER_MAPS[index + 1..] {
         let overlaps = match (map.processor, other.processor) {
@@ -284,7 +306,10 @@ mod tests {
             map.processor == other.processor
           }
         };
-        assert!(!overlaps, "{map:?} overlaps {other:?}");
+        assert!(
+          !overlaps || map.package_field != other.package_field,
+          "{map:?} overlaps {other:?}"
+        );
       }
     }
   }
@@ -295,6 +320,7 @@ mod tests {
   const VERMEER_B2: u32 = 0x00a2_0f12;
   const CEZANNE: u32 = 0x00a5_0f00;
   const RAPHAEL_B2: u32 = 0x00a6_0f12;
+  const FL1: u32 = 0x1000_0000;
   const GRANITE_RIDGE_B0: u32 = 0x00b4_0f40;
   const MATISSE_B0: u32 = 0x0087_0f10;
   const CASTLE_PEAK_B0: u32 = 0x0083_0f10;
@@ -430,6 +456,20 @@ mod tests {
   }
 
   #[test]
+  fn shared_signature_selects_dragon_range_only_with_fl1() {
+    for brand in [Some(b"AMD Ryzen 9 7945HX".as_slice()), None] {
+      let (map, requested) = identify(&Identity {
+        vendor: AMD,
+        signature: RAPHAEL_B2,
+        package: FL1,
+        brand,
+      });
+      assert_eq!(map, Some(&DRAGON_RANGE));
+      assert_eq!(requested, [0, 1, 0x8000_0001]);
+    }
+  }
+
+  #[test]
   fn exact_granite_ridge_am5_signature_selects_its_map_without_reading_the_name() {
     for brand in [
       Some(b"AMD Ryzen 9 9950X 16-Core Processor".as_slice()),
@@ -459,11 +499,12 @@ mod tests {
     for (vendor, signature, package) in [
       (AMD, CEZANNE, AM4),
       (AMD, RAPHAEL_B2, AM4),
-      (AMD, RAPHAEL_B2, 0x1000_0000), // Dragon Range FL1
       (AMD, RAPHAEL_B2, NOT_AM4),
       (AMD, 0x00a6_0f11, 0), // Different stepping of model 0x61
+      (AMD, 0x00a6_0f11, FL1),
       (AMD, 0x00a6_0f22, 0), // Adjacent model 0x62
       (INTEL, RAPHAEL_B2, 0),
+      (INTEL, RAPHAEL_B2, FL1),
       (AMD, GRANITE_RIDGE_B0, 0x1000_0000), // Fire Range FL1
       (AMD, GRANITE_RIDGE_B0, NOT_AM4),
       (AMD, 0x00b4_0f41, 0), // Granite Ridge B1
@@ -502,6 +543,7 @@ mod tests {
     for (signature, package) in [
       (VERMEER_B0, AM4),
       (RAPHAEL_B2, 0),
+      (RAPHAEL_B2, FL1),
       (GRANITE_RIDGE_B0, 0),
       (MATISSE_B0, AM4),
       (CASTLE_PEAK_B0, STRX4),
@@ -743,6 +785,8 @@ mod tests {
       ([Some(0x0ac8), Some(0x02c8)], [Some(40.0), None]),
       ([Some(0x0ac8), Some(0)], [Some(40.0), None]),
       ([Some(0x0ac8), Some(u32::MAX)], [Some(40.0), None]),
+      ([Some(0x0847), Some(0x0d48)], [None, Some(120.0)]),
+      ([Some(0x0848), Some(0x0d49)], [Some(-40.0), None]),
       ([None, None], [None, None]),
     ];
 
@@ -750,6 +794,7 @@ mod tests {
       (&VERMEER, [0x0005_9954, 0x0005_9958]),
       (&MATISSE, [0x0005_9954, 0x0005_9958]),
       (&RAPHAEL, [0x0005_9B08, 0x0005_9B0C]),
+      (&DRAGON_RANGE, [0x0005_9B08, 0x0005_9B0C]),
       (&GRANITE_RIDGE, [0x0005_9B08, 0x0005_9B0C]),
     ] {
       let target =
@@ -781,7 +826,7 @@ mod tests {
       assert_eq!(
         target.unavailable_readings(),
         target.read_with(|_| None),
-        "a missing module or mutex reports both slots unavailable without reads"
+        "failed requests preserve both fixed positions"
       );
     }
   }
