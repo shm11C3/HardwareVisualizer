@@ -1,27 +1,38 @@
-import { ClipboardTextIcon } from "@phosphor-icons/react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ActionFailure } from "@/components/ActionFailure";
 import { HardwareCompatibilityReport } from "@/components/HardwareCompatibilityReport";
+import { Button } from "@/components/ui/button";
+import { useCopyFeedback } from "@/features/hardware/dashboard/hooks/useCopyFeedback";
 import { useExportToClipboard } from "@/features/hardware/dashboard/hooks/useExportToClipboard";
 
-export const ExportHardwareInfo = ({
-  includeRuntimeStats = true,
-}: {
-  includeRuntimeStats?: boolean;
-}) => {
-  const { exportToClipboard } = useExportToClipboard({ includeRuntimeStats });
+/** Dashboard header actions: icon-only copy and compatibility report. */
+export const ExportHardwareInfo = () => {
+  const { exportToClipboard } = useExportToClipboard();
+  const { copied, failed, copy } = useCopyFeedback(exportToClipboard);
   const { t } = useTranslation();
+  const label = t("pages.dashboard.copyHardwareReport");
 
   return (
-    <div className="mr-4 flex justify-end gap-3">
-      <button
-        onClick={exportToClipboard}
-        className="rounded-lg bg-zinc-200 p-2 hover:bg-zinc-300 dark:bg-slate-800 dark:hover:bg-slate-700"
-        type="button"
-        aria-label={t("pages.dashboard.copyHardwareReport")}
-      >
-        <ClipboardTextIcon size={32} />
-      </button>
+    <>
+      <div className="space-y-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={label}
+          title={label}
+          onClick={() => void copy()}
+        >
+          {copied ? (
+            <CheckIcon className="size-5" aria-hidden="true" />
+          ) : (
+            <CopyIcon className="size-5" aria-hidden="true" />
+          )}
+        </Button>
+        {failed && <ActionFailure message={t("pages.dashboard.copyFailed")} />}
+      </div>
       <HardwareCompatibilityReport icon />
-    </div>
+    </>
   );
 };

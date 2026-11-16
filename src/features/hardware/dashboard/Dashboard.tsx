@@ -135,7 +135,7 @@ export const Dashboard = () => {
 
   return (
     <>
-      <div className="mr-4 flex justify-end gap-3">
+      <div className="mr-4 flex items-start justify-end gap-3">
         <DashboardItemSelector
           visibleItems={visibleItems}
           toggleItem={toggleItem}

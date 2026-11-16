@@ -14,6 +14,7 @@ import {
   prefetchScreen,
   Settings,
   SystemSpecifications,
+  SystemSpecificationsActions,
 } from "./lazyScreens";
 import "@/index.css";
 import type { CSSProperties, ErrorInfo, JSX } from "react";
@@ -264,6 +265,7 @@ const AppContent = () => {
         }
         enabledBurnInShift
         isFullScreen={Boolean(isFullScreen)}
+        actions={<SystemSpecificationsActions />}
       >
         <SystemSpecifications />
       </ScreenTemplate>

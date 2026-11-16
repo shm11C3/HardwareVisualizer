@@ -51,10 +51,6 @@ vi.mock("@/features/hardware/dashboard/components/DashboardItems", () => ({
   StorageDataInfo: () => <div data-testid="storage-data-info" />,
 }));
 
-vi.mock("@/features/hardware/dashboard/components/ExportHardwareInfo", () => ({
-  ExportHardwareInfo: () => <div data-testid="export-hardware-info" />,
-}));
-
 describe("SystemSpecifications", () => {
   beforeEach(() => {
     state.os = "windows";
@@ -78,7 +74,6 @@ describe("SystemSpecifications", () => {
     expect(screen.getByText("x86_64")).toBeVisible();
     expect(screen.getByTestId("storage-data-info")).toBeVisible();
     expect(screen.getByTestId("network-info")).toBeVisible();
-    expect(screen.getByTestId("export-hardware-info")).toBeVisible();
     // Motherboard facts are unavailable, so the section is omitted entirely.
     expect(screen.queryByText("shared.motherboard")).toBeNull();
   });
