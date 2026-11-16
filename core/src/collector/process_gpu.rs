@@ -1,9 +1,14 @@
 //! Per-process GPU usage collection.
 //!
-//! Per-process GPU usage for the Live Process Table, collected only while
-//! that table polls and never persisted. It is deliberately not part of the
-//! 1 Hz collector's process refresh (`sampling::sample_system`): adding it
-//! there would make it always-on and feed the archive.
+//! Per-process GPU usage for the Live Process Table and, while it demands
+//! it, a background consumer such as the Hardware Archive (#2720). It stays
+//! out of the 1 Hz collector's process refresh (`sampling::sample_system`)
+//! so it costs nothing until a consumer asks: the table polls
+//! [`ProcessGpuCollector::read`], and a background consumer turns on
+//! [`ProcessGpuCollector::set_background_demand`], after which the collector
+//! loop refreshes every [`BACKGROUND_REFRESH_INTERVAL`] and each snapshot
+//! carries the usage accumulated since the previous one. Both consumers share
+//! one refresh state, so a refresh made for either serves the other.
 //!
 //! - The collector owns its own `sysinfo::System`, separate from the
 //!   [`HistoryStore`]'s, so a read never contends with the collector's lock
@@ -44,6 +49,7 @@ use std::time::{Duration, Instant};
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 
 use crate::collector::HistoryStore;
+use crate::models::ProcessGpuUsageSpan;
 use crate::models::hardware::ProcessInfo;
 use crate::utils::rounding;
 
@@ -52,13 +58,28 @@ use crate::utils::rounding;
 pub const LIVE_READ_MIN_INTERVAL: Duration = Duration::from_secs(1);
 
 /// A refresh older than this is stale: the next one only re-baselines.
-pub const MAX_BASELINE_AGE: Duration = Duration::from_secs(10);
+pub const MAX_BASELINE_AGE: Duration = Duration::from_secs(15);
+
+/// Interval between refreshes while a background consumer demands readings.
+/// Readings are averages over the interval, so a longer interval loses
+/// nothing for long-lived processes; it bounds how long a short-lived process
+/// can run unseen.
+pub const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_secs(10);
+
+// A background refresh starts on a 1 s collector tick after the interval
+// elapsed and the previous refresh itself took time. Its baseline must still
+// count as fresh, or every background reading would be discarded.
+const _: () =
+  assert!(MAX_BASELINE_AGE.as_secs() > BACKGROUND_REFRESH_INTERVAL.as_secs() + 2);
 
 /// Process identity: `(pid, start_time in seconds since the epoch)`.
 pub type ProcessGpuKey = (u32, u64);
 
 /// GPU usage (%) per process. Processes without a value are absent.
 pub type ProcessGpuReadings = HashMap<ProcessGpuKey, f32>;
+
+/// GPU usage accumulated per process over refresh intervals.
+pub type ProcessGpuUsage = HashMap<ProcessGpuKey, ProcessGpuUsageSpan>;
 
 struct CollectorState {
   /// `None` when sysinfo could not initialize; every read is then empty.
@@ -69,6 +90,10 @@ struct CollectorState {
   last_reading: Option<(Instant, Arc<ProcessGpuReadings>)>,
   /// Completion time of the last actual refresh; cache hits do not move it.
   last_refresh: Option<Instant>,
+  /// `Some` while a background consumer demands readings: every refresh,
+  /// whoever triggered it, adds its interval here until the consumer takes
+  /// it, so no interval is counted twice or skipped.
+  background: Option<ProcessGpuUsage>,
 }
 
 /// Owner of the per-process GPU usage refresh state. Never touches the
@@ -91,8 +116,66 @@ impl ProcessGpuCollector {
         previous_raw: ProcessGpuReadings::new(),
         last_reading: None,
         last_refresh: None,
+        background: None,
       }),
     }
+  }
+
+  /// Starts or stops background accumulation. Stopping drops what the
+  /// consumer has not taken yet.
+  pub fn set_background_demand(&self, demanded: bool) {
+    let mut state = self.state.lock().unwrap();
+    match (demanded, state.background.is_some()) {
+      (true, false) => state.background = Some(ProcessGpuUsage::new()),
+      (false, true) => state.background = None,
+      _ => {}
+    }
+  }
+
+  /// Whether background demand is on and the last refresh is at least
+  /// [`BACKGROUND_REFRESH_INTERVAL`] old.
+  pub fn background_refresh_due(&self) -> bool {
+    self
+      .state
+      .lock()
+      .unwrap()
+      .background_refresh_due(Instant::now())
+  }
+
+  /// Refreshes for the background consumer when
+  /// [`Self::background_refresh_due`]. The reading also serves the next live
+  /// read inside [`LIVE_READ_MIN_INTERVAL`]. Blocking: callers on an async
+  /// runtime must use `spawn_blocking`.
+  pub fn refresh_background(&self) {
+    self.refresh_background_with(Instant::now, refresh_gpu_usage);
+  }
+
+  fn refresh_background_with(
+    &self,
+    clock: impl Fn() -> Instant,
+    collect: impl FnOnce(&mut System, &mut ProcessGpuReadings) -> ProcessGpuReadings,
+  ) {
+    let mut state = self.state.lock().unwrap();
+    let requested_at = clock();
+    // Re-checked under the lock: a live read may have refreshed meanwhile.
+    if !state.background_refresh_due(requested_at) {
+      return;
+    }
+    let (completed_at, readings) = state.refresh(requested_at, clock, collect);
+    state.last_reading = Some((completed_at, Arc::new(readings)));
+  }
+
+  /// Takes the usage accumulated since the previous call. Empty while no
+  /// background consumer demands it.
+  pub fn take_background_usage(&self) -> ProcessGpuUsage {
+    self
+      .state
+      .lock()
+      .unwrap()
+      .background
+      .as_mut()
+      .map(std::mem::take)
+      .unwrap_or_default()
   }
 
   /// Reads per-process GPU usage, returning the last reading when called
@@ -127,9 +210,17 @@ impl ProcessGpuCollector {
 }
 
 impl CollectorState {
+  fn background_refresh_due(&self, now: Instant) -> bool {
+    self.background.is_some()
+      && self
+        .last_refresh
+        .is_none_or(|at| now.duration_since(at) >= BACKGROUND_REFRESH_INTERVAL)
+  }
+
   /// Refreshes GPU usage and returns the completion time with the readings
   /// for the interval since the previous refresh. The readings are empty when
-  /// that refresh is older than [`MAX_BASELINE_AGE`].
+  /// that refresh is older than [`MAX_BASELINE_AGE`]. While background demand
+  /// is on, the readings are also accumulated, weighted by the interval.
   fn refresh(
     &mut self,
     requested_at: Instant,
@@ -148,12 +239,21 @@ impl CollectorState {
     // Stamp with the completion time: the refresh itself can take a large
     // part of the guard interval, and the delta window ends here.
     let completed_at = clock();
-    self.last_refresh = Some(completed_at);
+    let interval = self
+      .last_refresh
+      .replace(completed_at)
+      .map(|previous| completed_at.duration_since(previous));
     let readings = if stale_baseline {
       ProcessGpuReadings::new()
     } else {
       collected
     };
+    if let (Some(background), Some(interval)) = (self.background.as_mut(), interval) {
+      let seconds = interval.as_secs_f64();
+      for (key, usage) in &readings {
+        background.entry(*key).or_default().add(*usage, seconds);
+      }
+    }
     (completed_at, readings)
   }
 }
@@ -386,5 +486,138 @@ mod tests {
     assert_eq!(kept.get(&(2, 2)), Some(&0.0), "repeated idle stays idle");
     assert_eq!(kept.get(&(3, 3)), Some(&4.1));
     assert_eq!(kept.get(&(4, 4)), Some(&9.0), "first value has no previous");
+  }
+
+  fn demanded_collector() -> ProcessGpuCollector {
+    let collector = ProcessGpuCollector::new();
+    collector.set_background_demand(true);
+    collector
+  }
+
+  #[test]
+  fn background_usage_is_weighted_by_each_refresh_interval() {
+    let collector = demanded_collector();
+    let t0 = Instant::now();
+    let t1 = t0 + BACKGROUND_REFRESH_INTERVAL;
+    let t2 = t1 + Duration::from_secs(5);
+
+    // The first refresh only sets the baseline; it covers no interval.
+    collector.refresh_background_with(|| t0, |_, _| HashMap::from([((1, 1), 99.0)]));
+    collector.refresh_background_with(|| t1, |_, _| HashMap::from([((1, 1), 30.0)]));
+    // A live read is another refresh of the same state and is counted too.
+    collector.read_with(|| t2, |_, _| HashMap::from([((1, 1), 60.0), ((2, 2), 0.0)]));
+
+    let usage = collector.take_background_usage();
+    let first = usage[&(1, 1)];
+    assert_eq!(first.covered_seconds, 15.0);
+    assert_eq!(
+      first.average_percent(),
+      Some((30.0 * 10.0 + 60.0 * 5.0) / 15.0)
+    );
+    assert_eq!(
+      usage[&(2, 2)].average_percent(),
+      Some(0.0),
+      "a reading of 0 is kept as 0"
+    );
+    assert!(
+      collector.take_background_usage().is_empty(),
+      "taking drains what was accumulated"
+    );
+  }
+
+  #[test]
+  fn nothing_accumulates_without_background_demand() {
+    let collector = ProcessGpuCollector::new();
+    let t0 = Instant::now();
+
+    collector.read_with(|| t0, |_, _| HashMap::from([((1, 1), 7.0)]));
+    collector.read_with(
+      || t0 + LIVE_READ_MIN_INTERVAL,
+      |_, _| HashMap::from([((1, 1), 7.0)]),
+    );
+
+    assert!(!collector.background_refresh_due());
+    assert!(collector.take_background_usage().is_empty());
+  }
+
+  #[test]
+  fn a_stale_baseline_adds_no_background_interval() {
+    let collector = demanded_collector();
+    let t0 = Instant::now();
+
+    collector.refresh_background_with(|| t0, |_, _| HashMap::from([((1, 1), 7.0)]));
+    collector.refresh_background_with(
+      || t0 + MAX_BASELINE_AGE * 2,
+      |_, _| HashMap::from([((1, 1), 7.0)]),
+    );
+
+    assert!(collector.take_background_usage().is_empty());
+  }
+
+  #[test]
+  fn background_refresh_waits_for_its_interval_after_any_refresh() {
+    let collector = demanded_collector();
+    let t0 = Instant::now();
+    let mut refreshes = 0;
+
+    collector.read_with(|| t0, |_, _| HashMap::new());
+    collector.refresh_background_with(
+      || t0 + BACKGROUND_REFRESH_INTERVAL / 2,
+      |_, _| {
+        refreshes += 1;
+        HashMap::new()
+      },
+    );
+    collector.refresh_background_with(
+      || t0 + BACKGROUND_REFRESH_INTERVAL,
+      |_, _| {
+        refreshes += 1;
+        HashMap::new()
+      },
+    );
+
+    assert_eq!(
+      refreshes, 1,
+      "a live read moves the background schedule too"
+    );
+  }
+
+  #[test]
+  fn a_background_refresh_serves_the_next_live_read() {
+    let collector = demanded_collector();
+    let t0 = Instant::now();
+    collector.refresh_background_with(|| t0, |_, _| HashMap::new());
+    collector.refresh_background_with(
+      || t0 + BACKGROUND_REFRESH_INTERVAL,
+      |_, _| HashMap::from([((1, 1), 7.0)]),
+    );
+
+    let mut refreshed = false;
+    let live = collector.read_with(
+      || t0 + BACKGROUND_REFRESH_INTERVAL + LIVE_READ_MIN_INTERVAL / 2,
+      |_, _| {
+        refreshed = true;
+        HashMap::new()
+      },
+    );
+
+    assert!(!refreshed);
+    assert_eq!(live.get(&(1, 1)), Some(&7.0));
+  }
+
+  #[test]
+  fn withdrawing_demand_drops_untaken_usage() {
+    let collector = demanded_collector();
+    let t0 = Instant::now();
+    collector.refresh_background_with(|| t0, |_, _| HashMap::new());
+    collector.refresh_background_with(
+      || t0 + BACKGROUND_REFRESH_INTERVAL,
+      |_, _| HashMap::from([((1, 1), 7.0)]),
+    );
+
+    collector.set_background_demand(false);
+    collector.set_background_demand(true);
+
+    assert!(collector.take_background_usage().is_empty());
   }
 }

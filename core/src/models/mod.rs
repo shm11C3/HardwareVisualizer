@@ -12,7 +12,7 @@ pub use metrics::{
   CpuCcdTemperature, CpuCoreTemperature, CpuPackageThermalStatus, FanSpeedStatus,
   GpuMetric, GpuSample, MetricsSnapshot, MotherboardFanSpeed,
   MotherboardSensorCollection, MotherboardSensorSample, MotherboardTemperature,
-  OptionalSensorProviderOutcomes, PowerDraw, ProcessSample, ProviderAttemptOutcome,
-  SensorAvailability, SensorEnablement, SensorSupport, SensorTemperature,
-  TemperatureSample,
+  OptionalSensorProviderOutcomes, PowerDraw, ProcessGpuUsageSpan, ProcessSample,
+  ProviderAttemptOutcome, SensorAvailability, SensorEnablement, SensorSupport,
+  SensorTemperature, TemperatureSample,
 };

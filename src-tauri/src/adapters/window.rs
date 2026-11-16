@@ -652,6 +652,7 @@ mod tests {
         cpu_usage: 5.0,
         memory_kb: 1024.0,
         run_time_secs: 60,
+        gpu_usage: None,
       });
     snapshot
       .external_component_guidance_candidates
