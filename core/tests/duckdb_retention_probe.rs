@@ -521,7 +521,7 @@ fn file_bytes(path: &Path) -> u64 {
 
 fn resident_bytes() -> Option<u64> {
   let pid = sysinfo::get_current_pid().ok()?;
-  let mut system = sysinfo::System::new();
+  let mut system = sysinfo::System::new().ok()?;
   system.refresh_processes_specifics(
     sysinfo::ProcessesToUpdate::Some(&[pid]),
     true,
@@ -590,11 +590,12 @@ async fn engine_facts(database: &NativeDatabase) -> Value {
 }
 
 fn host_facts() -> Value {
-  let mut system = sysinfo::System::new();
+  let mut system =
+    sysinfo::System::new().expect("retention probe requires host system information");
   system.refresh_memory();
   system.refresh_cpu_all();
   json!({
-    "os": sysinfo::System::long_os_version(),
+    "os": sysinfo::System::long_os_version().ok(),
     "target_os": std::env::consts::OS,
     "target_arch": std::env::consts::ARCH,
     "cpu": system.cpus().first().map(|cpu| cpu.brand().to_owned()),
