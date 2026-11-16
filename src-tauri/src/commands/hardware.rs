@@ -9,7 +9,7 @@ use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
 use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
 use crate::services::hardware_compatibility_service::{self, ReportEvidenceCache};
 use chrono::{DateTime, SecondsFormat, Utc};
-use hardviz_core::collector::{HistoryStore, LiveProcessGpuCollector, live_process_list};
+use hardviz_core::collector::{HistoryStore, ProcessGpuCollector, live_process_list};
 use hardviz_core::persistence::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
 use std::sync::Arc;
 use tauri::{Manager, command};
@@ -32,7 +32,7 @@ pub async fn get_process_list(
     // not borrow command-scoped `State`.
     let history = app.state::<Arc<HistoryStore>>();
     let processes = if include_gpu {
-      let gpu = app.state::<Arc<LiveProcessGpuCollector>>();
+      let gpu = app.state::<Arc<ProcessGpuCollector>>();
       live_process_list(&history, &gpu)
     } else {
       history.process_list()

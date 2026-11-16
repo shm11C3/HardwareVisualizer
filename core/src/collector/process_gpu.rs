@@ -1,4 +1,4 @@
-//! Live Process GPU usage on-demand collection.
+//! Per-process GPU usage collection.
 //!
 //! Per-process GPU usage for the Live Process Table, collected only while
 //! that table polls and never persisted. It is deliberately not part of the
@@ -16,7 +16,7 @@
 //! - A minimum-interval guard ([`LIVE_READ_MIN_INTERVAL`]) returns the cached
 //!   reading for calls inside the window, so near-zero delta windows do not
 //!   produce noisy values.
-//! - If the previous refresh is older than [`LIVE_READ_MAX_BASELINE_AGE`]
+//! - If the previous refresh is older than [`MAX_BASELINE_AGE`]
 //!   (the table polls every 3 s, so the table was hidden), the new refresh
 //!   only re-baselines and returns an empty reading ("measuring"). Otherwise
 //!   the first value would average over the hidden period.
@@ -52,7 +52,7 @@ use crate::utils::rounding;
 pub const LIVE_READ_MIN_INTERVAL: Duration = Duration::from_secs(1);
 
 /// A refresh older than this is stale: the next one only re-baselines.
-pub const LIVE_READ_MAX_BASELINE_AGE: Duration = Duration::from_secs(10);
+pub const MAX_BASELINE_AGE: Duration = Duration::from_secs(10);
 
 /// Process identity: `(pid, start_time in seconds since the epoch)`.
 pub type ProcessGpuKey = (u32, u64);
@@ -71,18 +71,19 @@ struct CollectorState {
   last_refresh: Option<Instant>,
 }
 
-/// On-demand Live Process GPU collector. Never touches the database.
-pub struct LiveProcessGpuCollector {
+/// Owner of the per-process GPU usage refresh state. Never touches the
+/// database.
+pub struct ProcessGpuCollector {
   state: Mutex<CollectorState>,
 }
 
-impl Default for LiveProcessGpuCollector {
+impl Default for ProcessGpuCollector {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl LiveProcessGpuCollector {
+impl ProcessGpuCollector {
   pub fn new() -> Self {
     Self {
       state: Mutex::new(CollectorState {
@@ -98,28 +99,7 @@ impl LiveProcessGpuCollector {
   /// again within [`LIVE_READ_MIN_INTERVAL`]. Blocking: callers on an async
   /// runtime must use `spawn_blocking`.
   pub fn read(&self) -> Arc<ProcessGpuReadings> {
-    self.read_with(Instant::now, |system, previous_raw| {
-      system.refresh_processes_specifics(
-        ProcessesToUpdate::All,
-        true,
-        ProcessRefreshKind::nothing().with_gpu_usage(),
-      );
-      let raw: ProcessGpuReadings = system
-        .processes()
-        .iter()
-        .filter_map(|(pid, process)| {
-          process
-            .gpu_usage()
-            .map(|usage| ((pid.as_u32(), process.start_time()), usage))
-        })
-        .collect();
-      let previous = std::mem::replace(previous_raw, raw.clone());
-      if cfg!(target_os = "macos") {
-        drop_retained_readings(raw, &previous)
-      } else {
-        raw
-      }
-    })
+    self.read_with(Instant::now, refresh_gpu_usage)
   }
 
   fn read_with(
@@ -139,31 +119,70 @@ impl LiveProcessGpuCollector {
       return Arc::clone(reading);
     }
 
+    let (completed_at, readings) = state.refresh(requested_at, clock, collect);
+    let reading = Arc::new(readings);
+    state.last_reading = Some((completed_at, Arc::clone(&reading)));
+    reading
+  }
+}
+
+impl CollectorState {
+  /// Refreshes GPU usage and returns the completion time with the readings
+  /// for the interval since the previous refresh. The readings are empty when
+  /// that refresh is older than [`MAX_BASELINE_AGE`].
+  fn refresh(
+    &mut self,
+    requested_at: Instant,
+    clock: impl Fn() -> Instant,
+    collect: impl FnOnce(&mut System, &mut ProcessGpuReadings) -> ProcessGpuReadings,
+  ) -> (Instant, ProcessGpuReadings) {
     // The refresh always runs so the baseline moves forward, but a stale
     // baseline's values span the idle gap and are discarded.
-    let stale_baseline = state
+    let stale_baseline = self
       .last_refresh
-      .is_some_and(|at| requested_at.duration_since(at) > LIVE_READ_MAX_BASELINE_AGE);
-    let CollectorState {
-      system,
-      previous_raw,
-      ..
-    } = &mut *state;
-    let collected = match system.as_mut() {
-      Some(system) => collect(system, previous_raw),
+      .is_some_and(|at| requested_at.duration_since(at) > MAX_BASELINE_AGE);
+    let collected = match self.system.as_mut() {
+      Some(system) => collect(system, &mut self.previous_raw),
       None => ProcessGpuReadings::new(),
     };
     // Stamp with the completion time: the refresh itself can take a large
     // part of the guard interval, and the delta window ends here.
     let completed_at = clock();
-    state.last_refresh = Some(completed_at);
-    let reading = Arc::new(if stale_baseline {
+    self.last_refresh = Some(completed_at);
+    let readings = if stale_baseline {
       ProcessGpuReadings::new()
     } else {
       collected
-    });
-    state.last_reading = Some((completed_at, Arc::clone(&reading)));
-    reading
+    };
+    (completed_at, readings)
+  }
+}
+
+/// Refreshes only GPU usage for every process and returns the readings
+/// sysinfo computed for the interval since the previous refresh.
+fn refresh_gpu_usage(
+  system: &mut System,
+  previous_raw: &mut ProcessGpuReadings,
+) -> ProcessGpuReadings {
+  system.refresh_processes_specifics(
+    ProcessesToUpdate::All,
+    true,
+    ProcessRefreshKind::nothing().with_gpu_usage(),
+  );
+  let raw: ProcessGpuReadings = system
+    .processes()
+    .iter()
+    .filter_map(|(pid, process)| {
+      process
+        .gpu_usage()
+        .map(|usage| ((pid.as_u32(), process.start_time()), usage))
+    })
+    .collect();
+  let previous = std::mem::replace(previous_raw, raw.clone());
+  if cfg!(target_os = "macos") {
+    drop_retained_readings(raw, &previous)
+  } else {
+    raw
   }
 }
 
@@ -204,10 +223,10 @@ fn drop_retained_readings(
 }
 
 /// Live process list: [`HistoryStore::process_list`] plus per-process GPU
-/// usage. Blocking (see [`LiveProcessGpuCollector::read`]).
+/// usage. Blocking (see [`ProcessGpuCollector::read`]).
 pub fn live_process_list(
   history: &HistoryStore,
-  gpu: &LiveProcessGpuCollector,
+  gpu: &ProcessGpuCollector,
 ) -> Vec<ProcessInfo> {
   let readings = gpu.read();
   attach_gpu_usage(history.process_list_with_start_times(), &readings)
@@ -272,7 +291,7 @@ mod tests {
 
   #[test]
   fn read_inside_min_interval_returns_cached_reading_without_refreshing() {
-    let collector = LiveProcessGpuCollector::new();
+    let collector = ProcessGpuCollector::new();
     let t0 = Instant::now();
     let mut refreshes = 0;
 
@@ -306,15 +325,14 @@ mod tests {
 
   #[test]
   fn refresh_after_a_gap_longer_than_max_baseline_age_only_rebaselines() {
-    let collector = LiveProcessGpuCollector::new();
+    let collector = ProcessGpuCollector::new();
     let t0 = Instant::now();
     let values = || HashMap::from([((1, 1), 7.0)]);
 
     collector.read_with(|| t0, |_, _| values());
-    let after_gap =
-      collector.read_with(|| t0 + LIVE_READ_MAX_BASELINE_AGE * 2, |_, _| values());
+    let after_gap = collector.read_with(|| t0 + MAX_BASELINE_AGE * 2, |_, _| values());
     let next = collector.read_with(
-      || t0 + LIVE_READ_MAX_BASELINE_AGE * 2 + LIVE_READ_MIN_INTERVAL,
+      || t0 + MAX_BASELINE_AGE * 2 + LIVE_READ_MIN_INTERVAL,
       |_, _| values(),
     );
 
@@ -324,7 +342,7 @@ mod tests {
 
   #[test]
   fn guard_window_starts_when_the_refresh_completes() {
-    let collector = LiveProcessGpuCollector::new();
+    let collector = ProcessGpuCollector::new();
     let t0 = Instant::now();
     let slow_refresh = Duration::from_millis(1500);
     let ticks = std::cell::Cell::new(0);

@@ -1138,7 +1138,7 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .manage(history_store)
     .manage(Arc::new(
-      hardviz_core::collector::LiveProcessGpuCollector::new(),
+      hardviz_core::collector::ProcessGpuCollector::new(),
     ))
     .manage(app_state)
     .manage(external_component_guidance_state)
