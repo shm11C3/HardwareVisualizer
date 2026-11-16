@@ -27,6 +27,7 @@ let customLayout: PerformanceCustomLayout = {
     "perCore",
     "motherboardSensors",
     "power",
+    "network",
   ],
   visible: ["usageGraphs", "processTable", "power"],
 };
@@ -46,6 +47,7 @@ describe("usePerformanceLayout", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["usageGraphs", "processTable", "power"],
     };
@@ -255,6 +257,7 @@ describe("usePerformanceLayout", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["usageGraphs", "processTable", "power"],
     });
@@ -268,6 +271,7 @@ describe("usePerformanceLayout", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["usageGraphs"],
     };
@@ -286,6 +290,7 @@ describe("usePerformanceLayout", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: [],
     });
@@ -318,6 +323,7 @@ describe("usePerformanceLayout", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["processTable", "power"],
     });
@@ -337,6 +343,7 @@ describe("usePerformanceLayout", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["power"],
     });

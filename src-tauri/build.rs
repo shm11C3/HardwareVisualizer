@@ -45,6 +45,20 @@ const FIELD_POLICIES: &[FieldPolicy] = &[
     field_name: "memory_usage",
     attrs: "  #[serde(serialize_with = \"super::serialize_usage\")]\n  #[specta(type = String)]\n",
   },
+  // Link rates are at most ~1e11 bit/s, far below 2^53, so serde's JSON number
+  // is exact. Export `number | null` because specta rejects u64 (BigInt).
+  FieldPolicy {
+    struct_name: "NetworkInfo",
+    field_name: "receive_link_speed_bps",
+    attrs: "  #[specta(type = Option<f64>)]\n",
+  },
+  // Link rates are at most ~1e11 bit/s, far below 2^53, so serde's JSON number
+  // is exact. Export `number | null` because specta rejects u64 (BigInt).
+  FieldPolicy {
+    struct_name: "NetworkInfo",
+    field_name: "transmit_link_speed_bps",
+    attrs: "  #[specta(type = Option<f64>)]\n",
+  },
 ];
 
 fn main() {

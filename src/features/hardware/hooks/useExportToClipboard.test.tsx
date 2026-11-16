@@ -96,6 +96,8 @@ const networkWithLinkLocal: NetworkInfo = {
   ipSubnet: ["255.255.255.0"],
   defaultIpv4Gateway: ["192.168.1.1"],
   defaultIpv6Gateway: ["fe80::1"],
+  receiveLinkSpeedBps: null,
+  transmitLinkSpeedBps: null,
 };
 
 const networkNoLinkLocal: NetworkInfo = {

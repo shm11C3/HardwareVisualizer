@@ -1232,6 +1232,8 @@ export type NetworkInfo = {
 	ipSubnet: string[],
 	defaultIpv4Gateway: string[],
 	defaultIpv6Gateway: string[],
+	receiveLinkSpeedBps: number | null,
+	transmitLinkSpeedBps: number | null,
 };
 
 export type PawnIoRuntimeDiagnostics = {

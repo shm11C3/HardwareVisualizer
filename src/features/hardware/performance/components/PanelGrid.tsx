@@ -23,7 +23,7 @@ import {
   LightningIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
-import { GripVerticalIcon } from "lucide-react";
+import { GripVerticalIcon, NetworkIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CpuDetailTemperatures } from "@/features/hardware/components/CpuDetailTemperatures";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
@@ -38,6 +38,7 @@ import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import { MotherboardSensorsPanel } from "./MotherboardSensorsPanel";
+import { NetworkPanel } from "./NetworkPanel";
 import { PerCorePanel } from "./PerCorePanel";
 import { PowerDisplayModeSwitcher } from "./PowerDisplayModeSwitcher";
 import { PowerDrawChart } from "./PowerDrawChart";
@@ -71,6 +72,10 @@ const PanelBody = ({
         <CpuDetailTemperatures />
       </>
     );
+  }
+
+  if (panel === "network") {
+    return <NetworkPanel />;
   }
 
   if (panel === "power") {
@@ -113,6 +118,7 @@ const SortablePanel = ({
     ),
     motherboardSensors: <DesktopIcon size={18} color="oklch(70% 0.14 150)" />,
     power: <LightningIcon size={18} color="oklch(78% 0.15 85)" />,
+    network: <NetworkIcon size={18} color="oklch(72% 0.13 230)" />,
   };
   // The Live Process Table already renders as its own card, so it gets no
   // outer panel chrome; its edit controls appear as a slim row above it.
