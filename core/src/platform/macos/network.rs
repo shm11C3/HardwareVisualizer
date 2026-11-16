@@ -4,7 +4,11 @@ use std::{
 };
 
 use crate::{
-  enums::error::PlatformError, infrastructure, models::hardware::NetworkInfo, utils::ip,
+  enums::error::PlatformError,
+  infrastructure,
+  models::hardware::NetworkInfo,
+  platform::link_speed::{LinkSpeedMatchKey, attach_link_speeds},
+  utils::ip,
 };
 
 type GatewayV4ByIfIndex = HashMap<u32, Vec<Ipv4Addr>>;
@@ -23,7 +27,14 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, PlatformError> {
     infrastructure::providers::net_sys::get_default_gateways_by_ifindex()
       .map_err(PlatformError::fault)?;
 
-  Ok(create_network_info(raw, &gw_v4_by_index, &gw_v6_by_index))
+  let mut result = create_network_info(raw, &gw_v4_by_index, &gw_v6_by_index);
+  // `description` is the BSD interface name, the same key sysinfo uses.
+  attach_link_speeds(
+    &mut result,
+    &infrastructure::providers::sysinfo_provider::read_interface_link_rates(),
+    LinkSpeedMatchKey::Name,
+  );
+  Ok(result)
 }
 
 fn create_network_info(
@@ -67,6 +78,8 @@ fn create_network_info(
         ip_subnet,
         default_ipv4_gateway,
         default_ipv6_gateway,
+        receive_link_speed_bps: None,
+        transmit_link_speed_bps: None,
       })
     })
     .collect();

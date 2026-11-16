@@ -53,6 +53,7 @@ describe("performance layout normalization", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["processTable"],
     });
@@ -71,6 +72,7 @@ describe("performance layout normalization", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["usageGraphs", "processTable"],
     });
@@ -89,6 +91,7 @@ describe("performance layout normalization", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["usageGraphs"],
     });
@@ -116,6 +119,7 @@ describe("performance layout normalization", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["usageGraphs"],
     });
@@ -137,6 +141,7 @@ describe("performance layout normalization", () => {
       "perCore",
       "motherboardSensors",
       "power",
+      "network",
     ]);
   });
 
@@ -148,6 +153,7 @@ describe("performance layout normalization", () => {
         "perCore",
         "motherboardSensors",
         "power",
+        "network",
       ],
       visible: ["usageGraphs", "processTable", "power"],
     };
@@ -168,6 +174,7 @@ describe("performance layout normalization", () => {
         "processTable",
         "perCore",
         "motherboardSensors",
+        "network",
       ],
       visible: ["power", "usageGraphs"],
     });

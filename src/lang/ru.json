@@ -373,7 +373,16 @@
         "processTable": "Активные процессы",
         "perCore": "Загрузка по ядрам",
         "motherboardSensors": "Датчики материнской платы",
-        "power": "Потребляемая мощность"
+        "power": "Потребляемая мощность",
+        "network": "Сеть"
+      },
+      "network": {
+        "linkSpeed": "Скорость соединения",
+        "linkSpeedNotReported": "Нет данных",
+        "receiveLinkSpeed": "Приём {{value}}",
+        "transmitLinkSpeed": "Передача {{value}}",
+        "megabitsPerSecond": "{{value}} Мбит/с",
+        "gigabitsPerSecond": "{{value}} Гбит/с"
       },
       "panelColumns": "Колонки панелей",
       "columns": {

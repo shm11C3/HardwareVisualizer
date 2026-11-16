@@ -67,3 +67,25 @@ pub fn get_storage_info() -> Result<Vec<models::hardware::StorageInfo>, String> 
 
   Ok(storage_info)
 }
+
+/// Reads OS-reported link rates for every interface sysinfo can see.
+///
+/// Link speed is optional: if sysinfo cannot list interfaces the result is
+/// empty and rates stay unset.
+pub fn read_interface_link_rates() -> Vec<crate::platform::link_speed::InterfaceLinkRate>
+{
+  let Ok(networks) = sysinfo::Networks::new_with_refreshed_list() else {
+    return Vec::new();
+  };
+  networks
+    .iter()
+    .map(
+      |(name, data)| crate::platform::link_speed::InterfaceLinkRate {
+        name: name.to_string_lossy().into_owned(),
+        mac: Some(data.mac_address().to_string()),
+        receive_bps: data.receive_link_speed(),
+        transmit_bps: data.transmit_link_speed(),
+      },
+    )
+    .collect()
+}

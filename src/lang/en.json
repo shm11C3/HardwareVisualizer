@@ -383,7 +383,16 @@
         "processTable": "Live processes",
         "perCore": "Per-core usage",
         "motherboardSensors": "Motherboard sensors",
-        "power": "Power draw"
+        "power": "Power draw",
+        "network": "Network"
+      },
+      "network": {
+        "linkSpeed": "Link speed",
+        "linkSpeedNotReported": "Not reported",
+        "receiveLinkSpeed": "Receive {{value}}",
+        "transmitLinkSpeed": "Transmit {{value}}",
+        "megabitsPerSecond": "{{value}} Mb/s",
+        "gigabitsPerSecond": "{{value}} Gb/s"
       },
       "panelColumns": "Panel columns",
       "columns": {

@@ -1,4 +1,5 @@
 pub mod factory;
+pub mod link_speed;
 pub mod traits;
 
 #[cfg(target_os = "linux")]

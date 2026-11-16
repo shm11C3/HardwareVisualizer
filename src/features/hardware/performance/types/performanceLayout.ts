@@ -21,6 +21,7 @@ export const performancePanelIds = [
   "perCore",
   "motherboardSensors",
   "power",
+  "network",
 ] as const;
 
 export type PerformancePanelId = (typeof performancePanelIds)[number];

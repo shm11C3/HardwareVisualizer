@@ -88,9 +88,9 @@ resolution, ordered engine-specific schema definitions, startup and recovery
 lifecycle, and typed IPC. The frontend continues to receive domain results and
 incomplete-coverage information without storage routing.
 
-The initial Rust candidate is
-[`duckdb ~1.10506.1` with `bundled`](https://docs.rs/crate/duckdb/1.10506.1/source/README.md),
-matching the DuckDB 1.5.6 engine. Bundling avoids a separately
+The Rust archive uses
+[`duckdb 1.20000.1` with `bundled`](https://docs.rs/crate/duckdb/1.20000.1/source/README.md),
+matching the DuckDB 2.0.0 engine. Bundling avoids a separately
 installed runtime. File
 [compatibility](https://duckdb.org/docs/current/internals/storage) remains a
 separate versioning decision.
