@@ -6,6 +6,7 @@
 //! derives the outcome from the exit code of the process handle it owns. No
 //! result file or pipe exists for a same-user process to redirect or forge.
 
+use std::mem::DropGuard;
 use std::sync::Mutex;
 
 use hardviz_core::external_component_setup::{
@@ -31,7 +32,7 @@ static IN_FLIGHT: Mutex<Vec<ExternalComponent>> = Mutex::new(Vec::new());
 
 /// Marks a component as in flight until dropped, or forever when the run's
 /// elevated child could not be confirmed dead (see [`Self::keep_held`]).
-struct InFlightGuard(ExternalComponent);
+struct InFlightGuard(DropGuard<ExternalComponent, fn(ExternalComponent)>);
 
 impl InFlightGuard {
   fn acquire(component: ExternalComponent) -> Result<Self, String> {
@@ -45,7 +46,7 @@ impl InFlightGuard {
       ));
     }
     in_flight.push(component);
-    Ok(Self(component))
+    Ok(Self(DropGuard::new(component, Self::release)))
   }
 
   /// Leave the component marked in flight for the rest of the app's life.
@@ -53,17 +54,14 @@ impl InFlightGuard {
   /// handle that can end it, so a retry could start a second installer next
   /// to it. The mark clears with the app restart the user is told to do.
   fn keep_held(self) {
-    // Forgetting skips `Drop`, which is the only place the mark is cleared.
-    std::mem::forget(self);
+    DropGuard::dismiss(self.0);
   }
-}
 
-impl Drop for InFlightGuard {
-  fn drop(&mut self) {
+  fn release(component: ExternalComponent) {
     let mut in_flight = IN_FLIGHT
       .lock()
       .unwrap_or_else(|poisoned| poisoned.into_inner());
-    in_flight.retain(|component| *component != self.0);
+    in_flight.retain(|held| *held != component);
   }
 }
 
