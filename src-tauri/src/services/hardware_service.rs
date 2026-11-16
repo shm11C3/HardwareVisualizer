@@ -19,23 +19,20 @@ use hardviz_core::platform::factory::PlatformFactory;
 ///
 pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, String> {
   // CPU follows the same "log and continue" rule as the GPU / memory /
-  // motherboard branches below: a poisoned `HistoryStore::system` mutex
-  // or a provider failure is logged and produces `None` instead of
-  // aborting the whole call.
-  let cpu = match store.system().lock() {
-    Ok(system) => match sysinfo_provider::get_cpu_info(system) {
-      Ok(v) => Some(v.into()),
-      Err(e) => {
-        log_error!("cpu_info_failed", "collect_hardware_info", Some(e));
-        None
-      }
-    },
+  // motherboard branches below so the remaining hardware stays visible.
+  let cpu_result = store
+    .system()
+    .map_err(|error| format!("Failed to initialize system information: {error}"))
+    .and_then(|system| {
+      system
+        .lock()
+        .map_err(|error| format!("HistoryStore.system lock poisoned: {error}"))
+    })
+    .and_then(sysinfo_provider::get_cpu_info);
+  let cpu = match cpu_result {
+    Ok(v) => Some(v.into()),
     Err(e) => {
-      log_error!(
-        "cpu_info_failed",
-        "collect_hardware_info",
-        Some(format!("HistoryStore.system lock poisoned: {e}"))
-      );
+      log_error!("cpu_info_failed", "collect_hardware_info", Some(e));
       None
     }
   };

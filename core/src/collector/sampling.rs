@@ -78,7 +78,7 @@ pub async fn collect_snapshot(
 /// Run one CPU / memory / process refresh and append samples to the
 /// store's history rings.
 pub fn sample_system(store: &HistoryStore) -> Option<SystemSample> {
-  let result = store.system().lock().ok().map(|mut sys| {
+  let result = store.system().ok()?.lock().ok().map(|mut sys| {
     sys.refresh_cpu_usage();
     sys.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_ram());
     // Keep sysinfo's default task enumeration so Linux process membership
@@ -94,7 +94,7 @@ pub fn sample_system(store: &HistoryStore) -> Option<SystemSample> {
     let cpu_usage = calculate_average_cpu_usage(sys.cpus());
     let memory_usage =
       calculate_memory_usage_percentage(sys.used_memory(), sys.total_memory());
-    let processors_usage: Vec<f32> = sys.cpus().iter().map(|c| c.cpu_usage()).collect();
+    let processors_usage: Vec<f32> = sys.cpus().iter().map(sysinfo::Cpu::usage).collect();
 
     let processes: Vec<ProcessSample> = sys
       .processes()
@@ -140,7 +140,7 @@ pub fn sample_system(store: &HistoryStore) -> Option<SystemSample> {
 fn calculate_average_cpu_usage(cpus: &[sysinfo::Cpu]) -> f32 {
   match cpus.len() {
     0 => 0.0,
-    len => (cpus.iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / len as f32).round(),
+    len => (cpus.iter().map(sysinfo::Cpu::usage).sum::<f32>() / len as f32).round(),
   }
 }
 
@@ -547,15 +547,15 @@ mod tests {
     )]);
 
     {
-      let mut system = store.system().lock().unwrap();
-      *system = sysinfo::System::new();
+      let mut system = store.system().unwrap().lock().unwrap();
+      *system = sysinfo::System::new().unwrap();
       assert!(system.cpus().is_empty());
       assert_eq!(system.total_memory(), 0);
       assert!(system.processes().is_empty());
     }
 
     let sample = sample_system(&store).expect("system lock should be available");
-    let system = store.system().lock().unwrap();
+    let system = store.system().unwrap().lock().unwrap();
 
     assert!(!sample.processors_usage.is_empty());
     assert!(system.total_memory() > 0);
@@ -565,7 +565,7 @@ mod tests {
       system
         .cpus()
         .iter()
-        .map(|cpu| cpu.cpu_usage())
+        .map(sysinfo::Cpu::usage)
         .collect::<Vec<_>>()
     );
     assert_eq!(

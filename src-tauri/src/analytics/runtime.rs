@@ -103,7 +103,7 @@ impl AppFlagSources {
 
   fn cpu_vendor(&self) -> Option<super::vocabulary::CpuVendor> {
     let store = self.app.state::<Arc<HistoryStore>>();
-    let system = store.system().lock().ok()?;
+    let system = store.system().ok()?.lock().ok()?;
     let cpu = sysinfo_provider::get_cpu_info(system).ok()?;
     Some(flags::cpu_vendor_class(&cpu.vendor))
   }

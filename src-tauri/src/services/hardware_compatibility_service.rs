@@ -148,7 +148,7 @@ fn render(
 ) -> String {
   let inventory = &evidence.inventory;
   let mut report = String::from("# Hardware Compatibility Report\n\n");
-  let os_version = sysinfo::System::os_version();
+  let os_version = sysinfo::System::os_version().ok();
   let gpu_models = inventory.gpu_models.join(", ");
   for (label, value) in [
     ("App version", Some(version)),

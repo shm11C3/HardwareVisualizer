@@ -30,7 +30,7 @@ const PROCESS_AVG_WINDOW: usize = 5;
 /// `Arc<Mutex<...>>` so the collector loop and history readers can
 /// interleave under a fine-grained lock.
 struct HistoryStoreInner {
-  system: Arc<Mutex<System>>,
+  system: Result<Mutex<System>, sysinfo::Error>,
   cpu_history: Arc<Mutex<VecDeque<f32>>>,
   memory_history: Arc<Mutex<VecDeque<f32>>>,
   process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
@@ -56,7 +56,7 @@ impl HistoryStore {
     Self {
       inner: Arc::new(HistoryStoreInner {
         // Sampling and history readers use CPU, RAM, and process CPU/memory.
-        system: Arc::new(Mutex::new(System::new_with_specifics(
+        system: System::new_with_specifics(
           sysinfo::RefreshKind::nothing()
             .with_cpu(sysinfo::CpuRefreshKind::everything())
             .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram())
@@ -65,7 +65,8 @@ impl HistoryStore {
                 .with_cpu()
                 .with_memory(),
             ),
-        ))),
+        )
+        .map(Mutex::new),
         cpu_history: Arc::new(Mutex::new(VecDeque::with_capacity(
           HARDWARE_HISTORY_BUFFER_SIZE,
         ))),
@@ -84,11 +85,11 @@ impl HistoryStore {
 
   // ── Internal accessors used by `crate::collector::sampling` ──
 
-  /// Borrow the shared `sysinfo::System` Arc. Used by App-side services
+  /// Borrow the shared `sysinfo::System` mutex. Used by App-side services
   /// that compose hardware info from sysinfo state. The collector loop
   /// also uses this to refresh the system on each tick.
-  pub fn system(&self) -> &Arc<Mutex<System>> {
-    &self.inner.system
+  pub fn system(&self) -> Result<&Mutex<System>, &sysinfo::Error> {
+    self.inner.system.as_ref()
   }
 
   pub(crate) fn push_cpu_history(&self, value: f32) {
@@ -194,7 +195,10 @@ impl HistoryStore {
   /// Process list from the latest collector sample, with rolling-average CPU
   /// and memory usage (last [`PROCESS_AVG_WINDOW`] samples) per process.
   pub fn process_list(&self) -> Vec<ProcessInfo> {
-    let system = self.inner.system.lock().unwrap();
+    let Ok(system) = self.system() else {
+      return Vec::new();
+    };
+    let system = system.lock().unwrap();
     let process_cpu_histories = self.inner.process_cpu_histories.lock().unwrap();
     let process_memory_histories = self.inner.process_memory_histories.lock().unwrap();
 
@@ -257,25 +261,34 @@ impl HistoryStore {
   /// Overall CPU usage (%) as a rounded integer based on the most recent
   /// sysinfo sample. Returns 0 when no CPU is reported.
   pub fn current_cpu_usage_overall(&self) -> i32 {
-    let system = self.inner.system.lock().unwrap();
+    let Ok(system) = self.system() else {
+      return 0;
+    };
+    let system = system.lock().unwrap();
     let cpus = system.cpus();
     if cpus.is_empty() {
       return 0;
     }
-    let total: f32 = cpus.iter().map(|c| c.cpu_usage()).sum();
+    let total: f32 = cpus.iter().map(sysinfo::Cpu::usage).sum();
     (total / cpus.len() as f32).round() as i32
   }
 
   /// Per-processor CPU usage (%) from the most recent sysinfo sample,
   /// without rounding.
   pub fn current_cpu_usage_per_processor(&self) -> Vec<f32> {
-    let system = self.inner.system.lock().unwrap();
-    system.cpus().iter().map(|c| c.cpu_usage()).collect()
+    let Ok(system) = self.system() else {
+      return Vec::new();
+    };
+    let system = system.lock().unwrap();
+    system.cpus().iter().map(sysinfo::Cpu::usage).collect()
   }
 
   /// Memory usage (%) from the most recent sysinfo sample, rounded.
   pub fn current_memory_usage_percent(&self) -> i32 {
-    let system = self.inner.system.lock().unwrap();
+    let Ok(system) = self.system() else {
+      return 0;
+    };
+    let system = system.lock().unwrap();
     let used = system.used_memory() as f64;
     let total = system.total_memory() as f64;
     if total == 0.0 {
