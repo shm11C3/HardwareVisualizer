@@ -220,6 +220,32 @@ describe("NetworkPanel", () => {
     consoleError.mockRestore();
   });
 
+  it("does not start a read from Retry while a poll is still running", async () => {
+    vi.useFakeTimers();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getNetworkInfo.mockResolvedValueOnce({
+      status: "error",
+      error: "boom",
+    });
+    renderPanel();
+    await act(async () => {});
+    expect(screen.getByTestId("load-failure")).toBeVisible();
+
+    mocks.getNetworkInfo.mockImplementation(() => new Promise(() => {}));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mocks.getNetworkInfo).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      screen.getByRole("button").click();
+    });
+    expect(mocks.getNetworkInfo).toHaveBeenCalledTimes(2);
+    consoleError.mockRestore();
+  });
+
   it("shows the unavailable copy when the read succeeds with no adapters", async () => {
     mocks.getNetworkInfo.mockResolvedValue(ok([]));
     renderPanel();

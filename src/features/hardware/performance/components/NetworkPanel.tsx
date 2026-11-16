@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadFailure } from "@/components/LoadFailure";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,6 +76,9 @@ export const NetworkPanel = () => {
   const { t } = useTranslation();
   const { networkInfo, networkLoadFailed, initNetwork } = useHardwareInfoAtom();
   const [hasRead, setHasRead] = useState(false);
+  // Retry goes through the same guarded read as the timer, so a retry and a
+  // scheduled poll never race to write the shared network atoms.
+  const readRef = useRef<() => void>(() => undefined);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `initNetwork` only writes stable atom setters
   useEffect(() => {
     let mounted = true;
@@ -96,11 +99,13 @@ export const NetworkPanel = () => {
       }
     };
 
+    readRef.current = () => void poll();
     void poll();
     const timer = setInterval(() => void poll(), NETWORK_POLL_INTERVAL_MS);
 
     return () => {
       mounted = false;
+      readRef.current = () => undefined;
       clearInterval(timer);
     };
   }, []);
@@ -112,7 +117,7 @@ export const NetworkPanel = () => {
       <LoadFailure
         className="h-auto px-4 pb-4"
         message={t("pages.dashboard.systemSpecifications.networkLoadFailed")}
-        onRetry={() => void initNetwork()}
+        onRetry={() => readRef.current()}
       />
     );
   }
