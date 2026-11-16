@@ -1,4 +1,5 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProcessInfo } from "@/rspc/bindings";
 
@@ -41,5 +42,36 @@ describe("ProcessesTable GPU column", () => {
       "shared.processGpuUsageUnavailable",
     );
     expect(within(rows[2] as HTMLElement).queryByText("0%")).toBeNull();
+  });
+
+  it("sorts GPU usage with Enter and Space and exposes the direction", async () => {
+    const user = userEvent.setup();
+    mocks.processes = [
+      { pid: 1, name: "high", cpuUsage: "1", memoryUsage: "2", gpuUsage: "80" },
+      { pid: 2, name: "low", cpuUsage: "1", memoryUsage: "2", gpuUsage: "10" },
+    ];
+    render(<ProcessesTable />);
+
+    const button = screen.getByRole("button", { name: "shared.gpuUsage" });
+    const header = screen.getByRole("columnheader", {
+      name: "shared.gpuUsage",
+    });
+    expect(header).not.toHaveAttribute("aria-sort");
+    // The expand control precedes the GPU sort button in the tab order.
+    await user.tab();
+    await user.tab();
+    expect(button).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    expect(
+      within(screen.getAllByRole("row")[1] as HTMLElement).getByText("low"),
+    ).toBeVisible();
+
+    await user.keyboard(" ");
+    expect(header).toHaveAttribute("aria-sort", "descending");
+    expect(
+      within(screen.getAllByRole("row")[1] as HTMLElement).getByText("high"),
+    ).toBeVisible();
   });
 });

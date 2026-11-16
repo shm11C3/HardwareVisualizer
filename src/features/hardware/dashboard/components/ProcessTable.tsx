@@ -242,15 +242,24 @@ const InfoTable = ({
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               title={t("shared.processGpuUsageHelp")}
-              onClick={() => requestSort("gpuUsage")}
-              onKeyDown={() => requestSort("gpuUsage")}
+              aria-sort={
+                sortConfig?.key === "gpuUsage"
+                  ? sortConfig.direction
+                  : undefined
+              }
             >
-              <div className="flex items-center">
+              <button
+                type="button"
+                className="flex cursor-pointer items-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                onClick={() => requestSort("gpuUsage")}
+              >
                 <span>{t("shared.gpuUsage")}</span>
-                {sortConfig &&
-                  sortConfig.key === "gpuUsage" &&
-                  sortIcon[sortConfig.direction]}
-              </div>
+                {sortConfig?.key === "gpuUsage" && (
+                  <span aria-hidden="true">
+                    {sortIcon[sortConfig.direction]}
+                  </span>
+                )}
+              </button>
             </th>
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
