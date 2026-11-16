@@ -115,18 +115,15 @@ class ProcessPollingCoordinator {
     const requestGeneration = this.generation;
 
     try {
-      const processesData = await commands.getProcessList(this.wantsGpu());
-      if (this.isCurrentRequest(requestGeneration)) {
-        this.store.set(processesAtom, processesData);
+      const result = await commands.getProcessList(this.wantsGpu());
+      if (result.status === "error") {
+        this.markFailed(requestGeneration, result.error);
+      } else if (this.isCurrentRequest(requestGeneration)) {
+        this.store.set(processesAtom, result.data);
         this.store.set(processListLoadFailedAtom, false);
       }
     } catch (pollingError) {
-      if (this.isCurrentRequest(requestGeneration)) {
-        // Failure is state, not a notice: polling keeps retrying on its own
-        // and the next success clears it, so repeated failures cannot stack.
-        this.store.set(processListLoadFailedAtom, true);
-        console.error("Failed to fetch processes:", pollingError);
-      }
+      this.markFailed(requestGeneration, pollingError);
     } finally {
       this.requestInFlight = false;
 
@@ -134,6 +131,15 @@ class ProcessPollingCoordinator {
         this.pendingDemandRefresh = false;
         this.scheduleDemandRefresh();
       }
+    }
+  }
+
+  private markFailed(requestGeneration: number, error: unknown) {
+    if (this.isCurrentRequest(requestGeneration)) {
+      // Failure is state, not a notice: polling keeps retrying on its own
+      // and the next success clears it, so repeated failures cannot stack.
+      this.store.set(processListLoadFailedAtom, true);
+      console.error("Failed to fetch processes:", error);
     }
   }
 

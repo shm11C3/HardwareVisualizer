@@ -22,6 +22,9 @@ import { commands, type ProcessInfo } from "@/rspc/bindings";
 
 const getProcessListMock = vi.mocked(commands.getProcessList);
 
+type ProcessListResult = Awaited<ReturnType<typeof commands.getProcessList>>;
+const ok = (data: ProcessInfo[]): ProcessListResult => ({ status: "ok", data });
+
 const setDocumentHidden = (hidden: boolean) => {
   Object.defineProperty(document, "hidden", {
     configurable: true,
@@ -82,7 +85,7 @@ describe("useProcessInfo", () => {
         gpuUsage: null,
       },
     ];
-    getProcessListMock.mockResolvedValue(processData);
+    getProcessListMock.mockResolvedValue(ok(processData));
 
     const { result } = renderHook(() => useProcessInfo(), {
       wrapper: Provider,
@@ -115,7 +118,7 @@ describe("useProcessInfo", () => {
   });
 
   it("shares one initial request and polling schedule across consumers", async () => {
-    getProcessListMock.mockResolvedValue([]);
+    getProcessListMock.mockResolvedValue(ok([]));
     vi.useFakeTimers();
 
     renderHook(
@@ -139,7 +142,7 @@ describe("useProcessInfo", () => {
   });
 
   it("registers and removes demand when enabled changes", async () => {
-    getProcessListMock.mockResolvedValue([]);
+    getProcessListMock.mockResolvedValue(ok([]));
     vi.useFakeTimers();
 
     const { rerender } = renderHook(
@@ -163,7 +166,7 @@ describe("useProcessInfo", () => {
   });
 
   it("requests GPU usage only while a GPU consumer is subscribed", async () => {
-    getProcessListMock.mockResolvedValue([]);
+    getProcessListMock.mockResolvedValue(ok([]));
     vi.useFakeTimers();
 
     const { rerender } = renderHook(
@@ -194,7 +197,7 @@ describe("useProcessInfo", () => {
   });
 
   it("keeps polling while another consumer remains active", async () => {
-    getProcessListMock.mockResolvedValue([]);
+    getProcessListMock.mockResolvedValue(ok([]));
     vi.useFakeTimers();
 
     const { rerender } = renderHook(
@@ -221,7 +224,7 @@ describe("useProcessInfo", () => {
   });
 
   it("pauses while hidden and refreshes immediately when visible", async () => {
-    getProcessListMock.mockResolvedValue([]);
+    getProcessListMock.mockResolvedValue(ok([]));
     vi.useFakeTimers();
 
     renderHook(() => useProcessInfo(), {
@@ -241,10 +244,10 @@ describe("useProcessInfo", () => {
   });
 
   it("skips periodic ticks while a request is in flight", async () => {
-    const slowRequest = deferred<ProcessInfo[]>();
+    const slowRequest = deferred<ProcessListResult>();
     getProcessListMock
       .mockReturnValueOnce(slowRequest.promise)
-      .mockResolvedValue([]);
+      .mockResolvedValue(ok([]));
     vi.useFakeTimers();
 
     renderHook(() => useProcessInfo(), {
@@ -257,7 +260,7 @@ describe("useProcessInfo", () => {
     vi.advanceTimersByTime(9000);
     expect(getProcessListMock).toHaveBeenCalledTimes(1);
 
-    slowRequest.resolve([]);
+    slowRequest.resolve(ok([]));
     await flushMicrotasks();
     expect(getProcessListMock).toHaveBeenCalledTimes(1);
 
@@ -269,8 +272,8 @@ describe("useProcessInfo", () => {
   });
 
   it("coalesces resumed demand and ignores a stale response", async () => {
-    const staleRequest = deferred<ProcessInfo[]>();
-    const resumedRequest = deferred<ProcessInfo[]>();
+    const staleRequest = deferred<ProcessListResult>();
+    const resumedRequest = deferred<ProcessListResult>();
     const staleData = [
       {
         pid: 1,
@@ -308,12 +311,12 @@ describe("useProcessInfo", () => {
     await flushMicrotasks();
     expect(getProcessListMock).toHaveBeenCalledTimes(1);
 
-    staleRequest.resolve(staleData);
+    staleRequest.resolve(ok(staleData));
     await flushMicrotasks();
     expect(getProcessListMock).toHaveBeenCalledTimes(2);
     expect(result.current.processes).toEqual([]);
 
-    resumedRequest.resolve(currentData);
+    resumedRequest.resolve(ok(currentData));
     await waitFor(() => {
       expect(result.current.processes).toEqual(currentData);
     });
@@ -332,9 +335,9 @@ describe("useProcessInfo", () => {
     ];
     const pollingError = "Failed to fetch processes";
     getProcessListMock
-      .mockResolvedValueOnce(processData)
-      .mockRejectedValueOnce(pollingError)
-      .mockResolvedValue(processData);
+      .mockResolvedValueOnce(ok(processData))
+      .mockResolvedValueOnce({ status: "error", error: pollingError })
+      .mockResolvedValue(ok(processData));
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -394,7 +397,7 @@ describe("useProcessInfo", () => {
   });
 
   it("stops polling after the final consumer unmounts", async () => {
-    getProcessListMock.mockResolvedValue([]);
+    getProcessListMock.mockResolvedValue(ok([]));
     vi.useFakeTimers();
 
     const { unmount } = renderHook(() => useProcessInfo(), {

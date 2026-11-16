@@ -26,11 +26,10 @@ use tauri::{Manager, command};
 pub async fn get_process_list(
   app: tauri::AppHandle,
   include_gpu: bool,
-) -> Vec<ProcessInfo> {
+) -> Result<Vec<ProcessInfo>, String> {
   tauri::async_runtime::spawn_blocking(move || {
-    // Managed state is resolved inside the worker: an async command cannot
-    // borrow `State` without returning a `Result`, and this contract stays a
-    // plain list.
+    // Managed state is resolved inside the worker so the blocking work does
+    // not borrow command-scoped `State`.
     let history = app.state::<Arc<HistoryStore>>();
     let processes = if include_gpu {
       let gpu = app.state::<Arc<LiveProcessGpuCollector>>();
@@ -41,15 +40,15 @@ pub async fn get_process_list(
     processes.into_iter().map(ProcessInfo::from).collect()
   })
   .await
-  .unwrap_or_else(|e| {
-    // Only a panicking worker lands here; keep the command's plain-list
-    // contract (the polling hook retries on its own).
+  .map_err(|e| {
+    // Only a panicking worker lands here. Report it as a failure so the
+    // table shows its load-failed state instead of an empty list.
     crate::log_error!(
       "Process list worker failed",
       "commands::hardware::get_process_list",
       Some(e.to_string())
     );
-    Vec::new()
+    "Failed to collect the process list".to_string()
   })
 }
 

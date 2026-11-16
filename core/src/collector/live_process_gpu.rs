@@ -28,7 +28,9 @@
 //! Manager, which shows the busiest engine. `None` means unavailable or still
 //! measuring, never zero:
 //! - macOS: only processes registered as GPU clients get a value (18 of 984
-//!   in one measurement); all others are `None`.
+//!   in one measurement); all others are `None`. sysinfo keeps a process's
+//!   old value once it leaves the GPU client list, so repeated nonzero
+//!   values are dropped as retained (see `drop_retained_readings`).
 //! - Linux: a GPU-client process whose engines had zero delta since the
 //!   previous refresh reads `None` rather than 0.
 //! - Windows: sysinfo adds a process's counter on its first GPU refresh and
@@ -61,8 +63,11 @@ pub type ProcessGpuReadings = HashMap<ProcessGpuKey, f32>;
 struct CollectorState {
   /// `None` when sysinfo could not initialize; every read is then empty.
   system: Option<System>,
+  /// Raw sysinfo values from the previous refresh, used to detect values
+  /// sysinfo retained instead of recomputing (see [`drop_retained_readings`]).
+  previous_raw: ProcessGpuReadings,
   last_reading: Option<(Instant, Arc<ProcessGpuReadings>)>,
-  /// Time of the last actual refresh; cache hits do not move it.
+  /// Completion time of the last actual refresh; cache hits do not move it.
   last_refresh: Option<Instant>,
 }
 
@@ -82,6 +87,7 @@ impl LiveProcessGpuCollector {
     Self {
       state: Mutex::new(CollectorState {
         system: System::new().ok(),
+        previous_raw: ProcessGpuReadings::new(),
         last_reading: None,
         last_refresh: None,
       }),
@@ -92,13 +98,13 @@ impl LiveProcessGpuCollector {
   /// again within [`LIVE_READ_MIN_INTERVAL`]. Blocking: callers on an async
   /// runtime must use `spawn_blocking`.
   pub fn read(&self) -> Arc<ProcessGpuReadings> {
-    self.read_with(Instant::now(), |system| {
+    self.read_with(Instant::now, |system, previous_raw| {
       system.refresh_processes_specifics(
         ProcessesToUpdate::All,
         true,
         ProcessRefreshKind::nothing().with_gpu_usage(),
       );
-      system
+      let raw: ProcessGpuReadings = system
         .processes()
         .iter()
         .filter_map(|(pid, process)| {
@@ -106,22 +112,29 @@ impl LiveProcessGpuCollector {
             .gpu_usage()
             .map(|usage| ((pid.as_u32(), process.start_time()), usage))
         })
-        .collect()
+        .collect();
+      let previous = std::mem::replace(previous_raw, raw.clone());
+      if cfg!(target_os = "macos") {
+        drop_retained_readings(raw, &previous)
+      } else {
+        raw
+      }
     })
   }
 
   fn read_with(
     &self,
-    now: Instant,
-    collect: impl FnOnce(&mut System) -> ProcessGpuReadings,
+    clock: impl Fn() -> Instant,
+    collect: impl FnOnce(&mut System, &mut ProcessGpuReadings) -> ProcessGpuReadings,
   ) -> Arc<ProcessGpuReadings> {
     // The lock is held across the refresh on purpose: concurrent callers
     // serialize here, and whoever loses the race finds a fresh reading
     // inside the interval guard instead of refreshing again.
     let mut state = self.state.lock().unwrap();
+    let requested_at = clock();
 
     if let Some((collected_at, reading)) = &state.last_reading
-      && now.duration_since(*collected_at) < LIVE_READ_MIN_INTERVAL
+      && requested_at.duration_since(*collected_at) < LIVE_READ_MIN_INTERVAL
     {
       return Arc::clone(reading);
     }
@@ -130,20 +143,54 @@ impl LiveProcessGpuCollector {
     // baseline's values span the idle gap and are discarded.
     let stale_baseline = state
       .last_refresh
-      .is_some_and(|at| now.duration_since(at) > LIVE_READ_MAX_BASELINE_AGE);
-    let collected = match state.system.as_mut() {
-      Some(system) => collect(system),
+      .is_some_and(|at| requested_at.duration_since(at) > LIVE_READ_MAX_BASELINE_AGE);
+    let CollectorState {
+      system,
+      previous_raw,
+      ..
+    } = &mut *state;
+    let collected = match system.as_mut() {
+      Some(system) => collect(system, previous_raw),
       None => ProcessGpuReadings::new(),
     };
-    state.last_refresh = Some(now);
+    // Stamp with the completion time: the refresh itself can take a large
+    // part of the guard interval, and the delta window ends here.
+    let completed_at = clock();
+    state.last_refresh = Some(completed_at);
     let reading = Arc::new(if stale_baseline {
       ProcessGpuReadings::new()
     } else {
       collected
     });
-    state.last_reading = Some((now, Arc::clone(&reading)));
+    state.last_reading = Some((completed_at, Arc::clone(&reading)));
     reading
   }
+}
+
+/// Drops values sysinfo 0.40.1 retained on macOS instead of recomputing.
+///
+/// sysinfo's macOS backend only updates `gpu_usage` for processes found in
+/// the current IORegistry walk; a process that stopped being a GPU client,
+/// or every process when the walk fails, keeps its previous value forever.
+/// The public API cannot tell a retained value from a fresh one, but a
+/// recomputed nonzero value is a ratio over a nanosecond-resolution window
+/// and does not repeat bit-for-bit, so a nonzero value identical to the
+/// previous refresh is treated as retained and dropped (unavailable).
+/// A repeated 0 is kept: it is indistinguishable from a real idle reading
+/// and claims no GPU load.
+fn drop_retained_readings(
+  raw: ProcessGpuReadings,
+  previous: &ProcessGpuReadings,
+) -> ProcessGpuReadings {
+  raw
+    .into_iter()
+    .filter(|(key, usage)| {
+      *usage == 0.0
+        || previous
+          .get(key)
+          .is_none_or(|prev| prev.to_bits() != usage.to_bits())
+    })
+    .collect()
 }
 
 /// Live process list: [`HistoryStore::process_list`] plus per-process GPU
@@ -219,18 +266,27 @@ mod tests {
     let t0 = Instant::now();
     let mut refreshes = 0;
 
-    let first = collector.read_with(t0, |_| {
-      refreshes += 1;
-      HashMap::from([((1, 1), 7.0)])
-    });
-    let cached = collector.read_with(t0 + LIVE_READ_MIN_INTERVAL / 2, |_| {
-      refreshes += 1;
-      HashMap::new()
-    });
-    let fresh = collector.read_with(t0 + LIVE_READ_MIN_INTERVAL, |_| {
-      refreshes += 1;
-      HashMap::new()
-    });
+    let first = collector.read_with(
+      || t0,
+      |_, _| {
+        refreshes += 1;
+        HashMap::from([((1, 1), 7.0)])
+      },
+    );
+    let cached = collector.read_with(
+      || t0 + LIVE_READ_MIN_INTERVAL / 2,
+      |_, _| {
+        refreshes += 1;
+        HashMap::new()
+      },
+    );
+    let fresh = collector.read_with(
+      || t0 + LIVE_READ_MIN_INTERVAL,
+      |_, _| {
+        refreshes += 1;
+        HashMap::new()
+      },
+    );
 
     assert_eq!(first.get(&(1, 1)), Some(&7.0));
     assert_eq!(cached.get(&(1, 1)), Some(&7.0));
@@ -244,15 +300,63 @@ mod tests {
     let t0 = Instant::now();
     let values = || HashMap::from([((1, 1), 7.0)]);
 
-    collector.read_with(t0, |_| values());
+    collector.read_with(|| t0, |_, _| values());
     let after_gap =
-      collector.read_with(t0 + LIVE_READ_MAX_BASELINE_AGE * 2, |_| values());
+      collector.read_with(|| t0 + LIVE_READ_MAX_BASELINE_AGE * 2, |_, _| values());
     let next = collector.read_with(
-      t0 + LIVE_READ_MAX_BASELINE_AGE * 2 + LIVE_READ_MIN_INTERVAL,
-      |_| values(),
+      || t0 + LIVE_READ_MAX_BASELINE_AGE * 2 + LIVE_READ_MIN_INTERVAL,
+      |_, _| values(),
     );
 
     assert!(after_gap.is_empty(), "stale baseline reads as measuring");
     assert_eq!(next.get(&(1, 1)), Some(&7.0));
+  }
+
+  #[test]
+  fn guard_window_starts_when_the_refresh_completes() {
+    let collector = LiveProcessGpuCollector::new();
+    let t0 = Instant::now();
+    let slow_refresh = Duration::from_millis(1500);
+    let ticks = std::cell::Cell::new(0);
+    // First call: requested at t0, refresh completes at t0 + 1.5 s.
+    let clock = || {
+      ticks.set(ticks.get() + 1);
+      if ticks.get() == 1 {
+        t0
+      } else {
+        t0 + slow_refresh
+      }
+    };
+    collector.read_with(clock, |_, _| HashMap::from([((1, 1), 7.0)]));
+
+    let mut refreshed = false;
+    let right_after = collector.read_with(
+      || t0 + slow_refresh + LIVE_READ_MIN_INTERVAL / 2,
+      |_, _| {
+        refreshed = true;
+        HashMap::new()
+      },
+    );
+
+    assert!(
+      !refreshed,
+      "a call just after a slow refresh must hit the cache"
+    );
+    assert_eq!(right_after.get(&(1, 1)), Some(&7.0));
+  }
+
+  #[test]
+  fn nonzero_value_repeated_bit_for_bit_is_treated_as_retained() {
+    let previous: ProcessGpuReadings =
+      HashMap::from([((1, 1), 12.5), ((2, 2), 0.0), ((3, 3), 4.0)]);
+    let raw: ProcessGpuReadings =
+      HashMap::from([((1, 1), 12.5), ((2, 2), 0.0), ((3, 3), 4.1), ((4, 4), 9.0)]);
+
+    let kept = drop_retained_readings(raw, &previous);
+
+    assert_eq!(kept.get(&(1, 1)), None, "retained load is not fresh");
+    assert_eq!(kept.get(&(2, 2)), Some(&0.0), "repeated idle stays idle");
+    assert_eq!(kept.get(&(3, 3)), Some(&4.1));
+    assert_eq!(kept.get(&(4, 4)), Some(&9.0), "first value has no previous");
   }
 }

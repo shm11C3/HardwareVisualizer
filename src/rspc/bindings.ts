@@ -22,7 +22,7 @@ export const commands = {
 	 *  `gpu_usage` is `None`. The GPU refresh is slow, so the work runs off the
 	 *  main thread.
 	 */
-	getProcessList: (includeGpu: boolean) => __TAURI_INVOKE<ProcessInfo_Serialize[]>("get_process_list", { includeGpu }),
+	getProcessList: (includeGpu: boolean) => typedError<ProcessInfo_Serialize[], string>(__TAURI_INVOKE("get_process_list", { includeGpu })),
 	/**
 	 *  ## Get CPU usage (%)
 	 * 
