@@ -37,7 +37,9 @@ These rules are enforced by structure, not by review:
    concern (`src-tauri/src/adapters/window.rs`).
 3. **Persistence does not share state with the collector.** Archive persistence
    subscribes to `EventBus` rather than reaching into the collector's history
-   bag, so the two run as independent tasks.
+   bag, so the two run as independent tasks. When the archive needs a fact the
+   collector samples statefully, the collector publishes it on the archive's
+   declared demand rather than the archive opening its own sampler.
 4. **Settings split by consumer.** `CoreSettings` deserializes only the keys
    that affect Core (currently `hardwareArchive`). UI-only keys (`theme`,
    `language`, `lineGraph*`, `temperatureUnit`, …) stay App-side. Both crates

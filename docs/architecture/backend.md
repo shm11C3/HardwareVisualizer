@@ -759,6 +759,15 @@ When adding a setting:
    regenerate `src/rspc/bindings.ts`.
 7. **Respect settings ownership.** Core-owned and App-owned settings may share
    the same file, but each side should preserve the other side's keys.
+8. **One sampling owner per stateful fact.** A reading computed as a delta
+   between two refreshes of the same source, such as sysinfo CPU usage or
+   per-process GPU usage, has one owner in `core/src/collector/`. Another
+   consumer, such as the Hardware Archive needing a fact a live view already
+   samples, declares its demand to that owner and receives the readings through
+   `EventBus` snapshots; it does not open a second refresh state. A stateless
+   read, such as the device health read behind both the Storage Health Record
+   worker and Live Storage Health, may run in each consumer's own lifecycle.
+   Different facts keep separate samplers even when they share a device handle.
 
 ## Common Change Paths
 
@@ -777,7 +786,8 @@ When adding a setting:
 3. Add provider code under `core/src/infrastructure/providers/` if low-level OS
    or vendor access is needed.
 4. Surface the data through Core models and collector snapshots if it is
-   realtime.
+   realtime, or if a background consumer needs a fact the collector samples
+   statefully (Design Rule 8).
 5. Translate Core data to App DTOs in `src-tauri/src/adapters/` or App services.
 
 Missing or unsupported sensor data should be treated as best-effort where the
