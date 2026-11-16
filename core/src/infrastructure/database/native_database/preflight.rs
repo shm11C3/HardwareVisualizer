@@ -188,15 +188,16 @@ fn available_bytes(workspace: &Path) -> Result<u64, NativeDatabaseError> {
     .canonicalize()
     .unwrap_or_else(|_| workspace.to_owned());
   let resolved = strip_verbatim_prefix(&canonical);
-  let disks = sysinfo::Disks::new_with_refreshed_list();
+  let space_unknown = || NativeDatabaseError::WorkspaceSpaceUnknown {
+    path: workspace.to_owned(),
+  };
+  let disks = sysinfo::Disks::new_with_refreshed_list().map_err(|_| space_unknown())?;
   disks
     .iter()
     .filter(|disk| resolved.starts_with(strip_verbatim_prefix(disk.mount_point())))
     .max_by_key(|disk| disk.mount_point().as_os_str().len())
     .map(sysinfo::Disk::available_space)
-    .ok_or_else(|| NativeDatabaseError::WorkspaceSpaceUnknown {
-      path: workspace.to_owned(),
-    })
+    .ok_or_else(space_unknown)
 }
 
 /// Put a Windows extended-length path back into the ordinary form the mount

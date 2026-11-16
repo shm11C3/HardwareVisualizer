@@ -38,7 +38,8 @@ pub fn get_cpu_info(
 pub fn get_storage_info() -> Result<Vec<models::hardware::StorageInfo>, String> {
   let mut storage_info: Vec<models::hardware::StorageInfo> = Vec::new();
 
-  let disks = Disks::new_with_refreshed_list();
+  let disks = Disks::new_with_refreshed_list()
+    .map_err(|error| format!("Failed to initialize storage information: {error}"))?;
 
   for disk in &disks {
     let size = utils::formatter::format_size_with_unit(
