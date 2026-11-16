@@ -178,6 +178,16 @@ impl LiveProcessGpuCollector {
 /// previous refresh is treated as retained and dropped (unavailable).
 /// A repeated 0 is kept: it is indistinguishable from a real idle reading
 /// and claims no GPU load.
+///
+/// Known gaps, accepted until sysinfo exposes which processes the current
+/// walk observed: a retained 0 still reads as 0% (for example when the
+/// IORegistry walk fails), and two fresh nonzero readings that happen to
+/// round to the same `f32` are dropped for one poll.
+///
+/// Why not an own IORegistry walk: it would duplicate sysinfo's unsafe
+/// macOS GPU code for this one signal. The intended fix is upstream (reset
+/// `gpu_usage` for processes the walk did not find); remove this filter
+/// once a sysinfo release does that.
 fn drop_retained_readings(
   raw: ProcessGpuReadings,
   previous: &ProcessGpuReadings,
