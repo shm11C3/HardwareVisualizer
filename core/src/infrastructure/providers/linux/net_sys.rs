@@ -46,6 +46,8 @@ fn collect_interfaces_with_mac() -> Result<HashMap<String, NetworkInfo>, String>
         ip_subnet: vec![],
         default_ipv4_gateway: vec![],
         default_ipv6_gateway: vec![],
+        receive_link_speed_bps: None,
+        transmit_link_speed_bps: None,
       },
     );
   }

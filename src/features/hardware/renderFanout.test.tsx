@@ -285,6 +285,9 @@ vi.mock("@/rspc/bindings", () => ({
   commands: {
     getHardwareInfo: () =>
       Promise.resolve({ status: "ok", data: sysInfoFixture }),
+    // The Performance default layout mounts the Network panel, which polls on
+    // its own timer and reads no live atom; an empty list keeps it static.
+    getNetworkInfo: () => Promise.resolve({ status: "ok", data: [] }),
   },
 }));
 
@@ -434,7 +437,7 @@ const specs: ScreenSpec[] = [
   },
   {
     id: "performance-panels",
-    label: "Performance / Panels (default layout, all five panels)",
+    label: "Performance / Panels (default layout, all six panels)",
     Screen: Performance,
     ready: '[data-testid="performance-current-values"]',
     store: { performanceLayoutPreset: "panels" },

@@ -380,7 +380,16 @@
         "processTable": "ライブプロセス",
         "perCore": "コア別使用率",
         "motherboardSensors": "マザーボードセンサー",
-        "power": "消費電力"
+        "power": "消費電力",
+        "network": "ネットワーク"
+      },
+      "network": {
+        "linkSpeed": "リンク速度",
+        "linkSpeedNotReported": "未報告",
+        "receiveLinkSpeed": "受信 {{value}}",
+        "transmitLinkSpeed": "送信 {{value}}",
+        "megabitsPerSecond": "{{value}} Mb/s",
+        "gigabitsPerSecond": "{{value}} Gb/s"
       },
       "panelColumns": "パネルの列数",
       "columns": {

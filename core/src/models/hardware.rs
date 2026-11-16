@@ -102,6 +102,12 @@ pub struct NetworkInfo {
   pub ip_subnet: Vec<String>,
   pub default_ipv4_gateway: Vec<String>,
   pub default_ipv6_gateway: Vec<String>,
+  /// OS-reported negotiated receive link rate in bits per second. `None` when
+  /// the OS/driver does not report a rate, it reports 0, or the rate could not be
+  /// attributed to exactly this interface.
+  pub receive_link_speed_bps: Option<u64>,
+  /// Same as above for transmit. Unix reports one rate for both directions.
+  pub transmit_link_speed_bps: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

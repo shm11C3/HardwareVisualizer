@@ -368,11 +368,13 @@ test.describe("Grouped navigation destinations", () => {
     await expect(
       page.getByTestId("performance-panel-motherboardSensors"),
     ).toHaveCount(0);
+    // A panel introduced after the layout was saved joins it hidden.
+    await expect(page.getByTestId("performance-panel-network")).toHaveCount(0);
 
     const toggle = page.getByTestId("performance-edit-toggle");
-    await expect(page.getByTestId("performance-edit-badge")).toHaveText("2");
+    await expect(page.getByTestId("performance-edit-badge")).toHaveText("3");
     await expect(toggle).toHaveAccessibleName(
-      "Edit panels (2 hidden panels not yet reviewed)",
+      "Edit panels (3 hidden panels not yet reviewed)",
     );
     await saveCapture(page, "performance-edit-badge-desktop");
 

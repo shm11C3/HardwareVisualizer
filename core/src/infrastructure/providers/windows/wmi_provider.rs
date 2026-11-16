@@ -152,6 +152,8 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
           .into_iter()
           .map(|ip| ip.to_string())
           .collect(),
+        receive_link_speed_bps: None,
+        transmit_link_speed_bps: None,
       })
     })
     .collect();
