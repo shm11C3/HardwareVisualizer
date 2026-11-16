@@ -53,6 +53,21 @@ const LinkSpeedValue = ({
 };
 
 /**
+ * Row keys unique within one read. A MAC alone is not unique (a Linux bridge
+ * shares its member's MAC) and the list order is not stable across reads, so
+ * the key combines name and MAC and numbers any remaining repeats.
+ */
+const withRowKeys = (networks: NetworkInfo[]) => {
+  const seen = new Map<string, number>();
+  return networks.map((network) => {
+    const base = `${network.description ?? ""}|${network.macAddress ?? ""}`;
+    const occurrence = seen.get(base) ?? 0;
+    seen.set(base, occurrence + 1);
+    return { network, key: occurrence === 0 ? base : `${base}|${occurrence}` };
+  });
+};
+
+/**
  * Negotiated link speed per network interface. The speed is the adapter's
  * current link rate, not measured throughput, and is shown here rather than in
  * the specification sheet because it changes with the link.
@@ -90,17 +105,19 @@ export const NetworkPanel = () => {
     };
   }, []);
 
-  if (networkInfo.length === 0) {
-    if (networkLoadFailed) {
-      return (
-        <LoadFailure
-          className="h-auto px-4 pb-4"
-          message={t("pages.dashboard.systemSpecifications.networkLoadFailed")}
-          onRetry={() => void initNetwork()}
-        />
-      );
-    }
+  // Checked before the cached list: the shared read keeps the last adapters on
+  // failure, and showing their rates would present stale link state as current.
+  if (networkLoadFailed) {
+    return (
+      <LoadFailure
+        className="h-auto px-4 pb-4"
+        message={t("pages.dashboard.systemSpecifications.networkLoadFailed")}
+        onRetry={() => void initNetwork()}
+      />
+    );
+  }
 
+  if (networkInfo.length === 0) {
     if (!hasRead) {
       return (
         <div className="px-4 pb-4">
@@ -121,13 +138,10 @@ export const NetworkPanel = () => {
 
   return (
     <ul className="space-y-2 p-4 pt-2" data-testid="network-panel">
-      {networkInfo.map((network, index) => {
+      {withRowKeys(networkInfo).map(({ network, key }) => {
         const address = network.ipv4[0] ?? network.ipv6[0];
         return (
-          <li
-            key={network.macAddress ?? network.description ?? index}
-            className="flex items-start justify-between gap-4"
-          >
+          <li key={key} className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="truncate text-sm" title={network.description ?? ""}>
                 {network.description}

@@ -179,6 +179,47 @@ describe("NetworkPanel", () => {
     consoleError.mockRestore();
   });
 
+  it("hides cached rates and shows the failure when a later poll fails", async () => {
+    vi.useFakeTimers();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getNetworkInfo.mockResolvedValueOnce(ok([adapter()]));
+    mocks.getNetworkInfo.mockResolvedValue({ status: "error", error: "boom" });
+    renderPanel();
+    await act(async () => {});
+    expect(screen.getByText("1 Gb/s")).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(screen.getByTestId("load-failure")).toBeVisible();
+    expect(screen.queryByText("1 Gb/s")).toBeNull();
+    consoleError.mockRestore();
+  });
+
+  it("renders every interface when two share a MAC address", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getNetworkInfo.mockResolvedValue(
+      ok([
+        adapter({ description: "br0", macAddress: "aa:00" }),
+        adapter({ description: "eth0", macAddress: "aa:00" }),
+      ]),
+    );
+    renderPanel();
+
+    const rows = await screen.findAllByRole("listitem");
+    expect(rows.map((row) => row.querySelector("p")?.textContent)).toEqual([
+      "br0",
+      "eth0",
+    ]);
+    // React reports duplicate keys through console.error.
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   it("shows the unavailable copy when the read succeeds with no adapters", async () => {
     mocks.getNetworkInfo.mockResolvedValue(ok([]));
     renderPanel();
