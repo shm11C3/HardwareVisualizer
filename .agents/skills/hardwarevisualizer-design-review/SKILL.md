@@ -44,15 +44,18 @@ do not introduce mandatory paperwork or an additional approval gate.
 
 Identify who owns each part:
 
-- hardware fact and collection;
+- hardware fact and collection, including which collector owns a stateful
+  sampler and which consumers declare demand on it;
 - product policy and fallback;
 - presentation and wire conversion;
 - interaction/view state;
 - lifecycle and background work;
 - persisted value and migration.
 
-Reject designs that move Tauri into Core, OS access into commands/frontend, or
-Application Preferences into frontend Tauri Store for convenience.
+Reject designs that move Tauri into Core, OS access into commands/frontend,
+Application Preferences into frontend Tauri Store, or a second refresh state
+for a fact an existing collector already samples, for convenience. See
+[Design Rule 8](../../../docs/architecture/backend.md#design-rules).
 
 ### 3. Check Semantics
 
