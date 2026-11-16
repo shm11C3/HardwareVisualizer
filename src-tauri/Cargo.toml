@@ -10,6 +10,9 @@ default-run = "hardware_visualizer"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lints]
+workspace = true
+
 [build-dependencies]
 quote = "1.0.45"
 syn = { version = "3.0.2", features = ["full"] }
@@ -42,7 +45,6 @@ tauri-plugin-dialog = "2.8.4"
 tauri-plugin-store = "2.5.0"
 base64 = "0.23"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
-regex = "1.12.3"
 tempfile = "3.27.0"
 sys-locale = "0.3.2"
 tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
@@ -98,7 +100,6 @@ required-features = ["bindings-export"]
 
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.4"
-dxgi = "0.1.7"
 webview2-com = "0.39.1"
 # Keep this aligned with webview2-com; its COM interfaces implement this
 # windows-core version's Interface trait. A mismatch fails to compile with

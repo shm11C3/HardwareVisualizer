@@ -5,11 +5,14 @@ edition = "2024"
 license = "GPL-3.0-or-later"
 description = "Privileged Windows sensor service for HardwareVisualizer"
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "hardware-visualizer-sensors"
 path = "src/main.rs"
 
-[dependencies]
+[target.'cfg(windows)'.dependencies]
 hardviz-core = { path = "../core", default-features = false }
 
 [build-dependencies]
