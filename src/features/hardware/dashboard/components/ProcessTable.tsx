@@ -19,6 +19,10 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { minOpacity } from "@/consts/style";
+import {
+  type ProcessSortConfig,
+  sortProcesses,
+} from "@/features/hardware/dashboard/processSort";
 import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -42,48 +46,11 @@ export const ProcessesTable = ({
 } = {}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { processes, hasError } = useProcessInfo();
+  const { processes, hasError } = useProcessInfo({ includeGpu: true });
 
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof ProcessInfo;
-    direction: "ascending" | "descending";
-  } | null>(null);
+  const [sortConfig, setSortConfig] = useState<ProcessSortConfig | null>(null);
 
-  const sortedProcesses = [...processes];
-  if (sortConfig !== null) {
-    sortedProcesses.sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
-
-      // Compare directly for numbers
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortConfig.direction === "ascending"
-          ? aValue - bValue
-          : bValue - aValue;
-      }
-
-      // Convert to number if stored as string
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        const aNumber = Number.parseFloat(aValue);
-        const bNumber = Number.parseFloat(bValue);
-
-        // Compare as numbers if not NaN to avoid string comparison of decimals
-        if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
-          return sortConfig.direction === "ascending"
-            ? aNumber - bNumber
-            : bNumber - aNumber;
-        }
-
-        // Compare as strings if not numbers
-        return sortConfig.direction === "ascending"
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-
-      // Don't change order if types differ
-      return 0;
-    });
-  }
+  const sortedProcesses = sortProcesses(processes, sortConfig);
 
   const requestSort = (key: keyof ProcessInfo) => {
     let direction: "ascending" | "descending" = "ascending";
@@ -220,10 +187,7 @@ const InfoTable = ({
 }: {
   processes: ProcessInfo[];
   requestSort: (key: keyof ProcessInfo) => void;
-  sortConfig: {
-    key: keyof ProcessInfo;
-    direction: "ascending" | "descending";
-  } | null;
+  sortConfig: ProcessSortConfig | null;
   className: string;
   isTruncate?: boolean;
 }) => {
@@ -277,6 +241,19 @@ const InfoTable = ({
             </th>
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+              title={t("shared.processGpuUsageHelp")}
+              onClick={() => requestSort("gpuUsage")}
+              onKeyDown={() => requestSort("gpuUsage")}
+            >
+              <div className="flex items-center">
+                <span>{t("shared.gpuUsage")}</span>
+                {sortConfig &&
+                  sortConfig.key === "gpuUsage" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
+            </th>
+            <th
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("memoryUsage")}
               onKeyDown={() => requestSort("memoryUsage")}
             >
@@ -306,6 +283,16 @@ const InfoTable = ({
                 {process.name}
               </td>
               <td className="py-2">{process.cpuUsage}%</td>
+              {process.gpuUsage === null ? (
+                <td
+                  className="py-2"
+                  title={t("shared.processGpuUsageUnavailable")}
+                >
+                  —
+                </td>
+              ) : (
+                <td className="py-2">{process.gpuUsage}%</td>
+              )}
               <td className="py-2">{process.memoryUsage} MB</td>
             </tr>
           ))}

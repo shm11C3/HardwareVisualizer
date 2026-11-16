@@ -45,6 +45,11 @@ const FIELD_POLICIES: &[FieldPolicy] = &[
     field_name: "memory_usage",
     attrs: "  #[serde(serialize_with = \"super::serialize_usage\")]\n  #[specta(type = String)]\n",
   },
+  FieldPolicy {
+    struct_name: "ProcessInfo",
+    field_name: "gpu_usage",
+    attrs: "  #[serde(serialize_with = \"super::serialize_optional_usage\")]\n  #[specta(type = Option<String>)]\n",
+  },
 ];
 
 fn main() {

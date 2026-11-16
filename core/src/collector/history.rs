@@ -195,6 +195,17 @@ impl HistoryStore {
   /// Process list from the latest collector sample, with rolling-average CPU
   /// and memory usage (last [`PROCESS_AVG_WINDOW`] samples) per process.
   pub fn process_list(&self) -> Vec<ProcessInfo> {
+    self
+      .process_list_with_start_times()
+      .into_iter()
+      .map(|(_, info)| info)
+      .collect()
+  }
+
+  /// [`Self::process_list`] with each process's start time (seconds since
+  /// the epoch). `(pid, start_time)` is the identity that keeps a recycled
+  /// PID from inheriting another process's per-process readings.
+  pub(crate) fn process_list_with_start_times(&self) -> Vec<(u64, ProcessInfo)> {
     let Ok(system) = self.system() else {
       return Vec::new();
     };
@@ -248,12 +259,16 @@ impl HistoryStore {
           })
           .unwrap_or_else(|| (process.memory() as f32 / 1024.0) / 1024.0);
 
-        ProcessInfo {
-          pid: pid.as_u32() as i32,
-          name: process.name().to_string_lossy().into_owned(),
-          cpu_usage,
-          memory_usage: memory_usage_mb,
-        }
+        (
+          process.start_time(),
+          ProcessInfo {
+            pid: pid.as_u32() as i32,
+            name: process.name().to_string_lossy().into_owned(),
+            cpu_usage,
+            memory_usage: memory_usage_mb,
+            gpu_usage: None,
+          },
+        )
       })
       .collect()
   }

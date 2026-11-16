@@ -156,6 +156,17 @@ where
   }
 }
 
+/// `serialize_usage` for an optional reading: `None` stays `null`, never "0".
+fn serialize_optional_usage<S>(x: &Option<f32>, s: S) -> Result<S::Ok, S::Error>
+where
+  S: serde::Serializer,
+{
+  match x {
+    Some(x) => serialize_usage(x, s),
+    None => s.serialize_none(),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -166,6 +177,7 @@ mod tests {
       name: "test".to_string(),
       cpu_usage: cpu,
       memory_usage: mem,
+      gpu_usage: None,
     }
   }
 
@@ -424,6 +436,19 @@ mod tests {
     let json = serde_json::to_value(&info).unwrap();
     assert_eq!(json["cpuUsage"], "0.1");
     assert_eq!(json["memoryUsage"], "0.9");
+  }
+
+  #[test]
+  fn process_gpu_usage_serializes_some_as_string_and_none_as_null() {
+    let mut info = make_process_info(1.0, 2.0);
+    info.gpu_usage = Some(130.5);
+    assert_eq!(serde_json::to_value(&info).unwrap()["gpuUsage"], "130.5");
+
+    info.gpu_usage = Some(0.0);
+    assert_eq!(serde_json::to_value(&info).unwrap()["gpuUsage"], "0");
+
+    info.gpu_usage = None;
+    assert!(serde_json::to_value(&info).unwrap()["gpuUsage"].is_null());
   }
 
   // ── ProcessInfo camelCase serialization ──

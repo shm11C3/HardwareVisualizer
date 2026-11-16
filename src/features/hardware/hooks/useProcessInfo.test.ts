@@ -67,8 +67,20 @@ describe("useProcessInfo", () => {
 
   it("returns process list on successful fetch", async () => {
     const processData = [
-      { pid: 1, name: "process1", cpuUsage: "10", memoryUsage: "200" },
-      { pid: 2, name: "process2", cpuUsage: "5", memoryUsage: "100" },
+      {
+        pid: 1,
+        name: "process1",
+        cpuUsage: "10",
+        memoryUsage: "200",
+        gpuUsage: null,
+      },
+      {
+        pid: 2,
+        name: "process2",
+        cpuUsage: "5",
+        memoryUsage: "100",
+        gpuUsage: null,
+      },
     ];
     getProcessListMock.mockResolvedValue(processData);
 
@@ -150,6 +162,37 @@ describe("useProcessInfo", () => {
     expect(getProcessListMock).toHaveBeenCalledTimes(2);
   });
 
+  it("requests GPU usage only while a GPU consumer is subscribed", async () => {
+    getProcessListMock.mockResolvedValue([]);
+    vi.useFakeTimers();
+
+    const { rerender } = renderHook(
+      ({ gpu }) => {
+        useProcessInfo();
+        useProcessInfo({ enabled: gpu, includeGpu: true });
+      },
+      { initialProps: { gpu: false }, wrapper: Provider },
+    );
+
+    const tick = async () => {
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+        await Promise.resolve();
+      });
+    };
+
+    await flushMicrotasks();
+    expect(getProcessListMock).toHaveBeenLastCalledWith(false);
+
+    rerender({ gpu: true });
+    await tick();
+    expect(getProcessListMock).toHaveBeenLastCalledWith(true);
+
+    rerender({ gpu: false });
+    await tick();
+    expect(getProcessListMock).toHaveBeenLastCalledWith(false);
+  });
+
   it("keeps polling while another consumer remains active", async () => {
     getProcessListMock.mockResolvedValue([]);
     vi.useFakeTimers();
@@ -229,10 +272,22 @@ describe("useProcessInfo", () => {
     const staleRequest = deferred<ProcessInfo[]>();
     const resumedRequest = deferred<ProcessInfo[]>();
     const staleData = [
-      { pid: 1, name: "stale", cpuUsage: "10", memoryUsage: "100" },
+      {
+        pid: 1,
+        name: "stale",
+        cpuUsage: "10",
+        memoryUsage: "100",
+        gpuUsage: null,
+      },
     ];
     const currentData = [
-      { pid: 2, name: "current", cpuUsage: "20", memoryUsage: "200" },
+      {
+        pid: 2,
+        name: "current",
+        cpuUsage: "20",
+        memoryUsage: "200",
+        gpuUsage: null,
+      },
     ];
     getProcessListMock
       .mockReturnValueOnce(staleRequest.promise)
@@ -267,7 +322,13 @@ describe("useProcessInfo", () => {
 
   it("reports a polling failure as shared hasError state, with no dialog, until the next poll succeeds", async () => {
     const processData = [
-      { pid: 1, name: "process1", cpuUsage: "10", memoryUsage: "200" },
+      {
+        pid: 1,
+        name: "process1",
+        cpuUsage: "10",
+        memoryUsage: "200",
+        gpuUsage: null,
+      },
     ];
     const pollingError = "Failed to fetch processes";
     getProcessListMock

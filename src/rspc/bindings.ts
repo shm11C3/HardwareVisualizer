@@ -14,8 +14,15 @@ export const commands = {
 } | null, UpdaterError>(__TAURI_INVOKE("fetch_update")),
 	// Install the pending update
 	installUpdate: (onEvent: Channel<DownloadEvent>) => typedError<null, UpdaterError>(__TAURI_INVOKE("install_update", { onEvent })),
-	// ## Get process list
-	getProcessList: () => __TAURI_INVOKE<ProcessInfo_Serialize[]>("get_process_list"),
+	/**
+	 *  ## Get process list
+	 * 
+	 *  With `include_gpu`, adds per-process GPU usage, which is collected only
+	 *  while a GPU consumer polls. Without it the collector is not touched and
+	 *  `gpu_usage` is `None`. The GPU refresh is slow, so the work runs off the
+	 *  main thread.
+	 */
+	getProcessList: (includeGpu: boolean) => __TAURI_INVOKE<ProcessInfo_Serialize[]>("get_process_list", { includeGpu }),
 	/**
 	 *  ## Get CPU usage (%)
 	 * 
@@ -1255,6 +1262,7 @@ export type ProcessInfo_Deserialize = {
 	name: string,
 	cpuUsage: string,
 	memoryUsage: string,
+	gpuUsage: string | null,
 };
 
 export type ProcessInfo_Serialize = {
@@ -1262,6 +1270,7 @@ export type ProcessInfo_Serialize = {
 	name: string,
 	cpuUsage: string,
 	memoryUsage: string,
+	gpuUsage: string | null,
 };
 
 export type ProcessStatRecord = {

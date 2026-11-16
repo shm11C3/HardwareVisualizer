@@ -12,7 +12,8 @@ const PROCESS_POLL_INTERVAL_MS = 3000;
 type Store = ReturnType<typeof useStore>;
 
 class ProcessPollingCoordinator {
-  private readonly consumers = new Set<symbol>();
+  // Consumer id -> whether it shows GPU usage.
+  private readonly consumers = new Map<symbol, boolean>();
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private requestInFlight = false;
   private pendingDemandRefresh = false;
@@ -21,10 +22,10 @@ class ProcessPollingCoordinator {
 
   constructor(private readonly store: Store) {}
 
-  subscribe() {
+  subscribe(includeGpu: boolean) {
     const consumerId = Symbol("process-polling-consumer");
     const isFirstConsumer = this.consumers.size === 0;
-    this.consumers.add(consumerId);
+    this.consumers.set(consumerId, includeGpu);
 
     if (isFirstConsumer) {
       document.addEventListener(
@@ -114,7 +115,7 @@ class ProcessPollingCoordinator {
     const requestGeneration = this.generation;
 
     try {
-      const processesData = await commands.getProcessList();
+      const processesData = await commands.getProcessList(this.wantsGpu());
       if (this.isCurrentRequest(requestGeneration)) {
         this.store.set(processesAtom, processesData);
         this.store.set(processListLoadFailedAtom, false);
@@ -134,6 +135,12 @@ class ProcessPollingCoordinator {
         this.scheduleDemandRefresh();
       }
     }
+  }
+
+  // GPU collection is costly, so a request asks for it only while a
+  // subscribed consumer shows it.
+  private wantsGpu() {
+    return [...this.consumers.values()].some(Boolean);
   }
 
   private hasVisibleDemand() {
@@ -158,8 +165,11 @@ const getCoordinator = (store: Store) => {
 
 export const useProcessInfo = ({
   enabled = true,
+  includeGpu = false,
 }: {
   enabled?: boolean;
+  /** Collect per-process GPU usage while this consumer is subscribed. */
+  includeGpu?: boolean;
 } = {}) => {
   const store = useStore();
   const processes = useAtomValue(
@@ -172,8 +182,8 @@ export const useProcessInfo = ({
       return;
     }
 
-    return getCoordinator(store).subscribe();
-  }, [store, enabled]);
+    return getCoordinator(store).subscribe(includeGpu);
+  }, [store, enabled, includeGpu]);
 
   return { processes, hasError: enabled && pollingFailed };
 };
