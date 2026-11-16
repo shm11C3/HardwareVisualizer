@@ -2221,7 +2221,6 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "quote",
- "regex",
  "reqwest",
  "rustls",
  "serde",

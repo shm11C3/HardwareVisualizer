@@ -45,7 +45,6 @@ tauri-plugin-dialog = "2.8.4"
 tauri-plugin-store = "2.5.0"
 base64 = "0.23"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
-regex = "1.12.3"
 tempfile = "3.27.0"
 sys-locale = "0.3.2"
 tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
