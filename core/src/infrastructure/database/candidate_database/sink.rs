@@ -17,6 +17,7 @@ use super::source::{SourceSchema, TableSchema};
 const METADATA_TABLE: &str = "__hv_snapshot_metadata";
 const SOURCE_ORDINAL_COLUMN: &str = "__hv_source_ordinal";
 const VERIFY_ROWS: u64 = 512;
+const EXPECTED_DUCKDB_VERSION: &str = "2.0.0";
 
 pub(super) struct CandidateSink {
   destination: PathBuf,
@@ -87,10 +88,10 @@ impl CandidateSink {
     let version: String = connection
       .query_row("SELECT version()", [], |row| row.get(0))
       .map_err(|error| candidate_error("read DuckDB candidate version", error))?;
-    if version.trim_start_matches('v') != "1.5.6" {
+    if version.trim_start_matches('v') != EXPECTED_DUCKDB_VERSION {
       return Err(candidate_error(
         "verify DuckDB candidate version",
-        format!("expected 1.5.6, got {version}"),
+        format!("expected {EXPECTED_DUCKDB_VERSION}, got {version}"),
       ));
     }
 

@@ -2,9 +2,8 @@ use duckdb::{AccessMode, Config, Connection};
 
 use super::NativeDatabaseError;
 
-/// Keep new native files at the compatibility level shipped by the current
-/// bundled DuckDB build. A crate upgrade must change this deliberately after a
-/// format review.
+/// Keep new native files readable by older HardwareVisualizer releases.
+/// DuckDB 2.0 defaults to a newer on-disk format when no level is specified.
 pub(super) const NATIVE_STORAGE_COMPATIBILITY_VERSION: &str = "v0.10.2";
 /// DuckDB reports the compatibility level used by storage version 64 with this
 /// tag. The tag is read from the opened database rather than inferred from the
