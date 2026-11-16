@@ -761,13 +761,15 @@ When adding a setting:
    the same file, but each side should preserve the other side's keys.
 8. **One sampling owner per stateful fact.** A reading computed as a delta
    between two refreshes of the same source, such as sysinfo CPU usage or
-   per-process GPU usage, has one owner in `core/src/collector/`. Another
-   consumer, such as the Hardware Archive needing a fact a live view already
-   samples, declares its demand to that owner and receives the readings through
-   `EventBus` snapshots; it does not open a second refresh state. A stateless
-   read, such as the device health read behind both the Storage Health Record
-   worker and Live Storage Health, may run in each consumer's own lifecycle.
-   Different facts keep separate samplers even when they share a device handle.
+   per-process GPU usage, has one owner in `core/src/collector/`. An on-demand
+   view may read that owner directly. A background consumer, such as the
+   Hardware Archive needing a fact a live view already samples, receives it
+   through `EventBus` snapshots, extending the owner and the snapshot when the
+   fact is not published yet; it does not open a second refresh state. A
+   stateless read, such as the device health read behind both the Storage
+   Health Record worker and Live Storage Health, may run in each consumer's
+   own lifecycle. Different facts keep separate samplers even when they share
+   a device handle.
 
 ## Common Change Paths
 

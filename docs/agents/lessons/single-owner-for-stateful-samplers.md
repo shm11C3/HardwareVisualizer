@@ -36,7 +36,10 @@ stateless read has no such state and can run in each consumer's lifecycle.
 
 ## Rule
 
-A stateful fact has one owner in `core/src/collector/`. Other consumers
-declare demand to that owner and receive readings through `EventBus`
-snapshots. Separate facts still keep separate samplers (see
+A stateful fact has one owner in `core/src/collector/`. An on-demand view,
+such as the Live Process Table through `live_process_list`, reads the owner
+directly. A background consumer, such as the Hardware Archive, receives the
+readings through `EventBus` snapshots; when the owner does not publish that
+fact yet, extend the owner and the snapshot rather than adding a sampler.
+Separate facts still keep separate samplers (see
 [Keep CPU power sampling independent](keep-independent-cpu-power-sampler.md)).
