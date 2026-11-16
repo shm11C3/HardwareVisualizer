@@ -116,6 +116,9 @@ pub struct ProcessInfo {
   pub name: String,
   pub cpu_usage: f32,
   pub memory_usage: f32,
+  /// Total GPU utilization (%) across all GPUs and engines. May exceed 100.
+  /// `None` means unavailable or still measuring, never zero.
+  pub gpu_usage: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

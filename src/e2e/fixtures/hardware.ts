@@ -96,11 +96,41 @@ export const sysInfoFixture: SysInfo = {
 };
 
 export const processListFixture: ProcessInfo_Serialize[] = [
-  { pid: 100, name: "hv-fixture-app", cpuUsage: "12.5", memoryUsage: "256" },
-  { pid: 200, name: "fixture-browser", cpuUsage: "8.1", memoryUsage: "1228.8" },
-  { pid: 300, name: "fixture-editor", cpuUsage: "4.4", memoryUsage: "512" },
-  { pid: 400, name: "fixture-daemon", cpuUsage: "1.2", memoryUsage: "64" },
-  { pid: 500, name: "fixture-shell", cpuUsage: "0.3", memoryUsage: "32" },
+  {
+    pid: 100,
+    name: "hv-fixture-app",
+    cpuUsage: "12.5",
+    memoryUsage: "256",
+    gpuUsage: "30.2",
+  },
+  {
+    pid: 200,
+    name: "fixture-browser",
+    cpuUsage: "8.1",
+    memoryUsage: "1228.8",
+    gpuUsage: null,
+  },
+  {
+    pid: 300,
+    name: "fixture-editor",
+    cpuUsage: "4.4",
+    memoryUsage: "512",
+    gpuUsage: null,
+  },
+  {
+    pid: 400,
+    name: "fixture-daemon",
+    cpuUsage: "1.2",
+    memoryUsage: "64",
+    gpuUsage: "0",
+  },
+  {
+    pid: 500,
+    name: "fixture-shell",
+    cpuUsage: "0.3",
+    memoryUsage: "32",
+    gpuUsage: null,
+  },
 ];
 
 export const buildStorageInfoFixture = (count: number): StorageInfo[] =>

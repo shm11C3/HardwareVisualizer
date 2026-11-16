@@ -6,6 +6,9 @@
     "cpuUsage": "CPU 使用率",
     "avgCpuUsage": "平均 CPU 使用率",
     "memoryUsage": "メモリ使用率",
+    "gpuUsage": "GPU 使用率",
+    "processGpuUsageHelp": "すべての GPU とエンジンの合計値です。100% を超えることがあります",
+    "processGpuUsageUnavailable": "利用不可、または計測中",
     "memoryUsageValue": "メモリ使用量",
     "avgMemoryUsageValue": "平均メモリ使用量",
     "temperature": {

@@ -12,7 +12,8 @@ const PROCESS_POLL_INTERVAL_MS = 3000;
 type Store = ReturnType<typeof useStore>;
 
 class ProcessPollingCoordinator {
-  private readonly consumers = new Set<symbol>();
+  // Consumer id -> whether it shows GPU usage.
+  private readonly consumers = new Map<symbol, boolean>();
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private requestInFlight = false;
   private pendingDemandRefresh = false;
@@ -21,10 +22,10 @@ class ProcessPollingCoordinator {
 
   constructor(private readonly store: Store) {}
 
-  subscribe() {
+  subscribe(includeGpu: boolean) {
     const consumerId = Symbol("process-polling-consumer");
     const isFirstConsumer = this.consumers.size === 0;
-    this.consumers.add(consumerId);
+    this.consumers.set(consumerId, includeGpu);
 
     if (isFirstConsumer) {
       document.addEventListener(
@@ -114,18 +115,15 @@ class ProcessPollingCoordinator {
     const requestGeneration = this.generation;
 
     try {
-      const processesData = await commands.getProcessList();
-      if (this.isCurrentRequest(requestGeneration)) {
-        this.store.set(processesAtom, processesData);
+      const result = await commands.getProcessList(this.wantsGpu());
+      if (result.status === "error") {
+        this.markFailed(requestGeneration, result.error);
+      } else if (this.isCurrentRequest(requestGeneration)) {
+        this.store.set(processesAtom, result.data);
         this.store.set(processListLoadFailedAtom, false);
       }
     } catch (pollingError) {
-      if (this.isCurrentRequest(requestGeneration)) {
-        // Failure is state, not a notice: polling keeps retrying on its own
-        // and the next success clears it, so repeated failures cannot stack.
-        this.store.set(processListLoadFailedAtom, true);
-        console.error("Failed to fetch processes:", pollingError);
-      }
+      this.markFailed(requestGeneration, pollingError);
     } finally {
       this.requestInFlight = false;
 
@@ -134,6 +132,21 @@ class ProcessPollingCoordinator {
         this.scheduleDemandRefresh();
       }
     }
+  }
+
+  private markFailed(requestGeneration: number, error: unknown) {
+    if (this.isCurrentRequest(requestGeneration)) {
+      // Failure is state, not a notice: polling keeps retrying on its own
+      // and the next success clears it, so repeated failures cannot stack.
+      this.store.set(processListLoadFailedAtom, true);
+      console.error("Failed to fetch processes:", error);
+    }
+  }
+
+  // GPU collection is costly, so a request asks for it only while a
+  // subscribed consumer shows it.
+  private wantsGpu() {
+    return [...this.consumers.values()].some(Boolean);
   }
 
   private hasVisibleDemand() {
@@ -158,8 +171,11 @@ const getCoordinator = (store: Store) => {
 
 export const useProcessInfo = ({
   enabled = true,
+  includeGpu = false,
 }: {
   enabled?: boolean;
+  /** Collect per-process GPU usage while this consumer is subscribed. */
+  includeGpu?: boolean;
 } = {}) => {
   const store = useStore();
   const processes = useAtomValue(
@@ -172,8 +188,8 @@ export const useProcessInfo = ({
       return;
     }
 
-    return getCoordinator(store).subscribe();
-  }, [store, enabled]);
+    return getCoordinator(store).subscribe(includeGpu);
+  }, [store, enabled, includeGpu]);
 
   return { processes, hasError: enabled && pollingFailed };
 };

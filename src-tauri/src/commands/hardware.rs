@@ -9,22 +9,47 @@ use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
 use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
 use crate::services::hardware_compatibility_service::{self, ReportEvidenceCache};
 use chrono::{DateTime, SecondsFormat, Utc};
-use hardviz_core::collector::HistoryStore;
+use hardviz_core::collector::{HistoryStore, LiveProcessGpuCollector, live_process_list};
 use hardviz_core::persistence::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
 use std::sync::Arc;
-use tauri::command;
+use tauri::{Manager, command};
 
 ///
 /// ## Get process list
 ///
+/// With `include_gpu`, adds per-process GPU usage, which is collected only
+/// while a GPU consumer polls. Without it the collector is not touched and
+/// `gpu_usage` is `None`. The GPU refresh is slow, so the work runs off the
+/// main thread.
 #[command]
 #[specta::specta]
-pub fn get_process_list(state: tauri::State<'_, Arc<HistoryStore>>) -> Vec<ProcessInfo> {
-  state
-    .process_list()
-    .into_iter()
-    .map(ProcessInfo::from)
-    .collect()
+pub async fn get_process_list(
+  app: tauri::AppHandle,
+  include_gpu: bool,
+) -> Result<Vec<ProcessInfo>, String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    // Managed state is resolved inside the worker so the blocking work does
+    // not borrow command-scoped `State`.
+    let history = app.state::<Arc<HistoryStore>>();
+    let processes = if include_gpu {
+      let gpu = app.state::<Arc<LiveProcessGpuCollector>>();
+      live_process_list(&history, &gpu)
+    } else {
+      history.process_list()
+    };
+    processes.into_iter().map(ProcessInfo::from).collect()
+  })
+  .await
+  .map_err(|e| {
+    // Only a panicking worker lands here. Report it as a failure so the
+    // table shows its load-failed state instead of an empty list.
+    crate::log_error!(
+      "Process list worker failed",
+      "commands::hardware::get_process_list",
+      Some(e.to_string())
+    );
+    "Failed to collect the process list".to_string()
+  })
 }
 
 ///
