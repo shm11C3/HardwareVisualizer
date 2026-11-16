@@ -74,25 +74,17 @@ pub(super) fn publish_without_replacing_with(
 /// destination resolve to different volumes even though both sit under the
 /// same profile directory.
 fn hard_link_unsupported(error: &io::Error) -> bool {
-  if matches!(
+  const ERROR_INVALID_FUNCTION: i32 = 1;
+  const ERROR_NOT_SUPPORTED: i32 = 50;
+
+  matches!(
     error.kind(),
     ErrorKind::Unsupported | ErrorKind::CrossesDevices
-  ) {
-    return true;
-  }
-  #[cfg(windows)]
-  {
-    const ERROR_INVALID_FUNCTION: i32 = 1;
-    const ERROR_NOT_SUPPORTED: i32 = 50;
-    matches!(
+  ) || (cfg!(target_os = "windows")
+    && matches!(
       error.raw_os_error(),
       Some(ERROR_INVALID_FUNCTION) | Some(ERROR_NOT_SUPPORTED)
-    )
-  }
-  #[cfg(not(windows))]
-  {
-    false
-  }
+    ))
 }
 
 /// The fallback publish: copy `source`'s bytes into a temporary file beside
