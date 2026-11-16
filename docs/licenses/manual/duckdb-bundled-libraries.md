@@ -1,12 +1,12 @@
 # DuckDB bundled libraries
 
-Covered `duckdb` version: `1.10506.1` (DuckDB 1.5.6)
+Covered `duckdb` version: `1.20000.1` (DuckDB 2.0.0)
 
-Covered libduckdb-sys version: `1.10506.1`
+Covered libduckdb-sys version: `1.20000.1`
 
 Covered duckdb features: `bundled`
 
-Source: `libduckdb-sys-1.10506.1/duckdb.tar.gz`, `third_party/`
+Source: `libduckdb-sys-1.20000.1/duckdb.tar.gz`, `third_party/`
 
 This notice covers the C and C++ libraries compiled into the bundled DuckDB
 engine. The published tarball contains no separate `LICENSE`, `COPYING`, or
@@ -89,7 +89,7 @@ requirement to retain the copyright and permission notices.
 ## httplib
 
 - License: MIT
-- Copyright: 2025 Yuji Hirose
+- Copyright: 2026 Yuji Hirose
 - Source header: `third_party/httplib/httplib.hpp`
 
 Header-only. `src/main/http/http_util.cpp` includes `httplib.hpp` unless
@@ -97,7 +97,7 @@ Header-only. `src/main/http/http_util.cpp` includes `httplib.hpp` unless
 `libduckdb-sys` defines neither that macro nor the
 `DISABLE_DUCKDB_REMOTE_INSTALL` / `DUCKDB_DISABLE_EXTENSION_LOAD` macros that
 would set it, so the client is compiled into the engine. The vendored copy is
-cpp-httplib v0.27.0 with `std::regex` replaced by RE2. The source header
+cpp-httplib v0.53.1 with `std::regex` replaced by RE2. The source header
 carries the copyright line and “MIT License”.
 
 ## hyperloglog
@@ -118,63 +118,6 @@ disclaimer for the Redis HyperLogLog implementation.
 Header-only. `src/common/string_util.cpp` includes `jaro_winkler.hpp`, so the
 similarity implementation is compiled into the engine. The source header states
 its terms as `SPDX-License-Identifier: MIT` above the copyright line.
-
-## libpg_query
-
-- License: PostgreSQL License (BSD-style), plus GNU Bison 2.3's GPL-2.0-or-later
-  parser-skeleton exception
-- Copyright: PostgreSQL Global Development Group; Regents of the University of
-  California; Free Software Foundation, Inc.
-- Source headers: `third_party/libpg_query/src_backend_nodes_list.cpp`,
-  `third_party/libpg_query/src_backend_parser_scan.cpp`, and
-  `third_party/libpg_query/src_backend_parser_gram.cpp`
-
-The PostgreSQL source headers carry these notices:
-
-```text
-Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
-Portions Copyright (c) 1994, Regents of the University of California
-```
-
-The generated Bison skeleton carries the GNU General Public License, version 2
-or later, and the following special exception:
-
-```text
-As a special exception, you may create a larger work that contains part or all
-of the Bison parser skeleton and distribute that work under terms of your
-choice, so long as that work isn't itself a parser generator using the skeleton
-or a modified version thereof as a parser skeleton.
-Alternatively, if you modify or redistribute the parser skeleton itself, you
-may (at your option) remove this special exception, which will cause the
-skeleton and the resulting Bison output files to be licensed under the GNU
-General Public License without this special exception.
-This special exception was added by the Free Software Foundation in version
-2.2 of Bison.
-```
-
-The applicable PostgreSQL license text is:
-
-```text
-Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
-Portions Copyright (c) 1994, Regents of the University of California
-
-Permission to use, copy, modify, and distribute this software and its
-documentation for any purpose, without fee, and without a written agreement
-is hereby granted, provided that the above copyright notice and this paragraph
-and the following two paragraphs appear in all copies.
-
-IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
-DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
-LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
-EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
-SUCH DAMAGE.
-
-THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS
-ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATIONS TO
-PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
-```
 
 ## mbedtls
 
@@ -702,42 +645,6 @@ DEALINGS IN THE SOFTWARE.
 
 The following notices are included where the vendored source carries terms in
 addition to the common license text.
-
-### GNU Bison parser skeleton
-
-`libpg_query/src_backend_parser_gram.cpp` contains the GPL-2.0-or-later
-notice and the Bison exception below. The exception permits a larger work
-containing the parser skeleton to be distributed under terms of the
-distributor's choice; the GPL notice is retained here for completeness.
-
-```text
-Skeleton implementation for Bison's Yacc-like parsers in C
-
-Copyright (C) 1984, 1989, 1990, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-Free Software Foundation, Inc.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 2, or (at your option)
-any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-As a special exception, you may create a larger work that contains
-part or all of the Bison parser skeleton and distribute that work
-under terms of your choice, so long as that work isn't itself a
-parser generator using the skeleton or a modified version thereof
-as a parser skeleton.
-Alternatively, if you modify or redistribute the parser skeleton itself, you
-may (at your option) remove this special exception, which will cause the
-skeleton and the resulting Bison output files to be licensed under the GNU
-General Public License without this special exception.
-This special exception was added by the Free Software Foundation in
-version 2.2 of Bison.
-```
 
 ### miniz public-domain dedication
 
