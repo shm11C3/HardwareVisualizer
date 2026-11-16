@@ -33,6 +33,10 @@ build-dir = "{cargo-cache-home}/build/shared/{workspace-path-hash}"
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
 
+[registry]
+# Match the five-day Cargo cooldown in .github/dependabot.yml.
+global-min-publish-age = "5 days"
+
 [alias]
 tauri-test = "test --workspace -- --test-threads=1 --nocapture"
 tauri-test-cov = "llvm-cov --workspace -- --test-threads=1 --nocapture"
