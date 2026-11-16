@@ -3,6 +3,9 @@ resolver = "3"
 members = ["core", "src-tauri", "sensor-service"]
 exclude = ["perf-monitor"]
 
+[workspace.lints.cargo]
+unused_dependencies = "deny"
+
 [profile.dev]
 opt-level = 0
 # Line tables are enough for panics, backtraces and test failures. Full
