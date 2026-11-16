@@ -35,7 +35,7 @@ pub fn parse_gpu_name_by_bdf(lspci_output: &str, bdf: &str) -> Option<String> {
     {
       let name = line.trim_end();
       // Preserve the display name used when lspci omits the default domain.
-      return Some(name.strip_prefix("0000:").unwrap_or(name).to_owned());
+      return Some(name.trim_prefix("0000:").to_owned());
     }
   }
   None
