@@ -303,7 +303,10 @@ fn offers_retry_first(issue: &LifecycleIssue) -> bool {
     | LifecycleIssue::NativeRebuildInspectionRequired { reason } => {
       reason.may_clear_on_retry()
     }
-    LifecycleIssue::NativeOpenFailed { .. } => true,
+    // A failed schema upgrade rolled back and kept every row; Retry restarts
+    // and attempts it again, while Reset would delete the database it kept.
+    LifecycleIssue::NativeOpenFailed { .. }
+    | LifecycleIssue::NativeSchemaUpgradeFailed { .. } => true,
     _ => false,
   }
 }
@@ -327,10 +330,16 @@ fn retry_first_action(result: &MessageDialogResult) -> Option<NativeAuthorityAct
 
 #[cfg(feature = "duckdb-archive")]
 fn build_native_retry_message(issue: &LifecycleIssue) -> String {
+  let cause = match issue {
+    LifecycleIssue::NativeSchemaUpgradeFailed { .. } => {
+      "HardwareVisualizer could not update the native database for this version. The \
+       update was rolled back, so the database is unchanged."
+    }
+    _ => "HardwareVisualizer could not open the native database to check its state.",
+  };
   format!(
-    "HardwareVisualizer could not open the native database to check its state. This is \
-     often temporary: another app may be using the file, or temporary storage may be \
-     unavailable.\n\n\
+    "{cause} This is often temporary: another app may be using the file, or temporary \
+     storage may be unavailable.\n\n\
      Close any app that may be using the database and choose Retry. Nothing has been \
      deleted.\n\n\
      More Options lets you continue with real-time monitoring only, or reset the data if \
@@ -473,6 +482,9 @@ mod tests {
       },
       LifecycleIssue::NativeOpenFailed {
         message: "could not open the spill directory".to_owned(),
+      },
+      LifecycleIssue::NativeSchemaUpgradeFailed {
+        message: "the upgrade step failed".to_owned(),
       },
     ] {
       assert!(offers_retry_first(&issue), "{issue:?}");

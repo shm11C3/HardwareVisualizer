@@ -141,6 +141,7 @@ fn describe_issue(
     I::Authority(_) => "authorityDisagreement",
     I::NativeOpenFailed { .. } => "nativeOpenFailed",
     I::FreshCreationFailed { .. } => "freshCreationFailed",
+    I::NativeSchemaUpgradeFailed { .. } => "nativeSchemaUpgradeFailed",
     I::ConversionFailed { .. } => "conversionFailed",
     I::ConversionCancelled { .. } => "conversionCancelled",
   };

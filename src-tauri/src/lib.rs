@@ -622,12 +622,18 @@ pub fn run() {
   // native database directly moments later in this same startup (#2203),
   // and `default_hardware_archive_retention_days` accounts for that -
   // see its own documentation.
+  //
+  // A selected native database at an older schema version is upgraded first,
+  // in the same call: read before the upgrade, it would look like a version
+  // mismatch and take the SQLite default (ADR 0030 decision 7). See
+  // `prepare_native_startup`.
   #[cfg(feature = "duckdb-archive")]
-  let default_retention_days =
-    app::native_lifecycle::default_hardware_archive_retention_days(
-      &infrastructure::database::native_paths::authority_paths(),
-      infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
-    );
+  let native_startup = app::native_lifecycle::prepare_native_startup(
+    &infrastructure::database::native_paths::authority_paths(),
+    infrastructure::database::native_schema::get_native_schema(),
+  );
+  #[cfg(feature = "duckdb-archive")]
+  let default_retention_days = native_startup.default_retention_days;
   #[cfg(not(feature = "duckdb-archive"))]
   let default_retention_days =
     hardviz_core::settings::HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS;
@@ -674,9 +680,12 @@ pub fn run() {
   // Dispatch - not this App's own `NativeLifecycleOwner` - is the one live
   // `NativeDatabase` owner from here on; see the function's own doc.
   #[cfg(feature = "duckdb-archive")]
-  let native_lifecycle_state = resolve_native_authority(
-    &infrastructure::database::native_paths::authority_paths(),
-    infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+  let native_lifecycle_state = app::native_lifecycle::with_schema_upgrade_outcome(
+    native_startup.schema_upgrade,
+    resolve_native_authority(
+      &infrastructure::database::native_paths::authority_paths(),
+      infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+    ),
   );
 
   // An unresolved native authority disagreement — including a selected
