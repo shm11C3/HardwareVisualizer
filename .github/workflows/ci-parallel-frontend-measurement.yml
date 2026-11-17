@@ -39,7 +39,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # Four target directories do not fit in the default free space.
+      # Eight profile builds across four target directories do not fit in the
+      # default free space.
       - name: Free Linux disk space
         if: runner.os == 'Linux'
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
@@ -60,6 +61,12 @@ jobs:
           rustup toolchain install "$NIGHTLY" --profile minimal --component clippy --no-self-update
           rustc "+$NIGHTLY" --version
           nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "$NUMBER_OF_PROCESSORS"
+
+      - name: Prepare frontendDist placeholder
+        shell: bash
+        run: |
+          mkdir -p dist
+          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
 
       - name: Measure builds
         shell: bash
@@ -105,18 +112,29 @@ jobs:
             if (( status != 0 )); then failed=1; fi
           }
 
-          clippy=(clippy -p hardware_visualizer --all-targets)
-          tests=(test -p hardviz-core -p hardware_visualizer --no-run)
+          # The two builds of the test-build job: pull requests build the ci
+          # profile, pushes build release through tauri-action. Clippy and
+          # `cargo test --no-run` were measured by the previous revision.
+          # name|cargo arguments
+          workloads=(
+            "ci-build|build -p hardware_visualizer --profile ci --features custom-protocol"
+            "release-build|build -p hardware_visualizer --release --features custom-protocol"
+          )
           for row in "${variants[@]}"; do
-            measure "$row" clippy-cold "${clippy[@]}"
-            measure "$row" test-build-cold "${tests[@]}"
+            for wl in "${workloads[@]}"; do
+              IFS='|' read -r wl_name wl_args <<< "$wl"
+              # shellcheck disable=SC2086 # wl_args is a list of plain words
+              measure "$row" "$wl_name-cold" $wl_args
+            done
           done
           for _ in $(seq "$TOUCH_REPEATS"); do
             for row in "${variants[@]}"; do
-              touch core/src/lib.rs
-              measure "$row" clippy-touch "${clippy[@]}"
-              touch core/src/lib.rs
-              measure "$row" test-build-touch "${tests[@]}"
+              for wl in "${workloads[@]}"; do
+                IFS='|' read -r wl_name wl_args <<< "$wl"
+                touch core/src/lib.rs
+                # shellcheck disable=SC2086 # wl_args is a list of plain words
+                measure "$row" "$wl_name-touch" $wl_args
+              done
             done
           done
 
