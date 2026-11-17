@@ -1,0 +1,133 @@
+name: CI parallel frontend measurement
+
+# Temporary, PR-scoped evidence for adopting the rustc parallel frontend, which
+# nightly enables by default from nightly-2026-11-14 (two frontend threads).
+# Each job compiles the same commit with one toolchain/frontend-thread variant
+# and no rust-cache or sccache, so the variants differ only in the compiler.
+# `cold` rows include dependencies and the bundled DuckDB C++ build; `touch`
+# rows recompile only the workspace crates after `core/src/lib.rs` changes,
+# which is what a PR with a restored dependency cache pays.
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - .github/workflows/ci-parallel-frontend-measurement.yml
+
+permissions:
+  contents: read
+
+env:
+  NIGHTLY: nightly-2026-11-16
+  CARGO_TERM_COLOR: never
+  TOUCH_REPEATS: "3"
+
+jobs:
+  measure:
+    name: ${{ matrix.variant }} (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+        variant: ["stable", "nightly-j1", "nightly-default", "nightly-j4"]
+        include:
+          - variant: stable
+            frontend-flags: ""
+          - variant: nightly-j1
+            frontend-flags: "-Zunstable-options --jobs-frontend=1"
+          - variant: nightly-default
+            frontend-flags: ""
+          - variant: nightly-j4
+            frontend-flags: "-Zunstable-options --jobs-frontend=4"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Linux dependencies
+        if: runner.os == 'Linux'
+        uses: $/.github/actions/setup-linux-deps
+
+      - name: Setup pinned stable Rust
+        uses: $/.github/actions/setup-rust-toolchain
+        with:
+          components: clippy
+
+      - name: Setup nightly Rust
+        if: matrix.variant != 'stable'
+        shell: bash
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal --component clippy --no-self-update
+          echo "RUSTUP_TOOLCHAIN=$NIGHTLY" >> "$GITHUB_ENV"
+
+      # RUSTFLAGS replaces target.<triple>.rustflags from .cargo/config.toml,
+      # so the Windows crt-static flag is repeated here to keep DuckDB on /MT.
+      - name: Configure compiler flags
+        shell: bash
+        env:
+          FRONTEND_FLAGS: ${{ matrix.frontend-flags }}
+        run: |
+          base=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            base="-C target-feature=+crt-static"
+          fi
+          echo "RUSTFLAGS=$base $FRONTEND_FLAGS" >> "$GITHUB_ENV"
+          echo "CARGO_BUILD_BUILD_DIR={workspace-root}/target" >> "$GITHUB_ENV"
+          mkdir -p dist
+          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+          rustc --version
+          nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "$NUMBER_OF_PROCESSORS"
+
+      - name: Measure builds
+        shell: bash
+        env:
+          VARIANT: ${{ matrix.variant }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -uo pipefail
+          results=results.tsv
+          printf 'platform\tvariant\tworkload\tseconds\tstatus\n' > "$results"
+          failed=0
+          measure() {
+            local workload="$1"; shift
+            local started=$SECONDS status=0
+            "$@" || status=$?
+            local elapsed=$(( SECONDS - started ))
+            printf '%s\t%s\t%s\t%s\t%s\n' "$PLATFORM" "$VARIANT" "$workload" "$elapsed" "$status" >> "$results"
+            echo "::notice title=$VARIANT $workload::${elapsed}s status=$status"
+            if (( status != 0 )); then failed=1; fi
+          }
+          workload() {
+            local name="$1"; shift
+            measure "$name-cold" cargo "$@" --timings
+            for _ in $(seq "$TOUCH_REPEATS"); do
+              touch core/src/lib.rs
+              measure "$name-touch" cargo "$@"
+            done
+          }
+          # lint-core / lint-tauri
+          workload clippy clippy -p hardware_visualizer --all-targets
+          # test-build on pull requests
+          workload ci-build build -p hardware_visualizer --profile ci --features custom-protocol
+          # test-core / test-tauri compilation
+          workload test-build test -p hardviz-core -p hardware_visualizer --no-run
+          {
+            echo "### $VARIANT ($PLATFORM)"
+            echo
+            echo '| Workload | Seconds | Status |'
+            echo '| --- | ---: | ---: |'
+            tail -n +2 "$results" | awk -F'\t' '{printf "| %s | %s | %s |\n", $3, $4, $5}'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
+
+      - name: Upload measurements
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: parallel-frontend-${{ matrix.variant }}-${{ matrix.platform }}
+          path: |
+            results.tsv
+            target/cargo-timings/cargo-timing-*.html
+          retention-days: 14

@@ -46,6 +46,9 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
         - 'swatinem/rust-cache@v2.9.3'
+    '.github/workflows/ci-parallel-frontend-measurement.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'actions/upload-artifact@v7.0.2'
     '.github/workflows/ci-telemetry.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
