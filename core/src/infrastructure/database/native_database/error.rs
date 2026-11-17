@@ -20,6 +20,8 @@ pub enum NativeDatabaseError {
     "native database schema version {actual} is incompatible with expected version {expected}"
   )]
   IncompatibleSchema { expected: u32, actual: u32 },
+  #[error("the native schema definition is not usable: {detail}")]
+  InvalidSchemaDefinition { detail: String },
   #[error(
     "native database storage version {actual:?} is incompatible with recorded version {expected:?}"
   )]

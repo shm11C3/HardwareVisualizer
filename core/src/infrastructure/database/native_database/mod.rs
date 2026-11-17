@@ -35,6 +35,7 @@ mod selection;
 mod series;
 pub mod storage_health;
 mod stored_text;
+mod upgrade;
 mod write_stamp;
 
 use std::path::Path;
@@ -63,7 +64,8 @@ pub use runtime::{
   NativeTransactionContext, archive_unselected_native_for_rebuild,
 };
 pub use schema::{
-  NativeIdentity, NativeIdentityMode, NativeSchemaDefinition, NativeTimestampColumn,
+  NativeIdentity, NativeIdentityMode, NativeSchemaDefinition, NativeSchemaUpgrade,
+  NativeTimestampColumn,
 };
 pub use selection::{
   AUTHORITY_MARKER_FILE_NAME, AuthorityFacts, AuthorityInconsistency, AuthorityMarker,
@@ -73,6 +75,7 @@ pub use selection::{
   repair_authority_marker, select_native_database,
 };
 pub use series::NativeSeriesWindow;
+pub use upgrade::{NativeSchemaUpgradeOutcome, upgrade_selected_native_database};
 
 /// Point one DuckDB instance at its own spill directory and close it to the
 /// filesystem afterwards.

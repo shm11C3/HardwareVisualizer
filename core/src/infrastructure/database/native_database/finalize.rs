@@ -28,7 +28,7 @@ use super::compatibility::{
 use super::epoch::EpochMilliseconds;
 use super::paging::{PagedReader, ReadColumn};
 use super::publish::publish_without_replacing;
-use super::schema::{NativeIdentityMode, NativeSchemaDefinition};
+use super::schema::{NativeIdentity, NativeIdentityMode, NativeSchemaDefinition};
 
 pub(super) const NATIVE_METADATA_TABLE: &str = "__hv_native_metadata";
 pub(super) const NATIVE_IDENTITY_TABLE: &str = "__hv_native_identities";
@@ -192,9 +192,7 @@ fn finalize(
       AccessMode::ReadWrite,
       &destination_spill,
     )?;
-    destination_database
-      .execute_batch(schema.sql)
-      .map_err(|error| NativeDatabaseError::duckdb("create the native schema", error))?;
+    schema.create_all(&destination_database)?;
     destination_database
       .execute_batch(&format!(
         "CREATE TABLE {} (state VARCHAR NOT NULL, schema_version BIGINT NOT NULL, \
@@ -309,6 +307,10 @@ fn finalize(
 /// failure [`plan_columns`] already refuses, and just as silent a loss of
 /// history. Checked before anything is written, so a schema definition that has
 /// fallen behind the migration set produces no partial file.
+///
+/// A candidate table the definition marks native-only is refused the same way:
+/// conversion creates those tables empty, so a SQLite-sourced table listed
+/// there would lose its rows just as silently.
 pub(super) fn require_every_candidate_table_is_declared(
   candidate: &Connection,
   schema: &NativeSchemaDefinition,
@@ -327,6 +329,14 @@ pub(super) fn require_every_candidate_table_is_declared(
     .collect::<Result<Vec<_>, _>>()
     .map_err(|error| NativeDatabaseError::duckdb("read the candidate tables", error))?;
   for name in names {
+    if schema.native_only_tables.contains(&name.as_str()) {
+      return Err(NativeDatabaseError::SchemaMismatch {
+        table: name,
+        detail: "the candidate carries this table but the native schema declares it \
+                 native-only, so conversion would create it empty and drop its rows"
+          .to_owned(),
+      });
+    }
     if NON_DOMAIN_CANDIDATE_TABLES.contains(&name.as_str())
       || schema.tables.contains(&name.as_str())
     {
@@ -795,7 +805,8 @@ pub(super) fn staged_value_sql(
 /// `sqlite_sequence` row, raised to the largest surviving id when the two
 /// disagree: a sequence that lags its own rows must never hand out a colliding
 /// id. Rowid tables record no high-water mark because SQLite derives their next
-/// id from the current maximum.
+/// id from the current maximum. A native-only table has no SQLite allocator,
+/// so its mark is its own largest id.
 pub(super) fn write_identities(
   candidate: &Connection,
   destination: &Connection,
@@ -803,41 +814,63 @@ pub(super) fn write_identities(
 ) -> Result<(), NativeDatabaseError> {
   let sequences = read_sqlite_sequences(candidate)?;
   for identity in schema.identities {
-    let (mode, high_water) = match identity.mode {
-      NativeIdentityMode::RowId => ("rowid", 0_i64),
+    let high_water = match identity.mode {
+      NativeIdentityMode::RowId => 0_i64,
       NativeIdentityMode::AutoIncrement {
         sqlite_sequence_name,
       } => {
         let sequence = sequences.get(sqlite_sequence_name).copied().unwrap_or(0);
-        let maximum: i64 = destination
-          .query_row(
-            &format!(
-              "SELECT COALESCE(MAX({}), 0) FROM {}",
-              quote_identifier(identity.column),
-              quote_identifier(identity.table)
-            ),
-            [],
-            |row| row.get(0),
-          )
-          .map_err(|error| {
-            NativeDatabaseError::duckdb("read the finalized identity maximum", error)
-          })?;
-        ("autoincrement", sequence.max(maximum))
+        sequence.max(identity_maximum(destination, identity)?)
       }
+      NativeIdentityMode::NativeOnly => identity_maximum(destination, identity)?,
     };
-    destination
-      .execute(
-        &format!(
-          "INSERT INTO {} VALUES (?, ?, ?, ?)",
-          quote_identifier(NATIVE_IDENTITY_TABLE)
-        ),
-        duckdb::params![identity.table, identity.column, mode, high_water],
-      )
-      .map_err(|error| {
-        NativeDatabaseError::duckdb("write the native identity metadata", error)
-      })?;
+    insert_identity(destination, identity, high_water)?;
   }
   Ok(())
+}
+
+/// The largest id `identity`'s table holds, or zero when it is empty.
+pub(super) fn identity_maximum(
+  connection: &Connection,
+  identity: &NativeIdentity,
+) -> Result<i64, NativeDatabaseError> {
+  connection
+    .query_row(
+      &format!(
+        "SELECT COALESCE(MAX({}), 0) FROM {}",
+        quote_identifier(identity.column),
+        quote_identifier(identity.table)
+      ),
+      [],
+      |row| row.get(0),
+    )
+    .map_err(|error| {
+      NativeDatabaseError::duckdb("read the native identity maximum", error)
+    })
+}
+
+pub(super) fn insert_identity(
+  connection: &Connection,
+  identity: &NativeIdentity,
+  high_water: i64,
+) -> Result<(), NativeDatabaseError> {
+  connection
+    .execute(
+      &format!(
+        "INSERT INTO {} VALUES (?, ?, ?, ?)",
+        quote_identifier(NATIVE_IDENTITY_TABLE)
+      ),
+      duckdb::params![
+        identity.table,
+        identity.column,
+        identity.mode.stored_mode(),
+        high_water
+      ],
+    )
+    .map(|_| ())
+    .map_err(|error| {
+      NativeDatabaseError::duckdb("write the native identity metadata", error)
+    })
 }
 
 fn read_sqlite_sequences(
@@ -964,6 +997,18 @@ fn verify_finalized(
         schema.identities.len()
       ),
     });
+  }
+  // Nothing copies into a native-only table, so after a reopen it must exist
+  // and hold no row.
+  for table in schema.native_only_tables {
+    let rows = count_rows(&connection, table)?;
+    if rows != 0 {
+      return Err(NativeDatabaseError::Verification {
+        message: format!(
+          "native-only table {table} holds {rows} rows after finalization"
+        ),
+      });
+    }
   }
 
   let mut reports = Vec::with_capacity(copied.len());

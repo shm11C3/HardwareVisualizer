@@ -43,6 +43,10 @@
 //! `persistence::cooling_rollup::persist_day_rollup_from_pool` uses - see
 //! [`cooling_rollup::persist_day_rollup`].
 //!
+//! A family added after ADR 0030 is native-only and answers [`NativeOnly`]
+//! instead: the native database's answer, or "needs the native database"
+//! while SQLite answers and in builds without `duckdb-archive`.
+//!
 //! # Seam for #2135
 //!
 //! The App-side conversion lifecycle (#2135) owns resolving paths, driving
@@ -183,6 +187,17 @@ mod boundary {
   pub(super) enum Backend {
     Sqlite,
     Native(NativeDatabase),
+  }
+
+  /// A native-only family has no SQLite answer, so the SQLite backend means
+  /// the family needs the native database.
+  impl From<Backend> for super::NativeOnly<NativeDatabase> {
+    fn from(backend: Backend) -> Self {
+      match backend {
+        Backend::Sqlite => Self::NeedsNativeDatabase,
+        Backend::Native(database) => Self::Available(database),
+      }
+    }
   }
 
   static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -565,8 +580,10 @@ mod boundary {
         version: 7,
         sql: "CREATE TABLE probe (id BIGINT PRIMARY KEY)",
         tables: &["probe"],
+        native_only_tables: &[],
         timestamp_columns: &[],
         identities: IDENTITIES,
+        upgrades: &[],
       }
     }
 
@@ -639,6 +656,45 @@ mod boundary {
       );
 
       assert!(matches!(active, Active::Unavailable(_)));
+    }
+
+    /// ADR 0030: a native-only family answers from the selected native
+    /// database, needs it while SQLite answers, and keeps every refusal an
+    /// error rather than reading it as "not selected yet".
+    #[tokio::test]
+    async fn native_only_families_map_each_boundary_state() {
+      use super::super::NativeOnly;
+
+      let native_only = |active: Active| async move {
+        resolve_backend_with(Arc::new(RwLock::new(active)), None)
+          .await
+          .map(NativeOnly::from)
+      };
+      assert!(matches!(
+        native_only(Active::Sqlite).await,
+        Ok(NativeOnly::NeedsNativeDatabase)
+      ));
+      assert!(matches!(
+        native_only(Active::Unavailable("selected but unopenable".to_owned())).await,
+        Err(DispatchError::NativeUnavailable { .. })
+      ));
+      assert!(matches!(
+        native_only(Active::Shutdown).await,
+        Err(DispatchError::Shutdown)
+      ));
+
+      let directory = tempfile::tempdir().unwrap();
+      let (active, config) = selected_boundary(directory.path(), 7).await;
+      let Ok(NativeOnly::Available(database)) =
+        resolve_backend_with(Arc::clone(&active), Some(config))
+          .await
+          .map(NativeOnly::from)
+      else {
+        panic!("a selected native database answers a native-only family");
+      };
+      insert_probe(&database, 42).await;
+      assert_eq!(read_probe(&database).await, 42);
+      database.close().await.unwrap();
     }
 
     #[tokio::test]
@@ -1032,6 +1088,72 @@ pub async fn checkpoint() -> Result<(), DispatchError> {
 #[cfg(not(feature = "duckdb-archive"))]
 pub async fn checkpoint() -> Result<(), DispatchError> {
   Ok(())
+}
+
+/// What a native-only family answers (ADR 0030 decisions 4 and 6).
+///
+/// A family added after ADR 0030 exists only on the native database. While
+/// SQLite is authoritative, and in every build without `duckdb-archive`, it
+/// answers [`NativeOnly::NeedsNativeDatabase`]: a state of its own, distinct
+/// from empty data (`Available` with nothing in it), from a read failure, and
+/// from [`DispatchError`]'s `NativeUnavailable` refusal, which stays an `Err`.
+/// The caller may point to the Settings conversion action, but never starts a
+/// conversion.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeOnly<T> {
+  Available(T),
+  NeedsNativeDatabase,
+}
+
+/// The backend a native-only family answers from: the selected native
+/// database, or [`NativeOnly::NeedsNativeDatabase`] while SQLite is
+/// authoritative. Refusals (`NativeUnavailable`, `Shutdown`) stay `Err`, so a
+/// family never mistakes an unservable native database for one that is simply
+/// not selected yet.
+#[cfg(feature = "duckdb-archive")]
+#[cfg_attr(
+  not(test),
+  expect(
+    dead_code,
+    reason = "the first native-only family (#2720) is its first caller"
+  )
+)]
+async fn native_only_backend()
+-> Result<NativeOnly<super::native_database::NativeDatabase>, DispatchError> {
+  boundary::resolve_backend().await.map(NativeOnly::from)
+}
+
+/// [`native_only_backend`] without `duckdb-archive`: there is no native
+/// database to answer from, so the answer is always
+/// [`NativeOnly::NeedsNativeDatabase`], decided without touching SQLite.
+#[cfg(not(feature = "duckdb-archive"))]
+#[cfg_attr(
+  not(test),
+  expect(
+    dead_code,
+    reason = "the first native-only family (#2720) is its first caller"
+  )
+)]
+async fn native_only_backend()
+-> Result<NativeOnly<std::convert::Infallible>, DispatchError> {
+  Ok(NativeOnly::NeedsNativeDatabase)
+}
+
+#[cfg(test)]
+mod native_only_tests {
+  use super::{NativeOnly, native_only_backend};
+
+  /// Nothing in this crate's unit tests selects a native database through the
+  /// process-wide boundary, so it answers from SQLite here - which a
+  /// native-only family reports as needing the native database, in both
+  /// builds.
+  #[tokio::test]
+  async fn a_native_only_family_needs_the_native_database_while_sqlite_answers() {
+    assert!(matches!(
+      native_only_backend().await,
+      Ok(NativeOnly::NeedsNativeDatabase)
+    ));
+  }
 }
 
 /// The Process Stats family: [`super::process_stats`] (SQLite) and
