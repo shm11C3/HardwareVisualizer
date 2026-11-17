@@ -60,13 +60,14 @@
 //! non-qualifying by definition, so deleting those cannot change which
 //! days are first, and the rows after them are never consulted.
 //!
-//! Why not pin one row per source? Because there is no native (DuckDB)
-//! schema migration path in the 1.11.x line: `NATIVE_SCHEMA_VERSION` is
-//! fixed at finalize time and the runtime refuses to open a file recorded
-//! under any other version, so a second table or a widened one cannot
-//! ship as a bugfix. Derive-on-read plus the retention exemption gives the
-//! same answer without touching the schema; a per-source pinned table is
-//! the shape to revisit once a migration path exists.
+//! Why not pin one row per source? Because when this was decided the
+//! native (DuckDB) schema had no upgrade path: the runtime refuses to open
+//! a file recorded under any other `NATIVE_SCHEMA_VERSION`, so a second
+//! table or a widened one could not ship as a bugfix. Derive-on-read plus
+//! the retention exemption gives the same answer without touching the
+//! schema. ADR 0030 has since added a startup upgrade path for selected
+//! native databases; a per-source pinned table remains the shape to
+//! revisit, as a separate decision.
 //!
 //! It gets its *own* table rather than columns on `cooling_baseline`.
 //! Pinning there is write-once (`INSERT OR IGNORE` against a

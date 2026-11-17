@@ -234,7 +234,9 @@ SQLite backend and the conversion path are removed in a future major version.
 two-engine requirement to existing families: a persisted family added after it
 is implemented on the native database only. While SQLite is authoritative, a
 feature backed by such a family reports that it needs the native database,
-instead of returning empty data.
+instead of returning empty data: its dispatch function answers
+`dispatch::NativeOnly::NeedsNativeDatabase`, as every build without
+`duckdb-archive` does.
 `duckdb-archive` is a default Cargo feature on `develop`, so release builds
 built from `develop` compile with it today (PR #2224, merged); the latest
 published release, v1.10.1, predates that change and does not include it.
@@ -261,11 +263,32 @@ Persistence is split:
 - Core owns the database pool and executes the App-supplied migration set
   through `hardviz_core::infrastructure::database::migrate` when SQLite is
   still authoritative.
+- The native schema follows the same split. App owns the ordered definition
+  (`src-tauri/src/infrastructure/database/native_schema_definitions.rs`):
+  `NATIVE_SCHEMA_VERSION`, the version 1 baseline DDL, the SQLite-sourced
+  tables, the native-only tables (ADR 0030) and the ordered upgrade steps
+  after the baseline. Core (`native_database`) executes it: fresh creation
+  and conversion run the baseline and then every step, so all three paths
+  produce one schema, and conversion creates native-only tables empty and
+  leaves them out of the copy, the reconciliation and the row counts.
 
 Startup flow:
 
-1. App resolves the source, native database, and marker paths and inspects
-   the durable selection record.
+1. App resolves the source, native database, and marker paths. If the
+   selected native database records an older schema version than this
+   build, App upgrades it first
+   (`native_lifecycle::prepare_native_startup`): one DuckDB transaction runs
+   the missing steps, adds the native-only identity rows and records the new
+   version, then the file is checkpointed and the marker rewritten. The
+   database is written before the marker, as in selection; an interruption
+   between them leaves a marker behind the database, which inspection
+   reports as repairable and the startup marker repair closes. The upgrade
+   runs before the Hardware Archive Retention Period default is derived,
+   because an unupgraded database reads as a version mismatch, which would
+   take the SQLite default. A failed upgrade rolls back and is reported as
+   action required. The upgrade is one-way: a build that predates it stops
+   on the upgraded database with the existing version-mismatch report, and
+   the data is kept. App then inspects the durable selection record.
 2. On a genuinely fresh install (no source, native database, or marker file
    exists yet), App creates and durably selects a native database directly;
    a fresh install never starts on SQLite.
@@ -610,11 +633,11 @@ as the first version did, turned a sensor change into a permanent refusal: the
 pin is write-once, so nothing the new sensor collected could ever make the
 reading comparable again. A derived reference stays as stable as a pinned one
 because the retention cleanup exempts each source's first-N span (below). A
-per-source pinned table was the more direct shape and was rejected for now
-because there is no native schema migration path in the 1.11.x line -
-`NATIVE_SCHEMA_VERSION` 1 is fixed at finalize time and the runtime refuses a
-file recorded under any other version - so it cannot ship as a bugfix; revisit
-once a migration path exists.
+per-source pinned table was the more direct shape and was rejected when this
+was decided, because the native schema then had no upgrade path - the runtime
+refuses a file recorded under any other `NATIVE_SCHEMA_VERSION` - so it could
+not ship as a bugfix. ADR 0030 has since added the startup upgrade path (see
+"Startup flow" above); revisiting this shape is a separate decision.
 
 Both baselines run the *same* establishment rule (`derive_baseline_window`,
 shared so they cannot drift apart on what "established" means); they differ only
@@ -857,6 +880,12 @@ exists.
    `core/src/infrastructure/database/`.
 3. Update startup compatibility checks if schema compatibility changes.
 4. Add tests for migration or preflight behavior where practical.
+5. A new family is native-only (ADR 0030): append one step to `UPGRADES` in
+   `native_schema_definitions.rs` that creates its table, raise
+   `NATIVE_SCHEMA_VERSION` to the step's `to`, list the table in
+   `NATIVE_ONLY_TABLES` (and a `NativeIdentityMode::NativeOnly` identity if it
+   allocates ids), and answer its dispatch functions with
+   `dispatch::NativeOnly`. Never edit the baseline DDL or a released step.
 
 ## Testing
 
