@@ -39,6 +39,11 @@ pub struct Thresholds {
 #[derive(Debug, Deserialize)]
 pub struct Timing {
   pub warmup_seconds: u64,
+  /// Minimum wait after the main window hides before the background phase
+  /// checks stabilization. WebView2 releases its memory some time after
+  /// suspension, after RSS has already looked flat for a full window.
+  #[serde(default = "default_background_warmup_seconds")]
+  pub background_warmup_seconds: u64,
   #[serde(default = "default_stabilization_timeout_seconds")]
   pub stabilization_timeout_seconds: u64,
   pub measurement_seconds: u64,
@@ -72,6 +77,7 @@ impl Default for Timing {
   fn default() -> Self {
     Self {
       warmup_seconds: 15,
+      background_warmup_seconds: default_background_warmup_seconds(),
       stabilization_timeout_seconds: default_stabilization_timeout_seconds(),
       measurement_seconds: 60,
       sample_interval_ms: 1000,
@@ -161,6 +167,10 @@ impl Thresholds {
   }
 }
 
+fn default_background_warmup_seconds() -> u64 {
+  30
+}
+
 fn default_stabilization_timeout_seconds() -> u64 {
   45
 }
@@ -193,6 +203,7 @@ mod tests {
     .expect("legacy timing config should deserialize");
 
     assert_eq!(timing.stabilization_timeout_seconds, 45);
+    assert_eq!(timing.background_warmup_seconds, 30);
   }
 
   #[test]

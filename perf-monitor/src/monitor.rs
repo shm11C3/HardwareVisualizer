@@ -270,11 +270,7 @@ fn measure_desktop(
   // Keep the configured warmup as a minimum. Startup work can take longer on
   // shared runners, so measurement starts only after both the tracked helper
   // set and component RSS have remained stable for a rolling window.
-  for _ in 0..timing.warmup_seconds {
-    thread::sleep(Duration::from_secs(1));
-    session.ensure_running(phase, "warmup")?;
-    session.refresh();
-  }
+  session.wait_minimum(phase, timing.warmup_seconds)?;
 
   let stabilization_seconds = session.stabilize(phase, timing)?;
   let samples = session.measure(phase, timing)?;
@@ -312,16 +308,21 @@ fn measure_background(
     .into());
   }
 
-  // Hiding the window starts WebView suspension and lets helper processes
-  // shrink or exit, so the background baseline has to settle again.
-  session.refresh();
+  // Hiding the window starts WebView suspension, and WebView2 releases its
+  // memory only some time later. The stability window alone can pass before
+  // that drop, so wait a minimum first, as the desktop phase does at launch.
+  eprintln!(
+    "[{phase}] Waiting at least {} seconds after the window hid...",
+    timing.background_warmup_seconds
+  );
+  session.wait_minimum(phase, timing.background_warmup_seconds)?;
   let stabilization_seconds = session.stabilize(phase, timing)?;
   let samples = session.measure(phase, timing)?;
 
   Ok(Some(compute_result(
     samples,
     timing.measurement_seconds,
-    stabilization_seconds,
+    timing.background_warmup_seconds + stabilization_seconds,
   )))
 }
 
@@ -349,6 +350,19 @@ struct Session<'a> {
 impl Session<'_> {
   fn refresh(&mut self) {
     self.system.refresh_processes(ProcessesToUpdate::All, true);
+  }
+
+  fn wait_minimum(
+    &mut self,
+    phase: Phase,
+    seconds: u64,
+  ) -> Result<(), Box<dyn std::error::Error>> {
+    for _ in 0..seconds {
+      thread::sleep(Duration::from_secs(1));
+      self.ensure_running(phase, "warmup")?;
+      self.refresh();
+    }
+    Ok(())
   }
 
   fn ensure_running(

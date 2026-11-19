@@ -51,6 +51,7 @@ max_memory_growth_mb = 50.0    # Process-tree memory growth over measurement
 
 [timing]
 warmup_seconds = 15            # Minimum delay before stabilization checks
+background_warmup_seconds = 30 # Minimum delay after the window hides, background phase
 stabilization_timeout_seconds = 45 # Maximum additional stabilization wait
 measurement_seconds = 60       # Measurement window
 sample_interval_ms = 1000      # Sampling frequency
@@ -99,7 +100,7 @@ max_avg_memory_mb = 400.0
 3. **Stabilize** - Samples once per second until the same helper PID set and stable component RSS are observed for 10 consecutive samples, or fails after `stabilization_timeout_seconds`
 4. **Measure desktop** - Samples CPU and process-tree RSS at `sample_interval_ms` intervals using `sysinfo`
 5. **Close to background** - Posts `WM_CLOSE` to the visible Tauri windows (class `Tauri Window`) and waits up to 15 seconds for them to hide. Other top-level windows the app owns, such as the single-instance and event-target windows, report themselves visible and are left alone. This is the same close path a user takes, including the WebView2 suspension
-6. **Stabilize and measure background** - Repeats steps 3 and 4 without a minimum warmup
+6. **Stabilize and measure background** - Waits at least `background_warmup_seconds`, then repeats steps 3 and 4. The minimum is needed because WebView2 releases its memory some time after suspension, after RSS has already looked flat for a full stability window
 7. **Terminate** - Kills the process (RAII guard ensures cleanup on errors)
 8. **Report** - Computes statistics (avg, max, P95, memory growth) per phase and checks each against its thresholds
 
