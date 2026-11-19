@@ -75,7 +75,9 @@ pub use selection::{
   repair_authority_marker, select_native_database,
 };
 pub use series::NativeSeriesWindow;
-pub use upgrade::{NativeSchemaUpgradeOutcome, upgrade_selected_native_database};
+pub use upgrade::{
+  NativeSchemaUpgradeError, NativeSchemaUpgradeOutcome, upgrade_selected_native_database,
+};
 
 /// Point one DuckDB instance at its own spill directory and close it to the
 /// filesystem afterwards.

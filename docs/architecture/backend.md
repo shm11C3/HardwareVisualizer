@@ -277,18 +277,26 @@ Startup flow:
 1. App resolves the source, native database, and marker paths. If the
    selected native database records an older schema version than this
    build, App upgrades it first
-   (`native_lifecycle::prepare_native_startup`): one DuckDB transaction runs
-   the missing steps, adds the native-only identity rows and records the new
-   version, then the file is checkpointed and the marker rewritten. The
-   database is written before the marker, as in selection; an interruption
-   between them leaves a marker behind the database, which inspection
-   reports as repairable and the startup marker repair closes. The upgrade
-   runs before the Hardware Archive Retention Period default is derived,
-   because an unupgraded database reads as a version mismatch, which would
-   take the SQLite default. A failed upgrade rolls back and is reported as
-   action required. The upgrade is one-way: a build that predates it stops
-   on the upgraded database with the existing version-mismatch report, and
-   the data is kept. App then inspects the durable selection record.
+   (`native_lifecycle::prepare_native_startup`). It takes the file's
+   in-process open claim before reading anything, then plans from the
+   version the database records, as long as that version is on this build's
+   upgrade chain and the marker agrees with the database or is behind or
+   missing in the ways the marker repair closes; a marker ahead of the
+   database or disagreeing on the source facts is left to inspection. One
+   DuckDB transaction runs the missing steps, adds the native-only identity
+   rows and records the new version, then the file is checkpointed and the
+   marker rewritten for the final version. The database is written before
+   the marker, as in selection; an interruption between them leaves a marker
+   behind the database, which inspection reports as repairable and the
+   startup marker repair closes, or which a later build's upgrade continues
+   from. The upgrade runs before the Hardware Archive Retention Period
+   default is derived, because an unupgraded database reads as a version
+   mismatch, which would take the SQLite default; once an upgrade was
+   planned, the native default applies even if it failed. A failed upgrade
+   rolls back and is reported as action required. The upgrade is one-way: a
+   build that predates it stops on the upgraded database with the existing
+   version-mismatch report, and the data is kept. App then inspects the
+   durable selection record.
 2. On a genuinely fresh install (no source, native database, or marker file
    exists yet), App creates and durably selects a native database directly;
    a fresh install never starts on SQLite.

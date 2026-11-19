@@ -27,8 +27,9 @@ use std::sync::Mutex;
 use hardviz_core::infrastructure::database::native_database::{
   AuthorityFacts, AuthorityInconsistency, AuthorityPaths, AuthorityRecovery,
   AuthorityState, MarkerFacts, NativeDatabase, NativeMetadataFacts,
-  NativeSchemaDefinition, NativeSchemaUpgradeOutcome, NativeState, inspect_authority,
-  observe_authority, repair_authority_marker, upgrade_selected_native_database,
+  NativeSchemaDefinition, NativeSchemaUpgradeError, NativeSchemaUpgradeOutcome,
+  NativeState, inspect_authority, observe_authority, repair_authority_marker,
+  upgrade_selected_native_database,
 };
 
 use crate::{log_error, log_info};
@@ -89,9 +90,9 @@ pub enum LifecycleIssue {
   /// Creating the native database for an otherwise empty profile failed.
   FreshCreationFailed { message: String },
   /// The startup upgrade of the selected native database to this build's
-  /// schema version failed ([`prepare_native_startup`]). The upgrade rolls
-  /// back as one transaction, so the database keeps its previous version and
-  /// every row; a restart attempts the upgrade again.
+  /// schema version failed ([`prepare_native_startup`]). A failure before the
+  /// commit rolls back as one transaction, so the database keeps its previous
+  /// version and every row; a restart attempts the upgrade again.
   NativeSchemaUpgradeFailed { message: String },
   /// The running conversion failed at a named step. Produced by the
   /// conversion driver (#2135, stacked on this change).
@@ -320,10 +321,16 @@ pub struct NativeStartupPreparation {
 /// decision 7).
 ///
 /// The order is the point of this function. The retention default reads the
-/// authority state, and a selected database one schema version behind this
-/// build reads as a version mismatch, which resolves to the SQLite-era
+/// authority state, and a selected database at an older schema version than
+/// this build reads as a version mismatch, which resolves to the SQLite-era
 /// default. Deriving it before the upgrade would apply that shorter default
 /// to native data on the upgrade boot.
+///
+/// For the same reason, once Core planned an upgrade - the file is a selected
+/// native database on this build's upgrade chain - the native default
+/// applies whether or not the upgrade completed: a failed step rolls back to
+/// the older version, which would again read as a mismatch, but the native
+/// database is still the authority.
 ///
 /// Runs before anything opens the native database, like
 /// [`inspect_startup_authority`]. An unselected or absent database, or one
@@ -332,33 +339,40 @@ pub fn prepare_native_startup(
   paths: &AuthorityPaths,
   schema: NativeSchemaDefinition,
 ) -> NativeStartupPreparation {
-  let schema_upgrade = match upgrade_selected_native_database(paths, schema) {
-    Ok(NativeSchemaUpgradeOutcome::NotNeeded) => Ok(()),
-    Ok(NativeSchemaUpgradeOutcome::Upgraded { from, to }) => {
-      log_info!(
-        "upgraded the selected native database schema",
-        "app::native_lifecycle::prepare_native_startup",
-        Some(format!("from version {from} to {to}"))
-      );
-      Ok(())
-    }
-    Err(error) => {
-      log_error!(
-        "failed to upgrade the selected native database schema",
-        "app::native_lifecycle::prepare_native_startup",
-        Some(error.to_string())
-      );
-      Err(LifecycleIssue::NativeSchemaUpgradeFailed {
-        message: error.to_string(),
-      })
-    }
+  let (schema_upgrade, native_authority_planned) =
+    match upgrade_selected_native_database(paths, schema) {
+      Ok(NativeSchemaUpgradeOutcome::NotNeeded) => (Ok(()), false),
+      Ok(NativeSchemaUpgradeOutcome::Upgraded { from, to }) => {
+        log_info!(
+          "upgraded the selected native database schema",
+          "app::native_lifecycle::prepare_native_startup",
+          Some(format!("from version {from} to {to}"))
+        );
+        (Ok(()), true)
+      }
+      Err(error) => {
+        log_error!(
+          "failed to upgrade the selected native database schema",
+          "app::native_lifecycle::prepare_native_startup",
+          Some(error.to_string())
+        );
+        let planned = matches!(error, NativeSchemaUpgradeError::Failed { .. });
+        (
+          Err(LifecycleIssue::NativeSchemaUpgradeFailed {
+            message: error.to_string(),
+          }),
+          planned,
+        )
+      }
+    };
+  let default_retention_days = if native_authority_planned {
+    hardviz_core::settings::HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+  } else {
+    default_hardware_archive_retention_days(paths, schema.version)
   };
   NativeStartupPreparation {
     schema_upgrade,
-    default_retention_days: default_hardware_archive_retention_days(
-      paths,
-      schema.version,
-    ),
+    default_retention_days,
   }
 }
 
@@ -749,6 +763,17 @@ mod tests {
         prepared.schema_upgrade,
         Err(LifecycleIssue::NativeSchemaUpgradeFailed { .. })
       ));
+      // The rolled-back database still reads as a version mismatch, but it is
+      // the selected authority, so a never-saved Retention Period must not
+      // resolve to the shorter SQLite default.
+      assert_eq!(
+        default_hardware_archive_retention_days(&paths, 2),
+        HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
+      );
+      assert_eq!(
+        prepared.default_retention_days,
+        HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+      );
       let state = with_schema_upgrade_outcome(
         prepared.schema_upgrade,
         inspect_startup_authority(&paths, 2),
@@ -764,6 +789,37 @@ mod tests {
         inspect_startup_authority(&paths, 1),
         DatabaseLifecycleState::NativeAuthoritative
       );
+    }
+
+    /// A selection whose marker never landed, on a database one version
+    /// behind this build: the upgrade writes the marker for the version it
+    /// reaches. Without it, the startup repair would restore the marker at
+    /// the old version and startup would stop on a version mismatch, with
+    /// Reset among the offered actions.
+    #[tokio::test]
+    async fn a_selected_database_without_its_marker_still_upgrades_at_startup() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = selected_v1(directory.path()).await;
+      std::fs::remove_file(&paths.marker).unwrap();
+
+      let prepared = prepare_native_startup(&paths, v2_with(V1_TO_V2));
+
+      assert_eq!(prepared.schema_upgrade, Ok(()));
+      assert_eq!(
+        prepared.default_retention_days,
+        HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+      );
+      assert_eq!(
+        with_schema_upgrade_outcome(
+          prepared.schema_upgrade,
+          inspect_startup_authority(&paths, 2)
+        ),
+        DatabaseLifecycleState::NativeAuthoritative
+      );
+      let MarkerFacts::Present(marker) = observe_authority(&paths, 2).marker else {
+        panic!("the upgrade must have written a readable marker");
+      };
+      assert_eq!(marker.schema_version, 2);
     }
 
     /// An interruption between the database commit and the marker write is
