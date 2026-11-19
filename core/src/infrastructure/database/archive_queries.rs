@@ -222,6 +222,32 @@ pub struct ProcessStatRecord {
   pub latest_timestamp: String,
 }
 
+/// One Process's GPU usage over a range, from the native-only
+/// `PROCESS_GPU_STATS` family (ADR 0030). Grouped by the recorded
+/// `(pid, process_name)` tuple, the same Process identity as
+/// [`ProcessStatRecord`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcessGpuStatRecord {
+  pub pid: i64,
+  pub process_name: String,
+  /// Time-weighted by coverage: `SUM(gpu_usage * covered_seconds) /
+  /// SUM(covered_seconds)`, in percent summed across GPUs and engines.
+  pub avg_gpu_usage: f64,
+  /// Seconds of the range the GPU readings covered.
+  pub covered_seconds: f64,
+}
+
+/// A range's [`ProcessGpuStatRecord`]s and when GPU usage began to be
+/// recorded at all, so a view can tell "no GPU use in this range" from "not
+/// recorded yet then".
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcessGpuStats {
+  pub records: Vec<ProcessGpuStatRecord>,
+  /// The earliest stored timestamp text in the whole table, or `None` while
+  /// it holds no row.
+  pub recorded_since: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
 struct GpuNameRow {
   gpu_name: String,

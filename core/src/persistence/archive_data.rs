@@ -73,3 +73,19 @@ pub struct ProcessStatData {
   pub memory_usage: i32,
   pub execution_sec: i32,
 }
+
+/// One archived process's GPU usage for one archive minute, written beside
+/// that minute's [`ProcessStatData`] row with the same stamp (native only,
+/// ADR 0030).
+///
+/// `gpu_usage` is the minute's time-weighted average in percent, summed
+/// across every GPU and engine, so it may exceed 100; 0 is a real reading.
+/// `covered_seconds` is how many seconds of the minute the readings covered,
+/// always above zero: a process with no reading has no row.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcessGpuStatData {
+  pub pid: i32,
+  pub process_name: String,
+  pub gpu_usage: f64,
+  pub covered_seconds: f64,
+}

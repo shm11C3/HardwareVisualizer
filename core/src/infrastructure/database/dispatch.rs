@@ -45,7 +45,8 @@
 //!
 //! A family added after ADR 0030 is native-only and answers [`NativeOnly`]
 //! instead: the native database's answer, or "needs the native database"
-//! while SQLite answers and in builds without `duckdb-archive`.
+//! while SQLite answers and in builds without `duckdb-archive`. Per-process
+//! GPU usage ([`process_gpu_stats`]) is the first.
 //!
 //! # Seam for #2135
 //!
@@ -1111,13 +1112,6 @@ pub enum NativeOnly<T> {
 /// family never mistakes an unservable native database for one that is simply
 /// not selected yet.
 #[cfg(feature = "duckdb-archive")]
-#[cfg_attr(
-  not(test),
-  expect(
-    dead_code,
-    reason = "the first native-only family (#2720) is its first caller"
-  )
-)]
 async fn native_only_backend()
 -> Result<NativeOnly<super::native_database::NativeDatabase>, DispatchError> {
   boundary::resolve_backend().await.map(NativeOnly::from)
@@ -1127,13 +1121,6 @@ async fn native_only_backend()
 /// database to answer from, so the answer is always
 /// [`NativeOnly::NeedsNativeDatabase`], decided without touching SQLite.
 #[cfg(not(feature = "duckdb-archive"))]
-#[cfg_attr(
-  not(test),
-  expect(
-    dead_code,
-    reason = "the first native-only family (#2720) is its first caller"
-  )
-)]
 async fn native_only_backend()
 -> Result<NativeOnly<std::convert::Infallible>, DispatchError> {
   Ok(NativeOnly::NeedsNativeDatabase)
@@ -1153,6 +1140,139 @@ mod native_only_tests {
       native_only_backend().await,
       Ok(NativeOnly::NeedsNativeDatabase)
     ));
+  }
+}
+
+/// The per-process GPU usage family (#2720), native-only (ADR 0030):
+/// `super::native_database::process_gpu_stats` is its only engine. While
+/// SQLite answers, and in builds without `duckdb-archive`, writes are no-ops
+/// and reads answer [`NativeOnly::NeedsNativeDatabase`]; SQLite is never
+/// touched.
+///
+/// Its writer is the archive producer, which conversion pauses and drains
+/// like the Process Stats writer, so no write permit is taken here.
+pub mod process_gpu_stats {
+  use super::*;
+  use crate::infrastructure::database::archive_queries::ProcessGpuStats;
+  use crate::persistence::archive_data::ProcessGpuStatData;
+
+  /// Whether the native database answers this family right now. The archive
+  /// asks once per write cycle, so it gathers GPU readings only when they
+  /// can be stored.
+  pub async fn available() -> Result<bool, DispatchError> {
+    Ok(matches!(
+      super::native_only_backend().await?,
+      NativeOnly::Available(_)
+    ))
+  }
+
+  pub async fn insert(
+    rows: Vec<ProcessGpuStatData>,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    if rows.is_empty() {
+      return Ok(());
+    }
+    match super::native_only_backend().await? {
+      NativeOnly::NeedsNativeDatabase => Ok(()),
+      #[cfg(feature = "duckdb-archive")]
+      NativeOnly::Available(database) => {
+        super::super::native_database::process_gpu_stats::insert(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          rows,
+          timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      #[cfg(not(feature = "duckdb-archive"))]
+      NativeOnly::Available(never) => {
+        let _ = (rows, timestamp);
+        match never {}
+      }
+    }
+  }
+
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    match super::native_only_backend().await? {
+      NativeOnly::NeedsNativeDatabase => Ok(()),
+      #[cfg(feature = "duckdb-archive")]
+      NativeOnly::Available(database) => {
+        super::super::native_database::process_gpu_stats::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
+        .await
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      #[cfg(not(feature = "duckdb-archive"))]
+      NativeOnly::Available(never) => {
+        let _ = retention_days;
+        match never {}
+      }
+    }
+  }
+
+  pub async fn select_process_gpu_stats(
+    start: String,
+    end: String,
+  ) -> Result<NativeOnly<ProcessGpuStats>, DispatchError> {
+    match super::native_only_backend().await? {
+      NativeOnly::NeedsNativeDatabase => Ok(NativeOnly::NeedsNativeDatabase),
+      #[cfg(feature = "duckdb-archive")]
+      NativeOnly::Available(database) => {
+        super::super::native_database::process_gpu_stats::select_process_gpu_stats(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          start,
+          end,
+        )
+        .await
+        .map(NativeOnly::Available)
+        .map_err(DispatchError::from)
+      }
+      #[cfg(not(feature = "duckdb-archive"))]
+      NativeOnly::Available(never) => {
+        let _ = (start, end);
+        match never {}
+      }
+    }
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    /// Nothing in this crate's unit tests selects a native database through
+    /// the process-wide boundary, so SQLite answers - in both builds - and
+    /// the family stays out of it: writes succeed without storing anything
+    /// and the read reports that it needs the native database.
+    #[tokio::test]
+    async fn while_sqlite_answers_the_family_needs_the_native_database() {
+      let row = ProcessGpuStatData {
+        pid: 1,
+        process_name: "renderer".to_owned(),
+        gpu_usage: 12.5,
+        covered_seconds: 60.0,
+      };
+      let stamp = "2026-09-01T00:00:00Z".parse().unwrap();
+
+      assert!(!available().await.unwrap());
+      insert(vec![row], stamp).await.unwrap();
+      delete_old_data(30).await.unwrap();
+      assert_eq!(
+        select_process_gpu_stats(
+          "2026-09-01T00:00:00+00:00".to_owned(),
+          "2026-09-02T00:00:00+00:00".to_owned(),
+        )
+        .await
+        .unwrap(),
+        NativeOnly::NeedsNativeDatabase
+      );
+    }
   }
 }
 
