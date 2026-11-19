@@ -6,8 +6,9 @@
 //! so it costs nothing until a consumer asks: the table polls
 //! [`ProcessGpuCollector::read`], and a background consumer turns on
 //! [`ProcessGpuCollector::set_background_demand`], after which the collector
-//! loop refreshes every [`BACKGROUND_REFRESH_INTERVAL`] and each snapshot
-//! carries the usage accumulated since the previous one. Both consumers share
+//! loop queues a refresh every [`BACKGROUND_REFRESH_INTERVAL`] on a blocking
+//! thread without waiting for it, and each snapshot carries the usage
+//! accumulated since the previous one. Both consumers share
 //! one refresh state, so a refresh made for either serves the other.
 //!
 //! - The collector owns its own `sysinfo::System`, separate from the
@@ -43,6 +44,7 @@
 //!   read.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -90,16 +92,56 @@ struct CollectorState {
   last_reading: Option<(Instant, Arc<ProcessGpuReadings>)>,
   /// Completion time of the last actual refresh; cache hits do not move it.
   last_refresh: Option<Instant>,
-  /// `Some` while a background consumer demands readings: every refresh,
-  /// whoever triggered it, adds its interval here until the consumer takes
-  /// it, so no interval is counted twice or skipped.
-  background: Option<ProcessGpuUsage>,
+}
+
+/// Usage accumulated for a background consumer. Every refresh, whoever
+/// triggered it, adds its interval here until the consumer takes it, so no
+/// interval is counted twice or skipped.
+struct BackgroundAccumulator {
+  /// When the demand started. An interval that began earlier is not counted:
+  /// part of it passed while nobody demanded usage.
+  since: Instant,
+  usage: ProcessGpuUsage,
 }
 
 /// Owner of the per-process GPU usage refresh state. Never touches the
 /// database.
 pub struct ProcessGpuCollector {
+  /// Held across a sysinfo refresh, which can take a large fraction of a
+  /// second; only blocking callers take it.
   state: Mutex<CollectorState>,
+  /// `Some` while a background consumer demands usage. Held only to update
+  /// or swap the map, never across a refresh, so the collector loop can take
+  /// it on its async worker without waiting for a refresh in progress.
+  background: Mutex<Option<BackgroundAccumulator>>,
+  /// Set while a background refresh is queued or running, so the collector
+  /// loop does not queue another behind it.
+  background_refresh_pending: AtomicBool,
+}
+
+/// A queued background refresh. Run it on a blocking thread; dropping it,
+/// run or not, lets the next one be queued.
+pub struct BackgroundRefresh {
+  collector: Arc<ProcessGpuCollector>,
+}
+
+impl BackgroundRefresh {
+  /// Refreshes when the last refresh is at least
+  /// [`BACKGROUND_REFRESH_INTERVAL`] old. Blocking.
+  pub fn run(self) {
+    self
+      .collector
+      .refresh_background_with(Instant::now, refresh_gpu_usage);
+  }
+}
+
+impl Drop for BackgroundRefresh {
+  fn drop(&mut self) {
+    self
+      .collector
+      .background_refresh_pending
+      .store(false, Ordering::Release);
+  }
 }
 
 impl Default for ProcessGpuCollector {
@@ -116,38 +158,45 @@ impl ProcessGpuCollector {
         previous_raw: ProcessGpuReadings::new(),
         last_reading: None,
         last_refresh: None,
-        background: None,
       }),
+      background: Mutex::new(None),
+      background_refresh_pending: AtomicBool::new(false),
     }
   }
 
   /// Starts or stops background accumulation. Stopping drops what the
-  /// consumer has not taken yet.
+  /// consumer has not taken yet; starting counts only intervals that begin
+  /// after it.
   pub fn set_background_demand(&self, demanded: bool) {
-    let mut state = self.state.lock().unwrap();
-    match (demanded, state.background.is_some()) {
-      (true, false) => state.background = Some(ProcessGpuUsage::new()),
-      (false, true) => state.background = None,
+    self.set_background_demand_at(demanded, Instant::now());
+  }
+
+  fn set_background_demand_at(&self, demanded: bool, now: Instant) {
+    let mut background = self.background.lock().unwrap();
+    match (demanded, background.is_some()) {
+      (true, false) => {
+        *background = Some(BackgroundAccumulator {
+          since: now,
+          usage: ProcessGpuUsage::new(),
+        });
+      }
+      (false, true) => *background = None,
       _ => {}
     }
   }
 
-  /// Whether background demand is on and the last refresh is at least
-  /// [`BACKGROUND_REFRESH_INTERVAL`] old.
-  pub fn background_refresh_due(&self) -> bool {
-    self
-      .state
-      .lock()
-      .unwrap()
-      .background_refresh_due(Instant::now())
-  }
-
-  /// Refreshes for the background consumer when
-  /// [`Self::background_refresh_due`]. The reading also serves the next live
-  /// read inside [`LIVE_READ_MIN_INTERVAL`]. Blocking: callers on an async
-  /// runtime must use `spawn_blocking`.
-  pub fn refresh_background(&self) {
-    self.refresh_background_with(Instant::now, refresh_gpu_usage);
+  /// Queues a background refresh while background demand is on and none is
+  /// already queued. Never waits for a refresh in progress, so the collector
+  /// loop can call it on its async worker.
+  pub fn begin_background_refresh(self: &Arc<Self>) -> Option<BackgroundRefresh> {
+    if self.background.lock().unwrap().is_none()
+      || self.background_refresh_pending.swap(true, Ordering::AcqRel)
+    {
+      return None;
+    }
+    Some(BackgroundRefresh {
+      collector: Arc::clone(self),
+    })
   }
 
   fn refresh_background_with(
@@ -157,24 +206,28 @@ impl ProcessGpuCollector {
   ) {
     let mut state = self.state.lock().unwrap();
     let requested_at = clock();
-    // Re-checked under the lock: a live read may have refreshed meanwhile.
-    if !state.background_refresh_due(requested_at) {
+    // Checked under the lock: a live read may have refreshed meanwhile.
+    let due = state
+      .last_refresh
+      .is_none_or(|at| requested_at.duration_since(at) >= BACKGROUND_REFRESH_INTERVAL);
+    if !due || self.background.lock().unwrap().is_none() {
       return;
     }
-    let (completed_at, readings) = state.refresh(requested_at, clock, collect);
+    let (completed_at, readings) =
+      state.refresh(requested_at, clock, collect, &self.background);
+    // The reading also serves the next live read inside the guard window.
     state.last_reading = Some((completed_at, Arc::new(readings)));
   }
 
   /// Takes the usage accumulated since the previous call. Empty while no
-  /// background consumer demands it.
+  /// background consumer demands it. Never waits for a refresh in progress.
   pub fn take_background_usage(&self) -> ProcessGpuUsage {
     self
-      .state
+      .background
       .lock()
       .unwrap()
-      .background
       .as_mut()
-      .map(std::mem::take)
+      .map(|background| std::mem::take(&mut background.usage))
       .unwrap_or_default()
   }
 
@@ -202,7 +255,8 @@ impl ProcessGpuCollector {
       return Arc::clone(reading);
     }
 
-    let (completed_at, readings) = state.refresh(requested_at, clock, collect);
+    let (completed_at, readings) =
+      state.refresh(requested_at, clock, collect, &self.background);
     let reading = Arc::new(readings);
     state.last_reading = Some((completed_at, Arc::clone(&reading)));
     reading
@@ -210,13 +264,6 @@ impl ProcessGpuCollector {
 }
 
 impl CollectorState {
-  fn background_refresh_due(&self, now: Instant) -> bool {
-    self.background.is_some()
-      && self
-        .last_refresh
-        .is_none_or(|at| now.duration_since(at) >= BACKGROUND_REFRESH_INTERVAL)
-  }
-
   /// Refreshes GPU usage and returns the completion time with the readings
   /// for the interval since the previous refresh. The readings are empty when
   /// that refresh is older than [`MAX_BASELINE_AGE`]. While background demand
@@ -226,6 +273,7 @@ impl CollectorState {
     requested_at: Instant,
     clock: impl Fn() -> Instant,
     collect: impl FnOnce(&mut System, &mut ProcessGpuReadings) -> ProcessGpuReadings,
+    background: &Mutex<Option<BackgroundAccumulator>>,
   ) -> (Instant, ProcessGpuReadings) {
     // The refresh always runs so the baseline moves forward, but a stale
     // baseline's values span the idle gap and are discarded.
@@ -239,19 +287,23 @@ impl CollectorState {
     // Stamp with the completion time: the refresh itself can take a large
     // part of the guard interval, and the delta window ends here.
     let completed_at = clock();
-    let interval = self
-      .last_refresh
-      .replace(completed_at)
-      .map(|previous| completed_at.duration_since(previous));
+    let interval_start = self.last_refresh.replace(completed_at);
     let readings = if stale_baseline {
       ProcessGpuReadings::new()
     } else {
       collected
     };
-    if let (Some(background), Some(interval)) = (self.background.as_mut(), interval) {
-      let seconds = interval.as_secs_f64();
+    if let Some(start) = interval_start
+      && let Some(background) = background.lock().unwrap().as_mut()
+      && start >= background.since
+    {
+      let seconds = completed_at.duration_since(start).as_secs_f64();
       for (key, usage) in &readings {
-        background.entry(*key).or_default().add(*usage, seconds);
+        background
+          .usage
+          .entry(*key)
+          .or_default()
+          .add(*usage, seconds);
       }
     }
     (completed_at, readings)
@@ -527,7 +579,7 @@ mod tests {
 
   #[test]
   fn nothing_accumulates_without_background_demand() {
-    let collector = ProcessGpuCollector::new();
+    let collector = Arc::new(ProcessGpuCollector::new());
     let t0 = Instant::now();
 
     collector.read_with(|| t0, |_, _| HashMap::from([((1, 1), 7.0)]));
@@ -536,7 +588,7 @@ mod tests {
       |_, _| HashMap::from([((1, 1), 7.0)]),
     );
 
-    assert!(!collector.background_refresh_due());
+    assert!(collector.begin_background_refresh().is_none());
     assert!(collector.take_background_usage().is_empty());
   }
 
@@ -619,5 +671,80 @@ mod tests {
     collector.set_background_demand(true);
 
     assert!(collector.take_background_usage().is_empty());
+  }
+
+  #[test]
+  fn an_interval_that_began_before_the_demand_is_not_counted() {
+    let collector = ProcessGpuCollector::new();
+    let t0 = Instant::now();
+    let reading = || HashMap::from([((1, 1), 50.0)]);
+    let t1 = t0 + BACKGROUND_REFRESH_INTERVAL;
+    let t2 = t1 + BACKGROUND_REFRESH_INTERVAL;
+    let t3 = t2 + BACKGROUND_REFRESH_INTERVAL;
+
+    collector.read_with(|| t0, |_, _| reading());
+    collector.set_background_demand_at(true, t0 + Duration::from_secs(9));
+    collector.refresh_background_with(|| t1, |_, _| reading());
+    assert!(
+      collector.take_background_usage().is_empty(),
+      "nine of these ten seconds passed without demand"
+    );
+
+    collector.refresh_background_with(|| t2, |_, _| reading());
+    assert_eq!(
+      collector.take_background_usage()[&(1, 1)].covered_seconds,
+      BACKGROUND_REFRESH_INTERVAL.as_secs_f64()
+    );
+
+    collector.set_background_demand_at(false, t2);
+    collector.set_background_demand_at(true, t2 + LIVE_READ_MIN_INTERVAL);
+    collector.refresh_background_with(|| t3, |_, _| reading());
+    assert!(
+      collector.take_background_usage().is_empty(),
+      "re-enabling demand starts a new baseline too"
+    );
+  }
+
+  #[test]
+  fn only_one_background_refresh_is_queued_at_a_time() {
+    let collector = Arc::new(ProcessGpuCollector::new());
+    assert!(collector.begin_background_refresh().is_none(), "no demand");
+
+    collector.set_background_demand(true);
+    let queued = collector.begin_background_refresh();
+    assert!(queued.is_some());
+    assert!(
+      collector.begin_background_refresh().is_none(),
+      "one is already pending"
+    );
+
+    drop(queued);
+    assert!(collector.begin_background_refresh().is_some());
+  }
+
+  #[test]
+  fn the_collector_loop_never_waits_for_a_refresh_in_progress() {
+    let collector = Arc::new(demanded_collector());
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+    let reader = {
+      let collector = Arc::clone(&collector);
+      std::thread::spawn(move || {
+        collector.read_with(Instant::now, |_, _| {
+          started_tx.send(()).unwrap();
+          release_rx.recv().unwrap();
+          HashMap::new()
+        });
+      })
+    };
+    started_rx.recv().unwrap();
+
+    // Both calls the loop makes on its async worker return while the live
+    // read still holds the refresh state.
+    assert!(collector.take_background_usage().is_empty());
+    assert!(collector.begin_background_refresh().is_some());
+
+    release_tx.send(()).unwrap();
+    reader.join().unwrap();
   }
 }

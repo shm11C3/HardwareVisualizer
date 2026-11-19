@@ -92,7 +92,7 @@ impl SystemMonitorController {
             #[cfg(target_os = "windows")]
             let _ = sensor_ticks.try_send(());
 
-            refresh_process_gpu_if_due(&process_gpu).await;
+            queue_process_gpu_refresh(&process_gpu);
 
             if let Some(snapshot) = sampling::collect_snapshot(&store, &platform, &process_gpu).await {
               bus.publish(snapshot);
@@ -135,21 +135,13 @@ impl SystemMonitorController {
   }
 }
 
-/// Runs the background per-process GPU refresh when one is due. The refresh
-/// walks every process (about 160 ms for ~1000 processes on macOS), so it
-/// runs on the blocking pool instead of the collector task's worker.
-async fn refresh_process_gpu_if_due(process_gpu: &Arc<ProcessGpuCollector>) {
-  if !process_gpu.background_refresh_due() {
-    return;
-  }
-  let collector = Arc::clone(process_gpu);
-  if let Err(error) =
-    tokio::task::spawn_blocking(move || collector.refresh_background()).await
-  {
-    log_error!(
-      "background process GPU refresh failed",
-      "collector::system_monitor",
-      Some(error.to_string())
-    );
+/// Queues a background per-process GPU refresh while one is demanded. The
+/// refresh walks every process (about 160 ms for ~1000 processes on macOS)
+/// and may wait for a Live Process Table read holding the same state, so it
+/// runs detached on the blocking pool: the tick never waits for it, and a
+/// later snapshot takes the usage it adds.
+fn queue_process_gpu_refresh(process_gpu: &Arc<ProcessGpuCollector>) {
+  if let Some(refresh) = process_gpu.begin_background_refresh() {
+    tokio::task::spawn_blocking(move || refresh.run());
   }
 }
