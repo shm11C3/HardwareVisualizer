@@ -10,16 +10,16 @@
 //! - [`live_storage_health::LiveStorageHealthCollector`] serves on-demand
 //!   Live Storage Health reads against a startup-cached device list
 //!   (ADR 0006); nothing is persisted.
-//! - [`live_process_gpu::LiveProcessGpuCollector`] serves per-process GPU
+//! - [`process_gpu::ProcessGpuCollector`] serves per-process GPU
 //!   usage only while the Live Process Table polls; nothing is persisted.
 
 pub mod history;
-pub mod live_process_gpu;
 pub mod live_storage_health;
+pub mod process_gpu;
 pub mod sampling;
 pub mod system_monitor;
 
 pub use history::HistoryStore;
-pub use live_process_gpu::{LiveProcessGpuCollector, live_process_list};
 pub use live_storage_health::LiveStorageHealthCollector;
+pub use process_gpu::{ProcessGpuCollector, live_process_list};
 pub use system_monitor::SystemMonitorController;
