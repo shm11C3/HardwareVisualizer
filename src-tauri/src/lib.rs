@@ -927,6 +927,9 @@ pub fn run() {
               &bus,
               runtime_handle.clone(),
               environmental_sensors,
+              Some(Arc::clone(
+                &app.state::<Arc<hardviz_core::collector::ProcessGpuCollector>>(),
+              )),
             );
           {
             let ws = app.state::<workers::WorkersState>();
