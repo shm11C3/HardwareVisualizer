@@ -11,10 +11,18 @@ export default defineConfig({
       "e2e-native/**/*.{test,spec}.ts",
     ],
     coverage: {
-      include: ["src/**/*.ts"],
+      // Components are measured so untested screens show up in the report.
+      // Rendered lines count as covered without any assertion, so read the
+      // .tsx numbers as "was this executed at all", not as "is this verified".
+      include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/rspc/**",
         "src/e2e/**",
+        // App entry points only mount the root; they are exercised by E2E.
+        "src/main.tsx",
+        "src/main.e2e.tsx",
+        // shadcn/ui primitives copied from the registry (see components.json).
+        "src/components/ui/**",
         "src/**/*.test.*",
         "src/**/*.spec.*",
         "src/**/*.d.ts",
