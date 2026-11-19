@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::config::Thresholds;
-use crate::monitor::MonitorResult;
+use crate::monitor::{MonitorResult, MonitorRun, Phase};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum OutputFormat {
@@ -23,6 +23,14 @@ struct CheckResult {
 
 #[derive(Debug, Serialize)]
 struct JsonReport {
+  desktop: PhaseReport,
+  /// `null` when this platform cannot move the app to the background.
+  background: Option<PhaseReport>,
+  passed: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct PhaseReport {
   duration_seconds: u64,
   warmup_seconds: u64,
   sample_count: usize,
@@ -85,23 +93,54 @@ struct ProcessCountReport {
   max_webview: usize,
 }
 
-/// Formats and prints the report. Returns `true` if all checks passed.
+/// One measured phase checked against its thresholds.
+struct PhaseCheck<'a> {
+  phase: Phase,
+  result: &'a MonitorResult,
+  thresholds: &'a Thresholds,
+  check: CheckResult,
+}
+
+impl<'a> PhaseCheck<'a> {
+  fn new(phase: Phase, result: &'a MonitorResult, thresholds: &'a Thresholds) -> Self {
+    Self {
+      phase,
+      result,
+      thresholds,
+      check: CheckResult::new(result, thresholds),
+    }
+  }
+}
+
+/// Formats and prints the report. Returns `true` if every measured phase
+/// passed its thresholds.
 pub fn format_report(
-  result: &MonitorResult,
-  thresholds: &Thresholds,
+  run: &MonitorRun,
+  desktop_thresholds: &Thresholds,
+  background_thresholds: &Thresholds,
   format: OutputFormat,
 ) -> bool {
-  let check = CheckResult::new(result, thresholds);
+  let desktop = PhaseCheck::new(Phase::Desktop, &run.desktop, desktop_thresholds);
+  let background = run
+    .background
+    .as_ref()
+    .map(|result| PhaseCheck::new(Phase::Background, result, background_thresholds));
+  let passed = desktop.check.all_passed
+    && background
+      .as_ref()
+      .is_none_or(|background| background.check.all_passed);
+  let text = text_report(&desktop, background.as_ref(), passed);
 
   match format {
-    OutputFormat::Text => print_text_report(result, thresholds, &check),
+    OutputFormat::Text => print!("{text}"),
     OutputFormat::Json => {
-      print_json_report(result, thresholds, &check);
-      print_log_summary(result, thresholds, &check);
+      print_json_report(&desktop, background.as_ref(), passed);
+      // Keep the human-readable report in CI logs while stdout stays JSON.
+      eprint!("{text}");
     }
   }
 
-  check.all_passed
+  passed
 }
 
 impl CheckResult {
@@ -141,27 +180,55 @@ fn status_label(passed: bool) -> &'static str {
   if passed { "PASS" } else { "FAIL" }
 }
 
-fn print_text_report(
-  result: &MonitorResult,
-  thresholds: &Thresholds,
-  check: &CheckResult,
-) {
-  print!("{}", text_report(result, thresholds, check));
-}
-
 fn text_report(
-  result: &MonitorResult,
-  thresholds: &Thresholds,
-  check: &CheckResult,
+  desktop: &PhaseCheck<'_>,
+  background: Option<&PhaseCheck<'_>>,
+  passed: bool,
 ) -> String {
   use std::fmt::Write as _;
 
+  let mut report = phase_text_report(desktop);
+  match background {
+    Some(background) => report.push_str(&phase_text_report(background)),
+    None => {
+      let _ = writeln!(report);
+      let _ = writeln!(
+        report,
+        "=== Performance Test Results ({} phase) ===",
+        Phase::Background
+      );
+      let _ = writeln!(
+        report,
+        "Not measured: closing the main window is implemented on Windows only."
+      );
+    }
+  }
+  let _ = writeln!(report);
+  let _ = writeln!(report, "Result: {}", status_label(passed));
+
+  report
+}
+
+fn phase_text_report(phase: &PhaseCheck<'_>) -> String {
+  use std::fmt::Write as _;
+
+  let PhaseCheck {
+    phase,
+    result,
+    thresholds,
+    check,
+  } = phase;
+  let warmup_label = match phase {
+    Phase::Desktop => "warmup",
+    Phase::Background => "settling after the window closed",
+  };
+
   let mut report = String::new();
   let _ = writeln!(report);
-  let _ = writeln!(report, "=== Performance Test Results ===");
+  let _ = writeln!(report, "=== Performance Test Results ({phase} phase) ===");
   let _ = writeln!(
     report,
-    "Duration: {}s (after {}s warmup)",
+    "Duration: {}s (after {}s {warmup_label})",
     result.duration_seconds, result.warmup_seconds
   );
   let _ = writeln!(report, "Samples: {}", result.samples.len());
@@ -254,22 +321,40 @@ fn text_report(
     result.other_process_memory.p95_mb,
     result.other_process_memory.growth_mb
   );
-  let _ = writeln!(report);
-  let _ = writeln!(
-    report,
-    "Result: {}",
-    if check.all_passed { "PASS" } else { "FAIL" }
-  );
+  let _ = writeln!(report, "Phase result: {}", status_label(check.all_passed));
 
   report
 }
 
 fn print_json_report(
-  result: &MonitorResult,
-  thresholds: &Thresholds,
-  check: &CheckResult,
+  desktop: &PhaseCheck<'_>,
+  background: Option<&PhaseCheck<'_>>,
+  passed: bool,
 ) {
   let report = JsonReport {
+    desktop: phase_json_report(desktop),
+    background: background.map(phase_json_report),
+    passed,
+  };
+
+  match serde_json::to_string_pretty(&report) {
+    Ok(json) => println!("{json}"),
+    Err(e) => {
+      eprintln!("Error: failed to serialize report: {e}");
+      std::process::exit(1);
+    }
+  }
+}
+
+fn phase_json_report(phase: &PhaseCheck<'_>) -> PhaseReport {
+  let PhaseCheck {
+    result,
+    thresholds,
+    check,
+    ..
+  } = phase;
+
+  PhaseReport {
     duration_seconds: result.duration_seconds,
     warmup_seconds: result.warmup_seconds,
     sample_count: result.samples.len(),
@@ -333,23 +418,7 @@ fn print_json_report(
       },
     },
     passed: check.all_passed,
-  };
-
-  match serde_json::to_string_pretty(&report) {
-    Ok(json) => println!("{json}"),
-    Err(e) => {
-      eprintln!("Error: failed to serialize report: {e}");
-      std::process::exit(1);
-    }
   }
-}
-
-fn print_log_summary(
-  result: &MonitorResult,
-  thresholds: &Thresholds,
-  check: &CheckResult,
-) {
-  eprint!("{}", text_report(result, thresholds, check));
 }
 
 #[cfg(test)]
@@ -359,46 +428,13 @@ mod tests {
 
   #[test]
   fn text_report_contains_threshold_status_and_memory_breakdown() {
-    let result = MonitorResult {
-      samples: vec![ProcessMetrics {
-        cpu_usage: 1.0,
-        memory_rss_mb: 275.0,
-        parent_memory_rss_mb: 50.0,
-        webview_memory_rss_mb: 200.0,
-        other_process_memory_rss_mb: 25.0,
-        process_count: 3,
-        webview_process_count: 1,
-      }],
-      avg_cpu: 1.0,
-      max_cpu: 1.0,
-      p95_cpu: 1.0,
-      avg_memory_mb: 275.0,
-      max_memory_mb: 275.0,
-      p95_memory_mb: 275.0,
-      memory_growth_mb: 0.0,
-      parent_memory: memory_stats(50.0),
-      webview_memory: memory_stats(200.0),
-      other_process_memory: memory_stats(25.0),
-      max_process_count: 3,
-      max_webview_process_count: 1,
-      duration_seconds: 10,
-      warmup_seconds: 5,
-    };
-    let thresholds = Thresholds {
-      max_avg_cpu_percent: 5.0,
-      max_p95_cpu_percent: 10.0,
-      max_avg_app_memory_mb: 100.0,
-      max_p95_app_memory_mb: 100.0,
-      max_app_memory_growth_mb: 50.0,
-      max_avg_memory_mb: 450.0,
-      max_p95_memory_mb: 500.0,
-      max_memory_growth_mb: 50.0,
-    };
-    let check = CheckResult::new(&result, &thresholds);
+    let result = monitor_result(1.0, 50.0, 200.0, 5);
+    let thresholds = thresholds();
+    let desktop = PhaseCheck::new(Phase::Desktop, &result, &thresholds);
 
-    let report = text_report(&result, &thresholds, &check);
+    let report = text_report(&desktop, None, desktop.check.all_passed);
 
-    assert!(report.contains("=== Performance Test Results ==="));
+    assert!(report.contains("=== Performance Test Results (desktop phase) ==="));
     assert!(report.contains("Duration: 10s (after 5s warmup)"));
     assert!(report.contains("CPU Usage:"));
     assert!(report.contains("Average:    1.0%  (threshold:   5.0%)  PASS"));
@@ -409,6 +445,118 @@ mod tests {
     assert!(report.contains("Processes: total max 3, WebView max 1"));
     assert!(report.contains("Parent:  avg    50.0 MB"));
     assert!(report.contains("WebView: avg   200.0 MB"));
+    assert!(report.contains("Phase result: PASS"));
+  }
+
+  #[test]
+  fn text_report_marks_an_unsupported_background_phase_as_not_measured() {
+    let result = monitor_result(1.0, 50.0, 200.0, 5);
+    let thresholds = thresholds();
+    let desktop = PhaseCheck::new(Phase::Desktop, &result, &thresholds);
+
+    let report = text_report(&desktop, None, true);
+
+    assert!(report.contains("=== Performance Test Results (background phase) ==="));
+    assert!(report.contains("Not measured:"));
+    assert!(report.ends_with("Result: PASS\n"));
+  }
+
+  #[test]
+  fn background_phase_reports_its_own_thresholds_and_settling_time() {
+    let desktop_result = monitor_result(1.0, 50.0, 200.0, 5);
+    let background_result = monitor_result(0.5, 50.0, 80.0, 12);
+    let desktop_thresholds = thresholds();
+    let background_thresholds = Thresholds {
+      max_avg_memory_mb: 150.0,
+      ..thresholds()
+    };
+    let desktop = PhaseCheck::new(Phase::Desktop, &desktop_result, &desktop_thresholds);
+    let background = PhaseCheck::new(
+      Phase::Background,
+      &background_result,
+      &background_thresholds,
+    );
+
+    let report = text_report(&desktop, Some(&background), false);
+    let background_section = report
+      .split("=== Performance Test Results (background phase) ===")
+      .nth(1)
+      .expect("background section");
+
+    assert!(
+      background_section
+        .contains("Duration: 10s (after 12s settling after the window closed)")
+    );
+    assert!(
+      background_section.contains("Average:   155.0 MB  (threshold:  150.0 MB)  FAIL")
+    );
+    assert!(background_section.contains("Phase result: FAIL"));
+    assert!(report.ends_with("Result: FAIL\n"));
+  }
+
+  #[test]
+  fn json_report_keeps_each_phase_check_separate() {
+    let desktop_result = monitor_result(1.0, 50.0, 200.0, 5);
+    let background_result = monitor_result(7.0, 50.0, 80.0, 12);
+    let thresholds = thresholds();
+    let desktop = PhaseCheck::new(Phase::Desktop, &desktop_result, &thresholds);
+    let background = PhaseCheck::new(Phase::Background, &background_result, &thresholds);
+
+    let desktop_json = phase_json_report(&desktop);
+    let background_json = phase_json_report(&background);
+
+    assert!(desktop_json.passed);
+    assert!(!background_json.passed);
+    assert!(!background_json.cpu.avg_passed);
+    assert_eq!(background_json.warmup_seconds, 12);
+  }
+
+  fn monitor_result(
+    cpu: f32,
+    parent_mb: f64,
+    webview_mb: f64,
+    warmup_seconds: u64,
+  ) -> MonitorResult {
+    let other_mb = 25.0;
+    let total_mb = parent_mb + webview_mb + other_mb;
+    MonitorResult {
+      samples: vec![ProcessMetrics {
+        cpu_usage: cpu,
+        memory_rss_mb: total_mb,
+        parent_memory_rss_mb: parent_mb,
+        webview_memory_rss_mb: webview_mb,
+        other_process_memory_rss_mb: other_mb,
+        process_count: 3,
+        webview_process_count: 1,
+      }],
+      avg_cpu: cpu,
+      max_cpu: cpu,
+      p95_cpu: cpu,
+      avg_memory_mb: total_mb,
+      max_memory_mb: total_mb,
+      p95_memory_mb: total_mb,
+      memory_growth_mb: 0.0,
+      parent_memory: memory_stats(parent_mb),
+      webview_memory: memory_stats(webview_mb),
+      other_process_memory: memory_stats(other_mb),
+      max_process_count: 3,
+      max_webview_process_count: 1,
+      duration_seconds: 10,
+      warmup_seconds,
+    }
+  }
+
+  fn thresholds() -> Thresholds {
+    Thresholds {
+      max_avg_cpu_percent: 5.0,
+      max_p95_cpu_percent: 10.0,
+      max_avg_app_memory_mb: 100.0,
+      max_p95_app_memory_mb: 100.0,
+      max_app_memory_growth_mb: 50.0,
+      max_avg_memory_mb: 450.0,
+      max_p95_memory_mb: 500.0,
+      max_memory_growth_mb: 50.0,
+    }
   }
 
   fn memory_stats(value: f64) -> MemoryStats {

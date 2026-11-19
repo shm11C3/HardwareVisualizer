@@ -9,12 +9,15 @@ use std::time::Duration;
 use sysinfo::{Pid, Process, ProcessesToUpdate, System};
 
 use crate::config::{STABILITY_WINDOW_SAMPLES, Timing};
+use crate::main_window;
 
 const BYTES_PER_MIB: f64 = 1024.0 * 1024.0;
 const GROWTH_WINDOW_SAMPLES: usize = 5;
 const STABILITY_MAX_MEDIAN_SHIFT_MB: f64 = 5.0;
 const STDERR_BUFFER_LIMIT_BYTES: usize = 64 * 1024;
 const STDERR_READ_CHUNK_BYTES: usize = 8 * 1024;
+#[cfg(target_os = "windows")]
+const BACKGROUND_TRANSITION_TIMEOUT_SECONDS: u64 = 15;
 const WEBVIEW_PROCESS_MARKERS: &[&str] = &[
   "msedgewebview2",
   "webkitwebprocess",
@@ -27,6 +30,32 @@ const WEBVIEW_PROCESS_MARKERS: &[&str] = &[
   "com.apple.webkit.networking",
   "com.apple.webkit.gpu",
 ];
+
+/// What the app is doing while a phase is measured.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Phase {
+  /// The main window is open, as right after a desktop launch.
+  Desktop,
+  /// The main window was closed to the tray and the app keeps monitoring.
+  Background,
+}
+
+impl std::fmt::Display for Phase {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.write_str(match self {
+      Phase::Desktop => "desktop",
+      Phase::Background => "background",
+    })
+  }
+}
+
+/// Both phases of one launch, measured in sequence on the same process.
+#[derive(Debug)]
+pub struct MonitorRun {
+  pub desktop: MonitorResult,
+  /// `None` where the monitor cannot close the main window (non-Windows).
+  pub background: Option<MonitorResult>,
+}
 
 #[derive(Debug)]
 pub struct ProcessMetrics {
@@ -198,23 +227,43 @@ impl Drop for ProcessGuard {
 pub fn run_monitor(
   binary_path: &Path,
   timing: &Timing,
-) -> Result<MonitorResult, Box<dyn std::error::Error>> {
+) -> Result<MonitorRun, Box<dyn std::error::Error>> {
   let preexisting_webview_pids = collect_preexisting_webview_pids();
 
-  let mut guard = launch_process(binary_path)?;
+  let guard = launch_process(binary_path)?;
   let pid = Pid::from_u32(guard.child.id());
-  let tracker = ProcessTracker::new(pid, binary_path, preexisting_webview_pids);
-  let num_cpus = thread::available_parallelism()
-    .map(|n| n.get() as f32)
-    .unwrap_or(1.0);
-
-  let mut system = System::new();
+  let mut session = Session {
+    guard,
+    tracker: ProcessTracker::new(pid, binary_path, preexisting_webview_pids),
+    system: System::new(),
+    num_cpus: thread::available_parallelism()
+      .map(|n| n.get() as f32)
+      .unwrap_or(1.0),
+    binary_path,
+  };
 
   // Initial refresh to establish CPU baselines and discover helper processes.
-  system.refresh_processes(ProcessesToUpdate::All, true);
+  session.refresh();
 
+  let desktop = measure_desktop(&mut session, timing)?;
+  let background = measure_background(&mut session, timing)?;
+
+  // ProcessGuard::drop will terminate the process
+  drop(session);
+
+  Ok(MonitorRun {
+    desktop,
+    background,
+  })
+}
+
+fn measure_desktop(
+  session: &mut Session<'_>,
+  timing: &Timing,
+) -> Result<MonitorResult, Box<dyn std::error::Error>> {
+  let phase = Phase::Desktop;
   eprintln!(
-    "Warming up for at least {} seconds...",
+    "[{phase}] Warming up for at least {} seconds...",
     timing.warmup_seconds
   );
 
@@ -223,105 +272,181 @@ pub fn run_monitor(
   // set and component RSS have remained stable for a rolling window.
   for _ in 0..timing.warmup_seconds {
     thread::sleep(Duration::from_secs(1));
-    if guard.child.try_wait()?.is_some() {
-      return Err(format_exit_error(&mut guard, "warmup", binary_path));
-    }
-    system.refresh_processes(ProcessesToUpdate::All, true);
+    session.ensure_running(phase, "warmup")?;
+    session.refresh();
   }
 
-  eprintln!(
-    "Waiting up to {} seconds for process memory and helpers to stabilize...",
-    timing.stabilization_timeout_seconds
-  );
-
-  let mut stability_samples = VecDeque::with_capacity(STABILITY_WINDOW_SAMPLES);
-  let mut stabilization_seconds = 0;
-  let mut stabilized = false;
-
-  for _ in 0..timing.stabilization_timeout_seconds {
-    thread::sleep(Duration::from_secs(1));
-    stabilization_seconds += 1;
-
-    if guard.child.try_wait()?.is_some() {
-      return Err(format_exit_error(&mut guard, "stabilization", binary_path));
-    }
-
-    system.refresh_processes(ProcessesToUpdate::All, true);
-
-    let Some((metrics, process_ids)) = tracker.sample_with_process_ids(&system, num_cpus)
-    else {
-      if guard.child.try_wait()?.is_some() {
-        return Err(format_exit_error(&mut guard, "stabilization", binary_path));
-      }
-      return Err("Process disappeared during stabilization".into());
-    };
-
-    if stability_samples.len() == STABILITY_WINDOW_SAMPLES {
-      stability_samples.pop_front();
-    }
-    stability_samples.push_back(StabilitySample::new(metrics, process_ids));
-
-    if process_tree_is_stable(&stability_samples) {
-      stabilized = true;
-      break;
-    }
-  }
-
-  if !stabilized {
-    return Err(format!(
-      "Process tree did not stabilize within {} seconds after the {}-second minimum warmup",
-      timing.stabilization_timeout_seconds, timing.warmup_seconds
-    )
-    .into());
-  }
-
-  let actual_warmup_seconds = timing.warmup_seconds + stabilization_seconds;
-  eprintln!(
-    "Process tree stabilized after {} seconds ({} consecutive samples).",
-    actual_warmup_seconds, STABILITY_WINDOW_SAMPLES
-  );
-
-  eprintln!(
-    "Measuring for {} seconds (interval: {}ms)...",
-    timing.measurement_seconds, timing.sample_interval_ms
-  );
-
-  // Measurement phase
-  let interval = Duration::from_millis(timing.sample_interval_ms);
-  let total_samples = (timing.measurement_seconds * 1000) / timing.sample_interval_ms;
-  let mut samples = Vec::with_capacity(total_samples as usize);
-
-  for _ in 0..total_samples {
-    thread::sleep(interval);
-
-    if guard.child.try_wait()?.is_some() {
-      return Err(format_exit_error(&mut guard, "measurement", binary_path));
-    }
-
-    system.refresh_processes(ProcessesToUpdate::All, true);
-
-    if let Some(sample) = tracker.sample(&system, num_cpus) {
-      samples.push(sample);
-    } else {
-      if guard.child.try_wait()?.is_some() {
-        return Err(format_exit_error(&mut guard, "measurement", binary_path));
-      }
-      return Err("Process disappeared during measurement".into());
-    }
-  }
-
-  // ProcessGuard::drop will terminate the process
-  drop(guard);
-
-  if samples.is_empty() {
-    return Err("No samples collected".into());
-  }
+  let stabilization_seconds = session.stabilize(phase, timing)?;
+  let samples = session.measure(phase, timing)?;
 
   Ok(compute_result(
     samples,
     timing.measurement_seconds,
-    actual_warmup_seconds,
+    timing.warmup_seconds + stabilization_seconds,
   ))
+}
+
+#[cfg(target_os = "windows")]
+fn measure_background(
+  session: &mut Session<'_>,
+  timing: &Timing,
+) -> Result<Option<MonitorResult>, Box<dyn std::error::Error>> {
+  let phase = Phase::Background;
+  let pid = session.guard.child.id();
+  eprintln!("[{phase}] Closing the main window to move the app to the background...");
+  main_window::request_close(pid)?;
+
+  let mut hidden = false;
+  for _ in 0..BACKGROUND_TRANSITION_TIMEOUT_SECONDS {
+    thread::sleep(Duration::from_secs(1));
+    session.ensure_running(phase, "the close-to-background transition")?;
+    if !main_window::has_visible_window(pid) {
+      hidden = true;
+      break;
+    }
+  }
+  if !hidden {
+    return Err(format!(
+      "The main window was still visible {BACKGROUND_TRANSITION_TIMEOUT_SECONDS} seconds after the close request"
+    )
+    .into());
+  }
+
+  // Hiding the window starts WebView suspension and lets helper processes
+  // shrink or exit, so the background baseline has to settle again.
+  session.refresh();
+  let stabilization_seconds = session.stabilize(phase, timing)?;
+  let samples = session.measure(phase, timing)?;
+
+  Ok(Some(compute_result(
+    samples,
+    timing.measurement_seconds,
+    stabilization_seconds,
+  )))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn measure_background(
+  _session: &mut Session<'_>,
+  _timing: &Timing,
+) -> Result<Option<MonitorResult>, Box<dyn std::error::Error>> {
+  eprintln!(
+    "[{}] Skipped: closing the main window is implemented on Windows only.",
+    Phase::Background
+  );
+  Ok(None)
+}
+
+/// The launched app and the sampling state shared by every phase.
+struct Session<'a> {
+  guard: ProcessGuard,
+  tracker: ProcessTracker,
+  system: System,
+  num_cpus: f32,
+  binary_path: &'a Path,
+}
+
+impl Session<'_> {
+  fn refresh(&mut self) {
+    self.system.refresh_processes(ProcessesToUpdate::All, true);
+  }
+
+  fn ensure_running(
+    &mut self,
+    phase: Phase,
+    step: &str,
+  ) -> Result<(), Box<dyn std::error::Error>> {
+    if self.guard.child.try_wait()?.is_some() {
+      return Err(format_exit_error(
+        &mut self.guard,
+        &format!("{phase} {step}"),
+        self.binary_path,
+      ));
+    }
+    Ok(())
+  }
+
+  /// Samples once per second until the helper set and component RSS stay
+  /// stable for a full window. Returns the seconds it took.
+  fn stabilize(
+    &mut self,
+    phase: Phase,
+    timing: &Timing,
+  ) -> Result<u64, Box<dyn std::error::Error>> {
+    eprintln!(
+      "[{phase}] Waiting up to {} seconds for process memory and helpers to stabilize...",
+      timing.stabilization_timeout_seconds
+    );
+
+    let mut stability_samples = VecDeque::with_capacity(STABILITY_WINDOW_SAMPLES);
+
+    for elapsed in 1..=timing.stabilization_timeout_seconds {
+      thread::sleep(Duration::from_secs(1));
+      self.ensure_running(phase, "stabilization")?;
+      self.refresh();
+
+      let Some((metrics, process_ids)) = self
+        .tracker
+        .sample_with_process_ids(&self.system, self.num_cpus)
+      else {
+        self.ensure_running(phase, "stabilization")?;
+        return Err(format!("Process disappeared during {phase} stabilization").into());
+      };
+
+      if stability_samples.len() == STABILITY_WINDOW_SAMPLES {
+        stability_samples.pop_front();
+      }
+      stability_samples.push_back(StabilitySample::new(metrics, process_ids));
+
+      if process_tree_is_stable(&stability_samples) {
+        eprintln!(
+          "[{phase}] Process tree stabilized after {elapsed} seconds ({STABILITY_WINDOW_SAMPLES} consecutive samples)."
+        );
+        return Ok(elapsed);
+      }
+    }
+
+    Err(
+      format!(
+        "Process tree did not stabilize within {} seconds in the {phase} phase",
+        timing.stabilization_timeout_seconds
+      )
+      .into(),
+    )
+  }
+
+  fn measure(
+    &mut self,
+    phase: Phase,
+    timing: &Timing,
+  ) -> Result<Vec<ProcessMetrics>, Box<dyn std::error::Error>> {
+    eprintln!(
+      "[{phase}] Measuring for {} seconds (interval: {}ms)...",
+      timing.measurement_seconds, timing.sample_interval_ms
+    );
+
+    let interval = Duration::from_millis(timing.sample_interval_ms);
+    let total_samples = (timing.measurement_seconds * 1000) / timing.sample_interval_ms;
+    let mut samples = Vec::with_capacity(total_samples as usize);
+
+    for _ in 0..total_samples {
+      thread::sleep(interval);
+      self.ensure_running(phase, "measurement")?;
+      self.refresh();
+
+      let Some(sample) = self.tracker.sample(&self.system, self.num_cpus) else {
+        self.ensure_running(phase, "measurement")?;
+        return Err(format!("Process disappeared during {phase} measurement").into());
+      };
+      samples.push(sample);
+    }
+
+    if samples.is_empty() {
+      return Err(format!("No samples collected in the {phase} phase").into());
+    }
+
+    Ok(samples)
+  }
 }
 
 impl StabilitySample {
@@ -567,7 +692,10 @@ fn compact_token(token: &str) -> String {
 fn launch_process(
   binary_path: &Path,
 ) -> Result<ProcessGuard, Box<dyn std::error::Error>> {
-  let child = Command::new(binary_path).stderr(Stdio::piped()).spawn()?;
+  let child = Command::new(binary_path)
+    .env(main_window::CLOSE_TO_BACKGROUND_ENV, "1")
+    .stderr(Stdio::piped())
+    .spawn()?;
   eprintln!("Launched process with PID: {}", child.id());
   Ok(ProcessGuard::new(child))
 }

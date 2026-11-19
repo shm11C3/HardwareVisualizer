@@ -1,6 +1,6 @@
 # perf-monitor
 
-A standalone CLI tool that launches the HardwareVisualizer binary, measures CPU and memory usage via [sysinfo](https://crates.io/crates/sysinfo), and asserts that the values stay within configurable thresholds.
+A standalone CLI tool that launches the HardwareVisualizer binary, measures CPU and memory usage via [sysinfo](https://crates.io/crates/sysinfo), and asserts that the values stay within configurable thresholds. One run measures two phases of the same process: the **desktop** phase with the main window open after launch, then the **background** phase after the main window is closed to the tray.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ cargo perf-test -- --binary path/to/hardware-visualizer --warmup 5 --duration 10
 cargo perf-test -- --binary path/to/hardware-visualizer --output json > results.json
 ```
 
-When `--output json` is used, machine-readable JSON is written to stdout and the normal text report is written to stderr. This keeps redirected JSON artifacts valid while still showing the full performance result in CI logs.
+When `--output json` is used, machine-readable JSON is written to stdout and the normal text report is written to stderr. This keeps redirected JSON artifacts valid while still showing the full performance result in CI logs. The JSON report holds one object per phase under `desktop` and `background` (`null` when the background phase is not measured) and an overall `passed`.
 
 ## Configuration
 
@@ -82,14 +82,28 @@ max_p95_memory_mb = 650.0
 
 Only the fields you specify are overridden; others inherit from `[thresholds]`.
 
+### Background Overrides
+
+The background phase uses the desktop thresholds for the current platform, then
+applies the fields set under `[background]`:
+
+```toml
+[background]
+max_avg_memory_mb = 400.0
+```
+
 ## How It Works
 
-1. **Launch** - Spawns the target binary as a subprocess
+1. **Launch** - Spawns the target binary as a subprocess with `HARDVIZ_CLOSE_TO_BACKGROUND=1`, so closing its window keeps it running regardless of the saved close-to-tray preference
 2. **Minimum warmup** - Waits for the configured startup delay
 3. **Stabilize** - Samples once per second until the same helper PID set and stable component RSS are observed for 10 consecutive samples, or fails after `stabilization_timeout_seconds`
-4. **Measure** - Samples CPU and process-tree RSS at `sample_interval_ms` intervals using `sysinfo`
-5. **Terminate** - Kills the process (RAII guard ensures cleanup on errors)
-6. **Report** - Computes statistics (avg, max, P95, memory growth) and checks against thresholds
+4. **Measure desktop** - Samples CPU and process-tree RSS at `sample_interval_ms` intervals using `sysinfo`
+5. **Close to background** - Posts `WM_CLOSE` to the visible app windows and waits up to 15 seconds for them to hide. This is the same close path a user takes, including the WebView2 suspension
+6. **Stabilize and measure background** - Repeats steps 3 and 4 without a minimum warmup
+7. **Terminate** - Kills the process (RAII guard ensures cleanup on errors)
+8. **Report** - Computes statistics (avg, max, P95, memory growth) per phase and checks each against its thresholds
+
+Steps 5 and 6 run on Windows only, the platform the performance workflow runs on and the only one where the app suspends hidden WebViews. Other platforms report the background phase as not measured, and the result is decided by the desktop phase.
 
 RSS is considered stable when the median shift between the first and second
 halves of the 10-sample window is at most 5 MiB for the app, WebView, and other
@@ -110,12 +124,12 @@ Memory samples track both the launched app process RSS and the total process-tre
 
 ### Exit Code
 
-- `0` - All thresholds passed
-- `1` - One or more thresholds exceeded, or an error occurred
+- `0` - All thresholds passed in every measured phase
+- `1` - One or more thresholds exceeded in any phase, or an error occurred
 
 ### Troubleshooting
 
-If the monitor fails with `Process exited during warmup (exit status: exit code: 0)`, check for an already-running HardwareVisualizer instance. The app uses Tauri's single-instance plugin, so a second launch can hand off to the existing instance and exit before sampling begins.
+If the monitor fails with `Process exited during desktop warmup (exit status: exit code: 0)`, check for an already-running HardwareVisualizer instance. The app uses Tauri's single-instance plugin, so a second launch can hand off to the existing instance and exit before sampling begins.
 
 ```powershell
 Get-Process hardware-visualizer -ErrorAction SilentlyContinue
@@ -140,7 +154,8 @@ perf-monitor/
   Cargo.toml          # Crate manifest
   src/
     main.rs            # CLI entry point (clap)
-    config.rs          # TOML config loader with platform overrides and validation
+    config.rs          # TOML config loader with platform and background overrides and validation
+    main_window.rs     # Closes the app window to move it to the background (Windows)
     monitor.rs         # Process launch, sysinfo sampling, statistics
     report.rs          # Text and JSON report formatting
 ```
