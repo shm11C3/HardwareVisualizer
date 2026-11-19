@@ -8,6 +8,8 @@ interface ScreenTemplateProps {
   enabledBurnInShift?: boolean | undefined;
   /** The closed side rail is not rendered in full screen, so its gutter goes. */
   isFullScreen?: boolean | undefined;
+  /** Right-aligned header controls; rendered even when the title is hidden. */
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -16,6 +18,7 @@ export const ScreenTemplate: React.FC<ScreenTemplateProps> = ({
   icon,
   enabledBurnInShift = false,
   isFullScreen = false,
+  actions,
   children,
 }) => {
   return (
@@ -26,12 +29,15 @@ export const ScreenTemplate: React.FC<ScreenTemplateProps> = ({
           isFullScreen ? "pl-4" : "pl-16",
         )}
       >
-        <div className="flex items-center">
+        <div className="flex flex-wrap items-center gap-2">
           {icon != null && icon}
           {title && (
             <h2 className="py-3 pl-2 text-3xl font-bold text-foreground">
               {title}
             </h2>
+          )}
+          {actions != null && (
+            <div className="ml-auto flex items-center gap-2">{actions}</div>
           )}
         </div>
         {children}

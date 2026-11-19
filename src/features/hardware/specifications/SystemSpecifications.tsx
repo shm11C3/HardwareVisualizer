@@ -17,7 +17,6 @@ import {
   NetworkInfo,
   StorageDataInfo,
 } from "@/features/hardware/dashboard/components/DashboardItems";
-import { ExportHardwareInfo } from "@/features/hardware/dashboard/components/ExportHardwareInfo";
 import { gpuMemorySizeLabelKey } from "@/features/hardware/gpuMemorySizeLabel";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -86,8 +85,6 @@ export const SystemSpecifications = () => {
 
   return (
     <div data-testid="system-specifications-sheet">
-      <ExportHardwareInfo includeRuntimeStats={false} />
-
       <div className="divide-y divide-border px-1">
         <SpecSection
           icon={

@@ -1,6 +1,7 @@
-import { FunnelIcon } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
+import { ListFilterIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -53,13 +54,15 @@ export const DashboardItemSelector = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          className="rounded-lg bg-zinc-200 p-2 hover:bg-zinc-300 dark:bg-slate-800 dark:hover:bg-slate-700"
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           aria-label={t("pages.dashboard.visibleItems")}
+          title={t("pages.dashboard.visibleItems")}
         >
-          <FunnelIcon size={32} />
-        </button>
+          <ListFilterIcon className="size-5" aria-hidden="true" />
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>

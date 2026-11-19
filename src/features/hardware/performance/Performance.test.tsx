@@ -846,6 +846,26 @@ describe("Performance", () => {
     ).toHaveLength(2);
   });
 
+  it("places the hidden-panel strip above the panel grid", () => {
+    render(<Performance />);
+
+    act(() => {
+      screen.getByTestId("performance-edit-toggle").click();
+    });
+
+    // Below a long grid the strip would open off-screen, far from the edit
+    // toggle, while the discovery badge is already cleared.
+    const strip = screen.getByTestId("performance-hidden-panels");
+    const grid = screen
+      .getByTestId("performance-panel-usageGraphs")
+      .closest("[data-panel-columns]");
+    expect(grid).not.toBeNull();
+    expect(
+      strip.compareDocumentPosition(grid as Element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   describe("hidden-panel discovery badge", () => {
     const editToggle = () => screen.getByTestId("performance-edit-toggle");
 

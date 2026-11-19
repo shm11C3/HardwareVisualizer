@@ -26,6 +26,12 @@ export const SystemSpecifications = React.lazy(() =>
   ),
 );
 
+export const SystemSpecificationsActions = React.lazy(() =>
+  import(
+    "@/features/hardware/specifications/components/SystemSpecificationsActions"
+  ).then((m) => ({ default: m.SystemSpecificationsActions })),
+);
+
 export const CpuUsages = React.lazy(() =>
   import("@/features/hardware/usage/cpu/CpuUsage").then((m) => ({
     default: m.CpuUsages,
