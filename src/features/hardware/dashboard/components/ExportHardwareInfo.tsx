@@ -30,6 +30,9 @@ export const ExportHardwareInfo = () => {
             <CopyIcon className="size-5" aria-hidden="true" />
           )}
         </Button>
+        <span role="status" className="sr-only">
+          {copied ? t("pages.dashboard.copied") : ""}
+        </span>
         {failed && <ActionFailure message={t("pages.dashboard.copyFailed")} />}
       </div>
       <HardwareCompatibilityReport icon />

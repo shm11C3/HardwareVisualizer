@@ -33,6 +33,9 @@ export const SystemSpecificationsActions = () => {
             ? t("pages.dashboard.copied")
             : t("pages.dashboard.systemSpecifications.copySpecs")}
         </Button>
+        <span role="status" className="sr-only">
+          {copied ? t("pages.dashboard.copied") : ""}
+        </span>
         {failed && <ActionFailure message={t("pages.dashboard.copyFailed")} />}
       </div>
       <HardwareCompatibilityReport

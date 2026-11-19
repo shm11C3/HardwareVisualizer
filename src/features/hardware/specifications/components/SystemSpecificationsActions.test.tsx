@@ -58,7 +58,13 @@ describe("SystemSpecificationsActions copy feedback", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(screen.getByText("pages.dashboard.copied")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "pages.dashboard.copied" }),
+    ).toBeVisible();
+    // Screen readers hear the outcome even though focus stays on the button.
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "pages.dashboard.copied",
+    );
     expect(screen.queryByTestId("action-failure")).toBeNull();
 
     await act(async () => {
@@ -80,5 +86,33 @@ describe("SystemSpecificationsActions copy feedback", () => {
       "pages.dashboard.copyFailed",
     );
     expect(screen.queryByText("pages.dashboard.copied")).toBeNull();
+  });
+
+  it("lets only the latest attempt decide the outcome when copies overlap", async () => {
+    let rejectFirst: (reason: Error) => void = () => {};
+    vi.mocked(writeText)
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_, reject) => {
+            rejectFirst = reject;
+          }),
+      )
+      .mockResolvedValueOnce(undefined);
+    render(<SystemSpecificationsActions />);
+
+    fireEvent.click(screen.getByRole("button", { name: copyKey }));
+    fireEvent.click(screen.getByRole("button", { name: copyKey }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      rejectFirst(new Error("stale"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(
+      screen.getByRole("button", { name: "pages.dashboard.copied" }),
+    ).toBeVisible();
+    expect(screen.queryByTestId("action-failure")).toBeNull();
   });
 });

@@ -36,7 +36,7 @@ test.describe("Grouped navigation destinations", () => {
     await expect(page.getByTestId("performance-screen")).toHaveCount(0);
     await expect(page.getByTestId("system-specifications-sheet")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Copy hardware report" }),
+      page.getByRole("button", { name: "Copy specs" }),
     ).toBeVisible();
     await expect(page.getByTestId("live-process-table")).toHaveCount(0);
     await expect(page.getByText("Thread Count")).toHaveCount(0);
