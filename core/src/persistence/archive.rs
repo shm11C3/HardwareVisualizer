@@ -19,13 +19,16 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, MissedTickBehavior, interval};
 
+use crate::collector::ProcessGpuCollector;
 use crate::event_bus::EventBus;
 use crate::infrastructure::providers::environmental::EnvironmentalSensorRegistry;
 use crate::models::{
-  FanSpeedStatus, MetricsSnapshot, MotherboardFanSpeed, ProcessSample,
+  FanSpeedStatus, MetricsSnapshot, MotherboardFanSpeed, ProcessGpuUsageSpan,
+  ProcessSample,
 };
 use crate::persistence::archive_data::{
-  AmbientData, FanArchiveRow, GpuData, HardwareArchiveRow, HardwareData, ProcessStatData,
+  AmbientData, FanArchiveRow, GpuData, HardwareArchiveRow, HardwareData,
+  ProcessGpuStatData, ProcessStatData,
 };
 use crate::{log_info, log_warn};
 
@@ -42,10 +45,13 @@ enum ProcessRankingMetric {
   Cpu,
   Memory,
   ExecutionTime,
+  /// GPU-heavy processes can use little CPU, so they need their own ranking
+  /// to be archived at all (#2720).
+  Gpu,
 }
 
 impl ProcessRankingMetric {
-  const ALL: [Self; 3] = [Self::Cpu, Self::Memory, Self::ExecutionTime];
+  const ALL: [Self; 4] = [Self::Cpu, Self::Memory, Self::ExecutionTime, Self::Gpu];
 }
 
 /// Background controller for the archive worker. Returned by
@@ -61,7 +67,7 @@ impl ArchiveController {
   /// `bus` immediately so no snapshots are missed between setup and the
   /// first tick.
   pub fn setup(bus: &EventBus, runtime: Handle) -> Self {
-    Self::setup_with_environmental_sensors(bus, runtime, Arc::default())
+    Self::setup_with_environmental_sensors(bus, runtime, Arc::default(), None)
   }
 
   /// [`ArchiveController::setup`] with ambient sources attached (#2043).
@@ -69,10 +75,16 @@ impl ArchiveController {
   /// The registry rides the same one-minute tick as the hardware row, so
   /// an ambient reading and the CPU temperature it explains land on the
   /// same minute. An empty registry behaves exactly like [`Self::setup`].
+  ///
+  /// With `process_gpu`, the worker demands per-process GPU usage while the
+  /// native database can store it (#2720, ADR 0030). It re-checks on every
+  /// write cycle, so a conversion that selects the native database starts
+  /// the demand, and it withdraws the demand when it stops.
   pub fn setup_with_environmental_sensors(
     bus: &EventBus,
     runtime: Handle,
     environmental_sensors: Arc<EnvironmentalSensorRegistry>,
+    process_gpu: Option<Arc<ProcessGpuCollector>>,
   ) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
     let mut rx = bus.subscribe();
@@ -85,6 +97,7 @@ impl ArchiveController {
       // The first tick fires immediately; consume it so the first archive
       // write is delayed by a full interval and has data to summarize.
       ticker.tick().await;
+      sync_process_gpu_demand(process_gpu.as_deref()).await;
 
       loop {
         // `biased;` makes `tokio::select!` poll branches top-to-bottom
@@ -111,6 +124,7 @@ impl ArchiveController {
           _ = ticker.tick() => {
             let start = std::time::Instant::now();
             tracker.write_archive().await;
+            sync_process_gpu_demand(process_gpu.as_deref()).await;
             let elapsed = start.elapsed();
             if elapsed > Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS) {
               log_warn!(
@@ -142,6 +156,9 @@ impl ArchiveController {
       if tracker.is_dirty() {
         tracker.write_archive().await;
       }
+      if let Some(process_gpu) = &process_gpu {
+        process_gpu.set_background_demand(false);
+      }
     });
 
     Self { handle, stop_tx }
@@ -151,6 +168,30 @@ impl ArchiveController {
     let _ = self.stop_tx.send(true);
     let _ = self.handle.await;
   }
+}
+
+/// Demands per-process GPU usage exactly while the native database can store
+/// it. Collecting it costs a full process walk every
+/// [`crate::collector::process_gpu::BACKGROUND_REFRESH_INTERVAL`], so a
+/// SQLite archive, which has nowhere to keep it, never pays for it (DP-04).
+async fn sync_process_gpu_demand(process_gpu: Option<&ProcessGpuCollector>) {
+  let Some(process_gpu) = process_gpu else {
+    return;
+  };
+  let storable =
+    match crate::infrastructure::database::dispatch::process_gpu_stats::available().await
+    {
+      Ok(storable) => storable,
+      Err(e) => {
+        log_warn!(
+          "Process GPU storage availability unknown; not collecting",
+          "persistence::archive::sync_process_gpu_demand",
+          Some(e.to_string())
+        );
+        false
+      }
+    };
+  process_gpu.set_background_demand(storable);
 }
 
 /// Delete archive rows older than `retention_days`. Errors are logged
@@ -259,6 +300,9 @@ struct ProcessAccumulator {
   run_time_secs: u64,
   cpu_history: VecDeque<f32>,
   memory_kb_history: VecDeque<f32>,
+  /// GPU usage accumulated since the previous write cycle. Empty unless a
+  /// background GPU demand is on (#2720).
+  gpu_usage: ProcessGpuUsageSpan,
   last_seen_tick: u64,
 }
 
@@ -433,12 +477,16 @@ impl ArchiveTracker {
       if pid_reused {
         entry.cpu_history.clear();
         entry.memory_kb_history.clear();
+        entry.gpu_usage = ProcessGpuUsageSpan::default();
       }
       entry.name = sample.name;
       entry.run_time_secs = sample.run_time_secs;
       entry.last_seen_tick = now;
       push_capped(&mut entry.cpu_history, sample.cpu_usage);
       push_capped(&mut entry.memory_kb_history, sample.memory_kb);
+      if let Some(gpu_usage) = sample.gpu_usage {
+        entry.gpu_usage.merge(gpu_usage);
+      }
     }
   }
 
@@ -516,12 +564,26 @@ impl ArchiveTracker {
       );
     }
 
-    let process_stats = self.collect_process_stats();
-    if !process_stats.is_empty()
-      && let Err(e) = database::process_stats::insert(process_stats, tick_timestamp).await
+    let process_rows = self.collect_process_rows();
+    self.clear_process_gpu_usage();
+    if !process_rows.stats.is_empty()
+      && let Err(e) =
+        database::process_stats::insert(process_rows.stats, tick_timestamp).await
     {
       log_error!(
         "Failed to insert process stats data",
+        "persistence::archive::write_archive",
+        Some(e.to_string())
+      );
+    }
+    // Written after the process rows so each GPU row has its companion
+    // PROCESS_STATS row for the same minute. On SQLite this is a no-op.
+    if !process_rows.gpu.is_empty()
+      && let Err(e) =
+        database::process_gpu_stats::insert(process_rows.gpu, tick_timestamp).await
+    {
+      log_error!(
+        "Failed to insert process GPU stats data",
         "persistence::archive::write_archive",
         Some(e.to_string())
       );
@@ -644,9 +706,11 @@ impl ArchiveTracker {
       .collect()
   }
 
-  fn collect_process_stats(&self) -> Vec<ProcessStatData> {
+  /// The processes this write cycle archives, and the GPU usage of those
+  /// that had GPU readings this minute (#2720).
+  fn collect_process_rows(&self) -> ProcessArchiveRows {
     let core_divisor = self.cores.max(1.0);
-    let all_stats: Vec<ProcessStatData> = self
+    let candidates: Vec<ProcessCandidate> = self
       .processes
       .iter()
       .filter_map(|(pid, acc)| {
@@ -656,25 +720,82 @@ impl ArchiveTracker {
         let cpu_avg = acc.cpu_history.iter().sum::<f32>() / acc.cpu_history.len() as f32;
         let mem_avg =
           acc.memory_kb_history.iter().sum::<f32>() / acc.memory_kb_history.len() as f32;
-        if cpu_avg == 0.0 && mem_avg == 0.0 {
+        let gpu = acc
+          .gpu_usage
+          .average_percent()
+          .map(|average| ProcessGpuMinute {
+            average,
+            covered_seconds: acc.gpu_usage.covered_seconds,
+          });
+        if cpu_avg == 0.0 && mem_avg == 0.0 && gpu.is_none_or(|gpu| gpu.average <= 0.0) {
           return None;
         }
         let exec_time = acc.run_time_secs as i32;
         if !is_valid_execution_time(exec_time) {
           return None;
         }
-        Some(ProcessStatData {
-          pid: *pid as i32,
-          process_name: acc.name.clone(),
-          cpu_usage: cpu_avg / core_divisor,
-          memory_usage: mem_avg.round() as i32,
-          execution_sec: exec_time,
+        Some(ProcessCandidate {
+          stat: ProcessStatData {
+            pid: *pid as i32,
+            process_name: acc.name.clone(),
+            cpu_usage: cpu_avg / core_divisor,
+            memory_usage: mem_avg.round() as i32,
+            execution_sec: exec_time,
+          },
+          gpu,
         })
       })
       .collect();
 
-    rank_top_processes(all_stats)
+    let ranked = rank_top_processes(candidates);
+    let gpu = ranked
+      .iter()
+      .filter_map(|candidate| {
+        candidate.gpu.map(|gpu| ProcessGpuStatData {
+          pid: candidate.stat.pid,
+          process_name: candidate.stat.process_name.clone(),
+          gpu_usage: gpu.average,
+          covered_seconds: gpu.covered_seconds,
+        })
+      })
+      .collect();
+    ProcessArchiveRows {
+      stats: ranked.into_iter().map(|candidate| candidate.stat).collect(),
+      gpu,
+    }
   }
+
+  /// Starts the next minute's GPU usage from nothing. Usage is a per-minute
+  /// figure, unlike the rolling CPU and memory windows.
+  fn clear_process_gpu_usage(&mut self) {
+    for acc in self.processes.values_mut() {
+      acc.gpu_usage = ProcessGpuUsageSpan::default();
+    }
+  }
+}
+
+/// One write cycle's process rows: [`ProcessStatData`] for every ranked
+/// process, and [`ProcessGpuStatData`] for those with GPU readings.
+#[derive(Debug, Default, PartialEq)]
+struct ProcessArchiveRows {
+  stats: Vec<ProcessStatData>,
+  gpu: Vec<ProcessGpuStatData>,
+}
+
+/// A process's GPU usage over one archive minute: the time-weighted average
+/// of the readings and how many seconds they covered.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ProcessGpuMinute {
+  average: f64,
+  covered_seconds: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ProcessCandidate {
+  stat: ProcessStatData,
+  /// `None` when no GPU reading covered the process this minute; never a
+  /// stand-in for 0.
+  gpu: Option<ProcessGpuMinute>,
 }
 
 /// The RPM one live fan reading contributes to the archive, or `None` when
@@ -696,14 +817,14 @@ fn is_valid_execution_time(exec_time: i32) -> bool {
   (0..=60 * 60 * 24 * 30).contains(&exec_time)
 }
 
-fn rank_top_processes(all_stats: Vec<ProcessStatData>) -> Vec<ProcessStatData> {
+fn rank_top_processes(candidates: Vec<ProcessCandidate>) -> Vec<ProcessCandidate> {
   let mut result = Vec::new();
   let mut seen = HashSet::new();
   for &metric in &ProcessRankingMetric::ALL {
-    let sorted = sort_by_metric(all_stats.clone(), metric);
-    for stat in sorted.into_iter().take(PROCESS_RECORD_LIMIT) {
-      if seen.insert(stat.pid) {
-        result.push(stat);
+    let sorted = sort_by_metric(candidates.clone(), metric);
+    for candidate in sorted.into_iter().take(PROCESS_RECORD_LIMIT) {
+      if seen.insert(candidate.stat.pid) {
+        result.push(candidate);
       }
     }
     if result.len() >= PROCESS_RECORD_LIMIT * ProcessRankingMetric::ALL.len() {
@@ -714,21 +835,32 @@ fn rank_top_processes(all_stats: Vec<ProcessStatData>) -> Vec<ProcessStatData> {
 }
 
 fn sort_by_metric(
-  mut stats: Vec<ProcessStatData>,
+  mut candidates: Vec<ProcessCandidate>,
   metric: ProcessRankingMetric,
-) -> Vec<ProcessStatData> {
+) -> Vec<ProcessCandidate> {
   match metric {
     ProcessRankingMetric::Cpu => {
-      stats.sort_by(|a, b| b.cpu_usage.total_cmp(&a.cpu_usage))
+      candidates.sort_by(|a, b| b.stat.cpu_usage.total_cmp(&a.stat.cpu_usage))
     }
     ProcessRankingMetric::Memory => {
-      stats.sort_by_key(|s| std::cmp::Reverse(s.memory_usage))
+      candidates.sort_by_key(|c| std::cmp::Reverse(c.stat.memory_usage))
     }
     ProcessRankingMetric::ExecutionTime => {
-      stats.sort_by_key(|s| std::cmp::Reverse(s.execution_sec))
+      candidates.sort_by_key(|c| std::cmp::Reverse(c.stat.execution_sec))
+    }
+    ProcessRankingMetric::Gpu => {
+      // Only processes that used the GPU compete: without GPU readings
+      // (SQLite, no demand, unsupported platform) this metric adds nothing
+      // and the archive keeps its existing selection.
+      candidates.retain(|c| c.gpu.is_some_and(|gpu| gpu.average > 0.0));
+      candidates.sort_by(|a, b| gpu_average(b).total_cmp(&gpu_average(a)));
     }
   }
-  stats
+  candidates
+}
+
+fn gpu_average(candidate: &ProcessCandidate) -> f64 {
+  candidate.gpu.map_or(0.0, |gpu| gpu.average)
 }
 
 fn push_capped(buf: &mut VecDeque<f32>, value: f32) {
@@ -844,6 +976,133 @@ mod tests {
       memory_usage: mem,
       execution_sec: exec,
     }
+  }
+
+  fn without_gpu(stat: ProcessStatData) -> ProcessCandidate {
+    ProcessCandidate { stat, gpu: None }
+  }
+
+  fn gpu_span(average: f64, covered_seconds: f64) -> ProcessGpuUsageSpan {
+    ProcessGpuUsageSpan {
+      usage_percent_seconds: average * covered_seconds,
+      covered_seconds,
+    }
+  }
+
+  fn process_sample(
+    pid: u32,
+    cpu: f32,
+    gpu: Option<ProcessGpuUsageSpan>,
+  ) -> ProcessSample {
+    ProcessSample {
+      pid,
+      name: format!("p{pid}"),
+      cpu_usage: cpu,
+      memory_kb: 1024.0,
+      run_time_secs: 60,
+      gpu_usage: gpu,
+    }
+  }
+
+  fn snapshot_with(processes: Vec<ProcessSample>) -> MetricsSnapshot {
+    MetricsSnapshot {
+      processes,
+      ..make_snapshot(0.0, 0.0, 1)
+    }
+  }
+
+  // ── process GPU usage (#2720) ──
+
+  #[test]
+  fn a_gpu_heavy_process_with_little_cpu_is_archived_with_its_gpu_row() {
+    let mut t = ArchiveTracker::new();
+    // Fifteen busier CPU, memory and runtime candidates fill the existing
+    // three rankings; only the GPU ranking can select the renderer.
+    let mut processes: Vec<_> = (1..=15)
+      .map(|pid| ProcessSample {
+        memory_kb: 10_000.0 * pid as f32,
+        run_time_secs: 600 * u64::from(pid),
+        ..process_sample(pid, 50.0 + pid as f32, Some(gpu_span(0.0, 30.0)))
+      })
+      .collect();
+    processes.push(process_sample(99, 0.1, Some(gpu_span(80.0, 30.0))));
+    t.ingest(snapshot_with(processes));
+
+    let rows = t.collect_process_rows();
+
+    assert!(rows.stats.iter().any(|stat| stat.pid == 99));
+    let renderer = rows.gpu.iter().find(|row| row.pid == 99).unwrap();
+    assert_eq!(renderer.gpu_usage, 80.0);
+    assert_eq!(renderer.covered_seconds, 30.0);
+    assert!(
+      rows.gpu.iter().any(|row| row.gpu_usage == 0.0),
+      "a 0 reading of an archived process is kept as 0"
+    );
+  }
+
+  #[test]
+  fn without_gpu_readings_the_selection_is_unchanged_and_no_gpu_rows_exist() {
+    // CPU selects 26-30, memory 1-5 and runtime 11-15: three disjoint fives.
+    let samples: Vec<_> = (1..=30)
+      .map(|pid| ProcessSample {
+        memory_kb: (31 - pid) as f32 * 1024.0,
+        run_time_secs: if (11..=15).contains(&pid) { 6000 } else { 60 },
+        ..process_sample(pid, pid as f32, None)
+      })
+      .collect();
+    let mut t = ArchiveTracker::new();
+    t.ingest(snapshot_with(samples));
+
+    let rows = t.collect_process_rows();
+
+    assert!(rows.gpu.is_empty());
+    let mut pids: Vec<_> = rows.stats.iter().map(|stat| stat.pid).collect();
+    pids.sort_unstable();
+    let expected: Vec<i32> = (1..=5).chain(11..=15).chain(26..=30).collect();
+    assert_eq!(
+      pids, expected,
+      "the GPU ranking adds nobody without readings"
+    );
+  }
+
+  #[test]
+  fn gpu_usage_is_a_per_minute_figure_and_resets_on_pid_reuse() {
+    let mut t = ArchiveTracker::new();
+    t.ingest(snapshot_with(vec![process_sample(
+      7,
+      1.0,
+      Some(gpu_span(60.0, 10.0)),
+    )]));
+    t.ingest(snapshot_with(vec![process_sample(
+      7,
+      1.0,
+      Some(gpu_span(30.0, 20.0)),
+    )]));
+    assert_eq!(
+      t.collect_process_rows().gpu[0].gpu_usage,
+      40.0,
+      "time-weighted"
+    );
+
+    t.clear_process_gpu_usage();
+    assert!(
+      t.collect_process_rows().gpu.is_empty(),
+      "the next minute starts empty"
+    );
+
+    t.ingest(snapshot_with(vec![process_sample(
+      7,
+      1.0,
+      Some(gpu_span(90.0, 10.0)),
+    )]));
+    t.ingest(snapshot_with(vec![ProcessSample {
+      name: "recycled".into(),
+      ..process_sample(7, 1.0, None)
+    }]));
+    assert!(
+      t.collect_process_rows().gpu.is_empty(),
+      "a recycled PID does not inherit GPU usage"
+    );
   }
 
   // ── StatsCalculator ──
@@ -1299,7 +1558,7 @@ mod tests {
     assert_eq!(acc.memory_kb_history.len(), len_before + 1);
   }
 
-  // ── collect_process_stats / rank_top_processes ──
+  // ── collect_process_rows / rank_top_processes ──
 
   #[test]
   fn rank_top_processes_dedupes_across_metrics() {
@@ -1307,8 +1566,8 @@ mod tests {
       make_process_stat(1, 99.0, 999, 9999),
       make_process_stat(2, 1.0, 1, 1),
     ];
-    let ranked = rank_top_processes(stats);
-    let count_1 = ranked.iter().filter(|s| s.pid == 1).count();
+    let ranked = rank_top_processes(stats.into_iter().map(without_gpu).collect());
+    let count_1 = ranked.iter().filter(|c| c.stat.pid == 1).count();
     assert_eq!(count_1, 1);
   }
 
@@ -1317,7 +1576,7 @@ mod tests {
     let stats: Vec<_> = (0..30)
       .map(|i| make_process_stat(i, i as f32, i * 10, i * 60))
       .collect();
-    let ranked = rank_top_processes(stats);
+    let ranked = rank_top_processes(stats.into_iter().map(without_gpu).collect());
     assert!(ranked.len() <= PROCESS_RECORD_LIMIT * ProcessRankingMetric::ALL.len());
   }
 
@@ -1348,7 +1607,7 @@ mod tests {
       external_component_guidance_candidates: vec![],
       optional_sensor_providers: Default::default(),
     });
-    assert!(t.collect_process_stats().is_empty());
+    assert!(t.collect_process_rows().stats.is_empty());
   }
 
   #[test]
@@ -1378,7 +1637,7 @@ mod tests {
       external_component_guidance_candidates: vec![],
       optional_sensor_providers: Default::default(),
     });
-    let stats = t.collect_process_stats();
+    let stats = t.collect_process_rows().stats;
     assert_eq!(stats.len(), 1);
     assert!((stats[0].cpu_usage - 10.0).abs() < f32::EPSILON);
   }
@@ -1411,7 +1670,7 @@ mod tests {
       external_component_guidance_candidates: vec![],
       optional_sensor_providers: Default::default(),
     });
-    assert!(t.collect_process_stats().is_empty());
+    assert!(t.collect_process_rows().stats.is_empty());
   }
 
   // ── collect_gpu_data ──
