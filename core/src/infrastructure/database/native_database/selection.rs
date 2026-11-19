@@ -20,6 +20,11 @@
 //! claiming a selection the database never recorded, which is not repairable -
 //! the marker alone cannot say whether the transaction committed.
 //!
+//! The startup schema upgrade ([`super::upgrade`]) keeps the same order, so
+//! its one gap is the same kind: a selected database at this build's schema
+//! version whose marker still records the older version. That is repaired the
+//! same way.
+//!
 //! Every other disagreement between the two is reported rather than repaired.
 //! Recovery code that guesses which of two files is authoritative is how
 //! history gets lost silently, and the numbers needed to decide are in the
@@ -47,11 +52,11 @@ use super::compatibility::{
 };
 use super::finalize::{
   FINALIZED_UNSELECTED, NATIVE_IDENTITY_TABLE, NATIVE_METADATA_TABLE, SELECTED,
-  open_database, open_database_with_storage_version, require_no_wal,
+  insert_identity, open_database, open_database_with_storage_version, require_no_wal,
 };
 use super::publish::publish_without_replacing;
 use super::reconcile::NativeReconciliationReport;
-use super::schema::{NativeIdentityMode, NativeSchemaDefinition};
+use super::schema::NativeSchemaDefinition;
 
 /// The marker file name, resolved by the caller against the directory that
 /// holds the databases.
@@ -62,7 +67,7 @@ pub const AUTHORITY_MARKER_FILE_NAME: &str = "hv-database.authority.json";
 const WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-";
 const FRESH_WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-fresh-";
 
-const MARKER_VERSION: u32 = 1;
+pub(super) const MARKER_VERSION: u32 = 1;
 
 /// Proof that a reconciliation caught this file up to its source and read it
 /// back afterwards.
@@ -247,6 +252,10 @@ pub enum AuthorityInconsistency {
   MarkerDisagreesWithNativeDatabase,
   /// The repairable gap: the selection committed, the marker did not land.
   SelectedWithoutMarker,
+  /// The schema upgrade's repairable gap: the selected database committed the
+  /// version this build runs, and the marker still records the older one it
+  /// was upgraded from. Every other identity fact agrees.
+  MarkerBehindNativeSchema,
   /// Native files exist but the SQLite source they were built from is gone.
   SourceDatabaseMissing,
 }
@@ -527,9 +536,7 @@ fn write_empty_schema(
   schema: NativeSchemaDefinition,
   storage_version: &str,
 ) -> Result<(), NativeDatabaseError> {
-  connection.execute_batch(schema.sql).map_err(|error| {
-    NativeDatabaseError::duckdb("create the fresh native schema", error)
-  })?;
+  schema.create_all(connection)?;
   connection
     .execute_batch(&format!(
       "CREATE TABLE {} (state VARCHAR NOT NULL, schema_version BIGINT NOT NULL, \
@@ -545,22 +552,9 @@ fn write_empty_schema(
       NativeDatabaseError::duckdb("create fresh native metadata tables", error)
     })?;
 
+  // Every table is empty, so every high-water mark starts at zero.
   for identity in schema.identities {
-    let mode = match identity.mode {
-      NativeIdentityMode::RowId => "rowid",
-      NativeIdentityMode::AutoIncrement { .. } => "autoincrement",
-    };
-    connection
-      .execute(
-        &format!(
-          "INSERT INTO {} VALUES (?, ?, ?, 0)",
-          quote_identifier(NATIVE_IDENTITY_TABLE)
-        ),
-        params![identity.table, identity.column, mode],
-      )
-      .map_err(|error| {
-        NativeDatabaseError::duckdb("initialize fresh native identities", error)
-      })?;
+    insert_identity(connection, identity, 0)?;
   }
 
   connection
@@ -662,8 +656,9 @@ fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
   PathBuf::from(sidecar)
 }
 
-/// Close the one repairable gap: a database that committed `selected` while its
-/// marker never landed.
+/// Close a repairable gap: a database that committed `selected` while its
+/// marker never landed, or one whose committed schema upgrade the marker does
+/// not record yet. Either way the marker is rewritten from the database.
 ///
 /// Refuses anything else, including a database that is merely finalized: the
 /// marker is a record of a decision, never the decision itself.
@@ -708,7 +703,7 @@ pub fn repair_authority_marker(
 /// databases: a directory named with the conversion work prefix, left behind by
 /// an interrupted selection, would read as interrupted *conversion* debris to
 /// [`inspect_authority`].
-fn selection_spill() -> Result<tempfile::TempDir, NativeDatabaseError> {
+pub(super) fn selection_spill() -> Result<tempfile::TempDir, NativeDatabaseError> {
   tempfile::Builder::new()
     .prefix(WORK_PREFIX)
     .tempdir()
@@ -717,7 +712,7 @@ fn selection_spill() -> Result<tempfile::TempDir, NativeDatabaseError> {
     })
 }
 
-fn read_metadata_row(
+pub(super) fn read_metadata_row(
   connection: &Connection,
 ) -> Result<(String, i64, String, String, i64, bool), NativeDatabaseError> {
   connection
@@ -744,7 +739,7 @@ fn read_metadata_row(
     })
 }
 
-fn file_name_of(path: &Path) -> Result<String, NativeDatabaseError> {
+pub(super) fn file_name_of(path: &Path) -> Result<String, NativeDatabaseError> {
   path
     .file_name()
     .map(|name| name.to_string_lossy().into_owned())
@@ -758,7 +753,7 @@ fn file_name_of(path: &Path) -> Result<String, NativeDatabaseError> {
 
 /// Write to a temporary file, sync it, rename it over the marker, then sync the
 /// directory: a reader sees either the old marker or the whole new one.
-fn write_marker_atomically(
+pub(super) fn write_marker_atomically(
   marker_path: &Path,
   marker: &AuthorityMarker,
 ) -> Result<(), NativeDatabaseError> {
@@ -814,7 +809,7 @@ fn write_marker_atomically_with(
   sync_directory(directory)
 }
 
-fn sync_file(path: &Path) -> Result<(), NativeDatabaseError> {
+pub(super) fn sync_file(path: &Path) -> Result<(), NativeDatabaseError> {
   OpenOptions::new()
     .read(true)
     .write(true)
@@ -1100,6 +1095,20 @@ pub fn inspect_authority(facts: &AuthorityFacts) -> AuthorityState {
       if *schema_version != facts.expected_schema_version {
         return stop(AuthorityInconsistency::SchemaVersionMismatch);
       }
+      // The schema upgrade writes the database first and the marker second,
+      // like selection, so a marker recording an older version than a
+      // database at this build's version is the one gap it leaves. Only that direction is
+      // repairable: a marker ahead of its database claims an upgrade the
+      // database never committed.
+      if marker.schema_version < *schema_version
+        && &marker.source_schema_sha256 == source_schema_sha256
+        && marker.total_rows == *source_rows
+      {
+        return AuthorityState::Inconsistent {
+          reason: AuthorityInconsistency::MarkerBehindNativeSchema,
+          recovery: AuthorityRecovery::RepairSelectionMarkerFromNativeMetadata,
+        };
+      }
       // Every field the marker carries is one the database records too, so all
       // of them are compared. A restore that put back a database and a marker
       // from different backups agrees on the file name and the schema but not
@@ -1345,6 +1354,56 @@ mod tests {
     );
   }
 
+  /// The schema upgrade's crash window: the database committed the new
+  /// version, the marker still records the old one.
+  #[test]
+  fn a_marker_behind_an_upgraded_database_is_repairable() {
+    let mut observed = facts();
+    observed.expected_schema_version = 2;
+    if let NativeMetadataFacts::Present { schema_version, .. } =
+      &mut observed.native_metadata
+    {
+      *schema_version = 2;
+    }
+    assert_eq!(
+      inspect_authority(&observed),
+      AuthorityState::Inconsistent {
+        reason: AuthorityInconsistency::MarkerBehindNativeSchema,
+        recovery: AuthorityRecovery::RepairSelectionMarkerFromNativeMetadata,
+      }
+    );
+
+    // Behind, but restored from a different backup: not the upgrade's gap.
+    if let MarkerFacts::Present(marker) = &mut observed.marker {
+      marker.total_rows = 11;
+    }
+    assert_eq!(
+      inspect_authority(&observed),
+      inconsistent(AuthorityInconsistency::MarkerDisagreesWithNativeDatabase)
+    );
+  }
+
+  /// A marker ahead of its database claims an upgrade that never committed,
+  /// so it is never rewritten from the database.
+  #[test]
+  fn a_marker_ahead_of_its_database_is_not_repairable() {
+    let mut observed = facts();
+    if let MarkerFacts::Present(marker) = &mut observed.marker {
+      marker.schema_version = 2;
+    }
+    assert_eq!(
+      inspect_authority(&observed),
+      inconsistent(AuthorityInconsistency::MarkerDisagreesWithNativeDatabase)
+    );
+
+    // The same files read by a build that runs the marker's version.
+    observed.expected_schema_version = 2;
+    assert_eq!(
+      inspect_authority(&observed),
+      inconsistent(AuthorityInconsistency::SchemaVersionMismatch)
+    );
+  }
+
   #[test]
   fn every_other_disagreement_stops_rather_than_guessing() {
     let mut observed = facts();
@@ -1481,6 +1540,7 @@ mod tests {
       A::StorageVersionMismatch,
       A::MarkerDisagreesWithNativeDatabase,
       A::SelectedWithoutMarker,
+      A::MarkerBehindNativeSchema,
       A::SourceDatabaseMissing,
     ] {
       assert!(!reason.may_clear_on_retry(), "{reason:?}");
@@ -1612,15 +1672,17 @@ mod tests {
       crate::infrastructure::database::native_database::NativeIdentity {
         table: "smoke",
         column: "id",
-        mode: NativeIdentityMode::RowId,
+        mode: crate::infrastructure::database::native_database::NativeIdentityMode::RowId,
       },
     ];
     NativeSchemaDefinition {
       version: 7,
       sql: "CREATE TABLE smoke (id BIGINT PRIMARY KEY)",
       tables: &["smoke"],
+      native_only_tables: &[],
       timestamp_columns: &[],
       identities: IDENTITIES,
+      upgrades: &[],
     }
   }
 

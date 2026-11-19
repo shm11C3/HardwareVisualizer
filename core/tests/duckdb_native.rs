@@ -24,3 +24,5 @@ mod app_native_schema;
 mod native;
 #[path = "duckdb/reconcile.rs"]
 mod reconcile;
+#[path = "duckdb/upgrade.rs"]
+mod upgrade;

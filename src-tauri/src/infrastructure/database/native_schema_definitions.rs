@@ -20,7 +20,8 @@
 #![allow(dead_code)]
 
 use hardviz_core::infrastructure::database::native_database::{
-  NativeIdentity, NativeIdentityMode, NativeSchemaDefinition, NativeTimestampColumn,
+  NativeIdentity, NativeIdentityMode, NativeSchemaDefinition, NativeSchemaUpgrade,
+  NativeTimestampColumn,
 };
 
 pub const NATIVE_SCHEMA_VERSION: u32 = 1;
@@ -120,13 +121,32 @@ pub(crate) const IDENTITIES: &[NativeIdentity] = &[
   },
 ];
 
+/// Tables with no SQLite source (ADR 0030). Conversion creates them empty and
+/// leaves them out of the copy and the reconciliation. None exists yet: the
+/// first one arrives with its family, as the step in [`UPGRADES`] that creates
+/// it, together with a `NativeIdentityMode::NativeOnly` row in [`IDENTITIES`]
+/// when it has an allocated `id`.
+pub(crate) const NATIVE_ONLY_TABLES: &[&str] = &[];
+
+/// The ordered native schema steps after [`NATIVE_SCHEMA_SQL`], which stays
+/// the version 1 baseline. A new step takes `NATIVE_SCHEMA_VERSION` from the
+/// previous step's `to` to its own; App startup runs the steps a selected
+/// database still needs, and fresh creation and conversion run all of them.
+/// A step never changes a SQLite-sourced table (ADR 0030 decision 3).
+///
+/// The upgrade is one-way: a build that predates a step stops on the
+/// upgraded database with a schema version mismatch, and the data is kept.
+pub(crate) const UPGRADES: &[NativeSchemaUpgrade] = &[];
+
 pub fn get_native_schema() -> NativeSchemaDefinition {
   NativeSchemaDefinition {
     version: NATIVE_SCHEMA_VERSION,
     sql: NATIVE_SCHEMA_SQL,
     tables: TABLES,
+    native_only_tables: NATIVE_ONLY_TABLES,
     timestamp_columns: TIMESTAMPS,
     identities: IDENTITIES,
+    upgrades: UPGRADES,
   }
 }
 

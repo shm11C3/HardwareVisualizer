@@ -219,6 +219,9 @@ impl NativeTransactionContext<'_, '_> {
   ///   because an archive migrated to a stricter rule would start handing out
   ///   ids the source would not have.
   ///
+  /// A native-only table (ADR 0030) has no SQLite rule to reproduce and is
+  /// recorded as `autoincrement`, starting from its own largest id.
+  ///
   /// Both modes read and write inside the caller's transaction, so two
   /// concurrent writers cannot be handed the same id: the write lane is the
   /// only lane that commits.
@@ -1217,12 +1220,12 @@ static OPEN_NATIVE_DATABASES: std::sync::LazyLock<
 > = std::sync::LazyLock::new(Default::default);
 
 /// This process's claim on one native database file, released on drop.
-struct OpenClaim {
+pub(super) struct OpenClaim {
   identity: FileIdentity,
 }
 
 impl OpenClaim {
-  fn acquire(path: &Path) -> Result<Self, NativeDatabaseError> {
+  pub(super) fn acquire(path: &Path) -> Result<Self, NativeDatabaseError> {
     let identity = FileIdentity::of(path)?;
     let mut open = OPEN_NATIVE_DATABASES
       .lock()
