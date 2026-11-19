@@ -77,6 +77,26 @@ runs:
         # partial hits through rust-cache's restore-key prefix.
         save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
 
+    # libduckdb-sys unpacks its bundled sources once into
+    # target/duckdb-sources/<key>/ and reuses the tree only when it holds a
+    # `.complete` marker; otherwise it renames a fresh unpack over <key>, which
+    # fails with DirectoryNotEmpty when <key> is a non-empty directory.
+    # rust-cache strips every file from target/ directories that are not
+    # profiles before saving, so a restored tree is an empty skeleton without
+    # the marker (#2737). Drop such trees so the build script unpacks again.
+    - name: Remove incomplete bundled DuckDB source trees
+      shell: bash
+      run: |
+        root="target/duckdb-sources"
+        [ -d "$root" ] || exit 0
+        for tree in "$root"/*/ "$root"/.duckdb-unpack-*/; do
+          [ -d "$tree" ] || continue
+          if [ ! -f "${tree}.complete" ]; then
+            echo "Removing incomplete $tree"
+            rm -rf "$tree"
+          fi
+        done
+
     - name: Report Rust cache restore
       id: report-cache
       shell: bash
