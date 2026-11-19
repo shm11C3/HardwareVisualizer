@@ -226,6 +226,31 @@ export const PanelGrid = ({
 
   return (
     <div className="space-y-4">
+      {/* The strip sits above the grid, next to the edit toggle that opens
+          it: below a long grid it would appear off-screen, far from the click. */}
+      {editing && hiddenPanels.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-xs text-muted-foreground"
+          data-testid="performance-hidden-panels"
+        >
+          <span>{t("pages.performance.hiddenPanels")}</span>
+          {hiddenPanels.map((panel) => {
+            const label = t(`pages.performance.panels.${panel}`);
+            return (
+              <button
+                key={panel}
+                type="button"
+                onClick={() => void onPanelToggle(panel)}
+                className="flex items-center gap-1 rounded-full border border-border bg-card/80 px-3 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                aria-label={t("pages.performance.showPanel", { panel: label })}
+              >
+                <PlusIcon size={12} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <DndContext
         collisionDetection={closestCenter}
         sensors={sensors}
@@ -265,30 +290,6 @@ export const PanelGrid = ({
           </div>
         </SortableContext>
       </DndContext>
-
-      {editing && hiddenPanels.length > 0 && (
-        <div
-          className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-xs text-muted-foreground"
-          data-testid="performance-hidden-panels"
-        >
-          <span>{t("pages.performance.hiddenPanels")}</span>
-          {hiddenPanels.map((panel) => {
-            const label = t(`pages.performance.panels.${panel}`);
-            return (
-              <button
-                key={panel}
-                type="button"
-                onClick={() => void onPanelToggle(panel)}
-                className="flex items-center gap-1 rounded-full border border-border bg-card/80 px-3 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-                aria-label={t("pages.performance.showPanel", { panel: label })}
-              >
-                <PlusIcon size={12} />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 };
