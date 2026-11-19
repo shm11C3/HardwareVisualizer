@@ -817,6 +817,9 @@ pub fn run() {
       let runtime_handle = tauri::async_runtime::handle().inner().clone();
       let monitor = hardviz_core::collector::SystemMonitorController::setup(
         Arc::clone(&store_for_setup),
+        Arc::clone(
+          &app.state::<Arc<hardviz_core::collector::ProcessGpuCollector>>(),
+        ),
         bus.clone(),
         runtime_handle.clone(),
       );

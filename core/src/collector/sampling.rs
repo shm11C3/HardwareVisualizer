@@ -8,6 +8,7 @@
 //! Tauri `HardwareMonitorUpdate` event.
 
 use crate::collector::HistoryStore;
+use crate::collector::process_gpu::{ProcessGpuCollector, ProcessGpuUsage};
 use crate::models::{
   ExternalComponentGuidanceCandidate, GpuMetric, GpuSample, MetricsSnapshot,
   MotherboardSensorCollection, OptionalSensorProviderOutcomes, PowerDraw, ProcessSample,
@@ -33,8 +34,9 @@ pub struct SystemSample {
 pub async fn collect_snapshot(
   store: &HistoryStore,
   platform: &PlatformHandle,
+  process_gpu: &ProcessGpuCollector,
 ) -> Option<MetricsSnapshot> {
-  let system_sample = sample_system(store)?;
+  let system_sample = sample_system(store, &process_gpu.take_background_usage())?;
 
   let (
     gpu_samples,
@@ -77,7 +79,10 @@ pub async fn collect_snapshot(
 
 /// Run one CPU / memory / process refresh and append samples to the
 /// store's history rings.
-pub fn sample_system(store: &HistoryStore) -> Option<SystemSample> {
+pub fn sample_system(
+  store: &HistoryStore,
+  gpu_usage: &ProcessGpuUsage,
+) -> Option<SystemSample> {
   let result = store.system().ok()?.lock().ok().map(|mut sys| {
     sys.refresh_cpu_usage();
     sys.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_ram());
@@ -105,6 +110,9 @@ pub fn sample_system(store: &HistoryStore) -> Option<SystemSample> {
         cpu_usage: process.cpu_usage(),
         memory_kb: process.memory() as f32 / 1024.0,
         run_time_secs: process.run_time(),
+        gpu_usage: gpu_usage
+          .get(&(pid.as_u32(), process.start_time()))
+          .copied(),
       })
       .collect();
 
@@ -423,7 +431,7 @@ mod tests {
     let store = HistoryStore::new();
     let platform: PlatformHandle = Ok(Arc::new(FakePlatform));
 
-    let snapshot = collect_snapshot(&store, &platform)
+    let snapshot = collect_snapshot(&store, &platform, &ProcessGpuCollector::new())
       .await
       .expect("system sample must be available in tests");
 
@@ -457,7 +465,7 @@ mod tests {
     let store = HistoryStore::new();
     let platform: PlatformHandle = Err(PlatformError::initialization_failed("boom"));
 
-    let snapshot = collect_snapshot(&store, &platform)
+    let snapshot = collect_snapshot(&store, &platform, &ProcessGpuCollector::new())
       .await
       .expect("system sample must be available in tests");
 
@@ -554,7 +562,8 @@ mod tests {
       assert!(system.processes().is_empty());
     }
 
-    let sample = sample_system(&store).expect("system lock should be available");
+    let sample = sample_system(&store, &ProcessGpuUsage::new())
+      .expect("system lock should be available");
     let system = store.system().unwrap().lock().unwrap();
 
     assert!(!sample.processors_usage.is_empty());
@@ -684,6 +693,7 @@ mod tests {
         cpu_usage: 0.0,
         memory_kb: 1024.0,
         run_time_secs: 60,
+        gpu_usage: None,
       }],
     };
     let gpus = vec![make_sample("gpu:0", "RTX 4090", Some(50.0), Some(70.0))];
@@ -897,5 +907,44 @@ mod tests {
     );
 
     assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
+  }
+
+  #[test]
+  fn process_samples_carry_gpu_usage_only_for_the_same_process_instance() {
+    let store = HistoryStore::new();
+    let pid = sysinfo::get_current_pid().expect("current process should have a PID");
+    let start_time = {
+      let mut system = store.system().unwrap().lock().unwrap();
+      system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+      system
+        .process(pid)
+        .expect("current process should be visible")
+        .start_time()
+    };
+    let mut span = crate::models::ProcessGpuUsageSpan::default();
+    span.add(40.0, 10.0);
+    let mut recycled = crate::models::ProcessGpuUsageSpan::default();
+    recycled.add(90.0, 10.0);
+    let usage = ProcessGpuUsage::from([
+      ((pid.as_u32(), start_time), span),
+      ((pid.as_u32(), start_time + 1), recycled),
+    ]);
+
+    let sample = sample_system(&store, &usage).expect("system lock should be available");
+    let own = sample
+      .processes
+      .iter()
+      .find(|sample| sample.pid == pid.as_u32())
+      .expect("system sample should include the current process");
+
+    assert_eq!(own.gpu_usage, Some(span));
+    assert!(
+      sample
+        .processes
+        .iter()
+        .filter(|sample| sample.pid != pid.as_u32())
+        .all(|sample| sample.gpu_usage.is_none()),
+      "processes without accumulated usage carry none"
+    );
   }
 }

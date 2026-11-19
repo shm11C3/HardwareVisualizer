@@ -245,6 +245,43 @@ pub struct ProcessSample {
   pub memory_kb: f32,
   /// Process run time in seconds.
   pub run_time_secs: u64,
+  /// GPU usage accumulated for this process since the previous snapshot,
+  /// while a background consumer demands it (#2720). `None` when no reading
+  /// covered the process: no demand, no refresh since the previous snapshot,
+  /// or no value from the platform. Never a stand-in for zero.
+  pub gpu_usage: Option<ProcessGpuUsageSpan>,
+}
+
+/// Per-process GPU usage accumulated over one or more refresh intervals.
+///
+/// Each interval contributes its reading (the sum across all GPUs and
+/// engines, in percent, which may exceed 100) weighted by its length, so
+/// [`Self::average_percent`] is the time-weighted average over the covered
+/// time. An interval without a reading adds to neither field.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ProcessGpuUsageSpan {
+  pub usage_percent_seconds: f64,
+  pub covered_seconds: f64,
+}
+
+impl ProcessGpuUsageSpan {
+  /// Adds one refresh interval's reading.
+  pub fn add(&mut self, usage_percent: f32, interval_seconds: f64) {
+    self.usage_percent_seconds += f64::from(usage_percent) * interval_seconds;
+    self.covered_seconds += interval_seconds;
+  }
+
+  /// Adds another span covering a different period.
+  pub fn merge(&mut self, other: Self) {
+    self.usage_percent_seconds += other.usage_percent_seconds;
+    self.covered_seconds += other.covered_seconds;
+  }
+
+  /// Time-weighted average usage, or `None` when nothing was covered.
+  pub fn average_percent(&self) -> Option<f64> {
+    (self.covered_seconds > 0.0)
+      .then(|| self.usage_percent_seconds / self.covered_seconds)
+  }
 }
 
 /// One real-time snapshot of system + GPU metrics, fanned out via
