@@ -24,7 +24,7 @@ use hardviz_core::infrastructure::database::native_database::{
   NativeTimestampColumn,
 };
 
-pub const NATIVE_SCHEMA_VERSION: u32 = 1;
+pub const NATIVE_SCHEMA_VERSION: u32 = 2;
 
 /// Every current domain table, ordered so a table is created and filled after
 /// the tables its foreign keys reference (`storage_health_daily_records`
@@ -119,14 +119,39 @@ pub(crate) const IDENTITIES: &[NativeIdentity] = &[
       sqlite_sequence_name: "storage_health_daily_records",
     },
   },
+  NativeIdentity {
+    table: "PROCESS_GPU_STATS",
+    column: "id",
+    mode: NativeIdentityMode::NativeOnly,
+  },
 ];
 
 /// Tables with no SQLite source (ADR 0030). Conversion creates them empty and
-/// leaves them out of the copy and the reconciliation. None exists yet: the
-/// first one arrives with its family, as the step in [`UPGRADES`] that creates
-/// it, together with a `NativeIdentityMode::NativeOnly` row in [`IDENTITIES`]
-/// when it has an allocated `id`.
-pub(crate) const NATIVE_ONLY_TABLES: &[&str] = &[];
+/// leaves them out of the copy and the reconciliation. Each one arrives with
+/// its family, as the step in [`UPGRADES`] that creates it, together with a
+/// `NativeIdentityMode::NativeOnly` row in [`IDENTITIES`] when it has an
+/// allocated `id`.
+pub(crate) const NATIVE_ONLY_TABLES: &[&str] = &["PROCESS_GPU_STATS"];
+
+/// Version 2 (#2720): per-process GPU usage beside `PROCESS_STATS`.
+///
+/// One row per archived process that had GPU readings in an archive minute,
+/// written in the same cycle as that minute's `PROCESS_STATS` rows and
+/// stamped with the same timestamp text, so ADR 0019's Process identity,
+/// `(timestamp, pid, process_name)`, pairs the two. `gpu_usage` is the minute's
+/// time-weighted average in percent, summed across every GPU and engine, so
+/// it may exceed 100 and 0 is a real reading; `covered_seconds` is how much
+/// of the minute the readings covered, which a range query weights by.
+const PROCESS_GPU_STATS_SQL: &str = "
+CREATE TABLE PROCESS_GPU_STATS (
+  id BIGINT PRIMARY KEY,
+  pid BIGINT NOT NULL,
+  process_name VARCHAR NOT NULL,
+  gpu_usage DOUBLE NOT NULL,
+  covered_seconds DOUBLE NOT NULL,
+  timestamp VARCHAR NOT NULL
+);
+";
 
 /// The ordered native schema steps after [`NATIVE_SCHEMA_SQL`], which stays
 /// the version 1 baseline. A new step takes `NATIVE_SCHEMA_VERSION` from the
@@ -136,7 +161,11 @@ pub(crate) const NATIVE_ONLY_TABLES: &[&str] = &[];
 ///
 /// The upgrade is one-way: a build that predates a step stops on the
 /// upgraded database with a schema version mismatch, and the data is kept.
-pub(crate) const UPGRADES: &[NativeSchemaUpgrade] = &[];
+pub(crate) const UPGRADES: &[NativeSchemaUpgrade] = &[NativeSchemaUpgrade {
+  from: 1,
+  to: 2,
+  sql: PROCESS_GPU_STATS_SQL,
+}];
 
 pub fn get_native_schema() -> NativeSchemaDefinition {
   NativeSchemaDefinition {

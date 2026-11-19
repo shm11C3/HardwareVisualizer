@@ -2356,8 +2356,24 @@ mod tests {
     let fixture = Fixture::new().await;
     let paths = fixture.paths();
     let candidate = fixture.directory.path().join("old-schema-candidate.duckdb");
+    // The version 1 baseline an earlier build finalized: none of the later
+    // upgrade steps, native-only tables or their identities.
     let mut old_schema = native_schema::get_native_schema();
-    old_schema.version = 0;
+    old_schema.version = 1;
+    old_schema.upgrades = &[];
+    old_schema.native_only_tables = &[];
+    old_schema.identities = Box::leak(
+      old_schema
+        .identities
+        .iter()
+        .copied()
+        .filter(|identity| {
+          identity.mode
+            != hardviz_core::infrastructure::database::native_database::NativeIdentityMode::NativeOnly
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice(),
+    );
     build_candidate_database(
       &paths.source_database,
       &candidate,
