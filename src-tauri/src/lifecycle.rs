@@ -15,10 +15,10 @@ use tauri::{AppHandle, Emitter, Manager, Window};
 use crate::log_warn;
 use crate::workers::WorkersState;
 
-/// Env var that switches the close-button behavior from "quit" to
-/// "hide window, keep monitoring". Off by default — release builds
-/// preserve the historical quit-on-close behavior until the
-/// user-facing UX in #1275 ships.
+/// Env var that makes closing the main window hide it and keep monitoring,
+/// regardless of the saved Close to Tray preference and without asking.
+/// The performance workflow's background phase (`perf-monitor`) launches
+/// the app with it, so it must keep working in release builds.
 pub const CLOSE_TO_BACKGROUND_ENV: &str = "HARDVIZ_CLOSE_TO_BACKGROUND";
 const EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED: &str = "close-to-tray-choice-requested";
 
