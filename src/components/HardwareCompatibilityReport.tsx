@@ -3,7 +3,7 @@ import { FileTextIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActionFailure } from "@/components/ActionFailure";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +20,16 @@ const postingUrl =
 
 export const HardwareCompatibilityReport = ({
   icon = false,
+  label,
+  variant,
+  size,
 }: {
+  /** Icon-only trigger (ghost, icon-sized) for dense toolbars. */
   icon?: boolean;
+  /** Shorter visible text for the labeled trigger; the full title stays as the accessible name. */
+  label?: string;
+  variant?: ButtonProps["variant"];
+  size?: ButtonProps["size"];
 }) => {
   const { t } = useTranslation();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -69,8 +77,9 @@ export const HardwareCompatibilityReport = ({
       <Button
         ref={trigger}
         type="button"
-        variant="secondary"
-        size={icon ? "icon" : "default"}
+        variant={variant ?? (icon ? "ghost" : "secondary")}
+        size={size ?? (icon ? "icon" : "default")}
+        className={icon ? undefined : "gap-2"}
         disabled={busy}
         aria-haspopup="dialog"
         aria-expanded={report !== null}
@@ -78,8 +87,11 @@ export const HardwareCompatibilityReport = ({
         title={t("hardwareCompatibilityReport.title")}
         onClick={() => void generate()}
       >
-        <FileTextIcon aria-hidden="true" />
-        {!icon && t("hardwareCompatibilityReport.title")}
+        <FileTextIcon
+          className={icon ? "size-5" : "size-4"}
+          aria-hidden="true"
+        />
+        {!icon && (label ?? t("hardwareCompatibilityReport.title"))}
       </Button>
       {failure === "generate" && (
         <ActionFailure

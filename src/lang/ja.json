@@ -188,6 +188,7 @@
   },
   "hardwareCompatibilityReport": {
     "title": "ハードウェア互換性レポート",
+    "shortLabel": "互換性レポート",
     "description": "保存や共有の前に、レポートの全文を確認してください。GitHub の投稿は公開されます。アプリはレポートをコピーしてフォームを開きます。投稿はご自身で行ってください。",
     "preview": "Markdown レポートの全文",
     "save": "Markdown を保存",
@@ -275,7 +276,10 @@
     "dashboard": {
       "name": "ダッシュボード",
       "copyHardwareReport": "ハードウェアレポートをコピー",
+      "copied": "コピーしました",
+      "copyFailed": "クリップボードにコピーできませんでした。",
       "systemSpecifications": {
+        "copySpecs": "仕様をコピー",
         "networkUnavailable": "このシステムではネットワーク情報を利用できません。",
         "inventoryLoadFailed": "ハードウェア情報を読み込めませんでした。",
         "networkLoadFailed": "ネットワーク情報を読み込めませんでした。",

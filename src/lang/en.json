@@ -188,6 +188,7 @@
   },
   "hardwareCompatibilityReport": {
     "title": "Hardware Compatibility Report",
+    "shortLabel": "Compatibility report",
     "description": "Review the full report before saving or sharing. GitHub posts are public. The app opens the form and copies the report so you can post it yourself.",
     "preview": "Full Markdown report",
     "save": "Save Markdown",
@@ -275,7 +276,10 @@
     "dashboard": {
       "name": "Dashboard",
       "copyHardwareReport": "Copy hardware report",
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy to the clipboard.",
       "systemSpecifications": {
+        "copySpecs": "Copy specs",
         "networkUnavailable": "Network information is unavailable on this system.",
         "inventoryLoadFailed": "Could not load the hardware information.",
         "networkLoadFailed": "Could not load the network information.",
