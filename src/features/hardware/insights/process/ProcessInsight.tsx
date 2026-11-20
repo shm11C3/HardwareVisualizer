@@ -7,6 +7,12 @@ import { useArchivePeriodOptions } from "@/features/hardware/insights/hooks/useA
 import type { ProcessStatsPeriod } from "@/features/hardware/insights/utils/archivePeriod";
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { ProcessBubbleChart } from "./chart/Bubble";
+import { ProcessGpuNotice } from "./components/ProcessGpuNotice";
+import {
+  joinProcessGpuUsage,
+  processStatsWindowStart,
+} from "./funcs/processGpuUsage";
+import { useProcessGpuStats } from "./hooks/useProcessGpuStats";
 import { useProcessStats } from "./hooks/useProcessStats";
 import { ProcessTable } from "./table/ProcessTable";
 
@@ -34,10 +40,15 @@ export const ProcessInsight = () => {
 
 const ProcessArea = ({ period }: { period: ProcessStatsPeriod }) => {
   const { t } = useTranslation();
-  const { processStats, loading, hasError, retry } = useProcessStats({
+  const { processStats, loading, hasError, retry, endAt } = useProcessStats({
     period,
     offset: 0,
   });
+  const gpu = useProcessGpuStats({ period, endAt });
+  const gpuRecords =
+    !gpu.hasError && gpu.processGpuStats?.kind === "available"
+      ? gpu.processGpuStats.records
+      : null;
 
   const filteredData = useMemo(() => {
     if (processStats == null) {
@@ -50,6 +61,11 @@ const ProcessArea = ({ period }: { period: ProcessStatsPeriod }) => {
         stat.total_execution_sec < 60 * 60 * 24 * 30, // Ignore processes running for more than 1 month
     );
   }, [processStats]);
+
+  const tableRows = useMemo(
+    () => joinProcessGpuUsage(filteredData, gpuRecords ?? []),
+    [filteredData, gpuRecords],
+  );
 
   if (hasError) {
     return (
@@ -64,10 +80,17 @@ const ProcessArea = ({ period }: { period: ProcessStatsPeriod }) => {
   return (
     <div className="mt-4">
       <ProcessBubbleChart processStats={filteredData} loading={loading} />
+      <ProcessGpuNotice
+        processGpuStats={gpu.processGpuStats}
+        hasError={gpu.hasError}
+        onRetry={gpu.retry}
+        windowStart={processStatsWindowStart(period, endAt)}
+      />
       <ProcessTable
-        processStats={filteredData}
+        processStats={tableRows}
         loading={loading}
         period={period}
+        showGpuUsage={gpuRecords != null}
       />
     </div>
   );

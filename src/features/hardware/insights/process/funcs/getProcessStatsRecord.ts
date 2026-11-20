@@ -3,7 +3,7 @@ import {
   type ArchivePeriod,
   coercePeriodMinutes,
 } from "@/features/hardware/insights/utils/archivePeriod";
-import { commands } from "@/rspc/bindings";
+import { commands, type ProcessGpuStats } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 /**
@@ -23,6 +23,25 @@ export const getProcessStats = async (
   );
   if (isError(result)) {
     throw new Error(`Failed to fetch process stats: ${result.error}`);
+  }
+
+  return result.data;
+};
+
+/**
+ * Archived per-process GPU usage for the same window `getProcessStats` reads
+ * for `period` and `endAt`. `needsNativeDatabase` is an answer, not an error.
+ */
+export const getProcessGpuStats = async (
+  period: ArchivePeriod | number | string,
+  endAt: Date,
+): Promise<ProcessGpuStats> => {
+  const result = await commands.getProcessGpuStats(
+    coercePeriodMinutes(period),
+    endAt.toISOString(),
+  );
+  if (isError(result)) {
+    throw new Error(`Failed to fetch process GPU stats: ${result.error}`);
   }
 
   return result.data;
