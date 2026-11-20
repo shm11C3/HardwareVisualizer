@@ -142,6 +142,8 @@ export const commands = {
 	getAmbientArchiveSeries: (start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<AmbientArchiveSeries, string>(__TAURI_INVOKE("get_ambient_archive_series", { start, end, bucketWidthMs, bucketTimestamp })),
 	// ## Get archived process stats for a period ending at `end_at`
 	getProcessStats: (period: number, endAt: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats", { period, endAt })),
+	// ## Get archived per-process GPU usage for a period ending at `end_at`
+	getProcessGpuStats: (period: number, endAt: string) => typedError<ProcessGpuStats, string>(__TAURI_INVOKE("get_process_gpu_stats", { period, endAt })),
 	// ## Get archived process stats between two timestamps
 	getProcessStatsInPeriod: (start: string, end: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats_in_period", { start, end })),
 	// ## Get GPU names that have archive records
@@ -1256,6 +1258,17 @@ export type PawnIoRuntimeDiagnostics = {
 };
 
 export type PowerDisplayTarget = "cpu" | "gpu" | "ane" | "package";
+
+// One process's archived GPU usage over a period (#2720). `avg_gpu_usage` is weighted by the seconds the readings covered and is the sum across all GPUs and engines in percent, so it can exceed 100.
+export type ProcessGpuStatRecord = {
+	pid: number,
+	process_name: string,
+	avg_gpu_usage: number,
+	covered_seconds: number,
+};
+
+// Archived per-process GPU usage for a period. GPU history exists only on the native database (ADR 0030), so `needsNativeDatabase` is its own answer, distinct from an empty period and from a read failure; `recorded_since` is the earliest GPU record, or null before any exists.
+export type ProcessGpuStats = { kind: "available"; records: ProcessGpuStatRecord[]; recorded_since: string | null } | { kind: "needsNativeDatabase" };
 
 export type ProcessInfo = ProcessInfo_Serialize | ProcessInfo_Deserialize;
 

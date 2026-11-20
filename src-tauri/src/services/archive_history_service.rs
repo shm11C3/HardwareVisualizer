@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use hardviz_core::infrastructure::database::archive_queries::{
   AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveSeriesPoint, DataArchiveColumn,
-  FanArchiveSeries, GpuArchiveColumn, ProcessStatRecord,
+  FanArchiveSeries, GpuArchiveColumn, ProcessGpuStats, ProcessStatRecord,
 };
-use hardviz_core::infrastructure::database::dispatch;
+use hardviz_core::infrastructure::database::dispatch::{self, NativeOnly};
 
 use crate::log_warn;
 
@@ -162,6 +162,22 @@ pub async fn fetch_process_stats_in_period(
         &format!("process_stats_in_period start={start:?} end={end:?}"),
         e,
         "Failed to fetch process stats in period",
+      )
+    })
+}
+
+pub async fn fetch_process_gpu_stats(
+  start: &str,
+  end: &str,
+) -> Result<NativeOnly<ProcessGpuStats>, String> {
+  dispatch::process_gpu_stats::select_process_gpu_stats(start.to_owned(), end.to_owned())
+    .await
+    .map_err(|e| {
+      archive_read_failure(
+        "archive_history_service::fetch_process_gpu_stats",
+        &format!("process_gpu_stats start={start:?} end={end:?}"),
+        e,
+        "Failed to fetch process GPU stats",
       )
     })
 }

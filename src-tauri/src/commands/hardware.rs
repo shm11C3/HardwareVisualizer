@@ -3,7 +3,8 @@ use crate::enums::error::BackendError;
 use crate::models;
 use crate::models::archive_history::{
   AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveDataStats, ArchiveSeriesPoint,
-  DataArchiveHardwareType, FanArchiveSeries, GpuArchiveDataType, ProcessStatRecord,
+  DataArchiveHardwareType, FanArchiveSeries, GpuArchiveDataType, ProcessGpuStats,
+  ProcessStatRecord,
 };
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
 use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
@@ -562,16 +563,47 @@ pub async fn get_process_stats(
   use crate::services::archive_history_service;
 
   ensure_database_available(&app)?;
-  let end_at = parse_datetime(&end_at)?;
-  let adjusted_end_at =
-    end_at - chrono::Duration::seconds(HARDWARE_ARCHIVE_INTERVAL_SECONDS as i64);
-  let start_time = adjusted_end_at - chrono::Duration::minutes(period as i64);
-  let start = format_datetime(start_time);
-  let end = format_datetime(adjusted_end_at);
+  let (start, end) = process_stats_window(period, &end_at)?;
 
   archive_history_service::fetch_process_stats(&start, &end)
     .await
     .map(|records| records.into_iter().map(Into::into).collect())
+}
+
+// The same window as `get_process_stats`. GPU history exists only on the
+// native database (ADR 0030), so the answer may be `needsNativeDatabase`.
+///
+/// ## Get archived per-process GPU usage for a period ending at `end_at`
+///
+#[command]
+#[specta::specta]
+pub async fn get_process_gpu_stats(
+  app: tauri::AppHandle,
+  period: u32,
+  end_at: String,
+) -> Result<ProcessGpuStats, String> {
+  use crate::app::database_availability::ensure_database_available;
+  use crate::services::archive_history_service;
+
+  ensure_database_available(&app)?;
+  let (start, end) = process_stats_window(period, &end_at)?;
+
+  archive_history_service::fetch_process_gpu_stats(&start, &end)
+    .await
+    .map(Into::into)
+}
+
+/// The archived range Process Insight reads: `period` minutes ending one
+/// archive interval before `end_at`, the newest minute that is complete.
+fn process_stats_window(period: u32, end_at: &str) -> Result<(String, String), String> {
+  let end_at = parse_datetime(end_at)?;
+  let adjusted_end_at =
+    end_at - chrono::Duration::seconds(HARDWARE_ARCHIVE_INTERVAL_SECONDS as i64);
+  let start_time = adjusted_end_at - chrono::Duration::minutes(period as i64);
+  Ok((
+    format_datetime(start_time),
+    format_datetime(adjusted_end_at),
+  ))
 }
 
 ///
@@ -634,6 +666,15 @@ fn normalize_datetime_string(input: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn process_stats_window_ends_one_archive_interval_before_end_at() {
+    let (start, end) = process_stats_window(60, "2026-11-20T10:01:00Z").unwrap();
+    assert_eq!(
+      (start.as_str(), end.as_str()),
+      ("2026-11-20T09:00:00.000Z", "2026-11-20T10:00:00.000Z")
+    );
+  }
 
   #[test]
   fn normalize_datetime_string_formats_offset_datetime_as_utc_millis() {
