@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chartConfig } from "@/consts/chart";
 import { getProcessStats } from "@/features/hardware/insights/process/funcs/getProcessStatsRecord";
-import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
+import type {
+  ProcessStat,
+  ProcessStatsWindow,
+} from "@/features/hardware/insights/types/processStats";
 import type { ProcessStatsPeriod } from "@/features/hardware/insights/utils/archivePeriod";
 import { useProcessStatsAtom } from "./useProcessStatsAtom";
 
@@ -15,6 +18,11 @@ export const useProcessStats = ({
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { processStats, setProcessStatsAtom } = useProcessStatsAtom();
+  // The window the shown stats answer; null until this mount has read one,
+  // because the atom may still hold stats from an earlier mount or period.
+  const [statsWindow, setStatsWindow] = useState<ProcessStatsWindow | null>(
+    null,
+  );
 
   const step =
     {
@@ -53,6 +61,7 @@ export const useProcessStats = ({
         return;
       }
       setProcessStatsAtom(stats);
+      setStatsWindow({ period, endAt });
       setHasError(false);
     } catch (err) {
       console.error(err);
@@ -64,7 +73,7 @@ export const useProcessStats = ({
         setLoading(false);
       }
     }
-  }, [setProcessStatsAtom, getData]);
+  }, [setProcessStatsAtom, getData, period, endAt]);
 
   useEffect(() => {
     void load();
@@ -81,5 +90,7 @@ export const useProcessStats = ({
     void load();
   }, [load]);
 
-  return { processStats, loading, hasError, retry };
+  // `endAt` lets companion reads (GPU usage) query exactly the same window;
+  // `statsWindow` is the window `processStats` answers.
+  return { processStats, loading, hasError, retry, endAt, statsWindow };
 };

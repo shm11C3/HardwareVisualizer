@@ -1,6 +1,7 @@
 import type {
   ArchiveBucketTimestamp,
   ArchiveSeriesPoint,
+  ProcessGpuStats,
   ProcessStatRecord,
 } from "@/rspc/bindings";
 
@@ -100,3 +101,47 @@ export const buildProcessStats = (
     latest_timestamp: latestTimestamp,
   },
 ];
+
+const GPU_RECORDED_FOR_MS = 2 * 24 * 60 * 60 * 1000;
+
+/**
+ * The `get_process_gpu_stats` companion of `buildProcessStats`, keyed by the
+ * same (pid, process_name) identities: one ordinary reading, one above 100
+ * (summed across GPUs and engines), a real 0, and no record for
+ * `fixture-daemon`. `fixture-gpu-helper` reuses the editor's PID under its
+ * own name and has no process stats row, so it must not attach to the
+ * editor. GPU usage was first recorded two days before `endAt`, so periods
+ * longer than that show the coverage note.
+ */
+export const buildProcessGpuStats = (endAt: string): ProcessGpuStats => ({
+  kind: "available",
+  records: [
+    {
+      pid: 100,
+      process_name: "hv-fixture-app",
+      avg_gpu_usage: 3.42,
+      covered_seconds: 5400,
+    },
+    {
+      pid: 200,
+      process_name: "fixture-browser",
+      avg_gpu_usage: 112.48,
+      covered_seconds: 3600,
+    },
+    {
+      pid: 300,
+      process_name: "fixture-editor",
+      avg_gpu_usage: 0,
+      covered_seconds: 1800,
+    },
+    {
+      pid: 300,
+      process_name: "fixture-gpu-helper",
+      avg_gpu_usage: 55,
+      covered_seconds: 600,
+    },
+  ],
+  recorded_since: new Date(
+    new Date(endAt).getTime() - GPU_RECORDED_FOR_MS,
+  ).toISOString(),
+});
