@@ -1,4 +1,5 @@
 mod config;
+mod main_window;
 mod monitor;
 mod report;
 
@@ -8,7 +9,7 @@ use std::process::ExitCode;
 use clap::Parser;
 
 use config::Config;
-use monitor::run_monitor;
+use monitor::{Phase, run_monitor};
 use report::{OutputFormat, format_report};
 
 #[derive(Parser)]
@@ -60,11 +61,17 @@ fn main() -> ExitCode {
     }
   };
 
-  let thresholds = config.effective_thresholds();
+  let desktop_thresholds = config.effective_thresholds(Phase::Desktop);
+  let background_thresholds = config.effective_thresholds(Phase::Background);
 
   match run_monitor(&cli.binary, &config.timing) {
-    Ok(result) => {
-      let passed = format_report(&result, &thresholds, cli.output);
+    Ok(run) => {
+      let passed = format_report(
+        &run,
+        &desktop_thresholds,
+        &background_thresholds,
+        cli.output,
+      );
       if passed {
         ExitCode::SUCCESS
       } else {

@@ -12,6 +12,12 @@ max_memory_growth_mb = 50.0
 # Wait at least 15s, then allow up to 45s for a stable helper set and RSS
 # baseline before the measurement window starts.
 warmup_seconds = 15
+# After the main window hides, wait at least 30s before the background phase
+# checks stabilization. On a hosted Windows runner (Actions run 44636889279)
+# RSS looked stable 10s after the close, then WebView RSS fell by about
+# 350 MiB inside the measurement window; the phase averages put the drop at
+# roughly 20-25s after the close.
+background_warmup_seconds = 30
 stabilization_timeout_seconds = 45
 measurement_seconds = 60
 sample_interval_ms = 1000
@@ -36,3 +42,13 @@ max_avg_app_memory_mb = 150.0
 max_p95_app_memory_mb = 150.0
 max_avg_memory_mb = 600.0
 max_p95_memory_mb = 650.0
+
+[background]
+# Applied on top of the platform thresholds above; only Windows measures the
+# background phase today. The hosted Windows runner measured 108.7 MiB average
+# and 115.8 MiB P95 for the process tree once WebView2 had released its memory
+# (WebView 21.7 MiB, Actions run 44639568449), against about 500 MiB with the
+# window open. 200 MiB keeps headroom for runner variance while still failing
+# when the hidden WebView keeps its desktop-sized memory.
+max_avg_memory_mb = 200.0
+max_p95_memory_mb = 200.0

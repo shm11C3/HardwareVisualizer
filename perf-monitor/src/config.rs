@@ -4,6 +4,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use crate::monitor::Phase;
+
 pub const STABILITY_WINDOW_SAMPLES: usize = 10;
 
 #[derive(Debug, Deserialize)]
@@ -14,7 +16,12 @@ pub struct Config {
   pub timing: Timing,
 
   #[serde(default)]
-  pub platforms: HashMap<String, PlatformOverride>,
+  pub platforms: HashMap<String, ThresholdOverride>,
+
+  /// Overrides applied on top of the platform-resolved thresholds for the
+  /// background phase. Unset fields inherit the desktop phase thresholds.
+  #[serde(default)]
+  pub background: ThresholdOverride,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -32,14 +39,19 @@ pub struct Thresholds {
 #[derive(Debug, Deserialize)]
 pub struct Timing {
   pub warmup_seconds: u64,
+  /// Minimum wait after the main window hides before the background phase
+  /// checks stabilization. WebView2 releases its memory some time after
+  /// suspension, after RSS has already looked flat for a full window.
+  #[serde(default = "default_background_warmup_seconds")]
+  pub background_warmup_seconds: u64,
   #[serde(default = "default_stabilization_timeout_seconds")]
   pub stabilization_timeout_seconds: u64,
   pub measurement_seconds: u64,
   pub sample_interval_ms: u64,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct PlatformOverride {
+#[derive(Debug, Default, Deserialize)]
+pub struct ThresholdOverride {
   pub max_avg_cpu_percent: Option<f32>,
   pub max_p95_cpu_percent: Option<f32>,
   pub max_avg_app_memory_mb: Option<f64>,
@@ -65,6 +77,7 @@ impl Default for Timing {
   fn default() -> Self {
     Self {
       warmup_seconds: 15,
+      background_warmup_seconds: default_background_warmup_seconds(),
       stabilization_timeout_seconds: default_stabilization_timeout_seconds(),
       measurement_seconds: 60,
       sample_interval_ms: 1000,
@@ -105,39 +118,57 @@ impl Config {
     Ok(())
   }
 
-  pub fn effective_thresholds(&self) -> Thresholds {
+  /// Thresholds for `phase`: `[thresholds]`, then the current platform's
+  /// overrides, then (background only) the `[background]` overrides.
+  pub fn effective_thresholds(&self, phase: Phase) -> Thresholds {
+    self.thresholds_for(phase, current_platform())
+  }
+
+  fn thresholds_for(&self, phase: Phase, platform: &str) -> Thresholds {
     let mut thresholds = self.thresholds.clone();
-    let platform = current_platform();
 
     if let Some(overrides) = self.platforms.get(platform) {
-      if let Some(v) = overrides.max_avg_cpu_percent {
-        thresholds.max_avg_cpu_percent = v;
-      }
-      if let Some(v) = overrides.max_p95_cpu_percent {
-        thresholds.max_p95_cpu_percent = v;
-      }
-      if let Some(v) = overrides.max_avg_app_memory_mb {
-        thresholds.max_avg_app_memory_mb = v;
-      }
-      if let Some(v) = overrides.max_p95_app_memory_mb {
-        thresholds.max_p95_app_memory_mb = v;
-      }
-      if let Some(v) = overrides.max_app_memory_growth_mb {
-        thresholds.max_app_memory_growth_mb = v;
-      }
-      if let Some(v) = overrides.max_avg_memory_mb {
-        thresholds.max_avg_memory_mb = v;
-      }
-      if let Some(v) = overrides.max_p95_memory_mb {
-        thresholds.max_p95_memory_mb = v;
-      }
-      if let Some(v) = overrides.max_memory_growth_mb {
-        thresholds.max_memory_growth_mb = v;
-      }
+      thresholds.apply(overrides);
+    }
+    if phase == Phase::Background {
+      thresholds.apply(&self.background);
     }
 
     thresholds
   }
+}
+
+impl Thresholds {
+  fn apply(&mut self, overrides: &ThresholdOverride) {
+    if let Some(v) = overrides.max_avg_cpu_percent {
+      self.max_avg_cpu_percent = v;
+    }
+    if let Some(v) = overrides.max_p95_cpu_percent {
+      self.max_p95_cpu_percent = v;
+    }
+    if let Some(v) = overrides.max_avg_app_memory_mb {
+      self.max_avg_app_memory_mb = v;
+    }
+    if let Some(v) = overrides.max_p95_app_memory_mb {
+      self.max_p95_app_memory_mb = v;
+    }
+    if let Some(v) = overrides.max_app_memory_growth_mb {
+      self.max_app_memory_growth_mb = v;
+    }
+    if let Some(v) = overrides.max_avg_memory_mb {
+      self.max_avg_memory_mb = v;
+    }
+    if let Some(v) = overrides.max_p95_memory_mb {
+      self.max_p95_memory_mb = v;
+    }
+    if let Some(v) = overrides.max_memory_growth_mb {
+      self.max_memory_growth_mb = v;
+    }
+  }
+}
+
+fn default_background_warmup_seconds() -> u64 {
+  30
 }
 
 fn default_stabilization_timeout_seconds() -> u64 {
@@ -172,5 +203,66 @@ mod tests {
     .expect("legacy timing config should deserialize");
 
     assert_eq!(timing.stabilization_timeout_seconds, 45);
+    assert_eq!(timing.background_warmup_seconds, 30);
+  }
+
+  #[test]
+  fn background_overrides_apply_after_platform_overrides() {
+    let config: Config = toml::from_str(
+      r#"
+        [thresholds]
+        max_avg_cpu_percent = 5.0
+        max_p95_cpu_percent = 10.0
+        max_avg_app_memory_mb = 100.0
+        max_p95_app_memory_mb = 100.0
+        max_app_memory_growth_mb = 50.0
+        max_avg_memory_mb = 450.0
+        max_p95_memory_mb = 500.0
+        max_memory_growth_mb = 50.0
+
+        [platforms.windows]
+        max_avg_app_memory_mb = 110.0
+        max_avg_memory_mb = 600.0
+
+        [background]
+        max_avg_cpu_percent = 2.0
+        max_avg_memory_mb = 300.0
+      "#,
+    )
+    .expect("config should deserialize");
+
+    let desktop = config.thresholds_for(Phase::Desktop, "windows");
+    assert_eq!(desktop.max_avg_cpu_percent, 5.0);
+    assert_eq!(desktop.max_avg_app_memory_mb, 110.0);
+    assert_eq!(desktop.max_avg_memory_mb, 600.0);
+
+    let background = config.thresholds_for(Phase::Background, "windows");
+    assert_eq!(background.max_avg_cpu_percent, 2.0);
+    assert_eq!(background.max_avg_app_memory_mb, 110.0);
+    assert_eq!(background.max_avg_memory_mb, 300.0);
+    assert_eq!(background.max_p95_memory_mb, 500.0);
+  }
+
+  #[test]
+  fn background_inherits_desktop_thresholds_when_unset() {
+    let config: Config = toml::from_str(
+      r#"
+        [thresholds]
+        max_avg_cpu_percent = 5.0
+        max_p95_cpu_percent = 10.0
+        max_avg_app_memory_mb = 100.0
+        max_p95_app_memory_mb = 100.0
+        max_app_memory_growth_mb = 50.0
+        max_avg_memory_mb = 450.0
+        max_p95_memory_mb = 500.0
+        max_memory_growth_mb = 50.0
+      "#,
+    )
+    .expect("config without [background] should deserialize");
+
+    let desktop = config.thresholds_for(Phase::Desktop, "linux");
+    let background = config.thresholds_for(Phase::Background, "linux");
+    assert_eq!(background.max_avg_cpu_percent, desktop.max_avg_cpu_percent);
+    assert_eq!(background.max_avg_memory_mb, desktop.max_avg_memory_mb);
   }
 }
