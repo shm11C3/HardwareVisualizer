@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sortProcesses } from "@/features/hardware/dashboard/processSort";
+import { sortProcesses } from "@/features/hardware/processSort";
 import type { ProcessInfo } from "@/rspc/bindings";
 
 const proc = (pid: number, gpuUsage: string | null): ProcessInfo => ({

@@ -1,18 +1,17 @@
-import type { ProcessInfo } from "@/rspc/bindings";
-
-export type ProcessSortConfig = {
-  key: keyof ProcessInfo;
+export type ProcessSortConfig<T> = {
+  key: keyof T;
   direction: "ascending" | "descending";
 };
 
 /**
  * Returns a sorted copy. A null value (an unavailable reading, e.g. GPU usage)
  * sorts last in both directions so it never reads as the smallest or largest.
+ * Shared by the Live Process Table and Process Insight.
  */
-export const sortProcesses = (
-  processes: readonly ProcessInfo[],
-  sortConfig: ProcessSortConfig | null,
-): ProcessInfo[] => {
+export const sortProcesses = <T>(
+  processes: readonly T[],
+  sortConfig: ProcessSortConfig<T> | null,
+): T[] => {
   const sorted = [...processes];
   if (sortConfig === null) {
     return sorted;
