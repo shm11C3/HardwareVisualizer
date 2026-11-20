@@ -352,6 +352,12 @@ async fn imports_autoincrement_high_water_and_records_rowid_tables() {
       ("FAN_ARCHIVE".into(), "id".into(), "rowid".into(), 0),
       ("GPU_DATA_ARCHIVE".into(), "id".into(), "rowid".into(), 0),
       (
+        "PROCESS_GPU_STATS".into(),
+        "id".into(),
+        "autoincrement".into(),
+        0
+      ),
+      (
         "PROCESS_STATS".into(),
         "id".into(),
         "autoincrement".into(),
@@ -590,7 +596,10 @@ async fn refuses_an_unfinalized_or_incompatible_database() {
   assert!(
     matches!(
       error,
-      NativeDatabaseError::IncompatibleSchema { actual: 1, .. }
+      NativeDatabaseError::IncompatibleSchema {
+        actual: app_native_schema::NATIVE_SCHEMA_VERSION,
+        ..
+      }
     ),
     "{error:?}"
   );

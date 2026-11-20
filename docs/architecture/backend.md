@@ -481,6 +481,22 @@ process observations. It is not a complete process audit log, and persistence
 code should preserve that expectation unless a new feature explicitly changes
 the product contract.
 
+Per-process GPU usage is the first native-only family (ADR 0030, #2720),
+added by native schema version 2. `PROCESS_GPU_STATS` holds one row per
+archived process that had GPU readings in an archive minute, written in the
+same cycle as that minute's `PROCESS_STATS` rows and stamped with the same
+timestamp text, so the Process identity ADR 0019 keeps - the stamp with
+`(pid, process_name)` - pairs the two. `gpu_usage` is the minute's
+time-weighted average in percent, summed across every GPU and engine, so it
+may exceed 100 and 0 is a real reading; `covered_seconds` is how much of the
+minute the readings covered. A range query weights each minute by that
+coverage and also reports the earliest recorded row, so a view can tell a
+range before GPU recording began from one in which nothing used the GPU. The
+rows expire with `PROCESS_STATS` under the same Hardware Archive Retention
+Period and the same byte-wise timestamp rule. While SQLite is authoritative,
+the dispatch family's writes are no-ops, `available()` is false, and its read
+answers `NativeOnly::NeedsNativeDatabase`.
+
 Storage Health Records are intentionally retained separately from the
 Hardware Archive. Dashboard display can use the latest record and recent
 changes, while future historical views can keep following long-term storage

@@ -2,52 +2,49 @@
 //! The native schema upgrade path and native-only tables (ADR 0030), driven
 //! through the production conversion against App's own schema definition.
 //!
-//! Production is still at version 1 with no upgrade steps, so these tests
-//! build a test-only version 2 from it: the same baseline plus one step that
-//! creates a native-only table. Nothing here hand-writes a native file.
+//! Production is at version 2, whose one step adds the native-only
+//! `PROCESS_GPU_STATS` (#2720). A database a version 1 build selected is
+//! reproduced with [`v1`], the production definition before that step.
+//! Nothing here hand-writes a native file.
 
 use super::native_support;
 
 use hardviz_core::infrastructure::database::native_database::{
   AuthorityState, NativeCancellation, NativeDatabase, NativeDatabaseError,
-  NativeDatabaseOptions, NativeIdentity, NativeIdentityMode, NativeSchemaDefinition,
-  NativeSchemaUpgrade, NativeSchemaUpgradeOutcome, finalize_candidate_database,
-  inspect_authority, observe_authority, reconcile_native_database,
-  select_native_database, upgrade_selected_native_database,
+  NativeDatabaseOptions, NativeIdentityMode, NativeSchemaDefinition,
+  NativeSchemaUpgradeOutcome, finalize_candidate_database, inspect_authority,
+  observe_authority, reconcile_native_database, select_native_database,
+  upgrade_selected_native_database,
 };
 use native_support::{
   NativeFixture, app_migrations, app_native_schema, read_only, read_write,
 };
 use sqlx::{Executor, SqlitePool};
 
-const NATIVE_ONLY_TABLE: &str = "TEST_NATIVE_ONLY";
+const NATIVE_ONLY_TABLE: &str = "PROCESS_GPU_STATS";
 
-static V1_TO_V2: &[NativeSchemaUpgrade] = &[NativeSchemaUpgrade {
-  from: 1,
-  to: 2,
-  sql: "CREATE TABLE TEST_NATIVE_ONLY (id BIGINT PRIMARY KEY, note VARCHAR NOT NULL)",
-}];
-
-/// App's production identities plus the native-only table's.
-fn v2_identities() -> &'static [NativeIdentity] {
-  let mut identities = app_native_schema::IDENTITIES.to_vec();
-  identities.push(NativeIdentity {
-    table: NATIVE_ONLY_TABLE,
-    column: "id",
-    mode: NativeIdentityMode::NativeOnly,
-  });
-  Box::leak(identities.into_boxed_slice())
+fn production() -> NativeSchemaDefinition {
+  let schema = app_native_schema::get_native_schema();
+  assert_eq!(schema.version, 2);
+  assert_eq!(schema.native_only_tables, &[NATIVE_ONLY_TABLE]);
+  schema
 }
 
-/// The production schema, upgraded by one test-only step.
-fn v2() -> NativeSchemaDefinition {
-  let mut schema = app_native_schema::get_native_schema();
-  assert_eq!(schema.version, 1, "the test step starts from production");
-  schema.version = 2;
-  schema.native_only_tables = &[NATIVE_ONLY_TABLE];
-  schema.identities = v2_identities();
-  schema.upgrades = V1_TO_V2;
-  schema
+/// The production definition as a version 1 build shipped it: the same
+/// baseline, without the upgrade step and its native-only identity.
+fn v1() -> NativeSchemaDefinition {
+  let identities = app_native_schema::IDENTITIES
+    .iter()
+    .copied()
+    .filter(|identity| identity.mode != NativeIdentityMode::NativeOnly)
+    .collect::<Vec<_>>();
+  NativeSchemaDefinition {
+    version: 1,
+    native_only_tables: &[],
+    identities: Box::leak(identities.into_boxed_slice()),
+    upgrades: &[],
+    ..production()
+  }
 }
 
 async fn seed(pool: &SqlitePool) {
@@ -85,6 +82,17 @@ fn count(path: &std::path::Path, table: &str) -> i64 {
     .unwrap()
 }
 
+fn table_present(path: &std::path::Path, table: &str) -> bool {
+  read_only(path)
+    .query_row(
+      "SELECT count(*) FROM information_schema.tables WHERE table_name = ?",
+      [table],
+      |row| row.get::<_, i64>(0),
+    )
+    .unwrap()
+    != 0
+}
+
 fn identities(path: &std::path::Path) -> Vec<(String, String, i64)> {
   let connection = read_only(path);
   let mut statement = connection
@@ -120,24 +128,35 @@ async fn next_id(database: &NativeDatabase, table: &'static str) -> i64 {
 }
 
 /// The upgrade boot the issue names: a database converted from SQLite and
-/// selected at version 1 gains the native-only table and keeps everything it
-/// held.
+/// selected by a version 1 build gains `PROCESS_GPU_STATS` and keeps
+/// everything it held.
 #[tokio::test]
-async fn a_converted_and_selected_v1_database_upgrades_to_v2_once() {
+async fn a_converted_and_selected_v1_database_upgrades_to_production() {
   let fixture = seeded_fixture().await;
-  fixture.finalize().await;
-  let (_report, verified) = fixture.try_reconcile().await.unwrap();
+  fixture.build_candidate().await.unwrap();
+  finalize_candidate_database(&fixture.candidate, &fixture.finalized, v1())
+    .await
+    .unwrap();
+  let (_report, verified) = reconcile_native_database(
+    &fixture.source,
+    &fixture.finalized,
+    app_migrations::get_migrations(),
+    v1(),
+  )
+  .await
+  .unwrap();
   let paths = fixture.authority_paths();
   let marker = select_native_database(paths.clone(), verified)
     .await
     .unwrap();
   assert_eq!(marker.schema_version, 1);
+  assert!(!table_present(&fixture.finalized, NATIVE_ONLY_TABLE));
   let identities_before = identities(&fixture.finalized);
   let process_rows = count(&fixture.finalized, "PROCESS_STATS");
   let archive_rows = count(&fixture.finalized, "DATA_ARCHIVE");
 
   assert_eq!(
-    upgrade_selected_native_database(&paths, v2()).unwrap(),
+    upgrade_selected_native_database(&paths, production()).unwrap(),
     NativeSchemaUpgradeOutcome::Upgraded { from: 1, to: 2 }
   );
 
@@ -159,28 +178,26 @@ async fn a_converted_and_selected_v1_database_upgrades_to_v2_once() {
   expected.sort();
   assert_eq!(identities(&fixture.finalized), expected);
 
-  let database = fixture.try_open(2).await.unwrap();
+  let database = fixture.open().await;
   assert_eq!(next_id(&database, NATIVE_ONLY_TABLE).await, 1);
   // The SQLite-imported mark survived: the deleted highest row stays used.
   assert_eq!(next_id(&database, "PROCESS_STATS").await, 4);
   database.close().await.unwrap();
 
   assert_eq!(
-    upgrade_selected_native_database(&paths, v2()).unwrap(),
+    upgrade_selected_native_database(&paths, production()).unwrap(),
     NativeSchemaUpgradeOutcome::NotNeeded
   );
 }
 
-/// Conversion produces version 2 directly: the native-only table is created
-/// empty, left out of the copy and the row counts, and given its identity.
+/// Conversion produces the production version directly: the native-only
+/// table is created empty, left out of the copy and the row counts, and
+/// given its identity.
 #[tokio::test]
-async fn finalizing_at_v2_creates_the_native_only_table_empty() {
+async fn converting_creates_process_gpu_stats_empty() {
   let fixture = seeded_fixture().await;
-  fixture.build_candidate().await.unwrap();
 
-  let report = finalize_candidate_database(&fixture.candidate, &fixture.finalized, v2())
-    .await
-    .unwrap();
+  let report = fixture.finalize().await;
 
   assert_eq!(report.schema_version, 2);
   assert_eq!(report.tables.len(), app_native_schema::TABLES.len());
@@ -206,23 +223,15 @@ async fn finalizing_at_v2_creates_the_native_only_table_empty() {
 #[tokio::test]
 async fn reconciliation_leaves_native_only_rows_alone() {
   let fixture = seeded_fixture().await;
-  fixture.build_candidate().await.unwrap();
-  let finalized =
-    finalize_candidate_database(&fixture.candidate, &fixture.finalized, v2())
-      .await
-      .unwrap();
+  let finalized = fixture.finalize().await;
   read_write(&fixture.finalized)
-    .execute_batch("INSERT INTO TEST_NATIVE_ONLY VALUES (7, 'native'); CHECKPOINT")
+    .execute_batch(
+      "INSERT INTO PROCESS_GPU_STATS VALUES \
+       (7, 4000, 'renderer', 12.5, 60.0, '2026-09-01T00:00:00+00:00'); CHECKPOINT",
+    )
     .unwrap();
 
-  let (report, _verified) = reconcile_native_database(
-    &fixture.source,
-    &fixture.finalized,
-    app_migrations::get_migrations(),
-    v2(),
-  )
-  .await
-  .unwrap();
+  let (report, _verified) = fixture.try_reconcile().await.unwrap();
 
   assert_eq!(report.schema_version, 2);
   assert_eq!(report.tables.len(), app_native_schema::TABLES.len());
@@ -241,7 +250,7 @@ async fn reconciliation_leaves_native_only_rows_alone() {
 async fn a_sqlite_sourced_table_listed_as_native_only_is_refused() {
   let fixture = seeded_fixture().await;
   fixture.build_candidate().await.unwrap();
-  let mut schema = v2();
+  let mut schema = production();
   let tables = app_native_schema::TABLES
     .iter()
     .copied()
@@ -269,10 +278,13 @@ async fn a_sqlite_sourced_table_listed_as_native_only_is_refused() {
 #[tokio::test]
 async fn an_unselected_v1_database_is_not_upgraded() {
   let fixture = seeded_fixture().await;
-  fixture.finalize().await;
+  fixture.build_candidate().await.unwrap();
+  finalize_candidate_database(&fixture.candidate, &fixture.finalized, v1())
+    .await
+    .unwrap();
 
   assert_eq!(
-    upgrade_selected_native_database(&fixture.authority_paths(), v2()).unwrap(),
+    upgrade_selected_native_database(&fixture.authority_paths(), production()).unwrap(),
     NativeSchemaUpgradeOutcome::NotNeeded
   );
   assert_eq!(recorded_version(&fixture.finalized), 1);

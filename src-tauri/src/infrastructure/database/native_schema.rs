@@ -109,7 +109,7 @@ mod tests {
 
   #[test]
   fn every_identity_names_a_declared_table() {
-    assert_eq!(IDENTITIES.len(), 6);
+    assert_eq!(IDENTITIES.len(), 7);
     for identity in IDENTITIES {
       assert!(
         TABLES.contains(&identity.table) || NATIVE_ONLY_TABLES.contains(&identity.table),

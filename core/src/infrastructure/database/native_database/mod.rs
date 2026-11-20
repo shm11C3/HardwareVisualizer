@@ -26,6 +26,7 @@ mod finalize;
 pub mod gpu_archive;
 mod paging;
 mod preflight;
+pub mod process_gpu_stats;
 pub mod process_stats;
 mod publish;
 mod reconcile;

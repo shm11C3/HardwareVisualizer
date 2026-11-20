@@ -207,6 +207,14 @@ pub async fn cleanup_old_data(retention_days: u32) {
     );
   }
 
+  if let Err(e) = dispatch::process_gpu_stats::delete_old_data(retention_days).await {
+    log_error!(
+      "Failed to delete old process GPU stats data",
+      "persistence::archive::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
   if let Err(e) = dispatch::ambient_archive::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old ambient archive data",

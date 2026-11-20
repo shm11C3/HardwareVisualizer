@@ -18,7 +18,7 @@ use hardviz_core::infrastructure::database::dispatch;
 use hardviz_core::infrastructure::database::native_database::{
   AuthorityState, select_native_database,
 };
-use hardviz_core::persistence::archive_data::ProcessStatData;
+use hardviz_core::persistence::archive_data::{ProcessGpuStatData, ProcessStatData};
 use native_support::{NativeFixture, app_native_schema};
 
 fn at(text: &str) -> DateTime<Utc> {
@@ -65,6 +65,23 @@ async fn dispatch_answers_from_the_durably_selected_backend_and_only_when_told()
   let before_selection = select_all().await;
   assert_eq!(before_selection.len(), 1);
   assert_eq!(before_selection[0].process_name, "sqlite-proc");
+
+  // The native-only GPU family has no SQLite engine: while SQLite answers,
+  // its writes store nothing and its read needs the native database.
+  assert!(!dispatch::process_gpu_stats::available().await.unwrap());
+  dispatch::process_gpu_stats::insert(
+    vec![gpu(1, "sqlite-proc", 25.0)],
+    at("2026-09-01T00:00:00Z"),
+  )
+  .await
+  .unwrap();
+  dispatch::process_gpu_stats::delete_old_data(30)
+    .await
+    .unwrap();
+  assert_eq!(
+    select_gpu().await,
+    dispatch::NativeOnly::NeedsNativeDatabase
+  );
 
   // Build a verified, reconciled native database from the same source, but
   // do not yet tell the dispatch boundary anything about it.
@@ -122,4 +139,44 @@ async fn dispatch_answers_from_the_durably_selected_backend_and_only_when_told()
     sqlite_row_count, 0,
     "a post-selection write must land in the native database, not SQLite"
   );
+
+  // Once native answers, the GPU family is available. The row written while
+  // SQLite answered was dropped, so this write is the first one recorded.
+  assert!(dispatch::process_gpu_stats::available().await.unwrap());
+  dispatch::process_gpu_stats::insert(
+    vec![gpu(2, "native-proc", 40.0)],
+    at("2026-09-01T00:05:00Z"),
+  )
+  .await
+  .unwrap();
+  let dispatch::NativeOnly::Available(stats) = select_gpu().await else {
+    panic!("the selected native database answers the GPU family");
+  };
+  assert_eq!(
+    stats.recorded_since.as_deref(),
+    Some("2026-09-01T00:05:00+00:00")
+  );
+  assert_eq!(stats.records.len(), 1);
+  assert_eq!(stats.records[0].process_name, "native-proc");
+  assert_eq!(stats.records[0].avg_gpu_usage, 40.0);
+}
+
+fn gpu(pid: i32, name: &str, usage: f64) -> ProcessGpuStatData {
+  ProcessGpuStatData {
+    pid,
+    process_name: name.to_owned(),
+    gpu_usage: usage,
+    covered_seconds: 60.0,
+  }
+}
+
+async fn select_gpu() -> dispatch::NativeOnly<
+  hardviz_core::infrastructure::database::archive_queries::ProcessGpuStats,
+> {
+  dispatch::process_gpu_stats::select_process_gpu_stats(
+    "2026-08-31T00:00:00+00:00".to_owned(),
+    "2026-09-02T00:00:00+00:00".to_owned(),
+  )
+  .await
+  .unwrap()
 }
