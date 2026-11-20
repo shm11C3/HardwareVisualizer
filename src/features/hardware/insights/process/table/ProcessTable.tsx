@@ -13,6 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
+import {
+  type ProcessSortConfig,
+  sortProcesses,
+} from "@/features/hardware/processSort";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { useStickyObserver } from "@/hooks/window/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
@@ -33,50 +37,13 @@ export const ProcessTable = ({
   const scrollRef = useRef<HTMLElement>(null);
   const [pageState, setPageState] = useState({ period, page: 1 });
 
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof ProcessStat;
-    direction: "ascending" | "descending";
-  } | null>(null);
+  const [sortConfig, setSortConfig] =
+    useState<ProcessSortConfig<ProcessStat> | null>(null);
 
-  const sortedProcesses = useMemo(() => {
-    if (!processStats) return [];
-    if (sortConfig == null) {
-      return processStats;
-    }
-
-    return [...processStats].sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
-
-      // Compare directly for numbers
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortConfig.direction === "ascending"
-          ? aValue - bValue
-          : bValue - aValue;
-      }
-
-      // Convert to number if stored as string
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        const aNumber = Number.parseFloat(aValue);
-        const bNumber = Number.parseFloat(bValue);
-
-        // Compare as numbers if not NaN to avoid string comparison of decimals
-        if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
-          return sortConfig.direction === "ascending"
-            ? aNumber - bNumber
-            : bNumber - aNumber;
-        }
-
-        // Compare as strings if not numbers
-        return sortConfig.direction === "ascending"
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-
-      // Don't change order if types differ
-      return 0;
-    });
-  }, [processStats, sortConfig]);
+  const sortedProcesses = useMemo(
+    () => (processStats ? sortProcesses(processStats, sortConfig) : []),
+    [processStats, sortConfig],
+  );
 
   const pageCount = Math.max(1, Math.ceil(sortedProcesses.length / PAGE_SIZE));
   const page =
@@ -215,10 +182,7 @@ const InfoTable = ({
 }: {
   processes: ProcessStat[];
   requestSort: (key: keyof ProcessStat) => void;
-  sortConfig: {
-    key: keyof ProcessStat;
-    direction: "ascending" | "descending";
-  } | null;
+  sortConfig: ProcessSortConfig<ProcessStat> | null;
 }) => {
   const { t } = useTranslation();
   const { sentinelRef, isStuck } = useStickyObserver();
