@@ -1,13 +1,11 @@
 import { useAtom } from "jotai";
-import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
 import { processStatsAtom } from "@/features/hardware/store/processStats";
 
 export const useProcessStatsAtom = () => {
   const [processStats, setProcessStats] = useAtom(processStatsAtom);
 
-  const setProcessStatsAtom = (processes: ProcessStat[]) => {
-    setProcessStats(processes);
-  };
-
-  return { processStats, setProcessStatsAtom };
+  // Jotai's setter is stable. A new wrapper per render would change
+  // `useProcessStats`'s `load` every render and refetch in a loop wherever
+  // React Compiler does not memoize it (e.g. under Vitest).
+  return { processStats, setProcessStatsAtom: setProcessStats };
 };
