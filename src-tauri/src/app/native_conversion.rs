@@ -506,10 +506,15 @@ pub fn build_producer_resumers(
       Some(Box::new(move || {
         let environmental_sensors =
           crate::setup_environmental_sensors(&app_handle, &core_settings, &runtime);
+        let process_gpu = std::sync::Arc::clone(
+          &app_handle
+            .state::<std::sync::Arc<hardviz_core::collector::ProcessGpuCollector>>(),
+        );
         ArchiveController::setup_with_environmental_sensors(
           &bus,
           runtime,
           environmental_sensors,
+          Some(process_gpu),
         )
       }))
     } else {
