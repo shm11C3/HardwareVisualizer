@@ -16,6 +16,7 @@ import { displayTargetAtom } from "@/store/navigation";
 const hoisted = vi.hoisted(() => ({
   getProcessStats: vi.fn(),
   getProcessGpuStats: vi.fn(),
+  period: 60,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -25,7 +26,7 @@ vi.mock("@/rspc/bindings", () => ({
   },
 }));
 vi.mock("@/hooks/tauri/useTauriStore", () => ({
-  useTauriStore: () => [60, vi.fn()],
+  useTauriStore: () => [hoisted.period, vi.fn()],
 }));
 vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
@@ -106,6 +107,7 @@ const gpuHeader = () =>
 
 describe("ProcessInsight GPU usage", () => {
   beforeEach(() => {
+    hoisted.period = 60;
     hoisted.getProcessStats.mockResolvedValue(ok(processStats));
   });
   afterEach(() => {
@@ -129,6 +131,65 @@ describe("ProcessInsight GPU usage", () => {
     expect(
       screen.queryByTestId("process-gpu-coverage-note"),
     ).not.toBeInTheDocument();
+  });
+
+  it("joins GPU usage only once it answers the same window as the shown stats", async () => {
+    hoisted.getProcessGpuStats.mockResolvedValue(
+      ok(available("2026-11-01T00:00:00+00:00")),
+    );
+    const store = createStore();
+    const tree = () => (
+      <Provider store={store}>
+        <ProcessInsight />
+      </Provider>
+    );
+    const { rerender } = render(tree());
+    await flush();
+    expect(within(rowFor("game")).getByText("87.5%")).toBeInTheDocument();
+
+    // Switch period: the new stats arrive first, while GPU still holds the
+    // previous period's averages.
+    let resolveGpu: (value: unknown) => void = () => {};
+    hoisted.getProcessGpuStats.mockReturnValue(
+      new Promise((resolve) => {
+        resolveGpu = resolve;
+      }),
+    );
+    hoisted.getProcessStats.mockResolvedValue(
+      ok([{ ...processStats[0], avg_cpu_usage: 55 }, processStats[1]]),
+    );
+    hoisted.period = 180;
+    rerender(tree());
+    await flush();
+
+    expect(within(rowFor("game")).getByText("55%")).toBeInTheDocument();
+    expect(gpuHeader()).not.toBeInTheDocument();
+    expect(screen.queryByText("87.5%")).not.toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("load-failure")).not.toBeInTheDocument();
+
+    // The GPU read for the new window arrives and joins.
+    await act(async () => {
+      resolveGpu(
+        ok({
+          kind: "available",
+          records: [
+            {
+              pid: 42,
+              process_name: "game",
+              avg_gpu_usage: 12,
+              covered_seconds: 1800,
+            },
+          ],
+          recorded_since: "2026-11-01T00:00:00+00:00",
+        }),
+      );
+    });
+    await flush();
+
+    expect(gpuHeader()).toBeInTheDocument();
+    expect(within(rowFor("game")).getByText("12.0%")).toBeInTheDocument();
+    expect(within(rowFor("updater")).getByText("—")).toBeInTheDocument();
   });
 
   it("hides the column and points to the Settings conversion on the SQLite archive", async () => {

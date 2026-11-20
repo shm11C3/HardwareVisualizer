@@ -1,7 +1,9 @@
 import { chartConfig } from "@/consts/chart";
 import type {
+  ProcessGpuRead,
   ProcessInsightRow,
   ProcessStat,
+  ProcessStatsWindow,
 } from "@/features/hardware/insights/types/processStats";
 import type { ProcessGpuStatRecord } from "@/rspc/bindings";
 
@@ -33,10 +35,30 @@ export const joinProcessGpuUsage = (
  * `period` minutes ending at `endAt`: the window ends one archive interval
  * before `endAt` (the newest complete minute).
  */
-export const processStatsWindowStart = (period: number, endAt: Date): Date =>
+export const processStatsWindowStart = ({
+  period,
+  endAt,
+}: ProcessStatsWindow): Date =>
   new Date(
     endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec - period * 60_000,
   );
+
+/**
+ * The GPU read that answers the same window as the shown process stats, or
+ * null while that read is pending. The two reads complete independently, so
+ * after a period change either side can still hold the previous window;
+ * joining them would mix two periods.
+ */
+export const gpuReadForWindow = (
+  read: ProcessGpuRead | null,
+  statsWindow: ProcessStatsWindow | null,
+): ProcessGpuRead | null =>
+  read != null &&
+  statsWindow != null &&
+  read.window.period === statsWindow.period &&
+  read.window.endAt.getTime() === statsWindow.endAt.getTime()
+    ? read
+    : null;
 
 export type ProcessGpuCoverage =
   /** GPU usage was recorded for the whole period. */

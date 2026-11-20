@@ -8,10 +8,7 @@ import type { ProcessStatsPeriod } from "@/features/hardware/insights/utils/arch
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
 import { ProcessBubbleChart } from "./chart/Bubble";
 import { ProcessGpuNotice } from "./components/ProcessGpuNotice";
-import {
-  joinProcessGpuUsage,
-  processStatsWindowStart,
-} from "./funcs/processGpuUsage";
+import { gpuReadForWindow, joinProcessGpuUsage } from "./funcs/processGpuUsage";
 import { useProcessGpuStats } from "./hooks/useProcessGpuStats";
 import { useProcessStats } from "./hooks/useProcessStats";
 import { ProcessTable } from "./table/ProcessTable";
@@ -40,14 +37,19 @@ export const ProcessInsight = () => {
 
 const ProcessArea = ({ period }: { period: ProcessStatsPeriod }) => {
   const { t } = useTranslation();
-  const { processStats, loading, hasError, retry, endAt } = useProcessStats({
-    period,
-    offset: 0,
-  });
+  const { processStats, loading, hasError, retry, endAt, statsWindow } =
+    useProcessStats({
+      period,
+      offset: 0,
+    });
   const gpu = useProcessGpuStats({ period, endAt });
+  // Only a GPU read for the shown stats' window joins the table. While it is
+  // pending the column stays hidden: an older read's values would belong to
+  // another period, and its "—" would wrongly claim "no record here".
+  const gpuRead = gpuReadForWindow(gpu.read, statsWindow);
   const gpuRecords =
-    !gpu.hasError && gpu.processGpuStats?.kind === "available"
-      ? gpu.processGpuStats.records
+    gpuRead?.status === "ready" && gpuRead.stats.kind === "available"
+      ? gpuRead.stats.records
       : null;
 
   const filteredData = useMemo(() => {
@@ -80,12 +82,7 @@ const ProcessArea = ({ period }: { period: ProcessStatsPeriod }) => {
   return (
     <div className="mt-4">
       <ProcessBubbleChart processStats={filteredData} loading={loading} />
-      <ProcessGpuNotice
-        processGpuStats={gpu.processGpuStats}
-        hasError={gpu.hasError}
-        onRetry={gpu.retry}
-        windowStart={processStatsWindowStart(period, endAt)}
-      />
+      <ProcessGpuNotice read={gpuRead} onRetry={gpu.retry} />
       <ProcessTable
         processStats={tableRows}
         loading={loading}

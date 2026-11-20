@@ -1,3 +1,5 @@
+import type { ProcessGpuStats } from "@/rspc/bindings";
+
 export type ProcessStat = {
   pid: number;
   process_name: string;
@@ -16,3 +18,18 @@ export type ProcessStat = {
 export type ProcessInsightRow = ProcessStat & {
   avg_gpu_usage: number | null;
 };
+
+/**
+ * The query window a Process Insight read answers: `period` minutes ending at
+ * `endAt`. The table joins two reads only when their windows are equal.
+ */
+export type ProcessStatsWindow = {
+  period: number;
+  endAt: Date;
+};
+
+/** The latest per-process GPU read and the window it answers. */
+export type ProcessGpuRead = { window: ProcessStatsWindow } & (
+  | { status: "ready"; stats: ProcessGpuStats }
+  | { status: "failed" }
+);

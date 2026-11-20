@@ -1,13 +1,15 @@
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { getProcessGpuStats } from "@/features/hardware/insights/process/funcs/getProcessStatsRecord";
 import type { ProcessStatsPeriod } from "@/features/hardware/insights/utils/archivePeriod";
-import { processGpuStatsAtom } from "@/features/hardware/store/processStats";
+import { processGpuReadAtom } from "@/features/hardware/store/processStats";
 
 /**
  * Archived per-process GPU usage for the window `useProcessStats` reads
  * (pass its `endAt`), refreshed on the same cadence. It is a separate read so
- * a GPU failure leaves the CPU and memory table in place (DP-02).
+ * a GPU failure leaves the CPU and memory table in place (DP-02). Each result
+ * and failure carries the window it answers, so the caller can tell a read
+ * for the shown stats from one left over from another period.
  */
 export const useProcessGpuStats = ({
   period,
@@ -16,8 +18,7 @@ export const useProcessGpuStats = ({
   period: ProcessStatsPeriod;
   endAt: Date;
 }) => {
-  const [hasError, setHasError] = useState(false);
-  const [processGpuStats, setProcessGpuStats] = useAtom(processGpuStatsAtom);
+  const [read, setRead] = useAtom(processGpuReadAtom);
 
   const requestIdRef = useRef(0);
 
@@ -26,21 +27,21 @@ export const useProcessGpuStats = ({
     // the state of the read that replaced it.
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    const queryWindow = { period, endAt };
 
     try {
       const stats = await getProcessGpuStats(period, endAt);
       if (requestIdRef.current !== requestId) {
         return;
       }
-      setProcessGpuStats(stats);
-      setHasError(false);
+      setRead({ window: queryWindow, status: "ready", stats });
     } catch (err) {
       console.error(err);
       if (requestIdRef.current === requestId) {
-        setHasError(true);
+        setRead({ window: queryWindow, status: "failed" });
       }
     }
-  }, [period, endAt, setProcessGpuStats]);
+  }, [period, endAt, setRead]);
 
   useEffect(() => {
     void load();
@@ -57,5 +58,5 @@ export const useProcessGpuStats = ({
     void load();
   }, [load]);
 
-  return { processGpuStats, hasError, retry };
+  return { read, retry };
 };
