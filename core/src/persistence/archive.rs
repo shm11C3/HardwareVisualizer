@@ -566,28 +566,12 @@ impl ArchiveTracker {
 
     let process_rows = self.collect_process_rows();
     self.clear_process_gpu_usage();
-    if !process_rows.stats.is_empty()
-      && let Err(e) =
-        database::process_stats::insert(process_rows.stats, tick_timestamp).await
-    {
-      log_error!(
-        "Failed to insert process stats data",
-        "persistence::archive::write_archive",
-        Some(e.to_string())
-      );
-    }
-    // Written after the process rows so each GPU row has its companion
-    // PROCESS_STATS row for the same minute. On SQLite this is a no-op.
-    if !process_rows.gpu.is_empty()
-      && let Err(e) =
-        database::process_gpu_stats::insert(process_rows.gpu, tick_timestamp).await
-    {
-      log_error!(
-        "Failed to insert process GPU stats data",
-        "persistence::archive::write_archive",
-        Some(e.to_string())
-      );
-    }
+    write_process_rows(
+      process_rows,
+      |stats| database::process_stats::insert(stats, tick_timestamp),
+      |gpu| database::process_gpu_stats::insert(gpu, tick_timestamp),
+    )
+    .await;
 
     // Ambient rows are keyed to the tick, not to each sensor's own
     // observation time, so they join the hardware row for this minute.
@@ -771,6 +755,48 @@ impl ArchiveTracker {
     for acc in self.processes.values_mut() {
       acc.gpu_usage = ProcessGpuUsageSpan::default();
     }
+  }
+}
+
+/// Writes one cycle's process rows, then their GPU rows.
+///
+/// A GPU row is the companion of the `PROCESS_STATS` row written for the
+/// same process in the same cycle, so GPU rows are written only after those
+/// committed. A failed process insert rolls back, and writing its GPU rows
+/// anyway would leave them without a companion. On SQLite the GPU insert is
+/// a no-op.
+async fn write_process_rows<S, SF, G, GF, E>(
+  rows: ProcessArchiveRows,
+  insert_stats: S,
+  insert_gpu: G,
+) where
+  S: FnOnce(Vec<ProcessStatData>) -> SF,
+  SF: std::future::Future<Output = Result<(), E>>,
+  G: FnOnce(Vec<ProcessGpuStatData>) -> GF,
+  GF: std::future::Future<Output = Result<(), E>>,
+  E: std::fmt::Display,
+{
+  use crate::log_error;
+
+  if rows.stats.is_empty() {
+    return;
+  }
+  if let Err(e) = insert_stats(rows.stats).await {
+    log_error!(
+      "Failed to insert process stats data",
+      "persistence::archive::write_archive",
+      Some(e.to_string())
+    );
+    return;
+  }
+  if !rows.gpu.is_empty()
+    && let Err(e) = insert_gpu(rows.gpu).await
+  {
+    log_error!(
+      "Failed to insert process GPU stats data",
+      "persistence::archive::write_archive",
+      Some(e.to_string())
+    );
   }
 }
 
@@ -1012,6 +1038,44 @@ mod tests {
   }
 
   // ── process GPU usage (#2720) ──
+
+  fn one_process_with_gpu() -> ProcessArchiveRows {
+    ProcessArchiveRows {
+      stats: vec![make_process_stat(1, 1.0, 1, 60)],
+      gpu: vec![ProcessGpuStatData {
+        pid: 1,
+        process_name: "p1".into(),
+        gpu_usage: 50.0,
+        covered_seconds: 60.0,
+      }],
+    }
+  }
+
+  #[tokio::test]
+  async fn gpu_rows_are_not_written_when_their_process_rows_fail() {
+    let gpu_written = std::cell::Cell::new(false);
+    write_process_rows(
+      one_process_with_gpu(),
+      |_| async { Err("process insert rolled back") },
+      |_| async {
+        gpu_written.set(true);
+        Ok(())
+      },
+    )
+    .await;
+    assert!(!gpu_written.get(), "a GPU row would have no companion");
+
+    write_process_rows(
+      one_process_with_gpu(),
+      |_| async { Ok::<(), &str>(()) },
+      |_| async {
+        gpu_written.set(true);
+        Ok(())
+      },
+    )
+    .await;
+    assert!(gpu_written.get());
+  }
 
   #[test]
   fn a_gpu_heavy_process_with_little_cpu_is_archived_with_its_gpu_row() {
