@@ -4,8 +4,10 @@ use hardviz_core::infrastructure::database::archive_queries::{
   ArchiveBucketTimestamp as CoreArchiveBucketTimestamp,
   ArchiveSeriesPoint as CoreArchiveSeriesPoint, DataArchiveColumn,
   FanArchiveSeries as CoreFanArchiveSeries, GpuArchiveColumn,
-  ProcessStatRecord as CoreProcessStatRecord,
+  ProcessGpuStatRecord as CoreProcessGpuStatRecord,
+  ProcessGpuStats as CoreProcessGpuStats, ProcessStatRecord as CoreProcessStatRecord,
 };
+use hardviz_core::infrastructure::database::dispatch::NativeOnly;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -218,9 +220,95 @@ impl From<CoreProcessStatRecord> for ProcessStatRecord {
   }
 }
 
+/// One process's archived GPU usage over a period (#2720). `avg_gpu_usage` is weighted by the seconds the readings covered and is the sum across all GPUs and engines in percent, so it can exceed 100.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+pub struct ProcessGpuStatRecord {
+  pub pid: i64,
+  pub process_name: String,
+  pub avg_gpu_usage: f64,
+  pub covered_seconds: f64,
+}
+
+impl From<CoreProcessGpuStatRecord> for ProcessGpuStatRecord {
+  fn from(record: CoreProcessGpuStatRecord) -> Self {
+    Self {
+      pid: record.pid,
+      process_name: record.process_name,
+      avg_gpu_usage: record.avg_gpu_usage,
+      covered_seconds: record.covered_seconds,
+    }
+  }
+}
+
+/// Archived per-process GPU usage for a period. GPU history exists only on the native database (ADR 0030), so `needsNativeDatabase` is its own answer, distinct from an empty period and from a read failure; `recorded_since` is the earliest GPU record, or null before any exists.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ProcessGpuStats {
+  Available {
+    records: Vec<ProcessGpuStatRecord>,
+    recorded_since: Option<String>,
+  },
+  NeedsNativeDatabase,
+}
+
+impl From<NativeOnly<CoreProcessGpuStats>> for ProcessGpuStats {
+  fn from(stats: NativeOnly<CoreProcessGpuStats>) -> Self {
+    match stats {
+      NativeOnly::Available(stats) => Self::Available {
+        records: stats.records.into_iter().map(Into::into).collect(),
+        recorded_since: stats.recorded_since,
+      },
+      NativeOnly::NeedsNativeDatabase => Self::NeedsNativeDatabase,
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn process_gpu_stats_keep_needs_native_database_apart_from_an_empty_period() {
+    assert_eq!(
+      ProcessGpuStats::from(NativeOnly::NeedsNativeDatabase),
+      ProcessGpuStats::NeedsNativeDatabase
+    );
+    assert_eq!(
+      ProcessGpuStats::from(NativeOnly::Available(CoreProcessGpuStats {
+        records: vec![],
+        recorded_since: None,
+      })),
+      ProcessGpuStats::Available {
+        records: vec![],
+        recorded_since: None,
+      }
+    );
+  }
+
+  #[test]
+  fn process_gpu_stats_serialize_with_a_kind_tag() {
+    let stats = ProcessGpuStats::from(NativeOnly::Available(CoreProcessGpuStats {
+      records: vec![CoreProcessGpuStatRecord {
+        pid: 7,
+        process_name: "renderer".into(),
+        avg_gpu_usage: 130.5,
+        covered_seconds: 50.0,
+      }],
+      recorded_since: Some("2026-11-20T00:00:00+00:00".into()),
+    }));
+    assert_eq!(
+      serde_json::to_value(&stats).unwrap(),
+      serde_json::json!({
+        "kind": "available",
+        "records": [{"pid": 7, "process_name": "renderer", "avg_gpu_usage": 130.5, "covered_seconds": 50.0}],
+        "recorded_since": "2026-11-20T00:00:00+00:00"
+      })
+    );
+    assert_eq!(
+      serde_json::to_value(ProcessGpuStats::NeedsNativeDatabase).unwrap(),
+      serde_json::json!({"kind": "needsNativeDatabase"})
+    );
+  }
 
   #[test]
   fn cpu_temperature_stats_map_to_temperature_columns() {

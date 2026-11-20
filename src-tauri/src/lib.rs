@@ -324,6 +324,7 @@ fn build_specta_builder() -> Builder<Wry> {
       hardware::get_fan_archive_series,
       hardware::get_ambient_archive_series,
       hardware::get_process_stats,
+      hardware::get_process_gpu_stats,
       hardware::get_process_stats_in_period,
       hardware::get_gpu_archive_names,
       cooling_insight::get_cooling_trend,
