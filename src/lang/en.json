@@ -632,6 +632,16 @@
           "next": "Next",
           "page": "Page",
           "pageNumber": "{{page}} / {{pages}}"
+        },
+        "gpu": {
+          "column": "Avg GPU Usage",
+          "help": "Average over the period, summed across all GPUs and engines; can exceed 100% and may differ from Task Manager",
+          "noRecord": "No GPU usage was recorded for this process in this period",
+          "loadFailed": "Could not load GPU usage history.",
+          "needsNativeDatabase": "GPU usage history is recorded only in the native database.",
+          "openSettings": "Convert in Settings",
+          "recordedSince": "GPU usage has been recorded since {{date}}, so the earlier part of this period has no GPU values.",
+          "notRecordedYet": "No GPU usage has been recorded yet."
         }
       },
       "snapshot": {

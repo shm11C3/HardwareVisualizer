@@ -81,5 +81,6 @@ export const useProcessStats = ({
     void load();
   }, [load]);
 
-  return { processStats, loading, hasError, retry };
+  // `endAt` lets companion reads (GPU usage) query exactly the same window.
+  return { processStats, loading, hasError, retry, endAt };
 };

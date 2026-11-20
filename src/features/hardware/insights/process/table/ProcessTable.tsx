@@ -12,7 +12,7 @@ import { tv } from "tailwind-variants";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
-import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
+import type { ProcessInsightRow } from "@/features/hardware/insights/types/processStats";
 import {
   type ProcessSortConfig,
   sortProcesses,
@@ -27,10 +27,13 @@ export const ProcessTable = ({
   processStats,
   loading,
   period,
+  showGpuUsage,
 }: {
-  processStats: ProcessStat[] | null;
+  processStats: ProcessInsightRow[] | null;
   loading: boolean;
   period: number;
+  /** Show the Avg GPU column; false while GPU usage has no available read. */
+  showGpuUsage: boolean;
 }) => {
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
@@ -38,7 +41,7 @@ export const ProcessTable = ({
   const [pageState, setPageState] = useState({ period, page: 1 });
 
   const [sortConfig, setSortConfig] =
-    useState<ProcessSortConfig<ProcessStat> | null>(null);
+    useState<ProcessSortConfig<ProcessInsightRow> | null>(null);
 
   const sortedProcesses = useMemo(
     () => (processStats ? sortProcesses(processStats, sortConfig) : []),
@@ -81,7 +84,7 @@ export const ProcessTable = ({
     );
   }
 
-  const requestSort = (key: keyof ProcessStat) => {
+  const requestSort = (key: keyof ProcessInsightRow) => {
     let direction: "ascending" | "descending" = "ascending";
     if (
       sortConfig &&
@@ -118,6 +121,7 @@ export const ProcessTable = ({
           processes={pageProcesses}
           sortConfig={sortConfig}
           requestSort={requestSort}
+          showGpuUsage={showGpuUsage}
         />
       </section>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -179,10 +183,12 @@ const InfoTable = ({
   processes,
   sortConfig,
   requestSort,
+  showGpuUsage,
 }: {
-  processes: ProcessStat[];
-  requestSort: (key: keyof ProcessStat) => void;
-  sortConfig: ProcessSortConfig<ProcessStat> | null;
+  processes: ProcessInsightRow[];
+  requestSort: (key: keyof ProcessInsightRow) => void;
+  sortConfig: ProcessSortConfig<ProcessInsightRow> | null;
+  showGpuUsage: boolean;
 }) => {
   const { t } = useTranslation();
   const { sentinelRef, isStuck } = useStickyObserver();
@@ -234,6 +240,21 @@ const InfoTable = ({
                   sortIcon[sortConfig.direction]}
               </div>
             </th>
+            {showGpuUsage && (
+              <th
+                className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+                title={t("pages.insights.process.gpu.help")}
+                onClick={() => requestSort("avg_gpu_usage")}
+                onKeyDown={() => requestSort("avg_gpu_usage")}
+              >
+                <div className={tableHeaderVariants({ isStuck })}>
+                  <span>{t("pages.insights.process.gpu.column")}</span>
+                  {sortConfig &&
+                    sortConfig.key === "avg_gpu_usage" &&
+                    sortIcon[sortConfig.direction]}
+                </div>
+              </th>
+            )}
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("avg_memory_usage")}
@@ -272,47 +293,70 @@ const InfoTable = ({
             </th>
           </tr>
         </thead>
-        <TableBody processes={processes} />
+        <TableBody processes={processes} showGpuUsage={showGpuUsage} />
       </table>
     </>
   );
 };
 
-const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
-  const { settings } = useSettingsAtom();
+const TableBody = memo(
+  ({
+    processes,
+    showGpuUsage,
+  }: {
+    processes: ProcessInsightRow[];
+    showGpuUsage: boolean;
+  }) => {
+    const { settings } = useSettingsAtom();
+    const { t } = useTranslation();
 
-  return (
-    <tbody>
-      {processes.map((process) => {
-        return (
-          // Archive identity is (pid, process_name); a PID can be reused.
-          <tr
-            key={JSON.stringify([process.pid, process.process_name])}
-            className="border-b border-gray-700"
-          >
-            <td className="py-2 pr-4">{process.pid}</td>
-            <td className="py-2 pr-4">{process.process_name}</td>
-            <td className="py-2 pr-4">
-              {Number.parseFloat(process.avg_cpu_usage.toFixed(2))}%
-            </td>
-            <td className="py-2 pr-4">
-              {formatBytes(process.avg_memory_usage * 1024).join(" ")}
-            </td>
-            <td className="py-2 pr-4">
-              {formatDuration(
-                process.total_execution_sec,
-                settings.language === "ja" ? "ja-JP" : "en-US",
-              )}
-            </td>
-            <td className="py-2 pr-4">
-              {new Date(process.latest_timestamp).toLocaleString()}
-            </td>
-          </tr>
-        );
-      })}
-    </tbody>
-  );
-});
+    return (
+      <tbody>
+        {processes.map((process) => {
+          return (
+            // Archive identity is (pid, process_name); a PID can be reused.
+            <tr
+              key={JSON.stringify([process.pid, process.process_name])}
+              className="border-b border-gray-700"
+            >
+              <td className="py-2 pr-4">{process.pid}</td>
+              <td className="py-2 pr-4">{process.process_name}</td>
+              <td className="py-2 pr-4">
+                {Number.parseFloat(process.avg_cpu_usage.toFixed(2))}%
+              </td>
+              {showGpuUsage &&
+                (process.avg_gpu_usage === null ? (
+                  <td
+                    className="py-2 pr-4"
+                    title={t("pages.insights.process.gpu.noRecord")}
+                  >
+                    —
+                  </td>
+                ) : (
+                  // Summed across GPUs and engines, so above 100 is shown as-is.
+                  <td className="py-2 pr-4">
+                    {process.avg_gpu_usage.toFixed(1)}%
+                  </td>
+                ))}
+              <td className="py-2 pr-4">
+                {formatBytes(process.avg_memory_usage * 1024).join(" ")}
+              </td>
+              <td className="py-2 pr-4">
+                {formatDuration(
+                  process.total_execution_sec,
+                  settings.language === "ja" ? "ja-JP" : "en-US",
+                )}
+              </td>
+              <td className="py-2 pr-4">
+                {new Date(process.latest_timestamp).toLocaleString()}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    );
+  },
+);
 
 const tableHeaderVariants = tv({
   base: "flex transition-all duration-300",

@@ -632,6 +632,16 @@
           "next": "次へ",
           "page": "ページ",
           "pageNumber": "{{page}} / {{pages}}"
+        },
+        "gpu": {
+          "column": "平均 GPU 使用率",
+          "help": "期間中の平均値で、すべての GPU とエンジンの合計です。100% を超えることがあり、タスクマネージャーの表示とは異なる場合があります",
+          "noRecord": "この期間、このプロセスの GPU 使用率は記録されていません",
+          "loadFailed": "GPU 使用率の履歴を読み込めませんでした。",
+          "needsNativeDatabase": "GPU 使用率の履歴はネイティブデータベースにのみ記録されます。",
+          "openSettings": "設定で変換する",
+          "recordedSince": "GPU 使用率は {{date}} から記録されているため、この期間のそれより前の部分には GPU の値がありません。",
+          "notRecordedYet": "GPU 使用率はまだ記録されていません。"
         }
       },
       "snapshot": {
