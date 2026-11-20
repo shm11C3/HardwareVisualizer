@@ -51,7 +51,7 @@ mod windows_impl {
   /// Posts `WM_CLOSE` to every visible Tauri window `pid` owns. Hidden
   /// windows, such as the tray flyout, are not touched.
   pub fn request_close(pid: u32) -> Result<(), String> {
-    let windows = visible_app_windows(pid);
+    let windows = visible_app_windows(pid)?;
     if windows.is_empty() {
       return Err(format!("no visible app window found for PID {pid}"));
     }
@@ -70,25 +70,33 @@ mod windows_impl {
     Ok(())
   }
 
-  pub fn has_visible_app_window(pid: u32) -> bool {
-    !visible_app_windows(pid).is_empty()
+  pub fn has_visible_app_window(pid: u32) -> Result<bool, String> {
+    visible_app_windows(pid).map(|windows| !windows.is_empty())
   }
 
-  fn visible_app_windows(pid: u32) -> Vec<HWND> {
+  /// A failed enumeration is an error, not an empty result: an empty result
+  /// means the window hid, and a partial one could miss the window.
+  fn visible_app_windows(pid: u32) -> Result<Vec<HWND>, String> {
     let mut search = WindowSearch {
       pid,
       windows: Vec::new(),
     };
     // SAFETY: the callback only runs during this call and receives a pointer
-    // to `search`, which outlives it. A failed enumeration leaves the windows
-    // found so far, which callers treat the same as a fresh empty result.
-    unsafe {
+    // to `search`, which outlives it.
+    let enumerated = unsafe {
       EnumWindows(
         Some(collect_visible_app_window),
         &mut search as *mut WindowSearch as LPARAM,
-      );
+      )
+    };
+    // The callback never stops the enumeration, so zero always means failure.
+    if enumerated == 0 {
+      return Err(format!(
+        "failed to enumerate the windows of PID {pid}: {}",
+        std::io::Error::last_os_error()
+      ));
     }
-    search.windows
+    Ok(search.windows)
   }
 
   unsafe extern "system" fn collect_visible_app_window(

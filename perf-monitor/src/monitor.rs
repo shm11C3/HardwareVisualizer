@@ -296,7 +296,7 @@ fn measure_background(
   for _ in 0..BACKGROUND_TRANSITION_TIMEOUT_SECONDS {
     thread::sleep(Duration::from_secs(1));
     session.ensure_running(phase, "the close-to-background transition")?;
-    if !main_window::has_visible_app_window(pid) {
+    if !main_window::has_visible_app_window(pid)? {
       hidden = true;
       break;
     }
