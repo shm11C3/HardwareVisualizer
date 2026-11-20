@@ -130,11 +130,15 @@ pub async fn select_process_gpu_stats(
 ) -> Result<ProcessGpuStats, NativeDatabaseError> {
   database
     .request_read(cancellation, move |context| {
-      context.check_cancelled()?;
-      let connection = context.connection();
-      let mut statement = connection
-        .prepare(
-          "SELECT
+      // One transaction, so the range and `recorded_since` see the same
+      // committed state: a retention delete between two snapshots could
+      // return records beside a `recorded_since` of `None`.
+      context.with_transaction(|transaction| {
+        transaction.check_cancelled()?;
+        let connection = transaction.connection();
+        let mut statement = connection
+          .prepare(
+            "SELECT
              pid,
              process_name,
              SUM(gpu_usage * covered_seconds) / SUM(covered_seconds) AS avg_gpu_usage,
@@ -143,40 +147,41 @@ pub async fn select_process_gpu_stats(
            WHERE timestamp BETWEEN ? AND ?
            GROUP BY pid, process_name
            ORDER BY pid, process_name",
-        )
-        .map_err(|error| {
-          NativeDatabaseError::duckdb("prepare the process GPU stats query", error)
-        })?;
-      let records = statement
-        .query_map(params![start.as_str(), end.as_str()], |row| {
-          Ok(ProcessGpuStatRecord {
-            pid: row.get(0)?,
-            process_name: row.get(1)?,
-            avg_gpu_usage: row.get(2)?,
-            covered_seconds: row.get(3)?,
-          })
-        })
-        .map_err(|error| {
-          NativeDatabaseError::duckdb("run the process GPU stats query", error)
-        })?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| {
-          NativeDatabaseError::duckdb("decode a process GPU stats row", error)
-        })?;
-      // An aggregate always yields one row; it is NULL for an empty table.
-      let recorded_since = connection
-        .query_row("SELECT MIN(timestamp) FROM PROCESS_GPU_STATS", [], |row| {
-          row.get::<_, Option<String>>(0)
-        })
-        .map_err(|error| {
-          NativeDatabaseError::duckdb(
-            "read when process GPU usage was first recorded",
-            error,
           )
-        })?;
-      Ok(ProcessGpuStats {
-        records,
-        recorded_since,
+          .map_err(|error| {
+            NativeDatabaseError::duckdb("prepare the process GPU stats query", error)
+          })?;
+        let records = statement
+          .query_map(params![start.as_str(), end.as_str()], |row| {
+            Ok(ProcessGpuStatRecord {
+              pid: row.get(0)?,
+              process_name: row.get(1)?,
+              avg_gpu_usage: row.get(2)?,
+              covered_seconds: row.get(3)?,
+            })
+          })
+          .map_err(|error| {
+            NativeDatabaseError::duckdb("run the process GPU stats query", error)
+          })?
+          .collect::<Result<Vec<_>, _>>()
+          .map_err(|error| {
+            NativeDatabaseError::duckdb("decode a process GPU stats row", error)
+          })?;
+        // An aggregate always yields one row; it is NULL for an empty table.
+        let recorded_since = connection
+          .query_row("SELECT MIN(timestamp) FROM PROCESS_GPU_STATS", [], |row| {
+            row.get::<_, Option<String>>(0)
+          })
+          .map_err(|error| {
+            NativeDatabaseError::duckdb(
+              "read when process GPU usage was first recorded",
+              error,
+            )
+          })?;
+        Ok(ProcessGpuStats {
+          records,
+          recorded_since,
+        })
       })
     })
     .await
