@@ -707,6 +707,120 @@ test.describe("insights captures", () => {
 
     await saveCapture(page, "insights-process");
   });
+
+  /**
+   * Open Process Insight. The Insights tab strip is wider than a compact
+   * window, so selecting the tab scrolls the app sideways; scroll back to its
+   * start so a capture shows the panel from its left edge.
+   */
+  const openProcessInsight = async (page: Page, path?: string) => {
+    await gotoApp(page, path === undefined ? {} : { path });
+    await navigateTo(page, "insights");
+    const processTab = page.getByRole("tab", { name: "Process" });
+    await expect(processTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await processTab.click();
+    await page
+      .getByRole("tab", { name: "CPU / Memory" })
+      .scrollIntoViewIfNeeded();
+  };
+
+  for (const [suffix, viewport] of [
+    ["", { width: 1280, height: 800 }],
+    ["-compact", { width: 520, height: 800 }],
+  ] as const) {
+    test(`process insight shows archived GPU usage per process${suffix}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await openProcessInsight(page);
+
+      const table = page.getByRole("table");
+      await expect(
+        table.getByRole("columnheader", { name: "Avg GPU Usage" }),
+      ).toBeVisible();
+      const gpuCell = (name: string) =>
+        table
+          .getByRole("row")
+          .filter({ hasText: name })
+          .getByRole("cell")
+          .nth(3);
+      await expect(gpuCell("hv-fixture-app")).toHaveText("3.4%");
+      await expect(gpuCell("fixture-browser")).toHaveText("112.5%");
+      await expect(gpuCell("fixture-editor")).toHaveText("0.0%");
+      await expect(gpuCell("fixture-daemon")).toHaveText("—");
+      const gpuHeader = table.getByRole("columnheader", {
+        name: "Avg GPU Usage",
+      });
+      const gpuSort = gpuHeader.getByRole("button");
+      await gpuSort.focus();
+      await page.keyboard.press("Enter");
+      await expect(gpuHeader).toHaveAttribute("aria-sort", "ascending");
+      await page.keyboard.press("Space");
+      await expect(gpuHeader).toHaveAttribute("aria-sort", "descending");
+      await saveCapture(page, `insights-process-gpu-sorted${suffix}`);
+      await expect(page.getByText("fixture-gpu-helper")).toHaveCount(0);
+      await expect(page.getByTestId("process-gpu-coverage-note")).toHaveCount(
+        0,
+      );
+      await page.waitForTimeout(600);
+      await saveCapture(page, `insights-process-gpu${suffix}`);
+
+      // GPU usage was first recorded two days before the pinned clock.
+      await page.getByRole("combobox").first().click();
+      await page.getByRole("option", { name: "7 days" }).click();
+      await expect(page.getByTestId("process-gpu-coverage-note")).toContainText(
+        "GPU usage has been recorded since",
+      );
+      await page.waitForTimeout(600);
+      await saveCapture(page, `insights-process-gpu-coverage${suffix}`);
+    });
+
+    test(`process insight points to the database conversion on the SQLite archive${suffix}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await openProcessInsight(
+        page,
+        "/?databaseConversion=sqliteAuthoritative&databaseConversionPromptDismissed=1",
+      );
+
+      await expect(page.getByText("hv-fixture-app").first()).toBeVisible();
+      await expect(
+        page.getByRole("columnheader", { name: "Avg GPU Usage" }),
+      ).toHaveCount(0);
+      const notice = page.getByTestId("process-gpu-needs-native-database");
+      await expect(notice).toContainText(
+        "GPU usage history is recorded only in the native database.",
+      );
+      await page.waitForTimeout(600);
+      await saveCapture(page, `insights-process-gpu-needs-native${suffix}`);
+
+      await notice.getByRole("button", { name: "Convert in Settings" }).click();
+      // The section takes focus once its own state read settles.
+      const section = page
+        .getByRole("heading", { name: "Native Database" })
+        .locator("..");
+      await expect(section).toBeFocused();
+      await expect(
+        page.getByRole("button", { name: "Convert Now" }),
+      ).toBeVisible();
+    });
+
+    test(`process insight offers no conversion link in a build that cannot convert${suffix}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await openProcessInsight(page, "/?databaseConversion=notSupported");
+
+      const notice = page.getByTestId("process-gpu-needs-native-database");
+      await expect(notice).toContainText(
+        "GPU usage history is recorded only in the native database.",
+      );
+      await page.waitForTimeout(600);
+      await expect(notice.getByRole("button")).toHaveCount(0);
+      await saveCapture(page, `insights-process-gpu-unsupported${suffix}`);
+    });
+  }
 });
 
 /**

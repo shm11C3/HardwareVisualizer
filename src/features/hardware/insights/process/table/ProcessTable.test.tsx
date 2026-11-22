@@ -8,7 +8,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@/lib/i18n";
 import { ProcessTable } from "@/features/hardware/insights/process/table/ProcessTable";
-import type { ProcessStat } from "@/features/hardware/insights/types/processStats";
+import type { ProcessInsightRow } from "@/features/hardware/insights/types/processStats";
 
 vi.mock("@/hooks/settings/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
@@ -24,7 +24,7 @@ vi.mock("@/hooks/window/useStickyObserver", () => ({
 }));
 afterEach(cleanup);
 
-const records = (count: number): ProcessStat[] =>
+const records = (count: number): ProcessInsightRow[] =>
   Array.from({ length: count }, (_, index) => ({
     pid: index + 1,
     process_name: `process-${String(index + 1).padStart(4, "0")}`,
@@ -32,6 +32,7 @@ const records = (count: number): ProcessStat[] =>
     avg_memory_usage: (index + 1) * 1024,
     total_execution_sec: 60 * (index + 1),
     latest_timestamp: "2026-10-15T16:14:12.661Z",
+    avg_gpu_usage: null,
   }));
 const rows = () =>
   within(screen.getByRole("table")).getAllByRole("row").slice(1);
@@ -46,7 +47,12 @@ const sortCpu = () =>
 describe("ProcessTable pagination", () => {
   it("renders at most 100 rows and reaches the final partial page", () => {
     render(
-      <ProcessTable processStats={records(237)} loading={false} period={60} />,
+      <ProcessTable
+        processStats={records(237)}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
     );
     expect(rows()).toHaveLength(100);
     expect(screen.getByText("1–100 of 237 entries")).toBeInTheDocument();
@@ -74,6 +80,7 @@ describe("ProcessTable pagination", () => {
         processStats={records(237).reverse()}
         loading={false}
         period={60}
+        showGpuUsage={false}
       />,
     );
     expect(firstPid()).toBe("237");
@@ -90,13 +97,25 @@ describe("ProcessTable pagination", () => {
   it("preserves page, sorting, and scroll position across loading and data refresh", () => {
     const data = records(237);
     const { rerender } = render(
-      <ProcessTable processStats={data} loading={false} period={60} />,
+      <ProcessTable
+        processStats={data}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
     );
     sortCpu();
     selectPage(2);
     const region = screen.getByRole("region", { name: "Process" });
     region.scrollTop = 120;
-    rerender(<ProcessTable processStats={data} loading={true} period={60} />);
+    rerender(
+      <ProcessTable
+        processStats={data}
+        loading={true}
+        period={60}
+        showGpuUsage={false}
+      />,
+    );
     expect(screen.getByRole("combobox", { name: "Page" })).toHaveValue("2");
     expect(region.scrollTop).toBe(120);
 
@@ -105,6 +124,7 @@ describe("ProcessTable pagination", () => {
         processStats={records(238).reverse()}
         loading={false}
         period={60}
+        showGpuUsage={false}
       />,
     );
     expect(firstPid()).toBe("101");
@@ -116,14 +136,24 @@ describe("ProcessTable pagination", () => {
   it("resets the page and scroll on period changes while preserving the sort", () => {
     const data = records(237);
     const { rerender } = render(
-      <ProcessTable processStats={data} loading={false} period={60} />,
+      <ProcessTable
+        processStats={data}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
     );
     sortCpu();
     sortCpu();
     selectPage(3);
     screen.getByRole("region", { name: "Process" }).scrollTop = 120;
     rerender(
-      <ProcessTable processStats={data} loading={false} period={1440} />,
+      <ProcessTable
+        processStats={data}
+        loading={false}
+        period={1440}
+        showGpuUsage={false}
+      />,
     );
     expect(screen.getByRole("combobox", { name: "Page" })).toHaveValue("1");
     expect(firstPid()).toBe("237");
@@ -132,25 +162,52 @@ describe("ProcessTable pagination", () => {
 
   it("clamps a removed page without restoring it on growth and handles an empty result", () => {
     const { rerender } = render(
-      <ProcessTable processStats={records(237)} loading={false} period={60} />,
+      <ProcessTable
+        processStats={records(237)}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
     );
     selectPage(3);
     rerender(
-      <ProcessTable processStats={records(150)} loading={false} period={60} />,
+      <ProcessTable
+        processStats={records(150)}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
     );
     expect(rows()).toHaveLength(50);
     expect(screen.getByRole("combobox", { name: "Page" })).toHaveValue("2");
     rerender(
-      <ProcessTable processStats={records(237)} loading={false} period={60} />,
+      <ProcessTable
+        processStats={records(237)}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
     );
     expect(screen.getByRole("combobox", { name: "Page" })).toHaveValue("2");
 
-    rerender(<ProcessTable processStats={[]} loading={false} period={60} />);
+    rerender(
+      <ProcessTable
+        processStats={[]}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
+    );
     expect(rows()).toHaveLength(0);
     expect(screen.getByText("0–0 of 0 entries")).toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     rerender(
-      <ProcessTable processStats={records(237)} loading={false} period={60} />,
+      <ProcessTable
+        processStats={records(237)}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
     );
     expect(screen.getByRole("combobox", { name: "Page" })).toHaveValue("1");
   });
@@ -160,7 +217,14 @@ describe("ProcessTable pagination", () => {
     data[0] = { ...data[0], pid: 42, process_name: "z-worker" };
     data[1] = { ...data[1], pid: 42, process_name: "a-worker" };
     data[2].process_name = "m-worker";
-    render(<ProcessTable processStats={data} loading={false} period={60} />);
+    render(
+      <ProcessTable
+        processStats={data}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
+    );
     const names = () =>
       rows().map((row) => within(row).getAllByRole("cell")[1].textContent);
     const sortName = () =>
@@ -173,8 +237,107 @@ describe("ProcessTable pagination", () => {
   });
 
   it("waits for the initial result without presenting it as an empty table", () => {
-    render(<ProcessTable processStats={null} loading={true} period={60} />);
+    render(
+      <ProcessTable
+        processStats={null}
+        loading={true}
+        period={60}
+        showGpuUsage={false}
+      />,
+    );
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByText(/0–0/)).not.toBeInTheDocument();
+  });
+});
+
+describe("ProcessTable GPU usage column", () => {
+  const gpuRows = (): ProcessInsightRow[] => {
+    const data = records(4);
+    data[0].avg_gpu_usage = 12.34;
+    data[1].avg_gpu_usage = null;
+    data[2].avg_gpu_usage = 143.25;
+    data[3].avg_gpu_usage = 0;
+    return data;
+  };
+  const gpuCells = () =>
+    rows().map((row) => within(row).getAllByRole("cell")[3].textContent);
+  const sortGpu = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Avg GPU Usage" }));
+
+  it("formats readings to one decimal, keeps 0 and values above 100, and marks a missing record", () => {
+    render(
+      <ProcessTable
+        processStats={gpuRows()}
+        loading={false}
+        period={60}
+        showGpuUsage={true}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Avg GPU Usage" }),
+    ).toHaveAttribute(
+      "title",
+      expect.stringContaining("summed across all GPUs and engines"),
+    );
+    expect(gpuCells()).toEqual(["12.3%", "—", "143.3%", "0.0%"]);
+    expect(within(rows()[1]).getAllByRole("cell")[3]).toHaveAttribute(
+      "title",
+      "No GPU usage was recorded for this process in this period",
+    );
+  });
+
+  it("sorts a missing record last in both directions", () => {
+    render(
+      <ProcessTable
+        processStats={gpuRows()}
+        loading={false}
+        period={60}
+        showGpuUsage={true}
+      />,
+    );
+
+    sortGpu();
+    expect(gpuCells()).toEqual(["0.0%", "12.3%", "143.3%", "—"]);
+    sortGpu();
+    expect(gpuCells()).toEqual(["143.3%", "12.3%", "0.0%", "—"]);
+  });
+
+  it("sorts from a focusable button and exposes the direction", () => {
+    render(
+      <ProcessTable
+        processStats={gpuRows()}
+        loading={false}
+        period={60}
+        showGpuUsage={true}
+      />,
+    );
+    const header = screen.getByRole("columnheader", { name: "Avg GPU Usage" });
+    const button = within(header).getByRole("button");
+
+    button.focus();
+    expect(button).toHaveFocus();
+    expect(header).not.toHaveAttribute("aria-sort");
+    sortGpu();
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    sortGpu();
+    expect(header).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("leaves the column out when GPU usage is not shown", () => {
+    render(
+      <ProcessTable
+        processStats={gpuRows()}
+        loading={false}
+        period={60}
+        showGpuUsage={false}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("columnheader", { name: "Avg GPU Usage" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(within(rows()[0]).getAllByRole("cell")).toHaveLength(6);
   });
 });

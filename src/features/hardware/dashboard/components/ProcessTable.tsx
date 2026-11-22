@@ -19,11 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { minOpacity } from "@/consts/style";
+import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
 import {
   type ProcessSortConfig,
   sortProcesses,
-} from "@/features/hardware/dashboard/processSort";
-import { useProcessInfo } from "@/features/hardware/hooks/useProcessInfo";
+} from "@/features/hardware/processSort";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { ProcessInfo } from "@/rspc/bindings";
@@ -48,7 +48,8 @@ export const ProcessesTable = ({
   const { settings } = useSettingsAtom();
   const { processes, hasError } = useProcessInfo({ includeGpu: true });
 
-  const [sortConfig, setSortConfig] = useState<ProcessSortConfig | null>(null);
+  const [sortConfig, setSortConfig] =
+    useState<ProcessSortConfig<ProcessInfo> | null>(null);
 
   const sortedProcesses = sortProcesses(processes, sortConfig);
 
@@ -187,7 +188,7 @@ const InfoTable = ({
 }: {
   processes: ProcessInfo[];
   requestSort: (key: keyof ProcessInfo) => void;
-  sortConfig: ProcessSortConfig | null;
+  sortConfig: ProcessSortConfig<ProcessInfo> | null;
   className: string;
   isTruncate?: boolean;
 }) => {
