@@ -663,9 +663,10 @@ mod tests {
       NativeIdentity, NativeIdentityMode, NativeSchemaUpgrade,
       create_empty_native_database,
     };
-    use hardviz_core::settings::HardwareArchiveSettings;
+    use hardviz_core::settings::{CoreSettings, HardwareArchiveSettings};
 
     use super::*;
+    use crate::models::hardware_archive::HardwareArchiveSettings as WireSettings;
 
     static V1_IDENTITIES: &[NativeIdentity] = &[NativeIdentity {
       table: "archive",
@@ -788,6 +789,41 @@ mod tests {
       assert_eq!(
         inspect_startup_authority(&paths, 1),
         DatabaseLifecycleState::NativeAuthoritative
+      );
+    }
+
+    /// #2736: a downgrade boot cannot confirm the native authority, so it
+    /// shows the SQLite default. Saving another preference in that session
+    /// must not turn that default into a choice that later shortens how long
+    /// native history is kept.
+    #[tokio::test]
+    async fn a_save_on_a_downgrade_boot_does_not_shorten_native_retention() {
+      let directory = tempfile::tempdir().unwrap();
+      let paths = paths(directory.path());
+      let settings_path = directory.path().join("settings.json");
+      let newer = v2_with(V1_TO_V2);
+      create_empty_native_database(paths.clone(), newer)
+        .await
+        .unwrap();
+      let boot = |schema| {
+        CoreSettings::load_from_path_with_retention_default(
+          &settings_path,
+          prepare_native_startup(&paths, schema).default_retention_days,
+        )
+        .unwrap()
+      };
+
+      let mut downgraded = boot(v1());
+      assert_eq!(
+        WireSettings::from(downgraded.hardware_archive.clone()).retention_days,
+        HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
+      );
+      downgraded.storage_health.enabled = !downgraded.storage_health.enabled;
+      downgraded.save_to_path(&settings_path).unwrap();
+
+      assert_eq!(
+        WireSettings::from(boot(newer).hardware_archive).retention_days,
+        HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
       );
     }
 

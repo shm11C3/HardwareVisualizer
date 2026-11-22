@@ -27,7 +27,7 @@ impl From<CoreHardwareArchiveSettings> for HardwareArchiveSettings {
     Self {
       enabled: value.enabled,
       scheduled_data_deletion: value.scheduled_data_deletion,
-      retention_days: value.retention_days,
+      retention_days: value.retention_days.days(),
     }
   }
 }

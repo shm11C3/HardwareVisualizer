@@ -346,12 +346,14 @@ process metrics, including available CPU and GPU temperatures and
 platform-reported CPU, GPU, ANE, and package power draw. Missing temperature
 and power readings remain unavailable rather than becoming zero. The
 Hardware Archive Retention Period is controlled by
-`hardwareArchive.retentionDays`. The `scheduledDataDeletion` flag controls
-whether cleanup for records older than the Retention Period runs at startup; it
-does not create a continuously scheduled deletion task. This was a deliberate
-simplification from the period before close-to-tray/background execution was a
-supported app behavior, when the app was not expected to stay running
-continuously.
+`hardwareArchive.retentionDays`. The key is written only for a value the user
+chose; when it is absent, the default for the current database authority is
+resolved at each startup and never persisted. The `scheduledDataDeletion` flag
+controls whether cleanup for records older than the Retention Period runs at
+startup; it does not create a continuously scheduled deletion task. This was a
+deliberate simplification from the period before close-to-tray/background
+execution was a supported app behavior, when the app was not expected to stay
+running continuously.
 
 Ambient Temperature Readings are archived beside those rows in
 `AMBIENT_ARCHIVE`, one row per ambient Sensor Source Label per minute, so more
