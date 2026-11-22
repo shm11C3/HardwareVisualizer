@@ -5,8 +5,10 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DatabaseConversionState } from "@/rspc/bindings";
+import { databaseConversionSettingsRequestedAtom } from "@/store/navigation";
 
 const mockStart = vi.fn();
 const mockRecover = vi.fn();
@@ -341,5 +343,24 @@ describe("DatabaseConversionSettings", () => {
       ),
     ).not.toBeInTheDocument();
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("takes focus when a native-only feature sends the user here, without starting a conversion", () => {
+    mockState = { kind: "sqliteAuthoritative" };
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const store = createStore();
+    store.set(databaseConversionSettingsRequestedAtom, true);
+
+    const { container } = render(
+      <Provider store={store}>
+        <DatabaseConversionSettings />
+      </Provider>,
+    );
+
+    expect(container.firstElementChild).toHaveFocus();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    expect(store.get(databaseConversionSettingsRequestedAtom)).toBe(false);
+    expect(mockStart).not.toHaveBeenCalled();
   });
 });

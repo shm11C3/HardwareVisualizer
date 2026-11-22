@@ -34,3 +34,11 @@ inherits = "release"
 opt-level = 0
 lto = false
 codegen-units = 256
+
+# Keeps the bundled DuckDB C++ library at the `release` profile's opt-level so
+# the performance test measures the engine as shipped. Keep this equal to
+# `[profile.release]`'s `opt-level`. Windows measurement on 2026-11-20 (app
+# process average working set): 110.4 MB with the engine at opt-level 0 versus
+# 97.2 MB at "s".
+[profile.ci.package.libduckdb-sys]
+opt-level = "s"

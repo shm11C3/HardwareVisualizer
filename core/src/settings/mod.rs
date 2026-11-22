@@ -19,7 +19,7 @@ use std::io::Write;
 use std::path::Path;
 
 pub use environmental_sensors::EnvironmentalSensorSettings;
-pub use hardware_archive::HardwareArchiveSettings;
+pub use hardware_archive::{HardwareArchiveSettings, RetentionDays};
 pub use storage_health::{
   STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES, StorageHealthIdentitySettings,
   StorageHealthSettings,
@@ -120,7 +120,8 @@ impl CoreSettings {
   ) -> Result<Self, String> {
     if !path.exists() {
       let mut settings = Self::default();
-      settings.hardware_archive.retention_days = default_retention_days;
+      settings.hardware_archive.retention_days =
+        RetentionDays::Default(default_retention_days);
       return Ok(settings);
     }
 
@@ -145,22 +146,16 @@ impl CoreSettings {
     };
 
     let mut settings = Self::default();
-    settings.hardware_archive.retention_days = default_retention_days;
-    if let Some(v) = map.get(HARDWARE_ARCHIVE_KEY) {
-      if let Ok(parsed) = serde_json::from_value::<HardwareArchiveSettings>(v.clone()) {
-        settings.hardware_archive = parsed;
-      }
-      // `retentionDays`/legacy `refreshIntervalDays` absent from the saved
-      // section: nothing was ever explicitly chosen, so the backend-aware
-      // default applies here too, not just when the whole section is
-      // missing.
-      let retention_saved = v
-        .get("retentionDays")
-        .or_else(|| v.get("refreshIntervalDays"))
-        .is_some();
-      if !retention_saved {
-        settings.hardware_archive.retention_days = default_retention_days;
-      }
+    if let Some(v) = map.get(HARDWARE_ARCHIVE_KEY)
+      && let Ok(parsed) = serde_json::from_value::<HardwareArchiveSettings>(v.clone())
+    {
+      settings.hardware_archive = parsed;
+    }
+    // Only a never-saved value resolves through the backend-aware default,
+    // whether the section is missing, unparsable, or lacks the key.
+    if let RetentionDays::Default(_) = settings.hardware_archive.retention_days {
+      settings.hardware_archive.retention_days =
+        RetentionDays::Default(default_retention_days);
     }
     if let Some(v) = map
       .get(STORAGE_HEALTH_KEY)
@@ -244,14 +239,12 @@ impl CoreSettings {
   ///
   /// Used for the one-time identity-key bootstrap
   /// (`ensure_storage_health_identity_key`), which runs on every startup
-  /// that has not yet generated a key - including a fresh profile, before
-  /// any Hardware Archive value has ever been explicitly saved. Calling
-  /// the general [`Self::save_to_path`] there would persist
-  /// `hardwareArchive.retentionDays` (and the rest of that section) as if
-  /// the user had chosen it, even though it only holds
-  /// [`Self::load_from_path_with_retention_default`]'s never-saved default,
-  /// turning a default into a saved value the backend-aware default can
-  /// never again correct (#2136).
+  /// that has not yet generated a key. A never-saved retention value is
+  /// not persisted by [`Self::save_to_path`] either, but that call would
+  /// still materialize the other sections and fields this startup never
+  /// touched (a fresh profile gets a whole `hardwareArchive` and
+  /// `storageHealth` section), so the bootstrap writes only what it owns
+  /// (#2136, #2736).
   pub fn save_identity_only_to_path(&self, path: &Path) -> Result<(), String> {
     let mut document = Self::read_existing_document(path)?;
     document.insert(
@@ -328,7 +321,7 @@ mod tests {
 
     assert_eq!(
       s.hardware_archive.retention_days,
-      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+      RetentionDays::Default(HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS)
     );
   }
 
@@ -347,7 +340,7 @@ mod tests {
     assert!(!s.hardware_archive.enabled);
     assert_eq!(
       s.hardware_archive.retention_days,
-      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+      RetentionDays::Default(HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS)
     );
   }
 
@@ -369,7 +362,7 @@ mod tests {
 
     // A saved 30 must stay 30 even though the native default is 365: an
     // explicit user choice is never rewritten by a backend default.
-    assert_eq!(s.hardware_archive.retention_days, 30);
+    assert_eq!(s.hardware_archive.retention_days, RetentionDays::Chosen(30));
   }
 
   #[test]
@@ -384,7 +377,7 @@ mod tests {
     )
     .unwrap();
 
-    assert_eq!(s.hardware_archive.retention_days, 14);
+    assert_eq!(s.hardware_archive.retention_days, RetentionDays::Chosen(14));
   }
 
   #[test]
@@ -396,7 +389,7 @@ mod tests {
 
     assert_eq!(
       s.hardware_archive.retention_days,
-      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
+      RetentionDays::Default(HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS)
     );
   }
 
@@ -427,7 +420,7 @@ mod tests {
 
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert!(!s.hardware_archive.enabled);
-    assert_eq!(s.hardware_archive.retention_days, 7);
+    assert_eq!(s.hardware_archive.retention_days, RetentionDays::Chosen(7));
     assert!(!s.hardware_archive.scheduled_data_deletion);
     assert!(!s.storage_health.enabled);
     assert_eq!(s.storage_health.retention_days, 730);
@@ -583,7 +576,7 @@ mod tests {
 
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert!(!s.hardware_archive.enabled);
-    assert_eq!(s.hardware_archive.retention_days, 14);
+    assert_eq!(s.hardware_archive.retention_days, RetentionDays::Chosen(14));
     assert!(s.storage_health.enabled);
     assert_eq!(s.storage_health.retention_days, 3650);
   }
@@ -642,7 +635,7 @@ mod tests {
 
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert!(!s.hardware_archive.enabled);
-    assert_eq!(s.hardware_archive.retention_days, 21);
+    assert_eq!(s.hardware_archive.retention_days, RetentionDays::Chosen(21));
     assert!(s.hardware_archive.scheduled_data_deletion);
   }
 
@@ -671,7 +664,7 @@ mod tests {
 
     let mut s = CoreSettings::load_from_path(&path).unwrap();
     s.hardware_archive.enabled = false;
-    s.hardware_archive.retention_days = 90;
+    s.hardware_archive.retention_days = RetentionDays::Chosen(90);
     s.storage_health.retention_days = 3650;
     s.save_to_path(&path).unwrap();
 
@@ -768,7 +761,7 @@ mod tests {
       hardware_archive: HardwareArchiveSettings {
         enabled: false,
         scheduled_data_deletion: false,
-        retention_days: 365,
+        retention_days: RetentionDays::Chosen(365),
       },
       storage_health: StorageHealthSettings {
         enabled: true,
@@ -788,12 +781,10 @@ mod tests {
     assert_eq!(s, loaded);
   }
 
-  /// #2136 regression: `AppState::new`'s one-time identity-key bootstrap
-  /// must not turn a never-saved retention default into a value that
-  /// reads back as explicitly saved. A file with no `retentionDays` loads
+  /// #2136 regression: the identity-key bootstrap must not write a
+  /// never-saved retention default. A file with no `retentionDays` loads
   /// with the backend-aware default filled in; saving only the identity
-  /// section afterward (what `AppState::new` now does) must leave
-  /// `retentionDays` absent from disk, not persist the default.
+  /// section afterward must leave `retentionDays` absent from disk.
   #[test]
   fn saving_only_the_identity_section_leaves_an_unsaved_retention_value_unsaved() {
     let dir = TempDir::new().unwrap();
@@ -807,7 +798,7 @@ mod tests {
     .unwrap();
     assert_eq!(
       s.hardware_archive.retention_days,
-      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+      RetentionDays::Default(HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS)
     );
     assert!(s.ensure_storage_health_identity_key().unwrap());
 
@@ -830,7 +821,7 @@ mod tests {
     .unwrap();
     assert_eq!(
       reloaded.hardware_archive.retention_days,
-      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
+      RetentionDays::Default(HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS)
     );
   }
 
@@ -873,5 +864,83 @@ mod tests {
       serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert!(written["storageHealthIdentity"]["hashKey"].is_string());
     assert!(written.get("hardwareArchive").is_none());
+  }
+
+  #[test]
+  fn saving_a_defaulted_retention_omits_it_and_a_later_load_resolves_its_own_default() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+
+    let mut s = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+    s.storage_health.enabled = !s.storage_health.enabled;
+    s.save_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(written["hardwareArchive"].get("retentionDays").is_none());
+    let reloaded = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+    assert_eq!(
+      reloaded.hardware_archive.retention_days,
+      RetentionDays::Default(HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS)
+    );
+  }
+
+  #[test]
+  fn a_chosen_retention_equal_to_the_default_is_persisted_and_survives_another_default() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+
+    let mut s = CoreSettings::default();
+    s.hardware_archive.retention_days =
+      RetentionDays::Chosen(HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS);
+    s.save_to_path(&path).unwrap();
+
+    let reloaded = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+    assert_eq!(
+      reloaded.hardware_archive.retention_days,
+      RetentionDays::Chosen(HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS)
+    );
+  }
+
+  #[test]
+  fn a_saved_retention_value_survives_an_unrelated_save() {
+    for (document, expected) in [
+      (r#"{"hardwareArchive": {"retentionDays": 7}}"#, 7),
+      (r#"{"hardwareArchive": {"refreshIntervalDays": 14}}"#, 14),
+    ] {
+      let dir = TempDir::new().unwrap();
+      let path = dir.path().join("settings.json");
+      fs::write(&path, document).unwrap();
+
+      let mut s = CoreSettings::load_from_path_with_retention_default(
+        &path,
+        HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+      )
+      .unwrap();
+      s.storage_health.enabled = !s.storage_health.enabled;
+      s.save_to_path(&path).unwrap();
+
+      let reloaded = CoreSettings::load_from_path_with_retention_default(
+        &path,
+        HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+      )
+      .unwrap();
+      assert_eq!(
+        reloaded.hardware_archive.retention_days,
+        RetentionDays::Chosen(expected)
+      );
+    }
   }
 }

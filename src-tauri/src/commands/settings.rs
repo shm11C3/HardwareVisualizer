@@ -37,18 +37,16 @@ impl AppState {
         Some(e.to_string())
       );
       let mut defaults = CoreSettings::default();
-      defaults.hardware_archive.retention_days = default_retention_days;
+      defaults.hardware_archive.retention_days =
+        hardviz_core::settings::RetentionDays::Default(default_retention_days);
       defaults
     });
     match core_settings.ensure_storage_health_identity_key() {
       Ok(true) => {
         // Save only the identity section here, not the whole
-        // `CoreSettings` object: at this point `hardware_archive` may
-        // still hold nothing but `default_retention_days`'s never-saved
-        // default (fresh profile, or a saved section without a saved
-        // `retentionDays`), and `save_to_path` would persist it as if the
-        // user had explicitly chosen it, permanently defeating the
-        // backend-aware default (#2136).
+        // `CoreSettings` object: `save_to_path` would also materialize
+        // the other sections and fields this startup never touched. A
+        // never-saved retention default is not written either way.
         if let Err(e) = core_settings.save_identity_only_to_path(&settings_path) {
           log_error!(
             "Failed to save storage health identity key",
@@ -744,7 +742,8 @@ pub mod commands {
       return Err("hardware archive retention days must be greater than 0".to_string());
     }
     if let Err(e) = update_core_settings(&state, |s| {
-      s.hardware_archive.retention_days = new_retention_days
+      s.hardware_archive.retention_days =
+        hardviz_core::settings::RetentionDays::Chosen(new_retention_days)
     }) {
       emit_error(&window)?;
       return Err(e);

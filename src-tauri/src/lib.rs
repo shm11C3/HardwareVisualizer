@@ -1014,7 +1014,7 @@ pub fn run() {
         // boot's cleanup is skipped so a transient DB error cannot let
         // deletion outrun the rollup; the next boot retries both.
         if core_settings.hardware_archive.scheduled_data_deletion {
-          let retention_days = core_settings.hardware_archive.retention_days;
+          let retention_days = core_settings.hardware_archive.retention_days.days();
           // Spawned on the raw `runtime_handle` rather than
           // `tauri::async_runtime::spawn` so the handle is a plain
           // `tokio::task::JoinHandle` — the type `WorkersState` already

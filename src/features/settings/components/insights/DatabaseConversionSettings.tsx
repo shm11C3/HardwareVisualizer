@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useDatabaseConversion } from "@/features/settings/hooks/useDatabaseConversion";
 import { useDatabaseConversionNoticeShown } from "@/features/settings/hooks/useDatabaseConversionNoticeShown";
+import { useDatabaseConversionSettingsFocus } from "@/hooks/navigation/useDatabaseConversionSettings";
 import {
   DatabaseConversionStateBody,
   showsDatabaseConversionNotice,
@@ -29,25 +30,26 @@ export const DatabaseConversionSettings = () => {
   const [noticeShown, , noticeShownPending] =
     useDatabaseConversionNoticeShown();
 
-  if (conversion.state.kind === "notSupported") {
-    return null;
-  }
-
   const converted = conversion.state.kind === "nativeAuthoritative";
-  if (
-    converted &&
-    !showsDatabaseConversionNotice(
-      conversion.state,
-      conversion.justCompleted,
-      noticeShown,
-      noticeShownPending,
-    )
-  ) {
+  const hidden =
+    conversion.state.kind === "notSupported" ||
+    (converted &&
+      !showsDatabaseConversionNotice(
+        conversion.state,
+        conversion.justCompleted,
+        noticeShown,
+        noticeShownPending,
+      ));
+  // A native-only feature (e.g. Process Insight GPU usage) may send the user
+  // here; the request waits until the section renders.
+  const sectionRef = useDatabaseConversionSettingsFocus(!hidden);
+
+  if (hidden) {
     return null;
   }
 
   return (
-    <div className="py-4">
+    <div ref={sectionRef} tabIndex={-1} className="scroll-mt-6 py-4">
       <h4 className="text-xl font-bold">
         {t("pages.settings.insights.databaseConversion.title")}
       </h4>

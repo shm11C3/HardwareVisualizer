@@ -11,7 +11,40 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub struct HardwareArchiveSettings {
   pub enabled: bool,
   pub scheduled_data_deletion: bool,
-  pub retention_days: u32,
+  #[serde(skip_serializing_if = "RetentionDays::is_default")]
+  pub retention_days: RetentionDays,
+}
+
+/// The Hardware Archive Retention Period, tagged by where it came from.
+///
+/// The startup default depends on the database authority, so a default and a
+/// user's choice that happen to be the same number are not the same thing: a
+/// choice is persisted and never rewritten, a default is resolved again on
+/// every startup and never written to `settings.json` (#2736).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RetentionDays {
+  /// Never saved; resolved at startup and never persisted.
+  Default(u32),
+  /// Chosen by the user, or read from a saved value.
+  Chosen(u32),
+}
+
+impl RetentionDays {
+  pub const fn days(self) -> u32 {
+    match self {
+      Self::Default(days) | Self::Chosen(days) => days,
+    }
+  }
+
+  const fn is_default(&self) -> bool {
+    matches!(self, Self::Default(_))
+  }
+}
+
+impl Serialize for RetentionDays {
+  fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_u32(self.days())
+  }
 }
 
 impl HardwareArchiveSettings {
@@ -31,7 +64,7 @@ impl Default for HardwareArchiveSettings {
   fn default() -> Self {
     Self {
       enabled: true,
-      retention_days: Self::SQLITE_DEFAULT_RETENTION_DAYS,
+      retention_days: RetentionDays::Default(Self::SQLITE_DEFAULT_RETENTION_DAYS),
       scheduled_data_deletion: true,
     }
   }
@@ -70,7 +103,10 @@ impl<'de> Deserialize<'de> for HardwareArchiveSettings {
       retention_days: wire
         .retention_days
         .or(wire.refresh_interval_days)
-        .unwrap_or_else(|| HardwareArchiveSettings::default().retention_days),
+        .map_or_else(
+          || HardwareArchiveSettings::default().retention_days,
+          RetentionDays::Chosen,
+        ),
     })
   }
 }
@@ -84,7 +120,7 @@ mod tests {
     let s = HardwareArchiveSettings::default();
     assert!(s.enabled);
     assert!(s.scheduled_data_deletion);
-    assert_eq!(s.retention_days, 30);
+    assert_eq!(s.retention_days, RetentionDays::Default(30));
   }
 
   #[test]
@@ -94,12 +130,15 @@ mod tests {
     assert!(!s.enabled);
     // Missing fields preserve defaults thanks to #[serde(default)]
     assert!(s.scheduled_data_deletion);
-    assert_eq!(s.retention_days, 30);
+    assert_eq!(s.retention_days, RetentionDays::Default(30));
   }
 
   #[test]
   fn serializes_in_camel_case() {
-    let s = HardwareArchiveSettings::default();
+    let s = HardwareArchiveSettings {
+      retention_days: RetentionDays::Chosen(30),
+      ..HardwareArchiveSettings::default()
+    };
     let json = serde_json::to_string(&s).unwrap();
     assert!(json.contains("\"retentionDays\""));
     assert!(!json.contains("\"refreshIntervalDays\""));
@@ -110,7 +149,7 @@ mod tests {
   fn deserializes_legacy_refresh_interval_days() {
     let s: HardwareArchiveSettings =
       serde_json::from_str(r#"{"refreshIntervalDays": 14}"#).unwrap();
-    assert_eq!(s.retention_days, 14);
+    assert_eq!(s.retention_days, RetentionDays::Chosen(14));
   }
 
   #[test]
@@ -118,6 +157,6 @@ mod tests {
     let s: HardwareArchiveSettings =
       serde_json::from_str(r#"{"retentionDays": 90, "refreshIntervalDays": 14}"#)
         .unwrap();
-    assert_eq!(s.retention_days, 90);
+    assert_eq!(s.retention_days, RetentionDays::Chosen(90));
   }
 }

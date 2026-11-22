@@ -19,6 +19,9 @@ pub(super) fn native_config(
     .and_then(|config| config.threads(2))
     .and_then(|config| config.max_memory("128MB"))
     .and_then(|config| {
+      config.with("async_threads", super::super::NATIVE_DATABASE_ASYNC_THREADS)
+    })
+    .and_then(|config| {
       config.with(
         "default_block_size",
         super::super::NATIVE_DATABASE_DEFAULT_BLOCK_SIZE_BYTES,
@@ -97,5 +100,30 @@ pub(super) fn require_storage_version_column(
     Ok(())
   } else {
     Err(NativeDatabaseError::StorageVersionMetadataMissing)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  /// A DuckDB upgrade or a refactor must not silently bring back the default
+  /// asynchronous I/O thread pool.
+  #[test]
+  fn native_config_starts_no_async_io_threads() {
+    let directory = tempfile::tempdir().unwrap();
+    let connection = Connection::open_with_flags(
+      directory.path().join("config.duckdb"),
+      native_config(AccessMode::ReadWrite, true).unwrap(),
+    )
+    .unwrap();
+
+    let async_threads: i64 = connection
+      .query_row("SELECT current_setting('async_threads')", [], |row| {
+        row.get(0)
+      })
+      .unwrap();
+
+    assert_eq!(async_threads, 0);
   }
 }

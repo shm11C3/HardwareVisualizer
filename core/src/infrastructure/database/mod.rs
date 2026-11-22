@@ -13,6 +13,16 @@
 #[cfg(feature = "duckdb-archive")]
 pub(crate) const NATIVE_DATABASE_DEFAULT_BLOCK_SIZE_BYTES: &str = "65536";
 
+/// DuckDB 2.0 added a second thread pool for asynchronous I/O. It defaults to
+/// 4 x the CPU thread count (capped at 256) and is independent of `threads`.
+/// This archive is a small local file written about once a minute, so that
+/// pool would only be idle threads: a standalone probe process went from 5 to
+/// 21 threads on a 4-thread runner and from 2 to 42 on a 10-core machine
+/// (2026-11-20). Zero is a supported value and restores the pre-2.0 behavior
+/// (no table-scan read-ahead, writes run on the calling thread).
+#[cfg(feature = "duckdb-archive")]
+pub(crate) const NATIVE_DATABASE_ASYNC_THREADS: &str = "0";
+
 pub mod ambient_archive;
 pub mod archive_queries;
 #[cfg(feature = "duckdb-archive")]
