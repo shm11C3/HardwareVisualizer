@@ -159,14 +159,16 @@ type FixtureOverrides = {
    * Unset is the default everywhere else, which is exactly the machine
    * that must render as it did before #2046. */
   coolingAmbientOverride: CoolingAmbientOverride;
-  /** `?databaseConversion=sqliteAuthoritative|converting|actionRequired`
+  /** `?databaseConversion=sqliteAuthoritative|converting|actionRequired|notSupported`
    * selects the #2136 native database conversion lifecycle state the
    * Settings screen's `DatabaseConversionSettings` section (and the
    * app-root prompt dialog) starts from; until it completes, native-only
    * reads (Process Insight GPU usage) answer `needsNativeDatabase`. Unset
    * (the default, matching a production build with the `duckdb-archive`
    * feature off) reports `notSupported`, which hides both entirely, while
-   * native-only reads still answer with data. Reaching
+   * native-only reads still answer with data; the explicit `notSupported`
+   * scenario is that feature-off build including its native-only answer,
+   * `needsNativeDatabase`. Reaching
    * `nativeAuthoritative` from any of these is driven explicitly by
    * `window.__E2E__.completeDatabaseConversion()` (see below), not by a
    * timer - see that helper's own documentation for why. */
@@ -203,6 +205,7 @@ type CoolingAmbientOverride = "present" | "only" | null;
  * progresses to `converting` once `start_database_conversion` is invoked,
  * matching a Convert click. */
 type DatabaseConversionScenario =
+  | "notSupported"
   | "sqliteAuthoritative"
   | "converting"
   | "actionRequired"
@@ -356,7 +359,8 @@ const readDatabaseConversionScenario = (): DatabaseConversionScenario => {
   const raw = new URLSearchParams(window.location.search).get(
     "databaseConversion",
   );
-  return raw === "sqliteAuthoritative" ||
+  return raw === "notSupported" ||
+    raw === "sqliteAuthoritative" ||
     raw === "converting" ||
     raw === "actionRequired"
     ? raw

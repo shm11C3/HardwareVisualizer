@@ -16,6 +16,7 @@ import { displayTargetAtom } from "@/store/navigation";
 const hoisted = vi.hoisted(() => ({
   getProcessStats: vi.fn(),
   getProcessGpuStats: vi.fn(),
+  getDatabaseConversionState: vi.fn(),
   period: 60,
 }));
 
@@ -23,6 +24,7 @@ vi.mock("@/rspc/bindings", () => ({
   commands: {
     getProcessStats: hoisted.getProcessStats,
     getProcessGpuStats: hoisted.getProcessGpuStats,
+    getDatabaseConversionState: hoisted.getDatabaseConversionState,
   },
 }));
 vi.mock("@/hooks/tauri/useTauriStore", () => ({
@@ -109,6 +111,9 @@ describe("ProcessInsight GPU usage", () => {
   beforeEach(() => {
     hoisted.period = 60;
     hoisted.getProcessStats.mockResolvedValue(ok(processStats));
+    hoisted.getDatabaseConversionState.mockResolvedValue({
+      kind: "sqliteAuthoritative",
+    });
   });
   afterEach(() => {
     cleanup();
@@ -211,6 +216,59 @@ describe("ProcessInsight GPU usage", () => {
       within(notice).getByRole("button", { name: "Convert in Settings" }),
     );
     expect(store.get(displayTargetAtom)).toBe("settings");
+  });
+
+  it("explains without a conversion link in a build that cannot convert", async () => {
+    hoisted.getProcessGpuStats.mockResolvedValue(
+      ok({ kind: "needsNativeDatabase" }),
+    );
+    hoisted.getDatabaseConversionState.mockResolvedValue({
+      kind: "notSupported",
+    });
+
+    await renderInsight();
+
+    const notice = screen.getByTestId("process-gpu-needs-native-database");
+    expect(notice).toHaveTextContent(
+      "GPU usage history is recorded only in the native database.",
+    );
+    expect(within(notice).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers no conversion link until conversion support is known", async () => {
+    hoisted.getProcessGpuStats.mockResolvedValue(
+      ok({ kind: "needsNativeDatabase" }),
+    );
+    hoisted.getDatabaseConversionState.mockReturnValue(new Promise(() => {}));
+
+    await renderInsight();
+
+    const notice = screen.getByTestId("process-gpu-needs-native-database");
+    expect(within(notice).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("keeps the conversion link when support cannot be read", async () => {
+    hoisted.getProcessGpuStats.mockResolvedValue(
+      ok({ kind: "needsNativeDatabase" }),
+    );
+    hoisted.getDatabaseConversionState.mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await renderInsight();
+
+    expect(
+      screen.getByRole("button", { name: "Convert in Settings" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not read conversion support when GPU history is available", async () => {
+    hoisted.getProcessGpuStats.mockResolvedValue(
+      ok(available("2026-11-01T00:00:00+00:00")),
+    );
+
+    await renderInsight();
+
+    expect(hoisted.getDatabaseConversionState).not.toHaveBeenCalled();
   });
 
   it("keeps the CPU and memory table when the GPU read fails, and retries GPU alone", async () => {

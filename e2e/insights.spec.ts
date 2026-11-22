@@ -796,6 +796,7 @@ test.describe("insights captures", () => {
       await saveCapture(page, `insights-process-gpu-needs-native${suffix}`);
 
       await notice.getByRole("button", { name: "Convert in Settings" }).click();
+      // The section takes focus once its own state read settles.
       const section = page
         .getByRole("heading", { name: "Native Database" })
         .locator("..");
@@ -803,6 +804,21 @@ test.describe("insights captures", () => {
       await expect(
         page.getByRole("button", { name: "Convert Now" }),
       ).toBeVisible();
+    });
+
+    test(`process insight offers no conversion link in a build that cannot convert${suffix}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await openProcessInsight(page, "/?databaseConversion=notSupported");
+
+      const notice = page.getByTestId("process-gpu-needs-native-database");
+      await expect(notice).toContainText(
+        "GPU usage history is recorded only in the native database.",
+      );
+      await page.waitForTimeout(600);
+      await expect(notice.getByRole("button")).toHaveCount(0);
+      await saveCapture(page, `insights-process-gpu-unsupported${suffix}`);
     });
   }
 });

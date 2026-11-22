@@ -6,7 +6,10 @@ import {
   processStatsWindowStart,
 } from "@/features/hardware/insights/process/funcs/processGpuUsage";
 import type { ProcessGpuRead } from "@/features/hardware/insights/types/processStats";
-import { useDatabaseConversionSettings } from "@/hooks/navigation/useDatabaseConversionSettings";
+import {
+  useDatabaseConversionSettings,
+  useOffersDatabaseConversionSettings,
+} from "@/hooks/navigation/useDatabaseConversionSettings";
 
 /**
  * The one line above the Process Insight table that explains the GPU column's
@@ -24,7 +27,6 @@ export const ProcessGpuNotice = ({
   onRetry: () => void;
 }) => {
   const { t } = useTranslation();
-  const openConversionSettings = useDatabaseConversionSettings();
 
   if (read == null) {
     return null;
@@ -42,22 +44,7 @@ export const ProcessGpuNotice = ({
 
   const processGpuStats = read.stats;
   if (processGpuStats.kind === "needsNativeDatabase") {
-    return (
-      <div
-        className="mb-2 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground"
-        data-testid="process-gpu-needs-native-database"
-      >
-        <span>{t("pages.insights.process.gpu.needsNativeDatabase")}</span>
-        <Button
-          type="button"
-          variant="link"
-          className="h-auto p-0"
-          onClick={openConversionSettings}
-        >
-          {t("pages.insights.process.gpu.openSettings")}
-        </Button>
-      </div>
-    );
+    return <NeedsNativeDatabaseNotice />;
   }
 
   const coverage = processGpuCoverage(
@@ -79,5 +66,31 @@ export const ProcessGpuNotice = ({
           })
         : t("pages.insights.process.gpu.notRecordedYet")}
     </p>
+  );
+};
+
+// Its own component so conversion support is read only while this state shows.
+const NeedsNativeDatabaseNotice = () => {
+  const { t } = useTranslation();
+  const openConversionSettings = useDatabaseConversionSettings();
+  const offersConversion = useOffersDatabaseConversionSettings();
+
+  return (
+    <div
+      className="mb-2 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground"
+      data-testid="process-gpu-needs-native-database"
+    >
+      <span>{t("pages.insights.process.gpu.needsNativeDatabase")}</span>
+      {offersConversion && (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0"
+          onClick={openConversionSettings}
+        >
+          {t("pages.insights.process.gpu.openSettings")}
+        </Button>
+      )}
+    </div>
   );
 };

@@ -1,5 +1,6 @@
 import { useAtom, useSetAtom } from "jotai";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { commands } from "@/rspc/bindings";
 import {
   databaseConversionSettingsRequestedAtom,
   displayTargetAtom,
@@ -18,6 +19,38 @@ export const useDatabaseConversionSettings = () => {
     requestSection(true);
     setDisplayTarget("settings");
   };
+};
+
+/**
+ * Whether to offer the way into the conversion section. A build without
+ * `duckdb-archive` also answers native-only reads with `needsNativeDatabase`
+ * (ADR 0030 decision 6), but reports `notSupported` here and renders no such
+ * section. False until the answer arrives. A failed read does not prove the
+ * build cannot convert, so it keeps the entry point.
+ */
+export const useOffersDatabaseConversionSettings = () => {
+  const [offered, setOffered] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const read = async () => {
+      let supported = true;
+      try {
+        const state = await commands.getDatabaseConversionState();
+        supported = state.kind !== "notSupported";
+      } catch (error) {
+        console.error("Failed to read database conversion support:", error);
+      }
+      if (active) setOffered(supported);
+    };
+    void read();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return offered;
 };
 
 export const useDatabaseConversionSettingsFocus = (enabled: boolean) => {
