@@ -22,7 +22,7 @@ concurrency:
 jobs:
   scan-default-branch:
     name: Scan default branch
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.7.0
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.7.1
     permissions:
       actions: read
       contents: read
