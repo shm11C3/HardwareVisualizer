@@ -262,9 +262,7 @@ describe("ProcessTable GPU usage column", () => {
   const gpuCells = () =>
     rows().map((row) => within(row).getAllByRole("cell")[3].textContent);
   const sortGpu = () =>
-    fireEvent.click(
-      screen.getByRole("columnheader", { name: "Avg GPU Usage" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Avg GPU Usage" }));
 
   it("formats readings to one decimal, keeps 0 and values above 100, and marks a missing record", () => {
     render(
@@ -277,7 +275,7 @@ describe("ProcessTable GPU usage column", () => {
     );
 
     expect(
-      screen.getByRole("columnheader", { name: "Avg GPU Usage" }),
+      screen.getByRole("button", { name: "Avg GPU Usage" }),
     ).toHaveAttribute(
       "title",
       expect.stringContaining("summed across all GPUs and engines"),
@@ -303,6 +301,27 @@ describe("ProcessTable GPU usage column", () => {
     expect(gpuCells()).toEqual(["0.0%", "12.3%", "143.3%", "—"]);
     sortGpu();
     expect(gpuCells()).toEqual(["143.3%", "12.3%", "0.0%", "—"]);
+  });
+
+  it("sorts from a focusable button and exposes the direction", () => {
+    render(
+      <ProcessTable
+        processStats={gpuRows()}
+        loading={false}
+        period={60}
+        showGpuUsage={true}
+      />,
+    );
+    const header = screen.getByRole("columnheader", { name: "Avg GPU Usage" });
+    const button = within(header).getByRole("button");
+
+    button.focus();
+    expect(button).toHaveFocus();
+    expect(header).not.toHaveAttribute("aria-sort");
+    sortGpu();
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    sortGpu();
+    expect(header).toHaveAttribute("aria-sort", "descending");
   });
 
   it("leaves the column out when GPU usage is not shown", () => {

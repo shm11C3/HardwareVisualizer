@@ -242,17 +242,30 @@ const InfoTable = ({
             </th>
             {showGpuUsage && (
               <th
-                className="cursor-pointer py-2 pr-4 dark:text-gray-400"
-                title={t("pages.insights.process.gpu.help")}
-                onClick={() => requestSort("avg_gpu_usage")}
-                onKeyDown={() => requestSort("avg_gpu_usage")}
+                className="py-2 pr-4 dark:text-gray-400"
+                aria-sort={
+                  sortConfig?.key === "avg_gpu_usage"
+                    ? sortConfig.direction
+                    : undefined
+                }
               >
-                <div className={tableHeaderVariants({ isStuck })}>
+                <button
+                  type="button"
+                  className={tableHeaderVariants({
+                    isStuck,
+                    className:
+                      "cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  })}
+                  title={t("pages.insights.process.gpu.help")}
+                  onClick={() => requestSort("avg_gpu_usage")}
+                >
                   <span>{t("pages.insights.process.gpu.column")}</span>
-                  {sortConfig &&
-                    sortConfig.key === "avg_gpu_usage" &&
-                    sortIcon[sortConfig.direction]}
-                </div>
+                  {sortConfig?.key === "avg_gpu_usage" && (
+                    <span aria-hidden="true">
+                      {sortIcon[sortConfig.direction]}
+                    </span>
+                  )}
+                </button>
               </th>
             )}
             <th

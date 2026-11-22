@@ -748,6 +748,16 @@ test.describe("insights captures", () => {
       await expect(gpuCell("fixture-browser")).toHaveText("112.5%");
       await expect(gpuCell("fixture-editor")).toHaveText("0.0%");
       await expect(gpuCell("fixture-daemon")).toHaveText("—");
+      const gpuHeader = table.getByRole("columnheader", {
+        name: "Avg GPU Usage",
+      });
+      const gpuSort = gpuHeader.getByRole("button");
+      await gpuSort.focus();
+      await page.keyboard.press("Enter");
+      await expect(gpuHeader).toHaveAttribute("aria-sort", "ascending");
+      await page.keyboard.press("Space");
+      await expect(gpuHeader).toHaveAttribute("aria-sort", "descending");
+      await saveCapture(page, `insights-process-gpu-sorted${suffix}`);
       await expect(page.getByText("fixture-gpu-helper")).toHaveCount(0);
       await expect(page.getByTestId("process-gpu-coverage-note")).toHaveCount(
         0,
