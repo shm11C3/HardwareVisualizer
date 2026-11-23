@@ -1,3 +1,0 @@
-# THIRD_PARTY_NOTICES
-
-dummy

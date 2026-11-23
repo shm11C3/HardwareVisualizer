@@ -49,8 +49,7 @@
     "resources": {
       "../docs/licenses/LICENSE_INFORMATION.md": "LICENSE_INFORMATION.md",
       "../LICENSE": "LICENSE",
-      "../docs/licenses/MIT-pre-relicense.txt": "MIT-pre-relicense.txt",
-      "../tmp/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+      "../docs/licenses/MIT-pre-relicense.txt": "MIT-pre-relicense.txt"
     },
     "shortDescription": "",
     "linux": {
