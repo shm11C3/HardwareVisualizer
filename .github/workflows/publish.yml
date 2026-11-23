@@ -194,8 +194,8 @@ jobs:
           chmod 600 "$APPLE_API_KEY_PATH"
           echo "APPLE_API_KEY_PATH=$APPLE_API_KEY_PATH" >> "$GITHUB_ENV"
 
-      # Generate THIRD_PARTY_LICENSES file
-      # Generate here to include in Tauri build bundle
+      # Generate THIRD_PARTY_NOTICES.md for the Tauri bundle. update-tauri-config.ts
+      # added it to bundle.resources above, so `tauri build` fails if it is missing.
       - name: Install cargo-license
         run: cargo install cargo-license
 

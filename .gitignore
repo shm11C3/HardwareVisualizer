@@ -29,6 +29,10 @@ test-results
 *.sw?
 .mcp.json
 
+# Scratch output, including the release THIRD_PARTY_NOTICES.md that publish.yml
+# generates and bundles
+/tmp/
+
 # Rust files
 target
 src-tauri/windows/wix/generated/

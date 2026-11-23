@@ -97,9 +97,10 @@ therefore have **failed** it until `CC0-1.0` was allowed or that path avoided.
 ### Packaging
 
 Notices do reach users: `publish.yml` regenerates `tmp/THIRD_PARTY_NOTICES.md`
-just before `tauri-action`, and `tauri.conf.json` bundles it as a resource
-beside `LICENSE`; the same file is also a release asset. The committed copy is a
-29-byte placeholder.
+just before `tauri-action`, and the release `tauri.conf.json` bundles it as a
+resource beside `LICENSE`; the same file is also a release asset. At the time
+of this evidence the repository also tracked a 29-byte placeholder; it is now
+ignored and listed only in release builds.
 
 ### Vendored C/C++ attribution
 
