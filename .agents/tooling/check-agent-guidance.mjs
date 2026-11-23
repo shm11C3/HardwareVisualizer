@@ -595,15 +595,15 @@ async function checkKnownDriftPoints() {
   const cleanRoom = await read(".agents/rules/clean-room-sensors.md");
   const backend = await read("docs/architecture/backend.md");
   const coreReadme = await read("hardviz/core/README.md");
-  const appAgents = await read("src-tauri/AGENTS.md");
-  const appReadme = await read("src-tauri/README.md");
+  const appAgents = await read("hardviz/app/AGENTS.md");
+  const appReadme = await read("hardviz/app/README.md");
   const frontendReadme = await read("src/README.md");
   const settings = await read(".agents/rules/settings.md");
   const prTemplate = await read(".github/pull_request_template.md");
   const packageJson = JSON.parse(await read("package.json"));
 
   for (const stalePath of [
-    "src-tauri/src/platform/",
+    "hardviz/app/src/platform/",
     "crate::platform::PlatformFactory",
   ]) {
     if (rootAgents.includes(stalePath)) {
@@ -628,8 +628,8 @@ async function checkKnownDriftPoints() {
     [".agents/rules/rust.md", rustRule],
     ["docs/architecture/backend.md", backend],
     ["hardviz/core/README.md", coreReadme],
-    ["src-tauri/AGENTS.md", appAgents],
-    ["src-tauri/README.md", appReadme],
+    ["hardviz/app/AGENTS.md", appAgents],
+    ["hardviz/app/README.md", appReadme],
   ]) {
     if (/Tauri SQL (?:plugin|migration)/.test(content)) {
       fail(`${name} contains stale Tauri SQL migration terminology`);
@@ -638,8 +638,8 @@ async function checkKnownDriftPoints() {
   for (const [name, content] of [
     ["AGENTS.md", rootAgents],
     ["docs/architecture/backend.md", backend],
-    ["src-tauri/AGENTS.md", appAgents],
-    ["src-tauri/README.md", appReadme],
+    ["hardviz/app/AGENTS.md", appAgents],
+    ["hardviz/app/README.md", appReadme],
     ["src/README.md", frontendReadme],
     ["CONTRIBUTING.md", await read("CONTRIBUTING.md")],
   ]) {
@@ -922,7 +922,7 @@ async function main() {
   const guidanceFiles = [
     "AGENTS.md",
     "hardviz/core/AGENTS.md",
-    "src-tauri/AGENTS.md",
+    "hardviz/app/AGENTS.md",
     "src/AGENTS.md",
     "docs/AGENTS.md",
     "CLAUDE.md",

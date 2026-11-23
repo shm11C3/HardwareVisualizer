@@ -179,7 +179,7 @@ export const DatabaseConversionStateBody = ({
       // supported state, and otherwise leaves the issue in ActionRequired.
       // Authority or fresh creation failures still need their own recovery
       // path. Keep this list equal to what `is_startable_state`
-      // (`src-tauri/src/app/native_conversion.rs`) admits; a reason it refuses
+      // (`hardviz/app/src/app/native_conversion.rs`) admits; a reason it refuses
       // turns Retry into a silent no-op.
       (state.reason === "conversionFailed" ||
         state.reason === "conversionCancelled" ||

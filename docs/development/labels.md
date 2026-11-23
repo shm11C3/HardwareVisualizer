@@ -59,7 +59,7 @@ guessing before the likely owner is clear.
 - `area:backend` - manually assigned during triage for backend behavior that
   spans App and Core.
 - `area:core` - `hardviz/core/**` or Tauri-independent domain/runtime code.
-- `area:tauri` - `src-tauri/**`, Tauri commands, app wiring, or bundling.
+- `area:tauri` - `hardviz/app/**`, Tauri commands, app wiring, or bundling.
 - `area:github-actions` - workflows and composite actions under `.github/**`.
 - `area:javascript` - JavaScript/TypeScript dependency or tooling work.
 - `area:docs` - documentation files or docs automation.

@@ -427,7 +427,7 @@ mod boundary {
   /// Defaults to writable so a process that never starts a conversion (or a
   /// unit test that never touches this module) behaves exactly as before.
   ///
-  /// [dw]: ../../../../../src-tauri/src/app/native_lifecycle.rs
+  /// [dw]: ../../../../app/src/app/native_lifecycle.rs
   static WRITE_GATE: OnceLock<Arc<RwLock<bool>>> = OnceLock::new();
 
   fn write_gate() -> Arc<RwLock<bool>> {

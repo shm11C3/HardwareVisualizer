@@ -65,7 +65,7 @@ runHook(
 runHook(
   "new script next to its owner",
   "pre",
-  { tool_input: { file_path: "src-tauri/windows/wix/new-owner-check.ps1" } },
+  { tool_input: { file_path: "hardviz/app/windows/wix/new-owner-check.ps1" } },
   0,
 );
 runHook(

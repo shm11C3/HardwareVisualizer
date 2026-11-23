@@ -121,7 +121,7 @@ trade-off in an ADR instead of weakening the rule implicitly.
 ```text
 Frontend (`src/`)
   -> typed Tauri commands
-Tauri App (`src-tauri/`)
+Tauri App (`hardviz/app/`)
   -> commands, App services, adapters, lifecycle, wire DTOs
 Core (`hardviz/core/`)
   -> collector, EventBus, platform traits/factory, providers, persistence
@@ -142,7 +142,7 @@ open at a time; see [`docs/architecture/backend.md`](docs/architecture/backend.m
 for the boundary, the lifecycle states, and the single-owner rule.
 
 - `hardviz/core/` is Tauri-independent and owns hardware facts and Core behavior.
-- `src-tauri/` owns Tauri runtime concerns, IPC, presentation conversion, and
+- `hardviz/app/` owns Tauri runtime concerns, IPC, presentation conversion, and
   App lifecycle.
 - `src/` owns interaction, frontend state, and views.
 - Core publishes snapshots; App adapters emit Tauri events.

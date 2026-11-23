@@ -113,7 +113,7 @@ _Avoid_: active installations (as a flag denominator), flag total, sample size
 | Concern | Owner | Why |
 | --- | --- | --- |
 | Consent value, consent version, seed, Consent Cohort | App settings service, `productAnalytics` section of `settings.json` | An Application Preference; App-owned because Core never reads it |
-| Consent enforcement, counters, State Flag sampling, tokens, batching, transport, lifecycle | App, new `src-tauri/src/analytics/` module and one managed service | RFC section 3; Core stays Tauri-independent and never learns that analytics exists |
+| Consent enforcement, counters, State Flag sampling, tokens, batching, transport, lifecycle | App, new `hardviz/app/src/analytics/` module and one managed service | RFC section 3; Core stays Tauri-independent and never learns that analytics exists |
 | Product Event and State Flag vocabulary | App Rust enums; the event enum is exported through the generated bindings, the flag enum is App-internal | The enums are the allowlist; the frontend cannot invent a name and never sees flags |
 | Vendor-class and provider-availability mapping | App analytics module, reading App-side hardware DTOs and the optional sensor provider outcomes Core publishes in `MetricsSnapshot` | Hardware knowledge stays out of Core utilities; Core exposes facts, App classifies them for the wire |
 | Optional sensor provider attempt outcome | Core collector, one field of `MetricsSnapshot` | A hardware fact Core already computes before ACPI fallback and guidance suppression; see [Provider outcome source](#provider-outcome-source) |

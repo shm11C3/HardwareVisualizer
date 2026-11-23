@@ -9,11 +9,11 @@ const KILOBYTE: u64 = 1024;
 const MEGABYTE: u64 = KILOBYTE * 1024;
 const GIGABYTE: u64 = MEGABYTE * 1024;
 
-/// POJO mirror of `src-tauri/src/utils/formatter.rs::SizeUnit`.
+/// POJO mirror of `hardviz/app/src/utils/formatter.rs::SizeUnit`.
 ///
-/// The wire type with `specta::Type` lives in `src-tauri` because it is
+/// The wire type with `specta::Type` lives in `hardviz/app` because it is
 /// embedded in `StorageInfo` (a Tauri command return). Convert with the
-/// `From` impls in `src-tauri/src/utils/formatter.rs`.
+/// `From` impls in `hardviz/app/src/utils/formatter.rs`.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SizeUnit {
   Bytes,

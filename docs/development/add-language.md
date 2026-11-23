@@ -17,7 +17,7 @@ Use a stable short language code such as `en`, `ja`, or `ru`.
 
 The current implementation stores this code directly in Settings and uses it as
 the i18next resource key. If a future language needs a regional code, check the
-Rust locale extraction logic in `src-tauri/src/services/language_service.rs`
+Rust locale extraction logic in `hardviz/app/src/services/language_service.rs`
 before choosing the code.
 
 ## Steps
@@ -49,13 +49,13 @@ before choosing the code.
 
 4. Add the language code to Rust `SUPPORTED_LANGUAGES`.
 
-   Update `src-tauri/src/services/language_service.rs` so first-run OS language
+   Update `hardviz/app/src/services/language_service.rs` so first-run OS language
    fallback recognizes the new language as officially supported.
 
 5. Update Rust language service tests.
 
    Add a test matching the existing `supported_languages_contains_*` tests in
-   `src-tauri/src/services/language_service.rs`.
+   `hardviz/app/src/services/language_service.rs`.
 
 6. Update frontend i18n tests.
 

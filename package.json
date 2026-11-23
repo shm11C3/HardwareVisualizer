@@ -22,7 +22,7 @@
     "typecheck:e2e:native": "tsc -p tsconfig.e2e-native.json",
     "typecheck:ci-telemetry": "tsc -p tsconfig.ci-telemetry.json",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
+    "tauri:dev": "tauri dev --config hardviz/app/tauri.dev.conf.json",
     "lint": "biome lint && biome check && biome format --write",
     "format": "biome format --write && biome check --write",
     "lint:ci": "biome ci",

@@ -1,7 +1,7 @@
 # Tauri App Instructions
 
 These instructions add to the repository root `AGENTS.md` for work under
-`src-tauri/`.
+`hardviz/app/`.
 
 ## Ownership
 
@@ -21,11 +21,11 @@ These instructions add to the repository root `AGENTS.md` for work under
   those mutexes; a check outside the lock can race and leave a worker outside
   shutdown's wait.
 
-Read [`src-tauri/README.md`](README.md),
-[`docs/architecture/backend.md`](../docs/architecture/backend.md), and
-[`docs/design-principles.md`](../docs/design-principles.md). Also read
-[`rust.md`](../.agents/rules/rust.md) and, for persisted settings,
-[`settings.md`](../.agents/rules/settings.md).
+Read [`hardviz/app/README.md`](README.md),
+[`docs/architecture/backend.md`](../../docs/architecture/backend.md), and
+[`docs/design-principles.md`](../../docs/design-principles.md). Also read
+[`rust.md`](../../.agents/rules/rust.md) and, for persisted settings,
+[`settings.md`](../../.agents/rules/settings.md).
 
 ## Commands, DTOs, And Settings
 

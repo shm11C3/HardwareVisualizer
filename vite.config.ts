@@ -115,7 +115,7 @@ export default defineConfig(async ({ mode }) => ({
       //    the repo's own vitest coverage / Playwright test-results
       //    reproduce the same pattern at the repo root.
       ignored: [
-        "**/src-tauri/**",
+        "**/hardviz/app/**",
         "**/target/**",
         "**/.claude/**",
         "**/coverage/**",

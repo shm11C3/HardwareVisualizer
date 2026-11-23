@@ -9,8 +9,8 @@
 //!
 //! The DDL still lives here rather than being read from the migration set
 //! itself: the migrations are owned by App
-//! (`src-tauri/src/infrastructure/database/migration.rs`), which depends
-//! on Core rather than the other way round. `src-tauri`'s own
+//! (`hardviz/app/src/infrastructure/database/migration.rs`), which depends
+//! on Core rather than the other way round. `hardviz/app`'s own
 //! `shipped_migrations_*` tests are what pin these definitions to the
 //! real ones - they apply the actual migration set and insert against the
 //! result.

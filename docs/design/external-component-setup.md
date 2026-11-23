@@ -38,7 +38,7 @@ The maintainer's request is:
 | The installed runtime is discovered through `InstallLocation` under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO` with `%ProgramFiles%\PawnIO` as the fallback. | Same spec; `hardviz/core/src/infrastructure/providers/windows/pawn_io/client.rs` |
 | The provider opens and caches the shared module handle once per process. | `open_shared_intel_msr` in `pawn_io/client.rs` uses a `OnceLock` |
 | Tauri's MSI template uses `WixUI_InstallDir` and places fragment features under a hidden `External` feature; its NSIS template has no components page but exposes `NSIS_HOOK_PREINSTALL`, `POSTINSTALL`, `PREUNINSTALL`, and `POSTUNINSTALL` macros. | `crates/tauri-bundler/src/bundle/windows/msi/main.wxs` and `nsis/installer.nsi` at the pinned Tauri release |
-| The MSI already downloads the WebView2 bootstrapper at install time when it is missing. | `src-tauri/tauri.conf.json` `webviewInstallMode: downloadBootstrapper` |
+| The MSI already downloads the WebView2 bootstrapper at install time when it is missing. | `hardviz/app/tauri.conf.json` `webviewInstallMode: downloadBootstrapper` |
 
 ## Chosen approach
 
@@ -60,9 +60,9 @@ flowchart LR
 | Detection of the installed runtime and module files | Core, behind the platform trait |
 | Download, digest verification, running the runtime installer, extracting module files | Core Windows platform implementation |
 | Launching the current executable elevated and waiting for it | Core Windows platform implementation (generalizes the existing relaunch path) |
-| Command-line dispatch of the setup mode and its exit code | App (`src-tauri/src/cli`) |
+| Command-line dispatch of the setup mode and its exit code | App (`hardviz/app/src/cli`) |
 | Typed IPC, wire DTOs, Settings UI, restart prompt, copy | App and frontend |
-| Installer dialogs, properties, custom actions (#2118), uninstall notice (#2119) | App bundle configuration (`src-tauri/windows/`, wired in `src-tauri/tauri.conf.json`) |
+| Installer dialogs, properties, custom actions (#2118), uninstall notice (#2119) | App bundle configuration (`hardviz/app/windows/`, wired in `hardviz/app/tauri.conf.json`) |
 
 Nothing in this feature touches the clean-room sensor files. The setup module
 reads the same registry value and module file names the provider documents,
@@ -131,8 +131,8 @@ but it does not read registers or share code with the provider.
 
 The setup mode reports through its exit code only. `SetupFailureStage` in
 `hardviz/core/src/external_component_setup/mod.rs` owns the failure codes, and the
-App's command-line dispatch (`src-tauri/src/cli`, `run_cli_mode_if_requested`
-in `src-tauri/src/lib.rs`) owns the code of a command line that never
+App's command-line dispatch (`hardviz/app/src/cli`, `run_cli_mode_if_requested`
+in `hardviz/app/src/lib.rs`) owns the code of a command line that never
 reached a setup plan.
 
 #### Setup-mode exit codes
@@ -253,7 +253,7 @@ installed and its fallbacks unchanged.
   still fails, the fail-closed exit above applies. That the child then runs
   with the other account's profile (settings, app data) predates the handoff.
 - **MSI (implemented, #2118).** The WiX fragment
-  `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
+  `hardviz/app/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between
   `InstallDirDlg` and `VerifyReadyDlg` by publishing `NewDialog` events with a
   higher order than `WixUI_InstallDir` (the last `NewDialog` wins). The
@@ -291,9 +291,9 @@ installed and its fallbacks unchanged.
   `.exe` installer is kept for compatibility and almost all Windows users
   install the MSI, so the MSI is where the installer option matters.
 - **Installer verification.** CI (`test-windows-installer`) builds both
-  packages when `src-tauri/windows/**`, `tauri.conf.json`, or the CI workflow
+  packages when `hardviz/app/windows/**`, `tauri.conf.json`, or the CI workflow
   changes or a Tauri dependency moves, and asserts the MSI tables with
-  `src-tauri/windows/wix/check-external-component-setup.ps1`, which sits next
+  `hardviz/app/windows/wix/check-external-component-setup.ps1`, which sits next
   to the fragment it checks. The interactive
   behaviour needs a manual run on Windows whenever the Tauri bundler templates
   change: the dialog appears pre-selected, opting out runs nothing, the MSI
@@ -316,7 +316,7 @@ installed and its fallbacks unchanged.
     `REBOOTPROMPT=S`, unattended like NSIS `/P`), when `UPGRADINGPRODUCTCODE` is set (the
     old version being removed by an upgrade), and outside Program Files,
     because an uninstall started from an elevated prompt runs it elevated.
-  - **NSIS:** `NSIS_HOOK_PREUNINSTALL` in `src-tauri/windows/nsis/hooks.nsh`,
+  - **NSIS:** `NSIS_HOOK_PREUNINSTALL` in `hardviz/app/windows/nsis/hooks.nsh`,
     skipped for `/S`, `/P`, `/UPDATE`, and when the command line carries
     `_?=` (Tauri's `PageLeaveReinstall` runs the old uninstaller that way
     when a newer `*-setup.exe` is run by hand, and Apps & features never

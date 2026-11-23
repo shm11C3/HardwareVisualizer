@@ -9,7 +9,7 @@ A standalone CLI tool that launches the HardwareVisualizer binary, measures CPU 
 cargo build --release --manifest-path perf-monitor/Cargo.toml
 
 # Run against a built binary
-cargo perf-test -- --binary src-tauri/target/release/hardware-visualizer.exe
+cargo perf-test -- --binary hardviz/app/target/release/hardware-visualizer.exe
 ```
 
 ## CLI Options

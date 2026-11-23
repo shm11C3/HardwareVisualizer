@@ -10,7 +10,7 @@ These instructions add to the repository root `AGENTS.md` for work under
   raw models, and Core-consumed settings.
 - Do not add a `tauri`, `specta`, or `tauri-specta` dependency to Core. Do not
   emit Tauri window events from Core.
-- Core publishes raw facts; `src-tauri` adapters own presentation conversion and
+- Core publishes raw facts; `hardviz/app` adapters own presentation conversion and
   Tauri delivery.
 - Shared hardware access belongs behind `hardviz/core/src/platform/**`. Low-level OS or
   vendor access belongs under `hardviz/core/src/infrastructure/providers/**`.

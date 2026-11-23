@@ -8,7 +8,7 @@ pub use hardviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
 
 mod adapters;
 mod analytics;
-// `pub` so `src-tauri/tests/*.rs` integration test binaries - linking
+// `pub` so `hardviz/app/tests/*.rs` integration test binaries - linking
 // against this crate's `rlib` target (see `Cargo.toml`'s `crate-type`) -
 // can reach the lifecycle owner, the conversion driver and `WorkersState`
 // directly, the same way `hardviz/core/tests/*.rs` reaches `hardviz-core`'s own
@@ -117,10 +117,10 @@ fn apply_pending_migrations() -> Result<(), String> {
 /// risk of the two-instance conflict `observe_authority`'s own documentation
 /// warns about.
 ///
-/// `pub` (not `pub(crate)`) only so `src-tauri/tests/*.rs` can drive this
+/// `pub` (not `pub(crate)`) only so `hardviz/app/tests/*.rs` can drive this
 /// exact sequence directly - it takes no `AppHandle` and touches nothing
 /// Tauri-specific, so it needs no mock app to exercise; see the restart
-/// test under `src-tauri/tests/` for the proof a native-selected boot
+/// test under `hardviz/app/tests/` for the proof a native-selected boot
 /// reaches `NativeAuthoritative` through this same function `run()` calls.
 #[cfg(feature = "duckdb-archive")]
 pub fn resolve_native_authority(
@@ -402,7 +402,7 @@ fn build_specta_builder() -> Builder<Wry> {
 
 #[cfg(debug_assertions)]
 fn bindings_path() -> std::path::PathBuf {
-  std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/rspc/bindings.ts")
+  std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/rspc/bindings.ts")
 }
 
 #[cfg(debug_assertions)]

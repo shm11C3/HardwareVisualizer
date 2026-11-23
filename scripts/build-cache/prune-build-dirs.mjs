@@ -8,7 +8,7 @@
 //
 // Cargo does not record which checkout a hash stands for. The App crate's
 // build script does: `tauri-build` emits `cargo:rerun-if-changed=<absolute
-// path>` lines for files under `src-tauri/`, and Cargo keeps them in
+// path>` lines for files under `hardviz/app/`, and Cargo keeps them in
 // `<profile>/build/hardware_visualizer-<hash>/output`. That absolute path is
 // read back here, and the subtree is deleted when its checkout is gone.
 //
@@ -35,9 +35,9 @@ const quiet = process.argv.includes("--quiet");
 const APP_BUILD_SCRIPT_PREFIX = "hardware_visualizer-";
 const PRUNING_SUFFIX = ".pruning";
 // Anchored on the App crate's own manifest so an ancestor directory that
-// happens to be called `src-tauri` cannot be mistaken for the checkout.
+// happens to contain a `hardviz/app` directory cannot be mistaken for the checkout.
 const CHECKOUT_PATTERN =
-  /^cargo:rerun-if-changed=(.+)[\\/]src-tauri[\\/]tauri\.conf\.json\r?$/m;
+  /^cargo:rerun-if-changed=(.+)[\\/]hardviz[\\/]app[\\/]tauri\.conf\.json\r?$/m;
 
 function sharedRoot() {
   const cargoHome = process.env.CARGO_HOME || path.join(os.homedir(), ".cargo");

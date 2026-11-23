@@ -10,7 +10,7 @@ Read the matching rule before editing files in its scope. The root and scoped
 | Rule | Scope |
 | --- | --- |
 | [design.md](design.md) | Product, architecture, persistence, monitoring, and UX decisions |
-| [rust.md](rust.md) | `hardviz/core/**`, `src-tauri/**`, and Rust workspace manifests |
+| [rust.md](rust.md) | `hardviz/core/**`, `hardviz/app/**`, and Rust workspace manifests |
 | [frontend.md](frontend.md) | Frontend code and language files under `src/` |
 | [settings.md](settings.md) | Settings UI, settings services, and persisted settings ownership |
 | [documentation.md](documentation.md) | Root documentation, `docs/**`, and GitHub Markdown |

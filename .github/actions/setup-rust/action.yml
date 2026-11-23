@@ -65,7 +65,7 @@ runs:
       id: rust-cache
       uses: Swatinem/rust-cache@v2.9.3
       with:
-        # src-tauri is a member of the root workspace, so it has no target/ of its own.
+        # hardviz/app is a member of the root workspace, so it has no target/ of its own.
         workspaces: |
           . -> target
         add-job-id-key: "false"

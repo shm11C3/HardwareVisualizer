@@ -196,7 +196,7 @@ npm run typecheck:e2e:native
 The command builds a debug, no-bundle app with the dedicated E2E config:
 
 ```bash
-npm run tauri build -- --debug --no-bundle --config src-tauri/tauri.e2e.conf.json
+npm run tauri build -- --debug --no-bundle --config hardviz/app/tauri.e2e.conf.json
 ```
 
 The native smoke sets `HARDVIZ_E2E=1`, which switches the runtime identity to

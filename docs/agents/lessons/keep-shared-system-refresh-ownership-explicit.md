@@ -2,7 +2,7 @@
 id: LRN-20260815-keep-shared-system-refresh-ownership-explicit
 status: promoted
 cause_status: confirmed
-scope: hardviz/core/src/collector, hardviz/core/src/infrastructure/providers/sysinfo_provider.rs, and src-tauri/src/services/hardware_service.rs
+scope: hardviz/core/src/collector, hardviz/core/src/infrastructure/providers/sysinfo_provider.rs, and hardviz/app/src/services/hardware_service.rs
 trigger: narrowing sysinfo refreshes or adding a consumer of HistoryStore::system
 failure_signature: replacing refresh_all with usage-only refreshes leaves the visible CPU clock at its previously cached value on platforms that update frequency dynamically
 root_cause: HistoryStore shares one sysinfo System between the periodic collector and command-backed CPU hardware information, so refresh ownership crosses those call paths

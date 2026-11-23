@@ -21,7 +21,7 @@ use crate::tray::widget::{MetricState, TrayFrame, TrayMetricIcon};
 
 use super::TraySurface;
 
-const APP_LOGO_SVG: &[u8] = include_bytes!("../../../../assets/hv-icon-outline.svg");
+const APP_LOGO_SVG: &[u8] = include_bytes!("../../../../../assets/hv-icon-outline.svg");
 const APP_LOGO_SIZE: f64 = 18.0;
 const METRIC_ICON_SIZE: f64 = 13.0;
 

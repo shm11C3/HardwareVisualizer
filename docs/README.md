@@ -41,7 +41,7 @@ documentation.
 - [Frontend layer boundaries decision](adr/0027-frontend-layer-boundaries-and-state-ownership.md)
 - [Frontend architecture Design Doc](design/frontend-architecture.md)
 - [Core crate guide](../hardviz/core/README.md)
-- [Tauri app crate guide](../src-tauri/README.md)
+- [Tauri app crate guide](../hardviz/app/README.md)
 - [Add a new language](development/add-language.md)
 - [E2E capture harness](development/e2e-captures.md)
 - [Super I/O sensor work handoff](development/sensor-handoff/)

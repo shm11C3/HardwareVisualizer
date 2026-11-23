@@ -2,7 +2,7 @@
 id: LRN-20261012-remeasure-before-the-next-slice
 status: promoted
 cause_status: confirmed
-scope: multi-slice performance or architecture work in src/** and src-tauri/**
+scope: multi-slice performance or architecture work in src/** and hardviz/app/**
 trigger: a plan has several slices and the first slice's measurement changes what the remaining slices are for
 failure_signature: "three reviewed PRs (#2396, #2397, #2399) built a Live Metrics Buffer whose per-tick saving (about 11 µs) turned out to be invisible under React reconciliation; they were closed unmerged"
 root_cause: "the baseline showed render cost follows subscription shape, not atom-write count, and slice 1 took almost the whole win; the remaining slices were built on the issue's original premise instead of on a new measurement of what they would now save"

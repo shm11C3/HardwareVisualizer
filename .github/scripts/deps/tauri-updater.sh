@@ -8,7 +8,7 @@ command -v cargo-upgrade >/dev/null || { echo "cargo-edit (cargo upgrade) not fo
 command -v node >/dev/null || { echo "node not found"; exit 1; }
 
 test -f package.json || { echo "package.json not found. Run from repo root."; exit 1; }
-test -d src-tauri || { echo "src-tauri not found."; exit 1; }
+test -d hardviz/app || { echo "hardviz/app not found."; exit 1; }
 
 echo "[2/4] update npm packages (@tauri-apps/*)"
 
@@ -32,7 +32,7 @@ fi
 # cargo update for tauri packages
 # =========================================================
 echo "[3/4] update cargo deps (Cargo.toml + Cargo.lock)"
-pushd src-tauri >/dev/null
+pushd hardviz/app >/dev/null
 
 cargo upgrade -p tauri -p tauri-build || true
 

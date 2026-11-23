@@ -2,8 +2,8 @@ import fs from "node:fs";
 
 type Stage = "alpha" | "beta" | "rc";
 
-// Relative to src-tauri/, where tauri.conf.json resolves bundle.resources.
-const THIRD_PARTY_NOTICES_SOURCE = "../tmp/THIRD_PARTY_NOTICES.md";
+// Relative to hardviz/app/, where tauri.conf.json resolves bundle.resources.
+const THIRD_PARTY_NOTICES_SOURCE = "../../tmp/THIRD_PARTY_NOTICES.md";
 
 function getArg(args: string[], name: string) {
   const i = args.indexOf(name);
@@ -71,7 +71,7 @@ function tagToTauriVersion(tag: string): string {
  * @param args - CLI arguments
  */
 function main(args: string[]) {
-  const configPath = "src-tauri/tauri.conf.json";
+  const configPath = "hardviz/app/tauri.conf.json";
 
   const tag = getArg(args, "--tag");
   const signCommand = getArg(args, "--sign");

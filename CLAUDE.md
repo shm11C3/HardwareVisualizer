@@ -4,7 +4,7 @@ Read and follow the shared project instructions first:
 
 - `AGENTS.md` - always-on product, architecture, evidence, Git, and learning rules
 - `docs/design-principles.md` - the maintainer's product and design decision lens
-- the nearest scoped `AGENTS.md` for `hardviz/core/`, `src-tauri/`, `src/`, or `docs/`
+- the nearest scoped `AGENTS.md` for `hardviz/core/`, `hardviz/app/`, `src/`, or `docs/`
 
 Then read the matching shared rule from `.agents/rules/README.md`:
 

@@ -21,5 +21,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           owner: shm11C3
           repo: HardwareVisualizer
-          tauri_config_path: ./src-tauri/tauri.conf.json
+          tauri_config_path: ./hardviz/app/tauri.conf.json
           tag_name_format: v{VERSION}

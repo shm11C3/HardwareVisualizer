@@ -8,7 +8,7 @@ put a file here.
 
 1. A script that checks, generates, or operates on files owned by one area
    lives next to that owner, and CI calls it by that path. For example, the
-   MSI table check lives in `src-tauri/windows/wix/`, next to the WiX fragment
+   MSI table check lives in `hardviz/app/windows/wix/`, next to the WiX fragment
    it verifies.
 2. A developer or diagnostic tool with no single owning area lives under
    `scripts/<area>/` (for example `scripts/diagnostics/`,

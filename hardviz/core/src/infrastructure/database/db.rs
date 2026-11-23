@@ -40,7 +40,7 @@ fn db_path() -> &'static Path {
 /// Open a fresh `SqlitePool` against the configured database file.
 ///
 /// Each writer call gets its own pool today (matching the pre-Phase-4
-/// behavior in `src-tauri/src/infrastructure/database`). Pool caching
+/// behavior in `hardviz/app/src/infrastructure/database`). Pool caching
 /// is intentionally out of scope for #1407 — see "Out of Scope" in the
 /// issue ("Schema redesigns or migrations.").
 pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {

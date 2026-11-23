@@ -100,7 +100,7 @@ pub fn apply_runtime_config(config: &mut tauri::Config) {
 }
 
 ///
-/// Get application version from `src-tauri/tauri.conf.json`.
+/// Get application version from `hardviz/app/tauri.conf.json`.
 ///
 pub fn get_app_version() -> String {
   app_version_from(tauri_conf())

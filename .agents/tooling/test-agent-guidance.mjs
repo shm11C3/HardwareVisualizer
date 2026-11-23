@@ -256,9 +256,9 @@ expectFailure(
 expectFailure(
   "stale scoped migration terminology",
   {
-    "src-tauri/AGENTS.md": `${read("src-tauri/AGENTS.md")}\nApp owns the Tauri SQL plugin migrations.\n`,
+    "hardviz/app/AGENTS.md": `${read("hardviz/app/AGENTS.md")}\nApp owns the Tauri SQL plugin migrations.\n`,
   },
-  "src-tauri/AGENTS.md contains stale Tauri SQL migration terminology",
+  "hardviz/app/AGENTS.md contains stale Tauri SQL migration terminology",
 );
 
 expectFailure(

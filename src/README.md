@@ -79,7 +79,7 @@ exceptions remain; a new one is a design discussion, not a config edit.
 - Use generated commands from `src/rspc/bindings.ts`.
 - Do not edit `src/rspc/bindings.ts` by hand.
 - To expose a new backend command, add/register the Rust command in
-  `src-tauri`, run `npm run tauri:dev`, then consume the regenerated binding.
+  `hardviz/app`, run `npm run tauri:dev`, then consume the regenerated binding.
 - Command results use the typed `Result` shape from `src/types/result.ts`; check
   for errors before reading `data`.
 
@@ -91,7 +91,7 @@ in `src/hooks/tauri/useTauriEventListener.ts` and displays the error dialog.
 Use the existing boundary when choosing where state lives:
 
 - User-facing application preferences belong in `settings.json`. Add typed Rust
-  setter commands in `src-tauri/src/commands/settings.rs`, persist through the
+  setter commands in `hardviz/app/src/commands/settings.rs`, persist through the
   Rust settings service, regenerate bindings, and update
   `src/store/settings.ts` and `src/hooks/settings/useSettingsAtom.ts`.
 - UI-local or transient state can use Tauri Store through

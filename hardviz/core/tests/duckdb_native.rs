@@ -15,9 +15,9 @@ mod native_support;
 // other DuckDB targets import the definitions-only siblings through
 // `native_support`, so the 29 migration and 6 native-schema tests are not
 // compiled once per integration binary.
-#[path = "../../../src-tauri/src/infrastructure/database/migration.rs"]
+#[path = "../../app/src/infrastructure/database/migration.rs"]
 mod app_migrations;
-#[path = "../../../src-tauri/src/infrastructure/database/native_schema.rs"]
+#[path = "../../app/src/infrastructure/database/native_schema.rs"]
 mod app_native_schema;
 
 #[path = "duckdb/native.rs"]

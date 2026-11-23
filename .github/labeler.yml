@@ -22,7 +22,7 @@
 "area:tauri":
   - changed-files:
       - any-glob-to-any-file:
-          - "src-tauri/**"
+          - "hardviz/app/**"
           - "Cargo.toml"
           - "Cargo.lock"
           - "rust-toolchain.toml"
@@ -62,7 +62,7 @@
           - "Cargo.toml"
           - "**/Cargo.toml"
           - "*.conf.json"
-          - "src-tauri/*.conf.json"
+          - "hardviz/app/*.conf.json"
           - ".cargo/**"
 
 "change:deps":

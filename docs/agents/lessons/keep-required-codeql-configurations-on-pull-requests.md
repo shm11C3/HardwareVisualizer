@@ -28,7 +28,7 @@ silently removing one required configuration from selected pull requests.
 
 Reuse is the supported way to avoid the repeated cost. For a same-repository
 pull request, `.github/workflows/codeql.yml` finds the newest `/language:rust`
-analysis on the base branch and compares the Rust inputs (`core`, `src-tauri`,
+analysis on the base branch and compares the Rust inputs (`core`, `hardviz/app`,
 Cargo manifests and lockfile, toolchain pin, `.cargo`, the workflow itself, and
 the two local Rust actions it runs)
 between that analysed commit and the pull request's merge commit. When they are

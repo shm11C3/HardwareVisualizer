@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// POJO mirror of `src-tauri/src/enums/hardware.rs::DiskKind`.
+/// POJO mirror of `hardviz/app/src/enums/hardware.rs::DiskKind`.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DiskKind {
   Hdd,

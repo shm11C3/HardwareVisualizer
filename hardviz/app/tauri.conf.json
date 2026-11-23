@@ -3,7 +3,7 @@
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
-    "frontendDist": "../dist",
+    "frontendDist": "../../dist",
     "devUrl": "http://localhost:1520",
     "removeUnusedCommands": true
   },
@@ -47,9 +47,9 @@
       "signingIdentity": null
     },
     "resources": {
-      "../docs/licenses/LICENSE_INFORMATION.md": "LICENSE_INFORMATION.md",
-      "../LICENSE": "LICENSE",
-      "../docs/licenses/MIT-pre-relicense.txt": "MIT-pre-relicense.txt"
+      "../../docs/licenses/LICENSE_INFORMATION.md": "LICENSE_INFORMATION.md",
+      "../../LICENSE": "LICENSE",
+      "../../docs/licenses/MIT-pre-relicense.txt": "MIT-pre-relicense.txt"
     },
     "shortDescription": "",
     "linux": {

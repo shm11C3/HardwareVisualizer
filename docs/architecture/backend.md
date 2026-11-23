@@ -6,14 +6,14 @@ The backend is now split across two Rust crates:
 - `hardviz/core/` (`hardviz-core`): Tauri-independent hardware collection, platform
   access, persistence primitives, settings consumed by Core, and shared data
   models.
-- `src-tauri/` (`hardware_visualizer`): Tauri app boundary, commands, App-side
+- `hardviz/app/` (`hardware_visualizer`): Tauri app boundary, commands, App-side
   services, event adapters, UI-only settings, lifecycle, plugins, and Tauri
   runtime wiring.
 
 Use this document together with:
 
 - [`hardviz/core/README.md`](../../hardviz/core/README.md)
-- [`src-tauri/README.md`](../../src-tauri/README.md)
+- [`hardviz/app/README.md`](../../hardviz/app/README.md)
 
 ## High-Level Flow
 
@@ -21,8 +21,8 @@ The main dependency direction is:
 
 ```text
 Frontend
-  -> Tauri commands (`src-tauri/src/commands`)
-  -> App services / Core APIs (`src-tauri/src/services`, `hardviz_core::*`)
+  -> Tauri commands (`hardviz/app/src/commands`)
+  -> App services / Core APIs (`hardviz/app/src/services`, `hardviz_core::*`)
   -> Core collector / platform / persistence (`hardviz/core/src/*`)
   -> Core's database dispatch boundary (`infrastructure/database/dispatch.rs`)
   -> OS APIs, system providers, and SQLite or a native DuckDB database
@@ -33,7 +33,7 @@ Realtime sensor updates use a separate event flow:
 ```text
 Core collector
   -> `hardviz_core::event_bus::EventBus`
-  -> App adapters (`src-tauri/src/adapters`)
+  -> App adapters (`hardviz/app/src/adapters`)
   -> Tauri events
   -> Frontend listeners
 ```
@@ -55,7 +55,7 @@ hardviz/core/src/
 ├── settings/              # Core-consumed settings subset
 └── utils/                 # Core helpers and logging macros
 
-src-tauri/src/
+hardviz/app/src/
 ├── adapters/              # Core EventBus subscribers -> Tauri event/tray output
 ├── app/                   # App startup helpers
 ├── commands/              # Tauri command handlers and tauri-specta bindings
@@ -86,7 +86,7 @@ Core owns code that does not need a Tauri context:
 Core must not depend on Tauri. This boundary is enforced by
 `hardviz/core/Cargo.toml`: adding `tauri` there is a design violation.
 
-### `hardware_visualizer` (`src-tauri/`)
+### `hardware_visualizer` (`hardviz/app/`)
 
 The App crate owns code that needs Tauri, frontend bindings, or UI-level state:
 
@@ -133,7 +133,7 @@ prompt. The existing single-instance plugin remains for older binaries; see
 
 ## Layer Responsibilities
 
-### Commands (`src-tauri/src/commands/`)
+### Commands (`hardviz/app/src/commands/`)
 
 Commands are the frontend-facing IPC boundary.
 
@@ -148,7 +148,7 @@ Responsibilities:
 Commands should not contain sensor collection logic, OS access, long-running
 worker logic, or database schema decisions.
 
-### App Services (`src-tauri/src/services/`)
+### App Services (`hardviz/app/src/services/`)
 
 App services coordinate command-level use cases.
 
@@ -159,9 +159,9 @@ Responsibilities:
 - keep Tauri-specific DTO conversion out of Core;
 - handle UI-owned settings and presentation behavior.
 - contain a mix of thin Core wrappers and App-owned services. See
-  [`src-tauri/README.md`](../../src-tauri/README.md) for App crate details.
+  [`hardviz/app/README.md`](../../hardviz/app/README.md) for App crate details.
 
-### App Adapters (`src-tauri/src/adapters/`)
+### App Adapters (`hardviz/app/src/adapters/`)
 
 Adapters subscribe to Core outputs and translate them into App outputs.
 
@@ -215,7 +215,7 @@ Windows sensor providers that depend on external runtime components, such as
 PawnIO and its CPU-specific module blobs, are documented in
 [`windows-sensor-external-components.md`](windows-sensor-external-components.md).
 
-### Persistence (`hardviz/core/src/persistence/`, `src-tauri/src/infrastructure/`)
+### Persistence (`hardviz/core/src/persistence/`, `hardviz/app/src/infrastructure/`)
 
 This section describes the current persistence implementation, which now runs
 against one of two engines behind a single dispatch boundary.
@@ -264,7 +264,7 @@ Persistence is split:
   through `hardviz_core::infrastructure::database::migrate` when SQLite is
   still authoritative.
 - The native schema follows the same split. App owns the ordered definition
-  (`src-tauri/src/infrastructure/database/native_schema_definitions.rs`):
+  (`hardviz/app/src/infrastructure/database/native_schema_definitions.rs`):
   `NATIVE_SCHEMA_VERSION`, the version 1 baseline DDL, the SQLite-sourced
   tables, the native-only tables (ADR 0030) and the ordered upgrade steps
   after the baseline. Core (`native_database`) executes it: fresh creation
@@ -319,7 +319,7 @@ Startup flow:
 ### Converting an existing SQLite archive to native
 
 Converting an existing SQLite-backed install to the native database is driven
-by an App-owned lifecycle owner (`src-tauri/src/app/native_conversion.rs`,
+by an App-owned lifecycle owner (`hardviz/app/src/app/native_conversion.rs`,
 on `develop`) and is never started automatically; production calls it only
 through the explicit, user-started trigger shipped in PR #2220 (merged) — a
 Settings action and its Tauri commands (#2136); conversion begins only from
@@ -463,7 +463,7 @@ a visibly separate archive series instead of continuing an existing one.
 Turning the setting off clears the choice.
 
 The ambient registry is built once, in `setup_environmental_sensors`
-(`src-tauri/src/lib.rs`), inside the `hardware_archive.enabled` branch: ambient
+(`hardviz/app/src/lib.rs`), inside the `hardware_archive.enabled` branch: ambient
 readings ride the archive's one-minute tick, so with the archive off there is
 nowhere for a reading to go. Registration is gated on the Core-owned
 `environmentalSensors.switchbotMeterEnabled` preference, which defaults to
@@ -824,9 +824,9 @@ When adding a setting:
 
 ### Add a New Frontend-Callable Backend Command
 
-1. Add or update the App service in `src-tauri/src/services/`.
-2. Add the command handler in `src-tauri/src/commands/`.
-3. Register the command in `collect_commands![...]` in `src-tauri/src/lib.rs`.
+1. Add or update the App service in `hardviz/app/src/services/`.
+2. Add the command handler in `hardviz/app/src/commands/`.
+3. Register the command in `collect_commands![...]` in `hardviz/app/src/lib.rs`.
 4. Run `npm run tauri:dev` to regenerate TypeScript bindings.
 5. Use the generated binding from frontend code.
 
@@ -839,7 +839,7 @@ When adding a setting:
 4. Surface the data through Core models and collector snapshots if it is
    realtime, or if a background consumer needs a fact the collector samples
    statefully (Design Rule 8).
-5. Translate Core data to App DTOs in `src-tauri/src/adapters/` or App services.
+5. Translate Core data to App DTOs in `hardviz/app/src/adapters/` or App services.
 
 Missing or unsupported sensor data should be treated as best-effort where the
 existing command/service contract allows it: prefer partial results, `None`, or
@@ -913,7 +913,7 @@ exists.
 ### Add or Change Persisted Data
 
 1. Keep the App-owned ordered migration definitions in
-   `src-tauri/src/infrastructure/database/`.
+   `hardviz/app/src/infrastructure/database/`.
 2. Keep Tauri-independent persistence code in `hardviz/core/src/persistence/` or
    `hardviz/core/src/infrastructure/database/`.
 3. Update startup compatibility checks if schema compatibility changes.
@@ -962,6 +962,6 @@ Test placement follows the ownership boundary:
 
 - Core pure/helper tests should live near the Core module they exercise.
 - App command/service tests should live either next to the module or under
-  `src-tauri/src/_tests/` when they need shared App test setup.
+  `hardviz/app/src/_tests/` when they need shared App test setup.
 - Frontend tests should stay co-located under `src/**` with the component,
   hook, or feature they cover.

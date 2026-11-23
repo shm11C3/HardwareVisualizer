@@ -22,7 +22,7 @@ $previousVersion = $env:HARDVIZ_SENSOR_VERSION
 Push-Location -LiteralPath $repoRoot
 
 try {
-  $config = Get-Content -LiteralPath (Join-Path $repoRoot 'src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
+  $config = Get-Content -LiteralPath (Join-Path $repoRoot 'hardviz/app/tauri.conf.json') -Raw | ConvertFrom-Json
   $env:HARDVIZ_SENSOR_VERSION = $config.version
 
   $cargoArgs = @('build', '--locked', '--profile', $BuildProfile, '-p', 'hardviz-sensor-service')
@@ -51,7 +51,7 @@ try {
   $profileDir = if ($BuildProfile -eq 'dev') { 'debug' } else { $BuildProfile }
   $source = Join-Path (Join-Path $outputDir $profileDir) 'hardware-visualizer-sensors.exe'
 
-  $destinationDir = Join-Path $repoRoot 'src-tauri/windows/wix/generated'
+  $destinationDir = Join-Path $repoRoot 'hardviz/app/windows/wix/generated'
   [void](New-Item -ItemType Directory -Path $destinationDir -Force)
   $destination = Join-Path $destinationDir 'hardware-visualizer-sensors.exe'
   Copy-Item -LiteralPath $source -Destination $destination -Force

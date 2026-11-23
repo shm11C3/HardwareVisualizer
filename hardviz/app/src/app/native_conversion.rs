@@ -1417,7 +1417,7 @@ async fn open_selected_database(
 /// [`SelectionHandoff::OwnerOnly`] instead and never reach this function, so
 /// none of them can corrupt each other's configuration by racing for the
 /// same `OnceLock`. See the App-level integration tests under
-/// `src-tauri/tests/` for the proof this actually wires together end to end.
+/// `hardviz/app/tests/` for the proof this actually wires together end to end.
 ///
 /// Only [`AuthorityState::NativeSelected`] counts as a successful hand-over.
 /// The observation can report other states; for example, unreadable

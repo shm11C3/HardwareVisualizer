@@ -1,9 +1,9 @@
-# hardware_visualizer (src-tauri)
+# hardware_visualizer (hardviz/app)
 
 Tauri-aware app crate for HardwareVisualizer.
 
 This crate is the upper half of the Core / App split introduced by
-[#1402][issue-1402]. It depends on [`hardviz-core`](../hardviz/core) via a workspace
+[#1402][issue-1402]. It depends on [`hardviz-core`](../core) via a workspace
 path dependency and is the only crate in the workspace that links against
 `tauri`. Everything that requires an `AppHandle`, a window, or a Tauri plugin
 lives here; everything else belongs in `hardviz-core`.
@@ -13,7 +13,7 @@ lives here; everything else belongs in `hardviz-core`.
 The MSI-bundled Windows sensor service is a separate executable. This crate owns
 its MSI feature, setup/status commands and deliberate elevated-startup
 setting; Core owns authenticated IPC and providers. See the
-[service owner guide](../hardviz/sensor-service/README.md).
+[service owner guide](../sensor-service/README.md).
 
 ## Responsibilities
 
@@ -43,7 +43,7 @@ setting; Core owns authenticated IPC and providers. See the
 ## Module layout
 
 ```text
-src-tauri/src/
+hardviz/app/src/
 ├── lib.rs                ← run() — Tauri builder, command registration, setup hook
 ├── main.rs               ← thin binary entry point
 ├── commands/             ← Tauri command handlers (UI boundary)
@@ -91,7 +91,7 @@ These rules are inherited from #1402 and apply across the App crate:
 2. **All `MetricsSnapshot → window.emit(...)` translation lives under
    `adapters/`.** The collector loop in Core never touches `AppHandle`.
 3. **App lifecycle is App-owned.** Window creation, plugin wiring, shutdown,
-   and any process-restart logic stay under `src-tauri/`. Core lifecycle is
+   and any process-restart logic stay under `hardviz/app/`. Core lifecycle is
    driven by App-side controllers (`SystemMonitorController`,
    `ArchiveController`, `StorageHealthController`, `WindowAdapter`,
    `TrayAdapter`) held in `WorkersState`.
@@ -103,7 +103,7 @@ These rules are inherited from #1402 and apply across the App crate:
 
 ## Service categories
 
-`src-tauri/src/services/` contains both thin Core wrappers and App-owned
+`hardviz/app/src/services/` contains both thin Core wrappers and App-owned
 services:
 
 - `gpu_service`, `memory_service`, `motherboard_service`, and
@@ -118,7 +118,7 @@ services:
 ## Backend layering
 
 Within the App crate, the layering follows the existing
-[`docs/architecture/backend.md`](../docs/architecture/backend.md):
+[`docs/architecture/backend.md`](../../docs/architecture/backend.md):
 
 ```text
 Commands → Services → (Core API)         ─ App-owned
@@ -126,7 +126,7 @@ Commands → Services → (Core API)         ─ App-owned
 ```
 
 The `platform/` and `infrastructure/providers/` directories that the
-architecture document references now live in [`hardviz/core/src/`](../hardviz/core); the
+architecture document references now live in [`hardviz/core/src/`](../core); the
 App crate retains only the App-specific `infrastructure/database/`
 (the ordered schema migration definitions, executed at startup by Core's
 migrator in `hardviz_core::infrastructure::database::migrate`). The native
@@ -142,7 +142,7 @@ explicit, user-triggered conversion between them.
   `collect_commands![ ... ]` macro in `lib.rs`. Output: `src/rspc/bindings.ts`
   (do not edit by hand — regenerate via `npm run tauri:dev`).
 - New backend commands must be added to `collect_commands![...]` in
-  `src-tauri/src/lib.rs` to be exposed to the frontend.
+  `hardviz/app/src/lib.rs` to be exposed to the frontend.
 - Backend errors are surfaced to the frontend via `error_event`; the
   frontend renders them through `useErrorModalListener`
   (`src/hooks/useTauriEventListener.ts`).
@@ -172,6 +172,6 @@ workspace root and operate on the full workspace, including `hardviz-core`.
 
 - Epic: [#1402 — split backend into Tauri-independent Core and thin App
   adapters][issue-1402]
-- Backend architecture: [`docs/architecture/backend.md`](../docs/architecture/backend.md)
-- Core crate: [`hardviz/core/README.md`](../hardviz/core/README.md)
-- Top-level user-facing README: [`README.md`](../README.md)
+- Backend architecture: [`docs/architecture/backend.md`](../../docs/architecture/backend.md)
+- Core crate: [`hardviz/core/README.md`](../core/README.md)
+- Top-level user-facing README: [`README.md`](../../README.md)

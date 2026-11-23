@@ -57,7 +57,7 @@ jobs:
 
       - name: Discard Cargo changes without a Tauri crate update
         if: steps.tauri-deps.outputs.cargo_changed != 'true'
-        run: git restore -- Cargo.lock src-tauri/Cargo.toml
+        run: git restore -- Cargo.lock hardviz/app/Cargo.toml
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8.1.3

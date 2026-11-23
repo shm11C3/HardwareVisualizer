@@ -6,7 +6,7 @@ Tauri-independent core crate for HardwareVisualizer.
 the in-process event bus, and Core-consumed settings. It is the lower half of
 the Core / App split introduced by [#1402][issue-1402]: everything that does
 not need a Tauri context lives here, and the Tauri app crate
-([`src-tauri/`](../../src-tauri)) depends on it via a path dependency.
+([`hardviz/app/`](../app)) depends on it via a path dependency.
 
 [issue-1402]: https://github.com/shm11C3/HardwareVisualizer/issues/1402
 
@@ -34,7 +34,7 @@ These rules are enforced by structure, not by review:
    graph is the boundary.
 2. **No `window.emit(...)` in Core.** Core publishes `MetricsSnapshot` to
    `EventBus`. Translating a snapshot into a Tauri event is an App-side
-   concern (`src-tauri/src/adapters/window.rs`).
+   concern (`hardviz/app/src/adapters/window.rs`).
 3. **Persistence does not share state with the collector.** Archive persistence
    subscribes to `EventBus` rather than reaching into the collector's history
    bag, so the two run as independent tasks. A fact the collector samples
@@ -195,7 +195,7 @@ hardviz-core (this crate)
     │  ├─ exposes HistoryStore read API
     │  └─ exposes SystemMonitorController
     ▼
-src-tauri/ (App)
+hardviz/app/ (App)
     ├─ adapters::window   ─ subscribes to EventBus, emits HardwareMonitorUpdate
     ├─ adapters::tray     ─ subscribes to EventBus, updates tray widget output
     ├─ commands::*        ─ thin delegation to Core API + Tauri input/output
@@ -208,4 +208,4 @@ src-tauri/ (App)
 - Epic: [#1402 — split backend into Tauri-independent Core and thin App
   adapters][issue-1402]
 - Architecture: [`docs/architecture/backend.md`](../../docs/architecture/backend.md)
-- App crate: [`src-tauri/README.md`](../../src-tauri/README.md)
+- App crate: [`hardviz/app/README.md`](../app/README.md)

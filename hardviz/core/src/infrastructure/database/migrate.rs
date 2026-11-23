@@ -2,7 +2,7 @@
 //!
 //! Core owns the database path and pool ([`super::db`]), so it also owns
 //! applying schema migrations. App supplies the ordered migration set
-//! (see `src-tauri/src/infrastructure/database/migration.rs`) and calls
+//! (see `hardviz/app/src/infrastructure/database/migration.rs`) and calls
 //! [`run`] once at startup, before any persistence worker writes.
 //!
 //! This replaces the previous reliance on `tauri-plugin-sql` to apply

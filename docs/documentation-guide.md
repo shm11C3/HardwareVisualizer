@@ -45,7 +45,7 @@ Use the closest stable owner:
   integration artifacts rather than the primary home for agent-neutral rules.
 - Code-owner guides live near the code they describe:
   - `src/README.md` for frontend implementation guidance.
-  - `src-tauri/README.md` for the Tauri app crate.
+  - `hardviz/app/README.md` for the Tauri app crate.
   - `hardviz/core/README.md` for `hardviz-core`.
 - Task guides that cross code owners live under `docs/development/`.
 - User-facing guides that are published by the website live under `docs/user/`.
@@ -94,7 +94,7 @@ When renaming one of these paths, update all references in the same change:
 - Markdown links.
 - `.github/workflows/**`.
 - `.github/scripts/**`.
-- Tauri configuration under `src-tauri/**`.
+- Tauri configuration under `hardviz/app/**`.
 - Any frontend/backend code that loads the file at runtime.
 
 ## Third-Party Notices

@@ -173,7 +173,7 @@ const npmChecks: [path: string, extract: Extractor][] = [
 ];
 const cargoChecks: [path: string, extract: Extractor][] = [
   ["Cargo.lock", extractCargoLock],
-  ["src-tauri/Cargo.toml", extractCargoToml],
+  ["hardviz/app/Cargo.toml", extractCargoToml],
 ];
 
 function hasChanged(checks: [path: string, extract: Extractor][]): boolean {

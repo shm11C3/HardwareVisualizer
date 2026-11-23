@@ -60,7 +60,7 @@ summary schema and consumers; its covariate table is not counted as present.
 
 Sources: [archive producer](../../hardviz/core/src/persistence/archive.rs),
 [database writers/readers](../../hardviz/core/src/infrastructure/database/), and
-[App migrations](../../src-tauri/src/infrastructure/database/migration.rs).
+[App migrations](../../hardviz/app/src/infrastructure/database/migration.rs).
 GPU namespaces remain as recorded in [ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md)
 and [ADR 0016](../adr/0016-gpu-attribution-on-the-performance-screen.md).
 Dictionary references are local compression keys, never new device identities.

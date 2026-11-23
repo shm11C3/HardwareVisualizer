@@ -72,7 +72,7 @@ jobs:
             backend:
               - 'hardviz/core/**'
               - 'hardviz/sensor-service/**'
-              - 'src-tauri/**'
+              - 'hardviz/app/**'
               - 'Cargo.*'
               - '.cargo/**'
               - 'rust-toolchain*'
@@ -87,7 +87,7 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
             tauri:
-              - 'src-tauri/**'
+              - 'hardviz/app/**'
               - 'hardviz/sensor-service/**'
               - 'e2e-native/**'
               - 'Cargo.*'
@@ -103,29 +103,29 @@ jobs:
             backend-deps:
               - 'hardviz/sensor-service/Cargo.toml'
               - 'hardviz/core/Cargo.toml'
-              - 'src-tauri/Cargo.toml'
+              - 'hardviz/app/Cargo.toml'
               - 'Cargo.*'
               - '.cargo/**'
               - '.github/actions/**'
               - '.github/scripts/**'
               - 'scripts/licenses/**'
             cargo-license-config:
-              - 'src-tauri/deny.toml'
+              - 'hardviz/app/deny.toml'
               # Inputs to the DuckDB bundled-library notice check. hardviz/core/ and
-              # src-tauri/Cargo.toml also reach this job through backend-deps;
+              # hardviz/app/Cargo.toml also reach this job through backend-deps;
               # they are named here too because the duckdb dependency's
               # features decide which vendored C/C++ libraries the notice must
               # cover, not just which crates are built.
               - 'hardviz/core/Cargo.toml'
-              - 'src-tauri/Cargo.toml'
+              - 'hardviz/app/Cargo.toml'
               - 'docs/licenses/manual/**'
               - 'scripts/licenses/check-duckdb-license-version.ts'
               - '.github/actions/setup-rust/**'
               - '.github/workflows/ci.yml'
             windows-installer:
               - 'hardviz/sensor-service/**'
-              - 'src-tauri/windows/**'
-              - 'src-tauri/tauri.conf.json'
+              - 'hardviz/app/windows/**'
+              - 'hardviz/app/tauri.conf.json'
               - '.github/scripts/release/sign-codesigntool.ps1'
               - '.github/scripts/release/test-sign-codesigntool.ps1'
               - '.github/workflows/ci.yml'
@@ -168,7 +168,7 @@ jobs:
               - '!playwright.memory.config.ts'
               - '!tsconfig*.json'
               - '!hardviz/core/**'
-              - '!src-tauri/**'
+              - '!hardviz/app/**'
               - '!Cargo.*'
               - '!.cargo/**'
               - '!rust-toolchain*'
@@ -681,7 +681,7 @@ jobs:
 
       - name: Fix linuxdeploy permissions
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
-        run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
+        run: chmod +x ./hardviz/app/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
 
       - name: Unset problematic env vars
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
@@ -833,7 +833,7 @@ jobs:
           if (-not (Get-ChildItem target/ci/bundle/nsis/*-setup.exe)) { throw "No NSIS installer was produced" }
           $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "No MSI was produced" }
-          ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
+          ./hardviz/app/windows/wix/check-external-component-setup.ps1 $msi.FullName
           ./hardviz/sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
 
   #
@@ -1144,7 +1144,7 @@ jobs:
         run: node --experimental-strip-types scripts/licenses/check-duckdb-license-version.ts
 
       - name: Check Rust licenses
-        run: cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config src-tauri/deny.toml licenses
+        run: cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config hardviz/app/deny.toml licenses
 
   #
   # Final merge gate: Strict checks for required jobs = success, unnecessary jobs = skipped

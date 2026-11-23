@@ -1,7 +1,7 @@
 //! Per-sensor history rings + the Core read API used by App-side commands.
 //!
 //! `HistoryStore` replaces `crate::models::hardware::HardwareMonitorState`
-//! (which lived in `src-tauri` before Phase 3). It owns:
+//! (which lived in `hardviz/app` before Phase 3). It owns:
 //!
 //! - the shared `sysinfo::System` instance refreshed each tick,
 //! - 60-second CPU / memory ring buffers,

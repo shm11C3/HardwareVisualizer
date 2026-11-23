@@ -2,7 +2,7 @@
 //!
 //! - [`preflight`] runs the schema-version compatibility check before
 //!   the App brings up the SQLite plugin. The recovery dialog and
-//!   process restart flow live in App (`src-tauri/src/app/startup.rs`);
+//!   process restart flow live in App (`hardviz/app/src/app/startup.rs`);
 //!   this module owns only the read-only, Tauri-independent decision.
 //! - [`archive`] hosts the hardware-archive worker, which subscribes to
 //!   [`crate::event_bus::EventBus`] and writes summaries to SQLite via
