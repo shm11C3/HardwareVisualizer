@@ -544,7 +544,7 @@ impl PhysicalRectF {
   }
 }
 
-// This is the `assets/hv-icon-outline.svg` geometry in its 658.21 viewBox.
+// This is the `hardviz/app/assets/hv-icon-outline.svg` geometry in its 658.21 viewBox.
 // Windows tray APIs require an HICON, so the SVG outline is rasterized here
 // and tinted from the current worst metric state.
 const SVG_VIEWBOX: f32 = 658.21;

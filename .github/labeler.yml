@@ -7,8 +7,7 @@
           - "package-lock.json"
           - "hardviz/frontend/vite.config.*"
           - "hardviz/frontend/vitest.config.*"
-          - "playwright*.config.*"
-          - "tsconfig*.json"
+          - "e2e/playwright*.config.*"
           - "hardviz/frontend/tsconfig*.json"
 
 "area:core":
@@ -50,18 +49,16 @@
           - "hardviz/frontend/src/**"
           - "hardviz/frontend/vite.config.*"
           - "hardviz/frontend/vitest.config.*"
-          - "playwright*.config.*"
-          - "tsconfig*.json"
+          - "e2e/playwright*.config.*"
           - "hardviz/frontend/tsconfig*.json"
 
 "area:config":
   - changed-files:
       - any-glob-to-any-file:
-          - "tsconfig*.json"
           - "hardviz/frontend/tsconfig*.json"
           - "hardviz/frontend/vite.config.*"
           - "hardviz/frontend/vitest.config.*"
-          - "playwright*.config.*"
+          - "e2e/playwright*.config.*"
           - "Cargo.toml"
           - "**/Cargo.toml"
           - "*.conf.json"
@@ -81,11 +78,10 @@
 "change:config":
   - changed-files:
       - any-glob-to-any-file:
-          - "tsconfig*.json"
           - "hardviz/frontend/tsconfig*.json"
           - "hardviz/frontend/vite.config.*"
           - "hardviz/frontend/vitest.config.*"
-          - "playwright*.config.*"
+          - "e2e/playwright*.config.*"
           - "Cargo.toml"
           - "**/Cargo.toml"
           - "*.conf.json"
@@ -121,5 +117,5 @@
           - "hardviz/frontend/src/e2e/**"
           - "e2e/**"
           - "e2e-native/**"
-          - "playwright*.config.*"
+          - "e2e/playwright*.config.*"
           - "hardviz/frontend/vitest.config.*"

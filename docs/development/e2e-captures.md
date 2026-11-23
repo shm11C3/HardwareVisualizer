@@ -97,7 +97,7 @@ up). Shared helpers live in `e2e/helpers.ts`. The shape of a scenario:
 Determinism rules:
 
 - Locked viewport (1280x800), `deviceScaleFactor: 1`, dark color scheme,
-  `en-US` locale, UTC timezone, reduced motion (see `playwright.config.ts`).
+  `en-US` locale, UTC timezone, reduced motion (see `e2e/playwright.config.ts`).
 - Use fixture data only — never live hardware values.
 
 ## Render performance smoke

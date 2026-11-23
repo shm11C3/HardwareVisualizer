@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["e2e-native/**/*.ts"]
+  "include": ["./**/*.ts"]
 }

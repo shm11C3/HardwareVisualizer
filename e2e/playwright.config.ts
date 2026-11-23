@@ -1,4 +1,7 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+
+const repoRoot = path.resolve(import.meta.dirname, "..");
 
 /**
  * Playwright web/mock E2E harness (issue #1609).
@@ -13,16 +16,16 @@ import { defineConfig, devices } from "@playwright/test";
 const E2E_PORT = 1521;
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: ".",
   testIgnore: ["**/perf/**"],
-  outputDir: "./test-results/output",
+  outputDir: "../test-results/output",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
     ? [
         ["list"],
-        ["html", { outputFolder: "test-results/report", open: "never" }],
+        ["html", { outputFolder: "../test-results/report", open: "never" }],
       ]
     : [["list"]],
   use: {
@@ -46,6 +49,8 @@ export default defineConfig({
     },
   ],
   webServer: {
+    // Vite resolves its config and the web server runs from the repository root.
+    cwd: repoRoot,
     command: `vite dev --config hardviz/frontend/vite.config.ts --mode e2e --port ${E2E_PORT} --strictPort`,
     url: `http://localhost:${E2E_PORT}`,
     reuseExistingServer: !process.env.CI,

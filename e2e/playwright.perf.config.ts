@@ -1,4 +1,7 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+
+const repoRoot = path.resolve(import.meta.dirname, "..");
 
 /**
  * Lightweight frontend render performance checks.
@@ -9,9 +12,9 @@ import { defineConfig, devices } from "@playwright/test";
 const RENDER_PERF_PORT = 1522;
 
 export default defineConfig({
-  testDir: "./e2e/perf",
+  testDir: "./perf",
   testMatch: ["**/render-perf.spec.ts"],
-  outputDir: "./test-results/render-perf/output",
+  outputDir: "../test-results/render-perf/output",
   timeout: 90_000,
   fullyParallel: false,
   workers: 1,
@@ -22,7 +25,7 @@ export default defineConfig({
         ["list"],
         [
           "html",
-          { outputFolder: "test-results/render-perf/report", open: "never" },
+          { outputFolder: "../test-results/render-perf/report", open: "never" },
         ],
       ]
     : [["list"]],
@@ -46,6 +49,8 @@ export default defineConfig({
     },
   ],
   webServer: {
+    // Vite resolves its config and the web server runs from the repository root.
+    cwd: repoRoot,
     command: `vite dev --config hardviz/frontend/vite.config.ts --mode e2e --port ${RENDER_PERF_PORT} --strictPort`,
     url: `http://localhost:${RENDER_PERF_PORT}`,
     reuseExistingServer: !process.env.CI,

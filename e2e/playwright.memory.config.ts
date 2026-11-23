@@ -1,11 +1,13 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
+const repoRoot = path.resolve(import.meta.dirname, "..");
 const RENDER_MEMORY_PORT = 1523;
 
 export default defineConfig({
-  testDir: "./e2e/perf",
+  testDir: "./perf",
   testMatch: ["**/render-memory.spec.ts"],
-  outputDir: "./test-results/render-memory/output",
+  outputDir: "../test-results/render-memory/output",
   timeout: 150_000,
   fullyParallel: false,
   workers: 1,
@@ -16,7 +18,10 @@ export default defineConfig({
         ["list"],
         [
           "html",
-          { outputFolder: "test-results/render-memory/report", open: "never" },
+          {
+            outputFolder: "../test-results/render-memory/report",
+            open: "never",
+          },
         ],
       ]
     : [["list"]],
@@ -40,6 +45,8 @@ export default defineConfig({
     },
   ],
   webServer: {
+    // Vite resolves its config and the web server runs from the repository root.
+    cwd: repoRoot,
     command: `vite dev --config hardviz/frontend/vite.config.ts --mode e2e --port ${RENDER_MEMORY_PORT} --strictPort`,
     url: `http://localhost:${RENDER_MEMORY_PORT}`,
     reuseExistingServer: !process.env.CI,
