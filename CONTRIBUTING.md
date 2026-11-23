@@ -21,8 +21,15 @@ HardwareVisualizer is an open-source project, and we welcome improvements from t
 
 ## Pull Request Guidelines
 
-HardwareVisualizer automatically assigns labels based on the branch name.  
-Branch naming convention:
+PR titles follow Conventional Commits: `<type>(<optional scope>): <summary>`.
+Allowed types are `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `ci`, and
+`chore`. The type sets the release-note label: `feat` sets `change:feature`,
+`fix` sets `change:fix`, `refactor` sets `change:refactor`, `docs` sets
+`change:docs`, `test` sets `change:test`, and `ci` sets `change:ci`; `perf` and
+`chore` set no kind label. CI checks the title; if it fails, edit the PR title
+(no new branch or PR is needed).
+
+Recommended branch naming convention:
 
 - Features: `feat/<short-description-or-issue-number>` or `feature/<short-description-or-issue-number>`
 - Bug fixes: `fix/<short-description-or-issue-number>`
@@ -31,8 +38,8 @@ Branch naming convention:
 - Performance: `perf/<short-description-or-issue-number>`
 - Other: `chore/<short-description-or-issue-number>`
 
-PR branch names are validated by CI. Tool-dependent prefixes such as
-`codex/` or `claude/` are not accepted; choose a project prefix that
+CI warns, but does not fail, on other branch names. Tool-dependent prefixes
+such as `codex/` or `claude/` should not be used; choose a project prefix that
 matches the change type before pushing or opening the PR.
 
 Labels are grouped by purpose. Use the

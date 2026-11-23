@@ -27,17 +27,24 @@ Do not use `change:` labels on issues. `change:` describes a pull request.
 ### Pull Request Change
 
 Use one or more `change:` labels on pull requests. These labels drive release
-note categories and are assigned mostly by `.github/labeler.yml`, Dependabot,
-or repository automation.
+note categories and are assigned by `.github/workflows/pr-labeler.yml` (from the
+PR title), `.github/labeler.yml` (from changed files), Dependabot, or repository
+automation.
 
-- `change:feature` - feature branch work (`feat/` or `feature/`).
-- `change:fix` - bug-fix branch work (`fix/`).
-- `change:docs` - documentation changes.
-- `change:refactor` - refactoring changes.
-- `change:ci` - CI, GitHub Actions, or repository automation changes.
+- `change:feature` - set from the PR title type `feat:`.
+- `change:fix` - set from the PR title type `fix:`.
+- `change:docs` - documentation changes; set from the `docs:` title type or
+  from changed files.
+- `change:refactor` - set from the PR title type `refactor:`.
+- `change:ci` - CI, GitHub Actions, or repository automation changes; set
+  from the `ci:` title type or from changed files.
 - `change:deps` - dependency or lockfile updates.
 - `change:config` - build, TypeScript, Vite, Vitest, Cargo, or Tauri config.
-- `change:test` - test harness, fixtures, or coverage changes.
+- `change:test` - test harness, fixtures, or coverage changes; set from the
+  `test:` title type or from changed files.
+
+`perf:` and `chore:` titles set no kind label. A PR title that is not a
+Conventional Commit fails the `PR title` check; edit the title to fix it.
 
 Release notes read `change:` labels only. Do not add unprefixed project labels
 such as `feature`, `bug`, `docs`, or `dependencies` as release-note fallbacks.

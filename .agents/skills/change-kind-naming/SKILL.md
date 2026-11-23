@@ -18,6 +18,10 @@ branch prefixes:
 
 If they disagree, stop and fix the naming before publishing.
 
+The PR title type is what sets the release-note `change:` label, so it is the
+surface that must be right. A wrong title is fixed by editing it; CI fails PRs
+whose title is not a Conventional Commit.
+
 ## Classification Rules
 
 Use `fix` only when the change corrects externally observable broken behavior, user-facing wrong output, a failing workflow, data loss, security exposure, or a regression.
@@ -58,7 +62,8 @@ Use branch prefixes that match the final classification:
 - `refactor/...`
 - `chore/...`
 
-This repository's CI does not allow `test/...` or `ci/...` branches. For a
+This repository's CI warns on, but does not reject, `test/...` or `ci/...`
+branches; they are not recommended prefixes. For a
 test-only or CI-only change, use a `chore/...` branch while keeping the more
 precise `test:` or `ci:` Conventional Commit and PR title. Select `Other` in the
 PR template. Alignment is semantic here; it does not require the branch and

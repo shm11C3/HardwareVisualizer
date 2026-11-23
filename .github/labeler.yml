@@ -86,21 +86,11 @@
           - "**/Cargo.toml"
           - "*.conf.json"
 
-"change:feature":
-  - head-branch: ["^feat/.*", "^feature/.*"]
-
-"change:fix":
-  - head-branch: ["^fix/.*"]
-
 "change:docs":
-  - head-branch: ["^docs/.*"]
   - changed-files:
       - any-glob-to-any-file:
           - "**/*.md"
           - "docs/**"
-
-"change:refactor":
-  - head-branch: ["^refactor/.*"]
 
 "change:ci":
   - changed-files:

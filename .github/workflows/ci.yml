@@ -508,8 +508,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
         shell: bash
 
+      # Same-repo PRs only: fork PRs get a read-only token and cannot comment.
       - name: Report Rust coverage
-        if: matrix.platform == 'ubuntu-22.04' && github.event_name == 'pull_request'
+        if: matrix.platform == 'ubuntu-22.04' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: rust-coverage
