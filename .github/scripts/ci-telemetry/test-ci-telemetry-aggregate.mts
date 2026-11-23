@@ -3,20 +3,16 @@ import {
   includeTriggerRun,
   keepLatestRunPerWorkflow,
   resolveRunId,
-} from "./ci-telemetry/cli.mts";
-import { extractMarkers } from "./ci-telemetry/markers.mts";
-import { buildRunRecord } from "./ci-telemetry/record.mts";
-import {
-  formatDuration,
-  formatGiB,
-  renderComment,
-} from "./ci-telemetry/render.mts";
+} from "./cli.mts";
+import { extractMarkers } from "./markers.mts";
+import { buildRunRecord } from "./record.mts";
+import { formatDuration, formatGiB, renderComment } from "./render.mts";
 import type {
   JobRecord,
   JobResourcesMarker,
   PendingRunEntry,
   RunRecord,
-} from "./ci-telemetry/schema.mts";
+} from "./schema.mts";
 
 function fixtureRecord({
   workflowName,

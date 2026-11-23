@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { listedGithubScripts } from "./guidance-paths.mjs";
 
 const root = process.cwd();
-const checker = ".github/scripts/check-agent-guidance.mjs";
+const checker = ".agents/tooling/check-agent-guidance.mjs";
 
 function read(relativePath) {
   return readFileSync(relativePath, "utf8");
@@ -43,19 +43,19 @@ expectFailure(
   "unlisted .github/scripts file",
   {
     ".github/scripts/README.md": read(".github/scripts/README.md").replace(
-      /^\| `merge-gate\.ts` \|.*\n/m,
+      /^\| `ci\/merge-gate\.ts` \|.*\n/m,
       "",
     ),
   },
-  ".github/scripts/merge-gate.ts is not listed",
+  ".github/scripts/ci/merge-gate.ts is not listed",
 );
 
 expectFailure(
   "index lists a missing script",
   {
     ".github/scripts/README.md": read(".github/scripts/README.md").replace(
-      "| `merge-gate.ts` |",
-      "| `removed-script.mjs` | ci.yml |\n| `merge-gate.ts` |",
+      "| `ci/merge-gate.ts` |",
+      "| `removed-script.mjs` | ci.yml |\n| `ci/merge-gate.ts` |",
     ),
   },
   "lists a missing script: removed-script.mjs",
@@ -65,11 +65,11 @@ expectFailure(
   "index row without a consumer",
   {
     ".github/scripts/README.md": read(".github/scripts/README.md").replace(
-      /^\| `merge-gate\.ts` \|.*$/m,
-      "| `merge-gate.ts` |  |",
+      /^\| `ci\/merge-gate\.ts` \|.*$/m,
+      "| `ci/merge-gate.ts` |  |",
     ),
   },
-  "row for merge-gate.ts must name its GitHub Actions consumer",
+  "row for ci/merge-gate.ts must name its GitHub Actions consumer",
 );
 
 const sampleIndex = [

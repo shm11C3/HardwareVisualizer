@@ -60,7 +60,7 @@ try {
   # bundling. Signing only the MSI or the app would leave this executable unsigned.
   if ($env:ENABLE_WINDOWS_SIGNING -eq 'true') {
     $global:LASTEXITCODE = 0
-    & (Join-Path $repoRoot '.github/scripts/sign-codesigntool.ps1') -FilePath $destination
+    & (Join-Path $repoRoot '.github/scripts/release/sign-codesigntool.ps1') -FilePath $destination
     if ($LASTEXITCODE -ne 0) {
       throw "Sensor service signing failed ($LASTEXITCODE)"
     }

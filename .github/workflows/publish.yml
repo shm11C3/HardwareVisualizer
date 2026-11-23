@@ -133,7 +133,7 @@ jobs:
         run: npx license-checker --production --json > licenses.json
 
       - name: Check licenses
-        run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
+        run: node --experimental-strip-types scripts/licenses/check-licenses.ts licenses.json
 
       - name: Export VERSION for later steps
         shell: bash
@@ -148,15 +148,15 @@ jobs:
           if [ "${{ env.ENABLE_WINDOWS_SIGNING }}" = "true" ] && [ "${{ matrix.platform }}" = "windows-latest" ]; then
             # Use forward slashes so the path is safe inside the JSON signCommand.
             WS="${GITHUB_WORKSPACE//\\//}"
-            node .github/scripts/update-tauri-config.ts \
+            node .github/scripts/release/update-tauri-config.ts \
             --tag "$TAG" \
-            --sign "pwsh -NoProfile -ExecutionPolicy Bypass -File ${WS}/.github/scripts/sign-codesigntool.ps1 %1"
+            --sign "pwsh -NoProfile -ExecutionPolicy Bypass -File ${WS}/.github/scripts/release/sign-codesigntool.ps1 %1"
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            node .github/scripts/update-tauri-config.ts \
+            node .github/scripts/release/update-tauri-config.ts \
             --tag "$TAG" \
             --sign ""
           else
-            node .github/scripts/update-tauri-config.ts \
+            node .github/scripts/release/update-tauri-config.ts \
             --tag "$TAG"
           fi
 
@@ -203,7 +203,7 @@ jobs:
       # is a default Cargo feature, so `tauri build` includes it and the
       # notices bundled here must cover the DuckDB tree too.
       - name: Generate THIRD_PARTY_NOTICES
-        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp duckdb-archive
+        run: node --experimental-strip-types scripts/licenses/generate-licenses.ts tmp duckdb-archive
 
       - uses: tauri-apps/tauri-action@v1.0.0
         env:
@@ -302,7 +302,7 @@ jobs:
 
       - name: Generate SHA256SUMS.txt
         shell: bash
-        run: bash .github/scripts/generate-release-checksums.sh dist
+        run: bash .github/scripts/release/generate-release-checksums.sh dist
 
       - name: Check checksum coverage
         shell: bash

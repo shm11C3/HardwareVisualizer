@@ -20,7 +20,7 @@
 # Because `workflow_run` always resolves this file from the default branch,
 # this workflow has no effect until it is merged there; testing before that
 # point is limited to local `--dry-run` runs of the aggregator script (see
-# `.github/scripts/test-ci-telemetry-aggregate.mts` and the aggregator's own
+# `.github/scripts/ci-telemetry/test-ci-telemetry-aggregate.mts` and the aggregator's own
 # `--dry-run` flag).
 name: CI telemetry
 

@@ -1,7 +1,5 @@
 const assert = require("node:assert/strict");
-const {
-  buildCacheReport,
-} = require("../actions/cache-sccache/report/metrics.cjs");
+const { buildCacheReport } = require("./metrics.cjs");
 
 const healthy = buildCacheReport(
   {

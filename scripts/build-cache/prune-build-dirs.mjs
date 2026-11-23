@@ -21,8 +21,8 @@
 // next run recognises and finishes, and two concurrent runs (several agent
 // sessions stopping at once) cannot both claim the same subtree.
 //
-// Usage: node .github/scripts/prune-build-dirs.mjs [--dry-run] [--quiet]
-// Runs detached from the shared agent Stop hook (.github/scripts/agent-hook.mjs)
+// Usage: node scripts/build-cache/prune-build-dirs.mjs [--dry-run] [--quiet]
+// Runs detached from the shared agent Stop hook (.agents/tooling/agent-hook.mjs)
 // and as `npm run prune:build-dirs`.
 
 import { existsSync } from "node:fs";

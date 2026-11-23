@@ -154,7 +154,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw 'WinGet manifest generation failed.'
           }
-          $manifestDirectory = node .github/scripts/update-winget-license.mjs manifests $env:PACKAGE_LICENSE $env:LICENSE_URL
+          $manifestDirectory = node .github/scripts/release/update-winget-license.mjs manifests $env:PACKAGE_LICENSE $env:LICENSE_URL
           if ($LASTEXITCODE -ne 0) {
             throw 'WinGet manifest license correction failed.'
           }

@@ -135,7 +135,7 @@ gate evaluates the graph a `duckdb-archive` build ships.
 generated notices. `docs/licenses/manual/duckdb-bundled-libraries.md` carries
 the attribution for the bundled C/C++ libraries — all 21 of them after this
 change; #2123 covered the 12 with sources of their own — and
-`.github/scripts/check-duckdb-license-version.ts` fails CI when the pinned
+`scripts/licenses/check-duckdb-license-version.ts` fails CI when the pinned
 `duckdb` / `libduckdb-sys` versions in `Cargo.lock`, or the `duckdb`
 dependency's feature configuration in `core/Cargo.toml`, move past what that
 notice records.

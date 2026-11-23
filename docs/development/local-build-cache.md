@@ -355,9 +355,9 @@ and every App integration-test binary links DuckDB again and carries a PDB of
 worktrees that no longer existed.
 
 Subtrees whose checkout is gone are pruned automatically: the shared agent
-`Stop` hook (`.github/scripts/agent-hook.mjs stop`, wired from
+`Stop` hook (`.agents/tooling/agent-hook.mjs stop`, wired from
 `.claude/settings.json` and `.codex/hooks.json`) spawns
-`.github/scripts/prune-build-dirs.mjs` detached, so the deletion never runs
+`scripts/build-cache/prune-build-dirs.mjs` detached, so the deletion never runs
 into the hook timeout. The script attributes each subtree to its checkout
 through the absolute `cargo:rerun-if-changed=` paths `tauri-build` leaves in
 `<profile>/build/hardware_visualizer-*/output`, and deletes the subtree when
