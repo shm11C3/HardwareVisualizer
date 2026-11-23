@@ -2,6 +2,9 @@ import fs from "node:fs";
 
 type Stage = "alpha" | "beta" | "rc";
 
+// Relative to src-tauri/, where tauri.conf.json resolves bundle.resources.
+const THIRD_PARTY_NOTICES_SOURCE = "../tmp/THIRD_PARTY_NOTICES.md";
+
 function getArg(args: string[], name: string) {
   const i = args.indexOf(name);
   if (i === -1) return null;
@@ -91,6 +94,14 @@ function main(args: string[]) {
 
   config.bundle ??= {};
   config.bundle.createUpdaterArtifacts = true;
+
+  // Bundle the generated notices only in release builds. publish.yml writes
+  // the file before `tauri build`, and tauri-build fails when a listed
+  // resource is missing, so a release can no longer ship without real
+  // notices. Development builds do not list it and need no placeholder.
+  config.bundle.resources ??= {};
+  config.bundle.resources[THIRD_PARTY_NOTICES_SOURCE] =
+    "THIRD_PARTY_NOTICES.md";
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
   console.log("tauri.conf.json has been updated");

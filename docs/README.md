@@ -93,11 +93,10 @@ docs/
 - Documentation directories and handwritten Markdown files should use
   lowercase kebab-case. Generated legal notice files named
   `THIRD_PARTY_NOTICES.md` are the current exception.
-- `tmp/THIRD_PARTY_NOTICES.md` is tracked and used as the current Tauri bundled
-  third-party notices resource. Although it lives under `tmp/`, it is not a
-  disposable scratch file. Moving it to a clearer runtime resource location,
-  such as `src-tauri/resources/THIRD_PARTY_NOTICES.md`, should be handled as a
-  separate release/bundling change.
+- `tmp/` is ignored scratch output. `publish.yml` generates
+  `tmp/THIRD_PARTY_NOTICES.md` and bundles it only in release builds, so
+  development and source builds show the Third-party notices tab as
+  unavailable.
 
 ## Root-Level Documents
 
