@@ -148,15 +148,15 @@ jobs:
           if [ "${{ env.ENABLE_WINDOWS_SIGNING }}" = "true" ] && [ "${{ matrix.platform }}" = "windows-latest" ]; then
             # Use forward slashes so the path is safe inside the JSON signCommand.
             WS="${GITHUB_WORKSPACE//\\//}"
-            node .github/scripts/update-tauri-config.ts \
+            node .github/scripts/release/update-tauri-config.ts \
             --tag "$TAG" \
-            --sign "pwsh -NoProfile -ExecutionPolicy Bypass -File ${WS}/.github/scripts/sign-codesigntool.ps1 %1"
+            --sign "pwsh -NoProfile -ExecutionPolicy Bypass -File ${WS}/.github/scripts/release/sign-codesigntool.ps1 %1"
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            node .github/scripts/update-tauri-config.ts \
+            node .github/scripts/release/update-tauri-config.ts \
             --tag "$TAG" \
             --sign ""
           else
-            node .github/scripts/update-tauri-config.ts \
+            node .github/scripts/release/update-tauri-config.ts \
             --tag "$TAG"
           fi
 
@@ -302,7 +302,7 @@ jobs:
 
       - name: Generate SHA256SUMS.txt
         shell: bash
-        run: bash .github/scripts/generate-release-checksums.sh dist
+        run: bash .github/scripts/release/generate-release-checksums.sh dist
 
       - name: Check checksum coverage
         shell: bash

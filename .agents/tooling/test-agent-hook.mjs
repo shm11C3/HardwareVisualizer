@@ -53,7 +53,7 @@ runHook(
 runHook(
   "edit of a listed .github/scripts file",
   "pre",
-  { tool_input: { file_path: ".github/scripts/merge-gate.ts" } },
+  { tool_input: { file_path: ".github/scripts/ci/merge-gate.ts" } },
   0,
 );
 runHook(
@@ -126,8 +126,8 @@ runHook(
           path.join(root, ".github/scripts/README.md"),
           "utf8",
         ).replace(
-          "| `merge-gate.ts` |",
-          "| `new-plumbing.mjs` | `ci.yml` |\n| `merge-gate.ts` |",
+          "| `ci/merge-gate.ts` |",
+          "| `new-plumbing.mjs` | `ci.yml` |\n| `ci/merge-gate.ts` |",
         ),
       }),
     },

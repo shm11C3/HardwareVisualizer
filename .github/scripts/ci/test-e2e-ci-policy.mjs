@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const workflow = readFileSync(
-  new URL("../workflows/ci.yml", import.meta.url),
+  new URL("../../workflows/ci.yml", import.meta.url),
   "utf8",
 );
 const block = (name) => {

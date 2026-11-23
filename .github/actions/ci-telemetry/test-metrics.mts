@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  parseSamples,
-  summarizeSamples,
-} from "../actions/ci-telemetry/metrics.mts";
+import { parseSamples, summarizeSamples } from "./metrics.mts";
 
 const baseOptions = {
   intervalSeconds: 5,

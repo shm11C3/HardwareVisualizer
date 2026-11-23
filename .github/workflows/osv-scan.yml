@@ -87,7 +87,7 @@ jobs:
           path: |
             osv-scanner.toml
             .github/osv/release-vulnerability-assessments.json
-            .github/scripts/evaluate-release-vulnerabilities.mjs
+            .github/scripts/release/evaluate-release-vulnerabilities.mjs
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
@@ -165,7 +165,7 @@ jobs:
 
       - name: Evaluate release vulnerability response
         run: |
-          node .github/scripts/evaluate-release-vulnerabilities.mjs \
+          node .github/scripts/release/evaluate-release-vulnerabilities.mjs \
             release-results.json \
             .github/osv/release-vulnerability-assessments.json \
             cisa-kev.json \

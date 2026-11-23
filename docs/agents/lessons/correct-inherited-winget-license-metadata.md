@@ -7,8 +7,8 @@ trigger: changing package licenses or WinGet release submission
 failure_signature: WinGet 1.11.0 declared MIT after the application switched to GPL-3.0-or-later
 root_cause: wingetcreate update inherited the previous locale License and the workflow submitted it without correction
 guardrail: correct generated locale license metadata before submission using the target release tag
-canonical_refs: docs/adr/0020-relicense-to-gpl-3.0-or-later.md, .github/workflows/winget.yml, .github/scripts/update-winget-license.mjs, .github/scripts/test-update-winget-license.mjs
-verification: node .github/scripts/test-update-winget-license.mjs
+canonical_refs: docs/adr/0020-relicense-to-gpl-3.0-or-later.md, .github/workflows/winget.yml, .github/scripts/release/update-winget-license.mjs, .github/scripts/release/test-update-winget-license.mjs
+verification: node .github/scripts/release/test-update-winget-license.mjs
 evidence: v1.11.0 package.json and src-tauri/tauri.conf.json; microsoft/winget-pkgs manifests/s/shm11C3/HardwareVisualizer/1.11.0/shm11C3.HardwareVisualizer.locale.en-US.yaml
 revalidate_when: wingetcreate authentication or generation behavior, manifest format, release license source or relicensing policy changes
 ---

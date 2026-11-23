@@ -173,8 +173,8 @@ instrumented jobs. Use it for runs that predate the sampler but already
 contain cache markers.
 
 ```bash
-node .github/scripts/test-ci-telemetry-action.mts
-node .github/scripts/test-ci-telemetry-aggregate.mts
+node .github/actions/ci-telemetry/test-metrics.mts
+node .github/scripts/ci-telemetry/test-ci-telemetry-aggregate.mts
 npm run typecheck:ci-telemetry
 ```
 

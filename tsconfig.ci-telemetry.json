@@ -23,7 +23,6 @@
   },
   "include": [
     ".github/actions/ci-telemetry/**/*.mts",
-    ".github/scripts/ci-telemetry/**/*.mts",
-    ".github/scripts/test-ci-telemetry-*.mts"
+    ".github/scripts/ci-telemetry/**/*.mts"
   ]
 }

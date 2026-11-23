@@ -126,8 +126,8 @@ jobs:
               - 'sensor-service/**'
               - 'src-tauri/windows/**'
               - 'src-tauri/tauri.conf.json'
-              - '.github/scripts/sign-codesigntool.ps1'
-              - '.github/scripts/test-sign-codesigntool.ps1'
+              - '.github/scripts/release/sign-codesigntool.ps1'
+              - '.github/scripts/release/test-sign-codesigntool.ps1'
               - '.github/workflows/ci.yml'
             actions:
               - '.github/workflows/**'
@@ -184,29 +184,29 @@ jobs:
           setup-safe-chain: "false"
 
       - name: Test E2E CI policy
-        run: node .github/scripts/test-e2e-ci-policy.mjs
+        run: node .github/scripts/ci/test-e2e-ci-policy.mjs
 
       - name: Test Tauri dependency change detection
-        run: node .github/scripts/test-check-tauri-deps-changed.mjs
+        run: node .github/scripts/deps/test-check-tauri-deps-changed.mjs
 
       - name: Test release vulnerability evaluation
-        run: node .github/scripts/test-evaluate-release-vulnerabilities.mjs
+        run: node .github/scripts/release/test-evaluate-release-vulnerabilities.mjs
 
       - name: Test license notice generation
         run: node scripts/licenses/test-generate-licenses.mjs
 
       - name: Test WinGet license metadata correction
-        run: node .github/scripts/test-update-winget-license.mjs
+        run: node .github/scripts/release/test-update-winget-license.mjs
 
       - name: Test cache metrics reporting
         run: |
-          node .github/scripts/test-cache-metrics.cjs
-          node .github/scripts/test-cache-inventory.cjs
+          node .github/actions/cache-sccache/report/test-metrics.cjs
+          node .github/scripts/cache/test-cache-inventory.cjs
 
       - name: Test CI telemetry
         run: |
-          node .github/scripts/test-ci-telemetry-action.mts
-          node .github/scripts/test-ci-telemetry-aggregate.mts
+          node .github/actions/ci-telemetry/test-metrics.mts
+          node .github/scripts/ci-telemetry/test-ci-telemetry-aggregate.mts
 
       - name: Check Tauri dependency changes
         id: tauri-deps
@@ -218,7 +218,7 @@ jobs:
             exit 0
           fi
 
-          node .github/scripts/check-tauri-deps-changed.ts "$base_ref"
+          node .github/scripts/deps/check-tauri-deps-changed.ts "$base_ref"
 
       - name: Wait for changed file detection
         wait-all: true
@@ -781,7 +781,7 @@ jobs:
 
       - name: Test CodeSignTool wrapper
         shell: pwsh
-        run: ./.github/scripts/test-sign-codesigntool.ps1
+        run: ./.github/scripts/release/test-sign-codesigntool.ps1
 
       - name: Cache WiX binary
         background: true
@@ -955,7 +955,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: bash .github/scripts/comment-e2e-captures.sh
+        run: bash .github/scripts/ci/comment-e2e-captures.sh
 
   #
   # Frontend render performance checks (Playwright web/mock harness)
@@ -1189,4 +1189,4 @@ jobs:
       - name: Gate (fail on failure/cancelled)
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
-        run: node .github/scripts/merge-gate.ts
+        run: node .github/scripts/ci/merge-gate.ts

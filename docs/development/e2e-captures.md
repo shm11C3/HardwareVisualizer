@@ -160,7 +160,7 @@ artifact with `if: always()`, so captures survive failed runs. The Playwright
 HTML report and per-test output are uploaded only on failure.
 
 For same-repo pull requests the job also posts the captures inline as a
-sticky PR comment (`.github/scripts/comment-e2e-captures.sh`): images are
+sticky PR comment (`.github/scripts/ci/comment-e2e-captures.sh`): images are
 force-pushed to the single-commit `e2e-captures` branch under
 `pr-<number>/` and embedded via raw.githubusercontent.com URLs. The branch
 is disposable — it can be deleted at any time and will be recreated by the
@@ -245,7 +245,7 @@ Native prerequisites:
 The `test-e2e-native` CI job runs only on `ubuntu-22.04`. It uploads
 `test-results/captures/` as the `e2e-native-captures` artifact with
 `if: always()`, so evidence survives failures. Native captures are not
-published through `.github/scripts/comment-e2e-captures.sh`; that PR comment
+published through `.github/scripts/ci/comment-e2e-captures.sh`; that PR comment
 remains dedicated to the Playwright web/mock review captures.
 
 Native CI uses the existing trusted R2 sccache action for Rust and bundled

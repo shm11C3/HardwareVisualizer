@@ -26,32 +26,50 @@ index disagree, and the agent pre-edit hook refuses to create an unlisted file
 here. Add the index row only after the placement rule above says this
 directory is the owner.
 
+## Subdirectories
+
+Each script lives in the subdirectory of the workflow concern it serves, next
+to its test.
+
+- `ci/`: the merge gate, E2E capture comments, and the E2E CI policy test, for
+  `ci.yml`.
+- `deps/`: Tauri dependency change detection and automated updates, for
+  `ci.yml` and `auto-update-tauri.yml`.
+- `cache/`: Actions cache inventory, for `ci.yml` and `cache-health.yml`.
+- `ci-telemetry/`: CI telemetry aggregation, its shared schema, and its test,
+  for `ci-telemetry.yml` and the `ci-telemetry` action.
+- `release/`: release checksums, Tauri config and signing, WinGet license
+  correction, and release vulnerability evaluation, for `publish.yml`,
+  `winget.yml`, `osv-scan.yml`, and `ci.yml`.
+
+Tests for composite actions live next to the action
+(`.github/actions/cache-sccache/report/test-metrics.cjs` and
+`.github/actions/ci-telemetry/test-metrics.mts`).
+
 ## Index
 
 | Script | Consumers |
 | --- | --- |
-| `cache-inventory.cjs` | `ci.yml`, `cache-health.yml` |
-| `check-tauri-deps-changed.ts` | `ci.yml` change detection, `auto-update-tauri.yml` |
+| `ci/merge-gate.ts` | `ci.yml` merge gate |
+| `ci/comment-e2e-captures.sh` | `ci.yml` |
+| `ci/test-e2e-ci-policy.mjs` | `ci.yml` change detection |
+| `deps/tauri-updater.sh` | `auto-update-tauri.yml` |
+| `deps/check-tauri-deps-changed.ts` | `ci.yml` change detection, `auto-update-tauri.yml` |
+| `deps/test-check-tauri-deps-changed.mjs` | `ci.yml` |
+| `cache/cache-inventory.cjs` | `ci.yml`, `cache-health.yml` |
+| `cache/test-cache-inventory.cjs` | `ci.yml` |
 | `ci-telemetry/aggregate.mts` | `ci-telemetry.yml` |
 | `ci-telemetry/cli.mts` | CI telemetry scripts |
 | `ci-telemetry/markers.mts` | CI telemetry scripts |
 | `ci-telemetry/record.mts` | CI telemetry scripts |
 | `ci-telemetry/render.mts` | CI telemetry scripts |
 | `ci-telemetry/schema.mts` | CI telemetry scripts |
-| `comment-e2e-captures.sh` | `ci.yml` |
-| `evaluate-release-vulnerabilities.mjs` | `ci.yml`, `osv-scan.yml` |
-| `generate-release-checksums.sh` | `publish.yml` |
-| `merge-gate.ts` | `ci.yml` merge gate |
-| `sign-codesigntool.ps1` | `publish.yml` (Tauri `signCommand`) |
-| `test-sign-codesigntool.ps1` | `ci.yml` Windows installer validation |
-| `tauri-updater.sh` | `auto-update-tauri.yml` |
-| `update-tauri-config.ts` | `publish.yml` |
-| `update-winget-license.mjs` | `winget.yml` |
-| `test-update-winget-license.mjs` | `ci.yml` |
-| `test-cache-inventory.cjs` | `ci.yml` |
-| `test-cache-metrics.cjs` | `ci.yml` |
-| `test-e2e-ci-policy.mjs` | `ci.yml` change detection |
-| `test-check-tauri-deps-changed.mjs` | `ci.yml` |
-| `test-ci-telemetry-action.mts` | `ci.yml` |
-| `test-ci-telemetry-aggregate.mts` | `ci.yml`, `ci-telemetry.yml` |
-| `test-evaluate-release-vulnerabilities.mjs` | `ci.yml` |
+| `ci-telemetry/test-ci-telemetry-aggregate.mts` | `ci.yml`, `ci-telemetry.yml` |
+| `release/generate-release-checksums.sh` | `publish.yml` |
+| `release/update-tauri-config.ts` | `publish.yml` |
+| `release/sign-codesigntool.ps1` | `publish.yml` (Tauri `signCommand`) |
+| `release/test-sign-codesigntool.ps1` | `ci.yml` Windows installer validation |
+| `release/update-winget-license.mjs` | `winget.yml` |
+| `release/test-update-winget-license.mjs` | `ci.yml` |
+| `release/evaluate-release-vulnerabilities.mjs` | `ci.yml`, `osv-scan.yml` |
+| `release/test-evaluate-release-vulnerabilities.mjs` | `ci.yml` |
