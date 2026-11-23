@@ -99,6 +99,7 @@ jobs:
               - 'package*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - 'scripts/licenses/**'
             backend-deps:
               - 'sensor-service/Cargo.toml'
               - 'core/Cargo.toml'
@@ -107,6 +108,7 @@ jobs:
               - '.cargo/**'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - 'scripts/licenses/**'
             cargo-license-config:
               - 'src-tauri/deny.toml'
               # Inputs to the DuckDB bundled-library notice check. core/ and
@@ -117,7 +119,7 @@ jobs:
               - 'core/Cargo.toml'
               - 'src-tauri/Cargo.toml'
               - 'docs/licenses/manual/**'
-              - '.github/scripts/check-duckdb-license-version.ts'
+              - 'scripts/licenses/check-duckdb-license-version.ts'
               - '.github/actions/setup-rust/**'
               - '.github/workflows/ci.yml'
             windows-installer:
@@ -172,6 +174,7 @@ jobs:
               - '!rust-toolchain*'
               - '!.github/actions/**'
               - '!.github/scripts/**'
+              - '!scripts/licenses/**'
               - '!.github/workflows/**'
 
       - name: Setup Node.js
@@ -190,7 +193,7 @@ jobs:
         run: node .github/scripts/test-evaluate-release-vulnerabilities.mjs
 
       - name: Test license notice generation
-        run: node .github/scripts/test-generate-licenses.mjs
+        run: node scripts/licenses/test-generate-licenses.mjs
 
       - name: Test WinGet license metadata correction
         run: node .github/scripts/test-update-winget-license.mjs
@@ -1110,10 +1113,10 @@ jobs:
         run: npm run license-checker
 
       - name: Check licenses
-        run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
+        run: node --experimental-strip-types scripts/licenses/check-licenses.ts licenses.json
 
       - name: Extract Apache NOTICE
-        run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
+        run: node --experimental-strip-types scripts/licenses/extract-apache-notices.ts licenses.json notices
 
   license-check-cargo:
     needs: change-detection
@@ -1145,7 +1148,7 @@ jobs:
         run: cargo install cargo-deny --version 0.19.4 --locked
 
       - name: Check DuckDB license notice version
-        run: node --experimental-strip-types .github/scripts/check-duckdb-license-version.ts
+        run: node --experimental-strip-types scripts/licenses/check-duckdb-license-version.ts
 
       - name: Check Rust licenses
         run: cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config src-tauri/deny.toml licenses

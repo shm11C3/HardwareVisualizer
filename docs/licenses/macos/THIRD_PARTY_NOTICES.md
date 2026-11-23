@@ -26203,14 +26203,14 @@ entry, and update the covered versions, the covered feature list, copyright
 lines, license text, and extra-data notices. The covered feature list is the
 `features` array of the `duckdb` node in
 `cargo metadata --format-version 1 --features duckdb-archive --locked`,
-sorted; `.github/scripts/check-duckdb-license-version.ts` reads the same
+sorted; `scripts/licenses/check-duckdb-license-version.ts` reads the same
 value. Header-only libraries are found
 through `base.include_dirs`, not `base.cpp_files`; check which of their headers
 compiled sources include.
 Then run `cargo license --features duckdb-archive --json`,
 `cargo metadata --features duckdb-archive --format-version 1`,
-`node --experimental-strip-types .github/scripts/generate-licenses.ts tmp duckdb-archive`,
-`node --experimental-strip-types .github/scripts/check-duckdb-license-version.ts`,
+`node --experimental-strip-types scripts/licenses/generate-licenses.ts tmp duckdb-archive`,
+`node --experimental-strip-types scripts/licenses/check-duckdb-license-version.ts`,
 `cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config
 src-tauri/deny.toml licenses`, before committing the refreshed entry.
 

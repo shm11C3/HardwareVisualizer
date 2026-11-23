@@ -11,7 +11,8 @@ put a file here.
    MSI table check lives in `src-tauri/windows/wix/`, next to the WiX fragment
    it verifies.
 2. A developer or diagnostic tool with no single owning area lives under
-   `scripts/<area>/` (for example `scripts/diagnostics/`).
+   `scripts/<area>/` (for example `scripts/diagnostics/`,
+   `scripts/build-cache/`, or `scripts/licenses/`).
 3. Agent guidance and hook tooling (the guidance checker, the Claude and Codex
    hooks, and their tests) lives in `.agents/tooling/`; `agent-guidance.yml`
    runs it from there.
@@ -30,8 +31,6 @@ directory is the owner.
 | Script | Consumers |
 | --- | --- |
 | `cache-inventory.cjs` | `ci.yml`, `cache-health.yml` |
-| `check-duckdb-license-version.ts` | `ci.yml` |
-| `check-licenses.ts` | `ci.yml`, `publish.yml` |
 | `check-tauri-deps-changed.ts` | `ci.yml` change detection, `auto-update-tauri.yml` |
 | `ci-telemetry/aggregate.mts` | `ci-telemetry.yml` |
 | `ci-telemetry/cli.mts` | CI telemetry scripts |
@@ -41,7 +40,6 @@ directory is the owner.
 | `ci-telemetry/schema.mts` | CI telemetry scripts |
 | `comment-e2e-captures.sh` | `ci.yml` |
 | `evaluate-release-vulnerabilities.mjs` | `ci.yml`, `osv-scan.yml` |
-| `extract-apache-notices.ts` | `ci.yml` |
 | `generate-release-checksums.sh` | `publish.yml` |
 | `merge-gate.ts` | `ci.yml` merge gate |
 | `sign-codesigntool.ps1` | `publish.yml` (Tauri `signCommand`) |
@@ -57,15 +55,3 @@ directory is the owner.
 | `test-ci-telemetry-action.mts` | `ci.yml` |
 | `test-ci-telemetry-aggregate.mts` | `ci.yml`, `ci-telemetry.yml` |
 | `test-evaluate-release-vulnerabilities.mjs` | `ci.yml` |
-| `generate-licenses.ts` | `publish.yml`, `auto-update-licenses.yml`, npm `gen:licenses:*` (exception, see below) |
-| `test-generate-licenses.mjs` | `ci.yml` (exception, see below) |
-
-## Known exceptions
-
-These files predate the placement rule and have consumers outside GitHub
-Actions. Move them to their owner when they next change substantially; do not
-add new files to these groups here.
-
-- License notice generation (`generate-licenses.ts`,
-  `test-generate-licenses.mjs`): also run by developers through npm
-  `gen:licenses:*`, and it produces `docs/licenses/**` and the bundled notices.

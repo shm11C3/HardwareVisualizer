@@ -27,10 +27,10 @@
     "format": "biome format --write && biome check --write",
     "lint:ci": "biome ci",
     "license-checker": "license-checker --production --json > licenses.json",
-    "gen:licenses:linux": "node --experimental-strip-types .github/scripts/generate-licenses.ts linux",
-    "gen:licenses:win": "node --experimental-strip-types .github/scripts/generate-licenses.ts windows",
-    "gen:licenses:mac": "node --experimental-strip-types .github/scripts/generate-licenses.ts macos",
-    "gen:licenses:tmp": "node --experimental-strip-types .github/scripts/generate-licenses.ts tmp"
+    "gen:licenses:linux": "node --experimental-strip-types scripts/licenses/generate-licenses.ts linux",
+    "gen:licenses:win": "node --experimental-strip-types scripts/licenses/generate-licenses.ts windows",
+    "gen:licenses:mac": "node --experimental-strip-types scripts/licenses/generate-licenses.ts macos",
+    "gen:licenses:tmp": "node --experimental-strip-types scripts/licenses/generate-licenses.ts tmp"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",

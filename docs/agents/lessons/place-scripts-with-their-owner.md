@@ -10,7 +10,7 @@ guardrail: .github/scripts/README.md states the placement rule and indexes every
 canonical_refs: AGENTS.md, .github/scripts/README.md, .agents/tooling/check-agent-guidance.mjs, .agents/tooling/agent-hook.mjs
 verification: npm run test:agent-guidance and npm run test:agent-hooks cover an unlisted script, a missing indexed script, and creating an unlisted file; npm run check:agent-guidance validates the live index
 evidence: "maintainer correction on PR #2211, where the MSI table check moved to src-tauri/windows/wix/; the agent tooling in .github/scripts, including prune-build-dirs.mjs added in #2213; the known exceptions listed in .github/scripts/README.md"
-revalidate_when: the agent tooling or license generation exceptions move to their owners, or GitHub Actions stops being the only CI surface
+revalidate_when: a script without a GitHub Actions purpose needs an exception to the placement rule, or GitHub Actions stops being the only CI surface
 ---
 
 # Place Scripts With Their Owner
