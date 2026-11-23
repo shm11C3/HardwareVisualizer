@@ -25,8 +25,10 @@ jobs:
 
   # The PR title (Conventional Commits) is the single source of the kind label
   # (change:feature / change:fix / change:refactor, plus docs/test/ci). The
-  # title is attacker-controlled: it is only passed through env and never
-  # interpolated into the script, and no code is checked out.
+  # title is attacker-controlled: it is read from the API into a shell variable
+  # and never interpolated into the script, and no code is checked out. The
+  # current title is read instead of the event payload's, because the
+  # concurrency group does not guarantee that runs execute in event order.
   # It runs after `label`: actions/labeler writes the full label set from its
   # start-of-run snapshot, which would restore a kind label removed here.
   title:
@@ -41,15 +43,16 @@ jobs:
       - name: Validate PR title and set kind label
         shell: bash
         env:
-          TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
+          title="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq '.title')"
+
           title_regex='^(feat|fix|docs|refactor|perf|test|ci|chore)(\([^)]+\))?!?: .+'
-          if [[ ! "$TITLE" =~ $title_regex ]]; then
+          if [[ ! "$title" =~ $title_regex ]]; then
             echo "::error title=Invalid PR title::The PR title must follow Conventional Commits: <type>(<optional scope>): <summary>. Allowed types: feat, fix, docs, refactor, perf, test, ci, chore. See CONTRIBUTING.md. Edit the PR title to fix this; no new branch or PR is needed."
             exit 1
           fi
