@@ -68,7 +68,7 @@ impl PerformanceView {
   /// to the default, Panels.
   ///
   /// `normalizePerformanceView` in
-  /// `src/features/hardware/performance/types/performanceLayout.ts` owns
+  /// `hardviz/frontend/src/features/hardware/performance/types/performanceLayout.ts` owns
   /// this mapping; the two must change together.
   pub(crate) fn from_stored(value: Option<&serde_json::Value>) -> Self {
     match value.and_then(serde_json::Value::as_str) {

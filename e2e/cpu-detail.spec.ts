@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { sysInfoFixture } from "../src/e2e/fixtures/hardware";
+import { sysInfoFixture } from "../hardviz/frontend/src/e2e/fixtures/hardware";
 import {
   BOOTSTRAP_TIMEOUT,
   gotoApp,

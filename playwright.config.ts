@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright web/mock E2E harness (issue #1609).
  *
  * Runs the Vite/React frontend in a plain browser with Tauri IPC and event
- * mocks (see `src/main.e2e.tsx`, enabled via `vite --mode e2e`). Captures PNG
+ * mocks (see `hardviz/frontend/src/main.e2e.tsx`, enabled via `vite --mode e2e`). Captures PNG
  * evidence screenshots under `test-results/captures/`.
  *
  * A dedicated port (1521) is used so a regular `npm run dev` server
@@ -46,7 +46,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `vite dev --mode e2e --port ${E2E_PORT} --strictPort`,
+    command: `vite dev --config hardviz/frontend/vite.config.ts --mode e2e --port ${E2E_PORT} --strictPort`,
     url: `http://localhost:${E2E_PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

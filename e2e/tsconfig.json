@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../hardviz/frontend/tsconfig.json",
   "compilerOptions": {
     "types": ["node"]
   },

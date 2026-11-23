@@ -23,7 +23,7 @@ crosses it — no more:
 | --- | --- |
 | 1. Contract | always, in any layer |
 | 2. Fixture realism | the change supplies fixture, factory, or seed ids, in any layer |
-| 3. Resolution owner | `src/` derives which entity is effective |
+| 3. Resolution owner | `hardviz/frontend/src/` derives which entity is effective |
 | 4. Persistence and migration | an id is stored, restored, or changes namespace |
 | 5. Surface parity | a surface renders a resolution state |
 
@@ -77,7 +77,7 @@ shipped non-functional on real hardware while its e2e passed, because
 
 ## Frontend Consumption
 
-The remaining steps describe how `src/` consumes a contract. Each applies only
+The remaining steps describe how `hardviz/frontend/src/` consumes a contract. Each applies only
 when the change crosses that step's boundary; a change that produces or
 persists ids in `hardviz/core/` or `hardviz/app/` keeps the fact where its layer owns it
 rather than moving it into the frontend.

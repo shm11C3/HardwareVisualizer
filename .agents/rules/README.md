@@ -11,7 +11,7 @@ Read the matching rule before editing files in its scope. The root and scoped
 | --- | --- |
 | [design.md](design.md) | Product, architecture, persistence, monitoring, and UX decisions |
 | [rust.md](rust.md) | `hardviz/core/**`, `hardviz/app/**`, and Rust workspace manifests |
-| [frontend.md](frontend.md) | Frontend code and language files under `src/` |
+| [frontend.md](frontend.md) | Frontend code and language files under `hardviz/frontend/src/` |
 | [settings.md](settings.md) | Settings UI, settings services, and persisted settings ownership |
 | [documentation.md](documentation.md) | Root documentation, `docs/**`, and GitHub Markdown |
 | [clean-room-sensors.md](clean-room-sensors.md) | Sensor specs and PawnIO CPU / Super I/O implementation |

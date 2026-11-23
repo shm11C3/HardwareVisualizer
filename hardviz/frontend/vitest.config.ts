@@ -3,12 +3,16 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // npm scripts run from the repository root. Vite's absolute `/src/...`
+    // globs (import.meta.glob) resolve against this root.
+    root: import.meta.dirname,
     environment: "jsdom",
     setupFiles: ["src/setupVitest.ts"],
     include: [
       "src/**/*.{test,spec}.ts",
       "src/**/*.{test,spec}.tsx",
-      "e2e-native/**/*.{test,spec}.ts",
+      // The e2e-native support tests live outside the Frontend root.
+      "../../e2e-native/**/*.{test,spec}.ts",
     ],
     coverage: {
       // Components are measured so untested screens show up in the report.
@@ -28,6 +32,7 @@ export default defineConfig({
         "src/**/*.d.ts",
         "src/**/types/**",
       ],
+      reportsDirectory: "coverage",
       reporter: ["text", "html", "json-summary"],
       thresholds: {
         statements: 60,
@@ -39,7 +44,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      "@": path.resolve(import.meta.dirname, "src"),
     },
   },
 });

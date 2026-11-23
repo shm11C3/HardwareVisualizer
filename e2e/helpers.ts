@@ -1,9 +1,9 @@
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
-import { sysInfoFixture } from "../src/e2e/fixtures/hardware";
+import { sysInfoFixture } from "../hardviz/frontend/src/e2e/fixtures/hardware";
 // Type-only import: pulls in the `window.__E2E__` global declaration without
 // bundling app code into the test runner.
-import type {} from "../src/e2e/mocks/installTauriMocks";
+import type {} from "../hardviz/frontend/src/e2e/mocks/installTauriMocks";
 
 /**
  * Evidence captures are written to a predictable directory so CI can upload

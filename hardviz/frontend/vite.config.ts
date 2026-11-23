@@ -48,6 +48,9 @@ const e2eEntry = (): PluginOption => {
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => ({
+  // npm scripts run from the repository root, so the Frontend root is explicit.
+  // index.html, src/, and the build output (dist/) live under it.
+  root: import.meta.dirname,
   plugins: [
     react(),
     babel({ presets: [reactCompilerPreset()] }),
@@ -108,19 +111,12 @@ export default defineConfig(async ({ mode }) => ({
     port: 1520,
     strictPort: true,
     watch: {
-      // 3. tell vite to ignore Rust sources, build artifacts, and
-      //    generated trees that churn during test runs - .claude holds
-      //    AI-agent worktrees whose coverage output was observed
-      //    triggering full page reloads into a live dev session, and
-      //    the repo's own vitest coverage / Playwright test-results
-      //    reproduce the same pattern at the repo root.
-      ignored: [
-        "**/hardviz/app/**",
-        "**/target/**",
-        "**/.claude/**",
-        "**/coverage/**",
-        "**/test-results/**",
-      ],
+      // 3. tell vite to ignore the vitest coverage output, which sits inside
+      //    the Frontend root and was observed triggering full page reloads
+      //    into a live dev session. Rust sources, target/, .claude agent
+      //    worktrees, and Playwright test-results are outside the Frontend
+      //    root, so they are never watched.
+      ignored: ["**/coverage/**"],
     },
   },
   resolve: {

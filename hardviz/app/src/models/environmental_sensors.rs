@@ -5,7 +5,7 @@ use specta::Type;
 
 // Kept to a single doc paragraph: tauri-specta renders a blank `///`
 // line as a ` * ` line in the generated JSDoc, whose trailing space
-// fails the repository's whitespace check on `src/rspc/bindings.ts`.
+// fails the repository's whitespace check on `hardviz/frontend/src/rspc/bindings.ts`.
 /// Wire-format mirror of
 /// [`hardviz_core::settings::EnvironmentalSensorSettings`] (#2044). The
 /// canonical definition lives in `hardviz_core::settings` so the ambient

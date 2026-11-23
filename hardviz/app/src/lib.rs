@@ -402,7 +402,7 @@ fn build_specta_builder() -> Builder<Wry> {
 
 #[cfg(debug_assertions)]
 fn bindings_path() -> std::path::PathBuf {
-  std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/rspc/bindings.ts")
+  std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../frontend/src/rspc/bindings.ts")
 }
 
 #[cfg(debug_assertions)]

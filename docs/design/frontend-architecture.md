@@ -17,17 +17,17 @@ listed below it.
 
 | Layer | Paths | May import |
 | --- | --- | --- |
-| Foundation | `src/rspc`, `src/types`, `src/consts`, `src/lib` | Foundation only. No React, no Jotai. |
-| Store | `src/store`, `src/features/<f>/store` | Foundation, plus the feature's own non-UI modules. No React or Jotai React bindings. |
-| Shared hooks | `src/hooks` | Foundation, store |
-| UI primitives | `src/components/ui`, `src/components/icons` | Foundation. Never IPC `commands` or `events`. No Jotai. |
-| Shared components | `src/components/charts`, `src/components/*.tsx` | All of the above. Charts never import shared components. |
-| Feature | `src/features/<f>` | All of the above and its own feature. Never another feature. |
-| App | `src/app`, `src/main*.tsx` | Anything |
+| Foundation | `hardviz/frontend/src/rspc`, `hardviz/frontend/src/types`, `hardviz/frontend/src/consts`, `hardviz/frontend/src/lib` | Foundation only. No React, no Jotai. |
+| Store | `hardviz/frontend/src/store`, `hardviz/frontend/src/features/<f>/store` | Foundation, plus the feature's own non-UI modules. No React or Jotai React bindings. |
+| Shared hooks | `hardviz/frontend/src/hooks` | Foundation, store |
+| UI primitives | `hardviz/frontend/src/components/ui`, `hardviz/frontend/src/components/icons` | Foundation. Never IPC `commands` or `events`. No Jotai. |
+| Shared components | `hardviz/frontend/src/components/charts`, `hardviz/frontend/src/components/*.tsx` | All of the above. Charts never import shared components. |
+| Feature | `hardviz/frontend/src/features/<f>` | All of the above and its own feature. Never another feature. |
+| App | `hardviz/frontend/src/app`, `hardviz/frontend/src/main*.tsx` | Anything |
 
 The root directories (`types`, `consts`, `lib`, `store`, `hooks`, `components`)
 are the shared layer, organized by kind. Grouping by concern happens in
-sub-folders inside them (for example `src/hooks/window`), never as new
+sub-folders inside them (for example `hardviz/frontend/src/hooks/window`), never as new
 top-level directories, so the path scopes above stay fixed.
 
 Within a feature, `store/` and `hooks/` import their own feature through a
@@ -56,9 +56,9 @@ Two rules close the obvious bypasses:
 | Hooks | no | yes | yes |
 | Components and the app layer | no | no | `useAtomValue` only |
 
-- `src/store` holds cross-feature state, including Application Preferences,
-  which live in `src/store/settings.ts` with their hook in
-  `src/hooks/settings/useSettingsAtom.ts`. `src/features/<f>/store` holds state owned by
+- `hardviz/frontend/src/store` holds cross-feature state, including Application Preferences,
+  which live in `hardviz/frontend/src/store/settings.ts` with their hook in
+  `hardviz/frontend/src/hooks/settings/useSettingsAtom.ts`. `hardviz/frontend/src/features/<f>/store` holds state owned by
   one feature.
 - The app mounts exactly one Jotai `Provider` per window, at the composition
   root (`AppStateProvider`). That store is the unit of reset: error-boundary
@@ -84,7 +84,7 @@ tick from fanning out ([#1638](https://github.com/shm11c3/HardwareVisualizer/iss
    `useHardwareEventListener` writes every non-history map or array with a
    functional update that returns the previous value when the new one is
    shallow-equal (`shallowEqualRecord` / `shallowEqualArray` in
-   `src/lib/shallowEqual.ts`). Jotai skips subscribers whose value is
+   `hardviz/frontend/src/lib/shallowEqual.ts`). Jotai skips subscribers whose value is
    `Object.is`-equal, so an unchanged map costs nothing. History atoms are the
    exception: they change every sample.
 2. **Components subscribe to the narrowest derived atom.** A component that
@@ -94,7 +94,7 @@ tick from fanning out ([#1638](https://github.com/shm11c3/HardwareVisualizer/iss
    never a whole history or map to take one value out of it. Static UI (spec
    tables, tooltips, buttons) lives in components that do not read live atoms,
    so only the elements that show a live value re-render.
-3. **The numbers are guarded by a test.** `src/features/hardware/renderFanout.test.tsx`
+3. **The numbers are guarded by a test.** `hardviz/frontend/src/features/hardware/renderFanout.test.tsx`
    mounts each live screen, replays a fixture series through the real listener,
    and holds per-screen upper bounds on components re-rendered, chart leaves
    rendered and commits per steady update. The bounds only go down: a change
@@ -117,7 +117,7 @@ plugin `.config/biome/no-module-scope-let.grit`.
 | No OS error dialogs from the hardware feature | `paths["@/hooks/tauri/useTauriDialog"]` banned in the `features/hardware` overrides |
 | No module-scope `let` outside store modules | GritQL plugin through an override |
 | No cycles, barrels, or `export *` | `noImportCycles`, `noBarrelFile`, `noReExportAll` |
-| File name matches its export: components PascalCase `.tsx`, other modules camelCase `.ts`, `src/components/ui` kebab-case, tests either of the two | `useFilenamingConvention` overrides in root `biome.jsonc` |
+| File name matches its export: components PascalCase `.tsx`, other modules camelCase `.ts`, `hardviz/frontend/src/components/ui` kebab-case, tests either of the two | `useFilenamingConvention` overrides in root `biome.jsonc` |
 
 The restricted Jotai names follow jotai's root exports. Jotai 3 added
 `useAtomValueRaw`, `useAtomValueRawSync`, and `INTERNAL_overrideCreateStore`,
@@ -127,7 +127,7 @@ the package's exports whenever jotai is upgraded.
 Test files are outside the boundary scopes. They legitimately seed a
 `createStore` and import across layers to build fixtures.
 
-`src/main*.tsx` and `src/e2e/**` are composition roots and test
+`hardviz/frontend/src/main*.tsx` and `hardviz/frontend/src/e2e/**` are composition roots and test
 infrastructure, so they are also unscoped.
 
 Every feature has three overrides: UI, `hooks/`, and `store/`. A feature
@@ -151,7 +151,7 @@ These rules keep the pending list honest:
   resolves, and it is empty now.
 - New code that needs a new exception is a design discussion, not a config
   edit.
-- The app override covers `src/app/**` and must stay last, so the app layer
+- The app override covers `hardviz/frontend/src/app/**` and must stay last, so the app layer
   keeps its own rules wherever other scopes overlap it.
 
 ### Biome behaviors this relies on
@@ -186,14 +186,14 @@ surface; who started the work decides when it may interrupt.
 | App cannot continue | Blocking dialog (`useTauriDialog`, backend `error_event`) | Immediately | Database cannot open, conversion failed |
 | One panel's read | Failure state where the data would appear, with retry | Never interrupts; automatic refreshes keep retrying | Insight charts, Cooling panels, Storage Health, process table |
 | Secondary lane | Nothing in the UI; log only | Never | Fan and ambient lanes next to a primary series |
-| User action failed | One translated line under the control that was used (`src/components/ActionFailure.tsx`); no toast, no retry button | Immediately, once; the next successful write of the same control (action id) clears only its own entry, never an unrelated write | Settings toggles, tray and autostart actions, background image upload |
+| User action failed | One translated line under the control that was used (`hardviz/frontend/src/components/ActionFailure.tsx`); no toast, no retry button | Immediately, once; the next successful write of the same control (action id) clears only its own entry, never an unrelated write | Settings toggles, tray and autostart actions, background image upload |
 
 Rules that follow from the axes:
 
 - A read hook exposes `hasError` (and `hasLoaded` when the panel needs to
   tell "not yet" from "empty"), and a `retry` function. It never opens a
   dialog. The panel renders the shared failure component
-  (`src/components/LoadFailure.tsx`) in place of the data. A read that more
+  (`hardviz/frontend/src/components/LoadFailure.tsx`) in place of the data. A read that more
   than one panel shares is a shared-read atom instead, described below.
 - A failed read is a distinct state from an empty result (DP-02). Empty data
   renders the panel's empty state; a failure renders the failure state.
@@ -219,7 +219,7 @@ Rules that follow from the axes:
 - A failed user action is state, not a dialog. The optimistic update has
   already rolled the control back, and the line under the control says why.
   Application Preference writes record failures in
-  `settingsWriteFailuresAtom` (`src/store/settings.ts`, owned by the store
+  `settingsWriteFailuresAtom` (`hardviz/frontend/src/store/settings.ts`, owned by the store
   layer, written by `useSettingsAtom`, whose every write goes through
   `persistOptimistic` (apply, write, roll back) or `persistThenApply` (write,
   then apply), so a failure is recorded or cleared once per write). A control asks `useSettingWriteFailure`
@@ -228,15 +228,15 @@ Rules that follow from the axes:
 - A shared hook that several components use (`useBackgroundImage`) returns the
   failure as state, and the component that owns the control renders it.
 - A flow that is already a modal dialog keeps the native dialog: the startup
-  dialogs and `FullScreenExit` in `src/app/`, which are the only places that
+  dialogs and `FullScreenExit` in `hardviz/frontend/src/app/`, which are the only places that
   may import `useTauriDialog`. The one other dialog site is the backend
-  `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` (the
+  `error_event` listener in `hardviz/frontend/src/hooks/tauri/useTauriEventListener.ts` (the
   app-cannot-continue tier); it uses the dialog plugin directly, not
   `useTauriDialog`. In-app modals such as the restart prompt (`NeedRestart`,
   an `AlertDialog`) are not native dialogs and are unaffected by this rule.
 
-Enforcement: no layer outside `src/app/**` may import `useTauriDialog`
-(`noRestrictedImports` in every layer override and the `src/main*.tsx` entry-point override; `useTauriEventListener.ts`
+Enforcement: no layer outside `hardviz/frontend/src/app/**` may import `useTauriDialog`
+(`noRestrictedImports` in every layer override and the `hardviz/frontend/src/main*.tsx` entry-point override; `useTauriEventListener.ts`
 calls the Tauri dialog plugin directly and needs no exception).
 
 ### Shared reads
@@ -244,7 +244,7 @@ calls the Tauri dialog plugin directly and needs no exception).
 A read stays a hook in the one panel that renders it. A read that feeds
 several panels, or that would otherwise be passed down through a component
 that only forwards it, is a shared-read atom in a `store/` module
-(`createSharedRead` in `src/features/hardware/store/sharedRead.ts`; the Cooling
+(`createSharedRead` in `hardviz/frontend/src/features/hardware/store/sharedRead.ts`; the Cooling
 reads in `coolingReads.ts` are the first users). The convention:
 
 - **Three states.** The atom reads as `{ kind: "loading" }`,
@@ -288,8 +288,8 @@ reads in `coolingReads.ts` are the first users). The convention:
 | License page reads | One panel's read | Done in #2388: `LoadFailure` with retry |
 | F11 window decoration toggle (`useKeydown`) | Keyboard action, no control on screen | Log only |
 | Startup reads without a control: selected background image, background image list | Automatic read | Log only |
-| Settings load at startup (`loadSettings`, shown by `AppContent`) | App cannot continue as configured | Dialog kept in `src/app/App.tsx`; the hook only logs and returns `false` |
-| Startup dialogs and `FullScreenExit` in `src/app` | Already inside a dialog flow | Dialog kept; the only importers of `useTauriDialog` |
+| Settings load at startup (`loadSettings`, shown by `AppContent`) | App cannot continue as configured | Dialog kept in `hardviz/frontend/src/app/App.tsx`; the hook only logs and returns `false` |
+| Startup dialogs and `FullScreenExit` in `hardviz/frontend/src/app` | Already inside a dialog flow | Dialog kept; the only importers of `useTauriDialog` |
 | Backend `error_event` (`useErrorModalListener`) | App cannot continue | Unchanged |
 
 ## Migration
@@ -300,8 +300,8 @@ The migration is complete. It landed as five stacked slices tracked in #2325:
 | --- | --- | --- |
 | S1 | `@/` alias instead of parent-relative imports | #2374 |
 | S2 | Shared chart vocabulary in foundation; generated settings types | #2375 |
-| S3 | Application Preference state in `src/store` and `src/hooks` | #2376 |
-| S4 | `src/app/` composition layer | #2377 |
+| S3 | Application Preference state in `hardviz/frontend/src/store` and `hardviz/frontend/src/hooks` | #2376 |
+| S4 | `hardviz/frontend/src/app/` composition layer | #2377 |
 | S5 | Atoms only in store modules; `chart.ts` split by subject | #2380 |
 
 A future structural change to these boundaries follows the same pattern:
@@ -309,7 +309,7 @@ A future structural change to these boundaries follows the same pattern:
 - Remove the exception in the change that fixes that code.
 - Run `npm run lint:ci`, `npm run build`, and `npm test` before merging.
 - If the change alters live event fan-out, add the focused regression test
-  that `src/AGENTS.md` requires.
+  that `hardviz/frontend/AGENTS.md` requires.
 
 ## Open Questions
 

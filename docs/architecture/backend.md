@@ -790,7 +790,7 @@ When adding a setting:
    Tauri commands.
 3. Do not write user-facing application preferences directly from the frontend
    through Tauri Store.
-4. Regenerate `src/rspc/bindings.ts` by running `npm run tauri:dev` when command
+4. Regenerate `hardviz/frontend/src/rspc/bindings.ts` by running `npm run tauri:dev` when command
    types change.
 
 ## Design Rules
@@ -805,7 +805,7 @@ When adding a setting:
 5. **Presentation stays in App.** Core stores raw values; UI-specific conversion
    happens at the App boundary.
 6. **Generated bindings are not edited by hand.** Update Rust commands and
-   regenerate `src/rspc/bindings.ts`.
+   regenerate `hardviz/frontend/src/rspc/bindings.ts`.
 7. **Respect settings ownership.** Core-owned and App-owned settings may share
    the same file, but each side should preserve the other side's keys.
 8. **One sampling owner per stateful fact.** A reading computed as a delta
@@ -963,5 +963,5 @@ Test placement follows the ownership boundary:
 - Core pure/helper tests should live near the Core module they exercise.
 - App command/service tests should live either next to the module or under
   `hardviz/app/src/_tests/` when they need shared App test setup.
-- Frontend tests should stay co-located under `src/**` with the component,
+- Frontend tests should stay co-located under `hardviz/frontend/src/**` with the component,
   hook, or feature they cover.

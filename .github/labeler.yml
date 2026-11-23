@@ -1,14 +1,15 @@
 "area:frontend":
   - changed-files:
       - any-glob-to-any-file:
-          - "src/**"
-          - "index.html"
+          - "hardviz/frontend/src/**"
+          - "hardviz/frontend/index.html"
           - "package.json"
           - "package-lock.json"
-          - "vite.config.*"
-          - "vitest.config.*"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
           - "playwright*.config.*"
           - "tsconfig*.json"
+          - "hardviz/frontend/tsconfig*.json"
 
 "area:core":
   - changed-files:
@@ -46,18 +47,20 @@
       - any-glob-to-any-file:
           - "package.json"
           - "package-lock.json"
-          - "src/**"
-          - "vite.config.*"
-          - "vitest.config.*"
+          - "hardviz/frontend/src/**"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
           - "playwright*.config.*"
           - "tsconfig*.json"
+          - "hardviz/frontend/tsconfig*.json"
 
 "area:config":
   - changed-files:
       - any-glob-to-any-file:
           - "tsconfig*.json"
-          - "vite.config.*"
-          - "vitest.config.*"
+          - "hardviz/frontend/tsconfig*.json"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
           - "playwright*.config.*"
           - "Cargo.toml"
           - "**/Cargo.toml"
@@ -79,8 +82,9 @@
   - changed-files:
       - any-glob-to-any-file:
           - "tsconfig*.json"
-          - "vite.config.*"
-          - "vitest.config.*"
+          - "hardviz/frontend/tsconfig*.json"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
           - "playwright*.config.*"
           - "Cargo.toml"
           - "**/Cargo.toml"
@@ -113,9 +117,9 @@
   - changed-files:
       - any-glob-to-any-file:
           - "**/*.test.*"
-          - "src/setupVitest.ts"
-          - "src/e2e/**"
+          - "hardviz/frontend/src/setupVitest.ts"
+          - "hardviz/frontend/src/e2e/**"
           - "e2e/**"
           - "e2e-native/**"
           - "playwright*.config.*"
-          - "vitest.config.*"
+          - "hardviz/frontend/vitest.config.*"

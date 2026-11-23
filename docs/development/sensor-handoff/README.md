@@ -101,7 +101,7 @@ Recommended order from here:
 - spec author セッションだけは、vendor datasheet / public hardware spec / independently collected dump を扱ってよいが、実装コードやcopyleft実装からコード構造を持ち込まないこと。
 - PR作成時は `CONTRIBUTING.md` に従い、branch prefix / commit prefix / PR title / PR type checkbox を揃えること。
 - HardwareVisualizer のPR baseは基本 `develop`。
-- `src/rspc/bindings.ts` は生成物。必要なら `npm run tauri:dev` など既存の生成経路で更新し、手編集しない。
+- `hardviz/frontend/src/rspc/bindings.ts` は生成物。必要なら `npm run tauri:dev` など既存の生成経路で更新し、手編集しない。
 - `superio-access.md` は `Implementation-ready (rev 4)`。rev 3 からの ready 範囲は Phase 2 raw chip-id diagnostic のみで、rev 4 では slot-1 ITE exit-withhold rule が追加されている。
 - Phase 3 Nuvoton は exact `0xD802` / NCT6799D normal-HM scope が
   `superio-nuvoton-nct67xx.md` rev 5 で ready・実装済み。

@@ -1,15 +1,15 @@
 # Frontend Instructions
 
 These instructions add to the repository root `AGENTS.md` for work under
-`src/`.
+`hardviz/frontend/`.
 
 ## Boundaries
 
 - Call the backend through generated commands from `@/rspc/bindings` and handle
-  the generated Result shape. Never edit `src/rspc/bindings.ts` manually.
+  the generated Result shape. Never edit `hardviz/frontend/src/rspc/bindings.ts` manually.
 - Use Jotai for shared frontend state. Declare new atoms in the owning
   `store/` module and follow the layer boundaries in
-  [ADR 0027](../docs/adr/0027-frontend-layer-boundaries-and-state-ownership.md),
+  [ADR 0027](../../docs/adr/0027-frontend-layer-boundaries-and-state-ownership.md),
   which `npm run lint:ci` enforces.
 - Never add a pending exception to
   `.config/biome/frontend-boundaries.jsonc` to make new code pass; change the
@@ -24,19 +24,19 @@ These instructions add to the repository root `AGENTS.md` for work under
   with a loading/ready/failed state instead), panels render `LoadFailure`, and
   an empty result is never rendered as a failure or vice versa. A failed user action is an
   `ActionFailure` line under its control (settings writes record it in
-  `settingsWriteFailuresAtom`, per control action id). Only `src/app/**` may use `useTauriDialog`; the backend `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` is the one other dialog site (app-cannot-continue tier) and uses the dialog plugin directly. See
+  `settingsWriteFailuresAtom`, per control action id). Only `hardviz/frontend/src/app/**` may use `useTauriDialog`; the backend `error_event` listener in `hardviz/frontend/src/hooks/tauri/useTauriEventListener.ts` is the one other dialog site (app-cannot-continue tier) and uses the dialog plugin directly. See
   the Failure Reporting section of `docs/design/frontend-architecture.md`.
 - Backend `error_event` is handled by `useErrorModalListener` in
-  `src/hooks/tauri/useTauriEventListener.ts`; preserve the existing error boundary
+  `hardviz/frontend/src/hooks/tauri/useTauriEventListener.ts`; preserve the existing error boundary
   unless the product flow needs a more specific user action.
-- Add user-visible strings to the language files under `src/lang/` and use
+- Add user-visible strings to the language files under `hardviz/frontend/src/lang/` and use
   `useTranslation()`.
 
-Read [`src/README.md`](README.md),
-[`docs/design-principles.md`](../docs/design-principles.md), and `CONTEXT.md`
+Read [`hardviz/frontend/README.md`](README.md),
+[`docs/design-principles.md`](../../docs/design-principles.md), and `CONTEXT.md`
 before introducing a new product term, persisted setting, or monitoring view.
-Also read [`frontend.md`](../.agents/rules/frontend.md) and, for persistence,
-[`settings.md`](../.agents/rules/settings.md).
+Also read [`frontend.md`](../../.agents/rules/frontend.md) and, for persistence,
+[`settings.md`](../../.agents/rules/settings.md).
 
 ## UX And Performance
 

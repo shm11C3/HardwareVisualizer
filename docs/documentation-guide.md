@@ -44,7 +44,7 @@ Use the closest stable owner:
   under `.github/` should remain configuration, workflow, template, or
   integration artifacts rather than the primary home for agent-neutral rules.
 - Code-owner guides live near the code they describe:
-  - `src/README.md` for frontend implementation guidance.
+  - `hardviz/frontend/README.md` for frontend implementation guidance.
   - `hardviz/app/README.md` for the Tauri app crate.
   - `hardviz/core/README.md` for `hardviz-core`.
 - Task guides that cross code owners live under `docs/development/`.

@@ -37,7 +37,12 @@ function runHook(name, mode, payload, expectedStatus, options = {}) {
 
 const before = gitStatus();
 
-runHook("normal edit", "pre", { tool_input: { file_path: "src/App.tsx" } }, 0);
+runHook(
+  "normal edit",
+  "pre",
+  { tool_input: { file_path: "hardviz/frontend/src/App.tsx" } },
+  0,
+);
 runHook(
   "new unlisted .github/scripts file",
   "pre",
@@ -71,13 +76,15 @@ runHook(
 runHook(
   "absolute generated binding",
   "pre",
-  { tool_input: { file_path: `${root}/src/rspc/bindings.ts` } },
+  {
+    tool_input: { file_path: `${root}/hardviz/frontend/src/rspc/bindings.ts` },
+  },
   2,
 );
 runHook(
   "normalized generated binding",
   "pre",
-  { tool_input: { file_path: "src/../src/rspc/bindings.ts" } },
+  { tool_input: { file_path: "hardviz/frontend/src/../src/rspc/bindings.ts" } },
   2,
 );
 runHook(
@@ -85,7 +92,7 @@ runHook(
   "pre",
   {
     tool_input:
-      "*** Begin Patch\n*** Update File: src/rspc/bindings.ts\n*** End Patch",
+      "*** Begin Patch\n*** Update File: hardviz/frontend/src/rspc/bindings.ts\n*** End Patch",
   },
   2,
 );
@@ -96,7 +103,7 @@ runHook(
   "pre",
   {
     tool_input:
-      "*** Begin Patch\n*** Update File: src/tmp.ts\n*** Move to: src/rspc/bindings.ts\n*** End Patch",
+      "*** Begin Patch\n*** Update File: hardviz/frontend/src/tmp.ts\n*** Move to: hardviz/frontend/src/rspc/bindings.ts\n*** End Patch",
   },
   2,
 );
@@ -104,9 +111,9 @@ runHook("malformed payload", "pre", "{", 2);
 runHook(
   "subdirectory invocation",
   "pre",
-  { tool_input: { file_path: "src/App.tsx" } },
+  { tool_input: { file_path: "hardviz/frontend/src/App.tsx" } },
   0,
-  { cwd: path.join(root, "src") },
+  { cwd: path.join(root, "hardviz", "frontend", "src") },
 );
 runHook(
   "touched guidance validation",
@@ -179,8 +186,10 @@ for (const configPath of [".codex/hooks.json", ".claude/settings.json"]) {
   const config = JSON.parse(readFileSync(path.join(root, configPath), "utf8"));
   const command = config.hooks.PreToolUse[0].hooks[0].command;
   const result = spawnSync(command, {
-    cwd: path.join(root, "src"),
-    input: JSON.stringify({ tool_input: { file_path: "src/App.tsx" } }),
+    cwd: path.join(root, "hardviz", "frontend", "src"),
+    input: JSON.stringify({
+      tool_input: { file_path: "hardviz/frontend/src/App.tsx" },
+    }),
     encoding: "utf8",
     shell: true,
   });

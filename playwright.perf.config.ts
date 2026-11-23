@@ -46,7 +46,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `vite dev --mode e2e --port ${RENDER_PERF_PORT} --strictPort`,
+    command: `vite dev --config hardviz/frontend/vite.config.ts --mode e2e --port ${RENDER_PERF_PORT} --strictPort`,
     url: `http://localhost:${RENDER_PERF_PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

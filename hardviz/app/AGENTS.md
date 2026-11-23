@@ -30,7 +30,7 @@ Read [`hardviz/app/README.md`](README.md),
 ## Commands, DTOs, And Settings
 
 - Register frontend-callable commands in `collect_commands![...]`.
-- Do not manually edit `src/rspc/bindings.ts`. Regenerate through
+- Do not manually edit `hardviz/frontend/src/rspc/bindings.ts`. Regenerate through
   `npm run tauri:dev` after Rust command/type changes.
 - App wire DTOs may mirror Core through the allowlisted generator, but
   presentation/event-specific DTOs remain App-owned. Follow ADR 0009.

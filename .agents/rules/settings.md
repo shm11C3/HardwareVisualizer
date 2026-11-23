@@ -1,5 +1,5 @@
 ---
-scope: "src/features/settings/**,src/lib/tauriStore.ts,src/hooks/tauri/useTauriStore.ts,hardviz/core/src/settings/**,hardviz/app/src/commands/settings.rs,hardviz/app/src/models/settings.rs,hardviz/app/src/services/settings_service.rs"
+scope: "hardviz/frontend/src/features/settings/**,hardviz/frontend/src/lib/tauriStore.ts,hardviz/frontend/src/hooks/tauri/useTauriStore.ts,hardviz/core/src/settings/**,hardviz/app/src/commands/settings.rs,hardviz/app/src/models/settings.rs,hardviz/app/src/services/settings_service.rs"
 ---
 
 # Settings Instructions
@@ -22,5 +22,5 @@ Settings screen. Do not use it as precedent and do not migrate it inside an
 unrelated change; follow the candidate lesson in
 `docs/agents/lessons/legacy-gpu-source-display-preference.md`.
 
-When a command/type changes, regenerate `src/rspc/bindings.ts`; do not edit it
+When a command/type changes, regenerate `hardviz/frontend/src/rspc/bindings.ts`; do not edit it
 manually.

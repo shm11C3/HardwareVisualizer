@@ -597,7 +597,7 @@ async function checkKnownDriftPoints() {
   const coreReadme = await read("hardviz/core/README.md");
   const appAgents = await read("hardviz/app/AGENTS.md");
   const appReadme = await read("hardviz/app/README.md");
-  const frontendReadme = await read("src/README.md");
+  const frontendReadme = await read("hardviz/frontend/README.md");
   const settings = await read(".agents/rules/settings.md");
   const prTemplate = await read(".github/pull_request_template.md");
   const packageJson = JSON.parse(await read("package.json"));
@@ -640,7 +640,7 @@ async function checkKnownDriftPoints() {
     ["docs/architecture/backend.md", backend],
     ["hardviz/app/AGENTS.md", appAgents],
     ["hardviz/app/README.md", appReadme],
-    ["src/README.md", frontendReadme],
+    ["hardviz/frontend/README.md", frontendReadme],
     ["CONTRIBUTING.md", await read("CONTRIBUTING.md")],
   ]) {
     if (content.includes("npm run tauri dev")) {
@@ -923,7 +923,7 @@ async function main() {
     "AGENTS.md",
     "hardviz/core/AGENTS.md",
     "hardviz/app/AGENTS.md",
-    "src/AGENTS.md",
+    "hardviz/frontend/AGENTS.md",
     "docs/AGENTS.md",
     "CLAUDE.md",
     "docs/design-principles.md",
