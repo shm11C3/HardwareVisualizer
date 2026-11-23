@@ -149,7 +149,7 @@ if (mode === "pre") {
 function runValidator(args = []) {
   return spawnSync(
     process.execPath,
-    [path.join(repoRoot, ".github/scripts/check-agent-guidance.mjs"), ...args],
+    [path.join(repoRoot, ".agents/tooling/check-agent-guidance.mjs"), ...args],
     {
       cwd: repoRoot,
       stdio: "inherit",
@@ -171,7 +171,10 @@ if (mode === "stop") {
   // itself is safe to interrupt and to run concurrently with itself.
   spawn(
     process.execPath,
-    [path.join(repoRoot, ".github/scripts/prune-build-dirs.mjs"), "--quiet"],
+    [
+      path.join(repoRoot, "scripts/build-cache/prune-build-dirs.mjs"),
+      "--quiet",
+    ],
     { cwd: repoRoot, detached: true, stdio: "ignore" },
   ).unref();
   process.exit(validatorExitCode(runValidator()));

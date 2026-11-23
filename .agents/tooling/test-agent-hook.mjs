@@ -7,7 +7,7 @@ const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
-const hook = path.join(root, ".github/scripts/agent-hook.mjs");
+const hook = path.join(root, ".agents/tooling/agent-hook.mjs");
 
 function gitStatus() {
   const result = spawnSync("git", ["status", "--porcelain=v1", "-uall"], {

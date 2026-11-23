@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.github/scripts/agent-hook.mjs\" pre",
+            "command": "node \"$(git rev-parse --show-toplevel)/.agents/tooling/agent-hook.mjs\" pre",
             "timeout": 10,
             "statusMessage": "Checking generated-file guard..."
           }
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.github/scripts/agent-hook.mjs\" post",
+            "command": "node \"$(git rev-parse --show-toplevel)/.agents/tooling/agent-hook.mjs\" post",
             "timeout": 30,
             "statusMessage": "Validating agent guidance..."
           }
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.github/scripts/agent-hook.mjs\" stop",
+            "command": "node \"$(git rev-parse --show-toplevel)/.agents/tooling/agent-hook.mjs\" stop",
             "timeout": 30,
             "statusMessage": "Checking complete agent guidance consistency..."
           }

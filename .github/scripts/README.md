@@ -12,7 +12,10 @@ put a file here.
    it verifies.
 2. A developer or diagnostic tool with no single owning area lives under
    `scripts/<area>/` (for example `scripts/diagnostics/`).
-3. Only GitHub Actions plumbing lives here, together with its tests: change
+3. Agent guidance and hook tooling (the guidance checker, the Claude and Codex
+   hooks, and their tests) lives in `.agents/tooling/`; `agent-guidance.yml`
+   runs it from there.
+4. Only GitHub Actions plumbing lives here, together with its tests: change
    detection, the merge gate, CI telemetry, cache reporting, release
    publishing and signing steps, dependency automation, and PR comments.
 
@@ -56,12 +59,6 @@ directory is the owner.
 | `test-evaluate-release-vulnerabilities.mjs` | `ci.yml` |
 | `generate-licenses.ts` | `publish.yml`, `auto-update-licenses.yml`, npm `gen:licenses:*` (exception, see below) |
 | `test-generate-licenses.mjs` | `ci.yml` (exception, see below) |
-| `agent-hook.mjs` | Claude and Codex hooks, npm (exception, see below) |
-| `check-agent-guidance.mjs` | `agent-guidance.yml`, npm, agent hooks (exception, see below) |
-| `guidance-paths.mjs` | agent guidance scripts (exception, see below) |
-| `test-agent-guidance.mjs` | `agent-guidance.yml`, npm (exception, see below) |
-| `test-agent-hook.mjs` | `agent-guidance.yml`, npm (exception, see below) |
-| `prune-build-dirs.mjs` | agent Stop hook, npm (exception, see below) |
 
 ## Known exceptions
 
@@ -69,11 +66,6 @@ These files predate the placement rule and have consumers outside GitHub
 Actions. Move them to their owner when they next change substantially; do not
 add new files to these groups here.
 
-- Agent guidance and hook tooling (`agent-hook.mjs`, `check-agent-guidance.mjs`,
-  `guidance-paths.mjs`, `prune-build-dirs.mjs`, `test-agent-guidance.mjs`,
-  `test-agent-hook.mjs`):
-  consumed by `.claude/settings.json`, `.codex/hooks.json`, and npm scripts,
-  and owned by the shared agent guidance under `.agents/`.
 - License notice generation (`generate-licenses.ts`,
   `test-generate-licenses.mjs`): also run by developers through npm
   `gen:licenses:*`, and it produces `docs/licenses/**` and the bundled notices.

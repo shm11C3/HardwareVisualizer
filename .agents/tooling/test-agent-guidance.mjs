@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { listedGithubScripts } from "./guidance-paths.mjs";
 
 const root = process.cwd();
-const checker = ".github/scripts/check-agent-guidance.mjs";
+const checker = ".agents/tooling/check-agent-guidance.mjs";
 
 function read(relativePath) {
   return readFileSync(relativePath, "utf8");

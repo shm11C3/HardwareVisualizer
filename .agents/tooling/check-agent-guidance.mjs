@@ -705,9 +705,9 @@ async function checkKnownDriftPoints() {
     fail("PR template is missing the perf/ change type");
   }
   for (const [script, command] of Object.entries({
-    "check:agent-guidance": "node .github/scripts/check-agent-guidance.mjs",
-    "test:agent-guidance": "node .github/scripts/test-agent-guidance.mjs",
-    "test:agent-hooks": "node .github/scripts/test-agent-hook.mjs",
+    "check:agent-guidance": "node .agents/tooling/check-agent-guidance.mjs",
+    "test:agent-guidance": "node .agents/tooling/test-agent-guidance.mjs",
+    "test:agent-hooks": "node .agents/tooling/test-agent-hook.mjs",
   })) {
     if (packageJson.scripts?.[script] !== command) {
       fail(`package.json ${script} script points to the wrong command`);
@@ -725,7 +725,7 @@ function commandHooks(parsed) {
 
 async function checkHooks() {
   const script =
-    'node "$(git rev-parse --show-toplevel)/.github/scripts/agent-hook.mjs"';
+    'node "$(git rev-parse --show-toplevel)/.agents/tooling/agent-hook.mjs"';
   const expected = [`${script} pre`, `${script} post`, `${script} stop`];
 
   for (const relativePath of [".codex/hooks.json", ".claude/settings.json"]) {

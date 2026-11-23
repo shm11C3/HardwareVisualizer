@@ -7,6 +7,7 @@ on:
       - "CLAUDE.md"
       - ".agents/rules/**"
       - ".agents/skills/**"
+      - ".agents/tooling/**"
       - ".claude/agents/**"
       - ".claude/settings.json"
       - ".codex/hooks.json"
@@ -39,6 +40,7 @@ on:
       - "CLAUDE.md"
       - ".agents/rules/**"
       - ".agents/skills/**"
+      - ".agents/tooling/**"
       - ".claude/agents/**"
       - ".claude/settings.json"
       - ".codex/hooks.json"
@@ -78,21 +80,21 @@ jobs:
           persist-credentials: false
 
       - name: Validate agent guidance
-        run: node .github/scripts/check-agent-guidance.mjs
+        run: node .agents/tooling/check-agent-guidance.mjs
 
       - name: Test agent hooks
-        run: node .github/scripts/test-agent-hook.mjs
+        run: node .agents/tooling/test-agent-hook.mjs
 
       - name: Test agent guidance failures
-        run: node .github/scripts/test-agent-guidance.mjs
+        run: node .agents/tooling/test-agent-guidance.mjs
 
       - name: Check script syntax
         run: |
-          node --check .github/scripts/agent-hook.mjs
-          node --check .github/scripts/guidance-paths.mjs
-          node --check .github/scripts/check-agent-guidance.mjs
-          node --check .github/scripts/test-agent-guidance.mjs
-          node --check .github/scripts/test-agent-hook.mjs
+          node --check .agents/tooling/agent-hook.mjs
+          node --check .agents/tooling/guidance-paths.mjs
+          node --check .agents/tooling/check-agent-guidance.mjs
+          node --check .agents/tooling/test-agent-guidance.mjs
+          node --check .agents/tooling/test-agent-hook.mjs
 
       - name: Check whitespace
         env:
