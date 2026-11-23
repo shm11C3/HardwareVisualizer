@@ -239,8 +239,10 @@ as a build-artifact/environment diagnosis before treating it as a code failure.
   repository uses a `chore/` branch and the PR template's `Other` type for those
   changes. Branch-name CI only warns on other prefixes, but `test/` and `ci/`
   are not recommended branch prefixes.
-- The PR title's Conventional Commit type sets the release-note `change:` label
-  (see `CONTRIBUTING.md`), and CI fails a PR whose title does not follow it.
+- The PR title's Conventional Commit type sets the release-note `change:` kind
+  label, except `perf:` and `chore:`, which set none; file rules in
+  `.github/labeler.yml` can add more `change:` labels (see `CONTRIBUTING.md`).
+  CI fails a PR whose title does not follow Conventional Commits.
 - Before publishing, use the
   [`change-kind-naming`](.agents/skills/change-kind-naming/SKILL.md) skill and
   verify the branch, commit/PR title, and PR template describe the same kind.

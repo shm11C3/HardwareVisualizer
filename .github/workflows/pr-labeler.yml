@@ -6,6 +6,12 @@ on:
 
 permissions: read-all
 
+# Both jobs write labels. Run one event at a time per PR so a run for an older
+# title cannot overwrite the labels set for a newer one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   label:
     runs-on: ubuntu-slim
@@ -21,8 +27,12 @@ jobs:
   # (change:feature / change:fix / change:refactor, plus docs/test/ci). The
   # title is attacker-controlled: it is only passed through env and never
   # interpolated into the script, and no code is checked out.
+  # It runs after `label`: actions/labeler writes the full label set from its
+  # start-of-run snapshot, which would restore a kind label removed here.
   title:
     name: PR title
+    needs: label
+    if: ${{ always() }}
     runs-on: ubuntu-slim
     permissions:
       contents: read
