@@ -112,9 +112,9 @@ if (mode === "pre" && paths.size === 0) {
   process.exit(2);
 }
 
-if (paths.has("src/rspc/bindings.ts")) {
+if (paths.has("hardviz/frontend/src/rspc/bindings.ts")) {
   console.error(
-    "src/rspc/bindings.ts is generated. Edit Rust commands/types and run npm run tauri:dev instead.",
+    "hardviz/frontend/src/rspc/bindings.ts is generated. Edit Rust commands/types and run npm run tauri:dev instead.",
   );
   process.exit(2);
 }

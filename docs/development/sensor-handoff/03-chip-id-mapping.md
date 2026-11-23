@@ -54,7 +54,7 @@ hardware-monitor base discovery.
 
 # テスト
 
-- pure helper は `core/src/utils/**` に置き、macOS/Linux CIでもテストされるようにする。
+- pure helper は `hardviz/core/src/utils/**` に置き、macOS/Linux CIでもテストされるようにする。
 - Windows-only providerも `x86_64-pc-windows-gnu` などでcompile確認する。
 - `RUSTFLAGS="-D warnings"` でも確認する。
 

@@ -43,7 +43,7 @@ flat `build-dir` path with no hash segment, intending to let worktrees reuse
 each other's compiled dependencies. A GitHub Copilot/Codex review of
 [PR #2110](https://github.com/shm11C3/HardwareVisualizer/pull/2110) found that
 Cargo does not fingerprint a workspace's own path-based member packages (this
-repository's `core` and `src-tauri` crates) by absolute source path under
+repository's `core` and `hardviz/app` crates) by absolute source path under
 `build-dir` the way it does under `target/`. Reproduced locally with cargo
 1.98.1: two throwaway workspaces with the identical package name and version
 but different source, pointed at the same flat `build-dir`, correctly shared

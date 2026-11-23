@@ -1,19 +1,19 @@
 "area:frontend":
   - changed-files:
       - any-glob-to-any-file:
-          - "src/**"
-          - "index.html"
+          - "hardviz/frontend/src/**"
+          - "hardviz/frontend/index.html"
           - "package.json"
           - "package-lock.json"
-          - "vite.config.*"
-          - "vitest.config.*"
-          - "playwright*.config.*"
-          - "tsconfig*.json"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
+          - "e2e/playwright*.config.*"
+          - "hardviz/frontend/tsconfig*.json"
 
 "area:core":
   - changed-files:
       - any-glob-to-any-file:
-          - "core/**"
+          - "hardviz/core/**"
           - "Cargo.toml"
           - "Cargo.lock"
           - "rust-toolchain.toml"
@@ -22,7 +22,7 @@
 "area:tauri":
   - changed-files:
       - any-glob-to-any-file:
-          - "src-tauri/**"
+          - "hardviz/app/**"
           - "Cargo.toml"
           - "Cargo.lock"
           - "rust-toolchain.toml"
@@ -46,23 +46,23 @@
       - any-glob-to-any-file:
           - "package.json"
           - "package-lock.json"
-          - "src/**"
-          - "vite.config.*"
-          - "vitest.config.*"
-          - "playwright*.config.*"
-          - "tsconfig*.json"
+          - "hardviz/frontend/src/**"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
+          - "e2e/playwright*.config.*"
+          - "hardviz/frontend/tsconfig*.json"
 
 "area:config":
   - changed-files:
       - any-glob-to-any-file:
-          - "tsconfig*.json"
-          - "vite.config.*"
-          - "vitest.config.*"
-          - "playwright*.config.*"
+          - "hardviz/frontend/tsconfig*.json"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
+          - "e2e/playwright*.config.*"
           - "Cargo.toml"
           - "**/Cargo.toml"
           - "*.conf.json"
-          - "src-tauri/*.conf.json"
+          - "hardviz/app/*.conf.json"
           - ".cargo/**"
 
 "change:deps":
@@ -78,10 +78,10 @@
 "change:config":
   - changed-files:
       - any-glob-to-any-file:
-          - "tsconfig*.json"
-          - "vite.config.*"
-          - "vitest.config.*"
-          - "playwright*.config.*"
+          - "hardviz/frontend/tsconfig*.json"
+          - "hardviz/frontend/vite.config.*"
+          - "hardviz/frontend/vitest.config.*"
+          - "e2e/playwright*.config.*"
           - "Cargo.toml"
           - "**/Cargo.toml"
           - "*.conf.json"
@@ -113,9 +113,9 @@
   - changed-files:
       - any-glob-to-any-file:
           - "**/*.test.*"
-          - "src/setupVitest.ts"
-          - "src/e2e/**"
+          - "hardviz/frontend/src/setupVitest.ts"
+          - "hardviz/frontend/src/e2e/**"
           - "e2e/**"
           - "e2e-native/**"
-          - "playwright*.config.*"
-          - "vitest.config.*"
+          - "e2e/playwright*.config.*"
+          - "hardviz/frontend/vitest.config.*"

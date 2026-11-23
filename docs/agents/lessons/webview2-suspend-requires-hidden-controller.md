@@ -7,7 +7,7 @@ trigger: when implementing or changing WebView2 suspension for a Tauri window
 failure_signature: TrySuspend fails with HRESULT 0x8007139F after the native Tauri window is hidden
 root_cause: hiding the native Tauri window does not make the embedded WebView2 controller invisible, but TrySuspend requires the controller IsVisible property to be false
 guardrail: the owning Windows WebView lifecycle explicitly hides the controller before TrySuspend and restores it before Resume and native show
-canonical_refs: docs/adr/0017-suspend-hidden-windows-webviews.md, src-tauri/src/webview_memory.rs, src-tauri/src/lib.rs
+canonical_refs: docs/adr/0017-suspend-hidden-windows-webviews.md, hardviz/app/src/webview_memory.rs, hardviz/app/src/lib.rs
 verification: the experiment failed before SetIsVisible(false); the corrected production path logged one suspension per flyout hide transition, held the stable tree Private Working Set at 31.9 MiB, restored the main window in 190 ms, and restored the flyout in 28 ms on real Windows hardware
 evidence: "issue #1962; src-tauri/src/webview_memory.rs; Microsoft CoreWebView2.TrySuspendAsync documentation"
 revalidate_when: Tauri or wry changes WebView2 controller visibility behavior, the WebView2 suspend API contract changes, or the Windows window lifecycle is redesigned

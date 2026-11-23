@@ -4,7 +4,7 @@
 # Core integration tests rely on (`db::init`'s `OnceLock` path and the
 # per-binary `OnceCell` fixtures) is private to each test instead of shared
 # across a binary. That is what lets the DuckDB integration binaries under
-# `core/tests/` run in parallel; each test already writes into its own
+# `hardviz/core/tests/` run in parallel; each test already writes into its own
 # `tempfile::tempdir()`.
 #
 # duckdb-archive is a default feature, so no --features flag is needed to

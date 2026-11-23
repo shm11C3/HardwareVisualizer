@@ -98,7 +98,7 @@ true のフラグだけを、完全な 1 組として、インストールごと
 
 ## 参照先
 
-- クライアントのソース（実装後）：HardwareVisualizer リポジトリの `src-tauri/src/analytics/`。
+- クライアントのソース（実装後）：HardwareVisualizer リポジトリの `hardviz/app/src/analytics/`。
 - 決定記録：[ADR 0028](../adr/0028-opt-in-product-analytics.md)。
 - 設計：[`docs/design/product-analytics.md`](../design/product-analytics.md)。
 - 公開 RFC と議論：[#2014](https://github.com/shm11C3/HardwareVisualizer/issues/2014)。

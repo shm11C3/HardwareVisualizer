@@ -21,7 +21,7 @@ struct Cli {
   binary: PathBuf,
 
   /// Path to the threshold config file
-  #[arg(long, default_value = "perf-thresholds.toml")]
+  #[arg(long, default_value = "perf-monitor/perf-thresholds.toml")]
   config: PathBuf,
 
   /// Minimum warmup duration before process-tree stabilization

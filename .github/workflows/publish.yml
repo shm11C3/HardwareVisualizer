@@ -103,7 +103,7 @@ jobs:
 
       - name: Fix linuxdeploy permissions
         if: matrix.platform == 'ubuntu-22.04'
-        run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
+        run: chmod +x ./hardviz/app/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
 
       - name: Unset problematic env vars
         if: matrix.platform == 'ubuntu-22.04'

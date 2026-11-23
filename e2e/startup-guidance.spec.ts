@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import type { ExternalComponentGuidanceCandidate } from "../src/rspc/bindings";
+import type { ExternalComponentGuidanceCandidate } from "../hardviz/frontend/src/rspc/bindings";
 import { capturePath, gotoApp, navigateTo } from "./helpers";
 
 const CPU_PERMISSION: ExternalComponentGuidanceCandidate = {

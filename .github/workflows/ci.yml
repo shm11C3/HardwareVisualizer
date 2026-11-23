@@ -56,39 +56,37 @@ jobs:
         with:
           filters: |
             frontend:
-              - 'src/**'
+              - 'hardviz/frontend/src/**'
               - 'e2e/**'
               - 'e2e-native/**'
               - 'package*.json'
-              - 'vite.config.ts'
-              - 'playwright.config.ts'
-              - 'playwright.perf.config.ts'
-              - 'playwright.memory.config.ts'
-              - 'tsconfig*.json'
+              - 'hardviz/frontend/vite.config.ts'
+              - '.github/tsconfig.json'
+              - 'hardviz/frontend/tsconfig*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
             bindings:
-              - 'src/rspc/bindings.ts'
+              - 'hardviz/frontend/src/rspc/bindings.ts'
             backend:
-              - 'core/**'
-              - 'sensor-service/**'
-              - 'src-tauri/**'
+              - 'hardviz/core/**'
+              - 'hardviz/sensor-service/**'
+              - 'hardviz/app/**'
               - 'Cargo.*'
               - '.cargo/**'
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
             core:
-              - 'core/**'
-              - 'sensor-service/**'
+              - 'hardviz/core/**'
+              - 'hardviz/sensor-service/**'
               - 'Cargo.*'
               - '.cargo/**'
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
             tauri:
-              - 'src-tauri/**'
-              - 'sensor-service/**'
+              - 'hardviz/app/**'
+              - 'hardviz/sensor-service/**'
               - 'e2e-native/**'
               - 'Cargo.*'
               - '.cargo/**'
@@ -101,31 +99,31 @@ jobs:
               - '.github/scripts/**'
               - 'scripts/licenses/**'
             backend-deps:
-              - 'sensor-service/Cargo.toml'
-              - 'core/Cargo.toml'
-              - 'src-tauri/Cargo.toml'
+              - 'hardviz/sensor-service/Cargo.toml'
+              - 'hardviz/core/Cargo.toml'
+              - 'hardviz/app/Cargo.toml'
               - 'Cargo.*'
               - '.cargo/**'
               - '.github/actions/**'
               - '.github/scripts/**'
               - 'scripts/licenses/**'
             cargo-license-config:
-              - 'src-tauri/deny.toml'
-              # Inputs to the DuckDB bundled-library notice check. core/ and
-              # src-tauri/Cargo.toml also reach this job through backend-deps;
+              - 'hardviz/app/deny.toml'
+              # Inputs to the DuckDB bundled-library notice check. hardviz/core/ and
+              # hardviz/app/Cargo.toml also reach this job through backend-deps;
               # they are named here too because the duckdb dependency's
               # features decide which vendored C/C++ libraries the notice must
               # cover, not just which crates are built.
-              - 'core/Cargo.toml'
-              - 'src-tauri/Cargo.toml'
+              - 'hardviz/core/Cargo.toml'
+              - 'hardviz/app/Cargo.toml'
               - 'docs/licenses/manual/**'
               - 'scripts/licenses/check-duckdb-license-version.ts'
               - '.github/actions/setup-rust/**'
               - '.github/workflows/ci.yml'
             windows-installer:
-              - 'sensor-service/**'
-              - 'src-tauri/windows/**'
-              - 'src-tauri/tauri.conf.json'
+              - 'hardviz/sensor-service/**'
+              - 'hardviz/app/windows/**'
+              - 'hardviz/app/tauri.conf.json'
               - '.github/scripts/release/sign-codesigntool.ps1'
               - '.github/scripts/release/test-sign-codesigntool.ps1'
               - '.github/workflows/ci.yml'
@@ -158,17 +156,15 @@ jobs:
           filters: |
             unclassified:
               - '**'
-              - '!src/**'
+              - '!hardviz/frontend/src/**'
               - '!e2e/**'
               - '!e2e-native/**'
               - '!package*.json'
-              - '!vite.config.ts'
-              - '!playwright.config.ts'
-              - '!playwright.perf.config.ts'
-              - '!playwright.memory.config.ts'
-              - '!tsconfig*.json'
-              - '!core/**'
-              - '!src-tauri/**'
+              - '!hardviz/frontend/vite.config.ts'
+              - '!.github/tsconfig.json'
+              - '!hardviz/frontend/tsconfig*.json'
+              - '!hardviz/core/**'
+              - '!hardviz/app/**'
               - '!Cargo.*'
               - '!.cargo/**'
               - '!rust-toolchain*'
@@ -383,7 +379,7 @@ jobs:
           tool: cargo-nextest
 
       # nextest runs each test in its own process, so the DuckDB integration
-      # binaries under core/tests/ run in parallel without sharing the
+      # binaries under hardviz/core/tests/ run in parallel without sharing the
       # process-wide database path. Scheduling rules live in .config/nextest.toml.
       # duckdb-archive is a default feature, so this already builds and runs
       # the DuckDB integration tests without an explicit flag.
@@ -568,8 +564,8 @@ jobs:
       - name: Prepare frontendDist placeholder
         shell: bash
         run: |
-          mkdir -p dist
-          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+          mkdir -p hardviz/frontend/dist
+          printf '<!doctype html><html><body></body></html>\n' > hardviz/frontend/dist/index.html
 
       - name: Check Tauri crate against changed Core API
         run: cargo check -p hardware_visualizer --all-targets --features custom-protocol
@@ -614,14 +610,14 @@ jobs:
       - name: Prepare frontendDist placeholder
         shell: bash
         run: |
-          mkdir -p dist
-          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+          mkdir -p hardviz/frontend/dist
+          printf '<!doctype html><html><body></body></html>\n' > hardviz/frontend/dist/index.html
 
       - name: Regenerate Tauri bindings
         run: cargo run --locked -p hardware_visualizer --features bindings-export --bin export_bindings
 
       - name: Check generated bindings are current
-        run: git diff --exit-code -- src/rspc/bindings.ts
+        run: git diff --exit-code -- hardviz/frontend/src/rspc/bindings.ts
 
   #
   # Build test
@@ -681,7 +677,7 @@ jobs:
 
       - name: Fix linuxdeploy permissions
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
-        run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
+        run: chmod +x ./hardviz/app/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
 
       - name: Unset problematic env vars
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
@@ -742,8 +738,8 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
         shell: bash
         run: |
-          mkdir -p dist
-          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+          mkdir -p hardviz/frontend/dist
+          printf '<!doctype html><html><body></body></html>\n' > hardviz/frontend/dist/index.html
 
       - name: Build Tauri Rust crate (CI optimized for PR)
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
@@ -833,8 +829,8 @@ jobs:
           if (-not (Get-ChildItem target/ci/bundle/nsis/*-setup.exe)) { throw "No NSIS installer was produced" }
           $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "No MSI was produced" }
-          ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
-          ./sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
+          ./hardviz/app/windows/wix/check-external-component-setup.ps1 $msi.FullName
+          ./hardviz/sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
 
   #
   # Frontend checks
@@ -893,7 +889,9 @@ jobs:
       - name: Report coverage
         uses: davelosert/vitest-coverage-report-action@v2.13.2
         with:
-          json-summary-path: coverage/coverage-summary.json
+          json-summary-path: hardviz/frontend/coverage/coverage-summary.json
+          json-final-path: hardviz/frontend/coverage/coverage-final.json
+          vite-config-path: hardviz/frontend/vitest.config.ts
 
   #
   # Frontend E2E captures (Playwright web/mock harness, issue #1609)
@@ -1144,7 +1142,7 @@ jobs:
         run: node --experimental-strip-types scripts/licenses/check-duckdb-license-version.ts
 
       - name: Check Rust licenses
-        run: cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config src-tauri/deny.toml licenses
+        run: cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config hardviz/app/deny.toml licenses
 
   #
   # Final merge gate: Strict checks for required jobs = success, unnecessary jobs = skipped

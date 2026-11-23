@@ -1,6 +1,10 @@
 # Group Shipped Components Under One Source Root
 
-Status: proposed
+Status: accepted
+
+Implementation status: all four migration slices land in
+[#2769](https://github.com/shm11C3/HardwareVisualizer/pull/2769). The Context
+section describes the layout before that change.
 
 ## Context
 

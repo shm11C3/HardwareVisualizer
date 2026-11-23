@@ -190,9 +190,12 @@ expectFailure(
   {
     ".agents/rules/clean-room-sensors.md": read(
       ".agents/rules/clean-room-sensors.md",
-    ).replace(",core/src/infrastructure/providers/windows/pawn_io/**", ""),
+    ).replace(
+      ",hardviz/core/src/infrastructure/providers/windows/pawn_io/**",
+      "",
+    ),
   },
-  "clean-room scope is missing: core/src/infrastructure/providers/windows/pawn_io/**",
+  "clean-room scope is missing: hardviz/core/src/infrastructure/providers/windows/pawn_io/**",
 );
 
 expectFailure(
@@ -245,17 +248,17 @@ expectFailure(
 expectFailure(
   "stale migration terminology",
   {
-    "core/README.md": `${read("core/README.md")}\nThe App brings up the Tauri SQL plugin.\n`,
+    "hardviz/core/README.md": `${read("hardviz/core/README.md")}\nThe App brings up the Tauri SQL plugin.\n`,
   },
-  "core/README.md contains stale Tauri SQL migration terminology",
+  "hardviz/core/README.md contains stale Tauri SQL migration terminology",
 );
 
 expectFailure(
   "stale scoped migration terminology",
   {
-    "src-tauri/AGENTS.md": `${read("src-tauri/AGENTS.md")}\nApp owns the Tauri SQL plugin migrations.\n`,
+    "hardviz/app/AGENTS.md": `${read("hardviz/app/AGENTS.md")}\nApp owns the Tauri SQL plugin migrations.\n`,
   },
-  "src-tauri/AGENTS.md contains stale Tauri SQL migration terminology",
+  "hardviz/app/AGENTS.md contains stale Tauri SQL migration terminology",
 );
 
 expectFailure(
@@ -272,12 +275,12 @@ expectFailure(
 expectFailure(
   "stale Core settings path",
   {
-    "core/README.md": read("core/README.md").replace(
+    "hardviz/core/README.md": read("hardviz/core/README.md").replace(
       "storage_health.rs    Storage Health settings",
       "storage_smart.rs     Storage SMART settings",
     ),
   },
-  "core/README.md does not point to the current storage settings module",
+  "hardviz/core/README.md does not point to the current storage settings module",
 );
 
 function expectTouchedFailure(name, touchedPaths, overrides, expectedText) {

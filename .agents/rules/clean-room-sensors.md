@@ -1,5 +1,5 @@
 ---
-scope: "docs/specs/sensors/**,docs/development/sensor-handoff/**,core/src/infrastructure/providers/windows/pawn_io/**,core/src/platform/windows/sensors.rs"
+scope: "docs/specs/sensors/**,docs/development/sensor-handoff/**,hardviz/core/src/infrastructure/providers/windows/pawn_io/**,hardviz/core/src/platform/windows/sensors.rs"
 ---
 
 # Clean-room rules for PawnIO sensor work (HardwareVisualizer)

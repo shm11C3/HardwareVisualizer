@@ -35,10 +35,10 @@ The maintainer's request is:
 | Runtime 2.2.0 asset: `PawnIO_setup.exe`, 3,410,960 bytes, SHA-256 `1f519a22e47187f70a1379a48ca604981c4fcf694f4e65b734aaa74a9fba3032`. | Downloaded and hashed on 2026-09-13; matches the winget manifest digest |
 | Modules ship as one zip per release containing signed `*.bin` files and the LGPL `COPYING`. Release 0.2.11: `release_0_2_11.zip`, 69,582 bytes, SHA-256 `43608cb89bc84247fef1368a139013f7d043e17db6d6c8dfc9b46bf0905a81f4`. | Downloaded and listed on 2026-09-26; matches the GitHub release asset digest |
 | The sensor specification pins its IOCTL facts to PawnIO.Modules tag `0.2.11`. | `docs/specs/sensors/pawnio-interface.md`, source S5 |
-| The installed runtime is discovered through `InstallLocation` under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO` with `%ProgramFiles%\PawnIO` as the fallback. | Same spec; `core/src/infrastructure/providers/windows/pawn_io/client.rs` |
+| The installed runtime is discovered through `InstallLocation` under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO` with `%ProgramFiles%\PawnIO` as the fallback. | Same spec; `hardviz/core/src/infrastructure/providers/windows/pawn_io/client.rs` |
 | The provider opens and caches the shared module handle once per process. | `open_shared_intel_msr` in `pawn_io/client.rs` uses a `OnceLock` |
 | Tauri's MSI template uses `WixUI_InstallDir` and places fragment features under a hidden `External` feature; its NSIS template has no components page but exposes `NSIS_HOOK_PREINSTALL`, `POSTINSTALL`, `PREUNINSTALL`, and `POSTUNINSTALL` macros. | `crates/tauri-bundler/src/bundle/windows/msi/main.wxs` and `nsis/installer.nsi` at the pinned Tauri release |
-| The MSI already downloads the WebView2 bootstrapper at install time when it is missing. | `src-tauri/tauri.conf.json` `webviewInstallMode: downloadBootstrapper` |
+| The MSI already downloads the WebView2 bootstrapper at install time when it is missing. | `hardviz/app/tauri.conf.json` `webviewInstallMode: downloadBootstrapper` |
 
 ## Chosen approach
 
@@ -56,13 +56,13 @@ flowchart LR
 
 | Concern | Owner |
 | --- | --- |
-| Component catalog: pinned URLs, sizes, digests, module file list, installer switches, exit-code meaning | Core (`core/src/external_component_setup`) |
+| Component catalog: pinned URLs, sizes, digests, module file list, installer switches, exit-code meaning | Core (`hardviz/core/src/external_component_setup`) |
 | Detection of the installed runtime and module files | Core, behind the platform trait |
 | Download, digest verification, running the runtime installer, extracting module files | Core Windows platform implementation |
 | Launching the current executable elevated and waiting for it | Core Windows platform implementation (generalizes the existing relaunch path) |
-| Command-line dispatch of the setup mode and its exit code | App (`src-tauri/src/cli`) |
+| Command-line dispatch of the setup mode and its exit code | App (`hardviz/app/src/cli`) |
 | Typed IPC, wire DTOs, Settings UI, restart prompt, copy | App and frontend |
-| Installer dialogs, properties, custom actions (#2118), uninstall notice (#2119) | App bundle configuration (`src-tauri/windows/`, wired in `src-tauri/tauri.conf.json`) |
+| Installer dialogs, properties, custom actions (#2118), uninstall notice (#2119) | App bundle configuration (`hardviz/app/windows/`, wired in `hardviz/app/tauri.conf.json`) |
 
 Nothing in this feature touches the clean-room sensor files. The setup module
 reads the same registry value and module file names the provider documents,
@@ -120,7 +120,7 @@ but it does not read registers or share code with the provider.
    sibling partial file, the target is checked again, and the partial file is
    renamed over it only while the target is still outdated. Current and
    unrecognized files are never replaced. The refresh-only entry point
-   (`refresh` in `core/src/external_component_setup/windows.rs`) runs only
+   (`refresh` in `hardviz/core/src/external_component_setup/windows.rs`) runs only
    this replacement; it never installs the runtime or adds a missing file.
 5. Re-read the state. Report success only when the component is complete
    (or the installer asked for a restart), then exit with a code that encodes
@@ -130,9 +130,9 @@ but it does not read registers or share code with the provider.
 ### Exit codes
 
 The setup mode reports through its exit code only. `SetupFailureStage` in
-`core/src/external_component_setup/mod.rs` owns the failure codes, and the
-App's command-line dispatch (`src-tauri/src/cli`, `run_cli_mode_if_requested`
-in `src-tauri/src/lib.rs`) owns the code of a command line that never
+`hardviz/core/src/external_component_setup/mod.rs` owns the failure codes, and the
+App's command-line dispatch (`hardviz/app/src/cli`, `run_cli_mode_if_requested`
+in `hardviz/app/src/lib.rs`) owns the code of a command line that never
 reached a setup plan.
 
 #### Setup-mode exit codes
@@ -253,7 +253,7 @@ installed and its fallbacks unchanged.
   still fails, the fail-closed exit above applies. That the child then runs
   with the other account's profile (settings, app data) predates the handoff.
 - **MSI (implemented, #2118).** The WiX fragment
-  `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
+  `hardviz/app/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between
   `InstallDirDlg` and `VerifyReadyDlg` by publishing `NewDialog` events with a
   higher order than `WixUI_InstallDir` (the last `NewDialog` wins). The
@@ -291,9 +291,9 @@ installed and its fallbacks unchanged.
   `.exe` installer is kept for compatibility and almost all Windows users
   install the MSI, so the MSI is where the installer option matters.
 - **Installer verification.** CI (`test-windows-installer`) builds both
-  packages when `src-tauri/windows/**`, `tauri.conf.json`, or the CI workflow
+  packages when `hardviz/app/windows/**`, `tauri.conf.json`, or the CI workflow
   changes or a Tauri dependency moves, and asserts the MSI tables with
-  `src-tauri/windows/wix/check-external-component-setup.ps1`, which sits next
+  `hardviz/app/windows/wix/check-external-component-setup.ps1`, which sits next
   to the fragment it checks. The interactive
   behaviour needs a manual run on Windows whenever the Tauri bundler templates
   change: the dialog appears pre-selected, opting out runs nothing, the MSI
@@ -316,7 +316,7 @@ installed and its fallbacks unchanged.
     `REBOOTPROMPT=S`, unattended like NSIS `/P`), when `UPGRADINGPRODUCTCODE` is set (the
     old version being removed by an upgrade), and outside Program Files,
     because an uninstall started from an elevated prompt runs it elevated.
-  - **NSIS:** `NSIS_HOOK_PREUNINSTALL` in `src-tauri/windows/nsis/hooks.nsh`,
+  - **NSIS:** `NSIS_HOOK_PREUNINSTALL` in `hardviz/app/windows/nsis/hooks.nsh`,
     skipped for `/S`, `/P`, `/UPDATE`, and when the command line carries
     `_?=` (Tauri's `PageLeaveReinstall` runs the old uninstaller that way
     when a newer `*-setup.exe` is run by hand, and Apps & features never

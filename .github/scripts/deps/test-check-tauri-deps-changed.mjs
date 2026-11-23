@@ -45,7 +45,7 @@ try {
   git("init", "--initial-branch=main");
   git("config", "user.name", "Tauri dependency check test");
   git("config", "user.email", "tauri-deps-check@example.invalid");
-  mkdirSync(join(testRepo, "src-tauri"));
+  mkdirSync(join(testRepo, "hardviz/app"), { recursive: true });
 
   writeFileSync(
     join(testRepo, "package.json"),
@@ -105,7 +105,7 @@ dependencies = [
 `,
   );
   writeFileSync(
-    join(testRepo, "src-tauri/Cargo.toml"),
+    join(testRepo, "hardviz/app/Cargo.toml"),
     `[dependencies]
 tauri = "2.11.0"
 serde = "1"

@@ -2,7 +2,7 @@
 id: LRN-20261109-gate-on-hardware-mechanism-not-observation
 status: promoted
 cause_status: confirmed
-scope: docs/specs/sensors/**, native sensor Detection sections, and their Rust gates under core/src/infrastructure/providers/**
+scope: docs/specs/sensors/**, native sensor Detection sections, and their Rust gates under hardviz/core/src/infrastructure/providers/**
 trigger: a sensor specification or provider proposes an exact brand string, baseboard identity, firmware version, part number or bus address as a runtime condition
 failure_signature: "the #2510 coverage wave shipped fourteen scopes in three days, almost all gated on the identity of the observation (five Arrow Lake brands, three Vermeer brands, one Gigabyte baseboard tuple, one BIOS version per MSI board, one ODROID-H4 board/firmware/DIMM tuple); the Intel core DTS spec admits Alder Lake H/P by shared signature while the Arrow Lake spec requires a brand match for the same hybrid mechanism"
 root_cause: the spec-author role derived each scope from the identity of the dump or report that supplied the evidence instead of from the hardware mechanism the evidence describes, so verification confidence became a runtime allowlist again, the pattern ADR 0011 had already rejected

@@ -1,10 +1,10 @@
 ---
-scope: "src/**/*.ts,src/**/*.tsx,src/**/*.css,src/lang/**/*.json"
+scope: "hardviz/frontend/src/**/*.ts,hardviz/frontend/src/**/*.tsx,hardviz/frontend/src/**/*.css,hardviz/frontend/src/lang/**/*.json"
 ---
 
 # Frontend Instructions
 
-Follow `src/AGENTS.md` and `docs/design-principles.md`.
+Follow `hardviz/frontend/AGENTS.md` and `docs/design-principles.md`.
 
 - Use generated commands from `@/rspc/bindings`; never hand-edit the generated
   binding file.
@@ -17,9 +17,9 @@ Follow `src/AGENTS.md` and `docs/design-principles.md`.
   that reads as `failed` and is retried by a small hook writing `"refresh"` to
   it), the panel renders the shared failure component, and secondary lanes log
   only. Report a failed user action as one translated
-  `ActionFailure` line under the control that was used. Only `src/app/**`
+  `ActionFailure` line under the control that was used. Only `hardviz/frontend/src/app/**`
   (already-modal flows) may import `useTauriDialog` (lint); the backend
-  `error_event` listener in `src/hooks/tauri/useTauriEventListener.ts` is the
+  `error_event` listener in `hardviz/frontend/src/hooks/tauri/useTauriEventListener.ts` is the
   one other dialog site and uses the dialog plugin directly. See the Failure
   Reporting section of `docs/design/frontend-architecture.md`.
 - Keep high-frequency updates from rerendering unrelated subtrees; add a focused

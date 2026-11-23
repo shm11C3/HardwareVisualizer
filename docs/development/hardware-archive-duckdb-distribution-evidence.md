@@ -52,7 +52,7 @@ Dependency growth: 432 → 473 crates, **41 added** (at the measured commit;
 `-e normal,build` omits proc-macro edges, so the real graph is wider — see the
 licence section). `ureq`, `zip`, `zopfli` and `zlib-rs` enter only as *build*
 dependencies of `libduckdb-sys`; the `arrow-*` crates link in. Because
-`core/Cargo.toml` uses `default-features = false, features = ["bundled"]`, the
+`hardviz/core/Cargo.toml` uses `default-features = false, features = ["bundled"]`, the
 `cc` backend compiles the manifest's `base` section together with the
 always-enabled `core_functions` extension, and neither `json` nor `parquet`:
 280 translation units, 12 vendored C/C++ libraries with sources of their own
@@ -138,7 +138,7 @@ the attribution for the bundled C/C++ libraries — all 21 of them after this
 change; #2123 covered the 12 with sources of their own — and
 `scripts/licenses/check-duckdb-license-version.ts` fails CI when the pinned
 `duckdb` / `libduckdb-sys` versions in `Cargo.lock`, or the `duckdb`
-dependency's feature configuration in `core/Cargo.toml`, move past what that
+dependency's feature configuration in `hardviz/core/Cargo.toml`, move past what that
 notice records.
 
 ### Extension autoload defaults

@@ -6,7 +6,7 @@
   // A later override that configures a rule REPLACES that rule's options from
   // earlier overrides for the files it matches; options are not merged. Keep
   // the boundary scopes disjoint, keep every override's constraint set
-  // complete, and keep the App override last so the app layer (src/app/**) is
+  // complete, and keep the App override last so the app layer (hardviz/frontend/src/app/**) is
   // reclassified after the generic scopes it overlaps.
   //
   // A target constraint that still has violations is recorded as a commented
@@ -14,7 +14,7 @@
   // Never add a new pending exception to make new code pass.
   //
   // Every layer override bans `@/hooks/tauri/useTauriDialog`, including the
-  // entry-point override at the end; only the App override (src/app/**, modal
+  // entry-point override at the end; only the App override (hardviz/frontend/src/app/**, modal
   // flows) may open an OS error dialog. Keep the
   // `paths` entry in each new override. `useTauriEventListener.ts` opens its
   // dialog through the Tauri plugin directly, so it needs no exception here.
@@ -25,23 +25,23 @@
     // Module-scope `let` outside store modules.
     {
       "includes": [
-        "src/**",
-        "!src/**/store/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx",
+        "hardviz/frontend/src/**",
+        "!hardviz/frontend/src/**/store/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx",
         // Process-wide handle to the Tauri Store plugin, not application state.
-        "!src/lib/tauriStore.ts"
+        "!hardviz/frontend/src/lib/tauriStore.ts"
       ],
       "plugins": ["./.config/biome/no-module-scope-let.grit"]
     },
     // Foundation
     {
       "includes": [
-        "src/lib/**",
-        "src/types/**",
-        "src/consts/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/lib/**",
+        "hardviz/frontend/src/types/**",
+        "hardviz/frontend/src/consts/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -70,7 +70,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   }
                 }
@@ -82,7 +82,11 @@
     },
     // Shared store
     {
-      "includes": ["src/store/**", "!src/**/*.test.ts", "!src/**/*.test.tsx"],
+      "includes": [
+        "hardviz/frontend/src/store/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -109,7 +113,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -137,7 +141,11 @@
     },
     // Shared hooks
     {
-      "includes": ["src/hooks/**", "!src/**/*.test.ts", "!src/**/*.test.tsx"],
+      "includes": [
+        "hardviz/frontend/src/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -158,7 +166,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -182,10 +190,10 @@
     // UI primitives
     {
       "includes": [
-        "src/components/ui/**",
-        "src/components/icons/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/components/ui/**",
+        "hardviz/frontend/src/components/icons/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -211,7 +219,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "@/rspc/bindings": {
@@ -228,9 +236,9 @@
     // Shared components: charts
     {
       "includes": [
-        "src/components/charts/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/components/charts/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -252,7 +260,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -279,10 +287,10 @@
     // Shared components
     {
       "includes": [
-        "src/components/*.ts",
-        "src/components/*.tsx",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/components/*.ts",
+        "hardviz/frontend/src/components/*.tsx",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -298,7 +306,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -325,9 +333,9 @@
     // Feature catch-all: a feature without its own overrides below fails here
     {
       "includes": [
-        "src/features/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -343,7 +351,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -370,12 +378,12 @@
     // Feature hardware: ui
     {
       "includes": [
-        "src/features/hardware/**",
-        "!src/features/hardware/store/**",
-        "!src/features/hardware/hooks/**",
-        "!src/features/hardware/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/hardware/**",
+        "!hardviz/frontend/src/features/hardware/store/**",
+        "!hardviz/frontend/src/features/hardware/hooks/**",
+        "!hardviz/frontend/src/features/hardware/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -397,7 +405,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -424,10 +432,10 @@
     // Feature hardware: hooks
     {
       "includes": [
-        "src/features/hardware/hooks/**",
-        "src/features/hardware/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/hardware/hooks/**",
+        "hardviz/frontend/src/features/hardware/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -460,7 +468,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -484,9 +492,9 @@
     // Feature hardware: store
     {
       "includes": [
-        "src/features/hardware/store/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/hardware/store/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -524,7 +532,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -553,12 +561,12 @@
     // Feature settings: ui
     {
       "includes": [
-        "src/features/settings/**",
-        "!src/features/settings/store/**",
-        "!src/features/settings/hooks/**",
-        "!src/features/settings/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/settings/**",
+        "!hardviz/frontend/src/features/settings/store/**",
+        "!hardviz/frontend/src/features/settings/hooks/**",
+        "!hardviz/frontend/src/features/settings/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -580,7 +588,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -607,10 +615,10 @@
     // Feature settings: hooks
     {
       "includes": [
-        "src/features/settings/hooks/**",
-        "src/features/settings/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/settings/hooks/**",
+        "hardviz/frontend/src/features/settings/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -642,7 +650,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -666,9 +674,9 @@
     // Feature settings: store
     {
       "includes": [
-        "src/features/settings/store/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/settings/store/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -705,7 +713,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -734,12 +742,12 @@
     // Feature menu: ui
     {
       "includes": [
-        "src/features/menu/**",
-        "!src/features/menu/store/**",
-        "!src/features/menu/hooks/**",
-        "!src/features/menu/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/menu/**",
+        "!hardviz/frontend/src/features/menu/store/**",
+        "!hardviz/frontend/src/features/menu/hooks/**",
+        "!hardviz/frontend/src/features/menu/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -761,7 +769,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -788,10 +796,10 @@
     // Feature menu: hooks
     {
       "includes": [
-        "src/features/menu/hooks/**",
-        "src/features/menu/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/menu/hooks/**",
+        "hardviz/frontend/src/features/menu/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -823,7 +831,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -847,9 +855,9 @@
     // Feature menu: store
     {
       "includes": [
-        "src/features/menu/store/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/menu/store/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -886,7 +894,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -915,12 +923,12 @@
     // Feature tray: ui
     {
       "includes": [
-        "src/features/tray/**",
-        "!src/features/tray/store/**",
-        "!src/features/tray/hooks/**",
-        "!src/features/tray/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/tray/**",
+        "!hardviz/frontend/src/features/tray/store/**",
+        "!hardviz/frontend/src/features/tray/hooks/**",
+        "!hardviz/frontend/src/features/tray/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -942,7 +950,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -969,10 +977,10 @@
     // Feature tray: hooks
     {
       "includes": [
-        "src/features/tray/hooks/**",
-        "src/features/tray/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/tray/hooks/**",
+        "hardviz/frontend/src/features/tray/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -1004,7 +1012,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -1028,9 +1036,9 @@
     // Feature tray: store
     {
       "includes": [
-        "src/features/tray/store/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/tray/store/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -1067,7 +1075,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -1096,12 +1104,12 @@
     // Feature updater: ui
     {
       "includes": [
-        "src/features/updater/**",
-        "!src/features/updater/store/**",
-        "!src/features/updater/hooks/**",
-        "!src/features/updater/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/updater/**",
+        "!hardviz/frontend/src/features/updater/store/**",
+        "!hardviz/frontend/src/features/updater/hooks/**",
+        "!hardviz/frontend/src/features/updater/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -1123,7 +1131,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -1150,10 +1158,10 @@
     // Feature updater: hooks
     {
       "includes": [
-        "src/features/updater/hooks/**",
-        "src/features/updater/**/hooks/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/updater/hooks/**",
+        "hardviz/frontend/src/features/updater/**/hooks/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -1185,7 +1193,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -1209,9 +1217,9 @@
     // Feature updater: store
     {
       "includes": [
-        "src/features/updater/store/**",
-        "!src/**/*.test.ts",
-        "!src/**/*.test.tsx"
+        "hardviz/frontend/src/features/updater/store/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
       ],
       "linter": {
         "rules": {
@@ -1248,7 +1256,7 @@
                 ],
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   },
                   "jotai": {
@@ -1274,9 +1282,13 @@
         }
       }
     },
-    // App: the app layer (src/app/**), the composition root; keep this override last
+    // App: the app layer (hardviz/frontend/src/app/**), the composition root; keep this override last
     {
-      "includes": ["src/app/**", "!src/**/*.test.ts", "!src/**/*.test.tsx"],
+      "includes": [
+        "hardviz/frontend/src/app/**",
+        "!hardviz/frontend/src/**/*.test.ts",
+        "!hardviz/frontend/src/**/*.test.tsx"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -1311,10 +1323,10 @@
         }
       }
     },
-    // Entry points (src/main*.tsx): composition roots may import every layer, so
+    // Entry points (hardviz/frontend/src/main*.tsx): composition roots may import every layer, so
     // the only constraint is the dialog ban shared by all layers.
     {
-      "includes": ["src/main*.tsx"],
+      "includes": ["hardviz/frontend/src/main*.tsx"],
       "linter": {
         "rules": {
           "style": {
@@ -1323,7 +1335,7 @@
               "options": {
                 "paths": {
                   "@/hooks/tauri/useTauriDialog": {
-                    "message": "Only src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
+                    "message": "Only hardviz/frontend/src/app (modal flows) may open an OS error dialog. Report a failed read in place and a failed user action under its control. See the Failure Reporting section of docs/design/frontend-architecture.md.",
                     "importNames": ["*", "useTauriDialog"]
                   }
                 }

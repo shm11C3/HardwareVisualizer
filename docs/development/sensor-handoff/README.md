@@ -10,7 +10,7 @@ small and scoped so clean-room boundaries and PR scope stay clean.
 - ✅ **Phase 2** — Super I/O chip-id diagnostic via PawnIO `LpcIO`. **Merged.**
   - PR [#1732](https://github.com/shm11C3/HardwareVisualizer/pull/1732) merged into `develop` (commit `d8bb4bb8`).
   - Spec gate resolved by [#1734](https://github.com/shm11C3/HardwareVisualizer/pull/1734) (`a8c167b1`); `docs/specs/sensors/superio-access.md` is `Implementation-ready (rev 4)`; the rev 3 ready scope remains the **Phase 2 raw chip-id diagnostic scope**, with the slot-1 ITE exit-withhold rule added in rev 4.
-  - Code: `core/src/infrastructure/providers/windows/pawn_io/super_io/diagnostics.rs` (chip-id `0x20`/`0x21` only), routed through the `SuperIoPlatform` trait + `PlatformFactory` (post-review refactor). Pure helpers in `core/src/infrastructure/providers/windows/pawn_io/super_io/access.rs`.
+  - Code: `hardviz/core/src/infrastructure/providers/windows/pawn_io/super_io/diagnostics.rs` (chip-id `0x20`/`0x21` only), routed through the `SuperIoPlatform` trait + `PlatformFactory` (post-review refactor). Pure helpers in `hardviz/core/src/infrastructure/providers/windows/pawn_io/super_io/access.rs`.
   - Command: `get_super_io_chip_id_diagnostics` / TS `commands.getSuperIoChipIdDiagnostics()`.
   - Hardware validation follow-ups remain useful for ITE graduation,
     PawnIO-absent behavior, and concurrent-monitor behavior, but do not
@@ -35,7 +35,7 @@ small and scoped so clean-room boundaries and PR scope stay clean.
 
 The `superio-access.md` rev 4 exit withhold is unblocked for a separate
 clean-room implementation session covering
-`core/src/infrastructure/providers/windows/pawn_io/super_io/diagnostics.rs` and
+`hardviz/core/src/infrastructure/providers/windows/pawn_io/super_io/diagnostics.rs` and
 the ITE slot handling in `pawn_io/super_io/motherboard.rs`, plus the skipped-exit
 state in the diagnostic model. It should land before further ITE chip
 scopes widen the number of Gigabyte two-chip boards that run the slot-1
@@ -101,7 +101,7 @@ Recommended order from here:
 - spec author セッションだけは、vendor datasheet / public hardware spec / independently collected dump を扱ってよいが、実装コードやcopyleft実装からコード構造を持ち込まないこと。
 - PR作成時は `CONTRIBUTING.md` に従い、branch prefix / commit prefix / PR title / PR type checkbox を揃えること。
 - HardwareVisualizer のPR baseは基本 `develop`。
-- `src/rspc/bindings.ts` は生成物。必要なら `npm run tauri:dev` など既存の生成経路で更新し、手編集しない。
+- `hardviz/frontend/src/rspc/bindings.ts` は生成物。必要なら `npm run tauri:dev` など既存の生成経路で更新し、手編集しない。
 - `superio-access.md` は `Implementation-ready (rev 4)`。rev 3 からの ready 範囲は Phase 2 raw chip-id diagnostic のみで、rev 4 では slot-1 ITE exit-withhold rule が追加されている。
 - Phase 3 Nuvoton は exact `0xD802` / NCT6799D normal-HM scope が
   `superio-nuvoton-nct67xx.md` rev 5 で ready・実装済み。

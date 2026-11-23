@@ -8,7 +8,7 @@ failure_signature: PawnIO failures were String values, and retry, unsupported, a
 root_cause: each new failure path or model was added in its local form (a formatted reason or one more branch) without first asking whether a type or a table row could carry the meaning, so the classification and the per-model selection were spread across helpers that depended on exact wording
 guardrail: the root AGENTS.md Change Justification And Simplicity section requires checking for a precise type before using a string or bare number, forbids deciding behavior by matching message text, and asks whether accumulated branches are data that a table can express, while keeping protocol steps and safety gates as code
 canonical_refs: AGENTS.md
-verification: no code in core/src/infrastructure/providers/windows/pawn_io/** or core/src/platform/windows/sensors.rs (tests excluded) classifies a failure with starts_with, contains, or == on its message
+verification: no code in hardviz/core/src/infrastructure/providers/windows/pawn_io/** or hardviz/core/src/platform/windows/sensors.rs (tests excluded) classifies a failure with starts_with, contains, or == on its message
 evidence: "maintainer direction on 2026-11-09 and 2026-11-10; issue #2639 and PRs #2640, #2641, #2643 replaced string-classified PawnIO errors with PawnIoError, MutexError, and MotherboardSensorError; core/src/infrastructure/providers/windows/pawn_io/super_io/nuvoton.rs shows the table-driven profile form"
 revalidate_when: a lint or test enforces the string-classification ban, or the AGENTS.md simplicity section is restructured
 ---

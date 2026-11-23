@@ -301,8 +301,8 @@ async function checkRules() {
   const cleanRoomScope =
     parsedByFile.get("clean-room-sensors.md")?.get("scope") ?? "";
   for (const requiredPath of [
-    "core/src/infrastructure/providers/windows/pawn_io/**",
-    "core/src/platform/windows/sensors.rs",
+    "hardviz/core/src/infrastructure/providers/windows/pawn_io/**",
+    "hardviz/core/src/platform/windows/sensors.rs",
   ]) {
     if (!cleanRoomScope.split(",").includes(requiredPath)) {
       fail(`clean-room scope is missing: ${requiredPath}`);
@@ -594,16 +594,16 @@ async function checkKnownDriftPoints() {
   const rustRule = await read(".agents/rules/rust.md");
   const cleanRoom = await read(".agents/rules/clean-room-sensors.md");
   const backend = await read("docs/architecture/backend.md");
-  const coreReadme = await read("core/README.md");
-  const appAgents = await read("src-tauri/AGENTS.md");
-  const appReadme = await read("src-tauri/README.md");
-  const frontendReadme = await read("src/README.md");
+  const coreReadme = await read("hardviz/core/README.md");
+  const appAgents = await read("hardviz/app/AGENTS.md");
+  const appReadme = await read("hardviz/app/README.md");
+  const frontendReadme = await read("hardviz/frontend/README.md");
   const settings = await read(".agents/rules/settings.md");
   const prTemplate = await read(".github/pull_request_template.md");
   const packageJson = JSON.parse(await read("package.json"));
 
   for (const stalePath of [
-    "src-tauri/src/platform/",
+    "hardviz/app/src/platform/",
     "crate::platform::PlatformFactory",
   ]) {
     if (rootAgents.includes(stalePath)) {
@@ -627,9 +627,9 @@ async function checkKnownDriftPoints() {
     ["AGENTS.md", rootAgents],
     [".agents/rules/rust.md", rustRule],
     ["docs/architecture/backend.md", backend],
-    ["core/README.md", coreReadme],
-    ["src-tauri/AGENTS.md", appAgents],
-    ["src-tauri/README.md", appReadme],
+    ["hardviz/core/README.md", coreReadme],
+    ["hardviz/app/AGENTS.md", appAgents],
+    ["hardviz/app/README.md", appReadme],
   ]) {
     if (/Tauri SQL (?:plugin|migration)/.test(content)) {
       fail(`${name} contains stale Tauri SQL migration terminology`);
@@ -638,9 +638,9 @@ async function checkKnownDriftPoints() {
   for (const [name, content] of [
     ["AGENTS.md", rootAgents],
     ["docs/architecture/backend.md", backend],
-    ["src-tauri/AGENTS.md", appAgents],
-    ["src-tauri/README.md", appReadme],
-    ["src/README.md", frontendReadme],
+    ["hardviz/app/AGENTS.md", appAgents],
+    ["hardviz/app/README.md", appReadme],
+    ["hardviz/frontend/README.md", frontendReadme],
     ["CONTRIBUTING.md", await read("CONTRIBUTING.md")],
   ]) {
     if (content.includes("npm run tauri dev")) {
@@ -649,7 +649,7 @@ async function checkKnownDriftPoints() {
   }
   if (!coreReadme.includes("storage_health.rs    Storage Health settings")) {
     fail(
-      "core/README.md does not point to the current storage settings module",
+      "hardviz/core/README.md does not point to the current storage settings module",
     );
   }
 
@@ -921,9 +921,9 @@ async function main() {
 
   const guidanceFiles = [
     "AGENTS.md",
-    "core/AGENTS.md",
-    "src-tauri/AGENTS.md",
-    "src/AGENTS.md",
+    "hardviz/core/AGENTS.md",
+    "hardviz/app/AGENTS.md",
+    "hardviz/frontend/AGENTS.md",
     "docs/AGENTS.md",
     "CLAUDE.md",
     "docs/design-principles.md",

@@ -6,8 +6,8 @@ scope: any code path where an elevated child process reports back to the uneleva
 trigger: designing a result channel, staging directory, or file placement for an elevated helper, installer step, or External Component Setup
 failure_signature: the first External Component Setup design passed a result-file path in the user's temp directory to the elevated child and staged the verified installer there; review identified elevated arbitrary-write, result forgery, and post-verification swap by a same-user medium-integrity process
 root_cause: paths the unelevated caller controls are writable by every medium-integrity process of that user, so an elevated child that writes to, or re-opens and executes from, such a path trusts an attacker-controllable location
-guardrail: ADR 0024 decision 3 and the module docs of core/src/external_component_setup; the elevated setup child reports only through its exit code, stages under an administrator-only directory, and never treats an unreadable state as absence
-canonical_refs: docs/adr/0024-external-component-setup.md, core/src/external_component_setup/mod.rs, core/src/external_component_setup/windows.rs
+guardrail: ADR 0024 decision 3 and the module docs of hardviz/core/src/external_component_setup; the elevated setup child reports only through its exit code, stages under an administrator-only directory, and never treats an unreadable state as absence
+canonical_refs: docs/adr/0024-external-component-setup.md, hardviz/core/src/external_component_setup/mod.rs, hardviz/core/src/external_component_setup/windows.rs
 verification: cargo test -p hardviz-core external_component_setup (exit-code round trip, unknown-state blocking) and the Windows CI compile of the staging and registry paths
 evidence: "PR #2120 review threads by Codex and CodeRabbit on the result file and staging directory, and the correction commits on that PR"
 revalidate_when: the service authorization or installer trust boundary changes, or the setup child needs more than an outcome and stage

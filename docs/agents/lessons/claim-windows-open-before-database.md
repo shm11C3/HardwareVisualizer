@@ -7,7 +7,7 @@ trigger: changing process startup order, elevated reopen, or single-instance not
 failure_signature: a secondary launch can inspect or open the database before the single-instance plugin decides it should exit
 root_cause: App run startup performed native authority resolution and SQLite preflight before Tauri initialized the single-instance plugin
 guardrail: claim the Windows Open event before settings and database startup, and let a secondary process signal and exit before opening an authoritative database
-canonical_refs: docs/adr/0007-elevated-startup-mode.md, docs/architecture/backend.md, src-tauri/src/lib.rs
+canonical_refs: docs/adr/0007-elevated-startup-mode.md, docs/architecture/backend.md, hardviz/app/src/lib.rs
 verification: inspect the first operation in App run and exercise the Windows activation test with a primary and a second launch
 evidence: "src-tauri/src/lib.rs startup ordering before Issue #2291; tauri-plugin-single-instance 2.4.5 Windows setup; Windows Mandatory Integrity Control and SendMessageW documentation"
 revalidate_when: Tauri plugin startup ordering changes, the Windows activation channel changes, or database authority startup moves
