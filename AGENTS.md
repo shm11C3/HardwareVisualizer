@@ -237,7 +237,10 @@ as a build-artifact/environment diagnosis before treating it as a code failure.
   `codex/` or `claude/`.
 - `test:` and `ci:` remain valid Conventional Commit / PR title kinds, but this
   repository uses a `chore/` branch and the PR template's `Other` type for those
-  changes because `test/` and `ci/` branches are rejected by CI.
+  changes. Branch-name CI only warns on other prefixes, but `test/` and `ci/`
+  are not recommended branch prefixes.
+- The PR title's Conventional Commit type sets the release-note `change:` label
+  (see `CONTRIBUTING.md`), and CI fails a PR whose title does not follow it.
 - Before publishing, use the
   [`change-kind-naming`](.agents/skills/change-kind-naming/SKILL.md) skill and
   verify the branch, commit/PR title, and PR template describe the same kind.

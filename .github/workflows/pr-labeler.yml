@@ -16,3 +16,55 @@ jobs:
       - uses: actions/labeler@v7.0.0
         with:
           configuration-path: .github/labeler.yml
+
+  # The PR title (Conventional Commits) is the single source of the kind label
+  # (change:feature / change:fix / change:refactor, plus docs/test/ci). The
+  # title is attacker-controlled: it is only passed through env and never
+  # interpolated into the script, and no code is checked out.
+  title:
+    name: PR title
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Validate PR title and set kind label
+        shell: bash
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          title_regex='^(feat|fix|docs|refactor|perf|test|ci|chore)(\([^)]+\))?!?: .+'
+          if [[ ! "$TITLE" =~ $title_regex ]]; then
+            echo "::error title=Invalid PR title::The PR title must follow Conventional Commits: <type>(<optional scope>): <summary>. Allowed types: feat, fix, docs, refactor, perf, test, ci, chore. See CONTRIBUTING.md. Edit the PR title to fix this; no new branch or PR is needed."
+            exit 1
+          fi
+
+          type="${BASH_REMATCH[1]}"
+          case "$type" in
+            feat) desired="change:feature" ;;
+            fix) desired="change:fix" ;;
+            refactor) desired="change:refactor" ;;
+            docs) desired="change:docs" ;;
+            test) desired="change:test" ;;
+            ci) desired="change:ci" ;;
+            *) desired="" ;;
+          esac
+
+          # Only these labels are derived from the title alone. change:docs,
+          # change:test and change:ci are also set by file rules in
+          # .github/labeler.yml, so they are never removed here.
+          current="$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/labels" --jq '.[].name')"
+          for label in change:feature change:fix change:refactor; do
+            if [[ "$label" != "$desired" ]] && grep -Fxq -- "$label" <<<"$current"; then
+              gh api -X DELETE "repos/$GH_REPO/issues/$PR_NUMBER/labels/${label//:/%3A}"
+            fi
+          done
+
+          if [[ -n "$desired" ]]; then
+            gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/labels" -f "labels[]=$desired"
+          fi
