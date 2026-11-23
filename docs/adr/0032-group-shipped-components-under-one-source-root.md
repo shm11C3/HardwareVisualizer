@@ -79,8 +79,9 @@ a moving directory before its slice.
    project path.
 3. The Frontend to `hardviz/frontend/`: Vite root and config path, the `@`
    alias, `tsconfig` includes, Vitest, shadcn aliases, Biome scopes, the
-   generated `rspc/bindings.ts` guard in `.agents/tooling/agent-hook.mjs`,
-   Playwright `webServer` commands, coverage paths.
+   App's `export_bindings` output path and the generated `rspc/bindings.ts`
+   guard in `.agents/tooling/agent-hook.mjs` (both point at the Frontend
+   again after it moves), Playwright `webServer` commands, coverage paths.
 4. Remaining single-owner root files: Playwright and E2E configs into
    `e2e/` and `e2e-native/`, `perf-thresholds.toml` into `perf-monitor/`,
    `tsconfig.ci-telemetry.json` into `.github/`, and the tray logo from
