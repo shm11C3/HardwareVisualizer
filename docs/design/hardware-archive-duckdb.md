@@ -194,7 +194,7 @@ showed exact round trips for tagged rows and typed rows with an exceptional-cell
 sidecar. That was storage evidence, not exceptional-value query support, so the
 exceptional-value query representation remains open in #2089.
 
-The [candidate database builder](../../core/src/infrastructure/database/candidate_database/mod.rs)
+The [candidate database builder](../../hardviz/core/src/infrastructure/database/candidate_database/mod.rs)
 chooses numeric types from the snapshot's actual storage classes. Normal CPU
 and GPU writers store fractional readings in legacy INTEGER-affinity columns,
 so refusing every REAL there rejects ordinary history. Integer-only columns

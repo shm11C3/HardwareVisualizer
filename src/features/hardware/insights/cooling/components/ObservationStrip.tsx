@@ -187,7 +187,7 @@ const EstablishedObservation = ({
   if (observation === "establishing") {
     // Invariant: an established baseline never carries this observation
     // (see `derive_baseline_delta` in
-    // `core/src/persistence/cooling_baseline_delta.rs`) - the parent
+    // `hardviz/core/src/persistence/cooling_baseline_delta.rs`) - the parent
     // already gates on `resolveBaselineLifecycle`. Render nothing rather
     // than trust a state this component cannot make sense of.
     return null;

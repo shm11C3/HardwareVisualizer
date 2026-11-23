@@ -3,7 +3,7 @@
 Tauri-aware app crate for HardwareVisualizer.
 
 This crate is the upper half of the Core / App split introduced by
-[#1402][issue-1402]. It depends on [`hardviz-core`](../core) via a workspace
+[#1402][issue-1402]. It depends on [`hardviz-core`](../hardviz/core) via a workspace
 path dependency and is the only crate in the workspace that links against
 `tauri`. Everything that requires an `AppHandle`, a window, or a Tauri plugin
 lives here; everything else belongs in `hardviz-core`.
@@ -13,7 +13,7 @@ lives here; everything else belongs in `hardviz-core`.
 The MSI-bundled Windows sensor service is a separate executable. This crate owns
 its MSI feature, setup/status commands and deliberate elevated-startup
 setting; Core owns authenticated IPC and providers. See the
-[service owner guide](../sensor-service/README.md).
+[service owner guide](../hardviz/sensor-service/README.md).
 
 ## Responsibilities
 
@@ -126,7 +126,7 @@ Commands → Services → (Core API)         ─ App-owned
 ```
 
 The `platform/` and `infrastructure/providers/` directories that the
-architecture document references now live in [`core/src/`](../core); the
+architecture document references now live in [`hardviz/core/src/`](../hardviz/core); the
 App crate retains only the App-specific `infrastructure/database/`
 (the ordered schema migration definitions, executed at startup by Core's
 migrator in `hardviz_core::infrastructure::database::migrate`). The native
@@ -173,5 +173,5 @@ workspace root and operate on the full workspace, including `hardviz-core`.
 - Epic: [#1402 — split backend into Tauri-independent Core and thin App
   adapters][issue-1402]
 - Backend architecture: [`docs/architecture/backend.md`](../docs/architecture/backend.md)
-- Core crate: [`core/README.md`](../core/README.md)
+- Core crate: [`hardviz/core/README.md`](../hardviz/core/README.md)
 - Top-level user-facing README: [`README.md`](../README.md)

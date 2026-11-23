@@ -79,7 +79,7 @@ shipped non-functional on real hardware while its e2e passed, because
 
 The remaining steps describe how `src/` consumes a contract. Each applies only
 when the change crosses that step's boundary; a change that produces or
-persists ids in `core/` or `src-tauri/` keeps the fact where its layer owns it
+persists ids in `hardviz/core/` or `src-tauri/` keeps the fact where its layer owns it
 rather than moving it into the frontend.
 
 ## 3. One Resolution Rule, One Owner

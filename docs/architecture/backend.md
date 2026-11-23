@@ -3,7 +3,7 @@
 This document describes the current backend shape after the Core / App split.
 The backend is now split across two Rust crates:
 
-- `core/` (`hardviz-core`): Tauri-independent hardware collection, platform
+- `hardviz/core/` (`hardviz-core`): Tauri-independent hardware collection, platform
   access, persistence primitives, settings consumed by Core, and shared data
   models.
 - `src-tauri/` (`hardware_visualizer`): Tauri app boundary, commands, App-side
@@ -12,7 +12,7 @@ The backend is now split across two Rust crates:
 
 Use this document together with:
 
-- [`core/README.md`](../../core/README.md)
+- [`hardviz/core/README.md`](../../hardviz/core/README.md)
 - [`src-tauri/README.md`](../../src-tauri/README.md)
 
 ## High-Level Flow
@@ -23,7 +23,7 @@ The main dependency direction is:
 Frontend
   -> Tauri commands (`src-tauri/src/commands`)
   -> App services / Core APIs (`src-tauri/src/services`, `hardviz_core::*`)
-  -> Core collector / platform / persistence (`core/src/*`)
+  -> Core collector / platform / persistence (`hardviz/core/src/*`)
   -> Core's database dispatch boundary (`infrastructure/database/dispatch.rs`)
   -> OS APIs, system providers, and SQLite or a native DuckDB database
 ```
@@ -41,7 +41,7 @@ Core collector
 ## Workspace Layout
 
 ```text
-core/src/
+hardviz/core/src/
 ├── collector/             # Sampling loop, history store, monitor controller
 ├── enums/                 # Core-level error, hardware, and settings enums
 ├── event_bus.rs           # In-process broadcast bus for MetricsSnapshot
@@ -71,7 +71,7 @@ src-tauri/src/
 
 ## Crate Responsibilities
 
-### `hardviz-core` (`core/`)
+### `hardviz-core` (`hardviz/core/`)
 
 Core owns code that does not need a Tauri context:
 
@@ -84,7 +84,7 @@ Core owns code that does not need a Tauri context:
 - reading and writing settings that affect Core behavior.
 
 Core must not depend on Tauri. This boundary is enforced by
-`core/Cargo.toml`: adding `tauri` there is a design violation.
+`hardviz/core/Cargo.toml`: adding `tauri` there is a design violation.
 
 ### `hardware_visualizer` (`src-tauri/`)
 
@@ -174,7 +174,7 @@ Known adapters:
 
 Core should publish data; adapters decide how that data is exposed to Tauri.
 
-### Core Collector (`core/src/collector/`)
+### Core Collector (`hardviz/core/src/collector/`)
 
 The collector owns realtime sampling and history.
 
@@ -187,7 +187,7 @@ Responsibilities:
 
 The collector does not emit Tauri events directly.
 
-### Core Platform (`core/src/platform/`)
+### Core Platform (`hardviz/core/src/platform/`)
 
 The platform layer abstracts OS-specific hardware access.
 
@@ -200,7 +200,7 @@ Responsibilities:
 
 Current platform traits include memory, GPU, network, and motherboard access.
 
-### Core Infrastructure (`core/src/infrastructure/`)
+### Core Infrastructure (`hardviz/core/src/infrastructure/`)
 
 Core infrastructure contains lower-level external access used by Core:
 
@@ -209,13 +209,13 @@ Core infrastructure contains lower-level external access used by Core:
   and, behind the `duckdb-archive` feature, `native_database` (the native
   DuckDB schema, conversion primitives, and the single-owner runtime);
 - `providers/`: OS, vendor, and system data providers. See
-  [`core/README.md`](../../core/README.md) for Core-specific provider details.
+  [`hardviz/core/README.md`](../../hardviz/core/README.md) for Core-specific provider details.
 
 Windows sensor providers that depend on external runtime components, such as
 PawnIO and its CPU-specific module blobs, are documented in
 [`windows-sensor-external-components.md`](windows-sensor-external-components.md).
 
-### Persistence (`core/src/persistence/`, `src-tauri/src/infrastructure/`)
+### Persistence (`hardviz/core/src/persistence/`, `src-tauri/src/infrastructure/`)
 
 This section describes the current persistence implementation, which now runs
 against one of two engines behind a single dispatch boundary.
@@ -359,7 +359,7 @@ Ambient Temperature Readings are archived beside those rows in
 `AMBIENT_ARCHIVE`, one row per ambient Sensor Source Label per minute, so more
 than one environmental sensor can contribute to the same minute. Core owns the
 `EnvironmentalSensorProvider` abstraction
-(`core/src/infrastructure/providers/environmental.rs`) and knows nothing about
+(`hardviz/core/src/infrastructure/providers/environmental.rs`) and knows nothing about
 any vendor or transport: a provider caches whatever its transport last
 delivered, and the archive tick polls that cache without blocking. The Ambient
 Reading Freshness Window is five minutes
@@ -423,7 +423,7 @@ Transport-specific causes such as an unavailable radio or a stopped scan stay
 inside the concrete provider and surface only as readings that stop arriving.
 
 The first concrete provider is the SwitchBot Meter
-(`core/src/infrastructure/providers/switchbot_meter/`). It is split so only the
+(`hardviz/core/src/infrastructure/providers/switchbot_meter/`). It is split so only the
 radio is platform-gated: `advertisement` decodes service-data bytes into a
 reading, `provider` caches the newest one and answers the polling contract, and
 both are portable and unit-tested from fixed byte strings on every platform.
@@ -504,7 +504,7 @@ Hardware Archive. Dashboard display can use the latest record and recent
 changes, while future historical views can keep following long-term storage
 health even if short-window utilization archive settings are reduced.
 
-The cooling daily rollup (`core/src/persistence/cooling_rollup.rs`) derives one
+The cooling daily rollup (`hardviz/core/src/persistence/cooling_rollup.rs`) derives one
 `cooling_daily_summary` row per completed local day from the one-minute
 Hardware Archive rows: CPU temperature avg/min/max per CPU-load band
 (idle/low/mid/high) plus per-band sample-minute counts, the day's CPU package
@@ -524,7 +524,7 @@ site as the Hardware Archive cleanup (see ADR 0018).
 The same pass folds the ambient-normalized thermal delta
 (`ΔT = CPU package temperature − ambient temperature`) per CPU-load band into
 `cooling_thermal_delta_daily_summary`
-(`core/src/persistence/cooling_thermal_delta_rollup.rs`): one row per ambient
+(`hardviz/core/src/persistence/cooling_thermal_delta_rollup.rs`): one row per ambient
 Sensor Source Label per completed day, keyed by `(date, source)` exactly like
 the fan rollup, each carrying that source's per-band ΔT and how many archived
 minutes it paired with. **The pairing rule is normative: samples are paired
@@ -713,7 +713,7 @@ The archive worker writes one `FAN_ARCHIVE` row per fan per interval, stamped
 with the write cycle's single tick instant so a fan reading and the hardware
 row folded from the same snapshots cannot land in adjacent buckets. The same
 rollup pass folds a completed day into one `cooling_fan_daily_summary` row per
-fan (`core/src/persistence/cooling_fan_rollup.rs`). Both are row-per-fan
+fan (`hardviz/core/src/persistence/cooling_fan_rollup.rs`). Both are row-per-fan
 because how many fans a machine exposes is configuration-dependent. The
 one-minute fan archive follows `hardwareArchive.retentionDays`; the daily fan
 summary follows the separate cooling daily rollup retention window. The three
@@ -732,7 +732,7 @@ again on the first day of collection. The archive answers that, because it
 holds a reading from the first collected minute.
 
 The same pass also folds the day's paired co-variates
-(`core/src/persistence/cooling_covariate_rollup.rs`, #2068), so Cooling
+(`hardviz/core/src/persistence/cooling_covariate_rollup.rs`, #2068), so Cooling
 Insight can say which of package power, fan speed, ambient temperature and
 load mix moved with a Thermal Delta change and which did not. Per ambient
 source and CPU-load band, `cooling_covariate_daily_summary` keeps the
@@ -796,7 +796,7 @@ When adding a setting:
 ## Design Rules
 
 1. **Core has no Tauri dependency.** No `tauri` crate and no `use tauri::*`
-   under `core/src/`.
+   under `hardviz/core/src/`.
 2. **Commands stay thin.** Put business logic in App services or Core.
 3. **Core publishes snapshots, App emits events.** `window.emit(...)` belongs in
    App adapters, not in Core.
@@ -810,7 +810,7 @@ When adding a setting:
    the same file, but each side should preserve the other side's keys.
 8. **One sampling owner per stateful fact.** A reading computed as a delta
    between two refreshes of the same source, such as sysinfo CPU usage or
-   per-process GPU usage, has one owner in `core/src/collector/`. An on-demand
+   per-process GPU usage, has one owner in `hardviz/core/src/collector/`. An on-demand
    view may read that owner directly. A background consumer, such as the
    Hardware Archive needing a fact a live view already samples, receives it
    through `EventBus` snapshots, extending the owner and the snapshot when the
@@ -833,8 +833,8 @@ When adding a setting:
 ### Add a New Hardware Data Source
 
 1. Add or update the relevant Core platform trait if the capability is shared.
-2. Implement OS-specific behavior under `core/src/platform/{windows,linux,macos}`.
-3. Add provider code under `core/src/infrastructure/providers/` if low-level OS
+2. Implement OS-specific behavior under `hardviz/core/src/platform/{windows,linux,macos}`.
+3. Add provider code under `hardviz/core/src/infrastructure/providers/` if low-level OS
    or vendor access is needed.
 4. Surface the data through Core models and collector snapshots if it is
    realtime, or if a background consumer needs a fact the collector samples
@@ -914,8 +914,8 @@ exists.
 
 1. Keep the App-owned ordered migration definitions in
    `src-tauri/src/infrastructure/database/`.
-2. Keep Tauri-independent persistence code in `core/src/persistence/` or
-   `core/src/infrastructure/database/`.
+2. Keep Tauri-independent persistence code in `hardviz/core/src/persistence/` or
+   `hardviz/core/src/infrastructure/database/`.
 3. Update startup compatibility checks if schema compatibility changes.
 4. Add tests for migration or preflight behavior where practical.
 5. A new family is native-only (ADR 0030): append one step to `UPGRADES` in
@@ -949,7 +949,7 @@ ADR 0025 removes it in v2.0.0.
 `test-core` in CI uses cargo-nextest with the `ci` profile from
 `.config/nextest.toml` so the DuckDB integration binaries run in parallel.
 `cargo test -p hardviz-core` remains a slower serial fallback when nextest is
-not installed. See [`core/README.md`](../../core/README.md#build--test).
+not installed. See [`hardviz/core/README.md`](../../hardviz/core/README.md#build--test).
 
 Frontend and TypeScript checks are run from the repository root:
 

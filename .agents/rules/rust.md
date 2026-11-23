@@ -1,17 +1,17 @@
 ---
-scope: "core/**/*.rs,src-tauri/**/*.rs,Cargo.toml,core/Cargo.toml,src-tauri/Cargo.toml"
+scope: "hardviz/core/**/*.rs,src-tauri/**/*.rs,Cargo.toml,hardviz/core/Cargo.toml,src-tauri/Cargo.toml"
 ---
 
 # Rust coding instructions (HardwareVisualizer)
 
 These instructions apply to Rust code in both crates of the workspace:
 the Tauri-aware `src-tauri/` and the Tauri-independent `hardviz-core` at
-`core/`.
+`hardviz/core/`.
 
 ## Logging macros
 
 The logging macros (`log_debug!`, `log_info!`, `log_warn!`, `log_error!`,
-`log_internal!`) live in `core/src/utils/logger.rs` and are re-exported
+`log_internal!`) live in `hardviz/core/src/utils/logger.rs` and are re-exported
 from `src-tauri/src/lib.rs` so existing `use crate::{log_warn, ...};`
 sites in `src-tauri` keep working unchanged.
 
@@ -33,7 +33,7 @@ macros), import it alongside.
 
 The backend is split across two crates:
 
-- **`hardviz-core`** at `core/` — Tauri-independent. No `tauri` dep is
+- **`hardviz-core`** at `hardviz/core/` — Tauri-independent. No `tauri` dep is
   allowed (enforced at compile time by the Cargo dependency graph). Owns:
   the sensor collector and per-sensor history (`core::collector`), the
   in-process `EventBus` for `MetricsSnapshot` fan-out
@@ -56,8 +56,8 @@ EventBus carrying real-time snapshots from Core to App-side adapters. App-owned
 settings, lifecycle, and plugin services do not need to pass through the Core
 platform abstraction.
 
-Do not add a `tauri` dependency to `core/Cargo.toml`, and do not write
-`use tauri::*;` under `core/src/`. `specta` and `tauri_specta` derives
+Do not add a `tauri` dependency to `hardviz/core/Cargo.toml`, and do not write
+`use tauri::*;` under `hardviz/core/src/`. `specta` and `tauri_specta` derives
 stay in the `src-tauri` crate. Core owns the platform-facing plain models; App
 wire DTOs and their `From<core::...>` conversions are generated from the
 allowlist or implemented at the boundary. Follow ADR 0009.

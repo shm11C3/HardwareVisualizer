@@ -301,8 +301,8 @@ async function checkRules() {
   const cleanRoomScope =
     parsedByFile.get("clean-room-sensors.md")?.get("scope") ?? "";
   for (const requiredPath of [
-    "core/src/infrastructure/providers/windows/pawn_io/**",
-    "core/src/platform/windows/sensors.rs",
+    "hardviz/core/src/infrastructure/providers/windows/pawn_io/**",
+    "hardviz/core/src/platform/windows/sensors.rs",
   ]) {
     if (!cleanRoomScope.split(",").includes(requiredPath)) {
       fail(`clean-room scope is missing: ${requiredPath}`);
@@ -594,7 +594,7 @@ async function checkKnownDriftPoints() {
   const rustRule = await read(".agents/rules/rust.md");
   const cleanRoom = await read(".agents/rules/clean-room-sensors.md");
   const backend = await read("docs/architecture/backend.md");
-  const coreReadme = await read("core/README.md");
+  const coreReadme = await read("hardviz/core/README.md");
   const appAgents = await read("src-tauri/AGENTS.md");
   const appReadme = await read("src-tauri/README.md");
   const frontendReadme = await read("src/README.md");
@@ -627,7 +627,7 @@ async function checkKnownDriftPoints() {
     ["AGENTS.md", rootAgents],
     [".agents/rules/rust.md", rustRule],
     ["docs/architecture/backend.md", backend],
-    ["core/README.md", coreReadme],
+    ["hardviz/core/README.md", coreReadme],
     ["src-tauri/AGENTS.md", appAgents],
     ["src-tauri/README.md", appReadme],
   ]) {
@@ -649,7 +649,7 @@ async function checkKnownDriftPoints() {
   }
   if (!coreReadme.includes("storage_health.rs    Storage Health settings")) {
     fail(
-      "core/README.md does not point to the current storage settings module",
+      "hardviz/core/README.md does not point to the current storage settings module",
     );
   }
 
@@ -921,7 +921,7 @@ async function main() {
 
   const guidanceFiles = [
     "AGENTS.md",
-    "core/AGENTS.md",
+    "hardviz/core/AGENTS.md",
     "src-tauri/AGENTS.md",
     "src/AGENTS.md",
     "docs/AGENTS.md",

@@ -494,7 +494,7 @@ mod tests {
   use super::*;
 
   /// The shape only; that it *agrees with SQLite's `NOCASE`* is measured
-  /// against sqlx in `core/tests/duckdb_storage_health.rs`, which is the
+  /// against sqlx in `hardviz/core/tests/duckdb_storage_health.rs`, which is the
   /// claim that matters.
   #[test]
   fn folds_only_the_ascii_letters() {

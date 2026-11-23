@@ -13,7 +13,7 @@
 "area:core":
   - changed-files:
       - any-glob-to-any-file:
-          - "core/**"
+          - "hardviz/core/**"
           - "Cargo.toml"
           - "Cargo.lock"
           - "rust-toolchain.toml"

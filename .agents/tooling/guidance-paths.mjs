@@ -1,6 +1,6 @@
 export const requiredGuidanceFiles = [
   "AGENTS.md",
-  "core/AGENTS.md",
+  "hardviz/core/AGENTS.md",
   "src-tauri/AGENTS.md",
   "src/AGENTS.md",
   "docs/AGENTS.md",
@@ -46,7 +46,7 @@ const exactGuidancePaths = new Set([
   "docs/README.md",
   "docs/documentation-guide.md",
   "docs/specs/sensors/README.md",
-  "core/README.md",
+  "hardviz/core/README.md",
   "src-tauri/README.md",
   "src/README.md",
   ".codex/hooks.json",

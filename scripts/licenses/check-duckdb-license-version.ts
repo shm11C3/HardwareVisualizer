@@ -21,7 +21,7 @@ const pinnedVersion = (crate: string) =>
  * versions.
  *
  * Read from the resolved graph rather than from the dependency declaration in
- * `core/Cargo.toml`, because a feature can also be turned on by forwarding
+ * `hardviz/core/Cargo.toml`, because a feature can also be turned on by forwarding
  * from the `[features]` table (`duckdb-archive = ["dep:duckdb",
  * "duckdb/json"]`), which leaves that declaration untouched. `--locked` keeps
  * the check from silently resolving against an updated lockfile; a failure

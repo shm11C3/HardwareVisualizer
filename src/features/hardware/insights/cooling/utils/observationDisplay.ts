@@ -8,7 +8,7 @@ import { convertTemperatureDelta } from "./temperatureUnit";
 /**
  * The visual weight of an observation: which color the strip's status dot
  * takes. Not itself a verdict - Core already decided that (see
- * `CoolingDeltaObservation` in `core/src/persistence/cooling_baseline_delta.rs`) -
+ * `CoolingDeltaObservation` in `hardviz/core/src/persistence/cooling_baseline_delta.rs`) -
  * this only names which tone renders which state.
  */
 export type ObservationTone = "muted" | "positive" | "mild" | "large";

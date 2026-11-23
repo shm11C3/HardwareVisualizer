@@ -135,7 +135,7 @@ jobs:
           if ! git fetch --depth=1 origin "$sha"; then
             decision="full analysis (the analysed commit could not be fetched)"
             reuse=false
-          elif git diff --quiet "$sha" HEAD -- core src-tauri Cargo.toml Cargo.lock rust-toolchain.toml .cargo \
+          elif git diff --quiet "$sha" HEAD -- hardviz/core src-tauri Cargo.toml Cargo.lock rust-toolchain.toml .cargo \
               .github/workflows/codeql.yml .github/actions/setup-rust .github/actions/setup-rust-toolchain \
               .github/actions/cache-sccache; then
             decision="reuse the base analysis (Rust inputs are identical)"

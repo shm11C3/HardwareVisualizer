@@ -7,7 +7,7 @@ trigger: choosing a language for native Windows packaging orchestration
 failure_signature: a JS wrapper was selected just because the frontend already used Node although the workflow was Windows-only and used PowerShell signing and MSI tools
 root_cause: tool availability was treated as sufficient justification instead of the platform and owning workflow
 guardrail: the sensor-service owner documents PowerShell orchestration and the Windows Tauri hook invokes it directly
-canonical_refs: sensor-service/README.md, sensor-service/build-bundle.ps1, src-tauri/tauri.windows.conf.json
+canonical_refs: hardviz/sensor-service/README.md, hardviz/sensor-service/build-bundle.ps1, src-tauri/tauri.windows.conf.json
 verification: build-bundle.ps1 builds and stages the service; check-msi.ps1 verifies its embedded validator, optional feature and service lifecycle
 evidence: maintainer correction during issue 2508 implementation and the Windows-specific packaging and signing call chain
 revalidate_when: packaging becomes genuinely shared across operating systems or the native signing toolchain changes

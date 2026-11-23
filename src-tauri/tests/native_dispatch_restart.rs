@@ -13,7 +13,7 @@
 //! provide) — it proves the thing that makes starting them *correct*
 //! instead: once `resolve_native_authority` returns, the dispatch boundary
 //! those producers write through (`persistence::archive::write_archive`,
-//! `persistence::cooling_rollup`, etc. — see `core/src/persistence/archive.rs`)
+//! `persistence::cooling_rollup`, etc. — see `hardviz/core/src/persistence/archive.rs`)
 //! is already the live native owner, not still on SQLite.
 //!
 //! One test, in its own process — see `native_dispatch_conversion.rs`'s

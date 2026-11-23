@@ -32,7 +32,7 @@ LocalSystem Windows sensor service. The normal app authenticates that service
 and receives typed readings over local IPC; it does not open PawnIO itself.
 Initial service setup and repair require administrator consent through the
 protected MSI feature. See [ADR 0029](../adr/0029-windows-sensor-service.md)
-and the [service owner guide](../../sensor-service/README.md).
+and the [service owner guide](../../hardviz/sensor-service/README.md).
 
 Installing PawnIO alone does not remove its access restriction: the original
 Phase 1 probe returned `0x80070005` without elevation even with the driver

@@ -13,7 +13,7 @@
 //! process-wide (a `OnceLock`-backed configuration — see their own
 //! documentation), so a second scenario in the same test binary would
 //! corrupt this one's configuration the moment both ran. This mirrors
-//! `core/tests/duckdb_dispatch.rs`, which is one sequential test per file
+//! `hardviz/core/tests/duckdb_dispatch.rs`, which is one sequential test per file
 //! for the identical reason.
 //!
 //! [`app::native_conversion::run_conversion`]: hardware_monitor_lib::app::native_conversion::run_conversion
@@ -66,7 +66,7 @@ async fn converted_and_selected_database_answers_dispatch_consumers() {
 
   // Seed a real SQLite source through App's own ordered migrations, then
   // write one process-stats row directly against the pool — the fixture
-  // philosophy `native_conversion`'s own tests and `core/tests/native_support`
+  // philosophy `native_conversion`'s own tests and `hardviz/core/tests/native_support`
   // already established.
   let options = SqliteConnectOptions::new()
     .filename(&paths.source_database)

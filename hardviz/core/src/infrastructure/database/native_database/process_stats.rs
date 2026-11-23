@@ -234,7 +234,7 @@ mod tests {
 
   /// The exact bytes sqlx stores are pinned by
   /// `the_native_process_stats_family_reproduces_the_sqlite_family` in
-  /// `core/tests/duckdb_avg_compatibility.rs`, which reads them back from a
+  /// `hardviz/core/tests/duckdb_avg_compatibility.rs`, which reads them back from a
   /// real SQLite database. This only pins the shapes the renderer must produce.
   #[test]
   fn renders_the_sqlx_datetime_shapes() {

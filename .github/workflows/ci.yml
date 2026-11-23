@@ -70,8 +70,8 @@ jobs:
             bindings:
               - 'src/rspc/bindings.ts'
             backend:
-              - 'core/**'
-              - 'sensor-service/**'
+              - 'hardviz/core/**'
+              - 'hardviz/sensor-service/**'
               - 'src-tauri/**'
               - 'Cargo.*'
               - '.cargo/**'
@@ -79,8 +79,8 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
             core:
-              - 'core/**'
-              - 'sensor-service/**'
+              - 'hardviz/core/**'
+              - 'hardviz/sensor-service/**'
               - 'Cargo.*'
               - '.cargo/**'
               - 'rust-toolchain*'
@@ -88,7 +88,7 @@ jobs:
               - '.github/scripts/**'
             tauri:
               - 'src-tauri/**'
-              - 'sensor-service/**'
+              - 'hardviz/sensor-service/**'
               - 'e2e-native/**'
               - 'Cargo.*'
               - '.cargo/**'
@@ -101,8 +101,8 @@ jobs:
               - '.github/scripts/**'
               - 'scripts/licenses/**'
             backend-deps:
-              - 'sensor-service/Cargo.toml'
-              - 'core/Cargo.toml'
+              - 'hardviz/sensor-service/Cargo.toml'
+              - 'hardviz/core/Cargo.toml'
               - 'src-tauri/Cargo.toml'
               - 'Cargo.*'
               - '.cargo/**'
@@ -111,19 +111,19 @@ jobs:
               - 'scripts/licenses/**'
             cargo-license-config:
               - 'src-tauri/deny.toml'
-              # Inputs to the DuckDB bundled-library notice check. core/ and
+              # Inputs to the DuckDB bundled-library notice check. hardviz/core/ and
               # src-tauri/Cargo.toml also reach this job through backend-deps;
               # they are named here too because the duckdb dependency's
               # features decide which vendored C/C++ libraries the notice must
               # cover, not just which crates are built.
-              - 'core/Cargo.toml'
+              - 'hardviz/core/Cargo.toml'
               - 'src-tauri/Cargo.toml'
               - 'docs/licenses/manual/**'
               - 'scripts/licenses/check-duckdb-license-version.ts'
               - '.github/actions/setup-rust/**'
               - '.github/workflows/ci.yml'
             windows-installer:
-              - 'sensor-service/**'
+              - 'hardviz/sensor-service/**'
               - 'src-tauri/windows/**'
               - 'src-tauri/tauri.conf.json'
               - '.github/scripts/release/sign-codesigntool.ps1'
@@ -167,7 +167,7 @@ jobs:
               - '!playwright.perf.config.ts'
               - '!playwright.memory.config.ts'
               - '!tsconfig*.json'
-              - '!core/**'
+              - '!hardviz/core/**'
               - '!src-tauri/**'
               - '!Cargo.*'
               - '!.cargo/**'
@@ -383,7 +383,7 @@ jobs:
           tool: cargo-nextest
 
       # nextest runs each test in its own process, so the DuckDB integration
-      # binaries under core/tests/ run in parallel without sharing the
+      # binaries under hardviz/core/tests/ run in parallel without sharing the
       # process-wide database path. Scheduling rules live in .config/nextest.toml.
       # duckdb-archive is a default feature, so this already builds and runs
       # the DuckDB integration tests without an explicit flag.
@@ -834,7 +834,7 @@ jobs:
           $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "No MSI was produced" }
           ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
-          ./sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
+          ./hardviz/sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
 
   #
   # Frontend checks

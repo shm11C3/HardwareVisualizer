@@ -7,7 +7,7 @@ description = "Tauri-independent core for HardwareVisualizer (sensor collection,
 authors = ["@shm11C3"]
 
 # Intentionally has no `tauri` dependency. The Cargo dependency graph enforces
-# that no `use tauri::*;` can appear under `core/src/`.
+# that no `use tauri::*;` can appear under `hardviz/core/src/`.
 
 [lints]
 workspace = true

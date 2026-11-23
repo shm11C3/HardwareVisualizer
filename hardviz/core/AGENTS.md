@@ -1,7 +1,7 @@
 # Core Instructions
 
 These instructions add to the repository root `AGENTS.md` for work under
-`core/`.
+`hardviz/core/`.
 
 ## Ownership
 
@@ -12,20 +12,20 @@ These instructions add to the repository root `AGENTS.md` for work under
   emit Tauri window events from Core.
 - Core publishes raw facts; `src-tauri` adapters own presentation conversion and
   Tauri delivery.
-- Shared hardware access belongs behind `core/src/platform/**`. Low-level OS or
-  vendor access belongs under `core/src/infrastructure/providers/**`.
-- `core/src/utils/**` holds domain-neutral helpers only (logging, formatting,
+- Shared hardware access belongs behind `hardviz/core/src/platform/**`. Low-level OS or
+  vendor access belongs under `hardviz/core/src/infrastructure/providers/**`.
+- `hardviz/core/src/utils/**` holds domain-neutral helpers only (logging, formatting,
   rounding, IP). Hardware, vendor, chip, and protocol knowledge, including pure
   decoders, register tables, and chip profiles, lives with its provider under
-  `core/src/infrastructure/providers/**`, grouped as a module folder when one
+  `hardviz/core/src/infrastructure/providers/**`, grouped as a module folder when one
   provider spans several specification documents.
 - Use `PlatformFactory`; do not instantiate an OS platform from App code.
 
-Read [`core/README.md`](README.md),
-[`docs/architecture/backend.md`](../docs/architecture/backend.md), and
-[`docs/design-principles.md`](../docs/design-principles.md), and the relevant
-shared rule: [`rust.md`](../.agents/rules/rust.md) or
-[`clean-room-sensors.md`](../.agents/rules/clean-room-sensors.md).
+Read [`hardviz/core/README.md`](README.md),
+[`docs/architecture/backend.md`](../../docs/architecture/backend.md), and
+[`docs/design-principles.md`](../../docs/design-principles.md), and the relevant
+shared rule: [`rust.md`](../../.agents/rules/rust.md) or
+[`clean-room-sensors.md`](../../.agents/rules/clean-room-sensors.md).
 
 ## Data Behavior
 

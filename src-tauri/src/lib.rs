@@ -11,7 +11,7 @@ mod analytics;
 // `pub` so `src-tauri/tests/*.rs` integration test binaries - linking
 // against this crate's `rlib` target (see `Cargo.toml`'s `crate-type`) -
 // can reach the lifecycle owner, the conversion driver and `WorkersState`
-// directly, the same way `core/tests/*.rs` reaches `hardviz-core`'s own
+// directly, the same way `hardviz/core/tests/*.rs` reaches `hardviz-core`'s own
 // internals. Not part of any stability contract: this App has one binary
 // consumer (the Tauri app itself) and these tests, nothing else.
 pub mod app;

@@ -2,7 +2,7 @@
 //! Dispatch routing (#2134) for the four raw archive families:
 //! `DATA_ARCHIVE`, `GPU_DATA_ARCHIVE`, Ambient and Fan.
 //!
-//! `core/tests/duckdb_dispatch.rs` already proves the boundary's state
+//! `hardviz/core/tests/duckdb_dispatch.rs` already proves the boundary's state
 //! machine (not-selected, the mid-selection window, selected) against
 //! Process Stats; the arithmetic each native family reproduces is proven
 //! bit-for-bit by `duckdb_data_archive.rs`, `duckdb_gpu_archive.rs` and

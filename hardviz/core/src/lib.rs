@@ -1,7 +1,7 @@
 //! Tauri-independent core for HardwareVisualizer.
 //!
 //! Module bodies are populated incrementally across the phases of #1402.
-//! The Cargo dependency graph enforces "no `tauri::*` under `core/src/`"
+//! The Cargo dependency graph enforces "no `tauri::*` under `hardviz/core/src/`"
 //! at compile time.
 
 pub mod collector;

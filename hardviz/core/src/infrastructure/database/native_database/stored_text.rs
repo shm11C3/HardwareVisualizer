@@ -8,7 +8,7 @@
 //! sibling rather than as a "better" parser, because a reader that accepted
 //! one more spelling than SQLite would return a row the oracle does not.
 //!
-//! `core/tests/duckdb_ambient_fan.rs` pins the transcription against sqlx
+//! `hardviz/core/tests/duckdb_ambient_fan.rs` pins the transcription against sqlx
 //! itself over every spelling the archives can carry.
 
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Offset, TimeZone, Utc};

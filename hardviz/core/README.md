@@ -6,7 +6,7 @@ Tauri-independent core crate for HardwareVisualizer.
 the in-process event bus, and Core-consumed settings. It is the lower half of
 the Core / App split introduced by [#1402][issue-1402]: everything that does
 not need a Tauri context lives here, and the Tauri app crate
-([`src-tauri/`](../src-tauri)) depends on it via a path dependency.
+([`src-tauri/`](../../src-tauri)) depends on it via a path dependency.
 
 [issue-1402]: https://github.com/shm11C3/HardwareVisualizer/issues/1402
 
@@ -29,8 +29,8 @@ not need a Tauri context lives here, and the Tauri app crate
 
 These rules are enforced by structure, not by review:
 
-1. **No `tauri` dependency.** `core/Cargo.toml` does not list `tauri`, so any
-   `use tauri::*;` under `core/src/` simply fails to compile. The dependency
+1. **No `tauri` dependency.** `hardviz/core/Cargo.toml` does not list `tauri`, so any
+   `use tauri::*;` under `hardviz/core/src/` simply fails to compile. The dependency
    graph is the boundary.
 2. **No `window.emit(...)` in Core.** Core publishes `MetricsSnapshot` to
    `EventBus`. Translating a snapshot into a Tauri event is an App-side
@@ -52,7 +52,7 @@ These rules are enforced by structure, not by review:
 ## Module layout
 
 ```text
-core/src/
+hardviz/core/src/
 ├── lib.rs
 ├── event_bus.rs           ← tokio broadcast<MetricsSnapshot> fan-out
 ├── collector/             ← sampling loop + history ring buffers
@@ -93,7 +93,7 @@ merged), and deciding whether
 DB-dependent workers can start after preflight. Core owns the pool, migration
 execution, and the native database's single-owner runtime: only one
 process-local owner may hold the native file open at a time. See
-[`docs/architecture/backend.md`](../docs/architecture/backend.md) for the
+[`docs/architecture/backend.md`](../../docs/architecture/backend.md) for the
 dispatch boundary and lifecycle detail.
 
 ## Windows Sensor Service
@@ -106,7 +106,7 @@ starts an app-local PawnIO provider or a second archive owner.
 
 ## Provider inventory
 
-`core/src/infrastructure/providers/` contains lower-level data access helpers
+`hardviz/core/src/infrastructure/providers/` contains lower-level data access helpers
 used by the platform layer and Core services.
 
 Cross-platform providers:
@@ -175,7 +175,7 @@ build the SQLite-only fallback kept until ADR 0025 removes it in v2.0.0.
 
 CI runs the Core tests through [cargo-nextest](https://nexte.st) with the
 `ci` profile from `.config/nextest.toml`. nextest runs every test in its own
-process, so the DuckDB integration binaries under `core/tests/` execute in
+process, so the DuckDB integration binaries under `hardviz/core/tests/` execute in
 parallel while the process-wide database path each of them initializes stays
 private to the test. Install it once with `cargo install cargo-nextest --locked`.
 
@@ -207,5 +207,5 @@ src-tauri/ (App)
 
 - Epic: [#1402 — split backend into Tauri-independent Core and thin App
   adapters][issue-1402]
-- Architecture: [`docs/architecture/backend.md`](../docs/architecture/backend.md)
-- App crate: [`src-tauri/README.md`](../src-tauri/README.md)
+- Architecture: [`docs/architecture/backend.md`](../../docs/architecture/backend.md)
+- App crate: [`src-tauri/README.md`](../../src-tauri/README.md)

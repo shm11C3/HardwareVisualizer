@@ -87,9 +87,9 @@ inventing history:
 | Fan | `source` copied from the live fan's `name` | Keep the archived label and real 0 RPM; do not substitute the live provider `source`. |
 | Ambient | Environmental Sensor Source Label in `source` | Keep source, temperature, optional humidity, and absent intervals. |
 
-These contracts come from the [archive producer](../../core/src/persistence/archive.rs),
-[stored record types](../../core/src/persistence/archive_data.rs), and
-[query owner](../../core/src/infrastructure/database/archive_queries.rs).
+These contracts come from the [archive producer](../../hardviz/core/src/persistence/archive.rs),
+[stored record types](../../hardviz/core/src/persistence/archive_data.rs), and
+[query owner](../../hardviz/core/src/infrastructure/database/archive_queries.rs).
 Process queries currently average CPU/memory and take the maximum execution
 seconds and latest timestamp within the range; a name dictionary cannot turn
 those observations into an execution log.
@@ -97,9 +97,9 @@ those observations into an execution log.
 GPU ids must be retained as opaque values. Current live producers use
 `nvapi:<id>`, `pci:<bus>:<device>:<function>`, and
 `pdh:instance:<device_instance_id>` (fallback `pdh:<luid_high>:<luid_low>`) on
-[Windows](../../core/src/platform/windows/gpu.rs), `pci:<BDF>` (fallback
-`drm:card<n>`) on [Linux](../../core/src/platform/linux/gpu.rs), and
-`iokit:<name>` on [macOS](../../core/src/platform/macos/gpu.rs). These are not
+[Windows](../../hardviz/core/src/platform/windows/gpu.rs), `pci:<BDF>` (fallback
+`drm:card<n>`) on [Linux](../../hardviz/core/src/platform/linux/gpu.rs), and
+`iokit:<name>` on [macOS](../../hardviz/core/src/platform/macos/gpu.rs). These are not
 the inventory namespace; already-written legacy forms and absent ids remain
 as recorded. [ADR 0016](0016-gpu-attribution-on-the-performance-screen.md)
 explains the live/archive attribution boundary. No new physical-identity join
@@ -118,7 +118,7 @@ counting is acceptable. An interrupted finalization may revert to its active
 rows; it must not lose the older samples they represent. Migration must not
 turn a small recent loss window into loss of an existing archive.
 
-The [current pool policy](../../core/src/infrastructure/database/db.rs) uses
+The [current pool policy](../../hardviz/core/src/infrastructure/database/db.rs) uses
 WAL with `synchronous=NORMAL`. That setting alone does not establish a hard
 one-minute bound for OS crashes or power loss; verify the write/checkpoint
 strategy against the agreed target rather than asserting a guarantee from

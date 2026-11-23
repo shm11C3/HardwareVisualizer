@@ -123,7 +123,7 @@ Frontend (`src/`)
   -> typed Tauri commands
 Tauri App (`src-tauri/`)
   -> commands, App services, adapters, lifecycle, wire DTOs
-Core (`core/`)
+Core (`hardviz/core/`)
   -> collector, EventBus, platform traits/factory, providers, persistence
 OS APIs / vendor APIs / SQLite or a native DuckDB database (one authoritative engine)
 ```
@@ -131,7 +131,7 @@ OS APIs / vendor APIs / SQLite or a native DuckDB database (one authoritative en
 The App also talks directly to Tauri windows, plugins, lifecycle APIs, app-data
 path resolution, and migration definitions. Every database consumer goes
 through one dispatch boundary
-(`core/src/infrastructure/database/dispatch.rs`); a durable selection record
+(`hardviz/core/src/infrastructure/database/dispatch.rs`); a durable selection record
 on disk, not a per-call flag, decides whether SQLite or the native database
 answers. App resolves paths and drives the App-owned native lifecycle:
 converting an existing SQLite archive is explicit and user-started (trigger
@@ -141,7 +141,7 @@ starting on SQLite. Exactly one process-local owner may hold the native file
 open at a time; see [`docs/architecture/backend.md`](docs/architecture/backend.md)
 for the boundary, the lifecycle states, and the single-owner rule.
 
-- `core/` is Tauri-independent and owns hardware facts and Core behavior.
+- `hardviz/core/` is Tauri-independent and owns hardware facts and Core behavior.
 - `src-tauri/` owns Tauri runtime concerns, IPC, presentation conversion, and
   App lifecycle.
 - `src/` owns interaction, frontend state, and views.

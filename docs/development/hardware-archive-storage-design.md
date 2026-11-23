@@ -58,8 +58,8 @@ summary schema and consumers; its covariate table is not counted as present.
 | `storage_devices`, `storage_health_daily_records` | Keep relational | Device IDs, foreign keys, activity changes, same-day updates |
 | `_sqlx_migrations`, `sqlite_sequence`, schema objects | Preserve applicable metadata; append real migrations | Original checksums and sequence high-water marks; no fabricated migration success |
 
-Sources: [archive producer](../../core/src/persistence/archive.rs),
-[database writers/readers](../../core/src/infrastructure/database/), and
+Sources: [archive producer](../../hardviz/core/src/persistence/archive.rs),
+[database writers/readers](../../hardviz/core/src/infrastructure/database/), and
 [App migrations](../../src-tauri/src/infrastructure/database/migration.rs).
 GPU namespaces remain as recorded in [ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md)
 and [ADR 0016](../adr/0016-gpu-attribution-on-the-performance-screen.md).

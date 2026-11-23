@@ -7,7 +7,7 @@ trigger: an optional driver call is added to a shared sampling cycle
 failure_signature: a delayed NVML call prevented the collector from publishing CPU and AMD readings
 root_cause: the GPU sampling future waited for every native NVML call before the shared snapshot could be published
 guardrail: bound the wait and keep the worker slot and PCI claim until the native call returns
-canonical_refs: core/src/infrastructure/providers/linux/nvml_provider.rs
+canonical_refs: hardviz/core/src/infrastructure/providers/linux/nvml_provider.rs
 verification: the deadline fixture preserves later devices after a stalled first lookup, discards late results, and refuses a retry on the same PCI address
 evidence: "Issue #1924. Synthetic libnvidia-ml delayed initialization, PCI lookup, or temperature on the normal EventBus path"
 revalidate_when: NVML sampling ownership, the collector cadence, or the driver call interface changes

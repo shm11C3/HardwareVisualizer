@@ -1,7 +1,7 @@
 # Windows Sensor Service
 
 This crate supplies the Tauri-independent Windows service executable for
-[ADR 0029](../docs/adr/0029-windows-sensor-service.md). Core owns providers and
+[ADR 0029](../../docs/adr/0029-windows-sensor-service.md). Core owns providers and
 authenticated local IPC; the app owns collection policy, settings and all
 history. The service has no archive database, WebView or runtime downloads.
 
@@ -14,8 +14,8 @@ the frontend toolchain; this native packaging step does not need a JS wrapper
 or an additional Go toolchain. A shared Unix build step may use `sh` separately.
 
 ```powershell
-./sensor-service/build-bundle.ps1 -BuildProfile dev
-./sensor-service/check-msi.ps1 target/debug/bundle/msi/HardwareVisualizer_0.0.0_x64_en-US.msi
+./hardviz/sensor-service/build-bundle.ps1 -BuildProfile dev
+./hardviz/sensor-service/check-msi.ps1 target/debug/bundle/msi/HardwareVisualizer_0.0.0_x64_en-US.msi
 ```
 
 Release is the default profile; CI sets `HARDVIZ_SENSOR_SERVICE_PROFILE=ci`.

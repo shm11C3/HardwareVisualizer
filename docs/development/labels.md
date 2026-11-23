@@ -58,7 +58,7 @@ guessing before the likely owner is clear.
 - `area:frontend` - React, TypeScript, UI components, browser tests, or Vite.
 - `area:backend` - manually assigned during triage for backend behavior that
   spans App and Core.
-- `area:core` - `core/**` or Tauri-independent domain/runtime code.
+- `area:core` - `hardviz/core/**` or Tauri-independent domain/runtime code.
 - `area:tauri` - `src-tauri/**`, Tauri commands, app wiring, or bundling.
 - `area:github-actions` - workflows and composite actions under `.github/**`.
 - `area:javascript` - JavaScript/TypeScript dependency or tooling work.

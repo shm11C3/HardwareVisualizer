@@ -3,7 +3,7 @@
 //! lifecycle state; these types only carry the already-decided result
 //! across IPC, following the manual `From` conversion pattern used by
 //! `models::archive_history` rather than the ADR 0009 build-time
-//! generator (these are not mirrors of `core/src/models/hardware.rs`).
+//! generator (these are not mirrors of `hardviz/core/src/models/hardware.rs`).
 //!
 //! Dates cross the wire as `"%Y-%m-%d"` strings, matching how
 //! `cooling_daily_summary.date` is already stored and compared in Core.

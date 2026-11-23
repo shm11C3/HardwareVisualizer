@@ -2154,7 +2154,7 @@ mod tests {
 
   /// A real SQLite source, migrated through App's own ordered migrations -
   /// nothing here hand-writes a database, matching the fixture philosophy
-  /// `core/tests/native_support` already established.
+  /// `hardviz/core/tests/native_support` already established.
   struct Fixture {
     directory: TempDir,
   }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "src-tauri", "sensor-service"]
+members = ["hardviz/core", "src-tauri", "hardviz/sensor-service"]
 exclude = ["perf-monitor"]
 
 [workspace.lints.cargo]

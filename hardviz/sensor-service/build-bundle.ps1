@@ -16,7 +16,7 @@ if (-not $IsWindows) {
   throw 'The sensor service bundle is Windows-only'
 }
 
-$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $previousVersion = $env:HARDVIZ_SENSOR_VERSION
 
 Push-Location -LiteralPath $repoRoot

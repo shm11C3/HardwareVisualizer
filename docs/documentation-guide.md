@@ -46,7 +46,7 @@ Use the closest stable owner:
 - Code-owner guides live near the code they describe:
   - `src/README.md` for frontend implementation guidance.
   - `src-tauri/README.md` for the Tauri app crate.
-  - `core/README.md` for `hardviz-core`.
+  - `hardviz/core/README.md` for `hardviz-core`.
 - Task guides that cross code owners live under `docs/development/`.
 - User-facing guides that are published by the website live under `docs/user/`.
 - Design Docs explaining proposed structures, evaluated alternatives and
