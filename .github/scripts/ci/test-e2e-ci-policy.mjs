@@ -45,7 +45,7 @@ test("generated-file edits, producers and fail-closed checks still regenerate bi
   );
   assert.match(
     workflow,
-    /^ {12}bindings:\n {14}- 'src\/rspc\/bindings\.ts'\n/m,
+    /^ {12}bindings:\n {14}- 'hardviz\/frontend\/src\/rspc\/bindings\.ts'\n/m,
   );
   for (const output of [
     "bindings-changed",
