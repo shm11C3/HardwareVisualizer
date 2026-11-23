@@ -205,6 +205,23 @@ jobs:
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types scripts/licenses/generate-licenses.ts tmp duckdb-archive
 
+      # RPM versions cannot contain "-", and Tauri CLI 2.12 rejects the
+      # MSI-safe prerelease version (for example 1.13.0-10000) when bundling
+      # RPM. Prerelease tags therefore ship deb and AppImage only on Linux;
+      # releases keep every bundle.
+      - name: Select bundle arguments
+        id: bundle-args
+        shell: bash
+        env:
+          MATRIX_ARGS: ${{ matrix.args }}
+          IS_LINUX: ${{ matrix.platform == 'ubuntu-22.04' }}
+        run: |
+          args="$MATRIX_ARGS"
+          if [ "$IS_LINUX" = "true" ] && [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            args="${args:+$args }--bundles deb,appimage"
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -223,7 +240,7 @@ jobs:
         with:
           releaseId: ${{ needs.prepare-release.outputs.release-id }}
           tagName: ${{ github.ref_name }}
-          args: ${{ matrix.args }}
+          args: ${{ steps.bundle-args.outputs.args }}
 
       - name: Upload THIRD_PARTY_NOTICES.md
         run: |
