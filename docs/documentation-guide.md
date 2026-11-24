@@ -44,9 +44,9 @@ Use the closest stable owner:
   under `.github/` should remain configuration, workflow, template, or
   integration artifacts rather than the primary home for agent-neutral rules.
 - Code-owner guides live near the code they describe:
-  - `src/README.md` for frontend implementation guidance.
-  - `src-tauri/README.md` for the Tauri app crate.
-  - `core/README.md` for `hardviz-core`.
+  - `hardviz/frontend/README.md` for frontend implementation guidance.
+  - `hardviz/app/README.md` for the Tauri app crate.
+  - `hardviz/core/README.md` for `hardviz-core`.
 - Task guides that cross code owners live under `docs/development/`.
 - User-facing guides that are published by the website live under `docs/user/`.
 - Design Docs explaining proposed structures, evaluated alternatives and
@@ -83,7 +83,6 @@ docs/download-verification.ja.md
 The repository still contains a few naming exceptions:
 
 - `docs/licenses/*/THIRD_PARTY_NOTICES.md`
-- `tmp/THIRD_PARTY_NOTICES.md`
 - root-level GitHub convention files such as `README.md`, `CONTRIBUTING.md`,
   and `SECURITY.md`
 
@@ -95,7 +94,7 @@ When renaming one of these paths, update all references in the same change:
 - Markdown links.
 - `.github/workflows/**`.
 - `.github/scripts/**`.
-- Tauri configuration under `src-tauri/**`.
+- Tauri configuration under `hardviz/app/**`.
 - Any frontend/backend code that loads the file at runtime.
 
 ## Third-Party Notices
@@ -104,9 +103,10 @@ When renaming one of these paths, update all references in the same change:
 `MIT-pre-relicense.txt`) plus generated per-platform notices and manual notice
 fragments. This is documentation/legal output, so it belongs under `docs/`.
 
-`tmp/THIRD_PARTY_NOTICES.md` is different: it is currently the bundled runtime
-resource used by Tauri. It should not be deleted just because it lives under
-`tmp/`.
+The notices bundled into the app are not stored in the repository:
+`publish.yml` generates `tmp/THIRD_PARTY_NOTICES.md` (ignored scratch output)
+and `.github/scripts/release/update-tauri-config.ts` adds it to the release
+build's `bundle.resources`.
 
 ## Adding New Docs
 

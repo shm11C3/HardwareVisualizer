@@ -113,12 +113,12 @@ _Avoid_: active installations (as a flag denominator), flag total, sample size
 | Concern | Owner | Why |
 | --- | --- | --- |
 | Consent value, consent version, seed, Consent Cohort | App settings service, `productAnalytics` section of `settings.json` | An Application Preference; App-owned because Core never reads it |
-| Consent enforcement, counters, State Flag sampling, tokens, batching, transport, lifecycle | App, new `src-tauri/src/analytics/` module and one managed service | RFC section 3; Core stays Tauri-independent and never learns that analytics exists |
+| Consent enforcement, counters, State Flag sampling, tokens, batching, transport, lifecycle | App, new `hardviz/app/src/analytics/` module and one managed service | RFC section 3; Core stays Tauri-independent and never learns that analytics exists |
 | Product Event and State Flag vocabulary | App Rust enums; the event enum is exported through the generated bindings, the flag enum is App-internal | The enums are the allowlist; the frontend cannot invent a name and never sees flags |
 | Vendor-class and provider-availability mapping | App analytics module, reading App-side hardware DTOs and the optional sensor provider outcomes Core publishes in `MetricsSnapshot` | Hardware knowledge stays out of Core utilities; Core exposes facts, App classifies them for the wire |
 | Optional sensor provider attempt outcome | Core collector, one field of `MetricsSnapshot` | A hardware fact Core already computes before ACPI fallback and guidance suppression; see [Provider outcome source](#provider-outcome-source) |
 | Recording a Product Event | Frontend app layer (screen views) and feature hooks (capabilities) through one shared hook | Features stay unaware of transport; ADR 0027 layers hold |
-| Consent surface | Frontend: one startup dialog in `src/app/` and one Settings section | Same arbitration as the other first-run dialogs |
+| Consent surface | Frontend: one startup dialog in `hardviz/frontend/src/app/` and one Settings section | Same arbitration as the other first-run dialogs |
 | Data contract and privacy notice | `docs/user/product-analytics.md` and `.ja.md` | Published by the website; the consent surface links to it |
 | Ingestion, deduplication, retention, public aggregates | Separate public repository (Cloudflare Worker + D1) | RFC section 5 |
 | Public display | `hardviz-webpage` reads the public aggregate endpoint | No private table or account access |
@@ -593,7 +593,7 @@ consent on every event even though the frontend hook also checks it.
 
 ### Frontend shape
 
-- `src/hooks/analytics/useProductEvent.ts` (shared hooks layer) returns a
+- `hardviz/frontend/src/hooks/analytics/useProductEvent.ts` (shared hooks layer) returns a
   `record(event)` function. It reads the consent state from the settings atom
   and skips the IPC call unless consent is granted at the current version;
   this is a cost optimization, not the enforcement point. Failures go to
@@ -603,8 +603,8 @@ consent on every event even though the frontend hook also checks it.
 - Capability events are recorded by the owning feature hook (Hardware Report
   export, Tray Widget open, External Component Setup start, Insight tab
   change) through the shared hook.
-- `src/app/ProductAnalyticsConsentDialog.tsx` joins `StartupDialogs`;
-  `src/features/settings/components/advanced/ProductAnalyticsSection.tsx`
+- `hardviz/frontend/src/app/ProductAnalyticsConsentDialog.tsx` joins `StartupDialogs`;
+  `hardviz/frontend/src/features/settings/components/advanced/ProductAnalyticsSection.tsx`
   joins Advanced settings. Strings go into `en.json`, `ja.json`, and
   `ru.json`.
 - The E2E mock layer gains a `recordProductEvent` and

@@ -1,0 +1,116 @@
+import fs from "node:fs";
+
+type Stage = "alpha" | "beta" | "rc";
+
+// Relative to hardviz/app/, where tauri.conf.json resolves bundle.resources.
+const THIRD_PARTY_NOTICES_SOURCE = "../../tmp/THIRD_PARTY_NOTICES.md";
+
+function getArg(args: string[], name: string) {
+  const i = args.indexOf(name);
+  if (i === -1) return null;
+  return args[i + 1] ?? null;
+}
+
+/**
+ * Convert tag to MSI-safe version string.
+ *
+ * tag:
+ *  - vMAJOR.MINOR.PATCH
+ *  - vMAJOR.MINOR.PATCH-(alpha|beta|rc).N
+ *
+ * output:
+ *  - MAJOR.MINOR.PATCH
+ *  - MAJOR.MINOR.PATCH-<numeric>  (numeric-only prerelease, <= 65535)
+ */
+function tagToTauriVersion(tag: string): string {
+  const m = tag.match(/^v(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$/);
+  if (!m) {
+    throw new Error(`Invalid tag format: ${tag}`);
+  }
+
+  const major = Number(m[1]);
+  const minor = Number(m[2]);
+  const patch = Number(m[3]);
+  const stage = m[4] as Stage | undefined;
+  const stageNumRaw = m[5];
+
+  if (![major, minor, patch].every((n) => Number.isInteger(n) && n >= 0)) {
+    throw new Error(`Invalid version numbers in tag: ${tag}`);
+  }
+
+  let version = `${major}.${minor}.${patch}`;
+
+  if (!stage) return version;
+
+  const stageNum = Number(stageNumRaw);
+  if (!Number.isInteger(stageNum) || stageNum < 0 || stageNum > 9999) {
+    throw new Error(`Prerelease number must be 0..9999 (tag: ${tag})`);
+  }
+
+  const stageBase: Record<Stage, number> = {
+    alpha: 10000,
+    beta: 20000,
+    rc: 30000,
+  };
+
+  const encoded = stageBase[stage] + stageNum;
+  if (encoded > 65535) {
+    throw new Error(
+      `Encoded prerelease must be <= 65535 (got ${encoded}, tag: ${tag})`,
+    );
+  }
+
+  // MSI-safe: numeric-only prerelease
+  version = `${version}-${encoded}`;
+  return version;
+}
+
+/**
+ * Update `tauri.conf.json` for release
+ *
+ * @param args - CLI arguments
+ */
+function main(args: string[]) {
+  const configPath = "hardviz/app/tauri.conf.json";
+
+  const tag = getArg(args, "--tag");
+  const signCommand = getArg(args, "--sign");
+
+  if (!tag) {
+    console.error("--tag is required");
+    process.exit(1);
+  }
+
+  const tauriVersion = tagToTauriVersion(tag);
+
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.version = tauriVersion;
+
+  if (signCommand) {
+    config.bundle ??= {};
+    config.bundle.windows ??= {};
+    config.bundle.windows.signCommand = signCommand;
+  }
+
+  config.bundle ??= {};
+  config.bundle.createUpdaterArtifacts = true;
+
+  // Bundle the generated notices only in release builds. publish.yml writes
+  // the file before `tauri build`, and tauri-build fails when a listed
+  // resource is missing, so a release can no longer ship without real
+  // notices. Development builds do not list it and need no placeholder.
+  config.bundle.resources ??= {};
+  config.bundle.resources[THIRD_PARTY_NOTICES_SOURCE] =
+    "THIRD_PARTY_NOTICES.md";
+
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  console.log("tauri.conf.json has been updated");
+  console.log(`version: ${config.version}`);
+}
+
+try {
+  main(process.argv.slice(2));
+} catch (e) {
+  console.error(e instanceof Error ? e.message : String(e));
+  process.exit(1);
+}

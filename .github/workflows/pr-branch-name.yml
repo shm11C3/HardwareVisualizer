@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-slim
 
     steps:
+      # Warns only: release-note labels come from the PR title (see
+      # pr-labeler.yml), so a branch prefix is a convention, not a gate.
       - name: Validate PR branch name
         shell: bash
         env:
@@ -21,7 +23,6 @@ jobs:
               echo "Branch name '$HEAD_REF' follows the project convention."
               ;;
             *)
-              echo "::error title=Invalid PR branch name::Branch '$HEAD_REF' does not follow CONTRIBUTING.md. Use feat/, feature/, fix/, docs/, perf/, refactor/, chore/, dependabot/, or renovate/; do not use tool-dependent prefixes such as codex/ or claude/."
-              exit 1
+              echo "::warning title=Unconventional PR branch name::Branch '$HEAD_REF' does not use a recommended prefix (feat/, feature/, fix/, docs/, perf/, refactor/, chore/, dependabot/, renovate/). Branch prefixes are a convention only; release-note labels come from the PR title. Do not use tool-dependent prefixes such as codex/ or claude/."
               ;;
           esac

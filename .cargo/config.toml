@@ -8,7 +8,7 @@
 #
 # {workspace-path-hash} is REQUIRED, not cosmetic: Cargo does not fingerprint a
 # workspace's own path-based member packages (this crate's own `core` and
-# `src-tauri`) by absolute source path under build-dir the way it does under
+# `hardviz/app`) by absolute source path under build-dir the way it does under
 # target/. Two worktrees with the same package name and version but different
 # source content sharing a flat build-dir can silently serve one worktree's
 # compiled binary or test results to the other. This hash makes each distinct
@@ -25,7 +25,7 @@ build-dir = "{cargo-cache-home}/build/shared/{workspace-path-hash}"
 # (msvcrt / vcruntime / ucrt), never the C++ standard library (msvcprt), so a
 # feature-on build otherwise imports MSVCP140.dll. That DLL ships with the
 # VC++ Redistributable, not with Windows, and `/DEPENDENTLOADFLAG:0x800` in
-# src-tauri/build.rs means it must come from System32. Measured on
+# hardviz/app/build.rs means it must come from System32. Measured on
 # 2026-09-24 on the ci profile: without this flag the executable imports
 # msvcp140.dll, vcruntime140.dll, vcruntime140_1.dll and the
 # api-ms-win-crt-* forwarders; with it, none of them. `cc` honours the flag

@@ -7,7 +7,7 @@ trigger: a review proposes changing the subsystem expected for a canonical sysfs
 failure_signature: "the review of PR #2564 expected the native I²C adapter to use a class subsystem, while the provider required the I²C bus subsystem"
 root_cause: the proposed check conflated the canonical bus adapter with the separate character-device class entry
 guardrail: the approved DIMM specification distinguishes the nodes, and the provider fixture exercises their different subsystem targets
-canonical_refs: docs/specs/sensors/memory-ddr5-odroid-h4-spd5118.md, core/src/infrastructure/providers/linux/dimm_temperature.rs
+canonical_refs: docs/specs/sensors/memory-ddr5-odroid-h4-spd5118.md, hardviz/core/src/infrastructure/providers/linux/dimm_temperature.rs
 verification: run the Linux adapter_and_client_require_the_i2c_bus_subsystem test and check that the positive bus links and independent class-link substitutions exercise the same canonical nodes as the production lookup
 evidence: "PRs #2564, #2577, and #2604"
 revalidate_when: the kernel ABI, endpoint resolution path, or identity predicate changes

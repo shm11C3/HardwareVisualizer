@@ -132,7 +132,7 @@ scope of #1666 before implementation.
 
 ## References
 
-- [Current database access](../../core/src/infrastructure/database/db.rs)
-- [Migration definitions](../../src-tauri/src/infrastructure/database/migration.rs)
+- [Current database access](../../hardviz/core/src/infrastructure/database/db.rs)
+- [Migration definitions](../../hardviz/app/src/infrastructure/database/migration.rs)
 - [SQLite WAL concurrency](https://sqlite.org/wal.html#concurrency)
 - [SQLite durability policies](https://sqlite.org/pragma.html#pragma_synchronous)

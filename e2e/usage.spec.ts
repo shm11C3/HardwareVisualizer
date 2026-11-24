@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { settingsFixture } from "../src/e2e/fixtures/settings";
+import { settingsFixture } from "../hardviz/frontend/src/e2e/fixtures/settings";
 import {
   BOOTSTRAP_TIMEOUT,
   gotoApp,

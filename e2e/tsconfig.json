@@ -1,12 +1,12 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../hardviz/frontend/tsconfig.json",
   "compilerOptions": {
     "types": ["node"]
   },
   "include": [
     "./**/*.ts",
-    "../playwright.config.ts",
-    "../playwright.perf.config.ts",
-    "../playwright.memory.config.ts"
+    "./playwright.config.ts",
+    "./playwright.perf.config.ts",
+    "./playwright.memory.config.ts"
   ]
 }

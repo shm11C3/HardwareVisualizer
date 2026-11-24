@@ -7,7 +7,7 @@ trigger: Windows GPU results list two adapters with the same name or hardware id
 failure_signature: the backend inventory and PDH-only sampling both returned two RTX 5080 entries for one present PCI graphics device
 root_cause: DXGI enumerated a physical renderer and an indirect display-only adapter with distinct LUIDs and one shared physical hardware key
 guardrail: filter only OS-identified indirect display aliases of a separately enumerated renderer
-canonical_refs: core/src/infrastructure/providers/windows/directx.rs, core/src/platform/windows/gpu.rs, docs/adr/0016-gpu-attribution-on-the-performance-screen.md
+canonical_refs: hardviz/core/src/infrastructure/providers/windows/directx.rs, hardviz/core/src/platform/windows/gpu.rs, docs/adr/0016-gpu-attribution-on-the-performance-screen.md
 verification: inventory and live discovery fixtures preserve the renderer identity, separate renderers, an unmatched indirect adapter, and an adapter whose physical identity is unavailable
 evidence: "Issue #1990 follow-up. Live DXGI and PnP enumeration, read-only D3DKMT identity queries, and a live PDH-only probe before and after the fix"
 revalidate_when: Windows GPU inventory or PDH discovery changes its enumeration API or alias identity evidence

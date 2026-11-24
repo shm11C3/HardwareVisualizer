@@ -35,10 +35,10 @@ timeout for the initial render assertion.
 
 ## How the mocks work
 
-- `vite --mode e2e` rewrites `index.html` to use `src/main.e2e.tsx`.
-  The regular `src/main.tsx` keeps the production/Tauri app entry static,
+- `vite --mode e2e` rewrites `index.html` to use `hardviz/frontend/src/main.e2e.tsx`.
+  The regular `hardviz/frontend/src/main.tsx` keeps the production/Tauri app entry static,
   while the E2E entry installs mocks before dynamically importing the app.
-- `src/e2e/mocks/installTauriMocks.ts` is the single mock entry point:
+- `hardviz/frontend/src/e2e/mocks/installTauriMocks.ts` is the single mock entry point:
   - `mockIPC(..., { shouldMockEvents: true })` from `@tauri-apps/api/mocks`
     intercepts every `invoke()` (generated tauri-specta commands and
     `plugin:<name>|<command>` plugin calls) and implements
@@ -48,10 +48,10 @@ timeout for the initial render assertion.
     `platform()` from `@tauri-apps/plugin-os` is a synchronous global read,
     not an IPC call.
   - The Tauri store plugin is backed by an in-memory `Map`, seeded from
-    `src/e2e/fixtures/store.ts`.
+    `hardviz/frontend/src/e2e/fixtures/store.ts`.
   - Unhandled commands throw `[e2e-mock] Unhandled invoke: <cmd>` so coverage
     gaps surface immediately when new screens are added to scenarios.
-- Fixture data lives in `src/e2e/fixtures/` (settings, hardware info,
+- Fixture data lives in `hardviz/frontend/src/e2e/fixtures/` (settings, hardware info,
   process list, storage health, and a deterministic
   `hardware-monitor-update` series built from fixed sine waves).
 - Tests push hardware events through `window.__E2E__.emitHardwareUpdate` /
@@ -70,7 +70,7 @@ timeout for the initial render assertion.
 Insights pins the clock with `page.clock.setFixedTime(...)` because its
 archive query ranges derive from `Date.now()`; the mocked archive commands
 synthesize records from the requested start/end range
-(`src/e2e/fixtures/archive.ts`), so charts stay deterministic.
+(`hardviz/frontend/src/e2e/fixtures/archive.ts`), so charts stay deterministic.
 
 Pass criteria are DOM-level: fixture content visible via accessible
 selectors, interactions reflected in ARIA state, and captures saved.
@@ -81,7 +81,7 @@ render series black while remaining "visible" to all other assertions.
 
 ## Writing a scenario
 
-Specs live in `e2e/*.spec.ts` (outside `src/`, so Vitest does not pick them
+Specs live in `e2e/*.spec.ts` (outside `hardviz/frontend/src/`, so Vitest does not pick them
 up). Shared helpers live in `e2e/helpers.ts`. The shape of a scenario:
 
 1. `await gotoApp(page)` — loads `/` and waits for fixture content
@@ -97,7 +97,7 @@ up). Shared helpers live in `e2e/helpers.ts`. The shape of a scenario:
 Determinism rules:
 
 - Locked viewport (1280x800), `deviceScaleFactor: 1`, dark color scheme,
-  `en-US` locale, UTC timezone, reduced motion (see `playwright.config.ts`).
+  `en-US` locale, UTC timezone, reduced motion (see `e2e/playwright.config.ts`).
 - Use fixture data only — never live hardware values.
 
 ## Render performance smoke
@@ -160,7 +160,7 @@ artifact with `if: always()`, so captures survive failed runs. The Playwright
 HTML report and per-test output are uploaded only on failure.
 
 For same-repo pull requests the job also posts the captures inline as a
-sticky PR comment (`.github/scripts/comment-e2e-captures.sh`): images are
+sticky PR comment (`.github/scripts/ci/comment-e2e-captures.sh`): images are
 force-pushed to the single-commit `e2e-captures` branch under
 `pr-<number>/` and embedded via raw.githubusercontent.com URLs. The branch
 is disposable — it can be deleted at any time and will be recreated by the
@@ -196,7 +196,7 @@ npm run typecheck:e2e:native
 The command builds a debug, no-bundle app with the dedicated E2E config:
 
 ```bash
-npm run tauri build -- --debug --no-bundle --config src-tauri/tauri.e2e.conf.json
+npm run tauri build -- --debug --no-bundle --config hardviz/app/tauri.e2e.conf.json
 ```
 
 The native smoke sets `HARDVIZ_E2E=1`, which switches the runtime identity to
@@ -245,7 +245,7 @@ Native prerequisites:
 The `test-e2e-native` CI job runs only on `ubuntu-22.04`. It uploads
 `test-results/captures/` as the `e2e-native-captures` artifact with
 `if: always()`, so evidence survives failures. Native captures are not
-published through `.github/scripts/comment-e2e-captures.sh`; that PR comment
+published through `.github/scripts/ci/comment-e2e-captures.sh`; that PR comment
 remains dedicated to the Playwright web/mock review captures.
 
 Native CI uses the existing trusted R2 sccache action for Rust and bundled
@@ -256,5 +256,5 @@ reduces that work without reusing stale UI. A first-time cache fill can be
 slower than a build without compiler caching.
 
 Bindings regeneration checks its Rust producers, build inputs, the generated
-`src/rspc/bindings.ts`, CI automation, unclassified files and develop pushes.
+`hardviz/frontend/src/rspc/bindings.ts`, CI automation, unclassified files and develop pushes.
 Ordinary frontend consumers do not trigger that separate Rust job.

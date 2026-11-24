@@ -45,11 +45,11 @@ jobs:
         run: cargo binstall cargo-edit --no-confirm
 
       - name: Run Tauri dependency updater
-        run: bash .github/scripts/tauri-updater.sh
+        run: bash .github/scripts/deps/tauri-updater.sh
 
       - name: Check for effective Tauri dependency updates
         id: tauri-deps
-        run: node .github/scripts/check-tauri-deps-changed.ts HEAD --worktree
+        run: node .github/scripts/deps/check-tauri-deps-changed.ts HEAD --worktree
 
       - name: Discard npm changes without a Tauri npm update
         if: steps.tauri-deps.outputs.npm_changed != 'true'
@@ -57,7 +57,7 @@ jobs:
 
       - name: Discard Cargo changes without a Tauri crate update
         if: steps.tauri-deps.outputs.cargo_changed != 'true'
-        run: git restore -- Cargo.lock src-tauri/Cargo.toml
+        run: git restore -- Cargo.lock hardviz/app/Cargo.toml
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8.1.3

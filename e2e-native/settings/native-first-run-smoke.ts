@@ -188,7 +188,7 @@ const buildE2eApp = () => {
       "--debug",
       "--no-bundle",
       "--config",
-      "src-tauri/tauri.e2e.conf.json",
+      "hardviz/app/tauri.e2e.conf.json",
     ],
     {
       cwd: REPO_ROOT,
@@ -214,7 +214,7 @@ const resolveAppBinary = () => {
       : ["hardware-visualizer", "hardware_visualizer"];
   const candidates = binaryNames.flatMap((binaryName) => [
     path.join(REPO_ROOT, "target", "debug", binaryName),
-    path.join(REPO_ROOT, "src-tauri", "target", "debug", binaryName),
+    path.join(REPO_ROOT, "hardviz", "app", "target", "debug", binaryName),
   ]);
 
   for (const candidate of candidates) {

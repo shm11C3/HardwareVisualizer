@@ -7,7 +7,7 @@ trigger: diagnosing WindowServer GPU cost or changing Transparent UI on macOS
 failure_signature: disabling Transparent UI clears vibrancy but leaves the native window non-opaque
 root_cause: the main window is configured transparent at creation and clearing vibrancy does not change NSWindow opacity or backing color
 guardrail: apply native opacity and backing color from the explicit transparency preference on startup and runtime changes
-canonical_refs: src-tauri/src/services/window_appearance_service.rs, src-tauri/src/commands/settings.rs, src-tauri/src/lib.rs
+canonical_refs: hardviz/app/src/services/window_appearance_service.rs, hardviz/app/src/commands/settings.rs, hardviz/app/src/lib.rs
 verification: native getters after startup and ON/OFF transitions; ordinary-window alternating GPU-counter comparison
 evidence: AppKit runtime probes and local release-profile measurements on 2026-10-16
 revalidate_when: macOS, Tauri/Wry window creation, native vibrancy, or main-window transparency behavior changes

@@ -9,7 +9,7 @@ A standalone CLI tool that launches the HardwareVisualizer binary, measures CPU 
 cargo build --release --manifest-path perf-monitor/Cargo.toml
 
 # Run against a built binary
-cargo perf-test -- --binary src-tauri/target/release/hardware-visualizer.exe
+cargo perf-test -- --binary hardviz/app/target/release/hardware-visualizer.exe
 ```
 
 ## CLI Options
@@ -17,7 +17,7 @@ cargo perf-test -- --binary src-tauri/target/release/hardware-visualizer.exe
 | Option                 | Default                | Description                        |
 | ---------------------- | ---------------------- | ---------------------------------- |
 | `--binary <PATH>`      | _(required)_           | Path to the target binary          |
-| `--config <PATH>`      | `perf-thresholds.toml` | Path to the threshold config file  |
+| `--config <PATH>`      | `perf-monitor/perf-thresholds.toml` | Path to the threshold config file  |
 | `--warmup <SECONDS>`   | From config (15)       | Minimum warmup before stabilization |
 | `--duration <SECONDS>` | From config (60)       | Measurement duration               |
 | `--output <FORMAT>`    | `text`                 | Output format: `text` or `json`    |
@@ -36,7 +36,7 @@ When `--output json` is used, machine-readable JSON is written to stdout and the
 
 ## Configuration
 
-Thresholds are defined in `perf-thresholds.toml` at the repository root.
+Thresholds are defined in `perf-monitor/perf-thresholds.toml`.
 
 ```toml
 [thresholds]

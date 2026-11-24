@@ -17,18 +17,18 @@ Use a stable short language code such as `en`, `ja`, or `ru`.
 
 The current implementation stores this code directly in Settings and uses it as
 the i18next resource key. If a future language needs a regional code, check the
-Rust locale extraction logic in `src-tauri/src/services/language_service.rs`
+Rust locale extraction logic in `hardviz/app/src/services/language_service.rs`
 before choosing the code.
 
 ## Steps
 
-1. Add `src/lang/<code>.json`.
+1. Add `hardviz/frontend/src/lang/<code>.json`.
 
-   Use `src/lang/en.json` as the source structure. Keep the same key hierarchy
+   Use `hardviz/frontend/src/lang/en.json` as the source structure. Keep the same key hierarchy
    and include `lang.<code>` so the Settings language selector can show the
    language name.
 
-2. Register the resource in `src/lib/i18n.ts`.
+2. Register the resource in `hardviz/frontend/src/lib/i18n.ts`.
 
    Import the JSON file and add it to the `resources` object:
 
@@ -43,23 +43,23 @@ before choosing the code.
    };
    ```
 
-3. Add the resource type in `src/types/i18next.d.ts`.
+3. Add the resource type in `hardviz/frontend/src/types/i18next.d.ts`.
 
    Import the JSON type and add it to the `Resources` type.
 
 4. Add the language code to Rust `SUPPORTED_LANGUAGES`.
 
-   Update `src-tauri/src/services/language_service.rs` so first-run OS language
+   Update `hardviz/app/src/services/language_service.rs` so first-run OS language
    fallback recognizes the new language as officially supported.
 
 5. Update Rust language service tests.
 
    Add a test matching the existing `supported_languages_contains_*` tests in
-   `src-tauri/src/services/language_service.rs`.
+   `hardviz/app/src/services/language_service.rs`.
 
 6. Update frontend i18n tests.
 
-   Add a resource-bundle assertion in `src/lib/i18n.test.ts`. If the new
+   Add a resource-bundle assertion in `hardviz/frontend/src/lib/i18n.test.ts`. If the new
    language intentionally relies on English fallback for some keys, add a
    focused fallback assertion.
 

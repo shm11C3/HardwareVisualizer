@@ -11,7 +11,7 @@
       "cargo": {
         "args": [
           "build",
-          "--manifest-path=./src-tauri/Cargo.toml",
+          "--manifest-path=./hardviz/app/Cargo.toml",
           "--no-default-features"
         ]
       },
@@ -23,7 +23,7 @@
       "request": "launch",
       "name": "Tauri Production Debug",
       "cargo": {
-        "args": ["build", "--release", "--manifest-path=./src-tauri/Cargo.toml"]
+        "args": ["build", "--release", "--manifest-path=./hardviz/app/Cargo.toml"]
       },
       // task for the `beforeBuildCommand` if used, must be configured in `.vscode/tasks.json`
       "preLaunchTask": "ui:build"

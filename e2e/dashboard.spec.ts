@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { GPU_FIXTURES } from "../src/e2e/fixtures/hardware";
+import { GPU_FIXTURES } from "../hardviz/frontend/src/e2e/fixtures/hardware";
 import {
   BOOTSTRAP_TIMEOUT,
   gotoApp,

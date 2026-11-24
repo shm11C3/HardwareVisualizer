@@ -65,7 +65,7 @@ GitHub リポジトリの **Settings > Secrets and variables > Actions** で以�
   公開します。
 - `update-tauri-config.ts --sign` が `tauri.conf.json` の
   `bundle.windows.signCommand` に署名ラッパー
-  (`pwsh ... .github/scripts/sign-codesigntool.ps1 %1`) を注入します。
+  (`pwsh ... .github/scripts/release/sign-codesigntool.ps1 %1`) を注入します。
 - Tauri はビルド成果物ごとにこのラッパーを呼び出します。CodeSignTool は in-place
   署名ではなく出力ディレクトリへ署名するため、ラッパーは一時ディレクトリへ署名した
   うえで元のパスへ署名済みファイルを戻します。

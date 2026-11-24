@@ -7,8 +7,8 @@ trigger: frontend-only CI runs still spend minutes compiling Rust
 failure_signature: native E2E has an exact driver cache hit but recompiles app dependencies
 root_cause: native smoke builds the app inside its runner while setup-rust cached only registry and installed driver binaries
 guardrail: trusted native compiler cache and producer-scoped bindings condition enforced by the CI policy test
-canonical_refs: .github/workflows/ci.yml, .github/scripts/test-e2e-ci-policy.mjs, docs/development/e2e-captures.md
-verification: node .github/scripts/test-e2e-ci-policy.mjs; inspect native job compilation logs and cache markers
+canonical_refs: .github/workflows/ci.yml, .github/scripts/ci/test-e2e-ci-policy.mjs, docs/development/e2e-captures.md
+verification: node .github/scripts/ci/test-e2e-ci-policy.mjs; inspect native job compilation logs and cache markers
 evidence: CI run 38100815964 job 114356249095; frontend-only PR 2387 CI run 38098794478
 revalidate_when: native build profile, Tauri asset embedding, cache pruning policy or binding generation inputs change
 ---

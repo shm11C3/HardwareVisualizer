@@ -10,7 +10,7 @@ migrations, the SQLite writers for the converted history, the #2088 candidate
 builder, finalization into App's stable schema, and then the native writers and
 `delete_old_data` of every raw archive family through the blocking owner. No
 product code changed; the probe is the ignored integration test
-[`core/tests/duckdb_retention_probe.rs`](../../core/tests/duckdb_retention_probe.rs).
+[`hardviz/core/tests/duckdb_retention_probe.rs`](../../hardviz/core/tests/duckdb_retention_probe.rs).
 
 Measured on 2026-09-16 UTC (2026-09-17 JST, the date in the artifact names)
 on Windows 11 Pro x64 (AMD Ryzen 7 7800X3D, 16 logical CPUs, 64 GiB)

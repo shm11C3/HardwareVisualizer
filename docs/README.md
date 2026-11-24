@@ -37,11 +37,11 @@ documentation.
 - [Relicense to GPL-3.0-or-later decision](adr/0020-relicense-to-gpl-3.0-or-later.md)
 - [Sensor hardware specs (clean-room)](specs/sensors/README.md), including
   specification revisions and model-specific enablement limits.
-- [Frontend architecture](../src/README.md)
+- [Frontend architecture](../hardviz/frontend/README.md)
 - [Frontend layer boundaries decision](adr/0027-frontend-layer-boundaries-and-state-ownership.md)
 - [Frontend architecture Design Doc](design/frontend-architecture.md)
-- [Core crate guide](../core/README.md)
-- [Tauri app crate guide](../src-tauri/README.md)
+- [Core crate guide](../hardviz/core/README.md)
+- [Tauri app crate guide](../hardviz/app/README.md)
 - [Add a new language](development/add-language.md)
 - [E2E capture harness](development/e2e-captures.md)
 - [Super I/O sensor work handoff](development/sensor-handoff/)
@@ -93,11 +93,10 @@ docs/
 - Documentation directories and handwritten Markdown files should use
   lowercase kebab-case. Generated legal notice files named
   `THIRD_PARTY_NOTICES.md` are the current exception.
-- `tmp/THIRD_PARTY_NOTICES.md` is tracked and used as the current Tauri bundled
-  third-party notices resource. Although it lives under `tmp/`, it is not a
-  disposable scratch file. Moving it to a clearer runtime resource location,
-  such as `src-tauri/resources/THIRD_PARTY_NOTICES.md`, should be handled as a
-  separate release/bundling change.
+- `tmp/` is ignored scratch output. `publish.yml` generates
+  `tmp/THIRD_PARTY_NOTICES.md` and bundles it only in release builds, so
+  development and source builds show the Third-party notices tab as
+  unavailable.
 
 ## Root-Level Documents
 

@@ -22,7 +22,7 @@ concurrency:
 jobs:
   scan-default-branch:
     name: Scan default branch
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.7.0
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.7.1
     permissions:
       actions: read
       contents: read
@@ -87,7 +87,7 @@ jobs:
           path: |
             osv-scanner.toml
             .github/osv/release-vulnerability-assessments.json
-            .github/scripts/evaluate-release-vulnerabilities.mjs
+            .github/scripts/release/evaluate-release-vulnerabilities.mjs
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
@@ -116,7 +116,7 @@ jobs:
           path: ./
 
       - name: Run OSV scanner
-        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.1
         continue-on-error: true
         with:
           scan-args: |-
@@ -126,7 +126,7 @@ jobs:
 
       - name: Generate OSV SARIF report
         id: osv-reporter
-        uses: google/osv-scanner-action/osv-reporter-action@v2.7.0
+        uses: google/osv-scanner-action/osv-reporter-action@v2.7.1
         with:
           scan-args: |-
             --output=release-osv-results.sarif
@@ -165,7 +165,7 @@ jobs:
 
       - name: Evaluate release vulnerability response
         run: |
-          node .github/scripts/evaluate-release-vulnerabilities.mjs \
+          node .github/scripts/release/evaluate-release-vulnerabilities.mjs \
             release-results.json \
             .github/osv/release-vulnerability-assessments.json \
             cisa-kev.json \

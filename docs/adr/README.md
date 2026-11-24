@@ -52,3 +52,4 @@ ADR status describes decision maturity, not implementation or release status.
 - [0029 Windows Sensor Service for Unelevated Resident Monitoring](0029-windows-sensor-service.md)
 - [0030 Native-only Persistence for New Families Before v2.0.0](0030-native-only-persistence-for-new-families.md)
 - [0031 Runtime Sensor Gates Follow the Hardware Mechanism](0031-runtime-sensor-gates-follow-hardware-mechanism.md)
+- [0032 Group Shipped Components Under One Source Root](0032-group-shipped-components-under-one-source-root.md)

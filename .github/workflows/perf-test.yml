@@ -68,7 +68,7 @@ jobs:
           xvfb-run --auto-servernum \
             ./perf-monitor/target/release/perf-monitor \
               --binary target/ci/hardware-visualizer \
-              --config perf-thresholds.toml \
+              --config perf-monitor/perf-thresholds.toml \
               --output json \
             > perf-results.json
 
@@ -77,7 +77,7 @@ jobs:
         run: |
           ./perf-monitor/target/release/perf-monitor \
             --binary "target/ci/bundle/macos/HardwareVisualizer.app/Contents/MacOS/hardware-visualizer" \
-            --config perf-thresholds.toml \
+            --config perf-monitor/perf-thresholds.toml \
             --output json \
           > perf-results.json
 
@@ -87,7 +87,7 @@ jobs:
         run: |
           ./perf-monitor/target/release/perf-monitor.exe \
             --binary target/ci/hardware-visualizer.exe \
-            --config perf-thresholds.toml \
+            --config perf-monitor/perf-thresholds.toml \
             --output json \
           > perf-results.json
 

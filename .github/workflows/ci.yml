@@ -56,39 +56,37 @@ jobs:
         with:
           filters: |
             frontend:
-              - 'src/**'
+              - 'hardviz/frontend/src/**'
               - 'e2e/**'
               - 'e2e-native/**'
               - 'package*.json'
-              - 'vite.config.ts'
-              - 'playwright.config.ts'
-              - 'playwright.perf.config.ts'
-              - 'playwright.memory.config.ts'
-              - 'tsconfig*.json'
+              - 'hardviz/frontend/vite.config.ts'
+              - '.github/tsconfig.json'
+              - 'hardviz/frontend/tsconfig*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
             bindings:
-              - 'src/rspc/bindings.ts'
+              - 'hardviz/frontend/src/rspc/bindings.ts'
             backend:
-              - 'core/**'
-              - 'sensor-service/**'
-              - 'src-tauri/**'
+              - 'hardviz/core/**'
+              - 'hardviz/sensor-service/**'
+              - 'hardviz/app/**'
               - 'Cargo.*'
               - '.cargo/**'
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
             core:
-              - 'core/**'
-              - 'sensor-service/**'
+              - 'hardviz/core/**'
+              - 'hardviz/sensor-service/**'
               - 'Cargo.*'
               - '.cargo/**'
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
             tauri:
-              - 'src-tauri/**'
-              - 'sensor-service/**'
+              - 'hardviz/app/**'
+              - 'hardviz/sensor-service/**'
               - 'e2e-native/**'
               - 'Cargo.*'
               - '.cargo/**'
@@ -99,33 +97,35 @@ jobs:
               - 'package*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - 'scripts/licenses/**'
             backend-deps:
-              - 'sensor-service/Cargo.toml'
-              - 'core/Cargo.toml'
-              - 'src-tauri/Cargo.toml'
+              - 'hardviz/sensor-service/Cargo.toml'
+              - 'hardviz/core/Cargo.toml'
+              - 'hardviz/app/Cargo.toml'
               - 'Cargo.*'
               - '.cargo/**'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - 'scripts/licenses/**'
             cargo-license-config:
-              - 'src-tauri/deny.toml'
-              # Inputs to the DuckDB bundled-library notice check. core/ and
-              # src-tauri/Cargo.toml also reach this job through backend-deps;
+              - 'hardviz/app/deny.toml'
+              # Inputs to the DuckDB bundled-library notice check. hardviz/core/ and
+              # hardviz/app/Cargo.toml also reach this job through backend-deps;
               # they are named here too because the duckdb dependency's
               # features decide which vendored C/C++ libraries the notice must
               # cover, not just which crates are built.
-              - 'core/Cargo.toml'
-              - 'src-tauri/Cargo.toml'
+              - 'hardviz/core/Cargo.toml'
+              - 'hardviz/app/Cargo.toml'
               - 'docs/licenses/manual/**'
-              - '.github/scripts/check-duckdb-license-version.ts'
+              - 'scripts/licenses/check-duckdb-license-version.ts'
               - '.github/actions/setup-rust/**'
               - '.github/workflows/ci.yml'
             windows-installer:
-              - 'sensor-service/**'
-              - 'src-tauri/windows/**'
-              - 'src-tauri/tauri.conf.json'
-              - '.github/scripts/sign-codesigntool.ps1'
-              - '.github/scripts/test-sign-codesigntool.ps1'
+              - 'hardviz/sensor-service/**'
+              - 'hardviz/app/windows/**'
+              - 'hardviz/app/tauri.conf.json'
+              - '.github/scripts/release/sign-codesigntool.ps1'
+              - '.github/scripts/release/test-sign-codesigntool.ps1'
               - '.github/workflows/ci.yml'
             actions:
               - '.github/workflows/**'
@@ -156,22 +156,21 @@ jobs:
           filters: |
             unclassified:
               - '**'
-              - '!src/**'
+              - '!hardviz/frontend/src/**'
               - '!e2e/**'
               - '!e2e-native/**'
               - '!package*.json'
-              - '!vite.config.ts'
-              - '!playwright.config.ts'
-              - '!playwright.perf.config.ts'
-              - '!playwright.memory.config.ts'
-              - '!tsconfig*.json'
-              - '!core/**'
-              - '!src-tauri/**'
+              - '!hardviz/frontend/vite.config.ts'
+              - '!.github/tsconfig.json'
+              - '!hardviz/frontend/tsconfig*.json'
+              - '!hardviz/core/**'
+              - '!hardviz/app/**'
               - '!Cargo.*'
               - '!.cargo/**'
               - '!rust-toolchain*'
               - '!.github/actions/**'
               - '!.github/scripts/**'
+              - '!scripts/licenses/**'
               - '!.github/workflows/**'
 
       - name: Setup Node.js
@@ -181,29 +180,29 @@ jobs:
           setup-safe-chain: "false"
 
       - name: Test E2E CI policy
-        run: node .github/scripts/test-e2e-ci-policy.mjs
+        run: node .github/scripts/ci/test-e2e-ci-policy.mjs
 
       - name: Test Tauri dependency change detection
-        run: node .github/scripts/test-check-tauri-deps-changed.mjs
+        run: node .github/scripts/deps/test-check-tauri-deps-changed.mjs
 
       - name: Test release vulnerability evaluation
-        run: node .github/scripts/test-evaluate-release-vulnerabilities.mjs
+        run: node .github/scripts/release/test-evaluate-release-vulnerabilities.mjs
 
       - name: Test license notice generation
-        run: node .github/scripts/test-generate-licenses.mjs
+        run: node scripts/licenses/test-generate-licenses.mjs
 
       - name: Test WinGet license metadata correction
-        run: node .github/scripts/test-update-winget-license.mjs
+        run: node .github/scripts/release/test-update-winget-license.mjs
 
       - name: Test cache metrics reporting
         run: |
-          node .github/scripts/test-cache-metrics.cjs
-          node .github/scripts/test-cache-inventory.cjs
+          node .github/actions/cache-sccache/report/test-metrics.cjs
+          node .github/scripts/cache/test-cache-inventory.cjs
 
       - name: Test CI telemetry
         run: |
-          node .github/scripts/test-ci-telemetry-action.mts
-          node .github/scripts/test-ci-telemetry-aggregate.mts
+          node .github/actions/ci-telemetry/test-metrics.mts
+          node .github/scripts/ci-telemetry/test-ci-telemetry-aggregate.mts
 
       - name: Check Tauri dependency changes
         id: tauri-deps
@@ -215,7 +214,7 @@ jobs:
             exit 0
           fi
 
-          node .github/scripts/check-tauri-deps-changed.ts "$base_ref"
+          node .github/scripts/deps/check-tauri-deps-changed.ts "$base_ref"
 
       - name: Wait for changed file detection
         wait-all: true
@@ -375,12 +374,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2.90.3
+        uses: taiki-e/install-action@v2.90.5
         with:
           tool: cargo-nextest
 
       # nextest runs each test in its own process, so the DuckDB integration
-      # binaries under core/tests/ run in parallel without sharing the
+      # binaries under hardviz/core/tests/ run in parallel without sharing the
       # process-wide database path. Scheduling rules live in .config/nextest.toml.
       # duckdb-archive is a default feature, so this already builds and runs
       # the DuckDB integration tests without an explicit flag.
@@ -478,7 +477,7 @@ jobs:
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
-        uses: taiki-e/install-action@v2.90.3
+        uses: taiki-e/install-action@v2.90.5
         with:
           tool: cargo-llvm-cov
 
@@ -509,8 +508,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
         shell: bash
 
+      # Same-repo PRs only: fork PRs get a read-only token and cannot comment.
       - name: Report Rust coverage
-        if: matrix.platform == 'ubuntu-22.04' && github.event_name == 'pull_request'
+        if: matrix.platform == 'ubuntu-22.04' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: rust-coverage
@@ -565,8 +565,8 @@ jobs:
       - name: Prepare frontendDist placeholder
         shell: bash
         run: |
-          mkdir -p dist
-          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+          mkdir -p hardviz/frontend/dist
+          printf '<!doctype html><html><body></body></html>\n' > hardviz/frontend/dist/index.html
 
       - name: Check Tauri crate against changed Core API
         run: cargo check -p hardware_visualizer --all-targets --features custom-protocol
@@ -611,14 +611,14 @@ jobs:
       - name: Prepare frontendDist placeholder
         shell: bash
         run: |
-          mkdir -p dist
-          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+          mkdir -p hardviz/frontend/dist
+          printf '<!doctype html><html><body></body></html>\n' > hardviz/frontend/dist/index.html
 
       - name: Regenerate Tauri bindings
         run: cargo run --locked -p hardware_visualizer --features bindings-export --bin export_bindings
 
       - name: Check generated bindings are current
-        run: git diff --exit-code -- src/rspc/bindings.ts
+        run: git diff --exit-code -- hardviz/frontend/src/rspc/bindings.ts
 
   #
   # Build test
@@ -678,7 +678,7 @@ jobs:
 
       - name: Fix linuxdeploy permissions
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
-        run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
+        run: chmod +x ./hardviz/app/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
 
       - name: Unset problematic env vars
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
@@ -739,8 +739,8 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
         shell: bash
         run: |
-          mkdir -p dist
-          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+          mkdir -p hardviz/frontend/dist
+          printf '<!doctype html><html><body></body></html>\n' > hardviz/frontend/dist/index.html
 
       - name: Build Tauri Rust crate (CI optimized for PR)
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
@@ -778,7 +778,7 @@ jobs:
 
       - name: Test CodeSignTool wrapper
         shell: pwsh
-        run: ./.github/scripts/test-sign-codesigntool.ps1
+        run: ./.github/scripts/release/test-sign-codesigntool.ps1
 
       - name: Cache WiX binary
         background: true
@@ -814,13 +814,6 @@ jobs:
           # like the other feature jobs.
           expect-cpp: "true"
 
-      # bundle.resources requires the notices file; its content is irrelevant here.
-      - name: Prepare THIRD_PARTY_NOTICES placeholder
-        shell: bash
-        run: |
-          mkdir -p tmp
-          printf '# Third-party notices placeholder for CI installer builds\n' > tmp/THIRD_PARTY_NOTICES.md
-
       # pwsh, not bash: cache-sccache's expect-cpp initialises the MSVC
       # environment (VCINSTALLDIR), after which rustc takes `link.exe` from PATH,
       # and Git Bash puts its own /usr/bin/link.exe (GNU coreutils) first.
@@ -837,8 +830,8 @@ jobs:
           if (-not (Get-ChildItem target/ci/bundle/nsis/*-setup.exe)) { throw "No NSIS installer was produced" }
           $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "No MSI was produced" }
-          ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
-          ./sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
+          ./hardviz/app/windows/wix/check-external-component-setup.ps1 $msi.FullName
+          ./hardviz/sensor-service/check-msi.ps1 $msi.FullName -VerifyRepair
 
   #
   # Frontend checks
@@ -897,7 +890,9 @@ jobs:
       - name: Report coverage
         uses: davelosert/vitest-coverage-report-action@v2.13.2
         with:
-          json-summary-path: coverage/coverage-summary.json
+          json-summary-path: hardviz/frontend/coverage/coverage-summary.json
+          json-final-path: hardviz/frontend/coverage/coverage-final.json
+          vite-config-path: hardviz/frontend/vitest.config.ts
 
   #
   # Frontend E2E captures (Playwright web/mock harness, issue #1609)
@@ -952,7 +947,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: bash .github/scripts/comment-e2e-captures.sh
+        run: bash .github/scripts/ci/comment-e2e-captures.sh
 
   #
   # Frontend render performance checks (Playwright web/mock harness)
@@ -1110,10 +1105,10 @@ jobs:
         run: npm run license-checker
 
       - name: Check licenses
-        run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
+        run: node --experimental-strip-types scripts/licenses/check-licenses.ts licenses.json
 
       - name: Extract Apache NOTICE
-        run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
+        run: node --experimental-strip-types scripts/licenses/extract-apache-notices.ts licenses.json notices
 
   license-check-cargo:
     needs: change-detection
@@ -1145,10 +1140,10 @@ jobs:
         run: cargo install cargo-deny --version 0.19.4 --locked
 
       - name: Check DuckDB license notice version
-        run: node --experimental-strip-types .github/scripts/check-duckdb-license-version.ts
+        run: node --experimental-strip-types scripts/licenses/check-duckdb-license-version.ts
 
       - name: Check Rust licenses
-        run: cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config src-tauri/deny.toml licenses
+        run: cargo deny --manifest-path Cargo.toml --features duckdb-archive check --config hardviz/app/deny.toml licenses
 
   #
   # Final merge gate: Strict checks for required jobs = success, unnecessary jobs = skipped
@@ -1186,4 +1181,4 @@ jobs:
       - name: Gate (fail on failure/cancelled)
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
-        run: node .github/scripts/merge-gate.ts
+        run: node .github/scripts/ci/merge-gate.ts

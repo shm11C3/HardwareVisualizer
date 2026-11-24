@@ -7,7 +7,7 @@ trigger: when changing tray flyout geometry, window-state persistence, or close-
 failure_signature: a tray left click opens an unusably small flyout and its Open button cannot be reached
 root_cause: the window-state plugin persisted and restored the transient flyout's shrunken size; the event that first shrank it remains unconfirmed
 guardrail: exclude the flyout from window-state persistence and reapply its intended size on every show after selecting the target monitor
-canonical_refs: src-tauri/src/lib.rs, src-tauri/src/tray/surface/windows.rs
+canonical_refs: hardviz/app/src/lib.rs, hardviz/app/src/tray/surface/windows.rs
 verification: a 27x13 saved flyout state produced an 18x8 client area in the release app; the patched app opened at 300x148, and recovered to 300x148 after an induced same-session resize and tray left click
 evidence: src-tauri/src/lib.rs; src-tauri/src/tray/surface/windows.rs; local Windows native-window measurements and a rendered flyout capture
 revalidate_when: the tray flyout becomes resizable, its intended dimensions change, or Tauri window-state restoration behavior changes

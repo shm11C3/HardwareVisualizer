@@ -28,7 +28,7 @@ jobs:
               renderCacheInventorySummary,
             } = require(path.join(
               process.env.GITHUB_WORKSPACE,
-              ".github/scripts/cache-inventory.cjs",
+              ".github/scripts/cache/cache-inventory.cjs",
             ));
 
             const caches = [];

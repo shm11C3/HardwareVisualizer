@@ -10,11 +10,14 @@ Read the matching rule before editing files in its scope. The root and scoped
 | Rule | Scope |
 | --- | --- |
 | [design.md](design.md) | Product, architecture, persistence, monitoring, and UX decisions |
-| [rust.md](rust.md) | `core/**`, `src-tauri/**`, and Rust workspace manifests |
-| [frontend.md](frontend.md) | Frontend code and language files under `src/` |
+| [rust.md](rust.md) | `hardviz/core/**`, `hardviz/app/**`, and Rust workspace manifests |
+| [frontend.md](frontend.md) | Frontend code and language files under `hardviz/frontend/src/` |
 | [settings.md](settings.md) | Settings UI, settings services, and persisted settings ownership |
 | [documentation.md](documentation.md) | Root documentation, `docs/**`, and GitHub Markdown |
 | [clean-room-sensors.md](clean-room-sensors.md) | Sensor specs and PawnIO CPU / Super I/O implementation |
+
+`.agents/tooling/` holds the scripts that check and enforce this guidance (the
+guidance checker and the Claude and Codex hook runner) and their tests.
 
 GitHub-specific configuration remains under `.github/`. Do not add a
 tool-specific copy of these rules unless that tool is actively used and needs a

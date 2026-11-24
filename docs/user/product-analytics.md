@@ -196,7 +196,7 @@ never as a count of its users.
 
 ## Where to look
 
-- Client source (after implementation): `src-tauri/src/analytics/` in the
+- Client source (after implementation): `hardviz/app/src/analytics/` in the
   HardwareVisualizer repository.
 - Decision record: [ADR 0028](../adr/0028-opt-in-product-analytics.md).
 - Design: [`docs/design/product-analytics.md`](../design/product-analytics.md).

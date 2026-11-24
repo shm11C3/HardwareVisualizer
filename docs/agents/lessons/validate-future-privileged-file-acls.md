@@ -7,7 +7,7 @@ trigger: validating a directory before a privileged executable is placed there
 failure_signature: an inherit-only write grant was skipped although a newly installed executable could inherit it
 root_cause: effective access to an existing directory was treated as proof of access to a future child file
 guardrail: validate future file inheritance at the target parent and effective access on existing ancestors; retain trusted creator-owner templates
-canonical_refs: core/src/sensor_service/windows/security.rs, docs/design/windows-sensor-service.md
+canonical_refs: hardviz/core/src/sensor_service/windows/security.rs, docs/design/windows-sensor-service.md
 verification: Windows SDDL regression reproduces the skipped write grant; service boundary tests also accept standard protected ancestry
 evidence: PR 2509 review and future_file_writes_are_checked_before_installation regression
 revalidate_when: file placement, ACL inheritance, trusted creator policy, or installer/service ownership changes
