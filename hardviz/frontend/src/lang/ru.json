@@ -868,6 +868,7 @@
         "license": "Лицензия",
         "checkGitHub": "Посмотреть на GitHub",
         "checkLatestVersion": "Проверить последнюю версию",
+        "answerSurvey": "Пройти опрос",
         "author": "Автор: {{author}}"
       },
       "license": {

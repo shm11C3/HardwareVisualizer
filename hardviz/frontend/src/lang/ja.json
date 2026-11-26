@@ -897,6 +897,7 @@
         "license": "ライセンス",
         "checkGitHub": "GitHub",
         "checkLatestVersion": "最新バージョンを確認する",
+        "answerSurvey": "アンケートに回答する",
         "author": "作者：{{author}}"
       },
       "license": {

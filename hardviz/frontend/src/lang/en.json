@@ -897,6 +897,7 @@
         "license": "License",
         "checkGitHub": "Check GitHub",
         "checkLatestVersion": "Check Latest Version",
+        "answerSurvey": "Answer the Survey",
         "author": "Author: {{author}}"
       },
       "license": {
