@@ -869,6 +869,7 @@
         "checkGitHub": "Посмотреть на GitHub",
         "checkLatestVersion": "Проверить последнюю версию",
         "answerSurvey": "Пройти опрос",
+        "openSurveyFailed": "Не удалось открыть опрос.",
         "author": "Автор: {{author}}"
       },
       "license": {

@@ -898,6 +898,7 @@
         "checkGitHub": "GitHub",
         "checkLatestVersion": "最新バージョンを確認する",
         "answerSurvey": "アンケートに回答する",
+        "openSurveyFailed": "アンケートを開けませんでした。",
         "author": "作者：{{author}}"
       },
       "license": {

@@ -898,6 +898,7 @@
         "checkGitHub": "Check GitHub",
         "checkLatestVersion": "Check Latest Version",
         "answerSurvey": "Answer the Survey",
+        "openSurveyFailed": "Could not open the survey.",
         "author": "Author: {{author}}"
       },
       "license": {

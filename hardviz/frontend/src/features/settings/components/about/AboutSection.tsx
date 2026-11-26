@@ -7,6 +7,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ActionFailure } from "@/components/ActionFailure";
 import { HardwareCompatibilityReport } from "@/components/HardwareCompatibilityReport";
 import { Button } from "@/components/ui/button";
 import { openURL } from "@/lib/openUrl";
@@ -19,10 +20,27 @@ export const AboutSection = ({
 }) => {
   const { t, i18n } = useTranslation();
   const [version, setVersion] = useState("");
+  const [surveyFailed, setSurveyFailed] = useState(false);
 
   useEffect(() => {
     getVersion().then((v) => setVersion(v));
   }, []);
+
+  // Read the version at click time so an early click still carries it.
+  const openSurvey = async () => {
+    setSurveyFailed(false);
+    try {
+      await openURL(
+        surveyUrl({
+          language: i18n.resolvedLanguage ?? i18n.language,
+          appVersion: await getVersion(),
+          os: platform(),
+        }),
+      );
+    } catch {
+      setSurveyFailed(true);
+    }
+  };
 
   return (
     <div className="px-4 py-2">
@@ -59,15 +77,7 @@ export const AboutSection = ({
           <ArrowSquareOutIcon size={16} />
         </Button>
         <Button
-          onClick={() =>
-            openURL(
-              surveyUrl({
-                language: i18n.resolvedLanguage ?? i18n.language,
-                appVersion: version,
-                os: platform(),
-              }),
-            )
-          }
+          onClick={() => void openSurvey()}
           variant="secondary"
           className="rounded-full text-sm"
         >
@@ -83,6 +93,12 @@ export const AboutSection = ({
           {t("pages.settings.about.license")}
         </Button>
       </div>
+      {surveyFailed && (
+        <ActionFailure
+          message={t("pages.settings.about.openSurveyFailed")}
+          className="pb-4"
+        />
+      )}
       <HardwareCompatibilityReport />
     </div>
   );
