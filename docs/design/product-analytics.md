@@ -531,7 +531,12 @@ Worker validates every one against the same enums and rejects unknown keys.
   batch, mirroring `fetch_update`, which skips the updater in debug builds.
   Development data would otherwise pollute the dataset, and the contract
   between client and service is tested through shared example payloads, not a
-  live call.
+  live call. The one exception is `HARDVIZ_ANALYTICS_DEBUG_ENDPOINT`: when it
+  names an `http` or `https` URL on a loopback host (`localhost`, `127.0.0.1`,
+  `::1`), a debug build uploads there instead, so a developer can check the
+  real client against a local `wrangler dev`. Any other host is ignored with
+  a warning, so the override cannot reach the production service, and release
+  builds never read the variable.
 - The transport is a trait with the reqwest implementation and a recording
   test double, so the Rust tests that prove "zero requests before opt-in and
   after opt-out" count calls on the double rather than inspecting sockets.
