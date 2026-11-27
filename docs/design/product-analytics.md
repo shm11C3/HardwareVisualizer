@@ -535,8 +535,9 @@ Worker validates every one against the same enums and rejects unknown keys.
   names an `http` or `https` URL on a loopback host (`localhost`, `127.0.0.1`,
   `::1`), a debug build uploads there instead, so a developer can check the
   real client against a local `wrangler dev`. Any other host is ignored with
-  a warning, so the override cannot reach the production service, and release
-  builds never read the variable.
+  a warning, and that client uses no system proxy and follows no redirect, so
+  the override cannot reach the production service. Release builds never
+  read the variable.
 - The transport is a trait with the reqwest implementation and a recording
   test double, so the Rust tests that prove "zero requests before opt-in and
   after opt-out" count calls on the double rather than inspecting sockets.
