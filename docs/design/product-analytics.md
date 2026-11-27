@@ -626,8 +626,12 @@ mistaken for website traffic analytics beside `hardviz-webpage`.
   went live. A `flags` array must hold exactly one variant of each exclusive
   group, and `provider_available.*` is valid only with
   `osFamily = windows`. Every counter `count` is between 1 and a
-  published per-batch maximum. Responses are `202` accepted, `400` invalid,
-  `413` too large, `429` rate limited. No request body or header is logged.
+  published per-batch maximum. The body must be declared
+  `application/json`: browsers send `text/plain`, form, and multipart bodies
+  cross-origin without a preflight, so this keeps web pages from making their
+  visitors post batches. Responses are `202` accepted, `400` invalid, `413`
+  too large, `415` unsupported media type, `429` rate limited. No request
+  body or header is logged.
 - Deduplication: `batch_id` is kept for 7 days; a repeated id is acknowledged
   with `202` and not counted again. `(period_kind, period, token)` rows are
   unique, so a repeated token in a period does not inflate counts. Flags need
