@@ -110,9 +110,12 @@ Run `git fetch origin` before any step below that reads an `origin/` ref.
    specification that has no implementation lane yet, not only the ones whose
    PRs merged since the last tick. Also collect finished work that has no open
    PR: commits ahead of `origin` in agent worktrees (`git worktree list`) and
-   pushed branches without a PR. Harvest it in step 2 when the daily
-   documentation PR limit or the implementation lane limit allows, before
-   refilling any lane.
+   pushed branches without a PR. Skip a candidate whose branch, or whose
+   change, already has a merged PR (`gh pr list --state merged --head
+   <branch>`, or the same change already on `origin/develop`), because
+   squash-merged commits still look ahead of `origin`. Harvest the rest in
+   step 2 when the daily documentation PR limit or the implementation lane
+   limit allows, before refilling any lane.
 2. **Harvest finished agents.**
    - For a spec: run `git diff --check`, check that there are no
      `TODO(provenance)` markers, check that the status, revision history and
@@ -123,12 +126,18 @@ Run `git fetch origin` before any step below that reads an `origin/` ref.
    - Push, then open a PR. Spec PRs use the standard template and list the
      points that need maintainer review. Implementation PRs use
      `.github/PULL_REQUEST_TEMPLATE/clean-room-sensor-implementation.md` with
-     the pinning statement and attestation the implementer reports.
+     the pinning statement and attestation from the feature commit message.
+     If a harvested branch's commits do not carry them, send the branch back
+     to an implementer instead of opening the PR.
 3. **Handle review feedback.** Use triage, not blind application. Send each
    fix to the owning role, and verify the fix before you reply and resolve the
    thread.
 4. **Start implementations.** Fill free Rust lanes from implementable
-   specifications. Brief the implementer with the pinned specs only.
+   specifications. Brief the implementer with the pinned specs only, and
+   require it to write the pinning statement ("Implemented from
+   docs/specs/sensors/<file> revision N (commit <sha>)" lines) and the
+   implementer attestation in the feature commit message body, so they stay
+   with the branch.
 5. **Refill research lanes.** Pick by the priority rubric below. Brief with
    the Issue, the related specifications and ADRs 0011, 0023 and 0031. Ask for
    the smallest implementable slice, or a precise Draft with blockers, and an
