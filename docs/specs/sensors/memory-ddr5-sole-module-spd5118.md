@@ -52,10 +52,19 @@ identity confirmation described below. The multi-module join stays in the
 
 Precedence. A system that passes every gate of the
 [Protectli VP2430 specification](memory-ddr5-protectli-vp2430-spd5118.md)
-uses that route, which reads no EEPROM bytes. Every configuration admitted
-by the [ODROID-H4 specification](memory-ddr5-odroid-h4-spd5118.md) at rev 3
-also passes the gates of this document, so an implementation of this
-document covers it. The ODROID-H4 document remains valid as written.
+uses that route, which reads no EEPROM bytes. The
+[ODROID-H4 specification](memory-ddr5-odroid-h4-spd5118.md) at rev 3 remains
+a separate implementation input. This document does not admit every
+configuration that rev 3 admits:
+
+- Rev 3 can qualify the inventory from a readable, valid same-boot binary
+  SMBIOS table. This document requires the text completion contract.
+- Rev 3 checks only its bound endpoint. This document rejects a system with
+  any second `spd5118` client, bound or not, because an unbound client can be
+  the hub of an unreported module.
+
+An ODROID-H4 configuration that passes the text contract and has a single
+`spd5118` client passes the gates of this document.
 
 ## Attribution mechanism (facts)
 
@@ -93,12 +102,18 @@ direct `eeprom` (S3, S5). A short or failed read fails the gate.
 - The base SPD CRC does not cover bytes 512–550 and cannot replace this
   comparison (S4).
 
-Why this confirms attribution. Both sides have exactly one candidate, so the
-comparison never chooses between modules or byte orders. A match shows that
-the bound hub's EEPROM carries the identity the firmware reports for its sole
-populated record. A producer that renders the serial in another form yields
-no match and leaves the temperature unavailable. The comparison needs no
-proof of the producer's general encoding.
+What a match shows. Both sides have exactly one candidate, so the comparison
+never chooses between modules. If the producer renders the serial in the
+accepted forward form, a match shows that the bound hub belongs to the
+module the firmware reports for its sole populated record. If the producer
+uses another form, a match is still possible when the reported string equals
+the forward rendering of an unreported module's bytes. For example, an
+unreported bound module with SPD serial `01 23 45 67` matches a reported
+module with SPD serial `67 45 23 01` whose producer reverses byte order. This
+case needs firmware that hides an installed module, renders serials in a
+non-forward form, and two serials related by that rendering. It also needs
+equal parts when the Type 17 part is usable. Any other producer form yields
+no match and leaves the temperature unavailable.
 
 ## Read procedure and decode
 
@@ -175,10 +190,16 @@ proof of the producer's general encoding.
   No same-boot capture of SPD identity, Type 17 identity and temperature on a
   system other than the ODROID-H4 family has been found. Demonstrated
   availability beyond the best-evidenced member is unknown.
-- Non-blocking for #2701 Experimental: the residual case needs two modules with equal identity fields, which manufacturers assign to be unique.
-  An unreported module whose serial and part equal the reported module's
-  values would pass confirmation. The eight-digit form compares only the
-  four serial bytes plus the part.
+- Non-blocking for #2701 Experimental: a false match needs a hidden installed module whose rendered identity collides with the reported one, which no observed producer or capture shows.
+  Confirmation passes for an unreported module when the forward rendering
+  of its SPD bytes equals the reported Type 17 serial and, when the part is
+  usable, the parts are equal. With a forward producer this requires equal
+  serials, which manufacturers assign to be unique. With a producer that
+  uses another form, such as reversed byte order, the two serials can be
+  distinct (see "What a match shows"). Manufacturer uniqueness does not
+  exclude that case. Which serial form a given producer uses is not proven
+  outside the best-evidenced member. The eight-digit form compares only
+  the four serial bytes plus the part.
 - Non-blocking for #2701 Experimental: the route does not depend on board-specific HID maps.
   Platform design guides that would tie HSA resistors to socket labels are
   not public. Multi-module attribution by address stays unavailable.
@@ -191,4 +212,4 @@ proof of the producer's general encoding.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Proposed transition to Implementation-ready for the Experimental sole-module DDR5 route keyed by inventory cardinality and SPD identity confirmation (ADR 0031 re-scope of the ODROID-H4 gates). Maintainer sign-off is pending in the proposing PR. |
+| 1 | 2026-11-28 | Proposed transition to Implementation-ready for the Experimental sole-module DDR5 route keyed by inventory cardinality and SPD identity confirmation (ADR 0031 re-scope of the ODROID-H4 gates). The ODROID-H4 rev 3 route stays separate, because its binary inventory alternative and its tolerance of extra unbound clients are not admitted here. The residual false match from a non-forward producer serial form is recorded as an open question. Maintainer sign-off is pending in the proposing PR. |
