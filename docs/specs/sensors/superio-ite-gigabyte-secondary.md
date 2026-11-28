@@ -169,8 +169,8 @@ I/O. (S5, S37)
    failure in steps 6 to 8 makes the secondary unavailable, except as
    step 8 states, and goes to step 10. (S8, S32)
 7. Read `CR30` and require bit 0 set. Read `CR60/61` twice and require
-   equal values that pass the base gate. Require a base distinct from
-   the slot-0 primary's cached base. (S32, S8)
+   equal values that pass the base gate. When the slot-0 primary path
+   has a cached base, require a base distinct from it. (S32, S8)
 8. Write `CR07 = 0x07` and read it back. Read `CR27` and `CR29` once.
    A failed selection or read makes FAN2 and FAN3 unavailable until
    rediscovery. FAN1 and the temperatures are unaffected. (S32)
@@ -628,10 +628,19 @@ unless the row names other existing coverage.
   - a maintainer decision to accept the walk for this Experimental row,
     with the `CR07` save and restore in this procedure, on the
     ecosystem evidence of S9 and S34;
-  - an accepted [#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500)
-    report from a member board. In one boot it must record the original
-    `CR07`, a completed walk, the restored `CR07` and a successful
-    primary sample afterwards.
+  - an ITE datasheet or ITE statement for IT8792E/IT8795E and IT87952E
+    that defines the effect of writing an undefined logical-device
+    number to `CR07`, where that effect is a selection only, together
+    with a resolution of B2 for the other-agent part of this question.
+
+  A completed walk followed by a successful sample does not resolve B1.
+  It shows that the walk did not stop the parts from working in one
+  boot. It does not show what each undefined selection did. Whether a
+  before-and-after register dump can show every effect of an undefined
+  selection is not established, because a dump cannot observe a
+  transient effect during the walk or state that no register exposes.
+  Such a dump counts toward B1 only after a revision names what it
+  establishes and adds it as an option here.
 - **B2. Blocking for the candidate row: competing configuration-space
   handler.** A firmware-open part accepts selector and configuration
   writes from any agent without a key. Between the candidate's `CR07`
@@ -642,19 +651,35 @@ unless the row names other existing coverage.
   source identifies that agent, its lock convention or any runtime
   firmware access to slot 1. The static images in this document show no
   ACPI method using the secondary ports (S14, S21, S27). They do not
-  cover runtime SMM in general. Any one of these resolves B2:
-  - public evidence that the OEM utility and its driver hold
-    `Global\Access_ISABUS.HTP.Method`, or never touch slot 1 at
-    runtime;
-  - a static audit of a member board's software SMI handlers that finds
-    no slot-1 or secondary-EC access;
-  - a maintainer decision to accept, for discovery on slot 1, the same
-    residual concurrency risk that S37 accepts on slot 0. The
+  cover runtime SMM in general. Either of these resolves B2:
+  - evidence that covers every competing actor for the whole scope the
+    candidate row admits. It needs both parts below. Evidence about one
+    actor, or about one board, does not resolve B2.
+    - Software: public evidence that the OEM utility and its driver
+      hold `Global\Access_ISABUS.HTP.Method`, or never touch slot 1 at
+      runtime.
+    - Firmware: a static audit of the software SMI handlers and other
+      runtime firmware paths in every image the row admits, finding no
+      slot-1 or secondary-EC access. The row admits any board with a
+      matching part on slot 1, so an audit of named images applies only
+      after a revision narrows the row to those images.
+  - a maintainer decision to accept, for discovery on slot 1 and for
+    sampling on the secondary EC ports, the same residual concurrency
+    risk that S37 accepts on slot 0. The
     mitigations are the mutex, readback of each selection, a single
     cached discovery, and no retries.
 
-  Sampling touches only the EC index and data ports. The two identical
-  reads cover a concurrent index write there, as S37 does on slot 0.
+  No source enumerates every agent that can reach slot 1 at runtime.
+  Other monitoring software that does not take the ISA mutex is outside
+  both parts of the first option. Whether the first option can resolve
+  B2 without also naming such software is not established.
+
+  Sampling touches only the EC index and data ports. Two identical reads
+  do not guard against a concurrent EC index write there. An agent that
+  selects another EC index, such as `0x01`, before each data read makes
+  both reads match while the sample reads the wrong register.
+  Arbitration on these ports relies on the caller-held ISA mutex until
+  B2 is resolved or a maintainer accepts that residual risk.
 - **L1. Blocking for every Linux hwmon route: alarm-status refresh.**
   In S32 and S33, reading a temperature, fan or temperature type
   attribute can read EC `0x01`–`0x03` when the cache is cold or
@@ -736,4 +761,4 @@ available. An absent pre-key response is itself an evidence result.
 | 6 | 2026-11-09 | Record the B650E AORUS MASTER rev. 1.0 RPM mirror and separate F37 WMI inspection. Keep the candidate disabled pending temperature and mailbox safety evidence. |
 | 7 | 2026-11-09 | Record the X470 AORUS GAMING 7 WIFI F64 SMM findings and separate board marking and raw-ID observations. Keep collection disabled pending exact controller attribution and a safe OS-owned read path. |
 | 8 | 2026-11-09 | Record X870E AORUS MASTER F12 secondary readings, the reported driver read effects, and the static firmware findings. Keep the candidate disabled. |
-| 9 | 2026-11-28 | Re-scope the exact-board X470 AORUS ULTRA GAMING candidate under ADR 0031. The new candidate row covers Windows slot 1, pre-key raw `0x8733` or `0x8695`, with mechanism and safety gates. Add its runtime gates, lead-only register map from mainline `7cd8495` (S32), discovery and sample procedure with `CR07` save and restore, and synthetic fixtures. Add the AX370-Gaming K7 independent secondary dump (S31), PawnIO-era owner observations (S34, S35), the LGA1700 `0x8695` contributor statement (S36) and the 2026-11-28 Linux refresh recheck (S32, S33). Name blockers B1, B2 and L1 with the evidence that resolves each. Defer IT8790E to a later row. Add a disposition for every #2519 target. Status remains Draft. A failed EC `0x55` read invalidates only TMPIN2. |
+| 9 | 2026-11-28 | Re-scope the exact-board X470 AORUS ULTRA GAMING candidate under ADR 0031. The new candidate row covers Windows slot 1, pre-key raw `0x8733` or `0x8695`, with mechanism and safety gates. Add its runtime gates, lead-only register map from mainline `7cd8495` (S32), discovery and sample procedure with `CR07` save and restore, and synthetic fixtures. Add the AX370-Gaming K7 independent secondary dump (S31), PawnIO-era owner observations (S34, S35), the LGA1700 `0x8695` contributor statement (S36) and the 2026-11-28 Linux refresh recheck (S32, S33). Name blockers B1, B2 and L1 with the evidence that resolves each. Defer IT8790E to a later row. Add a disposition for every #2519 target. Status remains Draft. A failed EC `0x55` read invalidates only TMPIN2. Discovery step 7 compares against the primary base only when the slot-0 path has cached one. A completed walk no longer resolves B1. B2 needs evidence covering every competing actor across the admitted scope, or maintainer acceptance. Sampling arbitration on the EC ports relies on the caller-held ISA mutex, because two identical reads do not guard against an index write. |
