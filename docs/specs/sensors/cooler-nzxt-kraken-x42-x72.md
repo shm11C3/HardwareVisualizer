@@ -73,7 +73,7 @@ excludes such a device from this scope.
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Linux, already bound `nzxt-kraken2` hwmon endpoint on HID device `1E71:170E` | Public ABI: S1, S2. Lead-only S3: USB match, hwmon name `kraken2`, channel labels, decode of the unsolicited report into the three inputs, two-second staleness and its no-data error, no output report at bind or read, `hidraw` retention and the hwmon parent. Lead-only S4: HID device name and `HID_ID` formats. Lead-only S5: twice-a-second cadence and no Get_Report answer. Independent observation S13 (kernel 6.5.3, ASUS ROG Maximus XI HERO) corroborates the USB identity with a HID-class interface, the chip name, the HID adapter, the three labels and plausible values; it is not maintainer-accepted. No maintainer-accepted hardware dump exists. | Experimental |
+| Linux, already bound `nzxt-kraken2` hwmon endpoint on HID device `1E71:170E` | Public ABI: S1, S2. Lead-only S3: USB match, hwmon name `kraken2`, channel labels, decode of the unsolicited report into the three inputs, two-second staleness measured in jiffies and its no-data error, no output report at bind or read, `hidraw` retention and the hwmon parent. Lead-only S4: HID device name and `HID_ID` formats. Lead-only S5: twice-a-second cadence and no Get_Report answer. Lead-only S14: jiffies advance from `CLOCK_MONOTONIC`, so the staleness window excludes suspended time; the resume rule in Quirks depends on this fact together with the S3 window (the clock semantics themselves are primary S14 and S15). Independent observation S13 (kernel 6.5.3, ASUS ROG Maximus XI HERO) corroborates the USB identity with a HID-class interface, the chip name, the HID adapter, the three labels and plausible values; it is not maintainer-accepted. No maintainer-accepted hardware dump exists. | Experimental |
 | Linux `hidraw` access to `1E71:170E` | Not specified: the bound driver is the evidenced owner of the device, and raw device-node access needs permissions this scope does not assume. | Unsupported |
 | Windows direct HID read of `1E71:170E` | The transport facts are recorded below. NZXT states that CAM needs exclusive access and loses its connection when a monitoring tool grabs the device (S10); see Open questions 1–3. | Unsupported |
 | Every other NZXT generation | See the Generation inventory. | Unsupported |
@@ -146,7 +146,8 @@ in a `ReadFile` buffer (S11).
    label gates. A matching HID device without a qualified endpoint is
    Unavailable for this sample. Do not fall back to `hidraw`, do not
    bind, unbind or load a driver, and do not write `new_id`.
-3. Read `temp1_input`, `fan1_input` and `fan2_input` independently.
+3. Read `temp1_input`, `fan1_input` and `fan2_input` independently,
+   between the clock reads of the resume rule in Quirks.
    A failed read, including `ENODATA`, makes only that channel
    unavailable for the sample. Never substitute zero for it.
 4. Temperature: parse the text as a signed decimal integer. Divide by
@@ -159,7 +160,8 @@ in a `ReadFile` buffer (S11).
    through 65535. A value of 0 is an Inactive Fan Reading, a positive
    value is an Active Fan Reading. Malformed text or a value outside
    that range is an Invalid Fan Reading.
-6. Apply the resume rule in Quirks before publishing any value.
+6. Apply the resume rule in Quirks before publishing any value of the
+   sample.
 7. Keep the three channel roles (coolant, fan, pump) fixed per device.
    A coolant reading at or above 60 °C is a real value and is never
    filtered; S6 describes that temperature as one the coolant should
@@ -189,19 +191,38 @@ endpoint is found again.
   before suspend until either a new report arrives or two more
   seconds of non-suspended time pass. **lead-only (copyleft)** for the
   driver and jiffies behavior.
-- Resume rule. Before each sample, read `CLOCK_BOOTTIME` and
-  `CLOCK_MONOTONIC` (S15). The difference between the two grows only
-  by the time the system spent suspended. If that difference has
-  grown by more than 100 ms since the previous sample of this
-  endpoint, publish no input value from this endpoint until 3 seconds
-  of `CLOCK_MONOTONIC` time have passed since that detection. The
-  first sample of an endpoint only records the difference. A newly
-  bound driver holds no earlier value and returns `ENODATA` until its
-  first report (S3), so a newly qualified endpoint needs no wait. Three seconds covers the driver's two-second
-  window, the tick granularity of jiffies and the 0.5-second report
-  period. The withheld channels are Unavailable, not zero. The 100 ms
-  threshold only absorbs the gap between the two clock reads; it does
-  not depend on driver internals.
+- Resume rule. The difference `CLOCK_BOOTTIME` minus
+  `CLOCK_MONOTONIC` grows only by the time the system spent suspended
+  (S15). Each endpoint keeps a recorded difference and a hold start.
+  For every sample of an endpoint:
+  1. Read `CLOCK_MONOTONIC` immediately before the input reads (the
+     sample start).
+  2. Read the three inputs.
+  3. Read `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` immediately after the
+     input reads, and compute their difference.
+  4. If the endpoint has no recorded difference, because it is
+     observed for the first time (application start, hot plug or
+     re-qualification), record the difference, set the hold start to
+     the `CLOCK_MONOTONIC` value of step 3 and withhold the sample.
+  5. Otherwise, if the difference exceeds the recorded one by more
+     than 100 ms, a suspend happened after the previous sample, or
+     during this one. Record the new difference, set the hold start to
+     the `CLOCK_MONOTONIC` value of step 3 and withhold the sample.
+  6. Otherwise record the difference. Withhold the sample if its start
+     (step 1) is less than 3 seconds of `CLOCK_MONOTONIC` time after
+     the hold start; publish it if not.
+
+  A held endpoint's channels are Unavailable, not zero. A driver that
+  is already bound when the endpoint is first observed may hold a
+  report from before a suspend that happened before the application
+  started; no sourced sysfs fact shows when a driver was bound, so the
+  first-observation hold applies to every endpoint. Three seconds
+  covers the driver's two-second window, the tick granularity of
+  jiffies and the 0.5-second report period. After a hold, any value
+  the driver still returns is younger than its window, so it arrived
+  after the hold start, and step 5 excludes a suspend since then.
+  The 100 ms threshold only absorbs the gap between the clock reads.
+  The rule needs no driver internals.
 
 ## Windows HID transport (facts, scope Unsupported)
 
@@ -262,7 +283,7 @@ the S13 observation.
 
 | Case | Expected result |
 | --- | --- |
-| Qualified endpoint, labels `Coolant`/`Fan`/`Pump`, inputs `32300`, `1473`, `2196` | Coolant 32.3 °C, fan 1473 RPM Active, pump 2196 RPM Active, attributed to one cooler. No other attribute is read and nothing is written. |
+| Qualified endpoint past its first-observation hold, labels `Coolant`/`Fan`/`Pump`, inputs `32300`, `1473`, `2196` | Coolant 32.3 °C, fan 1473 RPM Active, pump 2196 RPM Active, attributed to one cooler. No other attribute is read and nothing is written. |
 | Same endpoint with `fan1_input` `0` | Fan is an Inactive Fan Reading; coolant and pump unchanged. |
 | Every input read fails with `ENODATA` | All three channels Unavailable for this sample; no zero is published; the device stays qualified. |
 | Only `temp1_input` fails | Fan and pump preserved. |
@@ -273,9 +294,11 @@ the S13 observation.
 | `fan1_label` `Pump` and `fan2_label` `Fan` | Unavailable for that device; no input reads. |
 | hwmon `device` link not resolving to the matching HID device, `/sys/class/hwmon/hwmonN` not resolving to the hwmon child under that HID device, or two hwmon children under it | Unavailable; no input reads. |
 | Two qualified HID devices | Two independent sets of three channels; never merged. |
-| Endpoint removed, then present again with a new `hwmonN` and HID sequence | Unavailable while absent; readings resume after re-qualification. |
-| `CLOCK_BOOTTIME` minus `CLOCK_MONOTONIC` grew by 600 s since the previous sample, and the inputs still return the pre-suspend values | All three channels Unavailable for 3 s of `CLOCK_MONOTONIC` time from detection, then published again. |
-| The same difference grew by 20 ms | Treated as clock-read jitter; values published normally. |
+| Endpoint removed, then present again with a new `hwmonN` and HID sequence | Unavailable while absent; readings resume after re-qualification and the first-observation hold. |
+| Endpoint observed for the first time (application start or hot plug) with all three inputs returning values | Sample withheld; channels Unavailable until a sample starts 3 s of `CLOCK_MONOTONIC` time after the first observation, then published. |
+| `CLOCK_BOOTTIME` minus `CLOCK_MONOTONIC` grew by 600 s between the previous sample and this one, and the inputs still return the pre-suspend values | Sample withheld; channels Unavailable until a sample starts 3 s of `CLOCK_MONOTONIC` time after detection, then published again. |
+| Endpoint published normally on the previous sample; the suspend happens between this sample's `CLOCK_MONOTONIC` start read and its input reads, so the difference read after the input reads grew by 600 s | That sample withheld although every input returned a value; the 3 s hold starts at the post-read clock values. |
+| The difference grew by 20 ms | Treated as clock-read jitter; values published normally. |
 | No `1E71:170E` HID device | Unsupported; no hwmon input reads for this scope. |
 
 ## Open questions
@@ -342,4 +365,4 @@ the S13 observation.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version. Propose Implementation-ready for the Experimental Linux `nzxt-kraken2` hwmon scope on USB `1E71:170E` only. Record the status report framing and Windows HID transport facts, keep Windows and `hidraw` access Unsupported because of the CAM exclusive-access finding, and give every NZXT generation named in #2527 a disposition. |
-| 2 | 2026-11-28 | Record that the driver's two-second staleness window excludes suspended time (S3, S14) and add the resume rule based on `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` (S15), with fixtures. Make the class-link fixture match the ownership gate: the hwmon `device` link resolves to the HID device and the class link to the hwmon child. |
+| 2 | 2026-11-28 | Record that the driver's two-second staleness window excludes suspended time (S3, S14) and add the resume rule based on `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` (S15), with fixtures. The rule reads the clocks after the input reads so a suspend during a sample withholds that sample, and holds every newly observed endpoint for 3 s because no sourced fact shows a fresh driver binding. The Linux scope row names the lead-only jiffies fact (S14). Make the class-link fixture match the ownership gate: the hwmon `device` link resolves to the HID device and the class link to the hwmon child. |
