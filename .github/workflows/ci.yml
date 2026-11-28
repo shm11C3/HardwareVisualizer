@@ -107,6 +107,7 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
               - '!hardviz/**/*.md'
+              - '!e2e-native/**/*.md'
               - '!.github/**/*.md'
             frontend-deps:
               - 'package*.json'
