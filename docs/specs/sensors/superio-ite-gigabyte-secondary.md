@@ -202,8 +202,10 @@ the leads do not give these single-bank parts. (S32, S37)
    unavailable.
 3. Read EC `0x13`. A failed read makes FAN1–3 unavailable and leaves
    the temperatures unaffected.
-4. Read EC `0x51` and `0x55`. A failed read makes TMPIN1–3 unavailable
-   and leaves the fans unaffected.
+4. Read EC `0x51` and `0x55`. A failed `0x51` read makes TMPIN1–3
+   unavailable. A failed `0x55` read makes only TMPIN2 unavailable,
+   because its bit 7 gates only TMPIN2 (step 6); TMPIN1 and TMPIN3 are
+   still validated from `0x51`. Neither failure affects the fans.
 5. For each fan whose enable bit is set and whose routing was clear at
    discovery, read the low byte, high byte, low byte and high byte.
    Accept the count only if both pairs match.
@@ -734,4 +736,4 @@ available. An absent pre-key response is itself an evidence result.
 | 6 | 2026-11-09 | Record the B650E AORUS MASTER rev. 1.0 RPM mirror and separate F37 WMI inspection. Keep the candidate disabled pending temperature and mailbox safety evidence. |
 | 7 | 2026-11-09 | Record the X470 AORUS GAMING 7 WIFI F64 SMM findings and separate board marking and raw-ID observations. Keep collection disabled pending exact controller attribution and a safe OS-owned read path. |
 | 8 | 2026-11-09 | Record X870E AORUS MASTER F12 secondary readings, the reported driver read effects, and the static firmware findings. Keep the candidate disabled. |
-| 9 | 2026-11-28 | Re-scope the exact-board X470 AORUS ULTRA GAMING candidate under ADR 0031. The new candidate row covers Windows slot 1, pre-key raw `0x8733` or `0x8695`, with mechanism and safety gates. Add its runtime gates, lead-only register map from mainline `7cd8495` (S32), discovery and sample procedure with `CR07` save and restore, and synthetic fixtures. Add the AX370-Gaming K7 independent secondary dump (S31), PawnIO-era owner observations (S34, S35), the LGA1700 `0x8695` contributor statement (S36) and the 2026-11-28 Linux refresh recheck (S32, S33). Name blockers B1, B2 and L1 with the evidence that resolves each. Defer IT8790E to a later row. Add a disposition for every #2519 target. Status remains Draft. |
+| 9 | 2026-11-28 | Re-scope the exact-board X470 AORUS ULTRA GAMING candidate under ADR 0031. The new candidate row covers Windows slot 1, pre-key raw `0x8733` or `0x8695`, with mechanism and safety gates. Add its runtime gates, lead-only register map from mainline `7cd8495` (S32), discovery and sample procedure with `CR07` save and restore, and synthetic fixtures. Add the AX370-Gaming K7 independent secondary dump (S31), PawnIO-era owner observations (S34, S35), the LGA1700 `0x8695` contributor statement (S36) and the 2026-11-28 Linux refresh recheck (S32, S33). Name blockers B1, B2 and L1 with the evidence that resolves each. Defer IT8790E to a later row. Add a disposition for every #2519 target. Status remains Draft. A failed EC `0x55` read invalidates only TMPIN2. |
