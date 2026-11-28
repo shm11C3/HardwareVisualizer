@@ -108,7 +108,11 @@ Run `git fetch origin` before any step below that reads an `origin/` ref.
 1. **Inventory.** Collect the #2510 checklist and child Issues, open sensor
    PRs with their checks and threads, running agents, and every implementable
    specification that has no implementation lane yet, not only the ones whose
-   PRs merged since the last tick.
+   PRs merged since the last tick. Also collect finished work that has no open
+   PR: commits ahead of `origin` in agent worktrees (`git worktree list`) and
+   pushed branches without a PR. Harvest it in step 2 when the daily
+   documentation PR limit or the implementation lane limit allows, before
+   refilling any lane.
 2. **Harvest finished agents.**
    - For a spec: run `git diff --check`, check that there are no
      `TODO(provenance)` markers, check that the status, revision history and
