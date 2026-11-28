@@ -236,8 +236,18 @@ and never selects logical device 0 or touches its I/O space.
    next slot and caches no path. That slot then owes cleanup. Every
    later detection runs the S9 cleanup step on each slot that owes one,
    before step 2 visits slot 0. The cleanup selects the slot and writes
-   `0x87`, `0x87` and then `0xAA`. While any cleanup is owed, or when a
-   cleanup write fails, no slot is visited and no path is cached. See
+   the entry keys and exit of the vendor sequence recorded with the debt.
+   For a debt from this document, that sequence is `0x87`, `0x87`, then
+   `0xAA`. A debt recorded by another document's probe, for example an
+   ITE probe, uses that document's sequence. On slot 1, the cleanup
+   first reads `CR20`/`CR21` after entry and applies the S9 slot-1
+   cleanup outcomes. For `0x8733`, `0x8790`, `0x8695` or `0x8883` no exit
+   write is issued, and the cleanup counts as complete. A failed ID read
+   also issues no exit write, keeps the debt and makes the detection
+   eligible. Any other ID gets the recorded exit. This holds even when
+   the failed detection never read the slot-1 ID. While any cleanup is
+   owed, or when a cleanup write or ID read fails, no slot is visited and
+   no path is cached. See
    [Rediscovery eligibility](#rediscovery-eligibility). (S9)
 8. While the mutex is still held, cache the slot, profile, port base and
    the set of routed fan inputs, so that any later `ioctl_select_slot` on
@@ -359,6 +369,9 @@ All fixtures are synthetic.
 | F71889 `0x5D` read denied on the first detection, `0x19`/`0x34` on a later one | The first detection caches nothing and is eligible. The later detection runs in its own mutex acquisition, no earlier than the S9 backoff allows, and caches the path. |
 | A failed `CR2B` routing read at detection, everything else qualified | The path is cached with the dependent fans unavailable. No detection runs while that path stays cached. |
 | Detection 1: slot 0 `0x0541` fails the base gate, then the `0xAA` write on slot 1 fails. Detection 2: slot 0 now passes. | Detection 2 first selects slot 1 and writes `0x87`, `0x87`, `0xAA`. It then visits slot 0, and its `ioctl_find_bars` comes after that cleanup. Slot 0 is cached only if the cleanup succeeded. If the cleanup fails, there is no slot 0 access and no path is cached. |
+| Slot 1 owes cleanup recorded by an ITE probe | The cleanup writes the ITE slot-1 entry keys and, if the ID permits it, the ITE exit. It writes neither `0x87`, `0x87` nor `0xAA`. |
+| Slot 1 owes cleanup because a Fintek entry write failed before the ID read. The cleanup reads `0x8733` | No `0xAA` or other exit write. The cleanup is complete, and detection continues with step 2. |
+| Same, but the cleanup ID read fails | No exit write. The debt is kept, no slot is visited, no path is cached, and the detection is eligible. |
 | Slot 0 does not pass; slot 1 reads `0x8733` (likewise `0x8790`, `0x8695`, `0x8883`) | No `0xAA` or other exit write on slot 1; the skip is reported as in S9; no Fintek path. |
 | Mutex timeout | Sample skipped; no port I/O. |
 
@@ -480,4 +493,4 @@ No other external sensor documentation was used.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization, and the path is cached before the mutex is released so a later selection can invalidate it; on slot 1 the S9 exit withhold also suppresses the `0xAA` exit for its four IDs. |
-| 2 | 2026-11-28 | Re-pinned S9 to `superio-access.md` revision 5 for #2821, whose configuration access facts and slot-1 exit withhold are unchanged, and adopted its sampling-path rediscovery cadence. Added [Rediscovery eligibility](#rediscovery-eligibility). An unconfirmed configuration exit and an F71889 HM vendor-ID port failure are eligible. Value refusals and the shared configuration-read and `ioctl_find_bars` failures are not eligible. An exit withheld on slot 1 is not a failure. An unconfirmed exit on a visited slot stops detection without visiting another slot. That slot then owes cleanup, which every later detection runs before visiting slot 0. A failed routing read leaves its fan unavailable while the path stays cached and starts no detection. An invalidated path is discarded under rule R6. Added two fixtures and extended the invalidation fixture. Profiles, gates, reads, writes and decodes are unchanged. Status remains Implementation-ready (rev 2). |
+| 2 | 2026-11-28 | Re-pinned S9 to `superio-access.md` revision 5 for #2821, whose configuration access facts and slot-1 exit withhold are unchanged, and adopted its sampling-path rediscovery cadence. Added [Rediscovery eligibility](#rediscovery-eligibility). An unconfirmed configuration exit and an F71889 HM vendor-ID port failure are eligible. Value refusals and the shared configuration-read and `ioctl_find_bars` failures are not eligible. An exit withheld on slot 1 is not a failure. An unconfirmed exit on a visited slot stops detection without visiting another slot. That slot then owes cleanup, which every later detection runs before visiting slot 0. The cleanup uses the vendor sequence recorded with the debt. On slot 1 it reads the ID first and applies the S9 withhold set; a failed ID read issues no exit and keeps the debt. A failed routing read leaves its fan unavailable while the path stays cached and starts no detection. An invalidated path is discarded under rule R6. Added two fixtures and extended the invalidation fixture. Profiles, gates, reads, writes and decodes are unchanged. Status remains Implementation-ready (rev 2). |
