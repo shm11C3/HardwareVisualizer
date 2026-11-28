@@ -61,6 +61,7 @@ vendor or family.
 | ASRock B650 Steel Legend WiFi | Linux [NCT6686D hwmon profile](../specs/sensors/superio-nuvoton-nct6686-asrock-linux-hwmon.md) for `Thermistor 14`, `Thermistor 15`, and fan inputs 1–6 | Experimental with the already bound native driver | No, report availability first | — |
 | HARDKERNEL ODROID-H4 | Linux [DDR5 DIMM temperature for the exact Dasharo firmware and Samsung SO-DIMM profile](../specs/sensors/memory-ddr5-odroid-h4-spd5118.md) using a bound SPD5118 hub | Experimental when the live DIMM identity matches | No, report availability first | — |
 | Protectli VP2430 | Linux [DDR5 temperature for the physical DIMM1 slot](../specs/sensors/memory-ddr5-protectli-vp2430-spd5118.md) using a bound SPD5118 hub | Experimental with complete inventory and the qualified slot endpoint | No, report availability first | — |
+| Systems with one DDR5 module | Linux [DDR5 temperature when the complete inventory reports one populated DDR5 module and the kernel exposes one SPD5118 client](../specs/sensors/memory-ddr5-sole-module-spd5118.md), using that bound hub | Experimental when the hub's SPD serial and part match the module's inventory record | No, report availability first | — |
 
 When a report is added to the table, link its public evidence and credit the
 contributor by GitHub login.

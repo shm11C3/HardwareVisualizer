@@ -45,6 +45,7 @@ impl Fixture {
     for relative in [
       "bus/pci/devices",
       "bus/pci/drivers/i801_smbus",
+      "bus/i2c/devices",
       "bus/i2c/drivers/spd5118",
       "class/dmi/id",
       "class/hwmon",
@@ -77,12 +78,33 @@ impl Fixture {
     }
   }
 
-  pub(super) fn add_client(&self, bus: u32, address: &str, hwmon_index: u32) -> PathBuf {
-    let adapter = self.controller.join(format!("i2c-{bus}"));
-    let client = adapter.join(format!("{bus}-{address}"));
+  /// The native adapter `i2c-<bus>` under the controller, registered on the
+  /// I²C bus.
+  fn adapter(&self, bus: u32) -> PathBuf {
+    let name = format!("i2c-{bus}");
+    let adapter = self.controller.join(&name);
+    if !adapter.exists() {
+      fs::create_dir_all(&adapter).unwrap();
+      symlink(self.sys.join("bus/i2c"), adapter.join("subsystem")).unwrap();
+      symlink(&adapter, self.sys.join("bus/i2c/devices").join(name)).unwrap();
+      write_attr(&adapter, "name", "SMBus I801 adapter");
+    }
+    adapter
+  }
+
+  /// A client named `spd5118` registered on the bus, without a driver.
+  pub(super) fn add_unbound_client(&self, bus: u32, address: &str) -> PathBuf {
+    let name = format!("{bus}-{address}");
+    let client = self.adapter(bus).join(&name);
     fs::create_dir_all(&client).unwrap();
-    symlink(self.sys.join("bus/i2c"), adapter.join("subsystem")).unwrap();
     symlink(self.sys.join("bus/i2c"), client.join("subsystem")).unwrap();
+    symlink(&client, self.sys.join("bus/i2c/devices").join(name)).unwrap();
+    write_attr(&client, "name", "spd5118");
+    client
+  }
+
+  pub(super) fn add_client(&self, bus: u32, address: &str, hwmon_index: u32) -> PathBuf {
+    let client = self.add_unbound_client(bus, address);
     symlink(
       self.sys.join("bus/i2c/drivers/spd5118"),
       client.join("driver"),
@@ -114,11 +136,32 @@ impl Fixture {
 
   /// Runs the board-profile route alone on `records` plus the terminal record.
   pub(super) fn collect(&self, records: &str) -> DimmTemperature {
-    super::board_profile::collect_from(
+    super::board_profile::route(&self.sys, &format!("{records}\n{END_OF_TABLE}"), true)
+      .into_temperature()
+  }
+
+  /// Runs the sole-module route alone on `records` plus the terminal record.
+  pub(super) fn collect_sole(&self, records: &str) -> DimmTemperature {
+    super::sole_module::collect_from(
       &self.sys,
       &format!("{records}\n{END_OF_TABLE}"),
       true,
     )
+  }
+
+  /// Runs every route in precedence order, as production does.
+  pub(super) fn collect_all(&self, records: &str) -> DimmTemperature {
+    super::collect_from(&self.sys, &format!("{records}\n{END_OF_TABLE}"), true)
+  }
+
+  /// A board outside both board profiles.
+  pub(super) fn generic() -> Self {
+    let fixture = Self::new();
+    let dmi = fixture.sys.join("class/dmi/id");
+    write_attr(&dmi, "board_vendor", "Example Vendor");
+    write_attr(&dmi, "board_name", "Example Board");
+    write_attr(&dmi, "bios_version", "1.0");
+    fixture
   }
 
   pub(super) fn protectli() -> Self {
@@ -133,6 +176,14 @@ impl Fixture {
 
 pub(super) fn write_attr(directory: &Path, name: &str, value: &str) {
   fs::write(directory.join(name), format!("{value}\n")).unwrap();
+}
+
+/// Overwrites SPD bytes of `client`'s EEPROM starting at `offset`.
+pub(super) fn write_spd(client: &Path, offset: usize, bytes: &[u8]) {
+  let path = client.join("eeprom");
+  let mut spd = fs::read(&path).unwrap();
+  spd[offset..offset + bytes.len()].copy_from_slice(bytes);
+  fs::write(path, spd).unwrap();
 }
 
 pub(super) fn available(temperature_celsius: f32) -> DimmTemperature {

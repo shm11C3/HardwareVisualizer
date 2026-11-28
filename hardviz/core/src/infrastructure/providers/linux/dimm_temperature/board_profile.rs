@@ -5,9 +5,9 @@ use std::fs::{self, File};
 use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
-use super::decode_temperature;
 use super::inventory::{self, Dimm, is_reported};
 use super::sysfs::{attribute, file_identity, links_to, read_hwmon_attribute};
+use super::{BoardRoute, decode_temperature};
 use crate::models::hardware::DimmTemperature;
 
 pub(super) const BOARD_VENDOR: &str = "HARDKERNEL";
@@ -32,11 +32,42 @@ impl BoardProfile {
   }
 }
 
-pub(super) fn collect_from(
+/// Runs the board-profile route.
+///
+/// A Protectli VP2430 that passes the board, inventory and endpoint gates
+/// uses this route even when the reading then fails: any client the
+/// sole-module route could qualify there is the same client and hwmon node,
+/// so a fallback could only repeat the same reads after an EEPROM read. The
+/// ODROID-H4 rev 3 route stays a separate input and applies only with a
+/// reading.
+pub(super) fn route(sys: &Path, raw_inventory: &str, stderr_empty: bool) -> BoardRoute {
+  let (profile, locator, serial) = match qualify(sys, raw_inventory, stderr_empty) {
+    Ok(qualified) => qualified,
+    Err(status) => return BoardRoute::Declined(status),
+  };
+  let Some(endpoint) = find_endpoint(sys, profile) else {
+    return BoardRoute::Declined(DimmTemperature::Unavailable);
+  };
+  match (read_temperature(sys, profile, &endpoint, serial), profile) {
+    (Some(temperature_celsius), _) => BoardRoute::Applies(DimmTemperature::Available {
+      locator: locator.to_owned(),
+      temperature_celsius,
+    }),
+    (None, BoardProfile::ProtectliVp2430) => {
+      BoardRoute::Applies(DimmTemperature::Unavailable)
+    }
+    (None, BoardProfile::OdroidH4) => BoardRoute::Declined(DimmTemperature::Unavailable),
+  }
+}
+
+/// Board profile, Type 17 locator and, for ODROID-H4, the expected SPD serial.
+type Qualified<'a> = (BoardProfile, &'a str, Option<[u8; 4]>);
+
+fn qualify<'a>(
   sys: &Path,
-  raw_inventory: &str,
+  raw_inventory: &'a str,
   stderr_empty: bool,
-) -> DimmTemperature {
+) -> Result<Qualified<'a>, DimmTemperature> {
   let dmi = sys.join("class/dmi/id");
   let vendor = attribute(&dmi, "board_vendor");
   let board = attribute(&dmi, "board_name");
@@ -46,49 +77,38 @@ pub(super) fn collect_from(
     (Some(BOARD_VENDOR | "Protectli"), None)
     | (None, Some(BOARD_NAME | "VP2430"))
     | (None, None) => {
-      return DimmTemperature::Unavailable;
+      return Err(DimmTemperature::Unavailable);
     }
-    _ => return DimmTemperature::Unsupported,
+    _ => return Err(DimmTemperature::Unsupported),
   };
   if profile == BoardProfile::OdroidH4 {
     match attribute(&dmi, "bios_version").as_deref() {
       Some(BIOS_VERSION) => {}
-      Some(_) => return DimmTemperature::Unsupported,
-      None => return DimmTemperature::Unavailable,
+      Some(_) => return Err(DimmTemperature::Unsupported),
+      None => return Err(DimmTemperature::Unavailable),
     }
   }
 
   if !stderr_empty {
-    return DimmTemperature::Unavailable;
+    return Err(DimmTemperature::Unavailable);
   }
-  let Some(dimm) = single_populated_dimm(raw_inventory, profile) else {
-    return DimmTemperature::Unavailable;
-  };
+  let dimm =
+    single_populated_dimm(raw_inventory, profile).ok_or(DimmTemperature::Unavailable)?;
   if !supported(&dimm, profile) {
-    return DimmTemperature::Unsupported;
+    return Err(DimmTemperature::Unsupported);
   }
-  let Some(locator) = dimm.locator() else {
-    return DimmTemperature::Unavailable;
-  };
+  let locator = dimm.locator().ok_or(DimmTemperature::Unavailable)?;
 
   let serial = match profile {
-    BoardProfile::OdroidH4 => {
-      let Some(serial) = dimm.serial.and_then(decode_serial) else {
-        return DimmTemperature::Unavailable;
-      };
-      Some(serial)
-    }
+    BoardProfile::OdroidH4 => Some(
+      dimm
+        .serial
+        .and_then(decode_serial)
+        .ok_or(DimmTemperature::Unavailable)?,
+    ),
     BoardProfile::ProtectliVp2430 => None,
   };
-  let reading = find_endpoint(sys, profile)
-    .and_then(|endpoint| read_temperature(sys, profile, &endpoint, serial));
-  match reading {
-    Some(temperature_celsius) => DimmTemperature::Available {
-      locator: locator.to_owned(),
-      temperature_celsius,
-    },
-    None => DimmTemperature::Unavailable,
-  }
+  Ok((profile, locator, serial))
 }
 
 fn complete(dimm: &Dimm<'_>, profile: BoardProfile) -> Option<bool> {
@@ -288,6 +308,11 @@ mod tests {
   use super::super::test_fixture::*;
   use super::*;
   use std::os::unix::fs::symlink;
+
+  /// The board-profile route alone, without the sole-module fallback.
+  fn collect_from(sys: &Path, raw: &str, stderr_empty: bool) -> DimmTemperature {
+    route(sys, raw, stderr_empty).into_temperature()
+  }
 
   #[test]
   fn protectli_uses_the_physical_slot_without_reading_eeprom_or_firmware_identity() {

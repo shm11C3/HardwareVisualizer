@@ -13,6 +13,7 @@ pub(super) struct Dimm<'a> {
   pub(super) form_factor: Option<&'a str>,
   pub(super) memory_type: Option<&'a str>,
   pub(super) locator: Option<&'a str>,
+  pub(super) bank_locator: Option<&'a str>,
   pub(super) serial: Option<&'a str>,
   pub(super) part: Option<&'a str>,
 }
@@ -28,6 +29,7 @@ impl<'a> Dimm<'a> {
       "Form Factor" => &mut self.form_factor,
       "Type" => &mut self.memory_type,
       "Locator" => &mut self.locator,
+      "Bank Locator" => &mut self.bank_locator,
       "Serial Number" => &mut self.serial,
       "Part Number" => &mut self.part,
       _ => return Some(()),
@@ -39,14 +41,14 @@ impl<'a> Dimm<'a> {
   }
 
   pub(super) fn locator(&self) -> Option<&'a str> {
-    let locator = self.locator?;
-    if locator.trim() != locator
-      || locator.chars().any(|c| c.is_control() || c == '\u{fffd}')
-    {
-      return None;
-    }
-    Some(locator)
+    self.locator.filter(|locator| is_label_text(locator))
   }
+}
+
+/// A firmware string fit for a label: no surrounding whitespace, control
+/// characters or decoder replacement characters.
+pub(super) fn is_label_text(value: &str) -> bool {
+  value.trim() == value && !value.chars().any(|c| c.is_control() || c == '\u{fffd}')
 }
 
 pub(super) fn is_reported(value: &str) -> bool {
