@@ -363,10 +363,17 @@ fan capability independently of this sample's available rows. (S3, S5;
 - OEM AML on the inspected Gigabyte boards uses the same primary
   index/data pair under the ACPI Global Lock. PawnIO clients cannot take
   that lock. S20 observed wrong readings that matched this interleaving.
-  The repeated-read rules reject that failure mode for fan counts on
-  every profile and for banked-modern temperatures. They do not prevent
-  an interleaved index write from redirecting a firmware access. See
-  Open questions. (S20, S21)
+  Repeated reads apply to fan counts on every profile and to
+  banked-modern temperatures. They are a consistency filter that
+  reduces interleaving errors but does not eliminate them. An
+  interference that persists across both reads of a value passes the
+  filter. For example, firmware could select another bank before both
+  count pairs are read and restore bank 0 before the closing EC `0x06`
+  check. Both pairs would then match the same wrong-bank bytes, and the
+  sample would accept a wrong value. S20 shows wrong readings but does
+  not establish which interleavings repeated reads catch. Repeated reads
+  also cannot prevent an interleaved index write from redirecting a
+  firmware access. See Open questions. (S20, S21)
 - Hold the ISA mutex across the complete multi-step transaction. PawnIO
   requires caller ownership. A mutex timeout, failed transport proof, or
   unreadable global EC gate aborts the transaction. An individual input
@@ -403,28 +410,40 @@ fan capability independently of this sample's available rows. (S3, S5;
   for exact IT8772E (lead-only). An independent FX dump with paired RPM
   evidence is still needed for verification.
 
-- Non-blocking for Phase 4 primary LPC expansion: bracket, vendor-byte and repeated-read checks discard samples across a detected bank change, and the profile never writes the bank.
+- Non-blocking for Phase 4 primary LPC expansion: the profile never writes the bank and discards samples whose bracket checks detect a bank change; the undetected case is a stated residual for this Experimental row.
   The profile detects a bank change only at the bracket reads. An
   embedded controller with serial-bus access can change the bank after
   the opening check and restore it before the closing check (S17,
   S18). A banked read could then return a byte from another bank at the
-  same index. The double reads and the temperature range reject most
-  such values. No lead describes a read side effect
+  same index. The double reads and the temperature range are a
+  consistency filter, not a guarantee. They reject a change that falls
+  between the two reads of one value, and a wrong-bank temperature
+  outside +1 to +125 °C. If the other bank stays selected for both
+  reads of a value, both reads return the same wrong-bank byte. The
+  value then passes the filter and is published, unless it is a
+  temperature outside the accepted range. No lead describes a read side effect
   at the sampled indexes in banks 1–3. S7 reads all four banks of
   IT8689E for its own dumps. Whether the serial-bus enables in LDN
   `0x04` `CR F3` are set on the target boards is unknown. The manual
   dump below records them. A dump that shows frequent bank changes
   would be grounds to withdraw the profile or require those enables to
   be clear.
-- Non-blocking for Phase 4 primary LPC expansion: the exposure already applies to every approved ITE primary path, and repeated reads reject its observed failure mode.
+- Non-blocking for Phase 4 primary LPC expansion: the exposure already applies to every approved ITE primary path; repeated reads reduce but do not eliminate its wrong readings.
   Firmware use of the shared primary pair is not specific to this
   revision. It also affects the IT8620E, IT8628E and IT8728F paths on
   Gigabyte boards. OEM `GSWApp` AML declares the primary pair `0x0A45`/
   `0x0A46` on the S21 boards. It serializes through the ACPI Global
   Lock, which PawnIO clients cannot take. S20 shows that interleaving
-  produces wrong readings, and the double reads here reject that
-  failure mode. An interleaved index write from this client could also
-  redirect a firmware data access. Thermal zones were examined on one
+  produces wrong readings. It does not establish which interleavings
+  the double reads here catch. The double reads reject a disturbance
+  that affects only one of the two reads. A disturbance that persists
+  across both reads yields a matching wrong value, which is accepted.
+  Examples are a firmware index or bank selection that stays in place
+  for both reads. In the banked profile, that includes another bank
+  restored to bank 0 before the closing EC `0x06` check. The maintainer's
+  acceptance covers this residual of occasional wrong readings. An
+  interleaved index write from this client could also redirect a
+  firmware data access. Thermal zones were examined on one
   S21 board, X670E AORUS MASTER F41, where `_TMP` uses only AMD
   processor sources. S20 reports, without evidence, that fan-stop SMM
   routines use the pair.
@@ -488,4 +507,4 @@ reads bank 1–3, EC `0x01`–`0x03` or any index at or above `0x80`.
 | 4 | 2026-11-08 | Keep the primary expansion Implementation-ready and assign the exact GA-B75M-D3H FAN1–2 profile to its separate specification. Limit the IT8728 no-fan fixture and deferred row to cases outside that profile. Retain the revision 3 primary expansion profiles and transport rules. |
 | 5 | 2026-11-08 | Propose Implementation-ready status for Experimental primary IT8772E FX FAN2–3. Pin the exact revision, per-input routing and counts, and model-specific 16-bit evidence. Add partial, invalid, and authorization fixtures. |
 | 6 | 2026-11-28 | Follow the chip-level S12 revision 2 (ADR 0031). The IT8728F scope row, the IT8728 no-fan fixture, the deferred row and the DX/EX open question now point to its `CR22[3:0]=0x1` FAN1–2 row instead of the GA-B75M-D3H board profile. The revision 5 profiles, gates and transport rules are unchanged. |
-| 7 | 2026-11-28 | Propose Implementation-ready status for an Experimental bank-guarded TMPIN1–3 and FAN1–3 profile on exact slot-0 IT8686E, IT8688E and IT8689E ([#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698)). Add lead-only sources S15–S18, the S19 independent IT8686E dump, the S20 IT8688E firmware-interleaving observation and the S21 repository OEM evidence. Add a runtime gate table for every profile, banked fixtures, quirks, safety notes and open questions. These include the shared exposure to firmware use of the primary pair, which the maintainer must accept explicitly. Give every #2698 target a disposition. The revision 6 profiles, gates and transport rules are unchanged. |
+| 7 | 2026-11-28 | Propose Implementation-ready status for an Experimental bank-guarded TMPIN1–3 and FAN1–3 profile on exact slot-0 IT8686E, IT8688E and IT8689E ([#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698)). Add lead-only sources S15–S18, the S19 independent IT8686E dump, the S20 IT8688E firmware-interleaving observation and the S21 repository OEM evidence. Add a runtime gate table for every profile, banked fixtures, quirks, safety notes and open questions. These include the shared exposure to firmware use of the primary pair, which the maintainer must accept explicitly. Repeated reads reduce the resulting wrong readings but cannot filter an interference that persists across both reads. Give every #2698 target a disposition. The revision 6 profiles, gates and transport rules are unchanged. |
