@@ -100,6 +100,11 @@ pub(crate) enum MotherboardSensorError {
   Unclassified(String),
   #[error(transparent)]
   Chip(#[from] ChipFailure),
+  /// A probe failure after which a Nuvoton configuration exit was not
+  /// confirmed. The slot's later probes were skipped in that attempt, so
+  /// discovery is retried. Text and guidance come from the wrapped failure.
+  #[error(transparent)]
+  ExitUnconfirmed(Box<MotherboardSensorError>),
 }
 
 impl From<String> for MotherboardSensorError {
@@ -116,28 +121,43 @@ impl MotherboardSensorError {
   /// Whether PawnIO install or permission guidance may explain this failure.
   /// An Experimental chip's hardware state was read successfully through
   /// PawnIO, so no PawnIO component can fix it.
-  pub(crate) const fn offers_pawnio_guidance(&self) -> bool {
-    !matches!(
-      self,
-      Self::Unsupported
-        | Self::Chip(ChipFailure {
-          experimental: true,
-          hardware_state: true,
-          ..
-        })
-    )
+  pub(crate) fn offers_pawnio_guidance(&self) -> bool {
+    match self {
+      Self::ExitUnconfirmed(inner) => inner.offers_pawnio_guidance(),
+      other => !matches!(
+        other,
+        Self::Unsupported
+          | Self::Chip(ChipFailure {
+            experimental: true,
+            hardware_state: true,
+            ..
+          })
+      ),
+    }
   }
 
   /// Whether a failed open should be retried on the next sample instead of
-  /// kept: the mutex was busy, or an Experimental chip's configuration exit or
-  /// port authorization did not complete and needs a fresh discovery.
+  /// kept: the mutex was busy, an Experimental chip's configuration exit or
+  /// port authorization did not complete and needs a fresh discovery, or a
+  /// Nuvoton configuration exit was not confirmed on a slot.
   fn is_retryable(&self) -> bool {
     match self {
       Self::Mutex(error) => {
         matches!(error, MutexError::Timeout { .. } | MutexError::Wait { .. })
       }
       Self::Chip(failure) => failure.experimental && failure.requires_rediscovery,
+      Self::ExitUnconfirmed(_) => true,
       Self::Unsupported | Self::Unclassified(_) => false,
+    }
+  }
+
+  /// Mark a probe failure after which configuration exit was not confirmed as
+  /// retryable, keeping its text and guidance.
+  fn exit_unconfirmed(self) -> Self {
+    if self.is_retryable() {
+      self
+    } else {
+      Self::ExitUnconfirmed(Box::new(self))
     }
   }
 
@@ -537,7 +557,8 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   /// Probe both slots in order: Nuvoton bank 4, Nuvoton source-selected
   /// slots, then ITE. The caller holds the ISA mutex. After a Nuvoton probe
   /// that could not confirm its configuration exit, the rest of that slot is
-  /// skipped.
+  /// skipped, and that failure stays retryable so a later attempt can reach
+  /// the skipped probes once port access recovers.
   fn discover(client: C) -> Result<Self, MotherboardSensorError> {
     let mut last_error: Option<MotherboardSensorError> = None;
 
@@ -553,7 +574,14 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
           )));
         }
         Ok(None) => {}
-        Err(reason) => record_probe_failure(&mut last_error, reason),
+        Err(reason) => record_probe_failure(
+          &mut last_error,
+          if configuration_exited {
+            reason
+          } else {
+            reason.exit_unconfirmed()
+          },
+        ),
       }
       if !configuration_exited {
         continue;
@@ -570,7 +598,14 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
           )));
         }
         Ok(None) => {}
-        Err(reason) => record_probe_failure(&mut last_error, reason),
+        Err(reason) => record_probe_failure(
+          &mut last_error,
+          if configuration_exited {
+            reason
+          } else {
+            reason.exit_unconfirmed()
+          },
+        ),
       }
       if !configuration_exited {
         continue;

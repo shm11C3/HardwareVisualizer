@@ -296,9 +296,13 @@ impl<C: LpcIoOps> ActiveNuvotonSmiovtSensors<C> {
     let result = match (result, exit_result) {
       (Ok(value), Ok(())) => Ok(value),
       (Ok(Some(detected)), Err(exit_error)) => Err(
+        // The raw ID is always recorded in diagnostics.
         ChipFailure::nuvoton_smiovt(
           detected.profile,
-          format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"),
+          format!(
+            "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error} (raw chip ID 0x{:04X})",
+            detected.raw_chip_id
+          ),
         )
         .requiring_rediscovery()
         .into(),
@@ -495,6 +499,10 @@ mod tests {
     fail_second_entry_key: Cell<bool>,
     entry_keys_in_session: Cell<u32>,
     fail_select_slot: Cell<Option<u64>>,
+    /// Record the ITE probe keys and its `CR02` exit write instead of
+    /// panicking, so a test can observe whether the ITE probe ran.
+    record_ite_probe: Cell<bool>,
+    ite_probe_writes: RefCell<Vec<(u8, u8)>>,
     failed_hm_read: Cell<Option<(u8, u8)>>,
     config_reads: RefCell<Vec<u8>>,
     bank_select_writes: RefCell<Vec<u8>>,
@@ -569,6 +577,8 @@ mod tests {
         fail_second_entry_key: Cell::new(false),
         entry_keys_in_session: Cell::new(0),
         fail_select_slot: Cell::new(None),
+        record_ite_probe: Cell::new(false),
+        ite_probe_writes: RefCell::new(Vec::new()),
         failed_hm_read: Cell::new(None),
         config_reads: RefCell::new(Vec::new()),
         bank_select_writes: RefCell::new(Vec::new()),
@@ -678,6 +688,9 @@ mod tests {
               }
               self.in_configuration_mode.set(false);
             }
+            0x01 | 0x55 if self.record_ite_probe.get() => {
+              self.ite_probe_writes.borrow_mut().push((0x00, value));
+            }
             _ => panic!("unexpected configuration key 0x{value:02X}"),
           }
           Ok(())
@@ -741,6 +754,10 @@ mod tests {
 
     fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
       // "Safety notes": the only configuration write is CR07 = 0x0B.
+      if (register, value) == (0x02, 0x02) && self.record_ite_probe.get() {
+        self.ite_probe_writes.borrow_mut().push((register, value));
+        return Ok(());
+      }
       assert_eq!(
         (register, value),
         (LOGICAL_DEVICE_SELECT_REGISTER, NUVOTON_HARDWARE_MONITOR_LDN),
@@ -919,6 +936,8 @@ mod tests {
       (0x00, 0x00),
       (0x00, 0xF8),
       (0x10, 0x00),
+      // LpcIO never authorizes 0x0CF8-0x0CFF.
+      (0x0C, 0xF8),
     ] {
       let chip = FakeSmiovtChip::nct6776();
       chip.set_config(0x60, high);
@@ -983,7 +1002,7 @@ mod tests {
       failure.to_string(),
       format!(
         "{NCT6776_FAILURE_PREFIX}: {NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: \
-         simulated config exit failure"
+         simulated config exit failure (raw chip ID 0xC333)"
       )
     );
     assert!(failure.is_retryable());
@@ -1080,7 +1099,7 @@ mod tests {
       failure.to_string(),
       format!(
         "{NCT6776_FAILURE_PREFIX}: {NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: \
-         simulated config exit failure"
+         simulated config exit failure (raw chip ID 0xC333)"
       )
     );
   }
@@ -1096,6 +1115,77 @@ mod tests {
     // Neither the source-selected nor the ITE probe ran on slot 0.
     assert_eq!(chip.exit_calls.get(), 1);
     assert_eq!(chip.config_reads.borrow().as_slice(), &[0x20, 0x21]);
+  }
+
+  /// An ID outside every Nuvoton profile; the ITE probe is recorded, not
+  /// panicked on, and slot 1 cannot be selected.
+  fn unmatched_chip_with_recorded_ite_probe() -> FakeSmiovtChip {
+    let chip = FakeSmiovtChip::with_chip_id(0xC338);
+    chip.record_ite_probe.set(true);
+    chip.fail_select_slot.set(Some(1));
+    chip
+  }
+
+  #[test]
+  fn clean_nuvoton_misses_still_reach_the_ite_probe() {
+    let chip = unmatched_chip_with_recorded_ite_probe();
+
+    let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+      Ok(_) => panic!("discovery should fail"),
+      Err(failure) => failure,
+    };
+
+    assert_eq!(chip.exit_calls.get(), 2);
+    assert_eq!(
+      chip.ite_probe_writes.borrow().as_slice(),
+      &[(0x00, 0x01), (0x00, 0x55), (0x00, 0x55), (0x02, 0x02)]
+    );
+    // Only the slot 1 selection failures remain; nothing asks for a retry.
+    assert!(!failure.is_retryable());
+  }
+
+  #[test]
+  fn unconfirmed_exit_without_a_profile_match_stays_retryable() {
+    for failing_exit in [1, 2] {
+      let chip = unmatched_chip_with_recorded_ite_probe();
+      chip.fail_exit_call.set(Some(failing_exit));
+
+      let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+        Ok(_) => panic!("discovery should fail"),
+        Err(failure) => failure,
+      };
+
+      // The ITE probe is skipped in this attempt ...
+      assert!(
+        chip.ite_probe_writes.borrow().is_empty(),
+        "exit {failing_exit}"
+      );
+      // ... and the failure is retried so a later attempt can reach it.
+      assert!(failure.is_retryable(), "exit {failing_exit}");
+      assert!(failure.offers_pawnio_guidance(), "exit {failing_exit}");
+      assert_eq!(
+        failure.to_string(),
+        format!(
+          "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated config exit failure"
+        ),
+        "exit {failing_exit}"
+      );
+    }
+  }
+
+  #[test]
+  fn unconfirmed_exit_after_a_failed_entry_key_stays_retryable() {
+    let chip = unmatched_chip_with_recorded_ite_probe();
+    chip.fail_second_entry_key.set(true);
+    chip.fail_config_exit.set(true);
+
+    let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+      Ok(_) => panic!("discovery should fail"),
+      Err(failure) => failure,
+    };
+
+    assert!(chip.ite_probe_writes.borrow().is_empty());
+    assert!(failure.is_retryable());
   }
 
   #[test]

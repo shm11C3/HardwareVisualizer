@@ -71,6 +71,10 @@ const CR30_HARDWARE_MONITOR_ACTIVE_BIT: u8 = 1 << 0;
 const SMIOVT_MIN_HM_BASE: u16 = 0x0100;
 const SMIOVT_MAX_HM_BASE: u16 = 0x0FF8;
 const SMIOVT_HM_BASE_ALIGNMENT_MASK: u16 = 0x0007;
+/// PCI configuration mechanism #1 ports, which `LpcIO` never allows for port
+/// I/O (`pawnio-interface.md` revision 9, `LpcIO`). The only aligned HM window
+/// that overlaps them starts at `0x0CF8`.
+const LPCIO_PROTECTED_PORTS: core::ops::RangeInclusive<u16> = 0x0CF8..=0x0CFF;
 
 /// Source-select field (bits 4:0); bits 7:5 are reserved and ignored.
 const SOURCE_SELECT_MASK: u8 = 0x1F;
@@ -460,11 +464,16 @@ pub const fn is_smiovt_hardware_monitor_active(cr30: u8) -> bool {
 }
 
 /// The HM base gate: inside `0x0100`-`0x0FF8` with the low three bits zero,
-/// so base + 5 and base + 6 stay inside one 8-byte-aligned PawnIO window.
+/// so base + 5 and base + 6 stay inside one 8-byte-aligned PawnIO window, and
+/// that window does not overlap the ports `LpcIO` never authorizes
+/// (`0x0CF8`-`0x0CFF`), which rejects base `0x0CF8`.
 pub const fn is_usable_smiovt_hm_base(base: u16) -> bool {
+  let window_end = base | SMIOVT_HM_BASE_ALIGNMENT_MASK;
   base >= SMIOVT_MIN_HM_BASE
     && base <= SMIOVT_MAX_HM_BASE
     && base & SMIOVT_HM_BASE_ALIGNMENT_MASK == 0
+    && (window_end < *LPCIO_PROTECTED_PORTS.start()
+      || base > *LPCIO_PROTECTED_PORTS.end())
 }
 
 /// Combine the two vendor-ID bytes read with HBACS = 1 and HBACS = 0.
@@ -867,6 +876,17 @@ mod tests {
     for base in [0x0000, 0x00F8, 0x1000, 0x1290, 0xFFF8, 0xFFFF] {
       assert!(!is_usable_smiovt_hm_base(base), "0x{base:04X}");
     }
+    // The aligned window at 0x0CF8 is the PCI configuration ports, which
+    // LpcIO never authorizes; its neighbours stay usable.
+    assert!(!is_usable_smiovt_hm_base(0x0CF8));
+    assert!(is_usable_smiovt_hm_base(0x0CF0));
+    assert!(is_usable_smiovt_hm_base(0x0D00));
+    // Every aligned window in the range except 0x0CF8 is usable.
+    let aligned_windows = (0x0100..=0x0FF8_u16).step_by(8);
+    let rejected: Vec<u16> = aligned_windows
+      .filter(|base| !is_usable_smiovt_hm_base(*base))
+      .collect();
+    assert_eq!(rejected, [0x0CF8]);
   }
 
   #[test]
