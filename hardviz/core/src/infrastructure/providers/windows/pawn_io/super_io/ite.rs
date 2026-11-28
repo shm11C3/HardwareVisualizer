@@ -2,7 +2,7 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
-//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 7
+//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 8
 //! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 2
 //!
 //! No other external sensor source was used.
@@ -154,6 +154,21 @@ pub(super) const IT8716F_D: IteEcProfile = IteEcProfile {
   ..LEGACY
 };
 
+/// IT8718F FAN1-3 on the IT8716F D mechanism, limited to the inputs whose
+/// 16-bit counter firmware enabled in EC `0x0C` bits 0-2. An input left in
+/// 8-bit mode has no documented divisor and is omitted; EC `0x0C` is never
+/// written. CR22 is recorded for diagnostics and never gates.
+pub(super) const IT8718F: IteEcProfile = IteEcProfile {
+  chip_label: "IT8718F",
+  chip_id: 0x8718,
+  reports_diagnostic_revision: true,
+  sampling_rejects_configuration_bit7: true,
+  checks_vendor_byte: true,
+  temperature_registers: &[],
+  fan_mode_register: Some(ITE_EC_FAN_MODE_REGISTER),
+  ..LEGACY
+};
+
 pub(super) const IT8728F: IteEcProfile = IteEcProfile {
   chip_label: "IT8728F/EX",
   slots: &[0, 1],
@@ -216,13 +231,16 @@ pub(super) const IT8689E: IteEcProfile = IteEcProfile {
   ..BANKED_MODERN
 };
 
-const ITE_EC_PROFILES: [&IteEcProfile; 8] = [
+/// Raw `0x8721` (IT8721F DX) has no row: its specification row is disabled, so
+/// discovery exits right after the chip-ID read.
+const ITE_EC_PROFILES: [&IteEcProfile; 9] = [
   &IT8620E,
   &IT8628E,
   &IT8686E,
   &IT8688E,
   &IT8689E,
   &IT8716F_D,
+  &IT8718F,
   &IT8728F,
   &IT8772E_FX,
 ];
@@ -305,11 +323,35 @@ mod tests {
     assert_eq!(label(0, 0x8620), Some("IT8620E"));
     assert_eq!(label(0, 0x8628), Some("IT8628E"));
     assert_eq!(label(0, 0x8716), Some("IT8716F D"));
+    assert_eq!(label(0, 0x8718), Some("IT8718F"));
     assert_eq!(label(0, 0x8728), Some("IT8728F/EX"));
     assert_eq!(label(1, 0x8728), Some("IT8728F/EX"));
     assert_eq!(label(0, 0x8772), Some("IT8772E FX"));
     assert_eq!(label(1, 0x8620), None);
+    assert_eq!(label(1, 0x8718), None);
+    // The IT8721F DX row of revision 8 is a disabled candidate.
     assert_eq!(label(0, 0x8721), None);
+    assert_eq!(label(1, 0x8721), None);
+  }
+
+  /// `superio-ite-primary-lpc-expansion.md` rev 8, "Discovery and
+  /// authorization" IT8718F row and the "IT8718F profile" register table.
+  #[test]
+  fn it8718f_reuses_the_it8716f_d_mechanism_without_a_revision_gate() {
+    let profile = ite_ec_profile(0, 0x8718).unwrap();
+
+    assert_eq!(profile.required_revision, None);
+    assert!(profile.reports_diagnostic_revision);
+    assert_eq!(profile.access, IteEcAccess::Unbanked);
+    assert_eq!(profile.ec_base_rule, IT8716F_D.ec_base_rule);
+    assert_eq!(profile.routes_in_gpio_ldn, IT8716F_D.routes_in_gpio_ldn);
+    assert_eq!(profile.fan_registers, IT8716F_D.fan_registers);
+    assert!(profile.fan1_routed);
+    assert_eq!(profile.fan_mode_register, Some(ITE_EC_FAN_MODE_REGISTER));
+    assert!(profile.temperature_registers.is_empty());
+    assert!(profile.checks_vendor_byte);
+    assert!(profile.sampling_rejects_configuration_bit7);
+    assert!(!profile.discovery_rejects_configuration_bit7);
   }
 
   #[test]
@@ -333,7 +375,7 @@ mod tests {
       assert_eq!(profile(0, id), None, "0x{id:04X}");
     }
     assert!(
-      [IT8620E, IT8628E, IT8716F_D, IT8728F, IT8772E_FX]
+      [IT8620E, IT8628E, IT8716F_D, IT8718F, IT8728F, IT8772E_FX]
         .iter()
         .all(|profile| profile.access == IteEcAccess::Unbanked)
     );
