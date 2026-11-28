@@ -8,9 +8,9 @@ use super::super::client::{
 };
 pub use super::amd_family10::Family10h14hRejection;
 use super::amd_family10::{
-  Family10h14hGroup, TctlGroup, admit_identity, is_family_10h_14h, is_family_15h_16h,
-  query_ddr3_gate, sample_family_10h_14h_tctl, sample_tctl, select_family_10h_14h_group,
-  select_tctl_group,
+  Ddr3Gate, Family10h14hGroup, TctlGroup, admit_identity, is_family_10h_14h,
+  is_family_15h_16h, query_ddr3_gate, sample_family_10h_14h_tctl, sample_tctl,
+  select_family_10h_14h_group, select_tctl_group,
 };
 use super::ccd_temperature::{AmdCcdTarget, is_single_physical_package};
 pub use super::identity::{CpuIdentity, CpuVendor};
@@ -109,9 +109,21 @@ impl fmt::Display for CpuTemperatureFallbackReason {
   }
 }
 
+impl CpuTemperatureFallbackReason {
+  /// Whether a later selection may admit this CPU, because a gate could not
+  /// be evaluated rather than having failed.
+  const fn is_retryable(&self) -> bool {
+    matches!(self, Self::AmdFamily10h14hRejected(rejection) if rejection.is_retryable())
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CpuPackageTemperatureError {
   Unsupported(CpuTemperatureFallbackReason),
+  /// A gate could not be evaluated yet, so no module was loaded. The path
+  /// stays closed, and the sampler may be recreated to evaluate it again.
+  /// This is not a component failure and carries no setup guidance.
+  Undetermined(CpuTemperatureFallbackReason),
   Unavailable {
     reason: String,
     enablement: SensorEnablement,
@@ -120,10 +132,23 @@ pub enum CpuPackageTemperatureError {
   Internal(String),
 }
 
+impl CpuPackageTemperatureError {
+  /// The error an unselected sampler reports for `reason`.
+  fn not_selected(reason: CpuTemperatureFallbackReason) -> Self {
+    if reason.is_retryable() {
+      Self::Undetermined(reason)
+    } else {
+      Self::Unsupported(reason)
+    }
+  }
+}
+
 impl fmt::Display for CpuPackageTemperatureError {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      Self::Unsupported(reason) => fmt::Display::fmt(reason, f),
+      Self::Unsupported(reason) | Self::Undetermined(reason) => {
+        fmt::Display::fmt(reason, f)
+      }
       Self::Unavailable {
         reason,
         enablement: SensorEnablement::Experimental,
@@ -169,7 +194,7 @@ pub(crate) fn select_cpu_temperature_candidate(
   package_type: impl FnOnce() -> Option<u32>,
   single_package: impl FnOnce() -> bool,
   stepping: impl FnOnce() -> Option<u32>,
-  ddr3_memory: impl FnOnce() -> bool,
+  ddr3_memory: impl FnOnce() -> Ddr3Gate,
 ) -> Result<CpuTemperatureCandidate, CpuTemperatureFallbackReason> {
   match cpu.vendor {
     CpuVendor::Intel => {
@@ -205,8 +230,16 @@ pub(crate) fn select_cpu_temperature_candidate(
       if !single_package() {
         return Err(rejected(Family10h14hRejection::SinglePackageUnconfirmed));
       }
-      if admission.requires_ddr3 && !ddr3_memory() {
-        return Err(rejected(Family10h14hRejection::Ddr3Unconfirmed));
+      if admission.requires_ddr3 {
+        match ddr3_memory() {
+          Ddr3Gate::Confirmed => {}
+          Ddr3Gate::NotConfirmed => {
+            return Err(rejected(Family10h14hRejection::Ddr3Unconfirmed));
+          }
+          Ddr3Gate::QueryFailed => {
+            return Err(rejected(Family10h14hRejection::Ddr3QueryFailed));
+          }
+        }
       }
       Ok(CpuTemperatureCandidate {
         source: CpuTemperatureSource::AmdFamily10h14hTctl,
@@ -389,7 +422,7 @@ impl CpuTemperatureSampler {
             fallback_reason: Some(fallback_reason),
           },
           active: None,
-          inactive_error: Some(CpuPackageTemperatureError::Unsupported(reason)),
+          inactive_error: Some(CpuPackageTemperatureError::not_selected(reason)),
           sample_failure_logged: false,
         };
       }
@@ -750,7 +783,7 @@ mod tests {
     panic!("the stepping must not be queried for this CPU")
   }
 
-  fn ddr3_not_queried() -> bool {
+  fn ddr3_not_queried() -> Ddr3Gate {
     panic!("the DDR3 gate must not be evaluated for this CPU")
   }
 
@@ -977,7 +1010,7 @@ mod tests {
     stepping: impl FnOnce() -> Option<u32>,
     package_type: impl FnOnce() -> Option<u32>,
     single_package: impl FnOnce() -> bool,
-    ddr3_memory: impl FnOnce() -> bool,
+    ddr3_memory: impl FnOnce() -> Ddr3Gate,
   ) -> Result<CpuTemperatureCandidate, CpuTemperatureFallbackReason> {
     select_cpu_temperature_candidate(
       cpu,
@@ -1062,27 +1095,73 @@ mod tests {
   #[test]
   fn family_10h_am2r2_am3_is_experimental_only_after_the_ddr3_gate() {
     // RB-C3 00100F43h on PkgType 0001b.
-    let am3 = || {
+    let am3 = |gate: Ddr3Gate| {
       select_10h_14h(
         &amd(0x10, 0x04),
         || Some(0x3),
         || Some(0b0001),
         || true,
-        || true,
+        move || gate,
       )
     };
-    assert_family_10h_14h_candidate(am3(), 0x10, 0x04, SensorEnablement::Experimental);
+    assert_family_10h_14h_candidate(
+      am3(Ddr3Gate::Confirmed),
+      0x10,
+      0x04,
+      SensorEnablement::Experimental,
+    );
 
     assert_eq!(
-      select_10h_14h(
-        &amd(0x10, 0x04),
-        || Some(0x3),
-        || Some(0b0001),
-        || true,
-        || false,
-      ),
+      am3(Ddr3Gate::NotConfirmed),
       rejected(Family10h14hRejection::Ddr3Unconfirmed)
     );
+    // A query that did not complete is not admission either.
+    assert_eq!(
+      am3(Ddr3Gate::QueryFailed),
+      rejected(Family10h14hRejection::Ddr3QueryFailed)
+    );
+  }
+
+  // A completed query that does not confirm DDR3 is final for the sampler;
+  // a query that did not complete leaves the path closed but lets the
+  // service recreate the sampler and query again, without setup guidance.
+  #[test]
+  fn only_a_failed_ddr3_query_leaves_the_sampler_retryable() {
+    let not_confirmed = CpuTemperatureFallbackReason::AmdFamily10h14hRejected(
+      Family10h14hRejection::Ddr3Unconfirmed,
+    );
+    let query_failed = CpuTemperatureFallbackReason::AmdFamily10h14hRejected(
+      Family10h14hRejection::Ddr3QueryFailed,
+    );
+
+    assert_eq!(
+      CpuPackageTemperatureError::not_selected(not_confirmed.clone()),
+      CpuPackageTemperatureError::Unsupported(not_confirmed)
+    );
+    assert_eq!(
+      CpuPackageTemperatureError::not_selected(query_failed.clone()),
+      CpuPackageTemperatureError::Undetermined(query_failed.clone())
+    );
+    assert_eq!(
+      CpuPackageTemperatureError::not_selected(
+        CpuTemperatureFallbackReason::AmdSinglePackageUnconfirmed
+      ),
+      CpuPackageTemperatureError::Unsupported(
+        CpuTemperatureFallbackReason::AmdSinglePackageUnconfirmed
+      )
+    );
+
+    let sample = crate::platform::windows::sensors::build_temperature_sample(
+      Err(CpuPackageTemperatureError::Undetermined(query_failed)),
+      Vec::new(),
+    );
+    // The service recreates a sampler whose reading is Unavailable.
+    assert!(matches!(
+      sample.availability,
+      crate::models::SensorAvailability::Unavailable { .. }
+    ));
+    assert!(sample.guidance_candidates.is_empty());
+    assert_eq!(sample.cpu_temperature, None);
   }
 
   // cpu-amd-family-10h-14h-tctl.md rev 1, Detection: the single-package

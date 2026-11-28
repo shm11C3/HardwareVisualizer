@@ -33,8 +33,8 @@ mod reported_temperature;
 pub(crate) use access::admit_identity;
 pub use family_10h_14h::Family10h14hRejection;
 pub(crate) use family_10h_14h::{
-  Family10h14hGroup, is_family_10h_14h, query_ddr3_gate, sample_family_10h_14h_tctl,
-  select_family_10h_14h_group,
+  Ddr3Gate, Family10h14hGroup, is_family_10h_14h, query_ddr3_gate,
+  sample_family_10h_14h_tctl, select_family_10h_14h_group,
 };
 pub(crate) use family_15h_16h::{
   TctlGroup, is_family_15h_16h, sample_tctl, select_tctl_group,

@@ -123,6 +123,21 @@ pub enum Family10h14hRejection {
      every installed module (erratum 319)"
   )]
   Ddr3Unconfirmed,
+  #[error(
+    "AMD Family 10h AM2r2/AM3 package: the Win32_PhysicalMemory query for the \
+     DDR3 gate did not complete, so the path stays closed until a later query \
+     confirms DDR3"
+  )]
+  Ddr3QueryFailed,
+}
+
+impl Family10h14hRejection {
+  /// Whether a later evaluation may admit this CPU. Only a DDR3 query that
+  /// did not complete qualifies; every other rejection is a fact of the
+  /// hardware or the topology.
+  pub(crate) const fn is_retryable(self) -> bool {
+    matches!(self, Self::Ddr3QueryFailed)
+  }
 }
 
 /// The result of the CPU gates for an admitted group.
@@ -183,37 +198,55 @@ impl Family10h14hGroup {
   }
 }
 
+/// The outcome of one DDR3 gate evaluation. Only `Confirmed` admits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Ddr3Gate {
+  /// The query completed and every installed instance reports DDR3.
+  Confirmed,
+  /// The query completed and does not confirm DDR3: an empty result, an
+  /// absent or null property, or another memory type.
+  NotConfirmed,
+  /// The query failed or did not finish in time. It may be evaluated again
+  /// later; the path stays closed until a query confirms DDR3.
+  QueryFailed,
+}
+
 /// The DDR3 gate over a `Win32_PhysicalMemory` query of `Capacity` and
 /// `SMBIOSMemoryType`: the query succeeds, at least one instance has
 /// `Capacity` > 0, and every such instance reports DDR3. An absent or null
 /// property on any instance, a failed or empty query, or any other memory
-/// type fails the gate.
-pub(crate) fn ddr3_gate_passes(
+/// type fails the gate. A failed query is kept apart from a completed one
+/// so that only the former is retried.
+pub(crate) fn evaluate_ddr3_gate(
   query: Result<Vec<Win32PhysicalMemoryType>, String>,
-) -> bool {
+) -> Ddr3Gate {
   let Ok(records) = query else {
-    return false;
+    return Ddr3Gate::QueryFailed;
   };
   let mut installed = 0_usize;
   for record in &records {
     let (Some(capacity), Some(memory_type)) =
       (record.capacity, record.smbios_memory_type)
     else {
-      return false;
+      return Ddr3Gate::NotConfirmed;
     };
     if capacity > 0 {
       if memory_type != SMBIOS_MEMORY_TYPE_DDR3 {
-        return false;
+        return Ddr3Gate::NotConfirmed;
       }
       installed += 1;
     }
   }
-  installed > 0
+  if installed > 0 {
+    Ddr3Gate::Confirmed
+  } else {
+    Ddr3Gate::NotConfirmed
+  }
 }
 
-/// Evaluate the DDR3 gate once through a bounded, read-only WMI query.
-pub(crate) fn query_ddr3_gate() -> bool {
-  ddr3_gate_passes(query_physical_memory_types(DDR3_GATE_QUERY_TIMEOUT))
+/// Evaluate the DDR3 gate through a bounded, read-only WMI query.
+pub(crate) fn query_ddr3_gate() -> Ddr3Gate {
+  evaluate_ddr3_gate(query_physical_memory_types(DDR3_GATE_QUERY_TIMEOUT))
 }
 
 /// One Tctl sample from D18F3xA4, decoded with the group's select-field
@@ -412,31 +445,44 @@ mod tests {
   #[test]
   fn family_10h_erratum_319_gate_covers_exactly_the_specified_pairs() {
     let family_10h = group(0x10, 0x00);
-    let rejected = |model: u32, stepping: u32| {
-      matches!(
-        family_10h.admit_cpu(model, || Some(stepping), || Some(PKG_TYPE_C32)),
-        Err(Family10h14hRejection::Erratum319Revision { .. })
-      )
+    // C32 is a Verified package type, so a pair outside the revision set must
+    // be admitted outright, not merely rejected for another reason.
+    let admit = |model: u32, stepping: u32| {
+      family_10h.admit_cpu(model, || Some(stepping), || Some(PKG_TYPE_C32))
+    };
+    let assert_rejected = |model: u32, stepping: u32| {
+      assert_eq!(
+        admit(model, stepping),
+        Err(Family10h14hRejection::Erratum319Revision { model, stepping }),
+        "{model:#x}/{stepping:#x}"
+      );
+    };
+    let assert_admitted = |model: u32, stepping: u32| {
+      assert_eq!(
+        admit(model, stepping),
+        Ok(VERIFIED),
+        "{model:#x}/{stepping:#x}"
+      );
     };
 
     for model in 0x00..=0x03 {
       for stepping in 0x0..=0xF {
-        assert!(rejected(model, stepping), "{model:#x}/{stepping:#x}");
+        assert_rejected(model, stepping);
       }
     }
     for stepping in 0x0..=0x2 {
-      assert!(rejected(0x04, stepping), "4/{stepping:#x}");
+      assert_rejected(0x04, stepping);
     }
-    assert!(rejected(0x08, 0x0));
+    assert_rejected(0x08, 0x0);
 
     for stepping in 0x3..=0xF {
-      assert!(!rejected(0x04, stepping), "4/{stepping:#x}");
+      assert_admitted(0x04, stepping);
     }
     for stepping in 0x1..=0xF {
-      assert!(!rejected(0x08, stepping), "8/{stepping:#x}");
+      assert_admitted(0x08, stepping);
     }
     for model in [0x05, 0x06, 0x07, 0x09, 0x0A, 0x0F, 0xFF] {
-      assert!(!rejected(model, 0x0), "{model:#x}/0");
+      assert_admitted(model, 0x0);
     }
   }
 
@@ -588,26 +634,35 @@ mod tests {
   // instance reports SMBIOSMemoryType 24 (18h).
   #[test]
   fn ddr3_gate_passes_when_every_installed_module_reports_ddr3() {
-    assert!(ddr3_gate_passes(Ok(vec![memory(
-      Some(2 * GIB),
-      Some(SMBIOS_MEMORY_TYPE_DDR3)
-    )])));
-    assert!(ddr3_gate_passes(Ok(vec![
-      memory(Some(4 * GIB), Some(SMBIOS_MEMORY_TYPE_DDR3)),
-      memory(Some(4 * GIB), Some(SMBIOS_MEMORY_TYPE_DDR3)),
-    ])));
+    assert_eq!(
+      evaluate_ddr3_gate(Ok(vec![memory(
+        Some(2 * GIB),
+        Some(SMBIOS_MEMORY_TYPE_DDR3)
+      )])),
+      Ddr3Gate::Confirmed
+    );
+    assert_eq!(
+      evaluate_ddr3_gate(Ok(vec![
+        memory(Some(4 * GIB), Some(SMBIOS_MEMORY_TYPE_DDR3)),
+        memory(Some(4 * GIB), Some(SMBIOS_MEMORY_TYPE_DDR3)),
+      ])),
+      Ddr3Gate::Confirmed
+    );
     // A Capacity 0 instance (no memory device installed, DSP0134 Table 75)
     // is not required to report DDR3.
-    assert!(ddr3_gate_passes(Ok(vec![
-      memory(Some(2 * GIB), Some(SMBIOS_MEMORY_TYPE_DDR3)),
-      memory(Some(0), Some(SMBIOS_UNKNOWN)),
-    ])));
+    assert_eq!(
+      evaluate_ddr3_gate(Ok(vec![
+        memory(Some(2 * GIB), Some(SMBIOS_MEMORY_TYPE_DDR3)),
+        memory(Some(0), Some(SMBIOS_UNKNOWN)),
+      ])),
+      Ddr3Gate::Confirmed
+    );
   }
 
   // Spec rev 1, Detection: the DDR3 gate, and Scoped enablement: the "DDR3
   // gate failed" row (a DDR2 system, or memory type unknown).
   #[test]
-  fn ddr3_gate_fails_on_ddr2_unknown_types_missing_values_and_failed_queries() {
+  fn ddr3_gate_fails_on_ddr2_unknown_types_missing_values_and_empty_results() {
     for records in [
       vec![memory(Some(2 * GIB), Some(SMBIOS_DDR2))],
       vec![
@@ -624,9 +679,21 @@ mod tests {
       vec![memory(Some(0), Some(SMBIOS_MEMORY_TYPE_DDR3))],
       vec![],
     ] {
-      assert!(!ddr3_gate_passes(Ok(records)));
+      assert_eq!(evaluate_ddr3_gate(Ok(records)), Ddr3Gate::NotConfirmed);
     }
-    assert!(!ddr3_gate_passes(Err("WMI unavailable".to_string())));
+  }
+
+  // Spec rev 1, Detection: "a failed or empty query" fails the DDR3 gate. A
+  // failed query stays closed and is reported apart from a completed one.
+  #[test]
+  fn a_failed_ddr3_query_is_kept_apart_from_a_completed_one() {
+    assert_eq!(
+      evaluate_ddr3_gate(Err("WMI unavailable".to_string())),
+      Ddr3Gate::QueryFailed
+    );
+    assert!(Family10h14hRejection::Ddr3QueryFailed.is_retryable());
+    assert!(!Family10h14hRejection::Ddr3Unconfirmed.is_retryable());
+    assert!(!Family10h14hRejection::SocketF.is_retryable());
   }
 
   #[test]
@@ -646,6 +713,7 @@ mod tests {
       Family10h14hRejection::PackageTypeUnreadable,
       Family10h14hRejection::SinglePackageUnconfirmed,
       Family10h14hRejection::Ddr3Unconfirmed,
+      Family10h14hRejection::Ddr3QueryFailed,
     ] {
       assert_eq!(
         classify_external_component_reason(&rejection.to_string()),

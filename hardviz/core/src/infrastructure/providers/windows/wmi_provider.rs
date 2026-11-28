@@ -6,8 +6,10 @@ use crate::utils::formatter;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::net::IpAddr;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::Mutex;
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread;
+use std::time::Duration;
 use wmi::WMIConnection;
 
 #[derive(Debug, Deserialize)]
@@ -29,14 +31,67 @@ pub(crate) struct Win32PhysicalMemoryType {
   pub(crate) smbios_memory_type: Option<u32>,
 }
 
+type QueryResult<T> = Result<Vec<T>, String>;
+
+/// At most one WMI worker per query site. `raw_query` waits without a
+/// deadline and cannot be cancelled, so a worker that outlives its caller's
+/// wait is kept. The next call waits on that worker instead of starting
+/// another, and a new worker starts only after the previous one has
+/// returned its result.
+struct SingleFlightQuery<T> {
+  pending: Mutex<Option<Receiver<QueryResult<T>>>>,
+}
+
+impl<T> SingleFlightQuery<T> {
+  const fn new() -> Self {
+    Self {
+      pending: Mutex::new(None),
+    }
+  }
+
+  /// Wait at most `timeout` for the outstanding worker, or for a worker that
+  /// `start` launches when none is outstanding. A timeout keeps the worker
+  /// for the next call and is reported as a failed query.
+  fn run(
+    &self,
+    start: impl FnOnce() -> Receiver<QueryResult<T>>,
+    timeout: Duration,
+  ) -> QueryResult<T> {
+    let mut pending = self
+      .pending
+      .lock()
+      .map_err(|_| "WMI query state is poisoned".to_string())?;
+    let receiver = pending.take().unwrap_or_else(start);
+    match receiver.recv_timeout(timeout) {
+      Ok(result) => result,
+      Err(RecvTimeoutError::Timeout) => {
+        *pending = Some(receiver);
+        Err(format!("WMI query did not complete within {timeout:?}"))
+      }
+      Err(RecvTimeoutError::Disconnected) => {
+        Err("WMI query worker ended without a result".to_string())
+      }
+    }
+  }
+}
+
+static PHYSICAL_MEMORY_TYPE_QUERY: SingleFlightQuery<Win32PhysicalMemoryType> =
+  SingleFlightQuery::new();
+
 /// Query `Capacity` and `SMBIOSMemoryType` of every instance, waiting at most
-/// `timeout`. A query that does not finish in time is reported as failed.
+/// `timeout`. A query that does not finish in time is reported as failed,
+/// and at most one such query runs at a time in the process.
 pub(crate) fn query_physical_memory_types(
-  timeout: std::time::Duration,
+  timeout: Duration,
 ) -> Result<Vec<Win32PhysicalMemoryType>, String> {
-  spawn_wmi_query("SELECT Capacity, SMBIOSMemoryType FROM Win32_PhysicalMemory".into())
-    .recv_timeout(timeout)
-    .map_err(|error| format!("Win32_PhysicalMemory query did not complete: {error}"))?
+  PHYSICAL_MEMORY_TYPE_QUERY.run(
+    || {
+      spawn_wmi_query(
+        "SELECT Capacity, SMBIOSMemoryType FROM Win32_PhysicalMemory".into(),
+      )
+    },
+    timeout,
+  )
 }
 
 #[derive(Debug, Deserialize)]
@@ -537,6 +592,62 @@ mod tests {
       describe_memory_type_with_fallback(Some(24), Some(34)),
       "DDR3"
     );
+  }
+}
+
+#[cfg(test)]
+mod single_flight_query_tests {
+  use super::*;
+
+  const WAIT: Duration = Duration::from_millis(20);
+
+  #[test]
+  fn a_worker_that_outlives_the_wait_is_reused_instead_of_starting_another() {
+    let query = SingleFlightQuery::<u32>::new();
+    let (sender, receiver) = channel();
+    let mut receiver = Some(receiver);
+
+    let first = query.run(|| receiver.take().expect("started once"), WAIT);
+    assert!(first.is_err(), "a timed-out wait is a failed query");
+
+    // The still-running worker answers; the next call must read it without
+    // starting a second worker.
+    sender.send(Ok(vec![24])).unwrap();
+    let second = query.run(|| panic!("a second worker was started"), WAIT);
+    assert_eq!(second, Ok(vec![24]));
+  }
+
+  #[test]
+  fn a_new_worker_starts_only_after_the_previous_one_returned() {
+    let query = SingleFlightQuery::<u32>::new();
+    let mut started = 0;
+
+    for _ in 0..2 {
+      let result = query.run(
+        || {
+          started += 1;
+          let (sender, receiver) = channel();
+          sender.send(Ok(vec![started])).unwrap();
+          receiver
+        },
+        WAIT,
+      );
+      assert!(result.is_ok());
+    }
+    assert_eq!(started, 2);
+  }
+
+  #[test]
+  fn a_worker_that_ends_without_a_result_is_a_failed_query_and_not_kept() {
+    let query = SingleFlightQuery::<u32>::new();
+    let (sender, receiver) = channel::<QueryResult<u32>>();
+    drop(sender);
+    let mut receiver = Some(receiver);
+
+    assert!(query.run(|| receiver.take().unwrap(), WAIT).is_err());
+    let (sender, receiver) = channel();
+    sender.send(Ok(vec![1])).unwrap();
+    assert_eq!(query.run(|| receiver, WAIT), Ok(vec![1]));
   }
 }
 

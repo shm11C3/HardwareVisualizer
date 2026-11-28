@@ -229,6 +229,11 @@ pub(crate) fn build_temperature_sample(
           CpuPackageTemperatureError::Internal(_) => format!(
             "CPU temperature sampler internal error ({pawnio_reason}); ACPI thermal zones unavailable"
           ),
+          // Unavailable, not Unsupported, so the service retries the gate;
+          // no component failed, so no setup guidance is offered.
+          CpuPackageTemperatureError::Undetermined(_) => format!(
+            "PawnIO CPU package path not admitted yet ({pawnio_reason}); ACPI thermal zones unavailable"
+          ),
         };
         if unsupported {
           SensorAvailability::unsupported(reason)
