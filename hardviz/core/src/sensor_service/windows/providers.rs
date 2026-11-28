@@ -5,7 +5,8 @@ use crate::infrastructure::providers::windows::pawn_io::{
     temperature::CpuTemperatureSampler,
   },
   super_io::{
-    diagnostics::read_super_io_chip_id_diagnostics, motherboard::MotherboardSensorSampler,
+    diagnostics::read_super_io_chip_id_diagnostics,
+    motherboard::{MotherboardSensorSampler, end_motherboard_monitoring_session},
   },
 };
 use crate::models::{
@@ -106,7 +107,11 @@ impl Providers {
       self.temperature.sampler = None;
     }
     self.power = Slot::default();
+    // Drop the motherboard sampler before ending its monitoring session, so
+    // the released path is not counted as a discard in the next session.
+    // Owed Super I/O cleanup survives the session end.
     self.motherboard = Slot::default();
+    end_motherboard_monitoring_session();
     self.last_sample_ms = None;
     release_shared_intel_msr();
   }

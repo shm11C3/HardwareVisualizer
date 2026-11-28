@@ -323,4 +323,30 @@ mod tests {
     assert!(!nuvoton.exit_skipped);
     assert_eq!(nuvoton.exit_error, None);
   }
+
+  /// `superio-access.md` rev 5 Fixtures: "A Phase 2 diagnostic runs between
+  /// two sampling requests while a failure is cached". Its runs are not
+  /// discovery attempts: they change neither `n` nor the due time.
+  #[test]
+  fn diagnostic_runs_leave_the_rediscovery_cadence_unchanged() {
+    use super::super::super::client::{ACCESS_ISABUS_MUTEX, MutexError};
+    use super::super::motherboard::{
+      MotherboardSensorError, process_rediscovery_fingerprint,
+      record_process_rediscovery_failure,
+    };
+
+    record_process_rediscovery_failure(
+      std::time::Instant::now(),
+      MotherboardSensorError::from(MutexError::Timeout {
+        name: ACCESS_ISABUS_MUTEX,
+      }),
+    );
+    let before = process_rediscovery_fingerprint();
+
+    for slot in [0, 1] {
+      let _ = probe_slot(&FakeChipIdLpcIo::with_chip_id(0x8728), slot);
+    }
+
+    assert_eq!(process_rediscovery_fingerprint(), before);
+  }
 }
