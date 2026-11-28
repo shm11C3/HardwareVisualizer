@@ -96,8 +96,14 @@ impl SensorPlatform for LinuxPlatform {
     )
   }
 
+  /// The board-gated hwmon providers admit disjoint DMI identities, so at
+  /// most one answers; combining keeps every provider's readings.
   fn sample_motherboard_sensors(&self) -> crate::models::MotherboardSensorCollection {
-    crate::infrastructure::providers::nct6687_hwmon::sample()
+    use crate::infrastructure::providers::{asus_ec_hwmon, nct6687_hwmon};
+    crate::models::MotherboardSensorCollection::combine([
+      nct6687_hwmon::sample(),
+      asus_ec_hwmon::sample(),
+    ])
   }
 }
 

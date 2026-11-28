@@ -228,6 +228,57 @@ impl MotherboardSensorCollection {
       ..Self::default()
     }
   }
+
+  /// Combine the collections of independent providers, keeping every
+  /// reading in provider order. The result is available when any provider
+  /// is; otherwise it carries the first unavailable reason, then the first
+  /// unsupported one. Fans are supported when any provider supports them.
+  #[cfg(any(target_os = "linux", test))]
+  pub fn combine(collections: impl IntoIterator<Item = Self>) -> Self {
+    let mut combined = Self::unsupported("No motherboard sensor provider");
+    let mut first_unsupported = None;
+    let mut first_unavailable = None;
+    let mut available = false;
+    let mut fan_support = SensorSupport::Unsupported;
+    for collection in collections {
+      combined
+        .sample
+        .temperatures
+        .extend(collection.sample.temperatures);
+      combined
+        .sample
+        .fan_speeds
+        .extend(collection.sample.fan_speeds);
+      combined
+        .guidance_candidates
+        .extend(collection.guidance_candidates);
+      fan_support = match (fan_support, collection.fan_support) {
+        (SensorSupport::Supported, _) | (_, SensorSupport::Supported) => {
+          SensorSupport::Supported
+        }
+        (SensorSupport::Unknown, _) | (_, SensorSupport::Unknown) => {
+          SensorSupport::Unknown
+        }
+        _ => SensorSupport::Unsupported,
+      };
+      match collection.availability {
+        SensorAvailability::Available => available = true,
+        unavailable @ SensorAvailability::Unavailable { .. } => {
+          first_unavailable.get_or_insert(unavailable);
+        }
+        unsupported @ SensorAvailability::Unsupported { .. } => {
+          first_unsupported.get_or_insert(unsupported);
+        }
+      }
+    }
+    combined.fan_support = fan_support;
+    if available {
+      combined.availability = SensorAvailability::Available;
+    } else if let Some(availability) = first_unavailable.or(first_unsupported) {
+      combined.availability = availability;
+    }
+    combined
+  }
 }
 
 /// One sample of per-process metrics carried inside [`MetricsSnapshot`].
@@ -344,4 +395,102 @@ pub struct OptionalSensorProviderOutcomes {
   pub cpu_package_temperature: Option<ProviderAttemptOutcome>,
   /// Super I/O motherboard temperatures and fans.
   pub motherboard_sensors: Option<ProviderAttemptOutcome>,
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn collection(
+    temperature: &str,
+    fan: &str,
+    source: &str,
+  ) -> MotherboardSensorCollection {
+    MotherboardSensorCollection {
+      sample: MotherboardSensorSample {
+        temperatures: vec![MotherboardTemperature {
+          name: temperature.to_owned(),
+          temperature: 40.0,
+          source: source.to_owned(),
+        }],
+        fan_speeds: vec![MotherboardFanSpeed {
+          name: fan.to_owned(),
+          rpm: Some(900),
+          status: FanSpeedStatus::Active,
+          source: source.to_owned(),
+        }],
+      },
+      availability: SensorAvailability::Available,
+      fan_support: SensorSupport::Supported,
+      ..MotherboardSensorCollection::default()
+    }
+  }
+
+  #[test]
+  fn combine_keeps_the_only_admitted_provider_unchanged() {
+    let super_io = collection("Temperature 2", "Fan 1", "NCT6687D (hwmon)");
+    let ec = collection("Chipset", "PCH_FAN", "ASUS EC (hwmon)");
+    let unsupported = MotherboardSensorCollection::unsupported("Not this board");
+    assert_eq!(
+      MotherboardSensorCollection::combine([super_io.clone(), unsupported.clone()]),
+      super_io
+    );
+    assert_eq!(
+      MotherboardSensorCollection::combine([unsupported, ec.clone()]),
+      ec
+    );
+  }
+
+  #[test]
+  fn combine_keeps_every_reading_when_several_providers_answer() {
+    let first = collection("Temperature 2", "Fan 1", "first");
+    let second = collection("Chipset", "PCH_FAN", "second");
+    let unavailable = MotherboardSensorCollection::unavailable("Lock timeout");
+    let combined =
+      MotherboardSensorCollection::combine([first.clone(), unavailable, second.clone()]);
+    assert_eq!(combined.availability, SensorAvailability::Available);
+    assert_eq!(combined.fan_support, SensorSupport::Supported);
+    assert_eq!(
+      combined.sample.temperatures,
+      [
+        first.sample.temperatures[0].clone(),
+        second.sample.temperatures[0].clone()
+      ]
+    );
+    assert_eq!(
+      combined.sample.fan_speeds,
+      [
+        first.sample.fan_speeds[0].clone(),
+        second.sample.fan_speeds[0].clone()
+      ]
+    );
+  }
+
+  #[test]
+  fn combine_prefers_the_first_unavailable_reason_over_unsupported() {
+    let combined = MotherboardSensorCollection::combine([
+      MotherboardSensorCollection::unsupported("Not this board"),
+      MotherboardSensorCollection::unavailable("Endpoint missing"),
+      MotherboardSensorCollection::unavailable("Second reason"),
+    ]);
+    assert_eq!(
+      combined,
+      MotherboardSensorCollection::unavailable("Endpoint missing")
+    );
+  }
+
+  #[test]
+  fn combine_is_unsupported_only_when_every_provider_is() {
+    assert_eq!(
+      MotherboardSensorCollection::combine([
+        MotherboardSensorCollection::unsupported("First"),
+        MotherboardSensorCollection::unsupported("Second"),
+      ]),
+      MotherboardSensorCollection::unsupported("First")
+    );
+    assert_eq!(
+      MotherboardSensorCollection::combine([]),
+      MotherboardSensorCollection::unsupported("No motherboard sensor provider")
+    );
+  }
 }

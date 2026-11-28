@@ -1,3 +1,4 @@
+pub(crate) mod asus_ec_hwmon;
 pub(crate) mod dimm_temperature;
 pub mod dmidecode;
 pub mod drm_sys;
