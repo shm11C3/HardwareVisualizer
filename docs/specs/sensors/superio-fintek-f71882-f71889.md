@@ -217,7 +217,8 @@ and never selects logical device 0 or touches its I/O space.
    `0x8733`, `0x8790`, `0x8695` or `0x8883`, no exit write of any kind is
    issued on that slot (S9 allows no substitute exit), the skip is
    reported as S9 describes, and detection ends with no Fintek path. The
-   chip is left as the firmware left it. (S1, S2, S9)
+   detector therefore does not return that chip to operating mode; steps
+   3–6 do not run because the ID is not in the Fintek table. (S1, S2, S9)
 3. Read `CR23`/`CR24`; require `0x19`/`0x34`. Read `CR25`; require bit 4 = 0.
    Read the routing registers of the row (`CR27`, `CR28`, `CR2B` on F71882;
    `CR2B` on F71889). (S1 pp. 55–58; S2 pp. 65–68)
