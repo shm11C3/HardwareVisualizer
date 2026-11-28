@@ -11,6 +11,8 @@ const PRO_BOARD: &str = "PRO B850-P WIFI (MS-7E56)";
 const MORTAR_BOARD: &str = "MAG B850M MORTAR WIFI (MS-7E61)";
 const CARBON_BOARD: &str = "MPG X870E CARBON WIFI (MS-7E49)";
 const TOMAHAWK_MAX_BOARD: &str = "MAG B850 TOMAHAWK MAX WIFI (MS-7E62)";
+const ASROCK_VENDOR: &str = "ASRock";
+const B650_STEEL_LEGEND_BOARD: &str = "B650 Steel Legend WiFi";
 
 /// The chip kind that the bound `nct6683` platform driver publishes as the
 /// hwmon `name` of its endpoint.
@@ -27,6 +29,11 @@ const NCT6687D: Chip = Chip {
   label: "NCT6687D",
   hwmon_name: "nct6687",
   source: "NCT6687D (hwmon)",
+};
+const NCT6686D: Chip = Chip {
+  label: "NCT6686D",
+  hwmon_name: "nct6686",
+  source: "NCT6686D (hwmon)",
 };
 
 /// A temperature channel assigned by the OEM EC firmware: the hwmon suffix,
@@ -54,6 +61,11 @@ struct BoardProfile {
   chip: &'static Chip,
   temperatures: &'static [TemperatureChannel],
   fans: &'static [FanChannel],
+  /// Safety gate for profiles whose audited input refresh is the driver's
+  /// non-Intel firmware branch. The driver hides every listed attribute on
+  /// the Intel branch, so at least one must exist on the endpoint. Existence
+  /// is checked without opening the files, which are never read.
+  non_intel_limit_gate: Option<&'static [&'static str]>,
 }
 
 const DIODE_CHANNEL: TemperatureChannel = TemperatureChannel {
@@ -89,13 +101,71 @@ const FAN_INPUTS_1_AND_2: [FanChannel; 2] = [
   },
 ];
 
-static PROFILES: [BoardProfile; 4] = [
+/// The two thermistor sources that the B650 Steel Legend WiFi firmware
+/// assigns ahead of the AMD TSI source, which is outside the profile.
+const B650_STEEL_LEGEND_TEMPERATURE_CHANNELS: [TemperatureChannel; 2] = [
+  TemperatureChannel {
+    channel: 1,
+    label: "Thermistor 14",
+    kind: "4",
+    name: "Thermistor 14",
+  },
+  TemperatureChannel {
+    channel: 2,
+    label: "Thermistor 15",
+    kind: "4",
+    name: "Thermistor 15",
+  },
+];
+/// Generic names on fixed suffixes. The header behind each fan input is not
+/// established.
+const FAN_INPUTS_1_THROUGH_6: [FanChannel; 6] = [
+  FanChannel {
+    channel: 1,
+    name: "Fan input 1",
+  },
+  FanChannel {
+    channel: 2,
+    name: "Fan input 2",
+  },
+  FanChannel {
+    channel: 3,
+    name: "Fan input 3",
+  },
+  FanChannel {
+    channel: 4,
+    name: "Fan input 4",
+  },
+  FanChannel {
+    channel: 5,
+    name: "Fan input 5",
+  },
+  FanChannel {
+    channel: 6,
+    name: "Fan input 6",
+  },
+];
+const B650_STEEL_LEGEND_LIMIT_GATE: [&str; 10] = [
+  "temp1_min",
+  "temp1_max_hyst",
+  "temp2_min",
+  "temp2_max_hyst",
+  "fan1_min",
+  "fan2_min",
+  "fan3_min",
+  "fan4_min",
+  "fan5_min",
+  "fan6_min",
+];
+
+static PROFILES: [BoardProfile; 5] = [
   BoardProfile {
     vendor: MSI_VENDOR,
     board: PRO_BOARD,
     chip: &NCT6687D,
     temperatures: &PRO_TEMPERATURE_CHANNELS,
     fans: &FAN_INPUTS_1_AND_2,
+    non_intel_limit_gate: None,
   },
   BoardProfile {
     vendor: MSI_VENDOR,
@@ -106,6 +176,7 @@ static PROFILES: [BoardProfile; 4] = [
       channel: 16,
       name: "SYS_FAN1",
     }],
+    non_intel_limit_gate: None,
   },
   BoardProfile {
     vendor: MSI_VENDOR,
@@ -113,6 +184,7 @@ static PROFILES: [BoardProfile; 4] = [
     chip: &NCT6687D,
     temperatures: &[DIODE_CHANNEL],
     fans: &FAN_INPUTS_1_AND_2,
+    non_intel_limit_gate: None,
   },
   BoardProfile {
     vendor: MSI_VENDOR,
@@ -120,6 +192,15 @@ static PROFILES: [BoardProfile; 4] = [
     chip: &NCT6687D,
     temperatures: &[DIODE_CHANNEL],
     fans: &[FAN_INPUT_1],
+    non_intel_limit_gate: None,
+  },
+  BoardProfile {
+    vendor: ASROCK_VENDOR,
+    board: B650_STEEL_LEGEND_BOARD,
+    chip: &NCT6686D,
+    temperatures: &B650_STEEL_LEGEND_TEMPERATURE_CHANNELS,
+    fans: &FAN_INPUTS_1_THROUGH_6,
+    non_intel_limit_gate: Some(&B650_STEEL_LEGEND_LIMIT_GATE),
   },
 ];
 
@@ -222,9 +303,30 @@ struct Endpoint {
 }
 
 /// Find the one distinct canonical hwmon child of a bound `nct6683.<id>`
-/// platform device that carries the profile's chip kind. The same endpoint
-/// checks apply to every board profile.
+/// platform device that carries the profile's chip kind and passes the
+/// profile's safety gate. The same endpoint checks apply to every board
+/// profile.
 fn find_endpoint(sysfs: &Path, profile: &BoardProfile) -> Option<Endpoint> {
+  let endpoint = find_unique_endpoint(sysfs, profile.chip.hwmon_name)?;
+  passes_non_intel_limit_gate(&endpoint.path, profile).then_some(endpoint)
+}
+
+/// Any one present gate attribute identifies the non-Intel refresh, so a
+/// missing attribute of an absent channel does not reject the endpoint.
+fn passes_non_intel_limit_gate(path: &Path, profile: &BoardProfile) -> bool {
+  profile.non_intel_limit_gate.is_none_or(|attributes| {
+    attributes
+      .iter()
+      .any(|attribute| attribute_exists(path, attribute))
+  })
+}
+
+/// `symlink_metadata` stats the attribute without opening it.
+fn attribute_exists(directory: &Path, attribute: &str) -> bool {
+  fs::symlink_metadata(directory.join(attribute)).is_ok()
+}
+
+fn find_unique_endpoint(sysfs: &Path, hwmon_name: &str) -> Option<Endpoint> {
   let mut endpoint = None;
   for entry in fs::read_dir(sysfs.join("class/hwmon")).ok()? {
     let entry = entry.ok()?;
@@ -238,7 +340,7 @@ fn find_endpoint(sysfs: &Path, profile: &BoardProfile) -> Option<Endpoint> {
     if path.file_name() != Some(class_name.as_os_str()) {
       continue;
     }
-    let Some(candidate) = qualify_endpoint(sysfs, path, profile.chip.hwmon_name) else {
+    let Some(candidate) = qualify_endpoint(sysfs, path, hwmon_name) else {
       continue;
     };
     if endpoint
@@ -306,7 +408,10 @@ fn resolves_to(link: &Path, expected: &Path) -> bool {
 }
 
 fn read_attribute(directory: &Path, attribute: &str) -> Option<String> {
-  let mut text = fs::read_to_string(directory.join(attribute)).ok()?;
+  let path = directory.join(attribute);
+  #[cfg(test)]
+  tests::record_read(&path);
+  let mut text = fs::read_to_string(path).ok()?;
   text.truncate(text.trim_end_matches(['\r', '\n']).len());
   Some(text)
 }
@@ -353,8 +458,18 @@ fn read_fan(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::cell::RefCell;
   use std::os::unix::fs::symlink;
   use tempfile::TempDir;
+
+  thread_local! {
+    /// Every attribute path that `read_attribute` opened on this test thread.
+    static READS: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
+  }
+
+  pub(super) fn record_read(path: &Path) {
+    READS.with_borrow_mut(|reads| reads.push(path.to_path_buf()));
+  }
 
   /// Observed BIOS versions from the specification. They are evidence
   /// identities, so fixtures also run with other and missing versions.
@@ -474,6 +589,19 @@ mod tests {
 
     fn add_binding(&self, instance: &str, hwmon: &str) -> PathBuf {
       add_binding(&self.sysfs, instance, hwmon, self.profile.chip.hwmon_name)
+    }
+
+    /// Drain the read log and return the attributes opened under this
+    /// fixture's hwmon node since the previous call.
+    fn node_reads(&self) -> Vec<String> {
+      READS
+        .take()
+        .into_iter()
+        .filter_map(|path| {
+          let attribute = path.strip_prefix(&self.node).ok()?;
+          Some(attribute.to_str()?.to_owned())
+        })
+        .collect()
     }
   }
 
@@ -1112,5 +1240,499 @@ mod tests {
       SensorAvailability::Unavailable { .. }
     ));
     assert_eq!(collection.sample, MotherboardSensorSample::default());
+  }
+
+  /// The S7 observation's EC base `0x0A20` as the decimal instance suffix.
+  /// It is an evidence identity and does not gate a read.
+  const B650_STEEL_LEGEND_OBSERVED_INSTANCE: &str = "nct6683.2592";
+  /// Every attribute the B650 Steel Legend WiFi profile may open under the
+  /// endpoint. Limit attributes, `temp3_*` and other channels are absent.
+  const B650_STEEL_LEGEND_READ_SET: [&str; 13] = [
+    "name",
+    "temp1_input",
+    "temp1_label",
+    "temp1_type",
+    "temp2_input",
+    "temp2_label",
+    "temp2_type",
+    "fan1_input",
+    "fan2_input",
+    "fan3_input",
+    "fan4_input",
+    "fan5_input",
+    "fan6_input",
+  ];
+  const S7_FAN_RPM: [u32; 6] = [759, 556, 537, 529, 448, 381];
+
+  /// Synthetic B650 Steel Legend WiFi sysfs values derived from the
+  /// specification's S7 observation: `Thermistor 14` 40.5 degrees Celsius,
+  /// `Thermistor 15` 46.5 degrees Celsius and fan inputs 1-6 at
+  /// 759/556/537/529/448/381 RPM. The out-of-profile AMD TSI source is third
+  /// and every non-Intel limit attribute reads zero.
+  fn b650_steel_legend(bios: Option<&str>, instance: &str) -> Fixture {
+    let fixture = Fixture::with_binding(B650_STEEL_LEGEND_BOARD, bios, instance);
+    for (attribute, value) in [
+      ("temp1_label", "Thermistor 14\n"),
+      ("temp1_type", "4\n"),
+      ("temp1_input", "40500\n"),
+      ("temp2_label", "Thermistor 15\n"),
+      ("temp2_type", "4\n"),
+      ("temp2_input", "46500\n"),
+      ("temp3_label", "AMD TSI Addr 98h\n"),
+      ("temp3_type", "5\n"),
+      ("temp3_input", "52000\n"),
+    ] {
+      fixture.write(attribute, value);
+    }
+    for (channel, rpm) in (1..=6).zip(S7_FAN_RPM) {
+      fixture.write(&format!("fan{channel}_input"), &format!("{rpm}\n"));
+    }
+    for attribute in B650_STEEL_LEGEND_LIMIT_GATE {
+      fixture.write(attribute, "0\n");
+    }
+    fixture
+  }
+
+  fn thermistor(name: &str, temperature: f32) -> MotherboardTemperature {
+    MotherboardTemperature {
+      name: name.to_owned(),
+      temperature,
+      source: NCT6686D.source.to_owned(),
+    }
+  }
+
+  fn fan_inputs(readings: &[(u8, u32)]) -> Vec<MotherboardFanSpeed> {
+    readings
+      .iter()
+      .map(|&(channel, rpm)| MotherboardFanSpeed {
+        name: format!("Fan input {channel}"),
+        rpm: Some(rpm),
+        status: FanSpeedStatus::Active,
+        source: NCT6686D.source.to_owned(),
+      })
+      .collect()
+  }
+
+  fn s7_fan_inputs() -> Vec<MotherboardFanSpeed> {
+    fan_inputs(&(1..=6).zip(S7_FAN_RPM).collect::<Vec<_>>())
+  }
+
+  fn assert_b650_steel_legend_s7_sample(collection: &MotherboardSensorCollection) {
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert_eq!(collection.fan_support, SensorSupport::Supported);
+    assert_eq!(
+      collection.sample.temperatures,
+      [
+        thermistor("Thermistor 14", 40.5),
+        thermistor("Thermistor 15", 46.5)
+      ]
+    );
+    assert_eq!(collection.sample.fan_speeds, s7_fan_inputs());
+  }
+
+  fn assert_reads_within(reads: &[String], allowed: &[&str]) {
+    for attribute in reads {
+      assert!(
+        allowed.contains(&attribute.as_str()),
+        "unexpected read of {attribute}"
+      );
+    }
+  }
+
+  fn remove(fixture: &Fixture, attributes: &[&str]) {
+    for attribute in attributes {
+      fs::remove_file(fixture.node.join(attribute)).unwrap();
+    }
+  }
+
+  #[test]
+  fn b650_steel_legend_reports_two_thermistors_and_six_fan_inputs() {
+    let fixture = b650_steel_legend(Some("3.20"), B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    fixture.node_reads();
+    assert_b650_steel_legend_s7_sample(&fixture.sample());
+    let reads = fixture.node_reads();
+    assert_reads_within(&reads, &B650_STEEL_LEGEND_READ_SET);
+    for attribute in &B650_STEEL_LEGEND_READ_SET[1..] {
+      assert!(reads.iter().any(|read| read == attribute), "{attribute}");
+    }
+  }
+
+  #[test]
+  fn b650_steel_legend_reports_zero_rpm_fan_inputs_as_unavailable() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    fixture.write("temp1_input", "33000\n");
+    fixture.write("temp2_input", "33500\n");
+    for (channel, rpm) in (1..=6).zip([1581, 0, 537, 0, 0, 443]) {
+      fixture.write(&format!("fan{channel}_input"), &format!("{rpm}\n"));
+    }
+    let collection = fixture.sample();
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert_eq!(
+      collection.sample.temperatures,
+      [
+        thermistor("Thermistor 14", 33.0),
+        thermistor("Thermistor 15", 33.5)
+      ]
+    );
+    assert_eq!(
+      collection.sample.fan_speeds,
+      fan_inputs(&[(1, 1581), (3, 537), (6, 443)])
+    );
+  }
+
+  #[test]
+  fn b650_steel_legend_admission_ignores_the_bios_version_and_the_instance_number() {
+    for bios in [Some("3.16"), Some("4.41"), None, Some("P9.99 custom")] {
+      let fixture = b650_steel_legend(bios, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+      assert_b650_steel_legend_s7_sample(&fixture.sample());
+    }
+    for instance in ["nct6683.2600", "nct6683.8", "nct6683.65528"] {
+      assert_b650_steel_legend_s7_sample(&b650_steel_legend(None, instance).sample());
+    }
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    let dmi = fixture.sysfs.join("class/dmi/id");
+    fs::write(dmi.join("board_vendor"), "ASRock\r\n").unwrap();
+    fs::write(dmi.join("board_name"), "B650 Steel Legend WiFi\r\n").unwrap();
+    assert_b650_steel_legend_s7_sample(&fixture.sample());
+  }
+
+  #[test]
+  fn b650_steel_legend_rejects_other_boards_without_reading_the_endpoint() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    let dmi = fixture.sysfs.join("class/dmi/id");
+    for (vendor, board) in [
+      (ASROCK_VENDOR, "B650E Steel Legend WiFi"),
+      (ASROCK_VENDOR, "B650 Steel Legend"),
+      (ASROCK_VENDOR, "B650M Pro RS WiFi"),
+      ("ASRock ", B650_STEEL_LEGEND_BOARD),
+      ("asrock", B650_STEEL_LEGEND_BOARD),
+      ("ASUSTeK COMPUTER INC.", B650_STEEL_LEGEND_BOARD),
+      (MSI_VENDOR, B650_STEEL_LEGEND_BOARD),
+      (ASROCK_VENDOR, PRO_BOARD),
+    ] {
+      fs::write(dmi.join("board_vendor"), vendor).unwrap();
+      fs::write(dmi.join("board_name"), board).unwrap();
+      fixture.node_reads();
+      let collection = fixture.sample();
+      assert!(
+        matches!(
+          collection.availability,
+          SensorAvailability::Unsupported { .. }
+        ),
+        "{vendor} / {board}"
+      );
+      assert_eq!(collection.sample, MotherboardSensorSample::default());
+      assert!(fixture.node_reads().is_empty());
+    }
+
+    fs::write(dmi.join("board_vendor"), ASROCK_VENDOR).unwrap();
+    fs::write(dmi.join("board_name"), B650_STEEL_LEGEND_BOARD).unwrap();
+    for attribute in ["board_vendor", "board_name"] {
+      let path = dmi.join(attribute);
+      let original = fs::read(&path).unwrap();
+      fs::remove_file(&path).unwrap();
+      fixture.node_reads();
+      assert_unavailable(&fixture.sample());
+      assert!(fixture.node_reads().is_empty());
+      fs::write(path, original).unwrap();
+    }
+    assert_b650_steel_legend_s7_sample(&fixture.sample());
+  }
+
+  #[test]
+  fn b650_steel_legend_rejects_unqualified_endpoints_before_reading_channels() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    for name in ["nct6683\n", "nct6687\n", "nct6686 \n"] {
+      fixture.write("name", name);
+      fixture.node_reads();
+      assert_unavailable(&fixture.sample());
+      assert_reads_within(&fixture.node_reads(), &["name"]);
+    }
+    fixture.write("name", "nct6686\n");
+
+    let parent = fixture.parent().to_path_buf();
+    let dkms_driver = fixture.sysfs.join("bus/platform/drivers/nct6687");
+    fs::create_dir(&dkms_driver).unwrap();
+    for (link, wrong_target) in [
+      (parent.join("driver"), fixture.sysfs.join("bus/platform")),
+      (parent.join("driver"), dkms_driver),
+      (parent.join("subsystem"), fixture.sysfs.join("class")),
+      (
+        fixture.node.join("device"),
+        fixture.sysfs.join("devices/platform"),
+      ),
+      (fixture.sysfs.join("class/hwmon/hwmon5"), parent.clone()),
+      (
+        fixture
+          .sysfs
+          .join("bus/platform/devices")
+          .join(B650_STEEL_LEGEND_OBSERVED_INSTANCE),
+        fixture.sysfs.join("devices/platform"),
+      ),
+    ] {
+      let original = fs::read_link(&link).unwrap();
+      fs::remove_file(&link).unwrap();
+      fixture.node_reads();
+      assert_unavailable(&fixture.sample());
+      symlink(wrong_target, &link).unwrap();
+      assert_unavailable(&fixture.sample());
+      assert_reads_within(&fixture.node_reads(), &["name"]);
+      fs::remove_file(&link).unwrap();
+      symlink(original, link).unwrap();
+    }
+    assert_b650_steel_legend_s7_sample(&fixture.sample());
+
+    fixture.add_binding("nct6683.2600", "hwmon6");
+    fixture.node_reads();
+    assert_unavailable(&fixture.sample());
+    assert_reads_within(&fixture.node_reads(), &["name"]);
+
+    for instance in NONCANONICAL_INSTANCES {
+      let fixture = b650_steel_legend(None, instance);
+      assert_unavailable(&fixture.sample());
+      assert_reads_within(&fixture.node_reads(), &["name"]);
+    }
+  }
+
+  #[test]
+  fn b650_steel_legend_requires_a_non_intel_limit_attribute_without_reading_it() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    remove(&fixture, &B650_STEEL_LEGEND_LIMIT_GATE);
+    // Limit attributes outside the gate list do not identify the branch.
+    for attribute in ["temp1_max", "temp3_min", "temp3_max_hyst", "fan7_min"] {
+      fixture.write(attribute, "0\n");
+    }
+    fixture.node_reads();
+    assert_unavailable(&fixture.sample());
+    assert_reads_within(&fixture.node_reads(), &["name"]);
+
+    for gate in B650_STEEL_LEGEND_LIMIT_GATE {
+      let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+      let others: Vec<_> = B650_STEEL_LEGEND_LIMIT_GATE
+        .into_iter()
+        .filter(|attribute| *attribute != gate)
+        .collect();
+      remove(&fixture, &others);
+      fixture.node_reads();
+      assert_b650_steel_legend_s7_sample(&fixture.sample());
+      assert_reads_within(&fixture.node_reads(), &B650_STEEL_LEGEND_READ_SET);
+    }
+  }
+
+  #[test]
+  fn b650_steel_legend_accepts_an_endpoint_without_temperature_2() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    remove(
+      &fixture,
+      &[
+        "temp2_label",
+        "temp2_type",
+        "temp2_input",
+        "temp2_min",
+        "temp2_max_hyst",
+      ],
+    );
+    fixture.node_reads();
+    let collection = fixture.sample();
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert_eq!(
+      collection.sample.temperatures,
+      [thermistor("Thermistor 14", 40.5)]
+    );
+    assert_eq!(collection.sample.fan_speeds, s7_fan_inputs());
+    assert_reads_within(&fixture.node_reads(), &B650_STEEL_LEGEND_READ_SET);
+  }
+
+  #[test]
+  fn b650_steel_legend_accepts_an_endpoint_with_fan_inputs_only() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    remove(
+      &fixture,
+      &[
+        "temp1_label",
+        "temp1_type",
+        "temp1_input",
+        "temp1_min",
+        "temp1_max_hyst",
+        "temp2_label",
+        "temp2_type",
+        "temp2_input",
+        "temp2_min",
+        "temp2_max_hyst",
+      ],
+    );
+    fixture.node_reads();
+    let collection = fixture.sample();
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert!(collection.sample.temperatures.is_empty());
+    assert_eq!(collection.sample.fan_speeds, s7_fan_inputs());
+    assert_reads_within(&fixture.node_reads(), &B650_STEEL_LEGEND_READ_SET);
+  }
+
+  #[test]
+  fn b650_steel_legend_never_substitutes_a_mismatched_temperature_channel() {
+    let only_thermistor_15 = [thermistor("Thermistor 15", 46.5)];
+    let changes: [(&str, Option<&str>); 6] = [
+      ("temp1_label", Some("Thermistor 15")),
+      ("temp1_label", Some("AMD TSI Addr 98h")),
+      ("temp1_type", Some("5")),
+      ("temp1_type", Some("4 ")),
+      ("temp1_label", None),
+      ("temp1_type", None),
+    ];
+    for (attribute, value) in changes {
+      let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+      remove(&fixture, &[attribute]);
+      match value {
+        Some(value) => fixture.write(attribute, value),
+        // An unreadable attribute.
+        None => fs::create_dir(fixture.node.join(attribute)).unwrap(),
+      }
+      let collection = fixture.sample();
+      assert_eq!(collection.availability, SensorAvailability::Available);
+      assert_eq!(collection.sample.temperatures, only_thermistor_15);
+      assert_eq!(collection.sample.fan_speeds, s7_fan_inputs());
+
+      // The same attribute missing.
+      if value.is_some() {
+        remove(&fixture, &[attribute]);
+      } else {
+        fs::remove_dir(fixture.node.join(attribute)).unwrap();
+      }
+      assert_eq!(fixture.sample().sample.temperatures, only_thermistor_15);
+    }
+
+    // The thermistor sources moved to `temp2` and `temp3`.
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    for (attribute, value) in [
+      ("temp1_label", "AMD TSI Addr 98h"),
+      ("temp1_type", "5"),
+      ("temp2_label", "Thermistor 14"),
+      ("temp3_label", "Thermistor 15"),
+      ("temp3_type", "4"),
+    ] {
+      fixture.write(attribute, value);
+    }
+    fixture.node_reads();
+    let collection = fixture.sample();
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert!(collection.sample.temperatures.is_empty());
+    assert_eq!(collection.sample.fan_speeds, s7_fan_inputs());
+    assert_reads_within(&fixture.node_reads(), &B650_STEEL_LEGEND_READ_SET);
+  }
+
+  #[test]
+  fn b650_steel_legend_checks_temperature_and_rpm_bounds() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    for (raw, expected) in [
+      ("-55000", Some(-55.0)),
+      ("125000", Some(125.0)),
+      ("-55001", None),
+      ("125001", None),
+      ("40500 mC", None),
+      ("40.5", None),
+      ("2147483648", None),
+      ("", None),
+    ] {
+      fixture.write("temp1_input", raw);
+      let collection = fixture.sample();
+      assert_eq!(collection.availability, SensorAvailability::Available);
+      assert_eq!(
+        collection
+          .sample
+          .temperatures
+          .iter()
+          .find(|reading| reading.name == "Thermistor 14")
+          .map(|reading| reading.temperature),
+        expected,
+        "{raw}"
+      );
+      assert_eq!(
+        collection.sample.temperatures.len(),
+        1 + expected.iter().len()
+      );
+    }
+    fixture.write("temp1_input", "40500");
+
+    for (raw, expected) in [
+      ("-1", None),
+      ("0", None),
+      ("1", Some(1)),
+      ("65534", Some(65_534)),
+      ("65535", None),
+      ("4294967296", None),
+      ("537 RPM", None),
+    ] {
+      fixture.write("fan3_input", raw);
+      let fans = fixture.sample().sample.fan_speeds;
+      assert_eq!(
+        fans
+          .iter()
+          .find(|reading| reading.name == "Fan input 3")
+          .and_then(|reading| reading.rpm),
+        expected,
+        "{raw}"
+      );
+      assert!(fans.iter().all(|reading| reading.rpm != Some(0)));
+      assert_eq!(fans.len(), 5 + expected.iter().len());
+    }
+  }
+
+  #[test]
+  fn b650_steel_legend_keeps_fixed_fan_suffixes_when_inputs_are_absent() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    remove(&fixture, &["fan2_input", "fan5_input", "fan4_input"]);
+    fs::create_dir(fixture.node.join("fan4_input")).unwrap();
+    let collection = fixture.sample();
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert_eq!(collection.sample.temperatures.len(), 2);
+    assert_eq!(
+      collection.sample.fan_speeds,
+      fan_inputs(&[(1, 759), (3, 537), (6, 381)])
+    );
+  }
+
+  #[test]
+  fn b650_steel_legend_discards_samples_when_the_binding_changes() {
+    let fixture = b650_steel_legend(None, B650_STEEL_LEGEND_OBSERVED_INSTANCE);
+    let endpoint = fixture.endpoint().unwrap();
+    let sample = fixture.sample().sample;
+
+    let driver = fixture.parent().join("driver");
+    let target = fs::read_link(&driver).unwrap();
+    fs::rename(&driver, fixture.parent().join("old-driver")).unwrap();
+    symlink(target, &driver).unwrap();
+    assert_unavailable(&finish_sample(
+      &fixture.sysfs,
+      fixture.profile,
+      &endpoint,
+      sample.clone(),
+    ));
+    assert_b650_steel_legend_s7_sample(&fixture.sample());
+
+    // The safety gate is rechecked with the binding.
+    let endpoint = fixture.endpoint().unwrap();
+    remove(&fixture, &B650_STEEL_LEGEND_LIMIT_GATE);
+    assert_unavailable(&finish_sample(
+      &fixture.sysfs,
+      fixture.profile,
+      &endpoint,
+      sample.clone(),
+    ));
+    fixture.write("fan1_min", "0\n");
+    assert_b650_steel_legend_s7_sample(&fixture.sample());
+
+    // A replacement node at the same path is a different endpoint.
+    fs::rename(&fixture.node, fixture.node.with_file_name("old")).unwrap();
+    fs::create_dir(&fixture.node).unwrap();
+    symlink(fixture.parent(), fixture.node.join("device")).unwrap();
+    fixture.write("name", "nct6686\n");
+    fixture.write("fan1_min", "0\n");
+    assert_unavailable(&finish_sample(
+      &fixture.sysfs,
+      fixture.profile,
+      &endpoint,
+      sample,
+    ));
   }
 }
