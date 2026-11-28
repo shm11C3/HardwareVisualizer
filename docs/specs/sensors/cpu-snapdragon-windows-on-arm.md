@@ -55,7 +55,7 @@
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | PawnIO CPU package temperature, core and CCD temperatures, CPU package power and Super I/O readings on an ARM64 host | Every module this project loads targets x86-64 hardware (R1). Kernel-mode components cannot run under emulation (M1). MSR, SMN and port I/O do not exist as an access path on this host. | Unsupported. Not attempted. |
-| Headline CPU temperature derived from ACPI thermal zones on an ARM64 host (zone-name match or hottest zone) | No primary source and no dump identifies any zone as the CPU die temperature. A zone's device list names what the zone throttles, not where its sensor is (M5). On the observed Snapdragon X device, zones whose device lists name CPU cores read 0 or a constant (L1 with D1–D4), and a hottest-zone reading stayed at 86 °C on an X2 Elite Extreme (U1). | Unsupported. |
+| Headline CPU temperature derived from ACPI thermal zones on an ARM64 host (zone-name match or hottest zone) | No primary source and no dump identifies any zone as the CPU die temperature. A zone's device list names what the zone throttles, not where its sensor is (M5). On the observed Snapdragon X Plus device (L1), some zones read 0 or a constant. Zones with the same names list CPU cores in dumps D1–D4 of other devices, but that correlation is unconfirmed for the observed device (Open question 8). A hottest-zone reading stayed at 86 °C on an X2 Elite Extreme (U1), and a hottest-zone reading stayed at 86 °C on an X2 Elite Extreme (U1). | Unsupported. |
 | ACPI thermal-zone readings on an ARM64 host, listed under the firmware zone name | Existing OS-API path and decode (R2), Verified as OS/firmware API readings under [ADR 0011](../../adr/0011-experimental-sensor-enablement.md). Counter units are primary (M5). This revision does not change the transport, decode, plausibility filter or names. Lead-only observation L1 reports 36 instances on one Snapdragon X Plus device; whether the current WMI transport returns them in the application process is Open question 3. | Enabled (unchanged). |
 | SoC junction temperature from the zone whose firmware `_STR` reads "SoCTj Thermal-zone for Fan Control" | Candidate. The string is in D1, D2 and D3, not in D4, D5, D6 or D7. No observation joins it to a counter instance or a varying value. See Open question 1. | Unsupported. |
 | CPU or SoC temperature from the zone whose device list names every CPU core together with the GPU and other SoC devices (named `TZ99` in D1–D7) | Candidate. The sensor behind it is a Qualcomm device of unknown meaning. See Open question 2. | Unsupported. |
@@ -100,7 +100,7 @@
 
 | Item | Fact | Source |
 | --- | --- | --- |
-| Sources | A sampler thread queries `MSAcpi_ThermalZoneTemperature` in `root\WMI` and `Win32_PerfFormattedData_Counters_ThermalZoneInformation` in `root\CIMV2` through WMI, preferring the source that last answered, every 2 s. | R2 `thermal_zone.rs` |
+| Sources | A sampler thread queries `MSAcpi_ThermalZoneTemperature` in `root\WMI` and `Win32_PerfFormattedData_Counters_ThermalZoneInformation` in `root\CIMV2` through WMI, preferring the source that last answered, every 2 s. After five consecutive failed or empty reads it polls every 60 s instead, and keeps retrying so that a transient WMI outage recovers. | R2 `thermal_zone.rs` |
 | Decode | `CurrentTemperature` and `HighPrecisionTemperature` as tenths of a kelvin, `Temperature` as whole kelvin; readings outside -40 to 150 °C are dropped. Zone names are the last path segment with a numeric `_<n>` suffix removed. | R2 `thermal_zone.rs`, `thermal.rs` |
 | Headline fallback | When no PawnIO CPU temperature is available, the headline CPU temperature is the first zone whose name contains `CPU` or `PROC`, otherwise the hottest zone. | R2 `thermal.rs`, `sensors.rs` |
 | CPU identity | The PawnIO CPU source is chosen from CPUID. CPUID is executed only in x86 and x86-64 builds; other builds get no CPUID leaf. An x64 build under emulation therefore selects a source from the emulated identity (M1). | R2 `pawn_io/cpu/identity.rs`, M1 |
@@ -331,9 +331,17 @@ apply equally to the current x64 build running under emulation.
    fragments), and whether the MSI bundler produces an ARM64 package,
    is not verified. The follow-up needs a `windows-11-arm` CI build
    (B3).
+8. Non-blocking for #2516 host-classification scope: no zone is
+   attributed to the CPU in this revision.
+   The zone names that L1 reports also occur in D1–D4, where `TZ17`
+   and `TZ32` list CPU cores. L1's device is not one of the dumped
+   devices, so it is unconfirmed whether its zones with those names
+   have the same device lists. Unblocking evidence: a #2500 report or
+   an ACPI dump from the observed device model that pairs each zone's
+   counter instance with its device list.
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version. Native-machine ARM64 mechanism gate; PawnIO paths and guidance Unsupported on Arm; headline CPU temperature not derived from thermal zones on Arm; existing zone listing unchanged; firmware evidence for Snapdragon X Elite and 8cx-class devices; blocked SoC junction and `TZ99` candidates; target dispositions; build prerequisites. |
+| 1 | 2026-11-28 | Initial version. Native-machine ARM64 mechanism gate; PawnIO paths and guidance Unsupported on Arm; headline CPU temperature not derived from thermal zones on Arm; existing zone listing unchanged; firmware evidence for Snapdragon X Elite and 8cx-class devices; blocked SoC junction and `TZ99` candidates; target dispositions; build prerequisites. Review corrections before merge: the zone-to-CPU correlation for L1 is recorded as unconfirmed (Open question 8), and the sampler's 60 s idle interval is documented. |
