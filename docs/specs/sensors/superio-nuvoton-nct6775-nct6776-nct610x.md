@@ -175,7 +175,7 @@ whose source is chosen separately by bank 1/2/3 `0x00`. They are not read.
 
 | Fact | Source |
 | --- | --- |
-| The 16-bit RPM reading is read high byte first, then low byte; its value is the RPM (example `0x09C4` = 2500 RPM). | S1 p. 65 |
+| The 16-bit RPM reading is read high byte first, then low byte; its value is the RPM (example `0x09C4` = 2500 RPM). The datasheet documents no latch for the pair, so a change between the two reads can return a torn value for that sample (for example `0x00FF` → `0x0100` read as `0x0000`, which the decode reports as 0 RPM). | S1 p. 65 |
 | Power-on default of every RPM pair is `0x00A4` (high `0x00`, low `0xA4`). | S1 pp. 65, 173–175 |
 | Power-on default of every 13-bit count is `0x1FFF` (high `0xFF`, low bits 4:0 `0x1F`), the largest count. RPM = 1.35 × 10⁶ / count, so the largest count corresponds to 164.8 RPM; `0xA4` = 164. | S1 pp. 65, 165–167 |
 | Lead-only corroboration: S11 treats a direct RPM value at or below 1.35 × 10⁶ / `0x1FFF` as zero on NCT6776F. | S11 |
@@ -238,8 +238,8 @@ NCT6775 temperature row.
    fan inputs (`0x56`–`0x5F`, high byte before low byte). Select each
    bank by writing `0x4E` = bank number (bit 7 = 0) before its reads.
    No other register and no other bank is read. (S1; S9 for `0xB47x`)
-3. Any failed index write or data read aborts the sample; do not publish
-   values from a partial transaction. (S6)
+3. Any failed index write, bank-select data write or data read aborts the
+   sample; do not publish values from a partial transaction. (S6)
 4. Release the mutex.
 
 ### Temperature decode
@@ -264,8 +264,9 @@ NCT6775 temperature row.
   device failure). If the preferred slot of a source is implausible, the
   source is unavailable; another slot is not substituted. (S1 p. 61; S6)
 - The high byte and the low bit are separate reads; the datasheets
-  document no latch, so a change between the two reads can shift the
-  value by at most 0.5 °C.
+  document no latch, so a change between the two reads can combine bytes
+  from different readings for that sample. No bound on that error is
+  documented.
 
 ### Fan decode (NCT6776)
 
