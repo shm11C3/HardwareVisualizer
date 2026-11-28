@@ -1,16 +1,21 @@
-use std::collections::{HashMap, HashSet};
-use std::fs::{self, File, Metadata};
-use std::os::unix::fs::{FileExt, MetadataExt};
+//! ODROID-H4 (`memory-ddr5-odroid-h4-spd5118.md` rev 3) and Protectli VP2430
+//! (`memory-ddr5-protectli-vp2430-spd5118.md` rev 1) board-profile routes.
+
+use std::fs::{self, File};
+use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
+use super::decode_temperature;
+use super::inventory::{self, Dimm, is_reported};
+use super::sysfs::{attribute, file_identity, links_to, read_hwmon_attribute};
 use crate::models::hardware::DimmTemperature;
 
-const BOARD_VENDOR: &str = "HARDKERNEL";
-const BOARD_NAME: &str = "ODROID-H4";
-const BIOS_VERSION: &str = "Dasharo (coreboot+UEFI) v0.9.1";
-const DIMM_PART: &str = "M425R1GB4BB0-CWMOD";
-const CONTROLLER_ADDRESS: &str = "0000:00:1f.4";
-const SPD_SERIAL_OFFSET: u64 = 517;
+pub(super) const BOARD_VENDOR: &str = "HARDKERNEL";
+pub(super) const BOARD_NAME: &str = "ODROID-H4";
+pub(super) const BIOS_VERSION: &str = "Dasharo (coreboot+UEFI) v0.9.1";
+pub(super) const DIMM_PART: &str = "M425R1GB4BB0-CWMOD";
+pub(super) const CONTROLLER_ADDRESS: &str = "0000:00:1f.4";
+pub(super) const SPD_SERIAL_OFFSET: u64 = 517;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum BoardProfile {
@@ -27,11 +32,11 @@ impl BoardProfile {
   }
 }
 
-pub(crate) fn collect(raw_inventory: &str, stderr_empty: bool) -> DimmTemperature {
-  collect_from(Path::new("/sys"), raw_inventory, stderr_empty)
-}
-
-fn collect_from(sys: &Path, raw_inventory: &str, stderr_empty: bool) -> DimmTemperature {
+pub(super) fn collect_from(
+  sys: &Path,
+  raw_inventory: &str,
+  stderr_empty: bool,
+) -> DimmTemperature {
   let dmi = sys.join("class/dmi/id");
   let vendor = attribute(&dmi, "board_vendor");
   let board = attribute(&dmi, "board_name");
@@ -59,7 +64,7 @@ fn collect_from(sys: &Path, raw_inventory: &str, stderr_empty: bool) -> DimmTemp
   let Some(dimm) = single_populated_dimm(raw_inventory, profile) else {
     return DimmTemperature::Unavailable;
   };
-  if !dimm.supported(profile) {
+  if !supported(&dimm, profile) {
     return DimmTemperature::Unsupported;
   }
   let Some(locator) = dimm.locator() else {
@@ -86,261 +91,50 @@ fn collect_from(sys: &Path, raw_inventory: &str, stderr_empty: bool) -> DimmTemp
   }
 }
 
-/// Raw Type 17 fields are used only during this request and never cached.
-#[derive(Default)]
-struct Dimm<'a> {
-  array_handle: Option<&'a str>,
-  size: Option<&'a str>,
-  form_factor: Option<&'a str>,
-  memory_type: Option<&'a str>,
-  locator: Option<&'a str>,
-  serial: Option<&'a str>,
-  part: Option<&'a str>,
-}
-
-impl<'a> Dimm<'a> {
-  fn field(&mut self, line: &'a str) -> Option<()> {
-    let Some((key, value)) = line.split_once(':') else {
-      return Some(());
-    };
-    let field = match key {
-      "Array Handle" => &mut self.array_handle,
-      "Size" => &mut self.size,
-      "Form Factor" => &mut self.form_factor,
-      "Type" => &mut self.memory_type,
-      "Locator" => &mut self.locator,
-      "Serial Number" => &mut self.serial,
-      "Part Number" => &mut self.part,
-      _ => return Some(()),
-    };
-    if field.replace(value.strip_prefix(' ')?).is_some() {
-      return None;
-    }
-    Some(())
+fn complete(dimm: &Dimm<'_>, profile: BoardProfile) -> Option<bool> {
+  let size = dimm.size?;
+  if size == "No Module Installed" {
+    return Some(false);
   }
-
-  fn complete(&self, profile: BoardProfile) -> Option<bool> {
-    let size = self.size?;
-    if size == "No Module Installed" {
-      return Some(false);
-    }
-    let (amount, unit) = size.split_once(' ')?;
-    if amount.parse::<u64>().ok()? == 0 || !matches!(unit, "kB" | "MB" | "GB" | "TB") {
-      return None;
-    }
-    for value in [self.form_factor?, self.memory_type?, self.locator?] {
-      if !is_reported(value) {
-        return None;
-      }
-    }
-    if profile == BoardProfile::OdroidH4
-      && (!is_reported(self.serial?) || !is_reported(self.part?))
-    {
-      return None;
-    }
-    Some(true)
-  }
-
-  fn supported(&self, profile: BoardProfile) -> bool {
-    self.form_factor == Some("SODIMM")
-      && self.memory_type == Some("DDR5")
-      && (profile == BoardProfile::ProtectliVp2430
-        || (matches!(self.size, Some("8 GB" | "8192 MB"))
-          && self.part == Some(DIMM_PART)))
-  }
-
-  fn locator(&self) -> Option<&'a str> {
-    let locator = self.locator?;
-    if locator.trim() != locator
-      || locator.chars().any(|c| c.is_control() || c == '\u{fffd}')
-    {
-      return None;
-    }
-    Some(locator)
-  }
-}
-
-fn is_reported(value: &str) -> bool {
-  let value = value.trim();
-  !value.is_empty()
-    && !matches!(
-      value,
-      "Unknown" | "Not Specified" | "Not Provided" | "None" | "Bad Index"
-    )
-}
-
-enum InventoryRecord<'a> {
-  Array { handle: u16, slots: Option<u16> },
-  Device(Dimm<'a>),
-}
-
-impl<'a> InventoryRecord<'a> {
-  fn field(&mut self, line: &'a str) -> Option<()> {
-    match self {
-      Self::Device(device) => device.field(line),
-      Self::Array { slots, .. } => {
-        if let Some(raw) = line.strip_prefix("Number Of Devices:") {
-          let digits = raw.strip_prefix(' ')?;
-          if !digits.bytes().all(|byte| byte.is_ascii_digit()) {
-            return None;
-          }
-          let count = digits.parse::<u16>().ok()?;
-          if count == 0 || slots.replace(count).is_some() {
-            return None;
-          }
-        }
-        Some(())
-      }
-    }
-  }
-}
-
-#[derive(Default)]
-struct Inventory<'a> {
-  array_slots: HashMap<u16, usize>,
-  device_counts: HashMap<u16, usize>,
-  populated: Option<Dimm<'a>>,
-}
-
-impl<'a> Inventory<'a> {
-  fn finish(
-    &mut self,
-    record: Option<InventoryRecord<'a>>,
-    profile: BoardProfile,
-  ) -> Option<()> {
-    match record {
-      Some(InventoryRecord::Array { handle, slots }) => {
-        self.array_slots.insert(handle, usize::from(slots?));
-      }
-      Some(InventoryRecord::Device(device)) => {
-        let populated = device.complete(profile)?;
-        // Empty sockets also occupy a Type 16 slot. Count every Type 17
-        // record against the exact physical array it references.
-        let array = parse_handle(device.array_handle?)?;
-        *self.device_counts.entry(array).or_default() += 1;
-        if populated && self.populated.replace(device).is_some() {
-          return None;
-        }
-      }
-      None => {}
-    }
-    Some(())
-  }
-}
-
-fn parse_handle(value: &str) -> Option<u16> {
-  let digits = value.strip_prefix("0x")?;
-  if digits.len() != 4 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+  let (amount, unit) = size.split_once(' ')?;
+  if amount.parse::<u64>().ok()? == 0 || !matches!(unit, "kB" | "MB" | "GB" | "TB") {
     return None;
   }
-  u16::from_str_radix(digits, 16).ok()
+  for value in [dimm.form_factor?, dimm.memory_type?, dimm.locator?] {
+    if !is_reported(value) {
+      return None;
+    }
+  }
+  if profile == BoardProfile::OdroidH4
+    && (!is_reported(dimm.serial?) || !is_reported(dimm.part?))
+  {
+    return None;
+  }
+  Some(true)
+}
+
+fn supported(dimm: &Dimm<'_>, profile: BoardProfile) -> bool {
+  dimm.form_factor == Some("SODIMM")
+    && dimm.memory_type == Some("DDR5")
+    && (profile == BoardProfile::ProtectliVp2430
+      || (matches!(dimm.size, Some("8 GB" | "8192 MB")) && dimm.part == Some(DIMM_PART)))
 }
 
 fn single_populated_dimm(raw: &str, profile: BoardProfile) -> Option<Dimm<'_>> {
-  let mut inventory = Inventory::default();
-  let mut current = None;
-  let mut handles = HashSet::new();
-  let mut lines = raw.lines();
-  while let Some(line) = lines.next() {
-    if line.trim().is_empty() {
-      continue;
-    }
-    if let Some(header) = line.strip_prefix("Handle ") {
-      inventory.finish(current.take(), profile)?;
-      let (handle, fields) = header.split_once(", DMI type ")?;
-      let (kind, length) = fields.split_once(", ")?;
-      let handle = parse_handle(handle)?;
-      if !handles.insert(handle) {
-        return None;
-      }
-
-      let heading = lines.next()?;
-      if kind == "127" {
-        // Type counts alone cannot distinguish a clean SMBIOS 3 prefix
-        // from a complete table. Require the decoder's terminal record.
-        if length != "4 bytes"
-          || heading != "End Of Table"
-          || lines.any(|line| !line.trim().is_empty())
-          || inventory.array_slots != inventory.device_counts
-          || (profile == BoardProfile::ProtectliVp2430
-            && (inventory.array_slots.len() != 1
-              || inventory.array_slots.values().next() != Some(&1)))
-        {
-          return None;
-        }
-        return inventory.populated;
-      }
-
-      let length = length.strip_suffix(" bytes")?.parse::<u8>().ok()?;
-      current = match (kind, heading) {
-        ("5", "Memory Controller Information") | ("6", "Memory Module Information")
-          if length >= 4 =>
-        {
-          None
-        }
-        ("16", "Physical Memory Array") if length >= 0x0f => {
-          Some(InventoryRecord::Array {
-            handle,
-            slots: None,
-          })
-        }
-        ("17", "Memory Device") if length >= 0x1b => {
-          Some(InventoryRecord::Device(Dimm::default()))
-        }
-        _ => return None,
-      };
-    } else if handles.is_empty() {
-      if !is_inventory_notice(line) {
-        return None;
-      }
-    } else {
-      // Attribute lines start with a tab, and nested values with two.
-      // Reject diagnostic lines without inspecting firmware field values.
-      let field = line.strip_prefix('\t')?;
-      if field.trim_start().starts_with('<')
-        || (!field.starts_with('\t') && !field.contains(": "))
-      {
-        return None;
-      }
-      if !field.starts_with('\t')
-        && let Some(record) = current.as_mut()
-      {
-        record.field(field)?;
-      }
-    }
-  }
-  None
-}
-
-fn is_inventory_notice(line: &str) -> bool {
-  if matches!(
-    line,
-    "Getting SMBIOS data from sysfs." | "Scanning /dev/mem for entry point."
-  ) {
-    return true;
-  }
-  if let Some(version) = line.strip_prefix("# dmidecode ").or_else(|| {
-    line
-      .strip_prefix("SMBIOS ")
-      .or_else(|| line.strip_prefix("Legacy DMI "))?
-      .strip_suffix(" present.")
-  }) {
-    return version.split('.').all(is_decimal);
-  }
-  if let Some(address) = line
-    .strip_prefix("Table at 0x")
-    .and_then(|value| value.strip_suffix('.'))
+  let inventory = inventory::parse(raw)?;
+  if !inventory.array_counts_match()
+    || (profile == BoardProfile::ProtectliVp2430
+      && !inventory.single_array_with_one_slot())
   {
-    return !address.is_empty() && address.bytes().all(|byte| byte.is_ascii_hexdigit());
+    return None;
   }
-  line
-    .strip_suffix(" bytes.")
-    .and_then(|value| value.split_once(" structures occupying "))
-    .is_some_and(|(count, size)| is_decimal(count) && is_decimal(size))
-}
-
-fn is_decimal(value: &str) -> bool {
-  !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
+  let mut populated = None;
+  for device in inventory.devices {
+    if complete(&device, profile)? && populated.replace(device).is_some() {
+      return None;
+    }
+  }
+  populated
 }
 
 fn decode_serial(value: &str) -> Option<[u8; 4]> {
@@ -489,166 +283,11 @@ fn matches_spd_identity(data: &[u8; 34], serial: [u8; 4]) -> bool {
       .is_some_and(|padding| padding.iter().all(|&byte| byte == b' '))
 }
 
-fn decode_temperature(value: &str) -> Option<f32> {
-  let millidegrees = value.parse::<i32>().ok()?;
-  (millidegrees > 0 && millidegrees <= 125_000 && millidegrees % 250 == 0)
-    .then_some(millidegrees as f32 / 1000.0)
-}
-
-fn file_identity(metadata: &Metadata) -> (u64, u64) {
-  (metadata.dev(), metadata.ino())
-}
-
-fn links_to(link: &Path, target: &Path) -> bool {
-  fs::symlink_metadata(link).is_ok_and(|metadata| metadata.is_symlink())
-    && fs::canonicalize(link).is_ok_and(|path| path == target)
-}
-
-fn read_hwmon_attribute(directory: &Path, name: &str) -> Option<String> {
-  let path = directory.join(name);
-  if fs::canonicalize(&path).ok()? != path {
-    return None;
-  }
-  attribute(directory, name)
-}
-
-fn attribute(directory: &Path, name: &str) -> Option<String> {
-  let mut value = fs::read_to_string(directory.join(name)).ok()?;
-  if value.ends_with('\n') {
-    value.pop();
-  }
-  Some(value)
-}
-
 #[cfg(test)]
 mod tests {
+  use super::super::test_fixture::*;
   use super::*;
   use std::os::unix::fs::symlink;
-  use tempfile::TempDir;
-
-  const SERIAL: [u8; 4] = [0x01, 0x23, 0x45, 0x67];
-  const END_OF_TABLE: &str = "Handle 0x007F, DMI type 127, 4 bytes\nEnd Of Table\n";
-
-  const INVENTORY: &str = r#"Handle 0x000F, DMI type 16, 23 bytes
-Physical Memory Array
-	Number Of Devices: 1
-
-Handle 0x0010, DMI type 17, 92 bytes
-Memory Device
-	Array Handle: 0x000F
-	Size: 8 GB
-	Form Factor: SODIMM
-	Locator: DIMM 0
-	Type: DDR5
-	Serial Number: 01234567
-	Part Number: M425R1GB4BB0-CWMOD
-"#;
-
-  // Synthetic kernel-owned-style topology, not a dump from a real system.
-  struct Fixture {
-    _directory: TempDir,
-    sys: PathBuf,
-    controller: PathBuf,
-  }
-
-  impl Fixture {
-    fn new() -> Self {
-      let directory = TempDir::new().unwrap();
-      let sys = directory.path().canonicalize().unwrap();
-      for relative in [
-        "bus/pci/devices",
-        "bus/pci/drivers/i801_smbus",
-        "bus/i2c/drivers/spd5118",
-        "class/dmi/id",
-        "class/hwmon",
-      ] {
-        fs::create_dir_all(sys.join(relative)).unwrap();
-      }
-      let dmi = sys.join("class/dmi/id");
-      write_attr(&dmi, "board_vendor", BOARD_VENDOR);
-      write_attr(&dmi, "board_name", BOARD_NAME);
-      write_attr(&dmi, "bios_version", BIOS_VERSION);
-      let controller = sys.join("devices/pci0000:00").join(CONTROLLER_ADDRESS);
-      fs::create_dir_all(&controller).unwrap();
-      symlink(
-        &controller,
-        sys.join("bus/pci/devices").join(CONTROLLER_ADDRESS),
-      )
-      .unwrap();
-      symlink(sys.join("bus/pci"), controller.join("subsystem")).unwrap();
-      symlink(
-        sys.join("bus/pci/drivers/i801_smbus"),
-        controller.join("driver"),
-      )
-      .unwrap();
-      write_attr(&controller, "vendor", "0x8086");
-      write_attr(&controller, "device", "0x54a3");
-      Self {
-        _directory: directory,
-        sys,
-        controller,
-      }
-    }
-
-    fn add_client(&self, bus: u32, address: &str, hwmon_index: u32) -> PathBuf {
-      let adapter = self.controller.join(format!("i2c-{bus}"));
-      let client = adapter.join(format!("{bus}-{address}"));
-      fs::create_dir_all(&client).unwrap();
-      symlink(self.sys.join("bus/i2c"), adapter.join("subsystem")).unwrap();
-      symlink(self.sys.join("bus/i2c"), client.join("subsystem")).unwrap();
-      symlink(
-        self.sys.join("bus/i2c/drivers/spd5118"),
-        client.join("driver"),
-      )
-      .unwrap();
-      let mut spd = [0; 1024];
-      let offset = SPD_SERIAL_OFFSET as usize;
-      spd[offset..offset + 4].copy_from_slice(&SERIAL);
-      spd[offset + 4..offset + 34].fill(b' ');
-      spd[offset + 4..offset + 4 + DIMM_PART.len()].copy_from_slice(DIMM_PART.as_bytes());
-      fs::write(client.join("eeprom"), spd).unwrap();
-      self.add_hwmon(&client, hwmon_index);
-      client
-    }
-
-    fn add_hwmon(&self, client: &Path, index: u32) -> PathBuf {
-      let name = format!("hwmon{index}");
-      let class = self.sys.join("class/hwmon");
-      let hwmon = client.join("hwmon").join(&name);
-      fs::create_dir_all(&hwmon).unwrap();
-      symlink(&hwmon, class.join(name)).unwrap();
-      symlink(client, hwmon.join("device")).unwrap();
-      symlink(class, hwmon.join("subsystem")).unwrap();
-      write_attr(&hwmon, "name", "spd5118");
-      write_attr(&hwmon, "temp1_enable", "1");
-      write_attr(&hwmon, "temp1_input", "40250");
-      hwmon
-    }
-
-    fn collect(&self, records: &str) -> DimmTemperature {
-      collect_from(&self.sys, &format!("{records}\n{END_OF_TABLE}"), true)
-    }
-
-    fn protectli() -> Self {
-      let fixture = Self::new();
-      let dmi = fixture.sys.join("class/dmi/id");
-      write_attr(&dmi, "board_vendor", "Protectli");
-      write_attr(&dmi, "board_name", "VP2430");
-      write_attr(&dmi, "bios_version", "Dasharo (coreboot+UEFI) v0.9.0");
-      fixture
-    }
-  }
-
-  fn write_attr(directory: &Path, name: &str, value: &str) {
-    fs::write(directory.join(name), format!("{value}\n")).unwrap();
-  }
-
-  fn available(temperature_celsius: f32) -> DimmTemperature {
-    DimmTemperature::Available {
-      locator: "DIMM 0".into(),
-      temperature_celsius,
-    }
-  }
 
   #[test]
   fn protectli_uses_the_physical_slot_without_reading_eeprom_or_firmware_identity() {
@@ -749,7 +388,7 @@ Memory Device
 
   #[test]
   fn requires_a_terminal_record_and_clean_decoder_output_for_attribution() {
-    use super::super::dmidecode::parse_dmidecode_memory_info;
+    use crate::infrastructure::providers::linux::dmidecode::parse_dmidecode_memory_info;
 
     let fixture = Fixture::new();
     fixture.add_client(7, "0052", 3);
