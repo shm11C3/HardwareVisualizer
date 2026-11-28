@@ -47,7 +47,7 @@ inputs.
 | S13 | Repository specifications for the other motherboard routes, at the revisions in the [Current documents](README.md#current-documents) table on commit `50035f40`. | Repository facts about what each existing route reads, excludes or leaves draft. Cited per disposition row. |
 | S14 | LibreHardwareMonitor tree listing of `LibreHardwareMonitorLib/Hardware/Motherboard/` at `2808d80564b6761e1b01f42fabfd966ed695fcbc` (the #2534 comparison inventory), retrieved 2026-11-29 through the GitHub tree API, MPL-2.0 | **lead-only (copyleft)**. File list only, used to enumerate the comparison inventory's voltage-bearing groups: Super I/O drivers for ITE, Nuvoton, Fintek and Winbond parts; embedded-controller readers including ChromeOS; an IPMI reader; a Linux hwmon reader; Gigabyte controller access; per-board voltage descriptors and board identification. No file content was read, and no fact in this document rests on S14. |
 
-| S15 | [`superio-access.md`](superio-access.md) revision 5, [Terms](superio-access.md#terms) of the sampling-path rediscovery cadence | Project policy terms used by the freshness rule: discovery attempt, cached path, discarded path, sample transaction and monitoring session. A monitoring session ends after a gap between samples, which covers suspend and resume, and the service requests a motherboard reading at most every 1.6 s. Supplies no hardware fact. S3 stays the pin for the transport facts. |
+| S15 | [`superio-access.md`](superio-access.md) revision 5, [Terms](superio-access.md#terms) of the sampling-path rediscovery cadence | Project policy terms used by the freshness rule: discovery attempt, cached path, discarded path, sample transaction and monitoring session. S15 states that a monitoring session ends after a gap between samples and that this covers suspend and resume. This document relies on that only for a suspend long enough to cause the gap (see [Freshness rule](#freshness-rule)). The service requests a motherboard reading at most every 1.6 s. Supplies no hardware fact. S3 stays the pin for the transport facts. |
 
 S1 is the only source of any enabled fact. S15 supplies only the
 sampler lifetime terms of the freshness rule. S5–S13 support dispositions
@@ -229,10 +229,14 @@ no wait.
 - **Other run ends.** Both runs also end when the cached path is
   discarded, when a discovery attempt runs, when the monitoring session
   ends (S15), and when the gate reads of two consecutive samples are
-  more than 5 s apart on the sampler's monotonic clock. The gap rule
-  ends the runs across suspend and resume even if the session were kept.
-  A `PWROK` reset returns `0x5D` bit 0 to `0` (S1 p. 113), so a bit
-  read as `1` after power returns can come from a new enable.
+  more than 5 s apart on the sampler's monotonic clock. A `PWROK` reset
+  returns `0x5D` bit 0 to `0` (S1 p. 113), so a bit read as `1` after
+  power returns can come from a new enable. The gap rule and the session
+  end catch a suspend and resume only when they leave more than 5 s
+  between gate reads, or end the session. The repository has no
+  suspend or resume signal that the sampler could observe, so a shorter
+  suspend and resume is not detected and is the residual case in Open
+  questions.
 - **Run start.** The first sample that extends a run after the run
   ended, or after the sampler was created, starts it. The run start
   time is the monotonic time of that sample's gate read: `0x40` for the
@@ -455,9 +459,10 @@ row rests on a lead-only fact.
   `0x88` holds before its first update, so the bottom code is not
   published. Only the code `0x00` is hidden; low non-zero values are
   published once the freshness rule allows them.
-- Non-blocking for the #2534 initial slice: the one residual stale case
-  needs two firmware writes inside one sample interval, and every
-  identified enable path is covered. A read-only sampler cannot see
+- Non-blocking for the #2534 initial slice: the residual stale case needs
+  a disable or `PWROK` reset and a re-enable inside one sample interval
+  of at most 5 s, and its value is still a VBAT-register byte filtered
+  by the `0x00`/`0xFF` rule. A read-only sampler cannot see
   `EN_VBAT_MNT`, `START` or `INT_Clear` change and change back between
   two samples of a run. If firmware disables and re-enables the battery
   monitor between two samples that are at most 5 s apart, and the
@@ -467,12 +472,22 @@ row rests on a lead-only fact.
   last VBAT conversion before the re-enable, or an undefined byte if the
   register was never updated. It still passes the `0x00`/`0xFF` rule and
   is labelled only as a chip-pin voltage. At the S15 cadence the two
-  writes must fall inside one interval of at least 1.6 s. The covered
-  paths are sampler start, a disabled monitor, a failed gate read, and
-  suspend and resume, which end the runs through the 5 s gap rule
-  whether or not a `PWROK` reset cleared `0x5D` bit 0 (S1 p. 113). A maintainer-accepted dump
-  taken across a firmware enable would show whether the residual case
-  occurs.
+  writes must fall inside one interval of at least 1.6 s. A suspend and
+  resume that leaves at most 5 s between gate reads and keeps the
+  monitoring session is the same case: a `PWROK` reset clears `0x5D`
+  bit 0 (S1 p. 113), and a firmware re-enable less than 704 ms before
+  the next sample leaves a mature battery run. That sample publishes the
+  `0x88` byte as it stood after the reset and before the update. S1
+  states no reset value for the Value RAM, so the byte is the last VBAT
+  conversion or an undefined byte, filtered by the same `0x00`/`0xFF`
+  rule and labelled the same way. The repository has no suspend or
+  resume signal that would let the sampler end its runs (a search of
+  `hardviz/app` and `hardviz/core` found no power-event handling). The
+  covered paths are sampler start, a disabled monitor, a failed gate
+  read, and a suspend and resume that leaves more than 5 s between gate
+  reads or ends the session. An observable resume signal added later
+  should end both runs. A maintainer-accepted dump taken across a
+  firmware enable would show whether the residual case occurs.
 - Non-blocking for the #2534 initial slice: the 704 ms interval is twice
   the only cycle time S1 states. S1 §8.6.4 p. 62 derives the 352 ms
   cycle as an example from about 2 ms per conversion, 15 voltage and 7
@@ -531,4 +546,4 @@ No other external sensor documentation was used.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-29 | Initial version for #2534. Proposes Implementation-ready status for one Experimental scope: `AVSB`, `3VCC`, `3VSB` and `VBAT` supply-pin voltages on exact raw `0xD421` (NCT6796D/-E), all from the NCT6796D datasheet (S1). The scope reads bank 4 `0x82`, `0x83`, `0x87` and `0x88` after the existing revision 9 `0xD421` temperature and fan sample. It is gated on bank 0 `0x40` `START`/`INT_Clear` and, for `VBAT`, on `0x5D` `EN_VBAT_MNT`. Decode is raw × 16 mV; `0x00` and `0xFF` are unavailable. Labels are the pin mnemonics, with no rail names. Adds the failure rule, synthetic cases, read-clear registers that are never read, the model requirements and a disposition for every #2534 target. No lead-only fact backs any row. |
-| 2 | 2026-11-29 | Review finding on #2828: S1 §9.34 p. 113 says the VBAT reading updates one monitor cycle (about 352 ms, §8.6.4 p. 62) after `EN_VBAT_MNT` changes from `0` to `1`, and a read-only sampler cannot see an enable before its first sample. Adds the [freshness rule](#freshness-rule): per cached path, a monitor run and a battery run of consecutive samples with satisfied gates; a run ends on an S2 abort, a failed or unsatisfied gate read, a discarded path, a discovery attempt, the end of the monitoring session, or a gap above 5 s between gate reads. `AVSB`, `3VCC` and `3VSB` publish only 704 ms or more after the monitor run start, and `VBAT` only 704 ms or more after the battery run start; earlier bytes are unavailable as update pending. Adds S15 (`superio-access.md` revision 5 terms), a runtime gate row, the `0x5D` reset sources, synthetic cases for startup, enable, short interval, gap and gate failure, a quirk, and Open questions for the residual between-sample toggle and the cycle margin. The `0x00` rationale no longer relies on the update window. Registers, writes, decode scale and dispositions are unchanged. Status remains Implementation-ready (rev 2), proposed. |
+| 2 | 2026-11-29 | Review finding on #2828: S1 §9.34 p. 113 says the VBAT reading updates one monitor cycle (about 352 ms, §8.6.4 p. 62) after `EN_VBAT_MNT` changes from `0` to `1`, and a read-only sampler cannot see an enable before its first sample. Adds the [freshness rule](#freshness-rule): per cached path, a monitor run and a battery run of consecutive samples with satisfied gates; a run ends on an S2 abort, a failed or unsatisfied gate read, a discarded path, a discovery attempt, the end of the monitoring session, or a gap above 5 s between gate reads. `AVSB`, `3VCC` and `3VSB` publish only 704 ms or more after the monitor run start, and `VBAT` only 704 ms or more after the battery run start; earlier bytes are unavailable as update pending. Adds S15 (`superio-access.md` revision 5 terms), a runtime gate row, the `0x5D` reset sources, synthetic cases for startup, enable, short interval, gap and gate failure, a quirk, and Open questions for the residual between-sample toggle, including a short suspend and resume that the repository cannot observe, and the cycle margin. The `0x00` rationale no longer relies on the update window. Registers, writes, decode scale and dispositions are unchanged. Status remains Implementation-ready (rev 2), proposed. |
