@@ -2,7 +2,7 @@
 //!
 //! The pure, spec-encoded facts live next to the provider that uses them:
 //! [`access`] holds the configuration-access facts shared by every vendor,
-//! [`nuvoton`], [`nuvoton_smiovt`] and [`ite`] hold the vendor
+//! [`nuvoton`], [`nuvoton_smiovt`], [`fintek`] and [`ite`] hold the vendor
 //! hardware-monitor decode facts, and
 //! [`diagnostics`] / [`motherboard`] perform the actual port I/O. This mirrors
 //! the `pawn_io/cpu/*_decode.rs` placement for the PawnIO CPU paths.
@@ -16,11 +16,13 @@
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
 //! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 7
 //! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 2
+//! - `docs/specs/sensors/superio-fintek-f71882-f71889.md` revision 1
 //!
 //! No other external sensor source was used.
 
 pub(super) mod access;
 pub mod diagnostics;
+pub(super) mod fintek;
 pub(super) mod ite;
 pub mod motherboard;
 pub(super) mod nuvoton;
