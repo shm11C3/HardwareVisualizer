@@ -19,6 +19,10 @@ use crate::models::{
 };
 use crate::{log_debug, log_warn};
 
+mod smiovt;
+
+use smiovt::ActiveNuvotonSmiovtSensors;
+
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
 const ITE_EXPERIMENTAL_FAILURE_PREFIX: &str =
   "Experimental ITE motherboard sensor path failed";
@@ -294,6 +298,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// - docs/specs/sensors/pawnio-interface.md revision 7
 /// - docs/specs/sensors/superio-access.md revision 4
 /// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9
+/// - docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md revision 1
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
 /// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 6
 /// - docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md revision 2
@@ -473,6 +478,8 @@ struct ActiveIteMotherboardSensors<C: LpcIoOps> {
 
 enum ActiveMotherboardSensors<C: LpcIoOps> {
   Nuvoton(ActiveNuvotonMotherboardSensors<C>),
+  /// NCT6776F/NCT6776D and NCT6775F/NCT6771F source-selected slots.
+  NuvotonSmiovt(ActiveNuvotonSmiovtSensors<C>),
   Ite(ActiveIteMotherboardSensors<C>),
 }
 
@@ -488,6 +495,18 @@ impl ActiveMotherboardSensors<PawnIoClient> {
       match ActiveNuvotonMotherboardSensors::discover_slot(&client, slot) {
         Ok(Some(discovered)) => {
           return Ok(Self::Nuvoton(ActiveNuvotonMotherboardSensors::new(
+            client, discovered,
+          )));
+        }
+        Ok(None) => {}
+        Err(reason) => {
+          last_error = Some(reason);
+        }
+      }
+
+      match ActiveNuvotonSmiovtSensors::discover_slot(&client, slot) {
+        Ok(Some(discovered)) => {
+          return Ok(Self::NuvotonSmiovt(ActiveNuvotonSmiovtSensors::new(
             client, discovered,
           )));
         }
@@ -519,6 +538,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   fn fan_support(&self) -> SensorSupport {
     match self {
       Self::Nuvoton(_) => SensorSupport::Supported,
+      Self::NuvotonSmiovt(active) => active.fan_support(),
       Self::Ite(active) if !active.profile.fan_registers.is_empty() => {
         SensorSupport::Supported
       }
@@ -529,6 +549,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     match self {
       Self::Nuvoton(active) => active.sample(),
+      Self::NuvotonSmiovt(active) => active.sample(),
       Self::Ite(active) => active.sample(),
     }
   }
@@ -539,6 +560,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
         "active chip={} slot={} hm_base=0x{:04X}",
         active.profile.chip_label, active.slot, active.hm_base
       ),
+      Self::NuvotonSmiovt(active) => active.diagnostic_summary(),
       Self::Ite(active) => format!(
         "active chip={} slot={} ec_base=0x{:04X}",
         active.profile.chip_label, active.slot, active.ec_base

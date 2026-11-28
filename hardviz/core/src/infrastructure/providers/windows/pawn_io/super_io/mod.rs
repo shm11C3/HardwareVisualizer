@@ -2,7 +2,8 @@
 //!
 //! The pure, spec-encoded facts live next to the provider that uses them:
 //! [`access`] holds the configuration-access facts shared by every vendor,
-//! [`nuvoton`] and [`ite`] hold the vendor hardware-monitor decode facts, and
+//! [`nuvoton`], [`nuvoton_smiovt`] and [`ite`] hold the vendor
+//! hardware-monitor decode facts, and
 //! [`diagnostics`] / [`motherboard`] perform the actual port I/O. This mirrors
 //! the `pawn_io/cpu/*_decode.rs` placement for the PawnIO CPU paths.
 //!
@@ -10,6 +11,8 @@
 //! - `docs/specs/sensors/superio-access.md` revision 3 (revision 4 for the
 //!   slot-1 ITE exit withhold)
 //! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 9
+//! - `docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md`
+//!   revision 1
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
 //! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 6
 //! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 2
@@ -21,6 +24,7 @@ pub mod diagnostics;
 pub(super) mod ite;
 pub mod motherboard;
 pub(super) mod nuvoton;
+pub(super) mod nuvoton_smiovt;
 
 /// Inclusive plausibility bounds shared by every Super I/O byte temperature:
 /// the ITE revision 2 policy and the Nuvoton revision 9 filter (S1 Table 8-1,
