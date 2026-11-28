@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 4 |
-| Status | Implementation-ready (rev 4) |
-| Scope | Phase 2 raw Super I/O chip-id diagnostics only: PawnIO `LpcIO` slot selection for the standard configuration port pairs, Nuvoton/ITE configuration-mode enter/exit sequences, chip-id register reads (`0x20` / `0x21`), absent-id classification for raw diagnostics, the ISA mutex requirement, and (rev 4) the slot-1 ITE configuration-mode exit withhold for secondary-pair embedded-controller chip IDs. Excludes: chip-model tables, logical-device hardware-monitor base discovery, `ioctl_find_bars`, temperature/fan/voltage register maps, and all hardware-monitor data reads. |
+| Revision | 5 |
+| Status | Implementation-ready (rev 5) |
+| Scope | Phase 2 raw Super I/O chip-id diagnostics: PawnIO `LpcIO` slot selection for the standard configuration port pairs, Nuvoton/ITE configuration-mode enter/exit sequences, chip-id register reads (`0x20` / `0x21`), absent-id classification for raw diagnostics, the ISA mutex requirement, and (rev 4) the slot-1 ITE configuration-mode exit withhold for secondary-pair embedded-controller chip IDs. Rev 5 adds the [sampling-path rediscovery cadence](#sampling-path-rediscovery-cadence). This product-policy rule says when a Super I/O motherboard sampling path may start a discovery transaction after a failure, and which failure classes may start one. It adds no register access. Excludes: chip-model tables, logical-device hardware-monitor base discovery, `ioctl_find_bars`, temperature/fan/voltage register maps, and all hardware-monitor data reads. The owning per-chip specifications define those. |
 | Issue phase | Phase 2 (#1635) — sensor report / chip-id diagnostic mechanism |
 
 ## Sources
@@ -19,12 +19,16 @@
 | S6 | Out-of-tree `it87` driver, `frankcrawford/it87` (`it87.c`, `master`, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Corroborates S5: same three chip IDs, same never-exit handling with the stated reason (system hang-ups and access failures to the Super I/O chip at the second address), describes `0x4E` as the secondary configuration address. |
 | S7 | LibreHardwareMonitor, `LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs` and `Lpc/LpcPort.cs` (`master`, retrieved 2026-10-25), MPL-2.0 | **lead-only (copyleft)**. Source of the restated facts that the ITE exit is never issued on port `0x4E`, that the chip ID at `0x4E` is read before any enter key is sent and the key is sent only when the read returns `0xFFFF`, that an IT8792E which receives the enter key while already in configuration mode reports `0x8883`, that `0x8733` / `0x8790` / `0x8695` map to IT8792E / IT8790E / IT87952E, and that its Gigabyte second-controller handling runs only on port `0x4E` with those three IDs. |
 | S8 | Linux kernel documentation, `Documentation/hwmon/it87.rst` (kernel.org HTML, retrieved 2026-10-25), GPL-2.0 | **lead-only (copyleft)**. Documentation text only: lists IT8790E, "IT8792E/IT8795E" (one entry) and IT87952E as supported chips whose datasheets are "Not publicly available", found "from Super I/O config space". |
+| S9 | HardwareVisualizer issue [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821) and the review of PR [#2805](https://github.com/shm11C3/HardwareVisualizer/pull/2805) | Project policy source for the rediscovery cadence. It records the problem: while a retryable discovery failure is cached, every sampling request reruns the whole discovery transaction. It also records the constraints. Rediscovery must never run inside a sample transaction. A non-zero ITE bank at discovery needs an explicit eligibility decision. Supplies no hardware fact. |
+| S10 | HardwareVisualizer repository at commit `75e9fcba`: `hardviz/core/src/sensor_service/windows/providers.rs`, `hardviz/core/src/sensor_service/protocol.rs` and `hardviz/core/src/infrastructure/providers/windows/pawn_io/super_io/motherboard.rs` | Repository facts the cadence is sized against. The service requests a motherboard reading at most every 1.6 s. Once 30 s have passed since a motherboard sampler was created, the service recreates it after any unavailable reading; it never recreates a sampler for an Unsupported reading. The service releases all sampling state when no sample is requested for 15 s, or when two samples are more than 5 s apart, which covers suspend and resume. The ITE sampling path keeps at least 1.5 s between sample bursts. One discovery transaction probes slot 0 and then slot 1, and on each slot runs the NCT67xx probe, then the source-selected Nuvoton probe, then the ITE probe, each with its own configuration-mode entry. Supplies no hardware fact. |
 
 Facts below are implementation-ready only for the Phase 2 diagnostic
 scope named in the header. Future Phase 3/4 work must not implement
 chip-model mapping, hardware-monitor base discovery, temperatures, fans,
 or voltages from this revision; those facts need separate
-implementation-ready per-chip documents.
+implementation-ready per-chip documents. The rediscovery cadence of rev 5
+is the exception: it binds every Super I/O motherboard sampling path, and
+it governs only when those paths may start a discovery transaction.
 
 ## Phase 2 readiness and default enablement
 
@@ -32,6 +36,7 @@ implementation-ready per-chip documents.
 | --- | --- | --- |
 | Raw chip-id diagnostic over PawnIO `LpcIO` slot 0 / slot 1 | Implementation-ready for Phase 2 from S1–S4. Unchanged in rev 4: the slot-1 exit withhold below subtracts a write from this row's procedure and is not a dependency of any read, classification, or report this row produces. | Enabled for the diagnostic command; safe to expose raw bytes and errors |
 | Slot-1 ITE configuration-mode exit withhold for raw IDs `0x8733` / `0x8790` / `0x8695` / `0x8883` | **Experimental** — rests on lead-only facts F1, F2, F3, F5, F6 and F8 (S5, S6, S7, S8). No vendor document or maintainer-accepted hardware dump covers these parts; the Experimental label records that verification state. | **Experimental** — applied whenever one of these IDs is read on slot 1 by the Phase 2 diagnostic or by any later path that reuses this document's ITE enter/read/exit sequence. The rule withholds a write and performs no read, decode, or attempt of its own, so there is no best-effort attempt to make and no experimental failure to surface; the diagnostic only reports that the exit was intentionally skipped. |
+| Sampling-path rediscovery cadence and eligibility classes | Project policy from S9 and S10. Rests on no hardware fact and no lead-only fact. It only limits when a discovery transaction may start and which failures may start another one. | **Enabled** for every Super I/O motherboard sampling path, whatever the Verified or Experimental state of its rows. It never relaxes a gate, a read limit or a write limit of an owning specification. |
 | Chip-id to model mapping | Deferred; no ready ID table in this revision. The ID values in F1–F3 exist only to scope the exit withhold; they do not make model mapping ready. | Disabled until a Phase 3/4 per-chip spec pins the table |
 | Hardware-monitor base discovery and `ioctl_find_bars` | Deferred; logical-device/base-register facts are not part of this revision's ready scope | Disabled until a later Super I/O mechanism revision or per-chip spec is implementation-ready |
 | Temperature, fan RPM, voltage decode | Deferred; no register maps in this revision | Disabled until per-chip decode specs are implementation-ready |
@@ -183,9 +188,10 @@ For each slot, in slot order 0 then 1:
 5. Release the mutex after both vendor attempts for the selected slot.
 
 The Phase 2 command is a diagnostic, not a sampling path. It may run on
-demand and does not need re-detection caching. Future sampling paths must
-cache detection results rather than entering configuration mode on every
-sample.
+demand and does not need re-detection caching. Sampling paths must cache
+detection results rather than entering configuration mode on every
+sample. After a failed discovery they follow the
+[sampling-path rediscovery cadence](#sampling-path-rediscovery-cadence).
 
 ## Concurrency and the ISA mutex
 
@@ -199,6 +205,180 @@ sample.
   cover the multi-IOCTL sequence. (S3)
 - Mutex acquisition uses a bounded timeout; timeout means the diagnostic
   reports a skipped/failed attempt and never proceeds unlocked. (S3)
+
+## Sampling-path rediscovery cadence
+
+This section is product policy (S9, S10), not a hardware fact. It binds
+every Super I/O motherboard sampling path that runs a discovery
+transaction. The owning specifications are
+[`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md),
+[`superio-nuvoton-nct6775-nct6776-nct610x.md`](superio-nuvoton-nct6775-nct6776-nct610x.md),
+[`superio-fintek-f71882-f71889.md`](superio-fintek-f71882-f71889.md),
+[`superio-ite-it86xx-it87xx.md`](superio-ite-it86xx-it87xx.md),
+[`superio-ite-it8728f-ex-ga-b75m-d3h-fans.md`](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md)
+and
+[`superio-ite-primary-lpc-expansion.md`](superio-ite-primary-lpc-expansion.md).
+The rule decides only when a discovery transaction may start. It does not
+change the order, gates, reads or writes of any discovery or sample
+transaction. It never permits an access that an owning specification
+forbids. The Phase 2 diagnostic is not a sampling path. Its runs are not
+discovery attempts here: they do not count toward the backoff and do
+not make an attempt due.
+
+Where an owning specification says a failure requires "rediscovery", or
+leaves a value unavailable "until rediscovery", it refers to this
+section.
+
+### Terms
+
+| Term | Meaning |
+| --- | --- |
+| Discovery attempt | One discovery transaction. It opens the PawnIO `LpcIO` executor, acquires `Global\Access_ISABUS.HTP.Method`, runs the slot and vendor probes of the owning specifications in order, and releases the mutex. It ends either with a cached path or with a failure. |
+| Cached path | The slot, profile and port proof that a successful attempt cached, as the owning specification defines them. |
+| Sample transaction | One acquisition of the ISA mutex on a cached path, with the reads the owning specification defines for a sample. |
+| Successful sample | A sample transaction that returns a sample, even one in which some inputs are unavailable. A sample that the owning specification reports unavailable as a whole is not successful. |
+| Discarded path | A cached path that is dropped while the session continues. Either the owning specification invalidates it, or the sampler holding it is recreated (S10). |
+| Monitoring session | The period during which the sensor service keeps motherboard sampling state. It starts when that state is created. It ends when the service releases that state: after a period with no sample request, after a gap between samples, which covers suspend and resume, or when the service stops (S10). Recreating a sampler does not end the session. |
+| Failure count `n` | The number of failed attempts and discarded paths in the session since the last successful sample, or since the session started. |
+
+### Eligibility classes
+
+Every discovery failure is in one of two classes.
+
+- **Eligible for rediscovery.** A transient access condition stopped the
+  attempt before it reached a stable conclusion. A later attempt under
+  rule R2 may succeed.
+- **Not eligible.** The attempt reached a stable conclusion. Either no
+  supported responder was found, or PawnIO read hardware or firmware
+  state that the owning specification refuses. The sampler starts no
+  further attempt on its own. The failure stays reported until the
+  sampler is recreated or the session ends, and rule R4 bounds the
+  first attempt of a recreated sampler.
+
+A failure is not eligible unless the table below or the owning
+specification marks it eligible. An attempt that caches no path is
+eligible when at least one of its probes ended with an eligible
+failure, and it then reports that eligible failure. An exit withheld under the
+[slot-1 ITE exit withhold rule](#slot-1-ite-exit-withhold-rule), or
+under an owning specification that applies it, is intentional. It is
+not an unconfirmed exit and not a failure.
+
+| Failure (every sampling path) | Class | Reason |
+| --- | --- | --- |
+| ISA mutex acquisition timed out, or the wait failed | Eligible | Another client holds the mutex for its own multi-step transaction and releases it when that transaction ends (S3). |
+| ISA mutex could not be created or opened | Not eligible | This is not contention. Another attempt cannot change it. |
+| PawnIO `LpcIO` executor cannot be opened | Not eligible | No hardware access took place. Recovery needs an install or a permission change, and sampler recreation picks that up (S10). |
+| On a slot, a configuration-mode entry-key write failed, or the matching exit write failed | Eligible, for every vendor sequence and whether or not a profile matched | The chip on that slot may still be in configuration mode. A later attempt is the only point at which the sampling path issues the matching exit again. For ITE, S2 §8.1, printed p. 39, warns that an undesired result may occur if MB PnP mode is not exited properly. |
+| A PawnIO port read or write fails after `ioctl_find_bars` succeeded on a matched profile, before the path is cached | Eligible | `ioctl_find_bars` success does not prove that a usable window was authorized (S3; [`superio-ite-it86xx-it87xx.md`](superio-ite-it86xx-it87xx.md) S3). A later attempt runs the BAR discovery again. The owning specifications list the reads concerned. |
+| `ioctl_find_bars` fails, or a configuration-register read fails, and the exit is confirmed | Not eligible | This keeps the existing classification (see [Open questions](#open-questions)). |
+| A gate refuses a value that PawnIO read successfully | Not eligible, unless the owning specification marks the value eligible | The value describes the chip or its firmware state. Examples are a lock bit, an inactive logical device, a refused base, a vendor ID or vendor byte mismatch, or a revision nibble. |
+| No responder, or no profile matches the chip ID | Not eligible | The probe completed. |
+
+### Rules
+
+- **R1 Separation.** A discovery attempt is its own transaction and
+  never runs inside a sample transaction. It acquires and releases the
+  ISA mutex itself. No sample transaction contains a configuration-mode
+  entry key or exit write. One sampling request may run a due attempt
+  and then, if that attempt cached a path, a sample transaction. The
+  attempt must release the mutex before the sample transaction acquires
+  it. While a path is cached, no discovery attempt runs. A failed sample
+  on a cached path is not a discovery failure and never starts an
+  attempt.
+- **R2 Backoff after an eligible failure.** After an attempt that ends
+  with an eligible failure, the next attempt must not start until
+  `D(n) = min(2 s × 2^(n−1), 30 s)` has elapsed since the start of the
+  failed attempt. The delays are therefore 2 s, 4 s, 8 s and 16 s, then
+  30 s for every later failure.
+- **R3 Not due.** A sampling request that arrives before the next
+  attempt is due makes no PawnIO open, no mutex acquisition and no port
+  I/O for discovery. It reports the last failure unchanged, with the same
+  text, class and guidance.
+- **R4 Not eligible, and recreation.** After an attempt that ends with
+  a not-eligible failure, the sampler starts no further attempt. Within
+  one session, the first attempt of a recreated sampler waits for the
+  delay that the session's last event requires. After an eligible
+  failure that delay is `D(n)` from the start of the failed attempt.
+  After a discarded path it is `D(n)` from the discard. After a
+  not-eligible failure it is 30 s from the start of the failed attempt.
+  Until then the recreated sampler makes no attempt and reports the
+  carried-over failure. Recreation does not reset `n`.
+- **R5 Reset.** `n` returns to 0 at the first successful sample on a
+  cached path, and when a session starts. The first attempt of a session
+  runs at the session's first sampling request without delay. An attempt
+  that caches a path stops further attempts (R1) but does not reset
+  `n` by itself. A discovered path that never produces a successful
+  sample therefore cannot reset the backoff.
+- **R6 Discarded path.** A discarded path increments `n`. The next
+  attempt waits `D(n)` from the discard.
+- **R7 Clock.** Elapsed time comes from a monotonic clock. A delay is a
+  lower bound. The attempt runs at the first sampling request at or
+  after its due time, so the actual spacing rounds up to the request
+  cadence. If the clock reads earlier than the recorded start, the
+  elapsed time is zero, so the attempt is not due.
+- **R8 Sample intervals.** A per-path minimum between sample bursts,
+  such as the 1.5 s ITE minimum, governs only sample transactions on a
+  cached path. Discovery attempts do not wait for it and do not restart
+  it. The first sample transaction after a successful attempt may run in
+  the same sampling request. The service's 1.6 s request interval only
+  rounds the delays up (R7).
+
+### Why these values
+
+- **2 s first delay.** The value is just above the service's 1.6 s
+  request interval and the 1.5 s ITE burst minimum (S10). Two attempts
+  therefore never run on consecutive requests. At the service cadence the
+  first retry falls on the second request after the failure, about 3.2 s
+  later. The eligible conditions are expected to be short. Another
+  monitor holds the ISA mutex for one multi-step transaction. An
+  embedded controller changes the ITE bank for one serial-bus access
+  ([`superio-ite-primary-lpc-expansion.md`](superio-ite-primary-lpc-expansion.md)
+  S17, S18). A port denial clears on the next BAR discovery. Four retries
+  in the first 16 s let these clear within seconds.
+- **Doubling.** A short burst recovers quickly, and a persistent
+  condition reaches the cap after four retries without a long fixed wait.
+- **30 s cap.** The service already recreates an unavailable sampler
+  30 s after it was created (S10). That recreation reruns discovery at
+  this rate for not-eligible failures today. With the same cap, a
+  persistent eligible condition costs no more configuration-mode entries
+  than a persistent not-eligible failure already does. A condition that
+  ends while the cap applies is picked up within 30 s.
+- **Resulting bound.** With zero-length attempts, a persistent eligible
+  condition starts attempts at 0, 2, 6, 14 and 30 s after the first
+  failure, then every 30 s. That is five attempts in the first minute
+  and two per minute after that. Each attempt enters configuration mode
+  at most once per vendor probe and slot. With today's three probes on
+  two slots that is six entries (S10), so at most 12 entries per minute
+  in the steady state. Before this rule, the sampler made about 37
+  attempts per minute at the 1.6 s request interval.
+- **Mutex timeouts count.** Backing off while another monitor holds the
+  mutex reduces contention with that monitor (S3).
+
+### Fixtures
+
+Use a controllable monotonic clock and a fake executor. The fake records
+every PawnIO open, mutex acquisition and configuration-key write. An
+attempt takes no time unless the fixture says otherwise. Times are
+seconds after the first attempt starts.
+
+| Fixture | Expected observation |
+| --- | --- |
+| The first attempt ends with an eligible failure (mutex timeout). Requests at 0.5, 1.0 and 1.999 | No executor open, mutex acquisition or port I/O. Each request reports the first failure with the same text, class and guidance. |
+| Same, request at 2.0 | Exactly one attempt. |
+| An eligible failure persists, with requests every 0.1 from 0 to 120 | Attempts start at 0, 2, 6, 14, 30, 60, 90 and 120, eight in total. |
+| An eligible failure persists, with requests every 1.6 (service cadence) from 0 to 64 | Attempts start at 0, 3.2, 8.0, 16.0, 32.0 and 62.4, six in total. |
+| Eligible failures at 0 and 2, a successful attempt and a successful sample at 6, then the path is discarded at 100 | No attempt between 6 and 100. The next attempt starts no earlier than 102. |
+| Requests every 0.1. Every attempt caches a path, its first sample fails as a whole, and the path is then discarded | Attempts start at 0, 2, 6, 14, 30 and 60. Discovery success alone never resets the backoff. |
+| A not-eligible failure at 0, such as a refused lock bit or vendor-ID mismatch, with requests every 1.6 for 120 on the same sampler | Exactly one attempt. Every request reports the same failure. |
+| Same failure, and the sampler is recreated at 10 in the same session | The recreated sampler makes no attempt at creation. It reports the carried-over failure and attempts at its first request at or after 30. |
+| Eligible failures at 0, 2 and 6, and the sampler is recreated at 10 | The recreated sampler's first attempt starts no earlier than 14, and `n` continues from 3. |
+| In one attempt, slot 0 ends not eligible and slot 1 eligible, and separately the reverse order | Both attempts are eligible, report the eligible failure, and are followed by `D(n)`. |
+| A due request whose attempt caches a path, followed by a sample transaction in the same request | Two mutex acquisitions in order. The first contains every configuration-key write and is released before the second. The second contains no entry key and no exit write. |
+| A cached path whose samples fail as a whole on several requests, for example a banked ITE opening check that reads EC `0x06` = `0x20`, while the path stays cached | No discovery attempt and no configuration-key write. Samples continue at their own cadence. |
+| `n` = 5, then the service releases sampling state for idleness or a sampling gap, then a new request | An attempt runs at once. If it fails eligibly, the next waits 2. |
+| ITE: a successful attempt and a first sample burst at 0, then requests at 1.0 and 1.5 | The 1.0 request reuses the burst from 0. The 1.5 request runs a new burst. Neither runs a discovery attempt. |
+| The clock reads earlier than the start of the failed attempt | Not due. No attempt. |
+| A Phase 2 diagnostic runs between two sampling requests while a failure is cached | The diagnostic does not change `n` or the due time. |
 
 ## Safety notes
 
@@ -230,7 +410,7 @@ not allow reads from hardware-monitor data registers.
 ## Deferred / not ready in this revision
 
 The following items were present in earlier drafts but are intentionally
-not implementation-ready in rev 4. They must be specified in later
+not implementation-ready in rev 5. They must be specified in later
 revisions or per-chip documents before implementation:
 
 - logical-device selection for Nuvoton Hardware Monitor or ITE
@@ -310,6 +490,26 @@ revisions or per-chip documents before implementation:
   A dump from a Gigabyte board with a second ITE chip, showing the
   slot-1 raw bytes and the skipped-exit state, would let the withhold
   row graduate from Experimental to Verified under ADR 0023.
+- Non-blocking for the rediscovery cadence: the values are product
+  policy sized against the current service cadence (S10), and no source
+  reports a side effect of repeated configuration-mode entry and exit on
+  any Nuvoton, ITE or Fintek part. The rule bounds the steady state at
+  two attempts per minute. A report that an eligible condition regularly
+  outlasts the backoff, or that configuration-mode entry has a side
+  effect at that rate, would be grounds for a revision.
+- Non-blocking for the rediscovery cadence: these failures keep their
+  existing not-eligible classification, and sampler recreation still
+  retries them at most every 30 s under R4. It is unknown whether an
+  `ioctl_find_bars` failure, or a configuration-register read failure
+  with a confirmed exit, is transient. The S7 observation in
+  [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) shows
+  `ioctl_find_bars` failing for an ordering reason, not a transient one.
+  Evidence that such a failure clears within seconds would be grounds
+  to make it eligible.
+- Non-blocking for the rediscovery cadence: suspend and resume end the
+  session through the service's sampling-gap release (S10), whatever
+  the clock does. Whether the monotonic clock advances during suspend
+  therefore does not affect the rule.
 
 ## Revision history
 
@@ -319,3 +519,4 @@ revisions or per-chip documents before implementation:
 | 2 | 2026-06-11 | Corrected `Access_ISABUS.HTP.Method` ownership: the LpcIO module documents caller-held acquisition and takes no mutex itself. Still Draft — Phase 3/4 datasheet pinning outstanding. |
 | 3 | 2026-06-27 | Narrowed the ready scope to the Phase 2 raw chip-id diagnostic used by PR #1732; removed hardware-monitor base discovery and decode facts from the implementation-ready surface; added scoped enablement, bounded Phase 2 procedure, non-blocking open-question annotations, and status → Implementation-ready. |
 | 4 | 2026-10-25 | Read-only safety amendment: added lead-only sources S5–S8 (ADR 0023) and lead-only facts F1–F8 on the ITE secondary-pair embedded controllers (shared ID `0x8733` for IT8792E/IT8795E, `0x8790` IT8790E, `0x8695` IT87952E, `0x8883` re-enter report, Gigabyte `0x2E`/`0x4E` placement convention, LPC-error/hang hazard on exiting configuration mode); added the normative "Slot-1 ITE exit withhold rule" and its Experimental scoped-enablement row; the raw chip-id row keeps its rev 3 status. Pinned S2 pages; added S2 facts that register `0x02` bit 0 is a logical-device reset (never written) and that the fourth ITE key byte selects the configuration pair (key written only to its own port). Added six non-blocking open questions. Status remains Implementation-ready (rev 4). |
+| 5 | 2026-11-28 | Added the sampling-path rediscovery cadence for [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821). It is product policy from the project sources S9 and S10 and rests on no hardware or lead-only fact. It defines eligible and not-eligible discovery failure classes with a shared table. Rules R1–R8 cover the following. A discovery attempt is a separate mutex-guarded transaction and never runs inside a sample transaction, and none runs while a path is cached. After an eligible failure the backoff is `min(2 s × 2^(n−1), 30 s)`. A not-eligible failure starts no further attempt from the same sampler. A recreated sampler inherits the backoff. The count resets at the first successful sample or at a new session. A discarded path counts as a failure. The ITE 1.5 s sample minimum is independent. Added the reasoning for the values, fixtures, a scoped-enablement row and three non-blocking open questions. The Phase 2 diagnostic, the slot-1 exit withhold and every fact of revision 4 are unchanged. Status remains Implementation-ready (rev 5). |

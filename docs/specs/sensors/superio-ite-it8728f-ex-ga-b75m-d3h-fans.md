@@ -2,10 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
-| Status | Implementation-ready (rev 2) |
+| Revision | 3 |
+| Status | Implementation-ready (rev 3) |
 | Scope | Experimental Windows readback of FAN1 and FAN2 from the primary LPC (slot 0) Environment Controller of a controller that reports raw chip ID `0x8728` with chip-version nibble `0x1` (IT8728F DX or EX). The Gigabyte GA-B75M-D3H factory IT8728F/EX population is the best-evidenced member. FAN3–5, other version nibbles, the secondary slot and Linux hwmon are excluded. |
-| Issue phase | Phase 4 (#1635), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), ADR 0031 re-scope under [#2510](https://github.com/shm11C3/HardwareVisualizer/issues/2510) |
+| Issue phase | Phase 4 (#1635), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), ADR 0031 re-scope under [#2510](https://github.com/shm11C3/HardwareVisualizer/issues/2510), [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821) |
+
+Revision 3 re-pins S9 to revision 3 and S10 to revision 5 for #2821. It
+adopts the shared
+[sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence)
+for this document's discovery failures. The revision 2 row, gates, reads
+and writes are unchanged.
 
 Revision 2 replaces the GA-B75M-D3H baseboard, PCB-version and exact
 EC-base predicates of revision 1 with the mechanism and safety gates
@@ -34,8 +40,8 @@ primary LPC profiles. Readiness of this revision follows the
 | S6 | Microsoft [`Win32_BaseBoard`](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-baseboard), Manufacturer, Product and Version properties | Public Windows interface. In revision 2 these properties name an observed member in a compatibility report or fixture. They are not a runtime condition. |
 | S7 | Linux v6.18 `drivers/hwmon/it87.c`, Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`: [IT8728 profile](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L376-L384), [16-bit count decode](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L686-L687), [count read order](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L905-L919), [version read](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L2828-L2831), [FAN2 pin route](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L3114-L3119) in the [common pin branch](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L3070), [fan enable](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L3309-L3310), [version-dependent fan format](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c#L3427-L3448) | lead-only (copyleft). Fixed 16-bit IT8728 counters, divisor 2, low byte followed by high byte, zero count invalid, maximum count no measurable rotation. The source reads the version nibble on every recognized chip. It changes the fan-counter format by version only for raw IDs `0x8705` and `0x8712`, and applies one fan profile to raw `0x8728` for every version value. |
 | S8 | LibreHardwareMonitor at `2808d80564b6761e1b01f42fabfd966ed695fcbc`: [ITE LPC Environment Controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT87XX.cs), Git blob `cc3dfd301e46cca5a92801890c512e0af422f8e1`, lines 239 and 476–495, and [LPC chip detection](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs), Git blob `3bb61abd9d86df2dcf388cc80689d4db61d16537`, lines 634, 661 and 710 | lead-only (copyleft). Corroborates low-then-high count order, the fixed divisor and full-count handling. Supports the existing conservative small-count cutoff in S11. The source reads the version nibble for every ITE chip and uses it to select the counter path only for IT8705F and IT8712F. Raw `0x8728` uses the 16-bit path for every version value. |
-| S9 | [IT8728 Windows temperature specification revision 2](superio-ite-it86xx-it87xx.md), detection, base validity and PawnIO authorization, read procedure, cadence and safety notes | Repository reference for the existing IT8728 path. The authority to use EC I/O follows a successful post-exit proof. |
-| S10 | [Super I/O configuration access revision 4](superio-access.md), ITE MB PnP and slot safety, and [PawnIO interface revision 7](pawnio-interface.md#lpcio), signed module and ISA mutex contract | Repository transport references. Existing installed and accepted PawnIO runtime and `LpcIO` module, restricted PIO, slot-specific authorization and caller-held ISA mutex. |
+| S9 | [IT8728 Windows temperature specification revision 3](superio-ite-it86xx-it87xx.md), detection, base validity and PawnIO authorization, read procedure, cadence and safety notes | Repository reference for the existing IT8728 path. The authority to use EC I/O follows a successful post-exit proof. |
+| S10 | [Super I/O configuration access revision 5](superio-access.md), ITE MB PnP and slot safety, the [sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence), and [PawnIO interface revision 7](pawnio-interface.md#lpcio), signed module and ISA mutex contract | Repository transport references. Existing installed and accepted PawnIO runtime and `LpcIO` module, restricted PIO, slot-specific authorization and caller-held ISA mutex. |
 | S11 | [Primary LPC expansion revision 6](superio-ite-primary-lpc-expansion.md#read-procedure-and-decode), shared fan plausibility and repeated count procedure, and [ADR 0011](../../adr/0011-experimental-sensor-enablement.md) | Shared project guards, result contract and Experimental policy. This document supplies the IT8728F fan register fields and qualification. |
 | S12 | PawnIO.Modules [`LpcIO` upstream IOCTL interface at `52a7e536dff3e53c96917a28caac5e0fa6510696`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p), pinned by S9/S10 | Public interface definition. BAR discovery scans logical devices and may leave a different selection. Slot selection invalidates the previous BAR allow-list. Success from BAR discovery alone does not prove a usable EC window. |
 | S13 | Linux v6.18 [`Documentation/hwmon/it87.rst`](https://github.com/torvalds/linux/blob/v6.18/Documentation/hwmon/it87.rst#L76-L82), Git blob `5cef4f26500028a591006aa410d06e99c6c45cc7`, lines 76–82 and 267–268 | lead-only (copyleft). The document lists no publicly available IT8728F datasheet. It states that the IT8728F was considered compatible with the IT8721F until a datasheet becomes available. Cited only in Open questions as the limit of S7's DX evidence. |
@@ -126,6 +132,10 @@ lead-only fact in [DX and EX applicability](#dx-and-ex-applicability).
    index write and data read as the PIO proof. Neither fan eligibility nor
    BAR discovery alone authorizes any EC fan read. A failed exit or proof
    prevents caching the executor/base and requires rediscovery under S9.
+   Both failures are eligible for rediscovery under the S10 cadence. A
+   rediscovery is a separate discovery attempt that never runs inside a
+   sample. An unreadable routing byte is not a discovery failure. It
+   excludes FAN2 while the path stays cached and starts no attempt.
    Selecting another slot, replacing the executor, or invalidating its
    state discards the proof and fan qualification (S9–S10, S12).
 3. Hold the ISA mutex for each sample burst. Use the existing EC `0x00`
@@ -222,6 +232,8 @@ expected observation.
 | Inactive LDN 04, or a base that fails the S9 checks (for example raw `0xFF/0xFF`, `0x00/0x00`, or set reserved bits) | No EC access for fans. No port-proof cache. |
 | Configuration exit fails, BAR discovery fails, the post-exit address or data access is denied, or ISA mutex unavailable | No fan-enable or count read. No port-proof cache on failure. If the exit fails, no EC access at all. |
 | The executor or slot was replaced after a successful proof | Prior port proof and fan qualification cannot authorize a later sample. |
+| Configuration exit or post-exit proof fails on the first discovery attempt and succeeds on a later one | The first attempt caches nothing and is eligible under S10. The later attempt starts no earlier than the S10 backoff allows, in its own mutex acquisition, and only then may fans be read. No sample contains a configuration key or exit write. |
+| `CR29` unreadable at discovery, everything else qualified | The path is cached with FAN2 excluded. No discovery attempt runs while that path stays cached. |
 | EC monitor-state read fails, Start is clear, or INT_Clear is set | No fan-enable or count read in the sample. |
 | EC `0x13` read fails | Both fan counts are absent. A valid temperature sibling survives. |
 | FAN1 disabled and FAN2 enabled/routed | Read only FAN2 counts and keep the name Fan 2. |
@@ -276,3 +288,4 @@ expected observation.
 | --- | --- | --- |
 | 1 | 2026-11-08 | Propose the transition from Draft to Implementation-ready (rev 1) for exact OEM GA-B75M-D3H IT8728F/EX FAN1–2 Experimental readback. The primary-slot authorization applies and the factory discriminator requires maintainer approval. |
 | 2 | 2026-11-28 | Re-scope under ADR 0031 per the maintainer decision of 2026-11-28 to a chip-level Experimental row. The row covers slot 0, raw `0x8728`, `CR22[3:0]=0x1`, an active LDN `0x04` with any S9-valid base, the S9 post-exit proof, `CR29[2]` routing and the EC `0x13` enables. Remove the `Win32_BaseBoard`, PCB-version and exact base `0x0A30` predicates and the host-side baseboard lookup. Record GA-B75M-D3H as the best-evidenced member. Add the gate-kind table and the DX and EX applicability facts, which are lead-only (S7/S8, ADR 0023). Correct the S7 line anchors to the pinned blob, and add S13 and S14. Replace the baseboard fixtures with a different-board, different-base case and revision rejections. FAN1–2 only. The decode, the repeated-pair guard and the plausibility cutoffs are unchanged. |
+| 3 | 2026-11-28 | Re-pin S9 to the IT8728 temperature specification revision 3 and S10 to Super I/O configuration access revision 5 for #2821. Adopt the shared sampling-path rediscovery cadence. A failed configuration exit or post-exit proof is eligible for rediscovery, and a rediscovery is a separate attempt that never runs inside a sample. An unreadable `CR29` excludes FAN2 while the path stays cached and starts no attempt. Add two fixtures. The row, gates, reads, writes, decode and plausibility cutoffs are unchanged. Status remains Implementation-ready (rev 3). |

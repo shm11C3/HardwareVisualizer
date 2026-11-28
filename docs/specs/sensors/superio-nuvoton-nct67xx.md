@@ -2,10 +2,18 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 9 |
-| Status | Implementation-ready (rev 9) |
+| Revision | 10 |
+| Status | Implementation-ready (rev 10) |
 | Scope | Phase 3 Nuvoton-family motherboard temperature and fan RPM reads for the scoped `0xD802` / `NCT6799D` Verified path (with Experimental sub-scopes for its seventh direct RPM pair and bank 4 `0x96`), the exact `0xD421` / `NCT6796D` / `NCT6796D-E` Experimental path, the lead-only Experimental chip-id rows (NCT6779D range `0xC560`-`0xC567`; exact `0xC803`, `0xC911`, `0xC913`, `0xD121`, `0xD352`, `0xD423`, `0xD429`, `0xD42A`, `0xD42B`, `0xD451`, `0xD801`, `0xD806`), and, new in revision 8, Experimental unrecognized-version members of the eight lead family ranges `0xC800`-`0xC807`, `0xC910`-`0xC917`, `0xD120`-`0xD127`, `0xD350`-`0xD357`, `0xD420`-`0xD427`, `0xD428`-`0xD42F`, `0xD450`-`0xD457`, `0xD800`-`0xD807` with a conservative per-range profile. Every enabled path uses read-oriented normal-HM banked access for bank 4 byte temperatures (`0x90`-`0x95`, plus `0x96` on the rows listed for it) and direct 16-bit RPM registers (`0xC0`-`0xCB`, plus `0xCE`/`0xCF` on seven-input rows) after chip-id, LDN B, HM-base, and (where the row says so) HM I/O-space-lock validation, and every byte temperature passes a plausibility filter. It excludes exact package suffix claims such as `-R`, read-only HM access, voltage decode, count-based fan RPM decode, fan-control/PWM writes, threshold/limit writes, lock clearing, activation writes, alarm clearing, GPIO, UI integration, and any Rust implementation. |
 | Issue phase | Phase 3 (#1635) - Nuvoton NCT67xx / NCT679x temperature and fan RPM specification |
+
+Revision 10 adopts the shared sampling-path rediscovery cadence of S19
+for [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821).
+It classifies this document's discovery failures under
+[Rediscovery eligibility](#rediscovery-eligibility). An unconfirmed
+Nuvoton configuration exit is eligible. Every value-based refusal is
+not eligible. The revision 9 scopes, gates, reads, writes, decodes and
+the Verified `0xD802` output are unchanged.
 
 Revision 9 keeps this document **Implementation-ready**. It records two
 review amendments to revision 8: the read-only `CR28` bit 4 lock gate
@@ -65,6 +73,7 @@ remains unknown and must not be surfaced as `NCT6799D-R`.
 | S16 | [ADR 0023](../../adr/0023-copyleft-derived-facts-for-experimental-scopes.md) | Accepted project policy source allowing lead-only facts to back Experimental scopes; it supplies no hardware-register facts. |
 | S17 | [`superio-ite-it86xx-it87xx.md`](superio-ite-it86xx-it87xx.md) revision 2 (Procedures, sample step 5) and `core/src/utils/super_io.rs` (`is_plausible_ite_temperature`, at commit `e2733bc0`) | Project consistency source: the existing Super I/O byte-temperature plausibility policy accepts a decoded temperature only when -55 <= t <= 125 degrees C inclusive, treats 0 degrees C as a valid sample, and omits an implausible input without publishing zero, a clamped boundary, or a whole-device failure. It supplies no Nuvoton register fact. |
 | S18 | Maintainer decision of 2026-10-25, conveyed to the spec-author role for this revision | Project policy source: the four rev 7 items that were disabled only because they were unverified are switched to Experimental under ADR 0011; unrecognized range versions use the most conservative named-member profile; the plausibility filter applies to every Nuvoton byte temperature including Verified `0xD802`, and hiding out-of-bounds `0xD802` values is accepted. It supplies no hardware-register facts. |
+| S19 | [`superio-access.md`](superio-access.md) revision 5, [Sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence) | Project policy for when a discovery attempt may start after a failure and which failure classes may start one. It supplies no hardware fact. The S2 pin stays in force for every other fact this document takes from `superio-access.md`. |
 
 S11-S15 are copyleft monitoring implementations and documentation
 consulted as leads under ADR 0023. Every fact taken from them is
@@ -548,6 +557,31 @@ invalid-byte filter (S14).
 11. Exit Nuvoton configuration mode and release the ISA mutex in all
     paths. (S2)
 
+### Rediscovery eligibility
+
+Discovery follows the S19 cadence. The configuration-mode steps form
+the discovery attempt: chip identity, the lock gate, LDN B, the base and
+`ioctl_find_bars` (steps 1–7), and the exit (step 11). The bank 4 reads
+of steps 8–10 run on the cached path without a configuration-mode
+entry, as a sample transaction. A failed sample is not a discovery
+failure and starts no attempt (S19 rule R1). The S19 shared table
+covers the mutex, the executor, `ioctl_find_bars` and
+configuration-register read failures.
+
+| Discovery failure | Rows | Class |
+| --- | --- | --- |
+| Nuvoton entry-key write or exit write fails, so the exit is not confirmed (steps 2, 11) | All rows, matched or not | Eligible |
+| Absent responder, or a chip ID outside every enabled row and range | — | Not eligible |
+| `CR28` bit 4 set (step 4) | Rows whose Lock gate is "Yes" | Not eligible |
+| `CR30` bit 0 clear (step 5) or an invalid `CR60/61` base (step 6) | All rows | Not eligible |
+
+The class does not depend on whether a row is Verified or Experimental.
+An unconfirmed exit leaves the chip on that slot possibly in
+configuration mode, and a later attempt is the only point at which the
+matching exit is issued again (S19). Each lock, activation and base
+refusal is a value that PawnIO read successfully. (S1 pp. 376,
+431–432; S2; S19)
+
 ### Temperature decode
 
 - Decode each enabled bank 4 temperature byte as signed 8-bit degrees C.
@@ -746,7 +780,7 @@ invalid-byte filter (S14).
 
 ## Implementation-ready transition checklist
 
-Revision 9 satisfies the directory-level checklist in [`README.md`](README.md):
+Revision 10 satisfies the directory-level checklist in [`README.md`](README.md):
 
 - no unresolved provenance marker remains in this document;
 - every enabled D421 fact is pinned to S1/S2, and every Verified D802
@@ -774,7 +808,8 @@ Implementation PRs should pin this ready revision and commit, for example:
 
 ```text
 Implemented from docs/specs/sensors/superio-access.md revision 3 (commit a8c167b1), limited to Super I/O configuration access and chip-id diagnostic facts.
-Implemented from docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9 (commit <ready-commit>), limited to the `0xD802` / NCT6799D Verified scope with its Experimental sub-scopes, the `0xD421` / NCT6796D / NCT6796D-E Experimental scope, the lead-only Experimental rows, and the unrecognized-version range profiles marked enabled in that revision.
+Implemented from docs/specs/sensors/superio-access.md revision 5 (commit <pin>), limited to the sampling-path rediscovery cadence.
+Implemented from docs/specs/sensors/superio-nuvoton-nct67xx.md revision 10 (commit <ready-commit>), limited to the `0xD802` / NCT6799D Verified scope with its Experimental sub-scopes, the `0xD421` / NCT6796D / NCT6796D-E Experimental scope, the lead-only Experimental rows, and the unrecognized-version range profiles marked enabled in that revision.
 No other external sensor documentation was used.
 ```
 
@@ -791,3 +826,4 @@ No other external sensor documentation was used.
 | 7 | 2026-10-25 | Added lead-only (ADR 0023) Experimental rows for NCT6779D (`0xC560`-`0xC567`), NCT6791D `0xC803`, NCT6792D `0xC911`/`0xC913`, NCT6793D `0xD121`, NCT6795D `0xD352`, NCT6796D `0xD423`, NCT6798D `0xD429`/`0xD42B`, `0xD42A` (NCT6796D-R / NCT5585D), NCT6797D `0xD451`, NCT6796D-S `0xD801`, and NCT6701D `0xD806` with per-row fan counts, a seventh direct RPM pair `0xCE`/`0xCF` for seven-input rows, a read-only `CR28` bit 4 HM I/O-space-lock gate, and NCT6701D read-only quirks; added S1 pins for the 8.8.1 seven-input table (p. 66), the CR21 version note (p. 362), and CR28 bit 4 (p. 376); recorded S7/S9 `0xCC`-`0xCF` bytes as evidence; added copyleft lead sources S11-S15 tagged lead-only and ADR 0023 as S16; recorded the `0xD802` / NCT6796D-S labelling conflict, `0xD42A` dual identity, range-matching policy, and NCT6701D alternate-base conflict as non-blocking open questions. `0xD802` Verified and `0xD421` Experimental rows unchanged in substance. Status remains Implementation-ready. |
 | 8 | 2026-10-25 | Applied ADR 0011 per the maintainer decision of 2026-10-25 (S18) to four reads rev 7 kept disabled only because they were unverified, all as Experimental: the seventh direct RPM pair `0xCE`/`0xCF` on `0xD802` (sub-scope of the Verified row), `0xD421`, and `0xD423`; unrecognized versions of the eight masked lead family ranges with a per-range conservative profile and family label (NCT6779D row unchanged at `0xC560`-`0xC567`); all six bank 4 temperatures on `0xD42A`; and bank 4 `0x96` (generic `Temperature 7`) on `0xD802`, `0xD429`, `0xD42A`, `0xD42B`, `0xD801`, and unrecognized `0xD428`-`0xD42F` versions. Added a byte-temperature plausibility filter (-55 to +125 degrees C, S1 Table 8-1 p. 60; consistent with S17) for every row including Verified `0xD802`; added the D802 sub-scope failure rule and an input identity/ordering stability requirement; recorded the S9 `0x96` byte (`0x19`), the S14 per-table `0x96` coverage, and S17/S18 as sources; updated the seventh-pair, `0xD42A`, `0xD423` fan-count, range-matching, and `0x96` open questions and added a plausibility-bounds open question. Lock-gate stop, no `CR64/65` fallback, disabled count registers, and disabled read-only HM unchanged. Status remains Implementation-ready. |
 | 9 | 2026-10-25 | Review amendments from PR #2464: the read-only `CR28` bit 4 lock gate now also applies to the exact `0xD421` Experimental profile, backed by S1 p. 376 alone (`0xD802` stays ungated because S7/S9 show its normal-HM reads working; NCT6779D stays ungated because no lead applies the lock to it); the input identity and ordering stability rule now requires a position-keyed consumer to report an unavailable input as an explicit unavailable slot at its position, while a label-keyed consumer may omit it. Updated procedure step 4, the lock-detection and `0xD421` scoped-enablement rows, the D421 layout boundary, the `0xD420` range profile row, and the lock quirk. Status remains Implementation-ready. |
+| 10 | 2026-11-28 | Adopted the shared sampling-path rediscovery cadence of S19 (`superio-access.md` revision 5) for #2821 and added S19. Added [Rediscovery eligibility](#rediscovery-eligibility). A failed Nuvoton entry-key or exit write, which leaves the exit unconfirmed, is eligible on every row, matched or not. An absent responder, an out-of-scope chip ID, a `CR28` lock, an inactive LDN B and an invalid base are not eligible. The bank 4 reads of steps 8–10 form a sample transaction, and a failed sample starts no discovery attempt. Scopes, gates, reads, writes, decodes and the Verified `0xD802` output are unchanged. Status remains Implementation-ready (rev 10). |
