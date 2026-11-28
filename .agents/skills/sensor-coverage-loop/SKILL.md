@@ -109,8 +109,10 @@ Run `git fetch origin` before any step below that reads an `origin/` ref.
    PRs with their checks and threads, running agents, and every implementable
    specification that has no implementation lane yet, not only the ones whose
    PRs merged since the last tick. Also collect finished work that has no open
-   PR: commits ahead of `origin` in agent worktrees (`git worktree list`) and
-   pushed branches without a PR. Skip a candidate whose branch, or whose
+   PR: commits ahead of `origin` in agent worktrees (`git worktree list`),
+   uncommitted changes left in an agent worktree whose agent has stopped
+   (commit them yourself, as Worktrees rule 4 says, after the harvest checks
+   pass), and pushed branches without a PR. Skip a candidate whose branch, or whose
    change, already has a merged PR (`gh pr list --state merged --head
    <branch>`, or the same change already on `origin/develop`), because
    squash-merged commits still look ahead of `origin`. Harvest the rest in
