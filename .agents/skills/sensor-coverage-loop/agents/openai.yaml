@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sensor Coverage Loop"
+  short_description: "Advance the hardware coverage epic in parallel lanes."
+  default_prompt: "Use $sensor-coverage-loop to run one tick of the #2510 coverage loop: harvest finished agents into PRs, handle review feedback, and refill idle lanes."
