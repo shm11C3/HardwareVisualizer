@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
+| Revision | 2 |
 | Status | Draft — not implementation-ready |
 | Scope | Static FAN1 and FAN2 readback evidence from the GA-H61M-DS2 rev. 2.2 F9 BIOS and the associated rev. 2.21 schematic |
 | Issue phase | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), primary LPC research |
@@ -14,16 +14,17 @@
 | S1 | Gigabyte GA-H61M-DS2 schematic, drawing revision 2.21, March 30, 2012, [sheet 16, ITE 8728 LPC I/O](https://manualmachine.com/gigabyte/gah61mds2/24375246-schematic-rev-2/#:~:text=IT8728F%2FDX) and [sheet 18, HWM, FAN CTRL, OV](https://manualmachine.com/gigabyte/gah61mds2/24375246-schematic-rev-2/#:~:text=Disable%20the%208728%20EX) | Vendor-authored drawing, public mirror. Sheet 16 identifies the specified part and its LPC attachment. Sheet 18 shows CPU and system tach routing and includes a separate EX reference. |
 | S2 | Gigabyte [GA-H61M-DS2 rev. 2.2 BIOS support](https://www.gigabyte.com/Motherboard/GA-H61M-DS2-rev-22/support#support-dl-bios), F9, April 19, 2013, [vendor archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_ga-h61m-ds2_v2.x_f9.exe?v=327640d339ee3af7df0f703aa10200b4) | Static inspection of the firmware as data. Archive SHA-256 `4c3788b59d424b1c738218c8f42e85d27f8bac6a13108828c66d27d9985e9620`. Member `h61mds22.f9`, 4,194,304 bytes, SHA-256 `df60a122dc4d8a62ec0a2af12b495860b7102db9f6e2ceeb88081c87842d3bee`. The SMM PE image in FFS `199FD111-0785-4132-A9B3-1F66573F0060` has SHA-256 `9915ae83f946ee799f809ddf1a548ad8efa7b2570fbfe8bbeb726dab432eb797`. |
 | S3 | ITE IT8728F Preliminary Specification V0.4.2, cover and §8.3.5, printed p. 48, pinned as S1 in the [IT8728 temperature specification](superio-ite-it86xx-it87xx.md#sources) | Vendor-authored, E-version document. The chip revision table assigns the same `CR22[3:0]` value `0x1` to DX and EX. |
-| S4 | [Primary ITE LPC expansion](superio-ite-primary-lpc-expansion.md#deferred-profiles) and [GA-B75M-D3H IT8728F/EX fan specification](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md) | Current applicability and transport boundaries for IT8728F fan readback. |
+| S4 | [Primary ITE LPC expansion revision 6](superio-ite-primary-lpc-expansion.md#deferred-profiles) and [IT8728F primary-slot FAN1–2 specification revision 2](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md) | Current applicability and transport boundaries for IT8728F fan readback. S4 covers slot-0 FAN1–2 on raw `0x8728` with `CR22[3:0]=0x1`, DX and EX alike, through a lead-only fact. |
 
 ## Detection
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Primary LPC FAN1 and FAN2 on the studied GA-H61M-DS2 design | The rev. 2.21 schematic specifies IT8728F/DX on sheet 16, while a note about overvoltage and undervoltage on sheet 18 refers to 8728 EX. The schematic connects CPU and system tach signals to FANIO1 and FANIO2 respectively. The F9 firmware contains a two-byte tach read path at the port pair shown below. No inspected evidence ties the revision nibble and a live reading to the physical chip marking on this board. (S1–S3) | Disabled |
+| Primary LPC FAN1 and FAN2 on the studied GA-H61M-DS2 design | The rev. 2.21 schematic specifies IT8728F/DX on sheet 16, while a note about overvoltage and undervoltage on sheet 18 refers to 8728 EX. The schematic connects CPU and system tach signals to FANIO1 and FANIO2 respectively. The F9 firmware contains a two-byte tach read path at the port pair shown below. No inspected evidence ties the revision nibble and a live reading to the physical chip marking on this board. (S1–S3) | No separate enablement in this document. A unit whose primary controller reports raw `0x8728` with `CR22[3:0]=0x1` and passes the S4 runtime gates follows the S4 Experimental row, whether DX or EX. |
 
-This draft defines no runtime gate. The DX/EX alias remains unresolved
-outside the scope of the separate GA-B75M-D3H specification. (S3, S4)
+This draft defines no runtime gate. S4 treats DX and EX alike under the
+shared version code. The physical attribution on this board stays open
+below and does not affect the S4 row. (S3, S4)
 
 ## Register map (static firmware observations)
 
@@ -55,21 +56,24 @@ direct LPC transaction. (S2, S4)
   evidence. A same-board, same-session capture can tie the physical
   chip marking and board revision to the active primary controller,
   raw chip ID and revision, gate bytes, raw counts, and positive RPM.
-  (S1–S3)
-- **Runtime route, width, and decode.** A DX-specific primary register
-  document could establish DX register semantics. Physical attribution
-  to this board requires the separate evidence above. The schematic
-  identifies physical tach routing. The two F9 measurements check no
-  mux, monitor state, channel-enable, or counter-width fields. The F9
-  read order and sentinels leave latching, coherence, and a common
-  DX/EX decode and eligibility contract unresolved. (S1–S4)
+  (S1–S3) The S4 row does not depend on this attribution.
+- **Runtime route, width, and decode.** S4 states a common DX/EX
+  routing, enable, count and decode contract as a lead-only fact, which
+  keeps it Experimental. A DX-specific primary register document could
+  confirm it. The schematic identifies physical tach routing. The two
+  F9 measurements check no mux, monitor state, channel-enable, or
+  counter-width fields. The F9 read order and sentinels leave latching
+  and coherence unresolved. (S1–S4)
 - **Runtime ownership.** A supported firmware-mediated query or a
   documented arbitration mechanism for direct access is still needed.
   A host mutex alone does not establish serialization with SMM on this
-  board. (S2, S4)
+  board. S4 records this exposure as a non-blocking open question for
+  its Experimental row, because the existing temperature path already
+  uses the same ports. (S2, S4)
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-09 | Record the GA-H61M-DS2 schematic and F9 FAN1/FAN2 readback evidence. Keep the candidate disabled pending silicon attribution, runtime gates, and transport ownership. |
+| 2 | 2026-11-28 | Follow the chip-level IT8728F FAN1–2 specification revision 2. FAN1–2 on this design follow that Experimental row when its runtime gates pass, for DX or EX. This document keeps its static firmware evidence and open questions and defines no separate gate. |
