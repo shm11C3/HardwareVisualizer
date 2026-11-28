@@ -2,10 +2,21 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 8 |
-| Status | Implementation-ready (rev 8) |
+| Revision | 9 |
+| Status | Implementation-ready (rev 9) |
 | Scope | Read-only access to the primary LPC Environment Controller for IT8716F silicon version D FAN1–3, firmware-enabled 16-bit FAN1–3 on IT8718F, IT8772E silicon version FX FAN2–3, exact IT8620E and IT8628E TMPIN1–3 and FAN1–3, and bank-guarded TMPIN1–3 and FAN1–3 on exact IT8686E, IT8688E and IT8689E. IT8721F silicon version DX FAN1–3 register facts are recorded, but the row is disabled. Only the model and channel rows below qualify. |
-| Issue phase | Phase 4 (#1635), [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695), [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698) |
+| Issue phase | Phase 4 (#1635), [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695), [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698), [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821) |
+
+Revision 9 adopts the shared
+[sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence)
+of S9 for [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821).
+It classifies every discovery failure of this document as eligible or
+not eligible for rediscovery, in
+[Rediscovery eligibility](#rediscovery-eligibility). On the banked
+modern profile, a non-zero EC `0x06` bank field found at discovery is
+**eligible**. A later, separate discovery attempt may cache the path
+once the bank is clear. The revision 8 profiles, gates, reads, writes
+and transport rules are unchanged.
 
 Revision 8 adds one Experimental fan profile for
 [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). It
@@ -36,7 +47,7 @@ bank checks (see [Banked modern profile](#banked-modern-profile)).
 Revision 7 also adds a runtime gate table and gives every
 [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698)
 target a disposition. The revision 6 profiles, gates and transport
-rules are unchanged. Clean-room implementation can pin revision 8 after
+rules are unchanged. Clean-room implementation can pin revision 9 after
 the maintainer approves the specification PR under the
 [specification gate](README.md#status-transition-draft--implementation-ready).
 All expansion rows are Experimental. They have pinned lead-only
@@ -59,7 +70,7 @@ failure diagnostics under [ADR 0011](../../adr/0011-experimental-sensor-enableme
 | S6 | Linux kernel [v6.18, `drivers/hwmon/it87.c`](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, GPL-2.0-or-later | **lead-only (copyleft)**. Pins exact modern IDs, I/O discovery and layout, temperature routing, pin selections, fan count format and availability, vendor register, and 16-bit mode differences. The exact IT8620E and IT8628E profile entries and model-scoped discovery are at lines 477–504, 2779–2787 and 2955–2989. For exact IT8772E, lines 409–418 and 2757–2759 identify the model and fixed 16-bit path. Lines 683–687, 910–921, 3245–3255, 3309–3325 and 3424–3448 pin divisor, count interpretation, read order, enable order and model-specific mode handling. The three-fan claim in this source does not apply to the FX scope in S13. For IT8718F and IT8721F, lines 350–357 and 366–375 give both models 16-bit fan counters, lines 2736–2744 map raw `0x8718` and `0x8721`, lines 2828–2831 read the `CR22` low nibble on every chip, and lines 3070–3119 take FAN3 routing from `CR27` bit 7 and FAN2 routing from `CR29` bit 2 for both models. Lines 3427–3448 change the counter format by revision only for raw `0x8705` and `0x8712`. The fixed divisor 2 of the 16-bit format is at lines 685–687. |
 | S7 | LibreHardwareMonitor [`2808d80564b6`, ITE LPC Environment Controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT87XX.cs), Git blob `cc3dfd301e46cca5a92801890c512e0af422f8e1`, MPL-2.0 | **lead-only (copyleft)**. Corroborates the fixed divisor, low-byte then high-byte read order, maximum count as no measured rotation, and supports a conservative lower count bound for 16-bit tachometer channels. For the banked modern profile, lines 84–86 give IT8689E four register banks, lines 420–436 place the bank field in EC `0x06` bits 6:5 and state that a bank change swaps indexes `0x10`–`0xAF`, lines 151 and 194 require a bank-0 write before every IT8665E and IT8655E update, line 470 treats a temperature byte of 0 or less, or 127, as no reading, and lines 561–563 record that IT8688E does not return the written index when its address port is read. The matching [chip-ID map](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs#L623-L625), Git blob `3bb61abd9d86df2dcf388cc80689d4db61d16537`, names raw `0x8686`, `0x8688` and `0x8689`. The same map names raw `0x8718` and `0x8721` at lines 630 and 632. In the controller source, line 239 makes the 16-bit counter path depend on the revision only for IT8705F and IT8712F. Lines 476–495 read FAN1–3 of the other models as a low byte followed by a high byte and convert with divisor 2. |
 | S8 | ITE Tech., Inc., *IT8716F Environment Control - LPC I/O*, Preliminary Specification V0.3, [public third-party mirror](https://www.rom.by/files/IT8716F_V0.3.pdf) | Vendor-authored primary document. The cover applies V0.3 to D and future versions. Section 8.3.5, printed p. 39, explicitly identifies C and D through `CR22[3:0]`. Pins configuration §8.1 and §§8.3, 8.8, dedicated FAN1 and shared FAN2/3 pin functions §§4–5 and §§8.3.10, 8.3.12, EC access §§9.6.1–9.6.2.1, monitor state §9.6.2.2.1, fan read and enable fields §§9.6.2.2.13–16 and .21, printed pp. 89–91, and tachometer format and cadence §§9.6.3.5–6, printed p. 101. |
-| S9 | [Super I/O configuration access revision 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [PawnIO interface revision 7](pawnio-interface.md#lpcio) | Current repository transport facts and scope limits. The Experimental slot-1 withhold applies to diagnostics. |
+| S9 | [Super I/O configuration access revision 5](superio-access.md#slot-1-ite-exit-withhold-rule), including its [sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence), and [PawnIO interface revision 7](pawnio-interface.md#lpcio) | Current repository transport facts and scope limits. The Experimental slot-1 withhold applies to diagnostics. The rediscovery cadence and its eligibility classes are product policy and govern when this document's discovery may run again. |
 | S10 | Out-of-tree [IT87 driver](https://github.com/frankcrawford/it87/blob/master/it87.c), Git blob `56148f202fee43436fa73a747a1bf465deb8721e`, GPL-2.0-or-later | **lead-only (copyleft)**. Corroborates the separate exact IT8620E and IT8628E IDs and fixed 16-bit fan profile selection, with distinct bank and SMBus access requirements for deferred chips. |
 | S11 | PawnIO.Modules [`LpcIO` at `52a7e536dff3`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p) | Upstream public interface used by HardwareVisualizer. Slot selection invalidates previous BAR permissions. BAR discovery is a multi-LDN scan and does not guarantee preservation of the selected LDN. |
 | S12 | [IT8728F primary-slot FAN1–2 specification revision 2](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md) | Applicability reference for the separate chip-level Experimental IT8728F FAN1–2 profile. The primary expansion rows in this document do not depend on that profile. |
@@ -148,13 +159,58 @@ that sequence. (S3, S11)
 | IT8620E, IT8628E | S6 describes the primary configuration keys and exact IDs, LDN `0x04` with `CR30[0]` set, and an eight-port EC block from `CR60/61`, with index/data at base + 5/+ 6. Require the raw big-endian base in `0x0100`–`0x0FF0`, bits 2:0 clear, and an address outside the PawnIO-protected PCI window. Read pin-routing fields with LDN `0x07` selected, then return to LDN `0x04` before BAR discovery. After the EC `0x00` port proof, require bit 7 clear and EC `0x58=0x90` before caching this path. | EC `0x00` bit 0 set and bits 7 and 3 clear. The bit 3 check and stricter base checks are conservative project guards. | Discovery, ports, EC vendor byte, monitor start, and EC `0x00[7]` refusal S6 (lead-only); allow-list S3/S9/S11 |
 | IT8686E, IT8688E, IT8689E (banked modern) | Use the IT8620E discovery and base rules above after exact raw ID `0x8686`, `0x8688` or `0x8689`. Read global `CR22` and keep its value for diagnostics only. No revision nibble selects or refuses this profile. Read `CR27` and `CR29` with LDN `0x07` selected, then return to LDN `0x04` before BAR discovery. After the EC `0x00` port proof, require bit 7 clear. Then read EC `0x06` and require bits 7:5 clear before reading EC `0x58`, and require `0x90` before caching this path. Do not read or write LDN `0x04` `CR F3` on the runtime path. | Per sample, see [Banked modern profile](#banked-modern-profile). | Discovery, ports, routing, vendor byte and EC `0x00[7]` refusal S15/S16 (lead-only); bank field S15/S7 (lead-only); allow-list S3/S9/S11 |
 
-Mark a failed pin-routing read unavailable for the affected fan until
-rediscovery. If selection of the routing LDN fails on a modern profile,
+Mark a failed pin-routing read unavailable for the affected fan while
+that path stays cached. A failed routing read is not a discovery failure
+and starts no discovery attempt. The fan can return only through a later
+attempt after the path is discarded under the S9 rediscovery cadence. If selection of the routing LDN fails on a modern profile,
 both dependent fans are unavailable. Require successful selection of
 LDN `0x04` before continuing to BAR discovery. Successful unrelated
 inputs remain usable. Require the caller-held ISA mutex across discovery
 and each sample, and apply the existing 1.5-second minimum interval
 between sample bursts. (S3, S5, S9 and S8 §9.6.3.6)
+
+### Rediscovery eligibility
+
+Discovery attempts on every profile follow the S9 rediscovery cadence.
+Under S9 rule R1, a rediscovery is its own discovery attempt under its
+own ISA mutex acquisition. It never runs inside a sample transaction,
+and no sample transaction contains a configuration key or exit write.
+The S9 shared table covers the mutex, the executor, the configuration
+entry and exit writes, and the `ioctl_find_bars` and
+configuration-register read failures. This table classifies the
+failures specific to this document.
+
+| Discovery failure | Profiles | Class | Reason |
+| --- | --- | --- | --- |
+| Chip ID outside the profiles, `CR22` nibble refused, inactive LDN, refused base, or slot 1 | Per profile | Not eligible | The value was read successfully and describes the chip or its configuration. |
+| Post-exit EC `0x00` port proof fails (index write or data read) | All | Eligible | `ioctl_find_bars` success does not prove a usable window (S3, S11). A later attempt runs BAR discovery again. |
+| EC `0x00` bit 7 set at discovery | IT8620E, IT8628E, banked modern | Not eligible | Hardware state read successfully (S6, S15, S16). |
+| EC `0x58` read fails | IT8718F, IT8772E FX, IT8620E, IT8628E, banked modern | Eligible | A port failure after the port proof, as above. |
+| EC `0x58` reads a value other than `0x90` | IT8718F, IT8772E FX, IT8620E, IT8628E, banked modern | Not eligible | Hardware state read successfully. For the banked profile see [Open questions](#open-questions). |
+| EC `0x06` read fails | Banked modern | Eligible | A port failure after the port proof, as above. |
+| EC `0x06` bits 7:5 not all clear | Banked modern | Eligible | See below. |
+
+A non-zero bank at discovery is eligible for the following reasons.
+S17 reports that the embedded controller on one multi-bank chip changes
+the bank while it accesses the registers. S18 reports that an embedded
+controller can reach the Environment Controller registers over the
+serial bus at any time without synchronization. Both treat the bank
+field as shared state that another EC user changes for the length of
+its own access. A non-zero bank at the discovery check is therefore
+expected to be transient. The sample path already treats the same
+reading as affecting only that sample (step 2 of the sample order
+below). A permanent discovery failure would leave the profile
+unavailable for a condition from which the sample path recovers on the
+next sample.
+
+Rediscovery after a non-zero bank is a separate S9 discovery attempt.
+It repeats the whole discovery and authorization sequence above: the
+configuration keys, the LDN selections, BAR discovery, the exit, the
+port proof and the bank and vendor checks. It never writes EC `0x06`,
+never reads or writes `CR F3`, and caches the path only when the bank is clear and EC
+`0x58` reads `0x90` in that attempt. If the bank stays non-zero, the
+S9 backoff bounds the cost at two attempts per minute.
+(S7, S9, S15, S17, S18)
 
 On IT8620E and IT8628E, read temperatures as signed bytes at EC
 `0x29`, `0x2A`, and `0x2B`. In EC `0x51`, bits 0–2 select physical
@@ -272,7 +328,9 @@ Use this order:
 1. Read EC `0x00`. Require bit 0 set and bit 7 clear. Otherwise the
    whole sample is unavailable.
 2. Read EC `0x06`. Require bits 7:5 clear. Otherwise make no further
-   banked read, report the sample as unavailable and do not retry.
+   banked read, report the sample as unavailable and do not retry
+   within the sample. The cached path stays cached, and the failed
+   sample starts no discovery attempt (S9 rule R1).
 3. Read EC `0x58` and require `0x90`. Otherwise the sample is
    unavailable.
 4. Read EC `0x13`. A failed read makes FAN1–3 unavailable but does
@@ -374,6 +432,11 @@ fan capability independently of this sample's available rows. (S3, S5;
 | Same transaction with `0x8688` and `CR22=0x01`, then `0x8689` and `CR22=0x02` | Identical readings. The revision is reported and does not gate. |
 | Banked modern, EC `0x06` is `0x20`, `0x40`, `0x60` or `0x80` at the opening check | No read of EC `0x58`, `0x13`, counts or temperatures. All six inputs are unavailable for this sample, and no EC `0x06` write occurs. The next sample starts independently. |
 | Banked modern, EC `0x06` is `0x00` at the opening check and `0x20` or unreadable at the closing check | Every fan and temperature value of this sample is discarded. |
+| Banked modern discovery: on the first attempt EC `0x06` reads `0x20` after the port proof and bit-7 check, and on a later attempt `0x00` | The first attempt reads no EC `0x58`, writes no EC `0x06`, caches no path and ends with an eligible failure. No attempt starts within 2 s of the first. The later attempt repeats the whole discovery sequence in its own mutex acquisition and caches the path. No sample transaction contains a configuration key or exit write. |
+| Banked modern discovery, EC `0x06` unreadable after the port proof | Same as the previous row: no path, eligible, and no EC `0x06` write. |
+| Banked modern discovery, EC `0x06` reads `0x60` on every attempt | Attempts follow the S9 backoff of 2, 4, 8 and 16 s, then 30 s. No path is cached, and no write other than the discovery writes listed for the banked recorded transaction occurs. |
+| Banked modern discovery, EC `0x06` = `0x00` and EC `0x58` = `0x00` | No path cached. Not eligible. The sampler starts no further attempt. |
+| Modern profile discovery, post-exit EC `0x00` port proof or EC `0x58` read denied | No path cached. Eligible. |
 | Banked modern, EC `0x58=0x00` after a zero bank, or EC `0x00` bit 0 clear or bit 7 set | Sample unavailable. No further banked read. |
 | Banked modern, TMPIN bytes stable at `0xC9`, `0x00`, `0x80`, `0x7E`, `0x7D` and `0x01` | Unavailable, unavailable, unavailable, unavailable, +125 °C and +1 °C respectively. |
 | Banked modern, TMPIN2 reads `0x31` then `0x32`, siblings stable | TMPIN2 unavailable. TMPIN1 and TMPIN3 keep their names and values. |
@@ -470,7 +533,10 @@ fan capability independently of this sample's available rows. (S3, S5;
   select a bank there (S15, S16). Those writes change shared state that
   another controller may be using. Never read an index at or above
   `0x80` or any bank-2 register. A non-zero bank makes the sample
-  unavailable instead of triggering a correction. (S7, S15, S17, S18)
+  unavailable instead of triggering a correction. At discovery, it makes
+  the attempt fail with an eligible failure, again without a
+  correction, and any rediscovery is a separate attempt under the S9
+  cadence. (S7, S9, S15, S17, S18)
 - OEM AML on the inspected Gigabyte boards uses the same primary
   index/data pair under the ACPI Global Lock. PawnIO clients cannot take
   that lock. S20 observed wrong readings that matched this interleaving.
@@ -576,6 +642,18 @@ fan capability independently of this sample's available rows. (S3, S5;
   IT8688E or IT8689E register dump is available. Graduation needs
   maintainer-accepted dumps under [#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500)
   that cover every fact the row depends on.
+- Non-blocking for Phase 4 primary LPC expansion: the not-eligible classification caches no path, so it can only delay recovery. Sampler recreation retries it at most every 30 s under S9 rule R4.
+  **Banked vendor byte mismatch at discovery.** Index `0x58` lies in
+  the range `0x10`–`0xAF` that a bank change replaces (S7). Discovery
+  checks the bank once, before it reads EC `0x58`, and has no closing
+  check. A mismatch could therefore come from a bank change between
+  the two reads as well as from a block that is not the expected
+  controller. This revision classifies it as not eligible. Two changes
+  would resolve the ambiguity. One is a closing EC `0x06` read after a
+  mismatch: a non-zero or unreadable bank would make the failure
+  eligible, and a clear bank would make it not eligible. The other is to
+  make every banked mismatch eligible. A dump or field report showing a
+  mismatch at discovery on a named board would decide between them.
 - Non-blocking for Phase 4 primary LPC expansion: ADR 0023 lets the lead-only coverage fact back the Experimental IT8718F row, and no primary source assigns a different fan map to any IT8718F version.
   **IT8718F versions after C.** S22 applies to C and future versions
   but lists no code after `0x1`. ITE issued separate J and K documents
@@ -702,3 +780,4 @@ reads bank 1–3, EC `0x01`–`0x03` or any index at or above `0x80`.
 | 6 | 2026-11-28 | Follow the chip-level S12 revision 2 (ADR 0031). The IT8728F scope row, the IT8728 no-fan fixture, the deferred row and the DX/EX open question now point to its `CR22[3:0]=0x1` FAN1–2 row instead of the GA-B75M-D3H board profile. The revision 5 profiles, gates and transport rules are unchanged. |
 | 7 | 2026-11-28 | Propose Implementation-ready status for an Experimental bank-guarded TMPIN1–3 and FAN1–3 profile on exact slot-0 IT8686E, IT8688E and IT8689E ([#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698)). Add lead-only sources S15–S18, the S19 independent IT8686E dump, the S20 IT8688E firmware-interleaving observation and the S21 repository OEM evidence. Add a runtime gate table for every profile, banked fixtures, quirks, safety notes and open questions. These include the shared exposure to firmware use of the primary pair, which the maintainer must accept explicitly. Repeated reads reduce the resulting wrong readings but cannot filter an interference that persists across both reads. Give every #2698 target a disposition. The revision 6 profiles, gates and transport rules are unchanged. |
 | 8 | 2026-11-28 | Propose Implementation-ready status for one Experimental fan row ([#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695)): firmware-enabled 16-bit FAN1–3 on exact slot-0 IT8718F with `CR22` for diagnostics only. Record the S24 register facts for FAN1–3 on IT8721F DX (`CR22[3:0]=0x3`), but keep that row disabled. Its discovery would add `CR07` data writes on a configuration pair that audited IT8721F platform firmware writes under a private mutex, and no accepted residual covers a misdirected configuration write. The open questions name the protection contracts that would unblock it. Add the ITE datasheets S22–S24 as primary sources, S25–S28 for dispositions and S29–S30 as IT8718F evidence identities. Extend S6/S7 with the matching lead-only line pins. Add the IT8718F applicability facts, gate rows, discovery rows, the register table, synthetic fixtures, quirks, safety notes and open questions. Give every #2695 target a disposition and move those rows from #2518 to #2695. The revision 7 profiles, gates and transport rules are unchanged. |
+| 9 | 2026-11-28 | Adopt the shared sampling-path rediscovery cadence of S9 (Super I/O configuration access revision 5) for [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821) and re-pin S9 to that revision. Add [Rediscovery eligibility](#rediscovery-eligibility). On the banked modern profile, a non-zero EC `0x06` bank field at discovery is eligible, on the S17/S18 evidence that other EC users change the bank transiently. An unreadable EC `0x06`, a failed EC `0x58` read and a failed post-exit port proof are also eligible. Value-based refusals, including an EC `0x58` mismatch, are not eligible. A failed routing read leaves its fan unavailable while the path stays cached, and starts no attempt. State that a failed banked sample starts no discovery attempt, and that a rediscovery never writes EC `0x06`, never reads or writes `CR F3` and never runs inside a sample transaction. Add discovery-eligibility fixtures and a non-blocking open question on the banked vendor-byte mismatch. The revision 8 profiles, gates, reads, writes and transport rules are unchanged. |

@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
-| Status | Implementation-ready (rev 2) |
+| Revision | 3 |
+| Status | Implementation-ready (rev 3) |
 | Scope | Phase 4 read-only motherboard-temperature access for exact raw chip ID `0x8728` / IT8728F/EX through the normal Environment Controller I/O block. Revision 2 enables only generic `TMPIN1`-`TMPIN3` byte temperatures as Experimental. It excludes every other IT86xx/IT87xx ID, fan RPM, voltages, FAN4/5 high-index access, PWM/fan control, limits, alarm/status reads, GPIO, board-specific physical labels, UI work, and Rust/TypeScript implementation. |
 | Issue phase | Phase 4 (#1635) - ITE Super I/O temperature specification |
 
@@ -14,6 +14,12 @@ document, but no matching independent hardware dump is available yet. Per
 read uses the existing presentation contract without an Experimental badge;
 only a surfaced failure may identify the attempted path as experimental.
 
+Revision 3 adopts the shared sampling-path rediscovery cadence of S6 for
+[#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821). It
+classifies this document's discovery failures under
+[Rediscovery eligibility](#rediscovery-eligibility). The revision 2
+scope, gates, reads and writes are unchanged.
+
 ## Sources
 
 | ID | Source | Notes |
@@ -23,6 +29,7 @@ only a surfaced failure may identify the attempted path as experimental.
 | S3 | PawnIO.Modules upstream, `LpcIO` public IOCTL interface at commit `52a7e536dff3e53c96917a28caac5e0fa6510696`, <https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p>; retrieved 2026-08-30; SHA-256 of the raw `LpcIO.p` bytes `43F0EAE8CBCFBB5D1DD7492C45F343061A8D7C81970AF56C15010ECE2DA1678E` | Upstream-published interface definition for the API HardwareVisualizer calls: slot selection, Super I/O configuration reads/writes, BAR discovery, restricted port I/O, and the caller-held ISA mutex. For a non-absent chip-ID byte, BAR discovery can return success after scanning without proving that it authorized any usable BAR window; subsequent PIO independently denies a port outside the selected configuration pair or discovered 8-byte windows. Therefore success from `ioctl_find_bars` is necessary but not sufficient evidence that the EC ports are usable. It is not used as a hardware-register source, and no implementation code or structure is reproduced here. |
 | S4 | [`superio-access.md`](superio-access.md) revision 3 and [`pawnio-interface.md`](pawnio-interface.md) revision 5 | Existing implementation-ready clean-room dependencies for raw ITE chip-ID probing, slot mapping, configuration enter/exit, PawnIO `LpcIO` calls, elevation behavior, and mutex ownership. |
 | S5 | [ADR 0011](../../adr/0011-experimental-sensor-enablement.md) and [design principle DP-02](../../design-principles.md#dp-02-represent-partial-capability-honestly) | Project policy source for Experimental enablement, success/failure presentation, plausibility-gated partial readings, manual feedback, and no new telemetry. It supplies no hardware fact. |
+| S6 | [`superio-access.md`](superio-access.md) revision 5, [Sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence) | Project policy for when a discovery attempt may start after a failure and which failure classes may start one. It supplies no hardware fact. The S4 pin stays in force for every other fact this document takes from it. |
 
 No external hardware-monitor implementation, source code, binary,
 disassembly, or decompiled tool was consulted for this revision. Normative
@@ -81,8 +88,10 @@ The revision 2 path is usable only when all of the following hold:
   by the PawnIO allow-list without reading a side-effecting status
   register. If either operation or configuration exit fails, do not
   cache the executor/base state; report the error and require full
-  rediscovery before another sample. (S1 §9.5.1 and §9.5.2.2.1,
-  printed pp. 87, 91; S3)
+  rediscovery before another sample. The failure is eligible for
+  rediscovery under S6, and no sample runs until a later discovery
+  attempt caches the path. (S1 §9.5.1 and §9.5.2.2.1,
+  printed pp. 87, 91; S3; S6)
 
 ## Register map (ready temperature scope)
 
@@ -145,7 +154,27 @@ Initial discovery and any rediscovery use this order:
    validated base, and port-proven executor state. Release the ISA mutex
    in `finally`. If either PIO fails, cache nothing, report the exact
    error, and require full rediscovery. Rediscover as well if the
-   executor/slot state is later replaced or invalidated.
+   executor/slot state is later replaced or invalidated. That
+   replacement or invalidation discards the path, and the next
+   discovery attempt follows S6 rule R6.
+
+### Rediscovery eligibility
+
+Initial discovery and every rediscovery follow the S6 cadence. A
+rediscovery is its own discovery attempt under its own ISA mutex
+acquisition. It never runs inside a sample transaction, and no sample
+enters configuration mode. A failed sample on the cached path starts no
+discovery attempt. The S6 shared table covers the mutex, the executor,
+the configuration entry and exit writes, and the `ioctl_find_bars` and
+configuration-register read failures.
+
+| Discovery failure | Class |
+| --- | --- |
+| Chip ID other than exact `0x87`/`0x28`, inactive LDN `0x04`, or a refused base | Not eligible |
+| ITE configuration exit fails after the chip-ID and base checks (step 6) | Eligible |
+| Post-exit EC `0x00` index write or data read fails (step 7) | Eligible |
+
+(S1 §8.1, §8.8, §9.5.1; S3; S6)
 
 Each sample uses the cached, port-proven executor and this order:
 
@@ -294,7 +323,7 @@ telemetry, or persistent portable hardware identity.
 
 ## Implementation-ready transition checklist
 
-Revision 2 satisfies the directory-level ready gate for the scoped
+Revision 3 satisfies the directory-level ready gate for the scoped
 Experimental temperature path:
 
 - no unresolved provenance marker remains;
@@ -310,7 +339,8 @@ Experimental temperature path:
 
 ```text
 Implemented from docs/specs/sensors/superio-access.md revision 3 and docs/specs/sensors/pawnio-interface.md revision 5 (commit <pin>), limited to existing ITE configuration access and PawnIO LpcIO interface facts.
-Implemented from docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2 (commit <ready-commit>), limited to the exact 0x8728 / IT8728F/EX Experimental TMPIN1-TMPIN3 scope marked enabled in that revision.
+Implemented from docs/specs/sensors/superio-access.md revision 5 (commit <pin>), limited to the sampling-path rediscovery cadence.
+Implemented from docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 3 (commit <ready-commit>), limited to the exact 0x8728 / IT8728F/EX Experimental TMPIN1-TMPIN3 scope marked enabled in that revision.
 No other external sensor documentation was used.
 ```
 
@@ -320,3 +350,4 @@ No other external sensor documentation was used.
 | --- | --- | --- |
 | 1 | 2026-08-30 | Initial implementation-ready Phase 4 revision: exact `0x8728` / IT8728F/EX only, Experimental read-only TMPIN1-3 with primary-source-pinned discovery/decode and conservative validity handling; all fans and other IT86xx/IT87xx scopes disabled pending later evidence. |
 | 2 | 2026-08-30 | Required a successful post-configuration-exit EC `0x00` index-write/data-read authorization probe before caching the PawnIO executor/base, because `ioctl_find_bars` success alone does not guarantee that a usable BAR window was authorized. Status remains Implementation-ready for the same Experimental temperature-only scope. |
+| 3 | 2026-11-28 | Adopted the shared sampling-path rediscovery cadence of S6 (`superio-access.md` revision 5) for #2821. Classified the discovery failures: a failed configuration exit and a failed post-exit port proof are eligible, and the value-based refusals are not. A replaced or invalidated executor discards the path under S6 rule R6. A rediscovery never runs inside a sample. The revision 2 scope, gates, reads and writes are unchanged. Status remains Implementation-ready (rev 3). |
