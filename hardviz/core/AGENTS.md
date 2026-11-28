@@ -47,7 +47,7 @@ Use focused checks before workspace-wide aliases:
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p hardviz-core --all-targets -- -D warnings
-cargo test -p hardviz-core
+cargo nextest run -p hardviz-core
 ```
 
 Keep pure/helper tests close to the Core module. Add integration tests when the

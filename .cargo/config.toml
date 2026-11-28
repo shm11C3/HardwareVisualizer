@@ -38,8 +38,10 @@ rustflags = ["-C", "target-feature=+crt-static"]
 global-min-publish-age = "5 days"
 
 [alias]
-tauri-test = "test --workspace -- --test-threads=1 --nocapture"
-tauri-test-cov = "llvm-cov --workspace -- --test-threads=1 --nocapture"
+# Tests run through cargo-nextest (`cargo install cargo-nextest --locked`), as in
+# CI. Scheduling rules live in .config/nextest.toml.
+tauri-test = "nextest run --workspace"
+tauri-test-cov = "llvm-cov nextest --workspace"
 tauri-lint = "clippy --workspace -- -D warnings"
 tauri-fmt = "fmt --all"
 perf-test = "run --release --manifest-path perf-monitor/Cargo.toml"
