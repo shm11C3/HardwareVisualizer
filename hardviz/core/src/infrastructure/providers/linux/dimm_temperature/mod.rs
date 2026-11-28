@@ -5,9 +5,9 @@
 //! detailed inventory request and its dmidecode completion contract.
 
 mod board_profile;
+mod endpoint_attributes;
 mod inventory;
 mod sole_module;
-mod sysfs;
 #[cfg(test)]
 mod test_fixture;
 

@@ -1,23 +1,21 @@
-//! sysfs link and attribute helpers shared by the Linux DIMM routes.
+//! DIMM-route sysfs reads on top of the shared `providers::linux::sysfs`
+//! checks: kernel-owned symlinks and attributes that are regular entries.
 
-use std::fs::{self, Metadata};
-use std::os::unix::fs::MetadataExt;
+use std::fs;
 use std::path::Path;
 
-pub(super) fn file_identity(metadata: &Metadata) -> (u64, u64) {
-  (metadata.dev(), metadata.ino())
-}
+use super::super::sysfs::resolves_to;
 
 /// `link` is itself a symlink and canonically resolves to `target`.
 pub(super) fn links_to(link: &Path, target: &Path) -> bool {
   fs::symlink_metadata(link).is_ok_and(|metadata| metadata.is_symlink())
-    && fs::canonicalize(link).is_ok_and(|path| path == target)
+    && resolves_to(link, target)
 }
 
 /// Reads an attribute that is a regular entry of `directory`, never a link.
 pub(super) fn read_hwmon_attribute(directory: &Path, name: &str) -> Option<String> {
   let path = directory.join(name);
-  if fs::canonicalize(&path).ok()? != path {
+  if !resolves_to(&path, &path) {
     return None;
   }
   attribute(directory, name)

@@ -84,17 +84,21 @@ runs:
     # rust-cache strips every file from target/ directories that are not
     # profiles before saving, so a restored tree is an empty skeleton without
     # the marker (#2737). Drop such trees so the build script unpacks again.
+    # The sources live next to the profile directory, so a separate target
+    # directory such as cargo-llvm-cov's target/llvm-cov-target has its own
+    # duckdb-sources/ and needs the same cleanup.
     - name: Remove incomplete bundled DuckDB source trees
       shell: bash
       run: |
-        root="target/duckdb-sources"
-        [ -d "$root" ] || exit 0
-        for tree in "$root"/*/ "$root"/.duckdb-unpack-*/; do
-          [ -d "$tree" ] || continue
-          if [ ! -f "${tree}.complete" ]; then
-            echo "Removing incomplete $tree"
-            rm -rf "$tree"
-          fi
+        for root in target/duckdb-sources target/*/duckdb-sources; do
+          [ -d "$root" ] || continue
+          for tree in "$root"/*/ "$root"/.duckdb-unpack-*/; do
+            [ -d "$tree" ] || continue
+            if [ ! -f "${tree}.complete" ]; then
+              echo "Removing incomplete $tree"
+              rm -rf "$tree"
+            fi
+          done
         done
 
     - name: Report Rust cache restore

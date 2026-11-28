@@ -12,9 +12,10 @@ use std::ops::Range;
 use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
+use super::super::sysfs::file_identity;
 use super::decode_temperature;
+use super::endpoint_attributes::{attribute, links_to, read_hwmon_attribute};
 use super::inventory::{self, Dimm, Inventory, is_label_text, is_reported};
-use super::sysfs::{attribute, file_identity, links_to, read_hwmon_attribute};
 use crate::models::hardware::DimmTemperature;
 
 const DRIVER: &str = "spd5118";

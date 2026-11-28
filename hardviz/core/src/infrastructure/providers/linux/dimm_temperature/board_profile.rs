@@ -5,8 +5,9 @@ use std::fs::{self, File};
 use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
+use super::super::sysfs::file_identity;
+use super::endpoint_attributes::{attribute, links_to, read_hwmon_attribute};
 use super::inventory::{self, Dimm, is_reported};
-use super::sysfs::{attribute, file_identity, links_to, read_hwmon_attribute};
 use super::{BoardRoute, decode_temperature};
 use crate::models::hardware::DimmTemperature;
 
