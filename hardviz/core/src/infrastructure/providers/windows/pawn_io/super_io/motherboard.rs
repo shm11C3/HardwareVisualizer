@@ -328,14 +328,69 @@ pub(crate) struct MotherboardSensorReadout {
 ///
 /// No other external sensor implementation source was used.
 pub(crate) struct MotherboardSensorSampler {
-  active: Option<ActiveMotherboardSensors<PawnIoClient>>,
+  core: MotherboardSamplerCore<PawnIoBackend>,
+}
+
+impl MotherboardSensorSampler {
+  pub(crate) fn readout(&mut self) -> MotherboardSensorReadout {
+    self.core.readout()
+  }
+
+  pub(crate) fn new() -> Self {
+    Self {
+      core: MotherboardSamplerCore::new(PawnIoBackend),
+    }
+  }
+}
+
+/// The executor, ISA mutex and monotonic clock a motherboard sampler uses.
+/// Tests substitute a fake that records every open and mutex acquisition and
+/// controls the clock.
+pub(super) trait SuperIoBackend {
+  type Client: LpcIoOps;
+  type IsaGuard;
+
+  /// The monotonic clock that cadences and sample intervals are measured on.
+  fn now(&self) -> Instant;
+  /// Open a PawnIO `LpcIO` executor.
+  fn open_lpc_io(&self) -> Result<Self::Client, MotherboardSensorError>;
+  /// Acquire `Global\Access_ISABUS.HTP.Method` with the bounded timeout. The
+  /// returned guard releases it on drop.
+  fn acquire_isa_bus(&self) -> Result<Self::IsaGuard, MutexError>;
+}
+
+/// The production backend: PawnIO, the named ISA mutex and `Instant`.
+pub(super) struct PawnIoBackend;
+
+impl SuperIoBackend for PawnIoBackend {
+  type Client = PawnIoClient;
+  type IsaGuard = NamedMutex;
+
+  fn now(&self) -> Instant {
+    Instant::now()
+  }
+
+  fn open_lpc_io(&self) -> Result<PawnIoClient, MotherboardSensorError> {
+    PawnIoClient::open(PawnIoModule::LpcIo)
+      .map(|(client, _discovery)| client)
+      .map_err(|error| MotherboardSensorError::Unclassified(error.reason))
+  }
+
+  fn acquire_isa_bus(&self) -> Result<NamedMutex, MutexError> {
+    NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)
+  }
+}
+
+struct MotherboardSamplerCore<B: SuperIoBackend> {
+  backend: B,
+  active: Option<ActiveMotherboardSensors<B::Client>>,
   unavailable_reason: Option<MotherboardSensorError>,
   retry_unavailable: bool,
   sample_failure_logged: bool,
 }
 
-impl MotherboardSensorSampler {
-  pub(crate) fn readout(&mut self) -> MotherboardSensorReadout {
+impl<B: SuperIoBackend> MotherboardSamplerCore<B> {
+  fn readout(&mut self) -> MotherboardSensorReadout {
     let sample = self.sample();
     let fan_support = self.active.as_ref().map_or(
       SensorSupport::Unknown,
@@ -347,8 +402,9 @@ impl MotherboardSensorSampler {
     }
   }
 
-  pub(crate) fn new() -> Self {
+  fn new(backend: B) -> Self {
     let mut sampler = Self {
+      backend,
       active: None,
       unavailable_reason: None,
       retry_unavailable: false,
@@ -363,9 +419,7 @@ impl MotherboardSensorSampler {
     sampler
   }
 
-  pub(crate) fn sample(
-    &mut self,
-  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
+  fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     if self.active.is_none()
       && (self.unavailable_reason.is_none() || self.retry_unavailable)
     {
@@ -373,7 +427,7 @@ impl MotherboardSensorSampler {
     }
 
     let result = match self.active.as_mut() {
-      Some(active) => active.sample(),
+      Some(active) => active.sample(&self.backend),
       None => Err(self.unavailable_reason.clone().unwrap_or_else(|| {
         MotherboardSensorError::Unclassified(
           "Motherboard sensors unavailable".to_string(),
@@ -396,7 +450,7 @@ impl MotherboardSensorSampler {
   }
 
   fn try_open(&mut self) -> Result<(), MotherboardSensorError> {
-    match ActiveMotherboardSensors::open() {
+    match ActiveMotherboardSensors::open(&self.backend) {
       Ok(active) => {
         self.active = Some(active);
         self.unavailable_reason = None;
@@ -507,12 +561,13 @@ enum ActiveMotherboardSensors<C: LpcIoOps> {
   Ite(ActiveIteMotherboardSensors<C>),
 }
 
-impl ActiveMotherboardSensors<PawnIoClient> {
-  fn open() -> Result<Self, MotherboardSensorError> {
-    let (client, _discovery) = PawnIoClient::open(PawnIoModule::LpcIo)
-      .map_err(|error| MotherboardSensorError::Unclassified(error.reason))?;
+impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
+  fn open<B: SuperIoBackend<Client = C>>(
+    backend: &B,
+  ) -> Result<Self, MotherboardSensorError> {
+    let client = backend.open_lpc_io()?;
 
-    let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
+    let _mutex = backend.acquire_isa_bus()?;
     Self::discover(client)
   }
 }
@@ -643,11 +698,14 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
     }
   }
 
-  fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
+  fn sample(
+    &mut self,
+    backend: &impl SuperIoBackend,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     match self {
-      Self::Nuvoton(active) => active.sample(),
-      Self::NuvotonSmiovt(active) => active.sample(),
-      Self::Ite(active) => active.sample(),
+      Self::Nuvoton(active) => active.sample(backend),
+      Self::NuvotonSmiovt(active) => active.sample(backend),
+      Self::Ite(active) => active.sample(backend),
     }
   }
 
@@ -727,8 +785,11 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
     }
   }
 
-  fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
-    let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
+  fn sample(
+    &mut self,
+    backend: &impl SuperIoBackend,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
+    let _mutex = backend.acquire_isa_bus()?;
     self.sample_unlocked_logged()
   }
 
@@ -1030,15 +1091,17 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     }
   }
 
-  fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
-    let now = Instant::now();
-    if let Some(cached) = self.cached_result(now) {
+  fn sample(
+    &mut self,
+    backend: &impl SuperIoBackend,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
+    if let Some(cached) = self.cached_result(backend.now()) {
       return cached;
     }
 
-    let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
+    let _mutex = backend.acquire_isa_bus()?;
     let collected = self.collect_sample_unlocked();
-    self.finish_attempt(Instant::now(), collected)
+    self.finish_attempt(backend.now(), collected)
   }
 
   #[cfg(test)]
