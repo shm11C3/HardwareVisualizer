@@ -12,7 +12,7 @@
 //! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 9
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
 //! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 7
-//! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 1
+//! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 2
 //!
 //! No other external sensor source was used.
 
