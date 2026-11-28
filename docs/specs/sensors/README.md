@@ -139,8 +139,15 @@ tracked in each document's header and in the Current documents table.
 
 A document becomes a valid clean-room input only through this
 transition. The flip is proposed by the spec-author role and approved
-by a maintainer; the sign-off is the maintainer's approval of the PR
-that performs the flip.
+by a maintainer. Either of the following is the sign-off for the PR that
+performs the flip:
+
+- the maintainer's approving review on that PR; or
+- merging that documentation-only PR under the maintainer's merge policy,
+  which requires resolved threads, green CI and CodeRabbit's approval
+  (maintainer decision of 2026-11-28).
+
+Merging the PR accepts the Open questions it marks non-blocking.
 
 Checklist for the flipping PR (all items required):
 

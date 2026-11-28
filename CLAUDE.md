@@ -16,5 +16,7 @@ Then read the matching shared rule from `.agents/rules/README.md`:
 - `.agents/rules/clean-room-sensors.md` - mandatory clean-room rules before touching `docs/specs/sensors/**` or native PawnIO CPU / Super I/O implementation
 
 For design work, follow `.agents/skills/hardwarevisualizer-design-review/SKILL.md`.
+To keep working through the sensor coverage epic (#2510), run
+`/loop Follow .agents/skills/sensor-coverage-loop/SKILL.md`.
 After a durable correction, repeated failure, or surprising invariant, follow
 `.agents/skills/capture-project-learning/SKILL.md`.
