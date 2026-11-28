@@ -257,6 +257,11 @@ export const commands = {
 	 *  does nothing; it never fails and never reports whether analytics is on.
 	 */
 	recordProductEvent: (event: ProductEvent) => __TAURI_INVOKE<void>("record_product_event", { event }),
+	/**
+	 *  Reports whether the consent dialog is open and unanswered, so quitting
+	 *  the app while it is open can count as a decline.
+	 */
+	setProductAnalyticsPromptOpen: (open: boolean) => __TAURI_INVOKE<void>("set_product_analytics_prompt_open", { open }),
 	readLicenseFile: () => typedError<string, string>(__TAURI_INVOKE("read_license_file")),
 	readThirdPartyNoticesFile: () => typedError<string, string>(__TAURI_INVOKE("read_third_party_notices_file")),
 	openLicenseFilePath: () => typedError<null, string>(__TAURI_INVOKE("open_license_file_path")),

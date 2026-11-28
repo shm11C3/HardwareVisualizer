@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   error: vi.fn(),
   openURL: vi.fn(),
   setProductAnalyticsConsent: vi.fn(),
+  setProductAnalyticsPromptOpen: vi.fn(),
 }));
 
 vi.mock("@/hooks/tauri/useTauriDialog", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/lib/openUrl", () => ({ openURL: mocks.openURL }));
 vi.mock("@/rspc/bindings", () => ({
   commands: {
     setProductAnalyticsConsent: mocks.setProductAnalyticsConsent,
+    setProductAnalyticsPromptOpen: mocks.setProductAnalyticsPromptOpen,
   },
 }));
 
@@ -63,8 +65,33 @@ describe("ProductAnalyticsConsentDialog", () => {
       status: "ok",
       data: null,
     });
+    mocks.setProductAnalyticsPromptOpen.mockResolvedValue(undefined);
     mocks.openURL.mockResolvedValue(undefined);
     mocks.error.mockResolvedValue(undefined);
+  });
+
+  it("tells the backend it is unanswered so quitting the app declines", async () => {
+    renderDialog();
+    await screen.findByRole("alertdialog");
+    await waitFor(() =>
+      expect(mocks.setProductAnalyticsPromptOpen).toHaveBeenLastCalledWith(
+        true,
+      ),
+    );
+
+    // Once answered, a quit while the choice is saved must not decline it:
+    // the dialog reports itself closed before the grant is written.
+    await userEvent.click(share());
+    await waitFor(() =>
+      expect(mocks.setProductAnalyticsConsent).toHaveBeenCalled(),
+    );
+    const { calls, invocationCallOrder } =
+      mocks.setProductAnalyticsPromptOpen.mock;
+    const firstClosed = calls.findIndex(([open]) => open === false);
+    expect(firstClosed).toBeGreaterThanOrEqual(0);
+    expect(invocationCallOrder[firstClosed]).toBeLessThan(
+      mocks.setProductAnalyticsConsent.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 
   it("gives Share and Don't share the same weight and no default focus", async () => {

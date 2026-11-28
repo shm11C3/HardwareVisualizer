@@ -1,5 +1,5 @@
 import { ExternalLinkIcon } from "lucide-react";
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -18,9 +18,10 @@ import {
   productAnalyticsLinkKeys,
   productAnalyticsLinks,
 } from "@/lib/productAnalytics";
-import type {
-  ProductAnalyticsClientSettings,
-  ProductAnalyticsDecision,
+import {
+  commands,
+  type ProductAnalyticsClientSettings,
+  type ProductAnalyticsDecision,
 } from "@/rspc/bindings";
 import type { SelectedDisplayType } from "@/types/ui";
 
@@ -41,6 +42,11 @@ type ProductAnalyticsConsentDialogProps = {
   deferred?: boolean;
   onRequestChange?: (requested: boolean) => void;
 };
+
+const reportPromptOpen = (open: boolean) =>
+  commands.setProductAnalyticsPromptOpen(open).catch((err: unknown) => {
+    console.error("Failed to report the consent dialog state:", err);
+  });
 
 /**
  * Asks for Analytics Consent once, at the lowest startup priority (ADR 0028).
@@ -82,11 +88,24 @@ export const ProductAnalyticsConsentDialog = ({
     onRequestChange?.(requested);
   }, [requested, onRequestChange]);
 
-  if (!requested || deferred) return null;
+  // While it shows unanswered, the backend treats quitting the app as
+  // closing it without a choice, which declines.
+  const showing = requested && !deferred;
+  useEffect(() => {
+    if (!showing) return;
+    void reportPromptOpen(true);
+    return () => {
+      void reportPromptOpen(false);
+    };
+  }, [showing]);
+
+  if (!showing) return null;
 
   const choose = async (decision: ProductAnalyticsDecision) => {
     if (saving) return;
     setSaving(true);
+    // Answered: a quit during the write must not turn a grant into a decline.
+    await reportPromptOpen(false);
     try {
       if (!(await setProductAnalyticsConsentAtom(decision))) {
         await error(t("productAnalyticsConsent.errors.save"));

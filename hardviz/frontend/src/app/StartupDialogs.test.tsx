@@ -76,7 +76,10 @@ vi.mock("@/hooks/tauri/useTauriDialog", () => ({
 }));
 vi.mock("@/lib/openUrl", () => ({ openURL: vi.fn() }));
 vi.mock("@/rspc/bindings", () => ({
-  commands: { setProductAnalyticsConsent: vi.fn() },
+  commands: {
+    setProductAnalyticsConsent: vi.fn(),
+    setProductAnalyticsPromptOpen: vi.fn(() => Promise.resolve()),
+  },
 }));
 
 const undecided: ProductAnalyticsClientSettings = {

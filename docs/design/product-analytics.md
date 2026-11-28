@@ -219,7 +219,11 @@ identifiers, error text), and links to the contract,
 the privacy notice, the client source directory, and the service repository.
 Links open in the system browser through the existing `openURL` path.
 
-Closing the dialog without choosing counts as decline. The alternative, leaving
+Closing the dialog without choosing counts as decline. Quitting the app while
+the dialog is open closes it too: the dialog tells the analytics service it is
+open and unanswered, and the process shutdown path records a decline before the
+workers stop. Hiding the window to the tray does not, because the dialog is
+still there when the window returns. The alternative, leaving
 the installation `undecided` and asking again next launch, is the nagging that
 RFC section 2 rules out, and the privacy-preserving outcome of "I did not
 answer" is no data.

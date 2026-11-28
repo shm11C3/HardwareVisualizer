@@ -13,6 +13,7 @@
 //! persistence can yield, and a flush re-checks it before starting
 //! transport and again before touching state after completion.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
@@ -74,6 +75,8 @@ pub(crate) struct AnalyticsService {
   state: Mutex<State>,
   consent_lock: tokio::sync::Mutex<()>,
   flush_requested: Notify,
+  /// The consent dialog is open and not yet answered.
+  prompt_open: AtomicBool,
   ports: Ports,
   #[cfg(test)]
   gates: test_support::FlushGates,
@@ -101,6 +104,7 @@ impl AnalyticsService {
       }),
       consent_lock: tokio::sync::Mutex::new(()),
       flush_requested: Notify::new(),
+      prompt_open: AtomicBool::new(false),
       ports,
       #[cfg(test)]
       gates: test_support::FlushGates::default(),
@@ -163,6 +167,21 @@ impl AnalyticsService {
         Ok(())
       }
     }
+  }
+
+  /// Tracks whether the consent dialog is open and still unanswered.
+  pub(crate) fn set_prompt_open(&self, open: bool) {
+    self.prompt_open.store(open, Ordering::SeqCst);
+  }
+
+  /// Quitting while the consent dialog is open closes it without a choice,
+  /// which counts as a decline (ADR 0028). Hiding the window to the tray
+  /// does not: the dialog is still there when the window returns.
+  pub(crate) async fn decline_open_prompt(&self) -> Result<(), String> {
+    if !self.prompt_open.swap(false, Ordering::SeqCst) {
+      return Ok(());
+    }
+    self.set_consent(ProductAnalyticsDecision::Declined).await
   }
 
   async fn persist_decision(
@@ -599,6 +618,29 @@ mod tests {
       harness.service.flush().await;
       assert_eq!(harness.transport.calls(), 0);
       assert!(harness.service.queued().is_empty());
+    }
+  }
+
+  #[tokio::test]
+  async fn quitting_with_the_prompt_open_declines() {
+    let harness = Harness::new(ProductAnalyticsSettings::default());
+    harness.service.set_prompt_open(true);
+    harness.service.decline_open_prompt().await.unwrap();
+    assert_eq!(harness.store.section(), declined());
+  }
+
+  #[tokio::test]
+  async fn quitting_without_an_open_prompt_keeps_the_decision() {
+    // A prompt that was answered, or never shown, leaves consent as it is.
+    for section in [
+      ProductAnalyticsSettings::default(),
+      crate::analytics::consent::test_support::granted_section(),
+    ] {
+      let harness = Harness::new(section.clone());
+      harness.service.set_prompt_open(true);
+      harness.service.set_prompt_open(false);
+      harness.service.decline_open_prompt().await.unwrap();
+      assert_eq!(harness.store.section(), section);
     }
   }
 
