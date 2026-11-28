@@ -2,7 +2,7 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
-//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 5
+//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 7
 //! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 1
 //!
 //! No other external sensor source was used.
@@ -143,6 +143,17 @@ pub(super) enum IteEcBaseRule {
   Legacy,
 }
 
+/// The register procedure a profile follows. The ordered steps of each
+/// procedure stay in code; this only selects which one applies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum IteEcAccess {
+  /// One monitoring-state gate per sample, then the profile's inputs.
+  Unbanked,
+  /// Bank-0 reads bracketed by EC `0x06` bank checks, with every temperature
+  /// read twice and no source-selection read. The bank is never written.
+  BankGuarded,
+}
+
 /// A board whose own mechanism selects a profile with more inputs than the
 /// chip row alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -186,6 +197,7 @@ pub(super) struct IteEcProfile {
   /// The EC register gating counters per channel, if the profile has one.
   pub(super) fan_mode_register: Option<u8>,
   pub(super) board_variant: Option<IteBoardVariant>,
+  pub(super) access: IteEcAccess,
 }
 
 const MODERN: IteEcProfile = IteEcProfile {
@@ -193,6 +205,7 @@ const MODERN: IteEcProfile = IteEcProfile {
   slots: &[0],
   chip_id: 0,
   required_revision: None,
+  access: IteEcAccess::Unbanked,
   ec_base_rule: IteEcBaseRule::Modern,
   discovery_rejects_configuration_bit7: true,
   sampling_rejects_configuration_bit7: true,
@@ -271,8 +284,41 @@ pub(super) const IT8772E_FX: IteEcProfile = IteEcProfile {
   ..LEGACY
 };
 
-const ITE_EC_PROFILES: [&IteEcProfile; 5] =
-  [&IT8620E, &IT8628E, &IT8716F_D, &IT8728F, &IT8772E_FX];
+/// The banked modern profile: the IT8620E discovery and base rules with the
+/// per-sample bank bracket. CR22 is recorded for diagnostics and never gates.
+const BANKED_MODERN: IteEcProfile = IteEcProfile {
+  access: IteEcAccess::BankGuarded,
+  ..MODERN
+};
+
+pub(super) const IT8686E: IteEcProfile = IteEcProfile {
+  chip_label: "IT8686E",
+  chip_id: 0x8686,
+  ..BANKED_MODERN
+};
+
+pub(super) const IT8688E: IteEcProfile = IteEcProfile {
+  chip_label: "IT8688E",
+  chip_id: 0x8688,
+  ..BANKED_MODERN
+};
+
+pub(super) const IT8689E: IteEcProfile = IteEcProfile {
+  chip_label: "IT8689E",
+  chip_id: 0x8689,
+  ..BANKED_MODERN
+};
+
+const ITE_EC_PROFILES: [&IteEcProfile; 8] = [
+  &IT8620E,
+  &IT8628E,
+  &IT8686E,
+  &IT8688E,
+  &IT8689E,
+  &IT8716F_D,
+  &IT8728F,
+  &IT8772E_FX,
+];
 
 /// Match the raw chip ID exactly. A profile with a required revision still
 /// needs the CR22 check before logical-device selection.
@@ -307,6 +353,25 @@ pub const fn decode_ite_temperature_byte(raw: u8) -> f32 {
 /// Zero is a valid reading for an enabled physical input.
 pub const fn is_plausible_ite_temperature(temperature: f32) -> bool {
   is_plausible_super_io_temperature(temperature)
+}
+
+/// EC `0x06` bits that hold the bank field on the banked modern profile. The
+/// leads disagree on its width (bits 6:5 or 7:5); requiring all three clear
+/// satisfies both.
+const ITE_EC_BANK_FIELD_MASK: u8 = 0xE0;
+
+/// Whether an EC `0x06` byte shows bank 0 on the banked modern profile.
+pub(super) const fn is_ite_ec_bank_zero(bank_select: u8) -> bool {
+  bank_select & ITE_EC_BANK_FIELD_MASK == 0
+}
+
+const BANKED_ITE_MIN_TEMPERATURE: f32 = 1.0;
+
+/// Whether a banked-modern temperature is inside +1 to +125 degrees C
+/// inclusive. The profile cannot read the source selection, so zero and below
+/// (an unconfigured input reads -55) are not readings.
+pub(super) const fn is_plausible_banked_ite_temperature(temperature: f32) -> bool {
+  temperature >= BANKED_ITE_MIN_TEMPERATURE && is_plausible_ite_temperature(temperature)
 }
 
 /// Whether one TMPIN is an enabled physical temperature input.
@@ -353,6 +418,59 @@ mod tests {
     assert_eq!(label(0, 0x8772), Some("IT8772E FX"));
     assert_eq!(label(1, 0x8620), None);
     assert_eq!(label(0, 0x8721), None);
+  }
+
+  #[test]
+  fn banked_modern_profiles_are_exact_slot_zero_rows() {
+    let profile = |slot, id| ite_ec_profile(slot, id).map(|profile| profile.chip_label);
+
+    for (id, label) in [
+      (0x8686, "IT8686E"),
+      (0x8688, "IT8688E"),
+      (0x8689, "IT8689E"),
+    ] {
+      assert_eq!(profile(0, id), Some(label));
+      assert_eq!(profile(1, id), None);
+      let row = ite_ec_profile(0, id).unwrap();
+      assert_eq!(row.access, IteEcAccess::BankGuarded);
+      assert_eq!(row.required_revision, None);
+      assert_eq!(row.fan_mode_register, None);
+    }
+    for id in [0x8696, 0x8698, 0x8665, 0x8655, 0x8625, 0x8613] {
+      assert_eq!(profile(0, id), None, "0x{id:04X}");
+    }
+    assert!(
+      [IT8620E, IT8628E, IT8716F_D, IT8728F, IT8772E_FX]
+        .iter()
+        .all(|profile| profile.access == IteEcAccess::Unbanked)
+    );
+  }
+
+  #[test]
+  fn ite_ec_bank_zero_requires_bits_7_to_5_clear() {
+    assert!(is_ite_ec_bank_zero(0x00));
+    assert!(is_ite_ec_bank_zero(0x1F));
+    for value in [0x20, 0x40, 0x60, 0x80, 0xE0] {
+      assert!(!is_ite_ec_bank_zero(value), "0x{value:02X}");
+    }
+  }
+
+  #[test]
+  fn banked_ite_temperature_accepts_only_plus_1_to_plus_125() {
+    for (raw, accepted) in [
+      (0xC9, false),
+      (0x00, false),
+      (0x80, false),
+      (0x7E, false),
+      (0x7D, true),
+      (0x01, true),
+    ] {
+      assert_eq!(
+        is_plausible_banked_ite_temperature(decode_ite_temperature_byte(raw)),
+        accepted,
+        "0x{raw:02X}"
+      );
+    }
   }
 
   #[test]
