@@ -386,13 +386,46 @@ the S13 observation.
     A suspend that begins after the last `CLOCK_BOOTTIME` read of a
     sample cannot be seen by that sample. Its values, read before the
     suspend, may stay on screen after resume until the next sample
-    replaces them. Suspends shorter than the 50 ms and 100 ms
-    thresholds are also not detected; they age a value by less than
-    that amount.
+    replaces them. Short suspends that the rule does not detect are
+    covered by question 11.
+11. Non-blocking for #2527 Linux hwmon scope: the undetected suspended
+    time is bounded per sample interval and limited by the driver's
+    window, so a published value stays near the window; the resume rule
+    is not changed again for this.
+    Two gaps in the resume rule let short suspends pass undetected:
+    - Per comparison. A trusted difference B2 − M exceeds the true
+      offset by the time between its M and B2 reads, which is 0 to
+      50 ms. The growth that step 6 compares with 100 ms is the
+      suspended time S plus the current excess minus the recorded
+      pair's excess. A suspend between two trusted pairs therefore
+      goes undetected when S is below 100 ms plus the recorded excess
+      minus the current excess: always below 50 ms, and up to just
+      under 150 ms depending on both gaps.
+    - Accumulation. Step 7 records every trusted difference, so the
+      baseline moves after each undetected suspend. Several suspends,
+      each below about 150 ms and each falling in a different sample
+      interval, add up without any comparison seeing more than one of
+      them.
+
+    The bound this specification can give: the driver returns a value
+    only while its jiffies age is below two seconds (S3), and jiffies
+    track `CLOCK_MONOTONIC` to within one tick (S14). A published
+    value's real age is therefore below 2 s plus one tick plus the
+    undetected suspended time since its report arrived. That suspended
+    time is below 150 ms for each sample interval that overlaps the
+    two seconds of non-suspended time after the report. With a sample
+    interval of Δ seconds of non-suspended time, at most ⌈2 / Δ⌉ + 1
+    intervals overlap, so the real age is below
+    2 s + one tick + 150 ms × (⌈2 / Δ⌉ + 1). This is under 2.46 s at a
+    1 s interval with a 10 ms tick. The specification does not bound
+    Δ, so at faster sampling the bound grows; it remains finite for
+    any fixed interval. The excess age only arises when status
+    reports stop. While the device reports twice a second, each
+    report replaces the cached value (S3, S5).
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version. Propose Implementation-ready for the Experimental Linux `nzxt-kraken2` hwmon scope on USB `1E71:170E` only. Record the status report framing and Windows HID transport facts, keep Windows and `hidraw` access Unsupported because of the CAM exclusive-access finding, and give every NZXT generation named in #2527 a disposition. |
-| 2 | 2026-11-28 | Record that the driver's two-second staleness window excludes suspended time (S3, S14) and add the resume rule based on `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` (S15), with fixtures. The rule reads `CLOCK_BOOTTIME`, `CLOCK_MONOTONIC`, `CLOCK_BOOTTIME` after the input reads, so a suspend before or during a sample, including inside the clock reads, withholds that sample, and a pair spanning more than 50 ms is untrusted; and holds every newly observed endpoint for 3 s because no sourced fact shows a fresh driver binding. The Linux scope row names the lead-only jiffies fact (S14). Make the class-link fixture match the ownership gate: the hwmon `device` link resolves to the HID device and the class link to the hwmon child. |
+| 2 | 2026-11-28 | Record that the driver's two-second staleness window excludes suspended time (S3, S14) and add the resume rule based on `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` (S15), with fixtures. The rule reads `CLOCK_BOOTTIME`, `CLOCK_MONOTONIC`, `CLOCK_BOOTTIME` after the input reads, so a suspend before or during a sample, including inside the clock reads, withholds that sample, and a pair spanning more than 50 ms is untrusted; and holds every newly observed endpoint for 3 s because no sourced fact shows a fresh driver binding. The Linux scope row names the lead-only jiffies fact (S14). Make the class-link fixture match the ownership gate: the hwmon `device` link resolves to the HID device and the class link to the hwmon child. Open questions 10 and 11 record the remaining exposure without changing the rule: a suspend after a sample's last clock read, single suspends up to just under 150 ms that the thresholds miss, and the sum of several such suspends, with a stated age bound. |
