@@ -2,15 +2,21 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 6 |
-| Status | Implementation-ready (rev 6) |
-| Scope | Read-only access to the primary LPC Environment Controller for IT8716F silicon version D FAN1–3, IT8772E silicon version FX FAN2–3, and exact IT8620E and IT8628E TMPIN1–3 and FAN1–3. Only the model and channel rows below qualify. |
-| Issue phase | Phase 4 (#1635), [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518) |
+| Revision | 7 |
+| Status | Implementation-ready (rev 7) |
+| Scope | Read-only access to the primary LPC Environment Controller for IT8716F silicon version D FAN1–3, IT8772E silicon version FX FAN2–3, exact IT8620E and IT8628E TMPIN1–3 and FAN1–3, and bank-guarded TMPIN1–3 and FAN1–3 on exact IT8686E, IT8688E and IT8689E. Only the model and channel rows below qualify. |
+| Issue phase | Phase 4 (#1635), [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698) |
 
-Revision 6 changes only the IT8728F applicability references, the
-IT8728 no-fan fixture and the IT8728F deferred row. They now follow the
-chip-level S12 revision 2. The revision 5 profiles, gates and transport
-rules are unchanged. Clean-room implementation can pin revision 6 after
+Revision 7 adds one Experimental profile for the banked modern
+controllers with exact raw IDs `0x8686`, `0x8688` and `0x8689`. S19–S21
+observe these as the primary controllers on Gigabyte AM4, LGA1151 and
+AM5 boards. The profile reads only bank-0 registers below index
+`0x80`. It never writes the bank selector. Each sample is bracketed by
+bank checks (see [Banked modern profile](#banked-modern-profile)).
+Revision 7 also adds a runtime gate table and gives every
+[#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698)
+target a disposition. The revision 6 profiles, gates and transport
+rules are unchanged. Clean-room implementation can pin revision 7 after
 the maintainer approves the specification PR under the
 [specification gate](README.md#status-transition-draft--implementation-ready).
 All expansion rows are Experimental. They have pinned lead-only
@@ -27,11 +33,11 @@ failure diagnostics under [ADR 0011](../../adr/0011-experimental-sensor-enableme
 
 | ID | Source | Notes |
 | --- | --- | --- |
-| S1 | ITE Tech., Inc., IT8728F Preliminary Specification V0.4.2 (E version), pinned as S1 in [the existing IT8728 temperature specification](superio-ite-it86xx-it87xx.md#sources) | Vendor-authored primary source. The cover limits V0.4.2 to E. Section 8.3.5, printed p. 48, assigns the same revision nibble to DX and EX. Pins the E-specific fan map in §§9.5.2.1–9.5.2.2 and the temperature path in S3. |
+| S1 | ITE Tech., Inc., IT8728F Preliminary Specification V0.4.2 (E version), pinned as S1 in [the existing IT8728 temperature specification](superio-ite-it86xx-it87xx.md#sources) | Vendor-authored primary source. The cover limits V0.4.2 to E. Section 8.3.5, printed p. 48, assigns the same revision nibble to DX and EX. Pins the E-specific fan map in §§9.5.2.1–9.5.2.2 and the temperature path in S3. Context only for the banked modern profile: on IT8728F the Environment Controller accepts both LPC and serial-bus register access (§9.5, printed p. 87), EC `0x06` is SMI# Mask Register 3 with bits 7–3 reserved (Table 9-2, printed p. 88, §9.5.2.2.7, printed p. 92), and LDN `0x04` `CR F3` bits 4–1 are reserved (§8.8.10, printed p. 63). The bank and serial-bus meanings used for IT8686E, IT8688E and IT8689E are therefore model-specific lead-only facts. They are not inherited from S1. |
 | S3 | [Existing IT8728 temperature specification revision 2](superio-ite-it86xx-it87xx.md) | Baseline for access ordering, PawnIO BAR authorization and the explicit post-exit port proof. |
 | S5 | [ADR 0011](../../adr/0011-experimental-sensor-enablement.md) and [design principle DP-02](../../design-principles.md#dp-02-represent-partial-capability-honestly) | Project policy source for Experimental enablement, success/failure presentation, plausibility-gated partial readings, manual feedback, and no new telemetry. It supplies no hardware fact. |
 | S6 | Linux kernel [v6.18, `drivers/hwmon/it87.c`](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, GPL-2.0-or-later | **lead-only (copyleft)**. Pins exact modern IDs, I/O discovery and layout, temperature routing, pin selections, fan count format and availability, vendor register, and 16-bit mode differences. The exact IT8620E and IT8628E profile entries and model-scoped discovery are at lines 477–504, 2779–2787 and 2955–2989. For exact IT8772E, lines 409–418 and 2757–2759 identify the model and fixed 16-bit path. Lines 683–687, 910–921, 3245–3255, 3309–3325 and 3424–3448 pin divisor, count interpretation, read order, enable order and model-specific mode handling. The three-fan claim in this source does not apply to the FX scope in S13. |
-| S7 | LibreHardwareMonitor [`2808d80564b6`, ITE LPC Environment Controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT87XX.cs), Git blob `cc3dfd301e46cca5a92801890c512e0af422f8e1`, MPL-2.0 | **lead-only (copyleft)**. Corroborates the fixed divisor, low-byte then high-byte read order, maximum count as no measured rotation, and supports a conservative lower count bound for 16-bit tachometer channels. |
+| S7 | LibreHardwareMonitor [`2808d80564b6`, ITE LPC Environment Controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT87XX.cs), Git blob `cc3dfd301e46cca5a92801890c512e0af422f8e1`, MPL-2.0 | **lead-only (copyleft)**. Corroborates the fixed divisor, low-byte then high-byte read order, maximum count as no measured rotation, and supports a conservative lower count bound for 16-bit tachometer channels. For the banked modern profile, lines 84–86 give IT8689E four register banks, lines 420–436 place the bank field in EC `0x06` bits 6:5 and state that a bank change swaps indexes `0x10`–`0xAF`, lines 151 and 194 require a bank-0 write before every IT8665E and IT8655E update, line 470 treats a temperature byte of 0 or less, or 127, as no reading, and lines 561–563 record that IT8688E does not return the written index when its address port is read. The matching [chip-ID map](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs#L623-L625), Git blob `3bb61abd9d86df2dcf388cc80689d4db61d16537`, names raw `0x8686`, `0x8688` and `0x8689`. |
 | S8 | ITE Tech., Inc., *IT8716F Environment Control - LPC I/O*, Preliminary Specification V0.3, [public third-party mirror](https://www.rom.by/files/IT8716F_V0.3.pdf) | Vendor-authored primary document. The cover applies V0.3 to D and future versions. Section 8.3.5, printed p. 39, explicitly identifies C and D through `CR22[3:0]`. Pins configuration §8.1 and §§8.3, 8.8, dedicated FAN1 and shared FAN2/3 pin functions §§4–5 and §§8.3.10, 8.3.12, EC access §§9.6.1–9.6.2.1, monitor state §9.6.2.2.1, fan read and enable fields §§9.6.2.2.13–16 and .21, printed pp. 89–91, and tachometer format and cadence §§9.6.3.5–6, printed p. 101. |
 | S9 | [Super I/O configuration access revision 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [PawnIO interface revision 7](pawnio-interface.md#lpcio) | Current repository transport facts and scope limits. The Experimental slot-1 withhold applies to diagnostics. |
 | S10 | Out-of-tree [IT87 driver](https://github.com/frankcrawford/it87/blob/master/it87.c), Git blob `56148f202fee43436fa73a747a1bf465deb8721e`, GPL-2.0-or-later | **lead-only (copyleft)**. Corroborates the separate exact IT8620E and IT8628E IDs and fixed 16-bit fan profile selection, with distinct bank and SMBus access requirements for deferred chips. |
@@ -39,6 +45,13 @@ failure diagnostics under [ADR 0011](../../adr/0011-experimental-sensor-enableme
 | S12 | [IT8728F primary-slot FAN1–2 specification revision 2](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md) | Applicability reference for the separate chip-level Experimental IT8728F FAN1–2 profile. The primary expansion rows in this document do not depend on that profile. |
 | S13 | ITE Tech., Inc., *IT8772E Environment Control – LPC I/O*, Preliminary Specification V0.4 (For F Version), ITPM-PN-2012032, 2012-03-16, [public third-party mirror](https://mediatronik.net/wp/wp-content/uploads/2024/01/IT8772E-ITE.pdf), SHA-256 `e7517c2c4228526e95308dd275cfaf2d70c249b9b36e7657ed800d9c377539db` | Vendor-authored primary source. Printed pages are one-based PDF pages minus 14. Pins primary configuration and exact FX identity (§§8.1, 8.3.1–8.3.5, pp. 25–26, 33), tachometer routing (§§8.3.10, 8.3.12, pp. 36–37), active EC base (§§8.5.1–8.5.3, p. 41), LPC index/data ports (Table 9-1, p. 68), runtime gate and alarms (§§9.5.2.2.1–9.5.2.2.4, pp. 73–74), tachometer mode, counts and enable (§§9.5.2.2.13–9.5.2.2.16, .19, pp. 75–77, 79), vendor byte (§9.5.2.2.34, p. 81), and conversion and cadence (§§9.5.3.5–9.5.3.6, p. 95). |
 | S14 | coreboot 4.22, [exact IT8772F firmware definitions](https://github.com/coreboot/coreboot/blob/4.22/src/superio/ite/it8772f/it8772f.h#L36-L38), Git blob `38cfe3b20ee841ca9a89333ffa9cc030e826a0a9`, [enable path](https://github.com/coreboot/coreboot/blob/4.22/src/superio/ite/it8772f/superio.c#L130-L134), Git blob `82f30fa6cd36b9bbaf4aa9469d24ad571af9d7be`, GPL-2.0-or-later, and [Google Beltino board configuration](https://github.com/coreboot/coreboot/blob/4.22/src/mainboard/google/beltino/devicetree.cb#L80-L95), Git blob `cdaab35b54e4a8517431e6926c5e4f724b345cb9` | **lead-only (copyleft)**. Corroborates channel enable bit order and a deployment with FAN2 enabled by firmware on primary LDN `0x04` at `0x0700`. Supplies no live RPM evidence and does not authorize any firmware writes. |
+| S15 | Out-of-tree IT87 driver, [commit `bd7a566c8a60`](https://github.com/frankcrawford/it87/blob/bd7a566c8a60fe0308d67e26761e16260368191a/it87.c), Git blob `56148f202fee43436fa73a747a1bf465deb8721e` (the S10 blob), GPL-2.0-or-later | **lead-only (copyleft)**. Line-pinned facts for the banked modern profile. Lines 276–278 give exact IDs `0x8686`, `0x8688` and `0x8689`. Lines 914–949 mark all three as banked, 16-bit-fan, new-temperature-map chips with serial-bus enable bits 1 and 2. Line 286 places those enable bits in LDN `0x04` `CR F3`, and lines 6387–6394 read them during discovery. Lines 353 and 2651–2684 place the bank field in EC `0x06` from bit 5 upward and restore the previous bank after each banked access. Lines 2614–2648 clear the serial-bus enables around every update, a configuration write this profile excludes. Lines 379 and 381 give the FAN1–3 count bytes, line 407 the temperature bytes, and line 6739 the FAN1–3 enables in EC `0x13` bits 4–6. Lines 6062–6100 select FAN2 and FAN3 routing through `CR29[2]` and `CR27[7]` with LDN `0x07` selected. Lines 489–490 and 3712–3740 place the temperature-source selection for these models in bank 2. Lines 6984–6985 refuse EC `0x00` bit 7 set or EC `0x58` other than `0x90`. Lines 3460–3464 read each count low byte then high byte. Lines 5819–5823 select an alternate memory-mapped transport for IT8688E revision 2. |
+| S16 | Linux kernel [v7.4-rc1, `drivers/hwmon/it87.c`](https://github.com/torvalds/linux/blob/v7.4-rc1/drivers/hwmon/it87.c), Git blob `2757d428a23dba550756cb327c851dbcaa25c078`, GPL-2.0-or-later, and commit [`66b8eaf8def2`](https://github.com/torvalds/linux/commit/66b8eaf8def2d51dab49c4921b93f1bf1c7638dc) | **lead-only (copyleft)**. Independent upstream corroboration for IT8689E only. Lines 567–576 give 16-bit fans and serial-bus enable bits 1 and 2. Lines 3210–3245 give the same FAN2 and FAN3 routing fields as S15. Lines 3429–3435 read `CR F3`, and lines 3723–3724 refuse EC `0x00` bit 7 or a vendor byte other than `0x90`. This revision has no bank handling for IT8689E. |
+| S17 | Guenter Roeck, *ITE register differences*, dated 2017-04-11, [`ITE_Register_map.pdf`](https://github.com/a1wong/it87/blob/65ec08b8a3c118e99a8a5da4052d7719caa69cd1/ITE_Register_map.pdf) in an IT87 driver repository, commit `65ec08b8a3c118e99a8a5da4052d7719caa69cd1`, SHA-256 `856302bc32a1a26af1e1cec22c2244a1700fbc7eb7d0db97276a50aa482b67ff` | **lead-only (copyleft)**. Community-compiled comparison table distributed with a GPL driver. Its sheet marks some cells as guesswork. Page 1 gives IT8686E FAN1–3 enables in EC `0x13` bits 4–6, count bytes `0x0D`–`0x0F` and `0x18`–`0x1A`, temperature bytes `0x29`–`0x2B`, and TMPIN1–3 source selection split between EC `0x51` and bank-2 indexes `0x1D`–`0x1E`. Page 2 warns that the embedded controller on at least one multi-bank chip, IT8665E, changes the bank while it accesses the registers. |
+| S18 | Frank Crawford, *hwmon: (it87) Add access control for SMBus*, [v2 cover letter](https://lore.kernel.org/linux-hwmon/20230416042510.1929077-1-frank@crawford.emu.id.au/), 2023-04-16, and applied commit [`9989b3c0ff97`](https://github.com/torvalds/linux/commit/9989b3c0ff9771760c103d46e6b5e8645fd3d836) | **lead-only (copyleft)**. Patch-series description for a GPL driver. On some chips, an embedded controller can reach Environment Controller registers over SMBus at any time without synchronization. On banked chips, this can produce access errors with unpredictable results. |
+| S19 | AX370-Gaming K7 owner report, [LibreHardwareMonitor issue 1030](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/1030), [attached report](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/files/11068646/LibreHardwareMonitor.Report.txt), 2023-03-25, SHA-256 `276b0ff0864c337245602f78df3b25384279aa6838d1d2a8ca92466f7b557ed8` | Independent public register dump. It is not maintainer-accepted. It records BIOS F51i, slot-0 raw `0x8686` with chip version 2 at base `0x0A40`, and a separate `0x8733` at `0x4E` with base `0x0A60`. The bank-0 dump shows EC `0x00=0x19`, `0x06=0x00`, `0x0C=0x30`, `0x13=0x77`, `0x51=0x18` and `0x58=0x90`. FAN1–3 count pairs are `0x04AB`, `0x04CB` and `0x0892`. TMPIN1–3 bytes are `0x27`, `0x31` and `0x35`, and the tool reported a changing third input. The tool also read EC `0x01`–`0x03`, which this profile never selects. |
+| S20 | Z390 AORUS ELITE owner report, [out-of-tree IT87 issue 148](https://github.com/frankcrawford/it87/issues/148), 2026-11-13, with the driver contributor replies of [2026-11-17](https://github.com/frankcrawford/it87/issues/148#issuecomment-6957429357) and [2026-11-19](https://github.com/frankcrawford/it87/issues/148#issuecomment-7018129185) | Independent owner observation with IT8688E revision 1 and BIOS F12c. The OEM SSDT defines a locked indexed field on ports `0x0A45`/`0x0A46`. While the OS also polled the OEM WMI temperature method, direct reads showed brief fan readings of 80–90 RPM instead of about 700 RPM several times per minute. These disappeared when the direct reads were serialized with the ACPI Global Lock. The contributor states, without supporting evidence, that under normal operation only the firmware's fan-stop SMM routines use those ports. The issue body contains patch code, which this specification does not use. |
+| S21 | [Gigabyte secondary ITE specification revision 8](superio-ite-gigabyte-secondary.md) | Repository evidence pinned from OEM artifacts and owner logs. X470 AORUS ULTRA GAMING F61a reports primary raw `0x8686` with a reservation at `0x0A40`–`0x0A4F`, and its OEM `GSWApp` SSDT places an indexed monitor field at `0x0A45`/`0x0A46`. X470 AORUS GAMING 7 WIFI reports primary `0x8686` at `0x2E` with base `0x0A40`. B650E AORUS MASTER reports primary IT8689E revision 2 at `0x0A40`. Its F37 `GSWApp` table and the X670E AORUS MASTER F41 table use the same primary pair. The inspected F64 SMM handlers write hardware only on power-button and S3–S5 entry events. |
 
 ## Detection
 
@@ -52,7 +65,38 @@ failure diagnostics under [ADR 0011](../../adr/0011-experimental-sensor-enableme
 | Slot 0, exact `0x8772` / IT8772E FX with `CR22[3:0]=0x2`, FAN2–3 | **Experimental**. S13 establishes FX identity, primary discovery, two tachometer inputs, routing, and both count bytes. The ordinal enable bits, fixed 16-bit interpretation and divisor, read order, and count dispositions use S6/S7/S14 (lead-only). | Enabled best-effort for eligible FAN2 and FAN3 inputs after approval of this revision. |
 | Slot 0, exact `0x8620` / IT8620E TMPIN1–3 and FAN1–3 | **Experimental**. Exact ID and model-wide fixed 16-bit fan path from S6/S10. Discovery, vendor check, EC read access, physical-temperature selection and encoding, fan enable, pin routing, divisor, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible inputs. |
 | Slot 0, exact `0x8628` / IT8628E TMPIN1–3 and FAN1–3 | **Experimental**. Exact ID and model-wide fixed 16-bit fan path from S6/S10. Discovery, vendor check, EC read access, physical-temperature selection and encoding, fan enable, pin routing, divisor, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible inputs. |
+| Slot 0, exact `0x8686` / IT8686E, `0x8688` / IT8688E or `0x8689` / IT8689E, bank-guarded TMPIN1–3 and FAN1–3 | **Experimental**. No vendor document is public for these models. Lead-only facts: exact IDs (S15, S7, and S16 for `0x8689`); discovery, EC block, vendor byte and EC `0x00` state (S15, S16); bank field in EC `0x06` and the bank-swapped index range (S15, S7); serial-bus access that can change the bank (S17, S18); FAN1–3 enables, count bytes, fixed 16-bit width, divisor 2, read order and count dispositions (S15, S16, S17, S7); FAN2/FAN3 routing (S15, S16); temperature byte location and encoding (S15, S17, S7); and the bank-2 source map that this profile does not read (S15, S17). The S19 dump and the S20 and S21 observations corroborate the transport, base and byte patterns without being maintainer-accepted. Best-evidenced members: IT8686E version 2 on AX370-Gaming K7 F51i (S19), `0x8686` on X470 AORUS ULTRA GAMING F61a and X470 AORUS GAMING 7 WIFI (S21), IT8688E revision 1 on Z390 AORUS ELITE F12c (S20), and IT8689E revision 2 on B650E AORUS MASTER (S21). | Enabled best-effort for eligible inputs under the [Banked modern profile](#banked-modern-profile). Higher channels are deferred. |
 | Additional channels, IT86xx/IT87xx models, and secondary transport | See [Deferred profiles](#deferred-profiles). A raw `0x8721` cannot use the IT8728 profile. | Disabled. |
+
+### Runtime gates
+
+Every runtime condition below is a mechanism or safety gate
+([ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md)).
+Board names, BIOS versions, chip revisions outside the listed revision
+gates, and observed base addresses are evidence identities. They appear
+only in Status and fixtures. "All" means every expansion profile in this
+document. The IT8728F rows follow the gates of S3 and S12.
+
+| Condition | Profiles | Gate kind | Source |
+| --- | --- | --- | --- |
+| Configuration slot 0 (`0x2E`/`0x2F`) only. Slot 1 keeps the S9 diagnostic and exit-withhold rule. | All | safety | S9 (lead-only safety facts in S9) |
+| Exact raw chip ID `0x8716`, `0x8772`, `0x8620`, `0x8628`, `0x8686`, `0x8688` or `0x8689` | Per profile | mechanism | S8, S13, S6, S10, S15, S16 |
+| `CR22[3:0]=0x1` | IT8716F D | mechanism | S8 §8.3.5 |
+| `CR22[3:0]=0x2` | IT8772E FX | mechanism | S13 §8.3.5 |
+| LDN `0x04` `CR30[0]=1` and a valid aligned base from `CR60/61` | All | mechanism | S8, S13, S6, S15 |
+| Base in `0x0100`–`0x0FF0`, bits 2:0 clear and outside the PawnIO-protected PCI window | IT8620E, IT8628E, banked modern | safety | S3, S9, S11 |
+| `ioctl_find_bars` success, successful primary exit and post-exit EC `0x00` port proof | All | mechanism | S3, S11 |
+| EC `0x58=0x90` | IT8772E FX, IT8620E, IT8628E (discovery); banked modern (every sample) | mechanism | S13 §9.5.2.2.34; S6, S15, S16 |
+| EC `0x00` bit 0 set and bit 3 clear, plus bit 7 clear on IT8772E FX, IT8620E and IT8628E | IT8716F D, IT8772E FX, IT8620E, IT8628E | mechanism | S8, S13, S6 |
+| EC `0x00` bit 0 set and bit 7 clear. Bit 3 is not a gate on this profile. | Banked modern | mechanism | S15, S16, S19 |
+| EC `0x06` bits 7:5 all clear immediately before and immediately after the sample's banked reads | Banked modern | safety | S15, S7, S17, S18 |
+| FAN routing `CR29[2]=0` (FAN2) and `CR27[7]=0` (FAN3) | IT8716F D, IT8772E FX, IT8620E, IT8628E, banked modern | mechanism | S8, S13, S6, S15, S16 |
+| EC `0x13` bits 4–6 per fan | All fan profiles | mechanism | S8, S13, S6, S15, S17 |
+| EC `0x0C` bits 0–2 per fan | IT8716F D | mechanism | S8 §9.6.2.2.13 |
+| EC `0x51` physical-mode and external-destination bits | IT8620E, IT8628E | mechanism | S6 |
+| Two identical immediate reads of each value | Fan pairs on every profile; banked-modern temperatures | safety | S5, S20 |
+| Caller-held ISA mutex and at least 1.5 seconds between sample bursts | All | safety | S3, S9, S8 §9.6.3.6 |
+| Temperature acceptance −55 to +125 °C (IT8620E, IT8628E) or +1 to +125 °C (banked modern) | Temperature profiles | safety | S5, S7, S19 |
 
 ### Discovery and authorization
 
@@ -68,6 +112,7 @@ that sequence. (S3, S11)
 | IT8716F D | After raw chip ID `0x8716`, read global `CR22` before LDN selection. Require its low nibble to be exactly `0x1`. A failed read, C (`0x0`), or an unlisted nibble ends expansion discovery with the usual primary configuration exit. Use the same primary configuration keys, active LDN `0x04`, 12-bit aligned base format from `CR60/61`, and EC index/data offsets as IT8728. Read the global pin-routing fields with LDN `0x04` selected. | EC `0x00` bit 0 set and bit 3 clear. | S8 §§8.1, 8.3, 8.8, 9.6.1–9.6.2.1, 9.6.2.2.1; S3 |
 | IT8772E FX | After exact raw chip ID `0x8772`, read global `CR22` before LDN selection. Require its low nibble to be exactly `0x2`. Refuse a failed revision read or any other nibble and perform the usual primary configuration exit. Use the same primary keys, active LDN `0x04`, 12-bit aligned base from `CR60/61`, and EC index/data offsets as IT8716F D. Read the global pin-routing fields with LDN `0x04` selected. After the usual EC `0x00` port proof, require `EC 0x58=0x90` before caching the path. | EC `0x00` bit 0 set and bits 7 and 3 clear. | S13 §§8.1, 8.3, 8.5, 9.5.1, 9.5.2.2.1, .34 and 9.5.3.6, S3 |
 | IT8620E, IT8628E | S6 describes the primary configuration keys and exact IDs, LDN `0x04` with `CR30[0]` set, and an eight-port EC block from `CR60/61`, with index/data at base + 5/+ 6. Require the raw big-endian base in `0x0100`–`0x0FF0`, bits 2:0 clear, and an address outside the PawnIO-protected PCI window. Read pin-routing fields with LDN `0x07` selected, then return to LDN `0x04` before BAR discovery. After the EC `0x00` port proof, require bit 7 clear and EC `0x58=0x90` before caching this path. | EC `0x00` bit 0 set and bits 7 and 3 clear. The bit 3 check and stricter base checks are conservative project guards. | Discovery, ports, EC vendor byte, monitor start, and EC `0x00[7]` refusal S6 (lead-only); allow-list S3/S9/S11 |
+| IT8686E, IT8688E, IT8689E (banked modern) | Use the IT8620E discovery and base rules above after exact raw ID `0x8686`, `0x8688` or `0x8689`. Read global `CR22` and keep its value for diagnostics only. No revision nibble selects or refuses this profile. Read `CR27` and `CR29` with LDN `0x07` selected, then return to LDN `0x04` before BAR discovery. After the EC `0x00` port proof, require bit 7 clear. Then read EC `0x06` and require bits 7:5 clear before reading EC `0x58`, and require `0x90` before caching this path. Do not read or write LDN `0x04` `CR F3` on the runtime path. | Per sample, see [Banked modern profile](#banked-modern-profile). | Discovery, ports, routing, vendor byte and EC `0x00[7]` refusal S15/S16 (lead-only); bank field S15/S7 (lead-only); allow-list S3/S9/S11 |
 
 Mark a failed pin-routing read unavailable for the affected fan until
 rediscovery. If selection of the routing LDN fails on a modern profile,
@@ -111,6 +156,71 @@ provides no width-selection field in EC `0x0C`. After the runtime gate,
 read EC `0x13` and the count pairs for the eligible inputs. Restrict
 sampling to these fields. (S13, S6 lead-only)
 
+### Banked modern profile
+
+This profile applies to slot 0 with exact raw ID `0x8686`, `0x8688` or
+`0x8689`. All facts in this subsection are lead-only and back only the
+Experimental row. S19 corroborates the byte patterns on one IT8686E.
+
+| EC index | Fact | Use in this profile | Source |
+| --- | --- | --- | --- |
+| `0x00` | Bit 0 starts monitoring. Bit 7 set causes the leads to refuse the block. | Require bit 0 set and bit 7 clear. Do not interpret bit 3. S19 shows `0x19`, which has bit 3 set, while its inputs change. | S15, S16; S19 |
+| `0x06` | Bank field, from bit 5 upward. A non-zero bank replaces the contents of indexes `0x10`–`0xAF`. S7 masks bits 6:5 and S15 reads bits 7:5. | Read only. Require bits 7:5 clear before and after the banked reads. Never write this register. | S15, S7; S19 shows `0x00` |
+| `0x58` | Vendor byte `0x90` in bank 0. | Require `0x90` within each sample after the opening bank check. | S15, S16; S19 |
+| `0x13` | Bits 4, 5 and 6 enable the FAN1, FAN2 and FAN3 tachometers. | Require the bit for each fan. | S15, S17; S19 shows `0x77` |
+| `0x0D`/`0x0E`/`0x0F` | FAN1/FAN2/FAN3 count low bytes. | Read low byte first. | S15, S17 |
+| `0x18`/`0x19`/`0x1A` | FAN1/FAN2/FAN3 count high bytes. | Read after the matching low byte. | S15, S17 |
+| `0x0C` | FAN1–FAN3 counts are always 16-bit on these models. | Not read. S19 shows bits 0–2 clear while all three 16-bit pairs hold plausible counts. | S15, S16; S19 |
+| `0x29`/`0x2A`/`0x2B` | TMPIN1/TMPIN2/TMPIN3 readings, signed 8-bit, 1 °C per step. | Read each byte twice. | S15, S17, S7; S19 |
+| `0x51` and bank-2 `0x1D`–`0x1E` | Together they select the source of TMPIN1–3. The bank-2 part needs a bank write. | Not read. S19 shows `0x51=0x18`, which marks no source for TMPIN3 while that input changes. EC `0x51` alone therefore cannot qualify these inputs. | S15, S17; S19 |
+
+| Global register (LDN `0x07` selected) | Fact | Source |
+| --- | --- | --- |
+| `CR29[2]` | Must be clear for FAN2 to use its tachometer pin. | S15, S16 |
+| `CR27[7]` | Must be clear for FAN3 to use its tachometer pin. | S15, S16 |
+| — | FAN1 has no routing condition in the leads. | S15, S16 |
+
+S15 and S16 give these models serial-bus access enables. S18 explains
+that an embedded controller can use such access at any time, outside the
+ISA mutex. On banked chips, that access can change the bank while
+another client reads. S17 reports this for IT8665E. The leads
+avoid the hazard by clearing serial-bus enables in LDN `0x04` `CR F3` and by
+rewriting the bank. Both are configuration writes that this specification
+excludes. This profile instead brackets its reads with bank checks and
+discards inconsistent samples. (S15, S16, S17, S18)
+
+Each sample uses the cached port proof and one ISA mutex acquisition.
+Use this order:
+
+1. Read EC `0x00`. Require bit 0 set and bit 7 clear. Otherwise the
+   whole sample is unavailable.
+2. Read EC `0x06`. Require bits 7:5 clear. Otherwise make no further
+   banked read, report the sample as unavailable and do not retry.
+3. Read EC `0x58` and require `0x90`. Otherwise the sample is
+   unavailable.
+4. Read EC `0x13`. A failed read makes FAN1–3 unavailable but does
+   not affect the temperature inputs.
+5. For each enabled fan whose routing field was clear at discovery,
+   read low byte, high byte, low byte and high byte. Accept the count
+   only if both pairs match.
+6. Read EC `0x29`, `0x2A` and `0x2B`, each twice in immediate
+   succession. Accept an input only if both bytes match.
+7. Read EC `0x06` again and require bits 7:5 clear. If this read fails
+   or the bank is not zero, discard every value from steps 4–6 for this
+   sample.
+
+No step waits or retries. A failed individual read invalidates only its
+input. Successful siblings keep their original `FAN1`–`FAN3` and
+`TMPIN1`–`TMPIN3` names. Decode counts with the table in
+[Read procedure and decode](#read-procedure-and-decode). Decode a
+temperature byte as signed and accept it only from +1 to +125 °C
+inclusive. This range is narrower than the IT8620E rule because the
+profile cannot read the source selection. S7 also treats zero and below
+as no reading. In S19, an input the tool did not present reads `0xC9`
+(−55 °C). The sample never reads EC `0x01`–`0x03`, `0x0C`, `0x51`, any
+index at or above `0x80`, or any bank-2 register. (S5, S7, S15, S17,
+S19)
+
 ## Read procedure and decode
 
 After reading the gate bytes, read each eligible channel's low byte and
@@ -125,8 +235,9 @@ omits the dependent fan inputs while preserving eligible temperatures.
 Compute `count = 256 * high + low`. A 16-bit counter uses divisor 2,
 so the whole-number speed is `floor(675000 / count)`. The formula base
 is pinned for IT8716F D by S8 §9.6.3.5, for IT8772E FX by S13 §9.5.3.5,
-and for the modern profiles by S6 (lead-only). The fixed 16-bit divisor is supported by S6/S7
-(lead-only). Interpret the results only after the activation,
+for IT8620E and IT8628E by S6, and for the banked modern profile by S15
+(lead-only). The fixed 16-bit divisor is supported by S6/S7, and by
+S15/S7 for the banked modern profile (lead-only). Interpret the results only after the activation,
 routing, mode, authorization, and consistency checks:
 
 | Count | Reading | Basis |
@@ -169,6 +280,16 @@ fan capability independently of this sample's available rows. (S3, S5;
 | Modern profile with `CR60/61=0x0C/0xF8`, an unaligned base, a base above `0x0FF0`, or inactive LDN | Reject before any EC index write. |
 | Mutex unavailable, BAR port denied, failed primary exit, or wrong EC vendor byte on a modern profile | Reject without caching a port proof. A failed primary exit prevents every EC read. |
 | Slot 0 unknown ID or neighboring `0x8622`, or slot 1 with `0x8733`, `0x8790`, `0x8695`, or `0x8883` | No expansion LDN discovery or sensor reads. The slot-1 exit-withhold rule still applies to the existing diagnostic. |
+| Banked modern, synthetic from S19 bytes: slot 0 exact `0x8686`, `CR22=0x02`, base `0x0A40`, routing clear, EC `0x00=0x19`, `0x06=0x00` before and after, `0x58=0x90`, `0x13=0x77`, FAN1–3 pairs `0xAB/0x04`, `0xCB/0x04`, `0x92/0x08` twice each, TMPIN bytes `0x27`, `0x31`, `0x35` twice each | FAN1 564 RPM, FAN2 550 RPM, FAN3 307 RPM, TMPIN1 39 °C, TMPIN2 49 °C and TMPIN3 53 °C. EC `0x00` bit 3 does not block the sample. One mutex acquisition covers the sample. |
+| Same transaction with `0x8688` and `CR22=0x01`, then `0x8689` and `CR22=0x02` | Identical readings. The revision is reported and does not gate. |
+| Banked modern, EC `0x06` is `0x20`, `0x40`, `0x60` or `0x80` at the opening check | No read of EC `0x58`, `0x13`, counts or temperatures. All six inputs are unavailable for this sample, and no EC `0x06` write occurs. The next sample starts independently. |
+| Banked modern, EC `0x06` is `0x00` at the opening check and `0x20` or unreadable at the closing check | Every fan and temperature value of this sample is discarded. |
+| Banked modern, EC `0x58=0x00` after a zero bank, or EC `0x00` bit 0 clear or bit 7 set | Sample unavailable. No further banked read. |
+| Banked modern, TMPIN bytes stable at `0xC9`, `0x00`, `0x80`, `0x7E`, `0x7D` and `0x01` | Unavailable, unavailable, unavailable, unavailable, +125 °C and +1 °C respectively. |
+| Banked modern, TMPIN2 reads `0x31` then `0x32`, siblings stable | TMPIN2 unavailable. TMPIN1 and TMPIN3 keep their names and values. |
+| Banked modern with `CR29[2]=1`, EC `0x13=0x37`, FAN1 pairs `0xFF/0xFF` | FAN2 omitted before its count reads, FAN3 omitted because its enable is clear, FAN1 inactive at 0 RPM. |
+| Banked modern recorded transaction | The only writes are the slot-0 configuration keys, LDN selections through `CR07` and the configuration exit during discovery, plus EC index selections at `ec_base + 0x05`. No read of EC `0x01`–`0x03`, `0x0C`, `0x51` or any index at or above `0x80`. No access to `CR F3` and no configuration entry during sampling. |
+| Slot 0 with `0x8696`, `0x8698`, `0x8665`, `0x8655`, `0x8625` or `0x8613`, or slot 1 with `0x8686` | No banked modern profile and no sensor reads. |
 
 ## Quirks
 
@@ -181,6 +302,21 @@ fan capability independently of this sample's available rows. (S3, S5;
   no revision-dependent path for these channels on either exact model.
   This evidence supports Experimental enablement only. The EC vendor
   byte checks the register block after chip selection. (S6/S10, lead-only)
+- The banked modern leads disagree on the width of the bank field.
+  S7 changes bits 6:5 and preserves bit 7. S15 reads bits 7:5. The
+  profile requires all of bits 7:5 clear, which satisfies both leads.
+  (S7, S15, lead-only)
+- On the S19 IT8686E, EC `0x00` reads `0x19` while the inputs change.
+  The bit 3 meaning pinned for IT8728F in S1 therefore cannot be
+  assumed on this family. (S19)
+- S7 records that IT8688E does not return the written index when its
+  address port is read. No profile in this document reads the address
+  port back. (S7, lead-only)
+- S15 selects a memory-mapped transport for IT8688E revision 2. It also
+  does so for IT8689E when global `CR24` bit 5 is set (lines 5819–5835).
+  S15 still registers the I/O block as its primary window (line 6895).
+  This profile uses only the I/O block. The port proof, vendor byte and
+  bank checks qualify that block at runtime. (S15, lead-only)
 
 ## Deferred profiles
 
@@ -192,10 +328,13 @@ fan capability independently of this sample's available rows. (S3, S5;
 | IT8716F C or unlisted revisions, 8-bit mode, IT8726F | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). Pin the exact silicon revision and its compatible read-only fields. An 8-bit path also needs the active divisor. Raw `0x8726` needs its own EC field definitions. (S6, lead-only; S8) |
 | IT8718F, IT8720F, IT8721F | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). Require separately pinned discovery, per-channel routing, width control, and any high-index access. The firmware pin selection differs even across these three models. (S6, lead-only) |
 | IT8771E and IT8772E outside FX FAN2–3 | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518). IT8771E needs model-specific population and width evidence. IT8772E BX/CX, DX/EX, or unlisted versions need their own map and width evidence. FX FAN1 and additional fan inputs remain outside the vendor's two tachometer inputs. (S6 lead-only, S13 §§5, 8.3.5, 9.5) |
-| IT8613E | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517). Confirm exact routing and enable fields. The published [comparison sheet](https://raw.githubusercontent.com/a1wong/it87/master/ITE_Register_map.pdf) leaves FAN1's enable field unspecified for this model. |
-| IT8625E, IT8655E, IT8665E, IT8686E | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517). Pin initial bank, safe access while firmware owns SMBus, and the channel gates before selecting a profile. Some layouts require additional bank or transport handling in S10 (lead-only); this proposal leaves those operations disabled. |
-| IT8631E, IT8638E, IT8688E, IT8689E, IT8696E | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517). Confirm the exact EC transport, index/bank layout, and per-input enable/routing independently. A matching chip ID or family name does not determine the transport. |
-| IT8620E and IT8628E additional inputs | [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517). Keep higher temperature and fan channels separate until routing and high-index access are established for each model. (S6, lead-only) |
+| IT8613E | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). Lead-only routing is now pinned: S16's later IT8613E entry (lines 521–531, 3123–3157) has no FAN1. FAN2 and FAN3 use `CR29[2]` and `CR27[7]` as on IT8620E. Its temperature map is new and it knows only three inputs. Still needed: evidence that excludes the competing firmware EC access recorded for the known platforms in [#2606](https://github.com/shm11C3/HardwareVisualizer/issues/2606) and [`superio-ite-lattepanda-sigma-linux-ec.md`](superio-ite-lattepanda-sigma-linux-ec.md), and a qualified temperature source rule for the new map. (S16, lead-only) |
+| IT8625E | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). Banked, with serial-bus enable bits and an IT8665E-style FAN6 location in S15 (lines 865–876). No independent dump or reported board population supports a bank-guarded read. Needed: a dump showing the bank and the FAN1–3 and TMPIN1–3 bytes on a named board, plus the routing fields in S15 lines 6212–6245. (S15, lead-only) |
+| IT8655E, IT8665E | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). Not admitted to the banked modern profile. S17 reports that the embedded controller on IT8665E changes the bank during its accesses. S7 writes bank 0 before every update on both models. A read-only bracket would race that controller and often find a non-zero bank. FAN2 routing uses `CR2D[4]` instead of `CR29[2]` (S15 lines 6188–6245). The `EC 0x00` bit-4 expectation also differs (S7 line 74). Needed: evidence for the competing controller's bank use, or a read path that needs no bank write. (S7, S15, S17, lead-only) |
+| IT8686E, IT8688E, IT8689E FAN4–FAN6 and TMPIN4–TMPIN6 | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). FAN4/FAN5 counts sit at `0x80`–`0x83`. A chip that decodes only seven index bits would alias those reads to `0x00`–`0x03`, which include the read-to-clear status group. S19 shows plausible 8-bit-index data on one IT8686E. That evidence gives no runtime proof, and IT8688E cannot confirm the index through readback (S7). FAN6 is a low-index candidate (`0x4C`/`0x4D`, enable `0x0C[2]`, routing `CR29[7]` set, S15 lines 6096–6100 and 6750–6762) that needs a dump with an enabled FAN6. TMPIN4–6 depend on EC `0x77` (S15 lines 7040–7051). Physical sources and labels need the bank-2 map. (S1 §9.5.2.1; S7, S15, lead-only; S19) |
+| IT8631E, IT8638E | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). Only S7 names these models, with two temperature and two fan inputs. Neither S15 nor S16 defines their discovery, bank layout, routing or serial-bus behavior. Needed: an independent source for those facts and a named-board dump. (S7, lead-only) |
+| IT8696E | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). The Linux WMI temperature scope in [`superio-ite-b850m-wifi6e-ice-linux-wmi.md`](superio-ite-b850m-wifi6e-ice-linux-wmi.md) is unchanged. S15 groups IT8696E with IT8689E for register locations but states no FAN2 or FAN3 routing fields for it. S16 does not list it. That specification records a thermal-zone method in one BIOS for that board that can reach fan-control writes. Needed: routing fields, a Windows-side dump on a named board, and firmware evidence about periodic AML use of the primary pair. (S15, lead-only) |
+| IT8620E and IT8628E additional inputs | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). FAN4/FAN5 share the high-index aliasing hazard above. S17 lists IT8620E's FAN6 count bytes in the opposite order from IT8628E and IT8686E, so its byte order is unresolved. TMPIN4–6 depend on EC `0x77`. Keep these channels separate until each model's routing, byte order and index width are established. (S6, S15, S17, lead-only) |
 | IT8790E `0x8790`, IT8792E/IT8795E `0x8733`, IT87952E `0x8695`, alternate report `0x8883` | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519). Keep the existing raw diagnostic and exit-withhold rule. Before extending telemetry, prove safe pre-key identification, active distinct base and usable BAR ownership without an exit, safe logical-device selection after BAR discovery, board/controller identity where IDs overlap, and channel attribution from a two-controller board. The alternate raw ID is exit-withhold evidence only. (S9, including its lead-only safety facts; S11) |
 | Gigabyte ECIO and ISA bridge | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519). Pin independently recognized board/controller combinations, transport authorization, firmware-safe read protocol, concurrency, and duplicate suppression against direct LPC. Neither transport is included in the primary LPC access proposal. |
 
@@ -213,6 +352,21 @@ fan capability independently of this sample's available rows. (S3, S5;
   read-to-clear behavior for this group. S13 independently specifies it
   for IT8772E FX. (S1 §§9.5.2.2.2–9.5.2.2.4, printed p. 92, S13
   §§9.5.2.2.2–9.5.2.2.4, printed pp. 73–74)
+- On the banked modern discovery and sampling path, never write EC
+  `0x06` and never read or write LDN `0x04` `CR F3`. Only the opt-in
+  capture in [Manual compatibility evidence](#manual-compatibility-evidence)
+  reads `CR F3`, once. The leads clear serial-bus access and
+  select a bank there (S15, S16). Those writes change shared state that
+  another controller may be using. Never read an index at or above
+  `0x80` or any bank-2 register. A non-zero bank makes the sample
+  unavailable instead of triggering a correction. (S7, S15, S17, S18)
+- OEM AML on the inspected Gigabyte boards uses the same primary
+  index/data pair under the ACPI Global Lock. PawnIO clients cannot take
+  that lock. S20 observed wrong readings that matched this interleaving.
+  The repeated-read rules reject that failure mode for fan counts on
+  every profile and for banked-modern temperatures. They do not prevent
+  an interleaved index write from redirecting a firmware access. See
+  Open questions. (S20, S21)
 - Hold the ISA mutex across the complete multi-step transaction. PawnIO
   requires caller ownership. A mutex timeout, failed transport proof, or
   unreadable global EC gate aborts the transaction. An individual input
@@ -249,11 +403,56 @@ fan capability independently of this sample's available rows. (S3, S5;
   for exact IT8772E (lead-only). An independent FX dump with paired RPM
   evidence is still needed for verification.
 
+- Non-blocking for Phase 4 primary LPC expansion: bracket, vendor-byte and repeated-read checks discard samples across a detected bank change, and the profile never writes the bank.
+  The profile detects a bank change only at the bracket reads. An
+  embedded controller with serial-bus access can change the bank after
+  the opening check and restore it before the closing check (S17,
+  S18). A banked read could then return a byte from another bank at the
+  same index. The double reads and the temperature range reject most
+  such values. No lead describes a read side effect
+  at the sampled indexes in banks 1–3. S7 reads all four banks of
+  IT8689E for its own dumps. Whether the serial-bus enables in LDN
+  `0x04` `CR F3` are set on the target boards is unknown. The manual
+  dump below records them. A dump that shows frequent bank changes
+  would be grounds to withdraw the profile or require those enables to
+  be clear.
+- Non-blocking for Phase 4 primary LPC expansion: the exposure already applies to every approved ITE primary path, and repeated reads reject its observed failure mode.
+  Firmware use of the shared primary pair is not specific to this
+  revision. It also affects the IT8620E, IT8628E and IT8728F paths on
+  Gigabyte boards. OEM `GSWApp` AML declares the primary pair `0x0A45`/
+  `0x0A46` on the S21 boards. It serializes through the ACPI Global
+  Lock, which PawnIO clients cannot take. S20 shows that interleaving
+  produces wrong readings, and the double reads here reject that
+  failure mode. An interleaved index write from this client could also
+  redirect a firmware data access. Thermal zones were examined on one
+  S21 board, X670E AORUS MASTER F41, where `_TMP` uses only AMD
+  processor sources. S20 reports, without evidence, that fan-stop SMM
+  routines use the pair.
+  No report attributes a misdirected firmware write to a monitoring
+  client. The maintainer must explicitly accept this shared exposure
+  when approving this revision. A cross-profile follow-up should
+  inspect the fan-stop SMM path on one IT8686E, IT8688E or IT8689E
+  firmware image.
+- Non-blocking for Phase 4 primary LPC expansion: generic labels and a +1 to +125 °C range avoid any dependence on the unread source selection.
+  The physical or external source of TMPIN1–3 is selected partly in
+  bank 2 (S15, S17), which this profile does not read. A thermistor,
+  diode, PECI or AMD-TSI source each yields a temperature byte. An
+  unconfigured input in S19 reads −55 °C, and S7 treats zero and below
+  as no reading. The narrower range therefore hides those values.
+  Labels and source attribution need a board mapping or a dump that
+  includes the bank-2 bytes.
+- Non-blocking for Phase 4 primary LPC expansion: ADR 0023 lets lead-only facts back this Experimental row without an accepted dump.
+  S19 is one independent IT8686E dump with tool-computed readings. No
+  IT8688E or IT8689E register dump is available. Graduation needs
+  maintainer-accepted dumps under [#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500)
+  that cover every fact the row depends on.
+
 ## Readiness review
 
 - The scoped rows name the exact model IDs, applicable revision gate,
-  and register dependencies. Every applicable copyleft-only fact is attributed to S6, S7, S10 or S14 and
-  confined to Experimental coverage.
+  and register dependencies. Every applicable copyleft-only fact is attributed to S6, S7, S10, S14, S15, S16, S17 or S18 and
+  confined to Experimental coverage. The runtime gate table tags every
+  runtime condition as mechanism or safety.
 - Discovery retains the active-LDN and post-exit port proofs, with
   bounded, mutex-protected transactions. Each sample has an explicit
   register allow-list and rejects unavailable or invalid inputs.
@@ -272,6 +471,13 @@ changing generic inputs with a same-session firmware monitor capture where
 available. Synthetic fixtures exercise the contract and leave hardware
 compatibility unverified.
 
+For the banked modern profile, the opt-in dump also records the full
+`CR22` byte and the LDN `0x04` `CR F3` byte, both read during the
+discovery configuration session. It records EC `0x06` at both bracket
+points of at least three samples, at least 1.5 seconds apart. The
+capture procedure reads `CR F3` once and never writes it, and it never
+reads bank 1–3, EC `0x01`–`0x03` or any index at or above `0x80`.
+
 ## Revision history
 
 | Revision | Date | Change |
@@ -282,3 +488,4 @@ compatibility unverified.
 | 4 | 2026-11-08 | Keep the primary expansion Implementation-ready and assign the exact GA-B75M-D3H FAN1–2 profile to its separate specification. Limit the IT8728 no-fan fixture and deferred row to cases outside that profile. Retain the revision 3 primary expansion profiles and transport rules. |
 | 5 | 2026-11-08 | Propose Implementation-ready status for Experimental primary IT8772E FX FAN2–3. Pin the exact revision, per-input routing and counts, and model-specific 16-bit evidence. Add partial, invalid, and authorization fixtures. |
 | 6 | 2026-11-28 | Follow the chip-level S12 revision 2 (ADR 0031). The IT8728F scope row, the IT8728 no-fan fixture, the deferred row and the DX/EX open question now point to its `CR22[3:0]=0x1` FAN1–2 row instead of the GA-B75M-D3H board profile. The revision 5 profiles, gates and transport rules are unchanged. |
+| 7 | 2026-11-28 | Propose Implementation-ready status for an Experimental bank-guarded TMPIN1–3 and FAN1–3 profile on exact slot-0 IT8686E, IT8688E and IT8689E ([#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698)). Add lead-only sources S15–S18, the S19 independent IT8686E dump, the S20 IT8688E firmware-interleaving observation and the S21 repository OEM evidence. Add a runtime gate table for every profile, banked fixtures, quirks, safety notes and open questions. These include the shared exposure to firmware use of the primary pair, which the maintainer must accept explicitly. Give every #2698 target a disposition. The revision 6 profiles, gates and transport rules are unchanged. |
