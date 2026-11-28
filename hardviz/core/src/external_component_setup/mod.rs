@@ -192,7 +192,7 @@ const PAWNIO_MODULE_FILES: &[ModuleFile] = &[
   ModuleFile {
     file_name: "AMDFamily10.bin",
     // 0.2.11, pinned by `docs/specs/sensors/cpu-amd-family-15h-16h-tctl.md`
-    // rev 1 (S11). Setup never placed this file before the pin, and the
+    // rev 2 (S11). Setup never placed this file before the pin, and the
     // specification records no earlier release digest, so an older copy
     // classifies as unrecognized and is kept rather than replaced.
     sha256_hex: "6443080b2968474ffbc38aa4356cc56f9664349fa4b917afdb33027d6bb50525",
@@ -827,7 +827,7 @@ mod tests {
 
   #[test]
   fn amd_family10_module_pins_the_specified_signed_release_digest() {
-    // docs/specs/sensors/cpu-amd-family-15h-16h-tctl.md rev 1, S11.
+    // docs/specs/sensors/cpu-amd-family-15h-16h-tctl.md rev 2, S11.
     let file = setup_plan(ExternalComponent::Pawnio)
       .unwrap()
       .file_bundle
