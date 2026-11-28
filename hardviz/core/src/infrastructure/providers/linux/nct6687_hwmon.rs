@@ -6,38 +6,131 @@ use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
-const SOURCE: &str = "NCT6687D (hwmon)";
-const BOARD_VENDOR: &str = "Micro-Star International Co., Ltd.";
+const MSI_VENDOR: &str = "Micro-Star International Co., Ltd.";
 const PRO_BOARD: &str = "PRO B850-P WIFI (MS-7E56)";
 const MORTAR_BOARD: &str = "MAG B850M MORTAR WIFI (MS-7E61)";
 const CARBON_BOARD: &str = "MPG X870E CARBON WIFI (MS-7E49)";
 const TOMAHAWK_MAX_BOARD: &str = "MAG B850 TOMAHAWK MAX WIFI (MS-7E62)";
 
-/// The board whose OEM EC firmware defines the scoped hwmon channel
-/// assignment. The BIOS version and the EC base address are evidence
-/// identities recorded in the specification; they do not gate a read.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum BoardProfile {
-  Pro,
-  Mortar,
-  Carbon,
-  TomahawkMax,
+/// The chip kind that the bound `nct6683` platform driver publishes as the
+/// hwmon `name` of its endpoint.
+struct Chip {
+  /// Chip designation used in availability reasons.
+  label: &'static str,
+  /// The hwmon `name` attribute that the qualified endpoint must carry.
+  hwmon_name: &'static str,
+  /// The source recorded on every reading from this endpoint.
+  source: &'static str,
 }
 
-const DIODE_CHANNEL: (u8, &str, &str) = (2, "Diode 0 (curr)", "3");
-const PRO_TEMPERATURE_CHANNELS: [(u8, &str, &str); 3] = [
+const NCT6687D: Chip = Chip {
+  label: "NCT6687D",
+  hwmon_name: "nct6687",
+  source: "NCT6687D (hwmon)",
+};
+
+/// A temperature channel assigned by the OEM EC firmware: the hwmon suffix,
+/// the `tempN_label` and `tempN_type` metadata that must match on the same
+/// node, and the reported name.
+struct TemperatureChannel {
+  channel: u8,
+  label: &'static str,
+  kind: &'static str,
+  name: &'static str,
+}
+
+/// A fan input on its fixed hwmon suffix and the reported name.
+struct FanChannel {
+  channel: u8,
+  name: &'static str,
+}
+
+/// A board whose OEM EC firmware defines the scoped hwmon channel
+/// assignment. The BIOS version and the EC base address are evidence
+/// identities recorded in the specification; they do not gate a read.
+struct BoardProfile {
+  vendor: &'static str,
+  board: &'static str,
+  chip: &'static Chip,
+  temperatures: &'static [TemperatureChannel],
+  fans: &'static [FanChannel],
+}
+
+const DIODE_CHANNEL: TemperatureChannel = TemperatureChannel {
+  channel: 2,
+  label: "Diode 0 (curr)",
+  kind: "3",
+  name: "Temperature 2",
+};
+const PRO_TEMPERATURE_CHANNELS: [TemperatureChannel; 3] = [
   DIODE_CHANNEL,
-  (3, "Thermistor 15", "4"),
-  (4, "Thermistor 1", "4"),
+  TemperatureChannel {
+    channel: 3,
+    label: "Thermistor 15",
+    kind: "4",
+    name: "Temperature 3",
+  },
+  TemperatureChannel {
+    channel: 4,
+    label: "Thermistor 1",
+    kind: "4",
+    name: "Temperature 4",
+  },
 ];
-const FAN_INPUTS_1_AND_2: [(u8, &str); 2] = [(1, "Fan 1"), (2, "Fan 2")];
+const FAN_INPUT_1: FanChannel = FanChannel {
+  channel: 1,
+  name: "Fan 1",
+};
+const FAN_INPUTS_1_AND_2: [FanChannel; 2] = [
+  FAN_INPUT_1,
+  FanChannel {
+    channel: 2,
+    name: "Fan 2",
+  },
+];
+
+static PROFILES: [BoardProfile; 4] = [
+  BoardProfile {
+    vendor: MSI_VENDOR,
+    board: PRO_BOARD,
+    chip: &NCT6687D,
+    temperatures: &PRO_TEMPERATURE_CHANNELS,
+    fans: &FAN_INPUTS_1_AND_2,
+  },
+  BoardProfile {
+    vendor: MSI_VENDOR,
+    board: MORTAR_BOARD,
+    chip: &NCT6687D,
+    temperatures: &[],
+    fans: &[FanChannel {
+      channel: 16,
+      name: "SYS_FAN1",
+    }],
+  },
+  BoardProfile {
+    vendor: MSI_VENDOR,
+    board: CARBON_BOARD,
+    chip: &NCT6687D,
+    temperatures: &[DIODE_CHANNEL],
+    fans: &FAN_INPUTS_1_AND_2,
+  },
+  BoardProfile {
+    vendor: MSI_VENDOR,
+    board: TOMAHAWK_MAX_BOARD,
+    chip: &NCT6687D,
+    temperatures: &[DIODE_CHANNEL],
+    fans: &[FAN_INPUT_1],
+  },
+];
 
 pub(crate) fn sample() -> MotherboardSensorCollection {
   sample_at(Path::new("/sys"))
 }
 
 /// Admit a board from the DMI baseboard vendor and product only.
-fn identify_profile(dmi: &Path) -> Result<BoardProfile, MotherboardSensorCollection> {
+fn identify_profile(
+  dmi: &Path,
+) -> Result<&'static BoardProfile, MotherboardSensorCollection> {
   let missing = || {
     MotherboardSensorCollection::unavailable("Could not identify the Linux motherboard")
   };
@@ -46,19 +139,15 @@ fn identify_profile(dmi: &Path) -> Result<BoardProfile, MotherboardSensorCollect
       "No supported Linux motherboard sensor profile for this board",
     )
   };
-  if read_attribute(dmi, "board_vendor").ok_or_else(missing)? != BOARD_VENDOR {
+  let vendor = read_attribute(dmi, "board_vendor").ok_or_else(missing)?;
+  if !PROFILES.iter().any(|profile| profile.vendor == vendor) {
     return Err(unsupported());
   }
-  match read_attribute(dmi, "board_name")
-    .ok_or_else(missing)?
-    .as_str()
-  {
-    PRO_BOARD => Ok(BoardProfile::Pro),
-    MORTAR_BOARD => Ok(BoardProfile::Mortar),
-    CARBON_BOARD => Ok(BoardProfile::Carbon),
-    TOMAHAWK_MAX_BOARD => Ok(BoardProfile::TomahawkMax),
-    _ => Err(unsupported()),
-  }
+  let board = read_attribute(dmi, "board_name").ok_or_else(missing)?;
+  PROFILES
+    .iter()
+    .find(|profile| profile.vendor == vendor && profile.board == board)
+    .ok_or_else(unsupported)
 }
 
 fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
@@ -66,36 +155,27 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
     Ok(profile) => profile,
     Err(collection) => return collection,
   };
-  let Some(endpoint) = find_endpoint(sysfs) else {
-    return MotherboardSensorCollection::unavailable(
-      "The bound NCT6687D hwmon endpoint is unavailable or ambiguous",
-    );
+  let chip = profile.chip;
+  let Some(endpoint) = find_endpoint(sysfs, profile) else {
+    return MotherboardSensorCollection::unavailable(format!(
+      "The bound {} hwmon endpoint is unavailable or ambiguous",
+      chip.label
+    ));
   };
 
-  let temperature_channels: &[_] = match profile {
-    BoardProfile::Pro => &PRO_TEMPERATURE_CHANNELS,
-    BoardProfile::Mortar => &[],
-    BoardProfile::Carbon | BoardProfile::TomahawkMax => {
-      std::slice::from_ref(&DIODE_CHANNEL)
-    }
-  };
-  let fan_channels: &[_] = match profile {
-    BoardProfile::Pro | BoardProfile::Carbon => &FAN_INPUTS_1_AND_2,
-    BoardProfile::Mortar => &[(16, "SYS_FAN1")],
-    BoardProfile::TomahawkMax => &FAN_INPUTS_1_AND_2[..1],
-  };
-  let temperatures = temperature_channels
+  let temperatures = profile
+    .temperatures
     .iter()
-    .filter_map(|&(channel, label, kind)| {
-      read_temperature(&endpoint.path, channel, label, kind)
-    })
+    .filter_map(|channel| read_temperature(&endpoint.path, channel, chip.source))
     .collect();
-  let fan_speeds = fan_channels
+  let fan_speeds = profile
+    .fans
     .iter()
-    .filter_map(|&(channel, name)| read_fan(&endpoint.path, channel, name))
+    .filter_map(|channel| read_fan(&endpoint.path, channel, chip.source))
     .collect();
   finish_sample(
     sysfs,
+    profile,
     &endpoint,
     MotherboardSensorSample {
       temperatures,
@@ -106,20 +186,24 @@ fn sample_at(sysfs: &Path) -> MotherboardSensorCollection {
 
 fn finish_sample(
   sysfs: &Path,
+  profile: &BoardProfile,
   endpoint: &Endpoint,
   sample: MotherboardSensorSample,
 ) -> MotherboardSensorCollection {
+  let chip = profile.chip;
   // Linux can reuse the same paths after a binding or hwmon node is replaced.
-  if find_endpoint(sysfs).as_ref() != Some(endpoint) {
-    return MotherboardSensorCollection::unavailable(
-      "The NCT6687D hwmon binding changed during collection",
-    );
+  if find_endpoint(sysfs, profile).as_ref() != Some(endpoint) {
+    return MotherboardSensorCollection::unavailable(format!(
+      "The {} hwmon binding changed during collection",
+      chip.label
+    ));
   }
 
   let availability = if sample.temperatures.is_empty() && sample.fan_speeds.is_empty() {
-    SensorAvailability::unavailable(
-      "The NCT6687D hwmon endpoint returned no usable readings",
-    )
+    SensorAvailability::unavailable(format!(
+      "The {} hwmon endpoint returned no usable readings",
+      chip.label
+    ))
   } else {
     SensorAvailability::Available
   };
@@ -137,10 +221,10 @@ struct Endpoint {
   identities: [(u64, u64); 3],
 }
 
-/// Find the one distinct canonical `nct6687` hwmon child of a bound
-/// `nct6683.<id>` platform device. The same endpoint checks apply to every
-/// board profile.
-fn find_endpoint(sysfs: &Path) -> Option<Endpoint> {
+/// Find the one distinct canonical hwmon child of a bound `nct6683.<id>`
+/// platform device that carries the profile's chip kind. The same endpoint
+/// checks apply to every board profile.
+fn find_endpoint(sysfs: &Path, profile: &BoardProfile) -> Option<Endpoint> {
   let mut endpoint = None;
   for entry in fs::read_dir(sysfs.join("class/hwmon")).ok()? {
     let entry = entry.ok()?;
@@ -154,7 +238,7 @@ fn find_endpoint(sysfs: &Path) -> Option<Endpoint> {
     if path.file_name() != Some(class_name.as_os_str()) {
       continue;
     }
-    let Some(candidate) = qualify_endpoint(sysfs, path) else {
+    let Some(candidate) = qualify_endpoint(sysfs, path, profile.chip.hwmon_name) else {
       continue;
     };
     if endpoint
@@ -168,7 +252,7 @@ fn find_endpoint(sysfs: &Path) -> Option<Endpoint> {
   endpoint
 }
 
-fn qualify_endpoint(sysfs: &Path, path: PathBuf) -> Option<Endpoint> {
+fn qualify_endpoint(sysfs: &Path, path: PathBuf, hwmon_name: &str) -> Option<Endpoint> {
   let hwmon = path.parent()?;
   let parent = hwmon.parent()?;
   let instance = parent.file_name()?.to_str()?;
@@ -181,7 +265,7 @@ fn qualify_endpoint(sysfs: &Path, path: PathBuf) -> Option<Endpoint> {
     || !resolves_to(&parent.join("subsystem"), &sysfs.join("bus/platform"))
     || !resolves_to(&driver, &sysfs.join("bus/platform/drivers/nct6683"))
     || !resolves_to(&sysfs.join("bus/platform/devices").join(instance), parent)
-    || read_attribute(&path, "name").as_deref() != Some("nct6687")
+    || read_attribute(&path, "name").as_deref() != Some(hwmon_name)
   {
     return None;
   }
@@ -229,36 +313,40 @@ fn read_attribute(directory: &Path, attribute: &str) -> Option<String> {
 
 fn read_temperature(
   path: &Path,
-  channel: u8,
-  label: &str,
-  kind: &str,
+  channel: &TemperatureChannel,
+  source: &str,
 ) -> Option<MotherboardTemperature> {
-  if read_attribute(path, &format!("temp{channel}_label")).as_deref() != Some(label)
-    || read_attribute(path, &format!("temp{channel}_type")).as_deref() != Some(kind)
+  let index = channel.channel;
+  if read_attribute(path, &format!("temp{index}_label")).as_deref() != Some(channel.label)
+    || read_attribute(path, &format!("temp{index}_type")).as_deref() != Some(channel.kind)
   {
     return None;
   }
-  let milli_celsius = read_attribute(path, &format!("temp{channel}_input"))?
+  let milli_celsius = read_attribute(path, &format!("temp{index}_input"))?
     .parse::<i32>()
     .ok()?;
   (-55_000..=125_000)
     .contains(&milli_celsius)
     .then(|| MotherboardTemperature {
-      name: format!("Temperature {channel}"),
+      name: channel.name.to_owned(),
       temperature: milli_celsius as f32 / 1000.0,
-      source: SOURCE.to_owned(),
+      source: source.to_owned(),
     })
 }
 
-fn read_fan(path: &Path, channel: u8, name: &str) -> Option<MotherboardFanSpeed> {
-  let rpm = read_attribute(path, &format!("fan{channel}_input"))?
+fn read_fan(
+  path: &Path,
+  channel: &FanChannel,
+  source: &str,
+) -> Option<MotherboardFanSpeed> {
+  let rpm = read_attribute(path, &format!("fan{}_input", channel.channel))?
     .parse::<u32>()
     .ok()?;
   (1..=65_534).contains(&rpm).then(|| MotherboardFanSpeed {
-    name: name.to_owned(),
+    name: channel.name.to_owned(),
     rpm: Some(rpm),
     status: FanSpeedStatus::Active,
-    source: SOURCE.to_owned(),
+    source: source.to_owned(),
   })
 }
 
@@ -287,10 +375,13 @@ mod tests {
     "nct6684.8",
   ];
 
+  const SOURCE: &str = NCT6687D.source;
+
   struct Fixture {
     _directory: TempDir,
     sysfs: PathBuf,
     node: PathBuf,
+    profile: &'static BoardProfile,
   }
 
   impl Fixture {
@@ -302,13 +393,14 @@ mod tests {
     /// degrees Celsius and 518/0 RPM.
     fn pro(bios: Option<&str>, instance: &str) -> Self {
       let fixture = Self::with_binding(PRO_BOARD, bios, instance);
-      for ((channel, label, kind), reading) in PRO_TEMPERATURE_CHANNELS
-        .into_iter()
+      for (channel, reading) in PRO_TEMPERATURE_CHANNELS
+        .iter()
         .zip([26_000, 22_000, 26_000])
       {
-        fixture.write(&format!("temp{channel}_label"), label);
-        fixture.write(&format!("temp{channel}_type"), kind);
-        fixture.write(&format!("temp{channel}_input"), &format!("{reading}\n"));
+        let index = channel.channel;
+        fixture.write(&format!("temp{index}_label"), channel.label);
+        fixture.write(&format!("temp{index}_type"), channel.kind);
+        fixture.write(&format!("temp{index}_input"), &format!("{reading}\n"));
       }
       fixture.write("fan1_input", "518\n");
       fixture.write("fan2_input", "0\n");
@@ -340,21 +432,27 @@ mod tests {
     }
 
     fn with_binding(board: &str, bios: Option<&str>, instance: &str) -> Self {
+      let profile = PROFILES
+        .iter()
+        .find(|profile| profile.board == board)
+        .unwrap();
       let directory = tempfile::tempdir().unwrap();
       let sysfs = directory.path().canonicalize().unwrap();
       let dmi = sysfs.join("class/dmi/id");
       fs::create_dir_all(&dmi).unwrap();
-      for (attribute, value) in [("board_vendor", BOARD_VENDOR), ("board_name", board)] {
+      for (attribute, value) in [("board_vendor", profile.vendor), ("board_name", board)]
+      {
         fs::write(dmi.join(attribute), format!("{value}\n")).unwrap();
       }
       if let Some(bios) = bios {
         fs::write(dmi.join("bios_version"), format!("{bios}\n")).unwrap();
       }
-      let node = add_binding(&sysfs, instance, "hwmon5");
+      let node = add_binding(&sysfs, instance, "hwmon5", profile.chip.hwmon_name);
       Self {
         _directory: directory,
         sysfs,
         node,
+        profile,
       }
     }
 
@@ -369,9 +467,17 @@ mod tests {
     fn sample(&self) -> MotherboardSensorCollection {
       sample_at(&self.sysfs)
     }
+
+    fn endpoint(&self) -> Option<Endpoint> {
+      find_endpoint(&self.sysfs, self.profile)
+    }
+
+    fn add_binding(&self, instance: &str, hwmon: &str) -> PathBuf {
+      add_binding(&self.sysfs, instance, hwmon, self.profile.chip.hwmon_name)
+    }
   }
 
-  fn add_binding(sysfs: &Path, instance: &str, hwmon: &str) -> PathBuf {
+  fn add_binding(sysfs: &Path, instance: &str, hwmon: &str, hwmon_name: &str) -> PathBuf {
     let parent = sysfs.join("devices/platform").join(instance);
     let driver = sysfs.join("bus/platform/drivers/nct6683");
     let bus_devices = sysfs.join("bus/platform/devices");
@@ -385,7 +491,7 @@ mod tests {
     symlink(&parent, bus_devices.join(instance)).unwrap();
     symlink(parent, node.join("device")).unwrap();
     symlink(&node, class.join(hwmon)).unwrap();
-    fs::write(node.join("name"), "nct6687\n").unwrap();
+    fs::write(node.join("name"), format!("{hwmon_name}\n")).unwrap();
     node
   }
 
@@ -484,17 +590,17 @@ mod tests {
     symlink(parent, duplicate.join("device")).unwrap();
     fs::write(duplicate.join("name"), "nct6687\n").unwrap();
     symlink(duplicate, fixture.sysfs.join("class/hwmon/hwmon6")).unwrap();
-    assert!(find_endpoint(&fixture.sysfs).is_none());
+    assert!(fixture.endpoint().is_none());
   }
 
   #[test]
   fn rejects_wrong_kind_and_missing_binding() {
     let fixture = Fixture::new();
     fixture.write("name", "nct6686\n");
-    assert!(find_endpoint(&fixture.sysfs).is_none());
+    assert!(fixture.endpoint().is_none());
     fixture.write("name", "nct6687\n");
     fs::remove_file(fixture.parent().to_path_buf().join("driver")).unwrap();
-    assert!(find_endpoint(&fixture.sysfs).is_none());
+    assert!(fixture.endpoint().is_none());
   }
 
   #[test]
@@ -535,7 +641,7 @@ mod tests {
     ] {
       fixture.write("temp2_input", raw);
       assert_eq!(
-        read_temperature(&fixture.node, 2, "Diode 0 (curr)", "3")
+        read_temperature(&fixture.node, &DIODE_CHANNEL, SOURCE)
           .map(|reading| reading.temperature),
         expected,
       );
@@ -550,7 +656,7 @@ mod tests {
     ] {
       fixture.write("fan1_input", raw);
       assert_eq!(
-        read_fan(&fixture.node, 1, "Fan 1").and_then(|reading| reading.rpm),
+        read_fan(&fixture.node, &FAN_INPUT_1, SOURCE).and_then(|reading| reading.rpm),
         expected
       );
     }
@@ -559,12 +665,12 @@ mod tests {
   #[test]
   fn detects_replaced_endpoint_even_when_the_class_index_is_reused() {
     let fixture = Fixture::new();
-    let original = find_endpoint(&fixture.sysfs).unwrap();
+    let original = fixture.endpoint().unwrap();
     fs::rename(&fixture.node, fixture.node.with_file_name("old")).unwrap();
     fs::create_dir(&fixture.node).unwrap();
     symlink(fixture.parent(), fixture.node.join("device")).unwrap();
     fixture.write("name", "nct6687\n");
-    let replacement = find_endpoint(&fixture.sysfs).unwrap();
+    let replacement = fixture.endpoint().unwrap();
     assert_eq!(replacement.path, original.path);
     assert_ne!(replacement, original);
   }
@@ -658,7 +764,7 @@ mod tests {
   #[test]
   fn mortar_refuses_distinct_matching_nodes_even_if_only_one_exposes_fan16() {
     let fixture = Fixture::mortar("nct6683.2720");
-    add_binding(&fixture.sysfs, "nct6683.2744", "hwmon6");
+    fixture.add_binding("nct6683.2744", "hwmon6");
     assert_unavailable(&fixture.sample());
   }
 
@@ -684,17 +790,22 @@ mod tests {
   #[test]
   fn mortar_discards_samples_if_the_binding_is_replaced_at_the_same_path() {
     let fixture = Fixture::mortar("nct6683.2720");
-    let old = find_endpoint(&fixture.sysfs).unwrap();
+    let old = fixture.endpoint().unwrap();
     let sample = MotherboardSensorSample {
       temperatures: Vec::new(),
-      fan_speeds: vec![read_fan(&old.path, 16, "SYS_FAN1").unwrap()],
+      fan_speeds: vec![read_fan(&old.path, &fixture.profile.fans[0], SOURCE).unwrap()],
     };
     let driver = fixture.parent().join("driver");
     let target = fs::read_link(&driver).unwrap();
     fs::rename(&driver, fixture.parent().join("old-driver")).unwrap();
     symlink(target, driver).unwrap();
 
-    assert_unavailable(&finish_sample(&fixture.sysfs, &old, sample));
+    assert_unavailable(&finish_sample(
+      &fixture.sysfs,
+      fixture.profile,
+      &old,
+      sample,
+    ));
     fixture.write("fan16_input", "1000");
     assert_mortar_fan(&fixture.sample(), 1000);
   }
@@ -805,7 +916,7 @@ mod tests {
     assert_unavailable(&fixture.sample());
     fs::remove_file(&driver_link).unwrap();
     symlink(driver, driver_link).unwrap();
-    add_binding(&fixture.sysfs, "nct6683.2600", "hwmon6");
+    fixture.add_binding("nct6683.2600", "hwmon6");
     assert_unavailable(&fixture.sample());
   }
 
@@ -919,7 +1030,7 @@ mod tests {
     assert_unavailable(&fixture.sample());
     fs::write(board, TOMAHAWK_MAX_BOARD).unwrap();
 
-    let endpoint = find_endpoint(&fixture.sysfs).unwrap();
+    let endpoint = fixture.endpoint().unwrap();
     let sample = fixture.sample().sample;
     let driver_link = fixture.parent().join("driver");
     let native_driver = fs::read_link(&driver_link).unwrap();
@@ -928,12 +1039,22 @@ mod tests {
     fs::create_dir(&external).unwrap();
     symlink(external, &driver_link).unwrap();
     assert_unavailable(&fixture.sample());
-    assert_unavailable(&finish_sample(&fixture.sysfs, &endpoint, sample.clone()));
+    assert_unavailable(&finish_sample(
+      &fixture.sysfs,
+      fixture.profile,
+      &endpoint,
+      sample.clone(),
+    ));
 
     fs::remove_file(&driver_link).unwrap();
     symlink(native_driver, &driver_link).unwrap();
-    assert_unavailable(&finish_sample(&fixture.sysfs, &endpoint, sample));
-    add_binding(&fixture.sysfs, "nct6683.2600", "hwmon6");
+    assert_unavailable(&finish_sample(
+      &fixture.sysfs,
+      fixture.profile,
+      &endpoint,
+      sample,
+    ));
+    fixture.add_binding("nct6683.2600", "hwmon6");
     assert_unavailable(&fixture.sample());
   }
 
