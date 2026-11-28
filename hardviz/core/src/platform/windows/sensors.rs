@@ -263,7 +263,7 @@ fn cpu_package_sensor_name(sample: &CpuPackageTemperature) -> &'static str {
     CpuTemperatureSource::IntelDtsPackageMsr => "CPU Package (PawnIO Intel DTS)",
     CpuTemperatureSource::AmdZenSmnTctl => "CPU Package (PawnIO AMD SMN)",
     // A control temperature on AMD's own Tctl scale: the label must say Tctl
-    // and never Package, die or case (cpu-amd-family-15h-16h-tctl.md rev 1).
+    // and never Package, die or case (cpu-amd-family-15h-16h-tctl.md rev 2).
     CpuTemperatureSource::AmdFamily15h16hTctl => "CPU Tctl (PawnIO AMD Family 15h/16h)",
   }
 }

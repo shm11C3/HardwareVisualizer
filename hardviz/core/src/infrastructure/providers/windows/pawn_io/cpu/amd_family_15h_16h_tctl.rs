@@ -2,7 +2,7 @@
 //! `AMDFamily10` module.
 //!
 //! Implemented clean-room from
-//! `docs/specs/sensors/cpu-amd-family-15h-16h-tctl.md` rev 1 and the
+//! `docs/specs/sensors/cpu-amd-family-15h-16h-tctl.md` rev 2 and the
 //! `AMDFamily10` contract in `docs/specs/sensors/pawnio-interface.md` rev 8.
 //! Only `ioctl_read_miscctl` (node 0, offsets `0x00` and `0xA4`) and
 //! `ioctl_read_smu` (address `0xD8200CA4`) are ever invoked. The module's
@@ -280,7 +280,7 @@ mod tests {
   use super::*;
 
   /// Synthetic register value built from the specification's field layout
-  /// (rev 1, Register map): `CurTmp` at 31:21, select at 17:16, plus
+  /// (rev 2, Register map): `CurTmp` at 31:21, select at 17:16, plus
   /// arbitrary slew-control bits 12:0 that the decode must ignore.
   fn reported_temperature(cur_tmp: u32, select: u32, slew: u32) -> u32 {
     (cur_tmp << 21) | (select << 16) | (slew & 0x1FFF)
@@ -389,7 +389,7 @@ mod tests {
     use TctlRegisterMap::{D18F3xA4, SmuD8200Ca4};
 
     // (family, first model, last model, map, D18F3x00) from the spec's
-    // Detection group table, rev 1.
+    // Detection group table, rev 2.
     let expected = [
       (0x15, 0x00, 0x0F, D18F3xA4, 0x1603_1022),
       (0x15, 0x10, 0x1F, D18F3xA4, 0x1403_1022),
@@ -413,7 +413,7 @@ mod tests {
   fn revision_guide_cpuid_identities_select_their_groups() {
     use super::super::identity::effective_family_model;
 
-    // CPUID Fn0000_0001_EAX evidence identities from the spec's S8 (rev 1,
+    // CPUID Fn0000_0001_EAX evidence identities from the spec's S8 (rev 2,
     // Scoped enablement). Evidence only; admission keys on family/model.
     let evidence = [
       (0x0060_0F12, 0x1603_1022), // OR-B2
@@ -434,7 +434,7 @@ mod tests {
   #[test]
   fn family_15h_models_00h_0fh_admit_only_single_node_package_types() {
     // PkgType encoding from BKDG 42301 p. 482 via the spec's Detection
-    // table (rev 1).
+    // table (rev 2).
     let orochi = group(0x15, 0x01);
 
     assert_eq!(orochi.admits_package_type(|| Some(0b0001)), Ok(())); // AM3r2

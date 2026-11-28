@@ -652,7 +652,7 @@ mod tests {
   }
 
   /// CPUID Fn8000_0001_EBX[31:28] `PkgType` `0001b` (AM3r2), from the spec's
-  /// Detection table (rev 1).
+  /// Detection table (rev 2).
   fn am3r2() -> Option<u32> {
     Some(0b0001)
   }
@@ -729,7 +729,7 @@ mod tests {
 
   #[test]
   fn amd_family_15h_16h_groups_select_the_amd_family10_path_on_one_package() {
-    // One model inside each group of the spec's Detection table (rev 1).
+    // One model inside each group of the spec's Detection table (rev 2).
     for (family, model) in [
       (0x15, 0x02),
       (0x15, 0x13),
