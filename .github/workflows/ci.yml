@@ -475,27 +475,31 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2.90.5
+        with:
+          tool: cargo-nextest
+
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
         uses: taiki-e/install-action@v2.90.5
         with:
           tool: cargo-llvm-cov
 
-      # duckdb-archive is a default feature, so these already build and run
-      # the `native_dispatch_conversion` / `native_dispatch_restart`
-      # DuckDB integration tests (formerly the separate
-      # test-tauri-duckdb-archive job) alongside the lib tests, with no
-      # separate --features flag needed. native_dispatch_conversion and
-      # native_dispatch_restart each need their own process because Core's
-      # dispatch::init is a process-wide OnceLock; as separate integration
-      # test binaries, cargo test already gives them that.
+      # nextest runs each test in its own process, so the App tests run in
+      # parallel without sharing process-wide state such as Core's
+      # dispatch::init OnceLock, which the native_dispatch_* integration
+      # binaries initialize. Unit tests resolve app data under a per-test
+      # temporary directory (utils::file::get_app_data_dir). duckdb-archive is
+      # a default feature, so the DuckDB integration tests need no --features
+      # flag. Scheduling rules live in .config/nextest.toml.
       - name: Run Tauri tests with coverage
         if: matrix.platform == 'ubuntu-22.04'
-        run: cargo llvm-cov -p hardware_visualizer --no-report -- --test-threads=1 --nocapture
+        run: cargo llvm-cov nextest -p hardware_visualizer --no-report --profile ci
 
       - name: Run Tauri tests
         if: matrix.platform != 'ubuntu-22.04'
-        run: cargo test -p hardware_visualizer -- --test-threads=1 --nocapture
+        run: cargo nextest run -p hardware_visualizer --profile ci
 
       - name: Generate coverage report
         if: matrix.platform == 'ubuntu-22.04'

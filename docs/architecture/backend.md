@@ -946,9 +946,10 @@ cargo nextest run -p hardviz-core
 pass `--no-default-features` to build the SQLite-only fallback kept until
 ADR 0025 removes it in v2.0.0.
 
-`test-core` in CI uses cargo-nextest with the `ci` profile from
-`.config/nextest.toml` so the DuckDB integration binaries run in parallel.
-`cargo test -p hardviz-core` remains a slower serial fallback when nextest is
+`test-core` and `test-tauri` in CI use cargo-nextest with the `ci` profile from
+`.config/nextest.toml`, which runs every test in its own process so the DuckDB
+integration binaries run in parallel. The `cargo tauri-test` alias uses nextest
+too. `cargo test -p <crate>` remains a slower serial fallback when nextest is
 not installed. See [`hardviz/core/README.md`](../../hardviz/core/README.md#build--test).
 
 Frontend and TypeScript checks are run from the repository root:

@@ -214,9 +214,9 @@ cargo tauri-lint
 cargo tauri-test
 ```
 
-Use focused checks first. For Core-only Rust work, prefer
-`cargo test -p hardviz-core` or the relevant test target before the full
-workspace suite.
+Use focused checks first. For Rust work in one crate, prefer
+`cargo nextest run -p hardviz-core` or `cargo nextest run -p hardware_visualizer`
+(or the relevant test target) before the full workspace suite.
 
 In a sandbox, Rust tests can fail before exercising code because the default
 `HOME` is not writable. Retry with a writable temporary `HOME` while preserving

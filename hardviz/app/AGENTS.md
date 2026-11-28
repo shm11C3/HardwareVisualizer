@@ -47,7 +47,7 @@ Use focused command/service tests where possible, then the workspace checks:
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p hardware_visualizer --all-targets -- -D warnings
-cargo test -p hardware_visualizer --lib
+cargo nextest run -p hardware_visualizer --lib
 ```
 
 If the IPC surface changed, regenerate bindings and verify that the frontend
