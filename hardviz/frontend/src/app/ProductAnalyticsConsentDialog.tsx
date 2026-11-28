@@ -1,5 +1,5 @@
 import { ExternalLinkIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -73,6 +73,7 @@ export const ProductAnalyticsConsentDialog = ({
   );
   const [closed, setClosed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   useLayoutEffect(() => {
     if (!arbitrationFree || offer !== "undecided") return;
@@ -132,17 +133,25 @@ export const ProductAnalyticsConsentDialog = ({
   return (
     <AlertDialog open>
       {/* Scroll inside the dialog so the actions stay reachable in compact
-          windows. No default focus: neither choice is emphasized. */}
+          windows. Focus starts on the title, inside the dialog, so neither
+          choice is emphasized. */}
       <AlertDialogContent
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto text-foreground"
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          titleRef.current?.focus();
+        }}
         onEscapeKeyDown={(event) => {
           event.preventDefault();
           void choose("declined");
         }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>
+          <AlertDialogTitle
+            ref={titleRef}
+            tabIndex={-1}
+            className="outline-none"
+          >
             {t("productAnalyticsConsent.title")}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>

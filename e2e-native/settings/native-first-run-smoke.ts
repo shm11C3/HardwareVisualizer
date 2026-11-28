@@ -343,6 +343,13 @@ const clickVisible = async (
   return element;
 };
 
+const CONSENT_TITLE = By.xpath(
+  "//*[normalize-space()='Share anonymous usage statistics?']",
+);
+const CONSENT_DECLINE_BUTTON = By.xpath(
+  '//button[normalize-space()="Don\'t share"]',
+);
+
 const findExternalComponentGuidance = async (driver: WebDriver) =>
   (await findVisibleElement(driver, EXTERNAL_GUIDANCE_HIDE_BUTTON)) ??
   (await findVisibleElement(driver, EXTERNAL_GUIDANCE_TITLE));
@@ -374,6 +381,22 @@ const runSmoke = async (driver: WebDriver) => {
   );
   if (startupTrayPrompt)
     throw new Error("Unexpected proactive Close to Tray prompt");
+
+  // A first run asks for Analytics Consent once the other startup flows have
+  // settled (ADR 0028). Declining also proves the dialog accepts a choice.
+  log("declining the analytics consent prompt");
+  // Guidance that resolves late takes the slot first; hide it and keep waiting.
+  const consentTitle = await driver.wait(
+    async () => {
+      if (await dismissExternalComponentGuidanceIfVisible(driver)) return null;
+      return findVisibleElement(driver, CONSENT_TITLE);
+    },
+    DEFAULT_TIMEOUT_MS,
+    "Expected the analytics consent prompt on a first run",
+  );
+  if (!consentTitle) throw new Error("Analytics consent prompt not found");
+  await clickVisible(driver, CONSENT_DECLINE_BUTTON);
+  await driver.wait(until.stalenessOf(consentTitle), DEFAULT_TIMEOUT_MS);
 
   log("opening Settings");
   // The side menu builds its accessible name from the translated destination

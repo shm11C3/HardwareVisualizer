@@ -101,7 +101,16 @@ describe("ProductAnalyticsConsentDialog", () => {
     // Neither choice may look recommended: same variant and size means the
     // same class list.
     expect(share().className).toBe(decline().className);
-    expect(dialog.contains(document.activeElement)).toBe(false);
+    // Focus starts inside the dialog (keyboard and screen readers land on the
+    // prompt) but on the title, not on either choice.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("heading", {
+          name: "Share anonymous usage statistics?",
+        }),
+      ),
+    );
+    expect(dialog.contains(document.activeElement)).toBe(true);
     expect(document.activeElement).not.toBe(share());
     expect(document.activeElement).not.toBe(decline());
     // The only way to close it is a choice: no X button.

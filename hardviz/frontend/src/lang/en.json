@@ -1005,7 +1005,7 @@
         },
         "productAnalytics": {
           "name": "Product analytics",
-          "description": "Send aggregate usage counts that help decide what to improve. Hardware readings and identifiers are never sent.",
+          "description": "Send aggregate usage counts that help decide what to improve. Hardware readings and persistent device or user identifiers are never sent.",
           "stateGranted": "Sharing aggregate usage under contract v{{version}}",
           "stateNotSharing": "Not sharing",
           "staleNote": "The data contract changed to v{{current}}. Turning this switch on shares usage under it.",

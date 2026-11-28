@@ -249,11 +249,9 @@ describe("ExternalComponentSetupSection", () => {
 
   it("counts the setup start before the elevated run, not only its success", async () => {
     const user = userEvent.setup();
-    mocks.runExternalComponentSetup.mockImplementation(async () => {
-      expect(mocks.recordProductEvent).toHaveBeenCalledWith({
-        capability: "externalComponentSetupStarted",
-      });
-      return { status: "error", error: "elevation refused" };
+    mocks.runExternalComponentSetup.mockResolvedValue({
+      status: "error",
+      error: "elevation refused",
     });
     const consoleError = vi
       .spyOn(console, "error")
@@ -265,7 +263,13 @@ describe("ExternalComponentSetupSection", () => {
     await waitFor(() =>
       expect(mocks.runExternalComponentSetup).toHaveBeenCalledTimes(1),
     );
-    expect(mocks.recordProductEvent).toHaveBeenCalledTimes(1);
+    // Recorded once, with the setup capability, before the run that failed.
+    expect(mocks.recordProductEvent.mock.calls).toEqual([
+      [{ capability: "externalComponentSetupStarted" }],
+    ]);
+    expect(mocks.recordProductEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.runExternalComponentSetup.mock.invocationCallOrder[0] ?? 0,
+    );
     consoleError.mockRestore();
   });
 
