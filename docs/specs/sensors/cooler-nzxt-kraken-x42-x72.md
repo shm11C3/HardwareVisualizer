@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Experimental, read-only coolant temperature, fan RPM and pump RPM for the NZXT Kraken X42, X52, X62 and X72 (USB vendor `0x1E71`, product `0x170E`) through an already bound Linux `nzxt-kraken2` hwmon endpoint. Records the device's unsolicited status report and the Windows HID transport facts. Windows direct HID access, Linux `hidraw` access and every other NZXT generation are Unsupported by this revision; the Generation inventory gives each one a disposition. No fan, pump, lighting or firmware command is in scope. |
 | Issue phase | [#2527](https://github.com/shm11C3/HardwareVisualizer/issues/2527) (parent [#2510](https://github.com/shm11C3/HardwareVisualizer/issues/2510)) |
 
@@ -32,6 +32,8 @@ statement are the primary sources.
 | S11 | Microsoft Learn, Windows HID documentation: [Finding and Opening a HID Collection](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/finding-and-opening-a-hid-collection) (User-mode application); [Obtaining HID Reports](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/obtaining-hid-reports) (Obtaining HID Reports by user-mode applications); [Troubleshooting HID Reports](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/troubleshooting-hid-reports) (Dropped HID reports); [Minidrivers and the HID Class Driver](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/minidriver-operations) (Operational features of the HID class driver); [`HidD_SetNumInputBuffers`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/hidsdi/nf-hidsdi-hidd_setnuminputbuffers) (Remarks); [`HIDP_CAPS`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/hidpi/ns-hidpi-_hidp_caps) (Members); [`HIDD_ATTRIBUTES`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/hidsdi/ns-hidsdi-_hidd_attributes) (Members) | Primary for Windows HID enumeration, identity, report buffering and `HidD_GetInputReport` limits. |
 | S12 | Microsoft Learn, [`CreateFileW`](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew), parameters `dwDesiredAccess` and `dwShareMode` | Primary for zero-access attribute queries and sharing-mode conflicts (`ERROR_SHARING_VIOLATION`). |
 | S13 | linux-hardware.org, [hardware probe `78c54897a1`](https://linux-hardware.org/?probe=78c54897a1), device list and [`sensors` log](https://linux-hardware.org/?log=sensors&probe=78c54897a1) | Independent observation, not maintainer-accepted. Nobara 37, kernel `6.5.3-200.fsync.fc37.x86_64`, ASUS ROG Maximus XI HERO. USB device `1e71:170e` with interface class `03-00-00` (HID, no subclass, no protocol) on `usbhid`. A `kraken2-hid-3-b` chip on a HID adapter reports `Fan` 1473 RPM, `Pump` 2196 RPM and `Coolant` +32.3 °C. The cooler model and firmware are not recorded. |
+| S14 | Linux kernel documentation [`Documentation/core-api/timekeeping.rst` at v6.18](https://github.com/torvalds/linux/blob/v6.18/Documentation/core-api/timekeeping.rst), Git blob `22ec68f244210681d89ab36445ecf3f67f7a597d`, section Basic ktime_t based interfaces; Linux [`kernel/time/tick-sched.c` at v6.18](https://github.com/torvalds/linux/blob/v6.18/kernel/time/tick-sched.c), jiffies update from the monotonic time | Documentation is primary: `CLOCK_MONOTONIC` stops during suspend, `CLOCK_BOOTTIME` does not. The source is **lead-only (copyleft)** for jiffies advancing from the monotonic time. |
+| S15 | Linux man-pages 6.19, [`clock_gettime(2)`](https://man7.org/linux/man-pages/man2/clock_gettime.2.html), 2026-03-07, `CLOCK_MONOTONIC` and `CLOCK_BOOTTIME` | Primary for the user-space clocks: `CLOCK_MONOTONIC` does not count suspended time; `CLOCK_BOOTTIME` is identical except that it includes it. |
 
 ## Generation inventory
 
@@ -122,7 +124,9 @@ in a `ReadFile` buffer (S11).
   report and performs no USB transfer. When no status report has
   arrived within the last two seconds, which includes the time between
   binding and the first report, every input read fails with `ENODATA`.
-  Label reads always succeed. (S3)
+  The driver measures those two seconds in kernel jiffies, so time the
+  system spends suspended does not count toward them; see Quirks.
+  Label reads always succeed. (S3, S14)
 - The driver sends no output report to the device at bind, at read or
   at unbind. It keeps the HID device open so that input reports are
   received continuously, and it keeps the `hidraw` node available to
@@ -155,7 +159,8 @@ in a `ReadFile` buffer (S11).
    through 65535. A value of 0 is an Inactive Fan Reading, a positive
    value is an Active Fan Reading. Malformed text or a value outside
    that range is an Invalid Fan Reading.
-6. Keep the three channel roles (coolant, fan, pump) fixed per device.
+6. Apply the resume rule in Quirks before publishing any value.
+7. Keep the three channel roles (coolant, fan, pump) fixed per device.
    A coolant reading at or above 60 °C is a real value and is never
    filtered; S6 describes that temperature as one the coolant should
    not reach.
@@ -172,6 +177,31 @@ sequence suffix change across reboots and re-plugs, so they identify
 a device only within a session. When an endpoint disappears (unplug,
 driver unbind), its channels are Unavailable until a qualified
 endpoint is found again.
+
+## Quirks
+
+- Suspend does not age the cached values. The driver timestamps each
+  status report in jiffies and returns `ENODATA` once two seconds of
+  jiffies have passed without a new report (S3). The kernel advances
+  jiffies from `CLOCK_MONOTONIC`, which stops during suspend (S14
+  lead-only for the jiffies update; S14 primary for the clock). After
+  a resume, the driver can therefore return the last values received
+  before suspend until either a new report arrives or two more
+  seconds of non-suspended time pass. **lead-only (copyleft)** for the
+  driver and jiffies behavior.
+- Resume rule. Before each sample, read `CLOCK_BOOTTIME` and
+  `CLOCK_MONOTONIC` (S15). The difference between the two grows only
+  by the time the system spent suspended. If that difference has
+  grown by more than 100 ms since the previous sample of this
+  endpoint, publish no input value from this endpoint until 3 seconds
+  of `CLOCK_MONOTONIC` time have passed since that detection. The
+  first sample of an endpoint only records the difference. A newly
+  bound driver holds no earlier value and returns `ENODATA` until its
+  first report (S3), so a newly qualified endpoint needs no wait. Three seconds covers the driver's two-second
+  window, the tick granularity of jiffies and the 0.5-second report
+  period. The withheld channels are Unavailable, not zero. The 100 ms
+  threshold only absorbs the gap between the two clock reads; it does
+  not depend on driver internals.
 
 ## Windows HID transport (facts, scope Unsupported)
 
@@ -241,9 +271,11 @@ the S13 observation.
 | hwmon `kraken2` whose HID parent is `0003:1E71:2007.0004` | Not this scope; no input reads. |
 | HID device `0003:1E71:170E.000B` bound to another driver, unbound, or without a hwmon child | Unavailable; no `hidraw` access and no driver action. |
 | `fan1_label` `Pump` and `fan2_label` `Fan` | Unavailable for that device; no input reads. |
-| hwmon `device` link or class link not resolving to the matching HID device, or two hwmon children under it | Unavailable; no input reads. |
+| hwmon `device` link not resolving to the matching HID device, `/sys/class/hwmon/hwmonN` not resolving to the hwmon child under that HID device, or two hwmon children under it | Unavailable; no input reads. |
 | Two qualified HID devices | Two independent sets of three channels; never merged. |
 | Endpoint removed, then present again with a new `hwmonN` and HID sequence | Unavailable while absent; readings resume after re-qualification. |
+| `CLOCK_BOOTTIME` minus `CLOCK_MONOTONIC` grew by 600 s since the previous sample, and the inputs still return the pre-suspend values | All three channels Unavailable for 3 s of `CLOCK_MONOTONIC` time from detection, then published again. |
+| The same difference grew by 20 ms | Treated as clock-read jitter; values published normally. |
 | No `1E71:170E` HID device | Unsupported; no hwmon input reads for this scope. |
 
 ## Open questions
@@ -298,13 +330,16 @@ the S13 observation.
    and stores no history, so session-local identity suffices.
    No stable per-device identity across reboots is established. No
    evidence shows that the device reports a USB serial number.
-9. Non-blocking for #2527 Linux hwmon scope: stale data already fails
-   with `ENODATA` and is handled as Unavailable.
-   Behavior after system suspend and resume is unrecorded; the driver
-   has no resume hook.
+9. Non-blocking for #2527 Linux hwmon scope: the resume rule in Quirks
+   withholds pre-suspend values, and a device that stops reporting
+   produces `ENODATA`, which is handled as Unavailable.
+   Whether the cooler resumes sending reports after suspend, or is
+   reset and re-enumerated by the USB core, is not recorded. The
+   driver defines no resume handling of its own (S3).
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version. Propose Implementation-ready for the Experimental Linux `nzxt-kraken2` hwmon scope on USB `1E71:170E` only. Record the status report framing and Windows HID transport facts, keep Windows and `hidraw` access Unsupported because of the CAM exclusive-access finding, and give every NZXT generation named in #2527 a disposition. |
+| 2 | 2026-11-28 | Record that the driver's two-second staleness window excludes suspended time (S3, S14) and add the resume rule based on `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` (S15), with fixtures. Make the class-link fixture match the ownership gate: the hwmon `device` link resolves to the HID device and the class link to the hwmon child. |
