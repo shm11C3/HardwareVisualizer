@@ -34,7 +34,7 @@ records the dispositions of the other #2696 targets.
 | --- | --- | --- |
 | DMI `board_vendor` is exactly `ASRock` and `board_name` is exactly `B650 Steel Legend WiFi` | mechanism: the board's OEM EC firmware defines the scoped channel assignment (thermistor sources on `temp1` and `temp2` ahead of the AMD TSI source, six enabled tachometer inputs) and carries the admitted non-Intel customer whose refresh is audited under Collection and safety | S1, S4, S5, S7–S9 |
 | One distinct canonical hwmon node with `name` equal to `nct6686`, platform parent `/sys/devices/platform/nct6683.<id>` with a canonical decimal instance suffix from 8 through 65528 divisible by 8, `subsystem` resolving to `/sys/bus/platform`, `driver` to `/sys/bus/platform/drivers/nct6683`, the class link resolving to the parent's `hwmon/hwmonN` child, the child's `device` link resolving to the parent, and the bus device link resolving to the same parent | mechanism: hwmon chip kind (raw IDs matching `0xD440` under mask `0xFFF0`), owning driver and a unique bound endpoint | S3, S4 |
-| On the same node, `temp1_min`, `temp1_max_hyst`, `temp2_min` and `temp2_max_hyst` exist. Check existence only. Never read them. | safety: the driver hides these attributes on the Intel firmware branch, so their presence identifies the non-Intel refresh audited below | S4, S6 |
+| On the same node, at least one of `temp1_min`, `temp1_max_hyst`, `temp2_min`, `temp2_max_hyst` and `fan1_min`–`fan6_min` exists. Check existence only. Never read them. | safety: the driver hides every one of these attributes on the Intel firmware branch, keyed only on the endpoint-wide firmware customer, so any one present attribute identifies the non-Intel refresh audited below. A missing attribute of an absent channel does not reject the endpoint. | S4, S6 |
 | Per temperature channel, `tempN_label` and `tempN_type` equal the scoped source metadata on the same node | mechanism: the ABI's own channel metadata detects a changed assignment | S3, S4, S7, S8, S10 |
 | Per input, the value is within the admitted bounds below | mechanism (plausibility) | S3, S4 |
 
@@ -180,7 +180,9 @@ a read.
 | Same profile with `bios_version` `3.16`, `4.41`, missing or any other string, or another canonical instance such as `nct6683.2600` | Admitted identically. |
 | `B650E Steel Legend WiFi`, another ASRock product, a different vendor string, or missing DMI | Unsupported for a known different board, unavailable for missing identity. No input or metadata reads. |
 | Wrong hwmon name (`nct6683` or `nct6687`), wrong driver or subsystem, noncanonical or impossible instance suffix, duplicate canonical children, or class or `device` links resolving elsewhere | Reject the endpoint before reading inputs or metadata. |
-| Any of `temp1_min`, `temp1_max_hyst`, `temp2_min`, `temp2_max_hyst` absent | Reject the endpoint before reading inputs or metadata. The fixture verifies that none of these four files is opened. |
+| None of `temp1_min`, `temp1_max_hyst`, `temp2_min`, `temp2_max_hyst` or `fan1_min`–`fan6_min` present | Reject the endpoint before reading inputs or metadata. The fixture verifies that none of these files is opened. |
+| Only `temp1` channel files and `fan1_input`–`fan6_input` with their `fanN_min` present, `temp2` files all absent | Accept the endpoint. Report `Thermistor 14` and the valid fan inputs. `temp2` is unavailable. No limit file is opened. |
+| No `temp1` or `temp2` files, `fan1_input`–`fan6_input` and their `fanN_min` present | Accept the endpoint and report the valid fan inputs. Both temperatures are unavailable. |
 | `temp1` or `temp2` label or type different, missing or unreadable, or the thermistor labels moved to `temp2`/`temp3` | That temperature is unavailable. Never substitute another channel. Preserve the other temperature and fan inputs. |
 | `temp3_input` present with `AMD TSI Addr 98h`/`5` | Not read and not reported. |
 | Temperature −55000, 125000, −55001 and 125001; fan −1, 0, 1, 65534 and 65535; malformed or overflowing values | Accept only the stated inclusive bounds. Negative or invalid fan values never become zero RPM. |
@@ -222,4 +224,4 @@ a read.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Propose Implementation-ready Experimental coverage of `Thermistor 14`, `Thermistor 15` and fan inputs 1–6 on ASRock B650 Steel Legend WiFi through the already bound native Linux endpoint, pending maintainer sign-off. Audit the non-Intel input refresh and add a non-Intel branch safety gate. |
+| 1 | 2026-11-28 | Propose Implementation-ready Experimental coverage of `Thermistor 14`, `Thermistor 15` and fan inputs 1–6 on ASRock B650 Steel Legend WiFi through the already bound native Linux endpoint, pending maintainer sign-off. Audit the non-Intel input refresh and add a non-Intel branch safety gate. Before merge (PR #2794 review), the gate accepts any one present scoped non-Intel-only limit attribute, including `fanN_min`, so an absent temperature channel stays unavailable without rejecting the endpoint. |
