@@ -111,8 +111,12 @@ Run `git fetch origin` before any step below that reads an `origin/` ref.
    PRs merged since the last tick. Also collect finished work that has no open
    PR: commits ahead of `origin` in agent worktrees (`git worktree list`),
    uncommitted changes left in an agent worktree whose agent has stopped
-   (commit them yourself, as Worktrees rule 4 says, after the harvest checks
-   pass), and pushed branches without a PR. Skip a candidate only when its change itself is already merged,
+   (for a spec, commit them yourself after the harvest checks pass, as
+   Worktrees rule 4 says; for an implementation, resume the owning
+   implementer to commit with its pinning statement and attestation in the
+   commit message, and if it cannot be resumed, do not harvest that work but
+   start a fresh implementation lane from the pinned spec, because no other
+   agent can attest to it), and pushed branches without a PR. Skip a candidate only when its change itself is already merged,
    judged per change rather than per branch: a commit is merged when its
    branch PR merged with no later commits (`gh pr list --state merged --head
    <branch>`) or the same change is already on `origin/develop`, and
