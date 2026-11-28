@@ -28,10 +28,14 @@ reply to and resolve review threads, following
 approves its own specification, or edits `.claude/settings*`, permission modes
 or CLAUDE.md.
 
-A specification becomes implementable only when its PR is merged or the
-maintainer approves it in chat. Its status must also read exactly
+A specification is implementable only after the maintainer approves the PR
+that changes its status, and that status reads exactly
 `Implementation-ready (rev N)`
 ([specification gate](../../../docs/specs/sensors/README.md#status-transition-draft--implementation-ready)).
+The status string alone is not a sign-off. Implementation may start earlier
+when the maintainer asks for it. In that case, open the implementation as a
+Draft PR stacked on the specification PR, and mark it ready only after the
+specification PR is approved or merged.
 
 ## Roles
 
@@ -58,8 +62,9 @@ Each Issue has at most one active lane. One PR covers one scope item
 
 ## Worktrees
 
-Only one session may write to a worktree. A PreToolUse hook rejects Edit and
-Write calls on any other worktree.
+Only one session may write to a worktree. Follow this rule in every tool. The
+repository hooks do not enforce it. Claude Code's worktree isolation does
+reject Edit and Write calls on any worktree other than the session's own.
 
 1. Before spawning, put the orchestrator's worktree on a branch at
    `origin/develop`, because isolated worktrees fork from its HEAD.
@@ -73,8 +78,8 @@ Write calls on any other worktree.
    `git -C <wt> push origin HEAD:refs/heads/<branch>`. Use the
    [change-kind-naming](../change-kind-naming/SKILL.md) skill to pick the
    branch name.
-5. Never copy files across worktrees with shell commands to get around the
-   hook. Send follow-up edits to the owning agent.
+5. Never copy files into another session's worktree with shell commands.
+   Send follow-up edits to the owning agent.
 6. After a parent PR is squash-merged, rebuild each stacked branch from
    `origin/develop` by cherry-picking its own commits. Do not rebase a stack
    onto the squash.
