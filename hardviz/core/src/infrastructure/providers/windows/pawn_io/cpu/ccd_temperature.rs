@@ -15,7 +15,7 @@ use windows::Win32::{
 use windows::core::HRESULT;
 
 use super::{
-  super::client::PawnIoClient,
+  super::client::{PawnIoClient, PawnIoError},
   identity::{CpuidLeaf, cpuid_leaf, effective_family_model, vendor_id_from_leaf0},
 };
 use crate::models::CpuCcdTemperature;
@@ -156,7 +156,7 @@ impl AmdCcdTarget {
   }
 
   pub(crate) fn read(&self, client: &PawnIoClient) -> Vec<CpuCcdTemperature> {
-    self.read_with(|address| u32::try_from(client.read_smu_register(address).ok()?).ok())
+    self.read_with(|address| smu_word(client.read_smu_register(address)))
   }
 
   pub(crate) fn unavailable_readings(&self) -> Vec<CpuCcdTemperature> {
@@ -362,6 +362,12 @@ fn parse_active_group_masks(data: &[u8]) -> Option<HashMap<u16, usize>> {
     masks.insert(index as u16, info.ActiveProcessorMask);
   }
   Some(masks)
+}
+
+/// A failed signed read, including a mutex that was denied or timed out
+/// before the request, leaves its slot without a word.
+fn smu_word(result: Result<u64, PawnIoError>) -> Option<u32> {
+  u32::try_from(result.ok()?).ok()
 }
 
 fn decode_ccd_temperature(value: u32) -> Option<f32> {
