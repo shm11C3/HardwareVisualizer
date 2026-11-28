@@ -164,9 +164,9 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct Win32BaseBoard {
-  pub(super) manufacturer: Option<String>,
-  pub(super) product: Option<String>,
-  pub(super) version: Option<String>,
+  manufacturer: Option<String>,
+  product: Option<String>,
+  version: Option<String>,
   serial_number: Option<String>,
 }
 

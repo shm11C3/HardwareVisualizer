@@ -2,111 +2,12 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
-//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 5
-//! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 1
+//! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 6
+//! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 2
 //!
 //! No other external sensor source was used.
 
-use std::sync::{
-  Mutex,
-  mpsc::{Receiver, TryRecvError},
-};
-
 use super::is_plausible_super_io_temperature;
-use crate::infrastructure::providers::windows::wmi_provider::{
-  Win32BaseBoard, start_baseboard_identity_query,
-};
-use crate::{log_debug, log_warn};
-
-type BaseboardIdentityQuery = Receiver<Result<Vec<Win32BaseBoard>, String>>;
-
-// The service can drop and recreate its sampler while WMI is still running.
-// Keep the receiver in the host so a later sampler can consume that same result.
-static GA_B75M_D3H_LOOKUP: Mutex<GaB75mD3hLookup> =
-  Mutex::new(GaB75mD3hLookup::Unstarted);
-
-enum GaB75mD3hLookup {
-  Unstarted,
-  Pending {
-    query: BaseboardIdentityQuery,
-    can_retry: bool,
-  },
-  Resolved(bool),
-}
-
-impl GaB75mD3hLookup {
-  fn resolved(&self) -> Option<bool> {
-    match self {
-      Self::Resolved(qualified) => Some(*qualified),
-      _ => None,
-    }
-  }
-
-  fn poll(
-    &mut self,
-    start_query: impl FnOnce() -> BaseboardIdentityQuery,
-  ) -> Option<bool> {
-    let (query, can_retry) = match self {
-      Self::Unstarted => {
-        *self = Self::Pending {
-          query: start_query(),
-          can_retry: true,
-        };
-        log_debug!(
-          "ite_ga_b75m_d3h_baseboard_query_started",
-          "windows::super_io::ite",
-          None::<&str>
-        );
-        return None;
-      }
-      Self::Pending { query, can_retry } => (query, *can_retry),
-      Self::Resolved(qualified) => return Some(*qualified),
-    };
-
-    let failure = match query.try_recv() {
-      Ok(Ok(records)) => {
-        let qualified = is_ga_b75m_d3h_baseboard(&records);
-        *self = Self::Resolved(qualified);
-        log_debug!(
-          "ite_ga_b75m_d3h_baseboard_query_completed",
-          "windows::super_io::ite",
-          Some(format!("qualified={qualified}"))
-        );
-        return Some(qualified);
-      }
-      Err(TryRecvError::Empty) => return None,
-      Ok(Err(_)) => "WMI query failed",
-      Err(TryRecvError::Disconnected) => "WMI worker disconnected",
-    };
-
-    log_warn!(
-      "ite_ga_b75m_d3h_baseboard_query_failed",
-      "windows::super_io::ite",
-      Some(format!("{failure}, retrying={can_retry}"))
-    );
-    if can_retry {
-      *self = Self::Pending {
-        query: start_query(),
-        can_retry: false,
-      };
-      None
-    } else {
-      *self = Self::Resolved(false);
-      Some(false)
-    }
-  }
-}
-
-pub(super) fn cached_ga_b75m_d3h_match() -> Option<bool> {
-  GA_B75M_D3H_LOOKUP.lock().ok()?.resolved()
-}
-
-pub(super) fn poll_ga_b75m_d3h_match() -> Option<bool> {
-  GA_B75M_D3H_LOOKUP
-    .lock()
-    .ok()?
-    .poll(start_baseboard_identity_query)
-}
 
 /// TMPIN byte registers with their one-based channel for the CR51 eligibility
 /// check.
@@ -125,12 +26,11 @@ const ITE_FAN_REGISTERS: &[(&str, u8, u8)] = &[
   ("FAN3", 0x0F, 0x1A),
 ];
 
-/// The GA-B75M-D3H factory board reads the first two counters under its board
-/// labels.
-const ITE_GA_B75M_D3H_FAN_REGISTERS: &[(&str, u8, u8)] =
+/// The IT8728F DX/EX primary controller reads only its first two counters,
+/// under the generic motherboard fan names.
+const ITE_IT8728F_DX_EX_FAN_REGISTERS: &[(&str, u8, u8)] =
   &[("Fan 1", 0x0D, 0x18), ("Fan 2", 0x0E, 0x19)];
 
-const ITE_GA_B75M_D3H_EC_BASE: u16 = 0x0A30;
 pub(super) const ITE_EC_FAN_MODE_REGISTER: u8 = 0x0C;
 
 /// How the Environment Controller base is derived from CR60/61 and validated.
@@ -143,14 +43,15 @@ pub(super) enum IteEcBaseRule {
   Legacy,
 }
 
-/// A board whose own mechanism selects a profile with more inputs than the
+/// A chip revision whose CR22 code selects a profile with more inputs than the
 /// chip row alone.
+///
+/// Unlike [`IteEcProfile::required_revision`], a mismatch or an unreadable CR22
+/// keeps the chip row, so the row's own inputs stay available.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct IteBoardVariant {
+pub(super) struct IteRevisionVariant {
   pub(super) slot: u8,
-  /// The raw CR60/61 value the board firmware programs.
-  pub(super) ec_base: u16,
-  /// The CR22 low nibble the board's chip reports.
+  /// The CR22 low nibble that selects the variant.
   pub(super) revision: u8,
   pub(super) profile: &'static IteEcProfile,
 }
@@ -185,7 +86,7 @@ pub(super) struct IteEcProfile {
   pub(super) fan1_routed: bool,
   /// The EC register gating counters per channel, if the profile has one.
   pub(super) fan_mode_register: Option<u8>,
-  pub(super) board_variant: Option<IteBoardVariant>,
+  pub(super) revision_variant: Option<IteRevisionVariant>,
 }
 
 const MODERN: IteEcProfile = IteEcProfile {
@@ -202,7 +103,7 @@ const MODERN: IteEcProfile = IteEcProfile {
   fan_registers: ITE_FAN_REGISTERS,
   fan1_routed: true,
   fan_mode_register: None,
-  board_variant: None,
+  revision_variant: None,
 };
 
 const LEGACY: IteEcProfile = IteEcProfile {
@@ -241,21 +142,21 @@ pub(super) const IT8728F: IteEcProfile = IteEcProfile {
   chip_id: 0x8728,
   fan_registers: &[],
   fan1_routed: false,
-  board_variant: Some(IteBoardVariant {
+  // CR22[3:0] = 0x1 is the code DX and EX share; AX-CX report 0x0.
+  revision_variant: Some(IteRevisionVariant {
     slot: 0,
-    ec_base: ITE_GA_B75M_D3H_EC_BASE,
     revision: 0x01,
-    profile: &IT8728F_EX_GA_B75M_D3H,
+    profile: &IT8728F_DX_EX,
   }),
   ..LEGACY
 };
 
-/// Reached only through [`IT8728F`]'s board variant.
-pub(super) const IT8728F_EX_GA_B75M_D3H: IteEcProfile = IteEcProfile {
+/// Reached only through [`IT8728F`]'s revision variant.
+pub(super) const IT8728F_DX_EX: IteEcProfile = IteEcProfile {
   chip_label: "IT8728F/EX",
   slots: &[0],
   chip_id: 0x8728,
-  fan_registers: ITE_GA_B75M_D3H_FAN_REGISTERS,
+  fan_registers: ITE_IT8728F_DX_EX_FAN_REGISTERS,
   ..LEGACY
 };
 
@@ -280,21 +181,6 @@ pub(super) fn ite_ec_profile(slot: u8, id: u16) -> Option<&'static IteEcProfile>
   ITE_EC_PROFILES
     .into_iter()
     .find(|profile| profile.chip_id == id && profile.slots.contains(&slot))
-}
-
-/// Check cardinality before considering any field. The inventory API's first
-/// row alone cannot distinguish this factory board from an ambiguous result.
-pub(super) fn is_ga_b75m_d3h_baseboard(records: &[Win32BaseBoard]) -> bool {
-  let [board] = records else {
-    return false;
-  };
-
-  board.manufacturer.as_deref().map(str::trim) == Some("Gigabyte Technology Co., Ltd.")
-    && board.product.as_deref().map(str::trim) == Some("B75M-D3H")
-    && matches!(
-      board.version.as_deref().map(str::trim),
-      Some("1.0" | "1.1" | "1.2" | "x.x")
-    )
 }
 
 /// Decode a scoped ITE Environment Controller temperature byte as signed
@@ -356,103 +242,18 @@ mod tests {
   }
 
   #[test]
-  fn the_board_variant_is_reached_only_through_its_chip_row() {
+  fn the_revision_variant_is_reached_only_through_its_chip_row() {
     assert!(
       ITE_EC_PROFILES
         .iter()
-        .all(|profile| **profile != IT8728F_EX_GA_B75M_D3H)
+        .all(|profile| **profile != IT8728F_DX_EX)
     );
-    let variant = IT8728F.board_variant.expect("IT8728F has a board variant");
-    assert_eq!(variant.profile, &IT8728F_EX_GA_B75M_D3H);
+    let variant = IT8728F
+      .revision_variant
+      .expect("IT8728F has a revision variant");
+    assert_eq!(variant.profile, &IT8728F_DX_EX);
     assert_eq!(variant.profile.chip_label, IT8728F.chip_label);
-    assert_eq!(variant.ec_base, ITE_GA_B75M_D3H_EC_BASE);
-  }
-
-  #[test]
-  fn late_ga_b75m_d3h_identity_remains_pending_until_the_existing_worker_replies() {
-    let mut lookup = GaB75mD3hLookup::Unstarted;
-    let (send, receive) = std::sync::mpsc::channel();
-    assert_eq!(lookup.poll(|| receive), None);
-    for _ in 0..3 {
-      assert_eq!(lookup.resolved(), None);
-      assert_eq!(
-        lookup.poll(|| panic!("an in-flight WMI query cannot be replaced")),
-        None
-      );
-    }
-
-    let board = serde_json::from_value::<Win32BaseBoard>(serde_json::json!({
-      "Manufacturer": "Gigabyte Technology Co., Ltd.",
-      "Product": "B75M-D3H",
-      "Version": "x.x",
-    }))
-    .unwrap();
-    send.send(Ok(vec![board])).unwrap();
-    assert_eq!(
-      lookup.poll(|| panic!("the late result is usable")),
-      Some(true)
-    );
-    assert_eq!(lookup.resolved(), Some(true));
-  }
-
-  #[test]
-  fn ga_b75m_d3h_identity_retries_a_failed_worker_once() {
-    let mut lookup = GaB75mD3hLookup::Unstarted;
-    let (first_send, first_receive) = std::sync::mpsc::channel();
-    let (retry_send, retry_receive) = std::sync::mpsc::channel();
-    assert_eq!(lookup.poll(|| first_receive), None);
-    first_send
-      .send(Err("synthetic WMI failure".into()))
-      .unwrap();
-    assert_eq!(lookup.poll(|| retry_receive), None);
-    assert_eq!(lookup.poll(|| panic!("the retry is still in flight")), None);
-
-    drop(retry_send);
-    assert_eq!(
-      lookup.poll(|| panic!("only one retry is permitted")),
-      Some(false)
-    );
-  }
-
-  #[test]
-  fn ga_b75m_d3h_identity_requires_one_complete_exact_baseboard() {
-    let record = |manufacturer: &str, product: &str, version: Option<&str>| {
-      serde_json::from_value::<Win32BaseBoard>(serde_json::json!({
-        "Manufacturer": manufacturer,
-        "Product": product,
-        "Version": version,
-      }))
-      .unwrap()
-    };
-    let manufacturer = "Gigabyte Technology Co., Ltd.";
-    for version in ["1.0", "1.1", "1.2", "x.x", " x.x\t"] {
-      assert!(is_ga_b75m_d3h_baseboard(&[record(
-        " Gigabyte Technology Co., Ltd. ",
-        " B75M-D3H ",
-        Some(version)
-      )]));
-    }
-    assert!(!is_ga_b75m_d3h_baseboard(&[]));
-    for other_product in ["B75M-D3H", "B75M-D3V"] {
-      assert!(!is_ga_b75m_d3h_baseboard(&[
-        record(manufacturer, "B75M-D3H", Some("x.x")),
-        record(manufacturer, other_product, Some("x.x")),
-      ]));
-    }
-    for (manufacturer, product, version) in [
-      (manufacturer, "B75M-D3V", Some("x.x")),
-      (manufacturer, "GA-B75M-D3H", Some("x.x")),
-      ("GIGABYTE Technology Co., Ltd.", "B75M-D3H", Some("x.x")),
-      (manufacturer, "B75M-D3H", Some("1.3")),
-      (manufacturer, "B75M-D3H", Some(" ")),
-      (manufacturer, "B75M-D3H", None),
-    ] {
-      assert!(!is_ga_b75m_d3h_baseboard(&[record(
-        manufacturer,
-        product,
-        version
-      )]));
-    }
+    assert_eq!((variant.slot, variant.revision), (0, 0x01));
   }
 
   #[test]
