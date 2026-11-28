@@ -96,6 +96,13 @@ workflows:
         - 'actions/setup-node@v7.1.0'
         - 'swatinem/rust-cache@v2.9.3'
         - 'tauri-apps/tauri-action@v1.0.0'
+    '.github/workflows/rust-test-runner-measurement.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'actions/upload-artifact@v7.0.2'
+        - 'ilammy/msvc-dev-cmd@v1.13.0'
+        - 'mozilla-actions/sccache-action@v0.0.11'
+        - 'swatinem/rust-cache@v2.9.3'
+        - 'taiki-e/install-action@v2.90.5'
     '.github/workflows/scorecard.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/upload-artifact@v7.0.2'
