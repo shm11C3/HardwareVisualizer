@@ -14,7 +14,7 @@
 | W1 | UEFI Forum, [ACPI Specification 6.5](https://uefi.org/specs/ACPI/6.5/12_Embedded_Controller_Interface_Specification.html), Chapter 12: §12 introduction, §12.1, §12.2.1–§12.2.3, §12.3 Table 12.2, §12.3.1, §12.3.2, §12.7, §12.8 | Primary for the EC host interface, command set, ownership and Global Lock rules. |
 | W2 | Microsoft, [Windows Instrumentation: WMI and ACPI](https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn614028(v=vs.85)), sections on the mapping driver, `_WDG`, control method naming (`WQxx`, `WMxx`) and MOF data | Primary for how Windows exposes firmware ACPI-WMI blocks and methods. |
 | W3 | Microsoft, [Acpi.sys (Windows ACPI driver)](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/acpi-driver), sections "ACPI devices" and "ACPI control methods" (page dated 2025-04-23) | Primary. Acpi.sys interprets AML control methods, kernel-mode drivers invoke them through Acpi.sys, and only Acpi.sys modifies operation-region data. |
-| W4 | namazso, PawnIO.Modules `LpcACPIEC.p` at tag [`0.2.12`](https://github.com/namazso/PawnIO.Modules/blob/0.2.12/LpcACPIEC.p) (annotated tag object `34be4e1f320b8ae69be6f3172bb62f2ace3f36d3`, commit `40a95f0c812b09f78e05b2d5aa4614cbcef67b0a`). Release asset `release_0_2_12.zip` (83,556 bytes, SHA-256 `09698897ce19b92f1043a2e322cfcf0b1fe823e0b576971b178a65244fb0af9d`) contains `LpcACPIEC.bin` (2,612 bytes). | Upstream-published interface definition of a PawnIO module (LGPL-2.1-or-later). No code was copied. |
+| W4 | namazso, PawnIO.Modules `LpcACPIEC.p` at tag [`0.2.12`](https://github.com/namazso/PawnIO.Modules/blob/0.2.12/LpcACPIEC.p) (annotated tag object `34be4e1f320b8ae69be6f3172bb62f2ace3f36d3`, commit `40a95f0c812b09f78e05b2d5aa4614cbcef67b0a`). Release asset `release_0_2_12.zip` (83,556 bytes, SHA-256 `09698897ce19b92f1043a2e322cfcf0b1fe823e0b576971b178a65244fb0af9d`) contains `LpcACPIEC.bin` (2,612 bytes). | **lead-only (copyleft)**: LGPL-2.1-or-later module source. This project does not call this module, so the allowance for interface definitions of APIs this project calls does not apply. Used only for the rejection below. No code was copied. |
 | W5 | Linux `asus-ec-sensors` driver and history, as pinned in S5 and S6 of the [Linux slice](ec-asus-crosshair-viii-linux-hwmon.md) | **lead-only (copyleft)** for ASUS EC register maps, bank register `0xFF`, the per-board AML mutex or Global Lock, and the statement that the driver reads the same data as the firmware WMI method under the same mutex. |
 | W6 | Linux `asus_wmi_ec_sensors` driver, [v5.19](https://github.com/torvalds/linux/blob/v5.19/drivers/hwmon/asus_wmi_ec_sensors.c), Git blob `a3a2f014dec03d65879d89ec896849dd33fce454`, method constants and argument encoding (L37–L41, L262–L341). Removed after v5.19. [v6.0 documentation](https://docs.kernel.org/6.0/hwmon/asus_wmi_ec_sensors.html). Initial `asus-ec-sensors` commit [`d0ddfd241e57`](https://github.com/torvalds/linux/commit/d0ddfd241e57) | **lead-only (copyleft)** for the ASUS monitoring WMI GUID, the block EC read method ID and its argument and reply encoding, the AMD 500-series board list, and the observation that a WMI read of all sensors took almost a full second. |
 | W7 | Linux [`asus_wmi_sensors` documentation, v7.3](https://github.com/torvalds/linux/blob/v7.3/Documentation/hwmon/asus_wmi_sensors.rst), Supported boards and Known Issues, and [driver v7.3](https://github.com/torvalds/linux/blob/v7.3/drivers/hwmon/asus_wmi_sensors.c) L54–L59 | **lead-only (copyleft)** for the older sensor-method family on X370, X399, X470 and B450 boards and its firmware polling hazard. |
@@ -32,7 +32,7 @@ No Windows runtime condition is authorized by this revision.
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | Raw EC port access through PawnIO `LpcACPIEC` on any ASUS board | Rejected on safety grounds (see Transport findings, candidate A). | Unsupported. |
-| ACPI-WMI block EC read method on ASUS AMD 500-series boards | Candidate. The method ID and encoding are lead-only (W6). The Windows class and method names, privilege, cost and polling safety are unknown. | Unsupported until the open questions are resolved. |
+| ACPI-WMI block EC read method on ASUS AMD 500-series boards | Candidate. The method ID and encoding are lead-only (W6). Its EC access and mutex use on the target board are unverified (W5 is a lead). The Windows class and method names, privilege, cost and polling safety are unknown. | Unsupported until the open questions are resolved. |
 | ACPI-WMI sensor methods on X370, X399, X470 and B450 boards | Candidate with a documented firmware polling hazard (W7, W8). | Unsupported. |
 | ASUS vendor kernel drivers and utilities | Outside policy: a third-party runtime dependency with write-capable port access. | Not a candidate. |
 
@@ -64,17 +64,19 @@ No Windows runtime condition is authorized by this revision.
 
 ### PawnIO `LpcACPIEC` module (W4)
 
-| Function | Input cells | Output cells | Semantics |
-| --- | --- | --- | --- |
-| `ioctl_pio_read` | `in[0]` = port | `out[0]` = byte | Reads one byte from port `0x62` or `0x66`. Any other port returns `STATUS_ACCESS_DENIED`. |
-| `ioctl_pio_write` | `in[0]` = port, `in[1]` = byte | — | Writes one byte to port `0x62` or `0x66`. Any other port returns `STATUS_ACCESS_DENIED`. |
+| Function | Input cells | Output cells | Semantics | Source |
+| --- | --- | --- | --- | --- |
+| `ioctl_pio_read` | `in[0]` = port | `out[0]` = byte | Reads one byte from port `0x62` or `0x66`. Any other port returns `STATUS_ACCESS_DENIED`. | W4 (lead-only) |
+| `ioctl_pio_write` | `in[0]` = port, `in[1]` = byte | — | Writes one byte to port `0x62` or `0x66`. Any other port returns `STATUS_ACCESS_DENIED`. | W4 (lead-only) |
 
 - Both functions document that the caller should hold the
-  `\BaseNamedObjects\Access_EC` mutant. The module acquires none.
+  `\BaseNamedObjects\Access_EC` mutant. The module acquires none
+  (W4, lead-only).
 - Module load does nothing beyond returning success. The module does
-  not implement the EC handshake, status polling or any command.
-- `LpcACPIEC.bin` is in the signed 0.2.12 release archive. This
-  project does not ship or load it.
+  not implement the EC handshake, status polling or any command
+  (W4, lead-only).
+- `LpcACPIEC.bin` is in the signed 0.2.12 release archive (W4 release
+  asset). This project does not ship or load it.
 
 ### ASUS firmware method path (lead-only, W5–W7)
 
@@ -114,14 +116,19 @@ arbitration interface. It is not a candidate for a future revision.
 
 ### Candidate B: ASUS ACPI-WMI block EC read — blocked
 
-The method runs as firmware AML inside Acpi.sys. Its EC accesses go
-through the OS EC owner, and the firmware's own mutex serializes them
-with other firmware EC users (W2, W3, W5). This is the only identified
-Windows path that does not race the EC. These facts block it:
+A WMI method call runs firmware AML inside Acpi.sys (W2, W3). If the
+target board's method reads the EC through an EC operation region and
+holds the firmware's EC mutex for the whole call, its EC accesses go
+through the OS EC owner and are serialized with other firmware EC
+users. Neither condition is verified for any board. The mutex claim
+rests only on the Linux driver's lead-only statement (W5). This path
+is therefore a candidate, not an established non-racing transport.
+It is the only identified Windows candidate that could avoid racing
+the EC. These facts block it:
 
 | Blocker | Evidence that would unblock |
 | --- | --- |
-| The Windows WMI class name, method name, parameter names and the string flag for the GUID come from the board's MOF. None is captured for any board. | An opt-in, user-submitted MOF and class listing from `root\WMI` on a ROG CROSSHAIR VIII HERO (for example the class, method and parameter qualifiers for the method mapped to the GUID above), through [#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500). |
+| The Windows WMI class name, method name and parameter names come from the board's MOF. The string flag, the two-character method ID and the instance count for the GUID come from its `_WDG` mapping entry (W2). None is captured for any board. | An opt-in, user-submitted capture through [#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500) from a ROG CROSSHAIR VIII HERO containing: the `_WDG` entry for the GUID above, with its flags, object ID and instance count; the MOF; and the class listing from `root\WMI` with the class, method and parameter qualifiers of the method mapped to that GUID. |
 | The argument and reply encoding is lead-only and from a driver removed after v5.19 (W6). It is unknown whether the Windows mapper delivers it unchanged or converts it as a string. | The same capture plus a firmware table capture (DSDT/SSDT) showing the `WMxx` dispatch for the method and its use of the EC mutex. |
 | Each call may take close to a second (W6). Sampling must not block the shared runtime ([#1937](https://github.com/shm11C3/HardwareVisualizer/issues/1937)). | A measured call time on the target board and a sampling design reviewed against #1937. |
 | The older sensor-method family has a documented firmware polling hazard (W7, W8). Whether the block read method shares it is unknown. | A soak report on the target board at the intended interval, with fan control behavior checked. |
@@ -163,4 +170,4 @@ evidence before any scope.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial feasibility draft. Reject raw EC port access through PawnIO `LpcACPIEC`. Identify the ASUS ACPI-WMI block EC read as the only non-racing candidate and list its blockers. |
+| 1 | 2026-11-28 | Initial feasibility draft. Reject raw EC port access through PawnIO `LpcACPIEC`. Identify the ASUS ACPI-WMI block EC read as the only candidate that could avoid racing the EC and list its blockers. Review amendments before merge (#2792): tag W4 lead-only and cite it on each `LpcACPIEC` fact; state the candidate's firmware-mutex arbitration as unverified; request the `_WDG` mapping entry, which holds the string flag, alongside the MOF and class listing. |
