@@ -360,9 +360,26 @@ reading. They do not depend on any vendor, board or firmware identity
       Also stop, and mark the enumeration incomplete, when a Record ID
       repeats, or after as many records as the repository record count
       (and at least one).
-   6. A completion code `CBh` on a record skips it. A transport timeout,
-      `C0h`, `D0h`, `D2h` or a malformed response ends discovery as
-      *rediscovery eligible* without publishing anything.
+   6. Failures are classed by where they occur. The next Record ID is
+      known only from a successful header read (step 4.1): a responder may
+      truncate every byte after a non-zero completion code (S1 §5.3.1),
+      and Record IDs are not sequential (S1 §33.12), so no later record
+      can be located without it.
+      - Header read fails. `CBh` on the first request (Record ID
+        `0000h`) when Get SDR Repository Info reported a record count
+        of 0 means an empty repository: cache an empty set. Any other
+        `CBh` (the record named by the previous next Record ID is not
+        present, so the repository changed during the read; S1 §33.11),
+        any other non-zero completion code, a transport timeout or
+        failure, or a malformed header response ends discovery as
+        *rediscovery eligible*. Nothing from the partial enumeration is
+        cached or published.
+      - Body read fails after a successful header read. The next Record
+        ID is already known. `CAh`, `FFh`, `C7h`, `C8h` or `C9h` skips
+        the record as in step 4.3, and enumeration continues with that
+        next Record ID. `CBh`, any other non-zero completion code, a
+        transport timeout or failure, or a malformed body response ends
+        discovery as *rediscovery eligible* without publishing anything.
 5. Send Get SDR Repository Info again. If the record count or either
    timestamp changed during enumeration, discard the result and end
    discovery as *rediscovery eligible* (the repository changed under the
@@ -554,6 +571,11 @@ the Full Sensor Record bytes 1 onward.
 | Body read returns fewer bytes than `3 + 5 + L` | Discovery ends *rediscovery eligible*; nothing published. |
 | Body header differs from the header read | Discovery ends *rediscovery eligible*. |
 | Next Record ID repeats `0005h` | Enumeration stops, marked incomplete; records found so far kept. |
+| Header read for Record ID `0012h` (the previous next Record ID) returns completion `CBh` with no further bytes | Discovery ends *rediscovery eligible*; no record of this enumeration is cached or published; retried after `D(1)` = 2 s. |
+| First header read (Record ID `0000h`) returns `CBh` and Get SDR Repository Info reported record count 0 | Empty cache; no Get Sensor Reading sent; no error. |
+| First header read (Record ID `0000h`) returns `CBh` and the reported record count is 12 | Discovery ends *rediscovery eligible*. |
+| Header read succeeds with next Record ID `0013h`, body read returns `CAh` | Record skipped, *needs incremental read*; enumeration continues at `0013h`. |
+| Header read succeeds, body read returns `CBh` | Discovery ends *rediscovery eligible*; nothing published. |
 | Repository Info record count or timestamp differs after enumeration | Result discarded; *rediscovery eligible*. |
 | Two selected records with key (`20h`, `00h`, `30h`) | Both dropped. |
 | Get Device ID Additional Device Support `01h` (no SDR Repository) | *Unsupported on this interface*; no Get SDR sent. |
@@ -646,4 +668,4 @@ the Full Sensor Record bytes 1 onward.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-29 | Initial version. Propose Implementation-ready for two Experimental scopes: Windows `Microsoft_IPMI.RequestResponse` from the LocalSystem sensor service and Linux `ipmi_devintf`. Both read BMC temperatures and fan RPM from threshold-based, linear, BMC-owned Full Sensor Records, using only Get Device ID, Get SDR Repository Info, Get SDR at offset 0 without a reservation, and Get Sensor Reading. Record the command layouts, record fields, conversion, validity flags, timeouts, cadence, contention, privilege and never-sent commands, synthetic fixtures, and a disposition for every #2525 target. |
+| 1 | 2026-11-29 | Initial version. Propose Implementation-ready for two Experimental scopes: Windows `Microsoft_IPMI.RequestResponse` from the LocalSystem sensor service and Linux `ipmi_devintf`. Both read BMC temperatures and fan RPM from threshold-based, linear, BMC-owned Full Sensor Records, using only Get Device ID, Get SDR Repository Info, Get SDR at offset 0 without a reservation, and Get Sensor Reading. Record the command layouts, record fields, conversion, validity flags, timeouts, cadence, contention, privilege and never-sent commands, synthetic fixtures, and a disposition for every #2525 target. Review correction before merge: a failed header Get SDR leaves no next Record ID (the response may end at the completion code, S1 §5.3.1), so a header-level `CBh` ends discovery as rediscovery eligible, except on the first request of an empty repository; only a body-read failure after a successful header read can skip a record. |
