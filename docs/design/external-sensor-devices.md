@@ -182,7 +182,8 @@ Rules:
   (a stopped PSU fan at low load is normal), a positive value is Active,
   malformed or out-of-range text is Invalid. Its doc comment drops
   "motherboard".
-- Within one device, a role and rail pair appears at most once. A later
+- Within one device, a role, rail and quantity triple appears at most once,
+  so a rail keeps its voltage, current and power channels side by side. A later
   device with several fans or probes (#2530) adds a channel index in its own
   slice.
 - No value is derived. No efficiency, no input power, no rail sum, no
