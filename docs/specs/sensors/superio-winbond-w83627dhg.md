@@ -288,11 +288,13 @@ data-port writes are the `0x4E` writes stated below.
    bits 1:0 are `00` read bank 1 `0x50` then `0x51`. On DHG, AUXTIN does the
    same with `0x49` bits 6:4 = `000`, bank value `0x02`, and bank 2
    `0x52`, `0x50`, `0x51`.
-5. Fans: read `0x4D`, `0x47`, `0x4C`, `0x5D`, and on DHG `0x4B`. Write
-   `0x4E` = (O AND `0xF8`) OR `0x00` and read bank 0 `0x59`. Then read the
-   count of each routed fan input (`0x28`, `0x29`, `0x3F`; on DHG also
-   `0x2A`, and bank 5 `0x53` after writing `0x4E` = (O AND `0xF8`) OR
-   `0x05`).
+5. Fans: read the unbanked `0x4D`, `0x47`, `0x4C`, and on DHG `0x4B`.
+   Write `0x4E` = (O AND `0xF8`) OR `0x00`, and only after that write
+   succeeds read bank 0 `0x5D` and `0x59`. Both sit in the banked range
+   `0x50`–`0x5F`, so neither is read while step 4 has bank 1 or bank 2
+   selected. Then read the count of each routed fan input (`0x28`, `0x29`,
+   `0x3F`; on DHG also `0x2A`, and bank 5 `0x53` after writing `0x4E` =
+   (O AND `0xF8`) OR `0x05`). (S1 p. 88; S2 p. 81; S3 p. 63)
 6. If any `0x4E` write was issued, write `0x4E` = O. Release the mutex.
 
 Partial results: a failed read makes only the inputs that depend on it
@@ -300,7 +302,10 @@ unavailable (`0x18` → SYSTIN; `0x7C` → SYSTIN and CPUTIN on B07;
 `0x49` → CPUTIN and AUXTIN; a divisor
 or routing register → the fans using it). A failed `0x4E` write makes every
 input of that bank unavailable for the sample and no read of that bank is
-issued after it. A failed restore write in step 6 does not invalidate
+issued after it; a failed bank 0 write therefore makes every fan
+unavailable, because each fan's divisor needs `0x5D` or `0x59`. Every
+read of an index in `0x50`–`0x5F` follows a successful write of its own
+bank in the same transaction; no other index read here is banked. A failed restore write in step 6 does not invalidate
 values already read; it is recorded in the partial-sample diagnostic, and
 the next sample reads `0x4E` afresh. Bits 6:3 of `0x4E` are never changed
 by any write in this document.
@@ -364,6 +369,8 @@ All fixtures are synthetic.
 | Vendor bytes `0xFF`/`0xFF` | Path not cached; not eligible. A failed vendor-port read: path not cached; eligible. |
 | A failed bank 1 select write with valid SYSTIN and fans | CPUTIN unavailable, no bank 1 read issued; other values kept. |
 | Raw IDs `0x5241`, `0x8285`, `0x8860`, `0x8541`, `0xA510`, `0xB350`, `0xA230`, `0xB470` | No logical-device selection by this document and no HM read; the raw-ID diagnostic of S8 is unchanged. |
+| DHG sample with CPUTIN and AUXTIN read; bank 0 `0x5D` = `0x20` and bank 2 `0x5D` = `0x00` (a different register); `0x47` bits 5:4 = `01`; SYSFANIN count `0x87` | Recorded order: bank 2 select, bank 2 reads, then `0x4E` = bank 0, then the `0x5D` and `0x59` reads. SYSFANIN divisor 32 (`101`), 312 RPM. Reading `0x5D` under bank 2 would give divisor 2 and 5000 RPM; that order fails the fixture. |
+| As above, but the bank 0 `0x4E` write fails | No `0x5D`, `0x59` or count-based RPM is published; every fan is unavailable; temperatures kept. |
 | Recorded transaction | Writes are only `0x87`, `0x87`, `0xAA` and register indexes to the configuration index port, `CR07=0x0B`, the module's selections inside `ioctl_find_bars`, HM register indexes, and HM data writes to `0x4E` only. No read of `0x41`, `0x42`, `0x45`, bank 4, `0x7D`, bank 6. |
 | Slot 0 passes; slot 1 holds another chip | No `ioctl_select_slot(1)` after slot 0's `ioctl_find_bars`. |
 | Slot 1 reads `0x8733` (likewise `0x8790`, `0x8695`, `0x8883`) | No `0xAA` or other exit write on slot 1; skip reported as in S8. |
