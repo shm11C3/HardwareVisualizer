@@ -212,8 +212,12 @@ and never selects logical device 0 or touches its I/O space.
    enter configuration mode with `0x87`, `0x87` and read `CR20`/`CR21`.
    Absent-ID rules of S9 apply. Match the ID-matching table; any other ID,
    or a later gate failure on that slot, ends the attempt on that slot with
-   the `0xAA` exit and moves to the next slot. The S9 ITE exit-withhold rule is
-   unaffected because none of its IDs matches. (S1, S2, S9)
+   the `0xAA` exit and moves to the next slot. Exception: on slot 1, when
+   the combined ID read is exactly one of S9's exit-withhold values
+   `0x8733`, `0x8790`, `0x8695` or `0x8883`, no exit write of any kind is
+   issued on that slot (S9 allows no substitute exit), the skip is
+   reported as S9 describes, and detection ends with no Fintek path. The
+   chip is left as the firmware left it. (S1, S2, S9)
 3. Read `CR23`/`CR24`; require `0x19`/`0x34`. Read `CR25`; require bit 4 = 0.
    Read the routing registers of the row (`CR27`, `CR28`, `CR2B` on F71882;
    `CR2B` on F71889). (S1 pp. 55–58; S2 pp. 65–68)
@@ -226,7 +230,8 @@ and never selects logical device 0 or touches its I/O space.
 6. F71889 only: through the HM ports read `0x5D` and `0x5E`; require
    `0x19`/`0x34`. (S2 p. 51)
 7. Exit configuration mode (`0xAA`) on the visited slot on every path,
-   including failures. (S9)
+   including failures, except where step 2 withholds the exit on slot 1.
+   (S9)
 8. While the mutex is still held, cache the slot, profile, port base and
    the set of routed fan inputs, so that any later `ioctl_select_slot` on
    the shared handle finds the cached path and invalidates it. Only then
@@ -321,6 +326,7 @@ All fixtures are synthetic.
 | Slot 0 reports `0x0541` and passes every gate; slot 1 holds another chip | Detection ends on slot 0: no `ioctl_select_slot(1)` after slot 0's `ioctl_find_bars`, and sampling reads ports `0x295`/`0x296` without any slot selection. |
 | Slot 0 reports `0x0541` but fails the base gate; slot 1 reports `0x0723` and passes | Slot 0 ends with `0xAA` without BAR discovery; `ioctl_select_slot(1)` precedes the only `ioctl_find_bars` whose BARs are cached. |
 | Any `ioctl_select_slot` on the shared handle after the path is cached | Cached path invalidated; no HM read until the full detection sequence has run again. |
+| Slot 0 does not pass; slot 1 reads `0x8733` (likewise `0x8790`, `0x8695`, `0x8883`) | No `0xAA` or other exit write on slot 1; the skip is reported as in S9; no Fintek path. |
 | Mutex timeout | Sample skipped; no port I/O. |
 
 ## Quirks
@@ -439,4 +445,4 @@ No other external sensor documentation was used.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization, and the path is cached before the mutex is released so a later selection can invalidate it. |
+| 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization, and the path is cached before the mutex is released so a later selection can invalidate it; on slot 1 the S9 exit withhold also suppresses the `0xAA` exit for its four IDs. |
