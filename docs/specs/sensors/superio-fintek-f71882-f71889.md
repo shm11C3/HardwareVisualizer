@@ -21,7 +21,7 @@
 | S8 | Fintek, *F71808E* datasheet V0.19P, Dec 2009, three-page excerpt (general description and feature list only) hosted by datasheet.su: `https://pdf5.datasheet.su/feature-integration-technology-inc-f71808e_c7e1809a3f.pdf`, fetched 2026-11-28, SHA-256 `78ad3d3a5489aaa89772e5f808f2e441ea6c1d94e1731a0eb75965a3caa47c33`. States two thermal inputs and three fan speed inputs. | Primary excerpt; no register map. |
 | S9 | [`superio-access.md`](superio-access.md) revision 4 | Clean-room source for the Winbond/Nuvoton-lineage configuration keys (`0x87`, `0x87` / `0xAA`), the slot mapping, chip-ID reads at `0x20`/`0x21`, absent-ID classification, the slot-1 ITE exit-withhold rule and the ISA mutex. |
 | S10 | [`pawnio-interface.md`](pawnio-interface.md) revision 9, `LpcIO` section | Interface source: `ioctl_select_slot`, `ioctl_find_bars`, `ioctl_superio_inb`/`outb`, `ioctl_pio_inb`/`outb`; port access limited to the configuration pair and the 8-byte-aligned BAR windows; caller-held `Global\Access_ISABUS.HTP.Method`. |
-| S11 | PawnIO.Modules `LpcIO.p` at tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`), LGPL-2.1-or-later | Upstream-published interface definition of the module this project calls. `ioctl_find_bars` reads global `0x20` and fails if it is `0x00` or `0xFF`; for every logical device it records the `0x60/61` and `0x62/63` values that read the same twice, are non-zero, not `0xFFFF` and at least `0x100`; a value whose low three bits are `101b` is first rounded down to its 8-byte boundary; a port is allowed only if the port rounded down to 8 bytes equals a recorded value. Used for port-authorization behaviour only; no code copied. |
+| S11 | PawnIO.Modules `LpcIO.p` at tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`), LGPL-2.1-or-later | Upstream-published interface definition of the module this project calls. `ioctl_find_bars` reads global `0x20` and fails if it is `0x00` or `0xFF`; for every logical device it records the `0x60/61` and `0x62/63` values that read the same twice, are non-zero, not `0xFFFF` and at least `0x100`; a value whose low three bits are `101b` is first rounded down to its 8-byte boundary; a port is allowed only if the port rounded down to 8 bytes equals a recorded value. `ioctl_select_slot` first resets the module state, clearing the configuration port and the recorded BAR list, so any slot selection after `ioctl_find_bars` withdraws that authorization. Used for port-authorization behaviour only; no code copied. |
 | S12 | [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) revision 9 and [`superio-nuvoton-nct6775-nct6776-nct610x.md`](superio-nuvoton-nct6775-nct6776-nct610x.md) revision 1 | Project sources for the shared Super I/O procedure: `ioctl_find_bars` after configuration-mode entry and base discovery, the unavailable-slot rule for position-keyed consumers, and the structure of the read-to-clear register list. |
 | S13 | [ADR 0011](../../adr/0011-experimental-sensor-enablement.md), [ADR 0023](../../adr/0023-copyleft-derived-facts-for-experimental-scopes.md), [ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md) | Project policy. No hardware facts. |
 | S14 | Linux kernel `drivers/hwmon/f71882fg.c` (torvalds/linux commit `7cd8495c0f16275c4f9abe1cef09a7b5fcd6d046`, retrieved 2026-11-28), GPL-2.0 | **lead-only (copyleft)**. Detection requires manufacturer ID `0x1934` at `CR23`/`CR24` before matching the chip ID; IDs `0x0901` F71808E, `0x1001` F71808A, `0x0507` and `0x0903` F71858, `0x0601` F71862, `0x1106` F71868A, `0x0814` F71869, `0x1007` F71869A, `0x0541` F71882, `0x0723` F71889 (FG), `0x0909` F71889ED, `0x1005` F71889A, `0x1010` F81866A; hardware monitor is logical device 4 (logical device 2 on F71858), requires `CR30` bit 0, refuses base `0`, clears the low three base bits and uses base + 5 / + 6 as index/data; refuses the device when HM `0x01` bit 2 is set or bits 1:0 are both clear; decodes the non-F71858 temperature bytes as signed; fan speed is 1.5 × 10⁶ / count; F71808E has two temperatures and three fans, F71882 four fans. Restated in this document's own words; no code, structure or identifiers copied. |
@@ -45,20 +45,20 @@ targets whose complete datasheet covers every register this document reads.
 | --- | --- | --- | --- | --- |
 | 1 | F71882 / F71882FG (`0x0541`) | 73 | S1, complete | **Enabled, Experimental**: TEMP1–3, FAN1–4 |
 | 2 | F71889 / F71889F (`0x0723`) | 17 | S2, complete | **Enabled, Experimental**: TEMP1–3, FAN1–3 |
-| 3 | F71868A / F71868AD (`0x1106`), not a #2522 target by name | 9 | S6, complete | Unsupported in rev 1; candidate below. It is the follow-up that would cover the F71878AD label. |
-| 4 | F71889A / F71889AD (`0x1005`) | 8 | S5, complete | Unsupported in rev 1; follow-up candidate (S5 obtained, register analysis pending). |
-| 5 | F71858 (`0x0507`) | 5 | S3, complete | Unsupported: different mechanism (logical device 2, exit keys `0x78`×2 or `0xAA`, two-byte temperature formats with a table select). Follow-up profile. |
+| 3 | F71868A / F71868AD (`0x1106`), not a #2522 target by name | 9 | S6, complete | Unsupported in rev 1; candidate below. It is the follow-up (#2815) that would cover the F71878AD label. |
+| 4 | F71889A / F71889AD (`0x1005`) | 8 | S5, complete | Unsupported in rev 1; follow-up candidate in #2815 (S5 obtained, register analysis pending). |
+| 5 | F71858 (`0x0507`) | 5 | S3, complete | Unsupported: different mechanism (logical device 2, exit keys `0x78`×2 or `0xAA`, two-byte temperature formats with a table select). Follow-up profile in #2815. |
 | 6 | F71869 (`0x0814`) | 2 | S4, complete | Unsupported in rev 1; candidate profile recorded below. S4 describes `CR23`/`CR24` as reserved, so the vendor-ID gate would rest on S14 alone. |
-| — | F71878AD | no separate page found | none | Unsupported. No datasheet. S16 labels raw `0x1106` F71878AD and calls it the F71868A; S6 assigns `0x1106` to F71868A. The alias is lead-only, so the F71868A follow-up covers the ID under its primary label. |
-| — | F71889ED / F71889E (`0x0909`) | none found | none obtained | Unsupported. A V0.19P datasheet is indexed by third-party sites but could not be retrieved; IDs are lead-only (S14, S16). Follow-up. |
-| — | F71869A (`0x1007`) | none found | none obtained | Unsupported. S15 lists the datasheet as not public. Follow-up. |
-| — | F71811 | none found | none | Unsupported. Its ID is unresolved: S16 gives both `0x1007` (shared label with F71869A) and `0x1118`. Follow-up. |
-| — | F71862 / F71862FG (`0x0601`) | none found | none obtained | Unsupported. A V0.27P datasheet is indexed by a third-party site but could not be retrieved. Follow-up. |
-| — | F71808E (`0x0901`) | none found | S8, three-page excerpt | Unsupported: no register map. S15 lists the datasheet as not public. Follow-up. |
+| — | F71878AD | no separate page found | none | Unsupported. No datasheet. S16 labels raw `0x1106` F71878AD and calls it the F71868A; S6 assigns `0x1106` to F71868A. The alias is lead-only, so the F71868A follow-up in #2815 covers the ID under its primary label. |
+| — | F71889ED / F71889E (`0x0909`) | none found | none obtained | Unsupported. A V0.19P datasheet is indexed by third-party sites but could not be retrieved; IDs are lead-only (S14, S16). Follow-up: #2815. |
+| — | F71869A (`0x1007`) | none found | none obtained | Unsupported. S15 lists the datasheet as not public. Follow-up: #2815. |
+| — | F71811 | none found | none | Unsupported. Its ID is unresolved: S16 gives both `0x1007` (shared label with F71869A) and `0x1118`. Follow-up: #2815. |
+| — | F71862 / F71862FG (`0x0601`) | none found | none obtained | Unsupported. A V0.27P datasheet is indexed by a third-party site but could not be retrieved. Follow-up: #2815. |
+| — | F71808E (`0x0901`) | none found | S8, three-page excerpt | Unsupported: no register map. S15 lists the datasheet as not public. Follow-up: #2815. |
 | — | F81866A (`0x1010`), not a #2522 target | not counted | S7, complete | Unsupported: its temperatures sit at `0x70`/`0x72`/`0x74`, a different layout (S7). |
 
-"Follow-up" means a separate open issue linked from #2522 that adds a row to
-this document in a later revision. No similar product number or software
+"Follow-up" means #2815, which is linked from #2522 and tracks the deferred
+targets until a later revision adds their rows. No similar product number or software
 alias is treated as hardware identity.
 
 ## Detection
@@ -117,9 +117,9 @@ S2 pp. 25–26, 65–68, 88)
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | F71882 (`0x0541`) TEMP1–3 | **Experimental**. Every identity, gate, register and decode is pinned to S1. Lead-only: the HM index/data port derivation (S14, S16; S3 corroborates at the default base). No hardware dump. | Enabled as Experimental |
-| F71882 (`0x0541`) FAN1–4 | **Experimental**, S1 for registers, routing, latch and formula; same lead-only port derivation. | Enabled as Experimental, per input behind its routing gate |
-| F71889 (`0x0723`) TEMP1–3 | **Experimental**, S2 for every identity, gate, register and decode, plus the S2 HM vendor ID; same lead-only port derivation. Best-evidenced member: none (no dump). | Enabled as Experimental |
-| F71889 (`0x0723`) FAN1–3 | **Experimental**, S2; same lead-only port derivation. | Enabled as Experimental, per input behind its routing gate |
+| F71882 (`0x0541`) FAN1–4 | **Experimental**, S1 for registers, routing, latch and formula. Lead-only: the same HM index/data port derivation (S14, S16). | Enabled as Experimental, per input behind its routing gate |
+| F71889 (`0x0723`) TEMP1–3 | **Experimental**, S2 for every identity, gate, register and decode, plus the S2 HM vendor ID. Lead-only: the HM index/data port derivation (S14, S16). Best-evidenced member: none (no dump). | Enabled as Experimental |
+| F71889 (`0x0723`) FAN1–3 | **Experimental**, S2 for registers, routing, latch and formula. Lead-only: the HM index/data port derivation (S14, S16). | Enabled as Experimental, per input behind its routing gate |
 | F71882 temperature bytes `0x80`–`0xFF` | S1 gives −20 to +127 °C for one input and 0 to +145 °C for the other two without stating the encoding; S14 decodes all three as signed (lead-only, conflicts with the 0 to +145 °C statement). | Disabled (reported unavailable) |
 | Digital temperatures (PECI, AMDSI/TSI, SST, PCH SMBus) at HM `0x7A`–`0x7D` and `0xE0`–`0xEF`, voltages, alarms, limits, PWM | Out of scope | Disabled |
 | Every ID outside the ID-matching table | See the disposition table | Disabled |
@@ -207,24 +207,39 @@ and never selects logical device 0 or touches its I/O space.
 
 1. Acquire `Global\Access_ISABUS.HTP.Method` with a bounded timeout; on
    failure skip the attempt. Hold it for the whole transaction. (S9, S10)
-2. For each slot (`ioctl_select_slot` 0, then 1), enter configuration mode
-   with `0x87`, `0x87` and read `CR20`/`CR21`. Absent-ID rules of S9 apply.
-   Match the ID-matching table; any other ID ends this document's attempt
-   on that slot with the `0xAA` exit. The S9 ITE exit-withhold rule is
+2. Visit the slots in order 0, then 1, and stop at the first slot that
+   passes steps 3–6. For the slot being visited, call `ioctl_select_slot`,
+   enter configuration mode with `0x87`, `0x87` and read `CR20`/`CR21`.
+   Absent-ID rules of S9 apply. Match the ID-matching table; any other ID,
+   or a later gate failure on that slot, ends the attempt on that slot with
+   the `0xAA` exit and moves to the next slot. The S9 ITE exit-withhold rule is
    unaffected because none of its IDs matches. (S1, S2, S9)
 3. Read `CR23`/`CR24`; require `0x19`/`0x34`. Read `CR25`; require bit 4 = 0.
    Read the routing registers of the row (`CR27`, `CR28`, `CR2B` on F71882;
    `CR2B` on F71889). (S1 pp. 55–58; S2 pp. 65–68)
 4. Write `CR07` = `0x04`; read `CR30` and require bit 0 = 1. Read `CR60`,
    `CR61`; apply the base gate. (S1 p. 68; S2 p. 74)
-5. Call `ioctl_find_bars` after steps 2–4. (S11, S12)
+5. Call `ioctl_find_bars` after steps 2–4, on the slot being visited.
+   This is the last call in the detection sequence that changes the
+   module state: no `ioctl_select_slot` follows it once the slot passes
+   step 6, so the recorded BAR list is the one sampling uses. (S11, S12)
 6. F71889 only: through the HM ports read `0x5D` and `0x5E`; require
    `0x19`/`0x34`. (S2 p. 51)
-7. Exit configuration mode (`0xAA`) and release the mutex on every path,
-   including failures. (S9)
+7. Exit configuration mode (`0xAA`) on the visited slot on every path,
+   including failures, and release the mutex after the last slot attempt.
+   (S9)
 8. Cache the slot, profile, port base and the set of routed fan inputs.
-   Configuration mode is not entered again for sampling. A failed routing
-   read leaves that fan unavailable until rediscovery. (S12)
+   Configuration mode is not entered again for sampling, and sampling
+   issues no `ioctl_select_slot`. A failed routing read leaves that fan
+   unavailable until rediscovery. (S12)
+
+Both slots share the one `LpcIO` executor handle the project keeps per
+module (S10). Because `ioctl_select_slot` clears the recorded BARs (S11),
+any slot selection on that handle after step 5, whether by this document or
+by another vendor's discovery, invalidates the cached path. The path is then
+unavailable until this detection sequence runs again in full, ending with
+`ioctl_find_bars` for the matching slot. A slot-1 match is used only when
+slot 0 did not pass, so no slot is selected after its own BAR discovery.
 
 ### Sampling (HM ports only, under the ISA mutex)
 
@@ -301,6 +316,9 @@ All fixtures are synthetic.
 | A failed FAN2 LSB read with valid FAN1 | FAN2 unavailable; FAN1 kept under its label. |
 | Raw IDs `0x0814`, `0x1005`, `0x0909`, `0x1106`, `0x1007`, `0x0601`, `0x0901`, `0x0507`, `0x1010`, `0x1118`, or `0xFFFF` | No logical-device selection by this document and no HM read; the raw ID diagnostic of S9 is unchanged. |
 | Recorded transaction | Writes are only `0x87`, `0x87`, `0xAA` and register indexes to the configuration index port, `CR07=0x04`, the module's own selections inside `ioctl_find_bars`, and register indexes to the HM index port. No HM data-port write; no read of `0x03`, `0x11`, `0x61`, `0x91`, `0x62`, `0x92` or `0xE0`–`0xEF`. |
+| Slot 0 reports `0x0541` and passes every gate; slot 1 holds another chip | Detection ends on slot 0: no `ioctl_select_slot(1)` after slot 0's `ioctl_find_bars`, and sampling reads ports `0x295`/`0x296` without any slot selection. |
+| Slot 0 reports `0x0541` but fails the base gate; slot 1 reports `0x0723` and passes | Slot 0 ends with `0xAA` without BAR discovery; `ioctl_select_slot(1)` precedes the only `ioctl_find_bars` whose BARs are cached. |
+| Any `ioctl_select_slot` on the shared handle after the path is cached | Cached path invalidated; no HM read until the full detection sequence has run again. |
 | Mutex timeout | Sample skipped; no port I/O. |
 
 ## Quirks
@@ -419,4 +437,4 @@ No other external sensor documentation was used.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates. |
+| 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization. |
