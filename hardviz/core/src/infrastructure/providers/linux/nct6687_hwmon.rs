@@ -1,9 +1,9 @@
+use super::sysfs::{file_identity, is_hwmon_name, resolves_to};
 use crate::models::{
   FanSpeedStatus, MotherboardFanSpeed, MotherboardSensorCollection,
   MotherboardSensorSample, MotherboardTemperature, SensorAvailability, SensorSupport,
 };
 use std::fs;
-use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 const MSI_VENDOR: &str = "Micro-Star International Co., Ltd.";
@@ -391,20 +391,6 @@ fn is_platform_instance(name: &str) -> bool {
   suffix.parse::<u16>().is_ok_and(|id| {
     (8..=65_528).contains(&id) && id.is_multiple_of(8) && suffix == id.to_string()
   })
-}
-
-fn file_identity(metadata: &fs::Metadata) -> (u64, u64) {
-  (metadata.dev(), metadata.ino())
-}
-
-fn is_hwmon_name(name: &str) -> bool {
-  name.strip_prefix("hwmon").is_some_and(|index| {
-    !index.is_empty() && index.bytes().all(|byte| byte.is_ascii_digit())
-  })
-}
-
-fn resolves_to(link: &Path, expected: &Path) -> bool {
-  fs::canonicalize(link).is_ok_and(|target| target == expected)
 }
 
 fn read_attribute(directory: &Path, attribute: &str) -> Option<String> {

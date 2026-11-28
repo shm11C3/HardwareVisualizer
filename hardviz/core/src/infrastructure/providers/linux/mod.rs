@@ -9,3 +9,4 @@ pub mod net_sys;
 pub(crate) mod nvml_provider;
 pub mod procfs;
 pub mod smart;
+mod sysfs;
