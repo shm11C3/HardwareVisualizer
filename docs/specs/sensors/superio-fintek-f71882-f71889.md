@@ -226,12 +226,14 @@ and never selects logical device 0 or touches its I/O space.
 6. F71889 only: through the HM ports read `0x5D` and `0x5E`; require
    `0x19`/`0x34`. (S2 p. 51)
 7. Exit configuration mode (`0xAA`) on the visited slot on every path,
-   including failures, and release the mutex after the last slot attempt.
-   (S9)
-8. Cache the slot, profile, port base and the set of routed fan inputs.
-   Configuration mode is not entered again for sampling, and sampling
-   issues no `ioctl_select_slot`. A failed routing read leaves that fan
-   unavailable until rediscovery. (S12)
+   including failures. (S9)
+8. While the mutex is still held, cache the slot, profile, port base and
+   the set of routed fan inputs, so that any later `ioctl_select_slot` on
+   the shared handle finds the cached path and invalidates it. Only then
+   release the mutex, after the last slot attempt. Configuration mode is
+   not entered again for sampling, and sampling issues no
+   `ioctl_select_slot`. A failed routing read leaves that fan unavailable
+   until rediscovery. (S12)
 
 Both slots share the one `LpcIO` executor handle the project keeps per
 module (S10). Because `ioctl_select_slot` clears the recorded BARs (S11),
@@ -437,4 +439,4 @@ No other external sensor documentation was used.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization. |
+| 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization, and the path is cached before the mutex is released so a later selection can invalidate it. |
