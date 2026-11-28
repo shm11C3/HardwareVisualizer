@@ -19,6 +19,26 @@ struct Win32PhysicalMemory {
   smbios_memory_type: Option<u16>,
 }
 
+/// The two `Win32_PhysicalMemory` properties a sensor safety gate reads. Both
+/// stay optional so an absent or null value reaches the gate as such.
+#[derive(Debug, Deserialize)]
+pub(crate) struct Win32PhysicalMemoryType {
+  #[serde(rename = "Capacity")]
+  pub(crate) capacity: Option<u64>,
+  #[serde(rename = "SMBIOSMemoryType")]
+  pub(crate) smbios_memory_type: Option<u32>,
+}
+
+/// Query `Capacity` and `SMBIOSMemoryType` of every instance, waiting at most
+/// `timeout`. A query that does not finish in time is reported as failed.
+pub(crate) fn query_physical_memory_types(
+  timeout: std::time::Duration,
+) -> Result<Vec<Win32PhysicalMemoryType>, String> {
+  spawn_wmi_query("SELECT Capacity, SMBIOSMemoryType FROM Win32_PhysicalMemory".into())
+    .recv_timeout(timeout)
+    .map_err(|error| format!("Win32_PhysicalMemory query did not complete: {error}"))?
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct Win32PhysicalMemoryArray {

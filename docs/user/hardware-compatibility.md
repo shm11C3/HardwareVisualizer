@@ -28,6 +28,8 @@ vendor or family.
 
 | Hardware | Sensor path | Status | Dump wanted | Contributor |
 | --- | --- | --- | --- | --- |
+| AMD Family 10h (S1g3, S1g4, ASB2, C32), 11h, 12h, and 14h models 00h–0Fh | Windows PawnIO [control temperature (Tctl) on one physical package](../specs/sensors/cpu-amd-family-10h-14h-tctl.md), shown as `CPU Tctl`. Family 10h erratum 319 revisions, socket F, and G34 are unsupported. | Not yet verified by a public compatibility report | No, report availability first | — |
+| AMD Family 10h AM2r2/AM3 | Windows PawnIO [control temperature (Tctl) on one physical package](../specs/sensors/cpu-amd-family-10h-14h-tctl.md) when Windows reports DDR3 for every installed memory module | Experimental | No, report availability first | — |
 | AMD Family 17h | PawnIO package temperature | Not yet verified by a public compatibility report | No | — |
 | AMD Family 19h | PawnIO package temperature | Reported working on a Ryzen 7 7800X3D ([validation record](../development/sensor-handoff/evidence/2026-09-26-pawnio-modules-0.2.11-validation.md)) | No | [@shm11C3](https://github.com/shm11C3) |
 | AMD Family 1Ah | PawnIO package temperature | Experimental | No, report availability first | — |

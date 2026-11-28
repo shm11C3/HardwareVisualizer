@@ -76,8 +76,8 @@ but it does not read registers or share code with the provider.
    changing anything.
 2. Resolve the module state. The plan lists the module files the app can use:
    `IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin`, `LpcIO.bin` and
-   `AMDFamily10.bin`. The AMD Family 15h/16h Tctl sampler loads
-   `AMDFamily10.bin`. Each file
+   `AMDFamily10.bin`. The AMD Family 10h-14h and Family 15h/16h Tctl
+   samplers load `AMDFamily10.bin`. Each file
    is looked up under the known PawnIO roots in the provider's order, and the
    first one found is classified by its SHA-256 against the catalog: current
    (the pinned release), outdated (only an earlier release), or unrecognized

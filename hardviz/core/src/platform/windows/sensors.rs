@@ -265,6 +265,9 @@ fn cpu_package_sensor_name(sample: &CpuPackageTemperature) -> &'static str {
     // A control temperature on AMD's own Tctl scale: the label must say Tctl
     // and never Package, die or case (cpu-amd-family-15h-16h-tctl.md rev 2).
     CpuTemperatureSource::AmdFamily15h16hTctl => "CPU Tctl (PawnIO AMD Family 15h/16h)",
+    // The same rule for the D18F3xA4 control temperature of Family 10h, 11h,
+    // 12h and 14h (cpu-amd-family-10h-14h-tctl.md rev 1, Meaning and label).
+    CpuTemperatureSource::AmdFamily10h14hTctl => "CPU Tctl (PawnIO AMD Family 10h-14h)",
   }
 }
 
@@ -576,6 +579,30 @@ mod tests {
     assert_eq!(sample.availability, SensorAvailability::Available);
   }
 
+  // cpu-amd-family-10h-14h-tctl.md rev 1, Meaning and label: named as Tctl,
+  // never as a die, case or package temperature; a low idle value is not an
+  // error.
+  #[test]
+  fn family_10h_14h_reading_is_labelled_as_a_control_temperature() {
+    let sample = build_temperature_sample(
+      Ok(CpuPackageTemperature {
+        temperature_celsius: 12.0,
+        source: CpuTemperatureSource::AmdFamily10h14hTctl,
+        thermal_status: None,
+      }),
+      Vec::new(),
+    );
+
+    let name = &sample.sensor_temperatures[0].name;
+    assert_eq!(name, "CPU Tctl (PawnIO AMD Family 10h-14h)");
+    for forbidden in ["Package", "Die", "Case"] {
+      assert!(!name.contains(forbidden), "{name}");
+    }
+    assert_eq!(sample.cpu_temperature, Some(12.0));
+    assert_eq!(sample.availability, SensorAvailability::Available);
+    assert!(sample.guidance_candidates.is_empty());
+  }
+
   #[test]
   fn temperature_sample_falls_back_to_acpi_cpu_zone() {
     let sample = build_temperature_sample(
@@ -692,7 +719,7 @@ mod tests {
   fn temperature_sample_suppresses_guidance_for_unsupported_cpu_path() {
     let sample = build_temperature_sample(
       Err(CpuPackageTemperatureError::Unsupported(
-        crate::infrastructure::providers::windows::pawn_io::cpu::temperature::CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x14),
+        crate::infrastructure::providers::windows::pawn_io::cpu::temperature::CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x0f),
       )),
       Vec::new(),
     );

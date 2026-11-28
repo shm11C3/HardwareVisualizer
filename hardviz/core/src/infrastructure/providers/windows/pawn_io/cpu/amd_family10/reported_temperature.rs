@@ -10,6 +10,8 @@ pub(crate) enum SelectFieldCheck {
   /// Bits 17:16 select the source of `CurTmp`; only `00b` is the
   /// hardware-updated Tctl.
   RequireHardwareTctl,
+  /// Bits 17:16 are Reserved and are not examined.
+  NotExamined,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -40,6 +42,7 @@ pub(crate) fn decode_tctl(
         return Err(TctlDecodeError::NotHardwareTctl(select));
       }
     }
+    SelectFieldCheck::NotExamined => {}
   }
   let cur_tmp = (raw >> 21) as u16;
   if cur_tmp > MAX_PLAUSIBLE_CUR_TMP {
