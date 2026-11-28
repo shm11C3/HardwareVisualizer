@@ -32,10 +32,18 @@ A specification is implementable only after the maintainer approves the PR
 that changes its status, and that status reads exactly
 `Implementation-ready (rev N)`
 ([specification gate](../../../docs/specs/sensors/README.md#status-transition-draft--implementation-ready)).
-The status string alone is not a sign-off. Implementation may start earlier
-when the maintainer asks for it. In that case, open the implementation as a
-Draft PR stacked on the specification PR, and mark it ready only after the
-specification PR is approved or merged.
+Neither the status string nor a merge counts as sign-off. The maintainer
+approves the status-change PR in one of two ways:
+
+- an approving review on that PR; or
+- an explicit instruction to implement that specification, given in the
+  session that runs the loop, which the orchestrator records on the PR.
+
+Do not dispatch an implementer and do not open any implementation PR, Draft
+or ready, before that approval
+([implementation PR requirements](../../rules/clean-room-sensors.md#implementation-pr-requirements)).
+While a specification waits for sign-off, use its Rust lane for another
+specification that is already implementable.
 
 ## Roles
 
