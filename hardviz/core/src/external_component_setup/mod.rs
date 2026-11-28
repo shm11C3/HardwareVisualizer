@@ -189,6 +189,15 @@ const PAWNIO_MODULE_FILES: &[ModuleFile] = &[
       "4247d588b9da9c598a65c6f5b8255a90bedee510ee1c354f9a909a2f959cd4df", // 0.2.8-0.2.9
     ],
   },
+  ModuleFile {
+    file_name: "AMDFamily10.bin",
+    // 0.2.11, pinned by `docs/specs/sensors/cpu-amd-family-15h-16h-tctl.md`
+    // rev 1 (S11). Setup never placed this file before the pin, and the
+    // specification records no earlier release digest, so an older copy
+    // classifies as unrecognized and is kept rather than replaced.
+    sha256_hex: "6443080b2968474ffbc38aa4356cc56f9664349fa4b917afdb33027d6bb50525",
+    earlier_sha256_hex: &[],
+  },
 ];
 
 /// `ERROR_SUCCESS_REBOOT_REQUIRED`: the PawnIO installer returns it in silent
@@ -632,7 +641,8 @@ mod tests {
         "IntelMSR.bin",
         "RyzenSMU.bin",
         "AMDFamily17.bin",
-        "LpcIO.bin"
+        "LpcIO.bin",
+        "AMDFamily10.bin"
       ]
     );
     assert_eq!(plan.installer.artifact.sha256_hex.len(), 64);
@@ -776,7 +786,7 @@ mod tests {
   }
 
   fn installed_status(
-    conditions: [ModuleFileCondition; 4],
+    conditions: [ModuleFileCondition; 5],
   ) -> ExternalComponentSetupStatus {
     let plan = setup_plan(ExternalComponent::Pawnio).unwrap();
     let mut status = ExternalComponentSetupStatus::unsupported_platform(plan);
@@ -795,7 +805,7 @@ mod tests {
   fn an_outdated_file_leaves_the_component_incomplete() {
     use ModuleFileCondition::{Current, Outdated, Unrecognized};
 
-    let status = installed_status([Current, Outdated, Unrecognized, Current]);
+    let status = installed_status([Current, Outdated, Unrecognized, Current, Current]);
 
     assert!(!status.is_complete());
     assert!(status.missing_module_files().is_empty());
@@ -804,10 +814,41 @@ mod tests {
   }
 
   #[test]
+  fn a_missing_amd_family10_module_is_its_own_missing_file() {
+    use ModuleFileCondition::{Current, Missing};
+
+    // An installation that holds only the four earlier module files.
+    let status = installed_status([Current, Current, Current, Current, Missing]);
+
+    assert!(!status.is_complete());
+    assert_eq!(status.missing_module_files(), vec!["AMDFamily10.bin"]);
+    assert!(status.outdated_module_files().is_empty());
+  }
+
+  #[test]
+  fn amd_family10_module_pins_the_specified_signed_release_digest() {
+    // docs/specs/sensors/cpu-amd-family-15h-16h-tctl.md rev 1, S11.
+    let file = setup_plan(ExternalComponent::Pawnio)
+      .unwrap()
+      .file_bundle
+      .file("AMDFamily10.bin")
+      .unwrap();
+
+    assert_eq!(
+      file.condition_of_digest(
+        "6443080b2968474ffbc38aa4356cc56f9664349fa4b917afdb33027d6bb50525"
+      ),
+      ModuleFileCondition::Current
+    );
+    assert!(file.earlier_sha256_hex.is_empty());
+  }
+
+  #[test]
   fn an_unrecognized_file_counts_as_complete_and_is_never_outdated() {
     use ModuleFileCondition::{Current, Unrecognized};
 
-    let status = installed_status([Current, Unrecognized, Unrecognized, Current]);
+    let status =
+      installed_status([Current, Unrecognized, Unrecognized, Current, Unrecognized]);
 
     assert!(status.is_complete());
     assert!(status.outdated_module_files().is_empty());
@@ -819,7 +860,7 @@ mod tests {
     let plan = setup_plan(ExternalComponent::Pawnio).unwrap();
     let mut status = ExternalComponentSetupStatus::unsupported_platform(plan);
     assert!(!status.is_complete());
-    assert_eq!(status.missing_module_files().len(), 4);
+    assert_eq!(status.missing_module_files().len(), 5);
     assert!(status.setup_blocker().is_some());
 
     status.support = ExternalComponentSetupSupport::Supported;

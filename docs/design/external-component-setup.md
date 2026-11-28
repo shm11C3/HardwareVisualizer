@@ -75,7 +75,8 @@ but it does not read registers or share code with the provider.
    absent; any other failure is unknown state and stops the run without
    changing anything.
 2. Resolve the module state. The plan lists the module files the app can use:
-   `IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin`, `LpcIO.bin`. Each file
+   `IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin`, `LpcIO.bin`,
+   `AMDFamily10.bin`. Each file
    is looked up under the known PawnIO roots in the provider's order, and the
    first one found is classified by its SHA-256 against the catalog: current
    (the pinned release), outdated (only an earlier release), or unrecognized
