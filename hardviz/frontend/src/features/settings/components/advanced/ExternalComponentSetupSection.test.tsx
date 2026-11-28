@@ -16,6 +16,11 @@ const mocks = vi.hoisted(() => ({
   useProcessElevated: vi.fn((): boolean | null => false),
   restartApp: vi.fn(),
   runExternalComponentSetup: vi.fn(),
+  recordProductEvent: vi.fn(),
+}));
+
+vi.mock("@/hooks/analytics/useProductEvent", () => ({
+  useProductEvent: () => mocks.recordProductEvent,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -240,6 +245,28 @@ describe("ExternalComponentSetupSection", () => {
         "PawnIO module files were updated. Restart HardwareVisualizer to use them.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("counts the setup start before the elevated run, not only its success", async () => {
+    const user = userEvent.setup();
+    mocks.runExternalComponentSetup.mockImplementation(async () => {
+      expect(mocks.recordProductEvent).toHaveBeenCalledWith({
+        capability: "externalComponentSetupStarted",
+      });
+      return { status: "error", error: "elevation refused" };
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    render(<ExternalComponentSetupSection />);
+    await user.click(await screen.findByRole("button", { name: "Install" }));
+
+    await waitFor(() =>
+      expect(mocks.runExternalComponentSetup).toHaveBeenCalledTimes(1),
+    );
+    expect(mocks.recordProductEvent).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
   });
 
   it("disables setup outside Program Files and says why", async () => {

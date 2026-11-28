@@ -30,6 +30,11 @@ type NsisMigrationNoticeDialogProps = {
   dismissed: boolean;
   settingsLoaded?: boolean;
   onRequestChange?: (requested: boolean) => void;
+  /**
+   * True while it could still request the slot: settings or the bundle type
+   * are not known yet. Lets lower-priority startup dialogs wait for it.
+   */
+  onPendingChange?: (pending: boolean) => void;
   /** Another startup AlertDialog is open; wait so modals never stack. */
   deferred?: boolean;
 };
@@ -46,6 +51,7 @@ export const NsisMigrationNoticeDialog = ({
   dismissed,
   settingsLoaded = true,
   onRequestChange,
+  onPendingChange,
   deferred = false,
 }: NsisMigrationNoticeDialogProps) => {
   const { t } = useTranslation();
@@ -53,6 +59,8 @@ export const NsisMigrationNoticeDialog = ({
   const [isNsisBuild, setIsNsisBuild] = useState(false);
   // "Remind me next time" only hides the notice until the app restarts.
   const [hiddenThisSession, setHiddenThisSession] = useState(false);
+  // Whether the bundle type lookup finished, successfully or not.
+  const [bundleTypeKnown, setBundleTypeKnown] = useState(false);
 
   useEffect(() => {
     if (!settingsLoaded || dismissed) {
@@ -64,10 +72,14 @@ export const NsisMigrationNoticeDialog = ({
       .then((bundleType) => {
         if (!isCancelled) {
           setIsNsisBuild(bundleType === BundleType.Nsis);
+          setBundleTypeKnown(true);
         }
       })
       .catch((err) => {
         console.error("Failed to read the bundle type:", err);
+        if (!isCancelled) {
+          setBundleTypeKnown(true);
+        }
       });
 
     return () => {
@@ -80,6 +92,11 @@ export const NsisMigrationNoticeDialog = ({
   useLayoutEffect(() => {
     onRequestChange?.(requested);
   }, [requested, onRequestChange]);
+
+  const pending = !settingsLoaded || (!dismissed && !bundleTypeKnown);
+  useLayoutEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
 
   if (!requested || deferred) return null;
 

@@ -43,6 +43,9 @@ import type {
   ExternalComponentGuidanceCandidate,
   HardwareMonitorUpdate,
   MemoryDetails,
+  ProductAnalyticsClientSettings,
+  ProductAnalyticsDecision,
+  ProductEvent,
 } from "@/rspc/bindings";
 
 declare global {
@@ -54,6 +57,8 @@ declare global {
       emitHardwareUpdateSeries: (count?: number) => Promise<void>;
       /** Number of mocked IPC invocations observed for a command. */
       getInvokeCount: (command: string) => number;
+      /** Payloads of every mocked `record_product_event` call, in order. */
+      getProductEvents: () => ProductEvent[];
       setGuidanceCandidates: (
         candidates: ExternalComponentGuidanceCandidate[],
       ) => void;
@@ -197,6 +202,10 @@ type FixtureOverrides = {
    * render the inline failure line under a settings row. Mutable at runtime
    * through `window.__E2E__.setSettingsWriteFailure`. */
   settingsWriteFailure: boolean;
+  /** `?productAnalytics=undecided` starts the mocked Analytics Consent as
+   * `undecided` so the startup consent dialog can be exercised. Unset, the
+   * fixture is `declined`, so no other spec meets the dialog. */
+  productAnalyticsUndecided: boolean;
 };
 type CoolingAmbientOverride = "present" | "only" | null;
 /** See `FixtureOverrides.databaseConversionScenario`. `"converting"` and
@@ -293,6 +302,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       "missing",
     firstClose:
       new URLSearchParams(window.location.search).get("firstClose") === "1",
+    productAnalyticsUndecided:
+      new URLSearchParams(window.location.search).get("productAnalytics") ===
+      "undecided",
     settingsReadFailure:
       new URLSearchParams(window.location.search).get("settingsReadFailure") ===
       "1",
@@ -465,12 +477,20 @@ type GuidanceMockState = {
   acknowledged: Set<string>;
 };
 
+/** Mutable Analytics Consent answer, so `get_settings` reflects a decision
+ * made through `set_product_analytics_consent` the way the real service does. */
+type ProductAnalyticsMockState = {
+  settings: ProductAnalyticsClientSettings;
+  events: ProductEvent[];
+};
+
 const buildInvokeHandlers = (
   store: Map<string, unknown>,
   eventListeners: Map<string, Set<number>>,
   fixtureOverrides: FixtureOverrides,
   databaseConversion: DatabaseConversionMockState,
   guidance: GuidanceMockState,
+  productAnalytics: ProductAnalyticsMockState,
 ): Record<string, InvokeHandler> => ({
   // --- @tauri-apps/plugin-event ---
   "plugin:event|listen": (args) => {
@@ -535,6 +555,7 @@ const buildInvokeHandlers = (
   // --- generated commands ---
   get_settings: () => ({
     ...settingsFixture,
+    productAnalytics: productAnalytics.settings,
     closeToTrayChoiceMade: fixtureOverrides.firstClose
       ? false
       : settingsFixture.closeToTrayChoiceMade,
@@ -557,6 +578,19 @@ const buildInvokeHandlers = (
         : settingsFixture.hardwareArchive.enabled,
     },
   }),
+  record_product_event: (args) => {
+    productAnalytics.events.push((args as { event: ProductEvent }).event);
+    return null;
+  },
+  set_product_analytics_consent: (args) => {
+    const { decision } = args as { decision: ProductAnalyticsDecision };
+    productAnalytics.settings = {
+      ...productAnalytics.settings,
+      consent: decision,
+      consentVersion: productAnalytics.settings.currentConsentVersion,
+    };
+    return null;
+  },
   dismiss_nsis_migration_notice: () => {
     window.localStorage.setItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY, "1");
     return null;
@@ -1051,12 +1085,23 @@ export const installTauriMocks = () => {
       ) as string[],
     ),
   };
+  const productAnalytics: ProductAnalyticsMockState = {
+    settings: fixtureOverrides.productAnalyticsUndecided
+      ? {
+          ...settingsFixture.productAnalytics,
+          consent: "undecided",
+          consentVersion: 0,
+        }
+      : settingsFixture.productAnalytics,
+    events: [],
+  };
   const handlers = buildInvokeHandlers(
     store,
     eventListeners,
     fixtureOverrides,
     databaseConversion,
     guidance,
+    productAnalytics,
   );
   const invokeCounts = new Map<string, number>();
   let streamTimer: number | undefined;
@@ -1137,6 +1182,7 @@ export const installTauriMocks = () => {
 
   window.__E2E__ = {
     getInvokeCount: (command) => invokeCounts.get(command) ?? 0,
+    getProductEvents: () => [...productAnalytics.events],
     setGuidanceCandidates: (candidates) => {
       guidance.candidates = candidates;
       emitMonitorUpdate(buildHardwareUpdateSeries(1)[0]);

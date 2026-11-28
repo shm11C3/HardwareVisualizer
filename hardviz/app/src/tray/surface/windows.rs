@@ -13,6 +13,7 @@ use tauri::{
   tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
 };
 
+use crate::analytics::{AnalyticsService, Capability, ProductEvent};
 use crate::tray::TRAY_WIDGET_FLYOUT_LABEL;
 use crate::tray::widget::{MetricState, TrayFrame, TrayFrameItem, TrayMetric};
 use crate::{log_debug, log_warn};
@@ -276,6 +277,11 @@ fn toggle_flyout_window(
     );
     crate::webview_memory::suspend(&window);
     return;
+  }
+
+  // Counted once the flyout is actually shown. The service enforces consent.
+  if let Some(analytics) = app_handle.try_state::<Arc<AnalyticsService>>() {
+    analytics.record(ProductEvent::Capability(Capability::TrayWidgetOpened));
   }
 
   if let Err(e) = window.set_focus() {

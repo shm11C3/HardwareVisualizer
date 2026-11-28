@@ -11,6 +11,7 @@ import { externalComponentGuidanceDocsBaseUrl } from "@/lib/externalComponentGui
 import { openURL } from "@/lib/openUrl";
 import { ElevatedStartupModeToggle } from "./ElevatedStartupModeToggle";
 import { ExternalComponentSetupSection } from "./ExternalComponentSetupSection";
+import { ProductAnalyticsSection } from "./ProductAnalyticsSection";
 import { SensorServiceSection } from "./SensorServiceSection";
 
 export const AdvancedSettings = () => {
@@ -93,6 +94,7 @@ export const AdvancedSettings = () => {
             />
           )}
         </div>
+        <ProductAnalyticsSection />
       </div>
     </div>
   );

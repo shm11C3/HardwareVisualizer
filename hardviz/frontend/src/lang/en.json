@@ -267,6 +267,33 @@
       "openDownload": "Failed to open the download page."
     }
   },
+  "productAnalyticsConsent": {
+    "title": "Share anonymous usage statistics?",
+    "intro": "HardwareVisualizer can send aggregate usage counts that help decide what to improve. Nothing is sent unless you choose Share, and you can change this at any time in Settings → Advanced.",
+    "sentTitle": "What is sent",
+    "sent": {
+      "usage": "Daily counts of which screens and capabilities are used",
+      "features": "Which features are switched on",
+      "hardware": "CPU and GPU vendor class, and whether a sensor provider works",
+      "build": "App version, OS family, and CPU architecture",
+      "tokens": "The month you turned this on, and tokens that change every day and every month"
+    },
+    "neverSent": "Never sent: hardware readings, device model names, serial numbers, persistent device or user identifiers, or error text.",
+    "links": {
+      "dataContract": "Data contract",
+      "privacyNotice": "Privacy notice",
+      "clientSource": "Client source",
+      "serviceSource": "Service source"
+    },
+    "actions": {
+      "share": "Share",
+      "decline": "Don't share"
+    },
+    "errors": {
+      "save": "Could not save your choice. Nothing is shared; you can choose again in Settings → Advanced.",
+      "openLink": "Could not open the link."
+    }
+  },
   "navigation": {
     "performance": "Performance",
     "systemSpecifications": "System Specifications",
@@ -975,6 +1002,14 @@
               "description": "Enables CPU package temperature and power, and motherboard temperatures and fan speeds on supported hardware."
             }
           }
+        },
+        "productAnalytics": {
+          "name": "Product analytics",
+          "description": "Send aggregate usage counts that help decide what to improve. Hardware readings and identifiers are never sent.",
+          "stateGranted": "Sharing aggregate usage under contract v{{version}}",
+          "stateNotSharing": "Not sharing",
+          "staleNote": "The data contract changed to v{{current}}. Turning this switch on shares usage under it.",
+          "openLinkError": "Could not open the link."
         }
       }
     },

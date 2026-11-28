@@ -5,12 +5,14 @@ import { HardwareCompatibilityReport } from "@/components/HardwareCompatibilityR
 import { Button } from "@/components/ui/button";
 import { useCopyFeedback } from "@/features/hardware/dashboard/hooks/useCopyFeedback";
 import { useExportToClipboard } from "@/features/hardware/dashboard/hooks/useExportToClipboard";
+import { useProductEvent } from "@/hooks/analytics/useProductEvent";
 
 /** Dashboard header actions: icon-only copy and compatibility report. */
 export const ExportHardwareInfo = () => {
   const { exportToClipboard } = useExportToClipboard();
   const { copied, failed, copy } = useCopyFeedback(exportToClipboard);
   const { t } = useTranslation();
+  const recordProductEvent = useProductEvent();
   const label = t("pages.dashboard.copyHardwareReport");
 
   return (
@@ -22,7 +24,10 @@ export const ExportHardwareInfo = () => {
           size="icon"
           aria-label={label}
           title={label}
-          onClick={() => void copy()}
+          onClick={() => {
+            recordProductEvent({ capability: "hardwareReportExported" });
+            void copy();
+          }}
         >
           {copied ? (
             <CheckIcon className="size-5" aria-hidden="true" />
