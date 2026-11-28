@@ -4,22 +4,26 @@
 | --- | --- |
 | Revision | 8 |
 | Status | Implementation-ready (rev 8) |
-| Scope | Read-only access to the primary LPC Environment Controller for IT8716F silicon version D FAN1–3, firmware-enabled 16-bit FAN1–3 on IT8718F, IT8721F silicon version DX FAN1–3, IT8772E silicon version FX FAN2–3, exact IT8620E and IT8628E TMPIN1–3 and FAN1–3, and bank-guarded TMPIN1–3 and FAN1–3 on exact IT8686E, IT8688E and IT8689E. Only the model and channel rows below qualify. |
+| Scope | Read-only access to the primary LPC Environment Controller for IT8716F silicon version D FAN1–3, firmware-enabled 16-bit FAN1–3 on IT8718F, IT8772E silicon version FX FAN2–3, exact IT8620E and IT8628E TMPIN1–3 and FAN1–3, and bank-guarded TMPIN1–3 and FAN1–3 on exact IT8686E, IT8688E and IT8689E. IT8721F silicon version DX FAN1–3 register facts are recorded, but the row is disabled. Only the model and channel rows below qualify. |
 | Issue phase | Phase 4 (#1635), [#2517](https://github.com/shm11C3/HardwareVisualizer/issues/2517), [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695), [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698) |
 
-Revision 8 adds two Experimental fan profiles for
-[#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Both
-use the IT8716F D mechanism: slot 0, LDN `0x04`, the low-index FAN1–3
+Revision 8 adds one Experimental fan profile for
+[#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). It
+uses the IT8716F D mechanism: slot 0, LDN `0x04`, the low-index FAN1–3
 count pairs, `CR27[7]`/`CR29[2]` routing and the EC `0x13` enables. The
-ITE datasheets S22–S24 define the register fields of both profiles. The
-first profile reads FAN1–3 on exact raw ID `0x8718` (IT8718F) where firmware
-has set the per-channel 16-bit counter enable. The second reads FAN1–3 on exact
-raw ID `0x8721` with `CR22[3:0]=0x3` (IT8721F DX), whose 16-bit counters
-are always enabled. Both rows stay Experimental. The fixed divisor, the
-read order and the count dispositions are lead-only on both. On IT8718F,
-the coverage of `CR22` values other than `0x0` and `0x1` is lead-only too
+profile reads FAN1–3 on exact raw ID `0x8718` (IT8718F) where firmware
+has set the per-channel 16-bit counter enable. The ITE datasheets S22
+and S23 define its register fields. The row stays Experimental. The
+fixed divisor, the read order, the count dispositions and the coverage
+of `CR22` values other than `0x0` and `0x1` are lead-only
 (see [Applicability of the IT8718F documents](#applicability-of-the-it8718f-documents)).
-Revision 8 also gives every #2695 target a disposition in
+Revision 8 also records the S24 register facts for FAN1–3 on raw
+`0x8721` with `CR22[3:0]=0x3` (IT8721F DX), but keeps that row
+**disabled**. Firmware on one audited IT8721F platform writes the shared
+configuration pair under a lock the host cannot take. The DX discovery
+would add `CR07` data writes to that pair, which a firmware index change
+could redirect into another configuration register (see
+[Open questions](#open-questions)). Revision 8 also gives every #2695 target a disposition in
 [Deferred profiles](#deferred-profiles). The revision 7 profiles, gates
 and transport rules are unchanged.
 
@@ -88,12 +92,12 @@ failure diagnostics under [ADR 0011](../../adr/0011-experimental-sensor-enableme
 | Exact `0x8728` / IT8728F fans | S12 owns slot-0 FAN1–2 for `CR22[3:0]=0x1`, which covers DX and EX through a lead-only fact. FAN3, other version nibbles and higher inputs have no qualified scope (S1, S12). | Disabled in this document. FAN1–2 follow S12. |
 | Slot 0, exact `0x8716` / IT8716F D with `CR22[3:0]=0x1`, FAN1–3 | **Experimental**. S8 identifies D and defines discovery, counters, pin routing, and per-channel 16-bit mode bits. Fixed divisor in 16-bit mode, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible firmware-enabled 16-bit inputs. Other or unreadable revision nibbles are outside the scope. |
 | Slot 0, exact `0x8718` / IT8718F, firmware-enabled 16-bit FAN1–3 | **Experimental**. S22 defines discovery, the EC block and vendor byte, monitor state, the dedicated FAN1 pin, FAN2/FAN3 routing, the per-channel 16-bit counter enables, the fan enables, both count bytes, the read-to-clear status group, and the tachometer formula with default divisor 2. S23, the earlier document with `CR22` default `00h`, states the same routing, monitor-state, counter-enable, fan-enable, count and formula fields. Lead-only facts: coverage of `CR22` low nibbles other than `0x0` and `0x1` (S6, S7; see [Applicability of the IT8718F documents](#applicability-of-the-it8718f-documents)), and the fixed divisor 2 in 16-bit mode, the read order, the count sentinels and the conservative lower count bound (S6, S7). Observed members, which are evidence identities that do not gate the read: IT8718F revision 2 on Kraftway 945GCMX-S2 BIOS F4 (S29) and revision 4 on Gigabyte GA-945GCM-S2L with Linux-reported fan RPM (S30). Neither observation is a maintainer-accepted dump. | Enabled best-effort for eligible firmware-enabled 16-bit inputs. Inputs left in 8-bit mode are omitted. |
-| Slot 0, exact `0x8721` / IT8721F DX with `CR22[3:0]=0x3`, FAN1–3 | **Experimental**. S24 establishes DX identity, discovery, the EC block and vendor byte, monitor state, the dedicated FAN1 pin, FAN2/FAN3 routing, always-enabled 16-bit counters, the fan enables, both count bytes, the read-to-clear status group, and the tachometer formula with default divisor 2. Lead-only facts: the fixed divisor 2 in 16-bit mode, the read order, the count sentinels and the conservative lower count bound (S6, S7). No observation is recorded for this row. | Enabled best-effort for eligible inputs. Other or unreadable revision nibbles are outside the scope. |
+| Slot 0, exact `0x8721` / IT8721F DX with `CR22[3:0]=0x3`, FAN1–3 | Candidate only. S24 establishes DX identity, discovery, the EC block and vendor byte, monitor state, the dedicated FAN1 pin, FAN2/FAN3 routing, always-enabled 16-bit counters, the fan enables, both count bytes, the read-to-clear status group, and the tachometer formula with default divisor 2. Lead-only facts: the fixed divisor 2 in 16-bit mode, the read order, the count sentinels and the conservative lower count bound (S6, S7). No observation is recorded for this row. **Blocked** by configuration-port ownership: the Coreboot-15h AML recorded in [`superio-ite-it8721f-coreboot-ownership.md`](superio-ite-it8721f-coreboot-ownership.md) selects registers on `0x2E`/`0x2F` under a private mutex. The DX discovery would add `CR07` data writes to that pair, which an interleaved firmware index write could redirect into another configuration register. No accepted residual covers configuration writes on this pair. See [Open questions](#open-questions) for the evidence that would unblock the row. | **Disabled (deferred)**. No LDN selection, `CR22`/`CR27`/`CR29` read or EC access on raw `0x8721` under this document. |
 | Slot 0, exact `0x8772` / IT8772E FX with `CR22[3:0]=0x2`, FAN2–3 | **Experimental**. S13 establishes FX identity, primary discovery, two tachometer inputs, routing, and both count bytes. The ordinal enable bits, fixed 16-bit interpretation and divisor, read order, and count dispositions use S6/S7/S14 (lead-only). | Enabled best-effort for eligible FAN2 and FAN3 inputs after approval of this revision. |
 | Slot 0, exact `0x8620` / IT8620E TMPIN1–3 and FAN1–3 | **Experimental**. Exact ID and model-wide fixed 16-bit fan path from S6/S10. Discovery, vendor check, EC read access, physical-temperature selection and encoding, fan enable, pin routing, divisor, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible inputs. |
 | Slot 0, exact `0x8628` / IT8628E TMPIN1–3 and FAN1–3 | **Experimental**. Exact ID and model-wide fixed 16-bit fan path from S6/S10. Discovery, vendor check, EC read access, physical-temperature selection and encoding, fan enable, pin routing, divisor, read order, count sentinels, and conservative lower count bound are lead-only (S6/S7). | Enabled best-effort for eligible inputs. |
 | Slot 0, exact `0x8686` / IT8686E, `0x8688` / IT8688E or `0x8689` / IT8689E, bank-guarded TMPIN1–3 and FAN1–3 | **Experimental**. No vendor document is public for these models. Lead-only facts: exact IDs (S15, S7, and S16 for `0x8689`); discovery, EC block, vendor byte and EC `0x00` state (S15, S16); bank field in EC `0x06` and the bank-swapped index range (S15, S7); serial-bus access that can change the bank (S17, S18); FAN1–3 enables, count bytes, fixed 16-bit width, divisor 2, read order and count dispositions (S15, S16, S17, S7); FAN2/FAN3 routing (S15, S16); temperature byte location and encoding (S15, S17, S7); and the bank-2 source map that this profile does not read (S15, S17). The S19 dump and the S20 and S21 observations corroborate the transport, base and byte patterns without being maintainer-accepted. Best-evidenced members: IT8686E version 2 on AX370-Gaming K7 F51i (S19), `0x8686` on X470 AORUS ULTRA GAMING F61a and X470 AORUS GAMING 7 WIFI (S21), IT8688E revision 1 on Z390 AORUS ELITE F12c (S20), and IT8689E revision 2 on B650E AORUS MASTER (S21). | Enabled best-effort for eligible inputs under the [Banked modern profile](#banked-modern-profile). Higher channels are deferred. |
-| Additional channels, IT86xx/IT87xx models, and secondary transport | See [Deferred profiles](#deferred-profiles). A raw `0x8721` can use only the IT8721F DX row above, never the IT8728 profile. | Disabled. |
+| Additional channels, IT86xx/IT87xx models, and secondary transport | See [Deferred profiles](#deferred-profiles). A raw `0x8721` never uses the IT8728 profile, and its DX row above is disabled. | Disabled. |
 
 ### Runtime gates
 
@@ -102,28 +106,28 @@ Every runtime condition below is a mechanism or safety gate
 Board names, BIOS versions, chip revisions outside the listed revision
 gates, and observed base addresses are evidence identities. They appear
 only in Status and fixtures. "All" means every expansion profile in this
-document. The IT8728F rows follow the gates of S3 and S12.
+document. The IT8728F rows follow the gates of S3 and S12. The disabled
+IT8721F DX candidate has no runtime gate.
 
 | Condition | Profiles | Gate kind | Source |
 | --- | --- | --- | --- |
 | Configuration slot 0 (`0x2E`/`0x2F`) only. Slot 1 keeps the S9 diagnostic and exit-withhold rule. | All | safety | S9 (lead-only safety facts in S9) |
-| Exact raw chip ID `0x8716`, `0x8718`, `0x8721`, `0x8772`, `0x8620`, `0x8628`, `0x8686`, `0x8688` or `0x8689` | Per profile | mechanism | S8, S22, S24, S13, S6, S10, S15, S16 |
+| Exact raw chip ID `0x8716`, `0x8718`, `0x8772`, `0x8620`, `0x8628`, `0x8686`, `0x8688` or `0x8689` | Per profile | mechanism | S8, S22, S13, S6, S10, S15, S16 |
 | `CR22[3:0]=0x1` | IT8716F D | mechanism | S8 §8.3.5 |
-| `CR22[3:0]=0x3` | IT8721F DX | mechanism | S24 §8.3.5 |
 | `CR22[3:0]=0x2` | IT8772E FX | mechanism | S13 §8.3.5 |
-| LDN `0x04` `CR30[0]=1` and a valid aligned base from `CR60/61` | All | mechanism | S8, S22, S24, S13, S6, S15 |
+| LDN `0x04` `CR30[0]=1` and a valid aligned base from `CR60/61` | All | mechanism | S8, S22, S13, S6, S15 |
 | Base in `0x0100`–`0x0FF0`, bits 2:0 clear and outside the PawnIO-protected PCI window | IT8620E, IT8628E, banked modern | safety | S3, S9, S11 |
 | `ioctl_find_bars` success, successful primary exit and post-exit EC `0x00` port proof | All | mechanism | S3, S11 |
-| EC `0x58=0x90` | IT8718F, IT8721F DX, IT8772E FX, IT8620E, IT8628E (discovery); banked modern (every sample) | mechanism | S22 §9.6.2.2.35; S24 §9.6.2.2.34; S13 §9.5.2.2.34; S6, S15, S16 |
-| EC `0x00` bit 0 set and bit 3 clear, plus bit 7 clear on IT8718F, IT8721F DX, IT8772E FX, IT8620E and IT8628E | IT8716F D, IT8718F, IT8721F DX, IT8772E FX, IT8620E, IT8628E | mechanism | S8, S22 §§9.6.2.2.1, 9.6.3.2, S24 §§9.6.2.2.1, 9.6.3.2, S13, S6 |
+| EC `0x58=0x90` | IT8718F, IT8772E FX, IT8620E, IT8628E (discovery); banked modern (every sample) | mechanism | S22 §9.6.2.2.35; S13 §9.5.2.2.34; S6, S15, S16 |
+| EC `0x00` bit 0 set and bit 3 clear, plus bit 7 clear on IT8718F, IT8772E FX, IT8620E and IT8628E | IT8716F D, IT8718F, IT8772E FX, IT8620E, IT8628E | mechanism | S8, S22 §§9.6.2.2.1, 9.6.3.2, S13, S6 |
 | EC `0x00` bit 0 set and bit 7 clear. Bit 3 is not a gate on this profile. | Banked modern | mechanism | S15, S16, S19 |
 | EC `0x06` bits 7:5 all clear immediately before and immediately after the sample's banked reads | Banked modern | safety | S15, S7, S17, S18 |
-| FAN routing `CR29[2]=0` (FAN2) and `CR27[7]=0` (FAN3) | IT8716F D, IT8718F, IT8721F DX, IT8772E FX, IT8620E, IT8628E, banked modern | mechanism | S8, S22 §§8.3.10, 8.3.12, S24 §§8.3.10, 8.3.12, S13, S6, S15, S16 |
-| EC `0x13` bits 4–6 per fan | All fan profiles | mechanism | S8, S22 §9.6.2.2.16, S24 §9.6.2.2.16, S13, S6, S15, S17 |
+| FAN routing `CR29[2]=0` (FAN2) and `CR27[7]=0` (FAN3) | IT8716F D, IT8718F, IT8772E FX, IT8620E, IT8628E, banked modern | mechanism | S8, S22 §§8.3.10, 8.3.12, S13, S6, S15, S16 |
+| EC `0x13` bits 4–6 per fan | All fan profiles | mechanism | S8, S22 §9.6.2.2.16, S13, S6, S15, S17 |
 | EC `0x0C` bits 0–2 per fan | IT8716F D, IT8718F | mechanism | S8 §9.6.2.2.13, S22 §9.6.2.2.13 |
 | EC `0x51` physical-mode and external-destination bits | IT8620E, IT8628E | mechanism | S6 |
 | Two identical immediate reads of each value | Fan pairs on every profile; banked-modern temperatures | safety | S5, S20 |
-| Caller-held ISA mutex and at least 1.5 seconds between sample bursts | All | safety | S3, S9, S8 §9.6.3.6, S22 §9.6.3.6, S24 §9.6.3.6 |
+| Caller-held ISA mutex and at least 1.5 seconds between sample bursts | All | safety | S3, S9, S8 §9.6.3.6, S22 §9.6.3.6 |
 | Temperature acceptance −55 to +125 °C (IT8620E, IT8628E) or +1 to +125 °C (banked modern) | Temperature profiles | safety | S5, S7, S19 |
 
 ### Discovery and authorization
@@ -139,7 +143,7 @@ that sequence. (S3, S11)
 | --- | --- | --- | --- |
 | IT8716F D | After raw chip ID `0x8716`, read global `CR22` before LDN selection. Require its low nibble to be exactly `0x1`. A failed read, C (`0x0`), or an unlisted nibble ends expansion discovery with the usual primary configuration exit. Use the same primary configuration keys, active LDN `0x04`, 12-bit aligned base format from `CR60/61`, and EC index/data offsets as IT8728. Read the global pin-routing fields with LDN `0x04` selected. | EC `0x00` bit 0 set and bit 3 clear. | S8 §§8.1, 8.3, 8.8, 9.6.1–9.6.2.1, 9.6.2.2.1; S3 |
 | IT8718F | After exact raw chip ID `0x8718`, read global `CR22` before LDN selection and keep the full byte for diagnostics only. Neither its value nor a failed read selects or refuses this profile. Never write `CR22`, whose bit 7 is the two-chip configuration select. Use the same primary configuration keys, active LDN `0x04`, 12-bit aligned base format from `CR60/61`, and EC index/data offsets as IT8716F D. Read `CR27` and `CR29` with LDN `0x04` selected, before BAR discovery. Both are readable from any LDN. After the usual EC `0x00` port proof, require EC `0x58=0x90` before caching the path. | EC `0x00` bit 0 set and bits 7 and 3 clear. | S22 §§8.1, 8.3.3–8.3.5, 8.3.10, 8.3.12, 8.8.1–8.8.3, 9.6.1, 9.6.2.2.1, 9.6.2.2.35, 9.6.3.2; S23 §8.3.5; other `CR22` values S6/S7 (lead-only); S3 |
-| IT8721F DX | After exact raw chip ID `0x8721`, read global `CR22` before LDN selection. Require its low nibble to be exactly `0x3`. Refuse a failed revision read or any other nibble and perform the usual primary configuration exit. Use the same primary configuration keys, active LDN `0x04`, 12-bit aligned base format from `CR60/61`, and EC index/data offsets as IT8716F D. Read `CR27` and `CR29` with LDN `0x04` selected, before BAR discovery. Both are readable from any LDN. After the usual EC `0x00` port proof, require EC `0x58=0x90` before caching the path. | EC `0x00` bit 0 set and bits 7 and 3 clear. | S24 §§8.1, 8.3.3–8.3.5, 8.3.10, 8.3.12, 8.8.1–8.8.3, 9.6.1, 9.6.2.2.1, 9.6.2.2.34, 9.6.3.2; S3 |
+| IT8721F DX (disabled) | No expansion discovery. After raw chip ID `0x8721`, perform the usual primary configuration exit without reading `CR22`, `CR27` or `CR29`, without an LDN selection through `CR07` and without BAR discovery. | None. No EC access. | Scoped-enablement row; [Open questions](#open-questions) |
 | IT8772E FX | After exact raw chip ID `0x8772`, read global `CR22` before LDN selection. Require its low nibble to be exactly `0x2`. Refuse a failed revision read or any other nibble and perform the usual primary configuration exit. Use the same primary keys, active LDN `0x04`, 12-bit aligned base from `CR60/61`, and EC index/data offsets as IT8716F D. Read the global pin-routing fields with LDN `0x04` selected. After the usual EC `0x00` port proof, require `EC 0x58=0x90` before caching the path. | EC `0x00` bit 0 set and bits 7 and 3 clear. | S13 §§8.1, 8.3, 8.5, 9.5.1, 9.5.2.2.1, .34 and 9.5.3.6, S3 |
 | IT8620E, IT8628E | S6 describes the primary configuration keys and exact IDs, LDN `0x04` with `CR30[0]` set, and an eight-port EC block from `CR60/61`, with index/data at base + 5/+ 6. Require the raw big-endian base in `0x0100`–`0x0FF0`, bits 2:0 clear, and an address outside the PawnIO-protected PCI window. Read pin-routing fields with LDN `0x07` selected, then return to LDN `0x04` before BAR discovery. After the EC `0x00` port proof, require bit 7 clear and EC `0x58=0x90` before caching this path. | EC `0x00` bit 0 set and bits 7 and 3 clear. The bit 3 check and stricter base checks are conservative project guards. | Discovery, ports, EC vendor byte, monitor start, and EC `0x00[7]` refusal S6 (lead-only); allow-list S3/S9/S11 |
 | IT8686E, IT8688E, IT8689E (banked modern) | Use the IT8620E discovery and base rules above after exact raw ID `0x8686`, `0x8688` or `0x8689`. Read global `CR22` and keep its value for diagnostics only. No revision nibble selects or refuses this profile. Read `CR27` and `CR29` with LDN `0x07` selected, then return to LDN `0x04` before BAR discovery. After the EC `0x00` port proof, require bit 7 clear. Then read EC `0x06` and require bits 7:5 clear before reading EC `0x58`, and require `0x90` before caching this path. Do not read or write LDN `0x04` `CR F3` on the runtime path. | Per sample, see [Banked modern profile](#banked-modern-profile). | Discovery, ports, routing, vendor byte and EC `0x00[7]` refusal S15/S16 (lead-only); bank field S15/S7 (lead-only); allow-list S3/S9/S11 |
@@ -186,13 +190,14 @@ provides no width-selection field in EC `0x0C`. After the runtime gate,
 read EC `0x13` and the count pairs for the eligible inputs. Restrict
 sampling to these fields. (S13, S6 lead-only)
 
-### IT8718F and IT8721F DX profiles
+### IT8718F profile and IT8721F DX candidate
 
 All EC addresses below are seven-bit indices behind `ec_base + 0x05` and
 `ec_base + 0x06` (S22 §§9.6.1–9.6.2.1, p. 79; S24 §§9.6.1–9.6.2.1,
-p. 83).
+p. 83). The IT8721F DX column records vendor facts for a future
+revision. No read path uses it while that row is disabled.
 
-| Fact | IT8718F | IT8721F DX |
+| Fact | IT8718F | IT8721F DX (disabled candidate) |
 | --- | --- | --- |
 | FAN1/FAN2/FAN3 count low bytes | EC `0x0D/0x0E/0x0F` (S22 §9.6.2.2.14, p. 86; S23 §9.6.2.2.14, p. 84) | EC `0x0D/0x0E/0x0F` (S24 §9.6.2.2.14, p. 91) |
 | FAN1/FAN2/FAN3 count high bytes, bits 15:8 | EC `0x18/0x19/0x1A` (S22 §9.6.2.2.21, p. 88; S23 §9.6.2.2.21, p. 86) | EC `0x18/0x19/0x1A` (S24 §9.6.2.2.19, p. 92) |
@@ -204,13 +209,13 @@ p. 83).
 | Tachometer formula | `RPM = 1,350,000 / (count × divisor)`, default divisor 2, two pulses per revolution, 22.5 kHz count clock (S22 §9.6.3.5, p. 99; S23 §9.6.3.5, p. 95) | Same formula and default divisor (S24 §9.6.3.5, p. 103) |
 | Divisor in 16-bit mode | No fan divisor field in EC `0x0B` (S22 §9.6.2.2.12, p. 85). The fixed divisor 2 is lead-only (S6 lines 685–687, S7 lines 491–492). | No fan divisor field in EC `0x0B` (S24 §9.6.2.2.12, p. 90). The fixed divisor 2 is lead-only (S6 lines 685–687, S7 lines 491–492). |
 
-After the runtime gate, read EC `0x13` once. On IT8718F, also read EC
-`0x0C` once and use only bits 0–2. A failed read of either byte makes
-FAN1–3 unavailable for the sample. Then read the count pairs of the
-eligible inputs as described in
+On IT8718F, after the runtime gate, read EC `0x13` once and EC `0x0C`
+once, and use only bits 4–6 and bits 0–2 respectively. A failed read of
+either byte makes FAN1–3 unavailable for the sample. Then read the
+count pairs of the eligible inputs as described in
 [Read procedure and decode](#read-procedure-and-decode). Restrict
-sampling to EC `0x00`, `0x13`, `0x0C` (IT8718F only) and the count bytes
-above. (S22, S24; read order S6/S7, lead-only)
+sampling to EC `0x00`, `0x13`, `0x0C` and the count bytes above. (S22;
+read order S6/S7, lead-only)
 
 #### Applicability of the IT8718F documents
 
@@ -307,7 +312,7 @@ omits the dependent fan inputs while preserving eligible temperatures.
 Compute `count = 256 * high + low`. A 16-bit counter uses divisor 2,
 so the whole-number speed is `floor(675000 / count)`. The formula base
 is pinned for IT8716F D by S8 §9.6.3.5, for IT8718F by S22 §9.6.3.5
-and S23 §9.6.3.5, for IT8721F DX by S24 §9.6.3.5, for IT8772E FX by S13
+and S23 §9.6.3.5, for IT8772E FX by S13
 §9.5.3.5, for IT8620E and IT8628E by S6, and for the banked modern
 profile by S15 (lead-only). The fixed 16-bit divisor is supported by
 S6/S7, and by S15/S7 for the banked modern profile (lead-only). Interpret the results only after the activation,
@@ -356,13 +361,11 @@ fan capability independently of this sample's available rows. (S3, S5;
 | IT8718F with `EC 0x0C` bits 4–5 also set (`0x37`) | Same FAN1–3 eligibility as `0x07`. No read at `0x80`–`0x83`. |
 | IT8718F with `CR29[2]=1`, `CR27[7]=1`, or an unreadable `CR27` or `CR29` | The affected FAN2 or FAN3 is omitted before its count reads. FAN1 keeps its name and reading. |
 | IT8718F with a failed `EC 0x0C` or `EC 0x13` read | FAN1–3 unavailable for the sample. No count read. The next sample starts independently. |
-| IT8718F or IT8721F DX with vendor byte other than `0x90` after the port proof | No path cached. No fan read. |
-| IT8718F or IT8721F DX with `EC 0x00` equal to `0x18` (stopped, `INT_Clear` set), `0x91` (initialization set) or `0x10` (Start clear) | No fan-enable, mode or count read in the sample. |
-| IT8721F DX, synthetic: slot 0 exact `0x8721`, `CR22=0x03`, routing clear, active LDN `0x04`, successful proof, vendor byte `0x90`, `EC 0x00=0x11`, `EC 0x13=0x70`, FAN1–3 pairs `0xC2/0x01`, `0x84/0x03`, `0x40/0x00` twice each | FAN1 1500 RPM, FAN2 750 RPM, FAN3 10546 RPM. No read of EC `0x0C`. |
-| Exact `0x8721` with `CR22=0x01`, `0x02`, `0x04`, `0x0F`, or a failed `CR22` read | Refuse the DX profile before LDN discovery. Perform the usual primary configuration exit. No other profile applies to raw `0x8721`. |
-| IT8721F DX with `EC 0x13=0x20` and both routes clear | Read and label FAN2 only. |
-| IT8718F or IT8721F DX, one fan with a failed high byte or mismatched pairs and a valid sibling | Affected fan unavailable. The sibling keeps its name and reading. |
-| IT8718F or IT8721F DX recorded transaction | The only writes are the slot-0 configuration keys, LDN selections through `CR07` and the configuration exit during discovery, plus EC index selections at `ec_base + 0x05`. No read of EC `0x01`–`0x03` or of any index at or above `0x80`. No write to `CR22`, `CR27`, `CR29` or EC `0x0C`. |
+| IT8718F with vendor byte other than `0x90` after the port proof | No path cached. No fan read. |
+| IT8718F with `EC 0x00` equal to `0x18` (stopped, `INT_Clear` set), `0x91` (initialization set) or `0x10` (Start clear) | No fan-enable, mode or count read in the sample. |
+| Slot 0 exact `0x8721` with any `CR22` value, including `0x03` | No expansion profile. The recorded configuration transaction after the chip-ID read is the usual primary exit only: no `CR22`, `CR27` or `CR29` read, no `CR07` write, no BAR discovery and no EC access. |
+| IT8718F, one fan with a failed high byte or mismatched pairs and a valid sibling | Affected fan unavailable. The sibling keeps its name and reading. |
+| IT8718F recorded transaction | The only writes are the slot-0 configuration keys, LDN selections through `CR07` and the configuration exit during discovery, plus EC index selections at `ec_base + 0x05`. No read of EC `0x01`–`0x03` or of any index at or above `0x80`. No write to `CR22`, `CR27`, `CR29` or EC `0x0C`. |
 | Slot 1 with `0x8718` or `0x8721` | No expansion profile and no sensor reads. |
 | Modern profile with `CR60/61=0x0C/0xF8`, an unaligned base, a base above `0x0FF0`, or inactive LDN | Reject before any EC index write. |
 | Mutex unavailable, BAR port denied, failed primary exit, or wrong EC vendor byte on a modern profile | Reject without caching a port proof. A failed primary exit prevents every EC read. |
@@ -387,8 +390,8 @@ fan capability independently of this sample's available rows. (S3, S5;
   meaning. The IT8718F profile reads `CR22` for diagnostics only and
   never writes it. (S22 §8.3.5, p. 36)
 - On IT8721F DX, S24 lists EC `0x0C` bits 0–2 as read/write but states
-  that the FAN1–3 16-bit counters are always enabled. The profile
-  therefore neither reads nor depends on those bits. (S24 §9.6.2.2.13,
+  that the FAN1–3 16-bit counters are always enabled. A future DX row
+  would therefore neither read nor depend on those bits. (S24 §9.6.2.2.13,
   p. 90)
 - IT8718F inputs whose EC `0x0C` bit is clear count in 8 bits, and
   S22 documents no divisor for that mode. Those inputs stay omitted
@@ -428,7 +431,8 @@ fan capability independently of this sample's available rows. (S3, S5;
 | IT8716F C or unlisted revisions, 8-bit mode, IT8726F | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Deferred. S8 applies only to D and later versions and does not list later version codes. Needed: a vendor document for C or the later versions, or an accepted dump, and for 8-bit inputs the active divisor. Raw `0x8726` needs its own EC field definitions. No IT8726F document was found. (S6, lead-only; S8) |
 | IT8718F | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Firmware-enabled 16-bit FAN1–3 are an Experimental row in this revision. Inputs left in 8-bit mode stay omitted because S22 documents no 8-bit divisor. FAN4/5 follow the high-index row above. |
 | IT8720F | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Deferred. The only IT8720F document found is an 18-page J-version brief without a register section (S28). S6 gives IT8720F the same FAN1–3 feature set and FAN2/FAN3 routing as IT8718F (lines 358–364, 3070–3119), but its FAN4/FAN5 routing sense is inverted relative to IT8718F (lines 3080–3093), so the models are not interchangeable by family. Needed: a register-level IT8720F vendor document pinning `CR22`, EC `0x0C`, EC `0x13`, the count bytes and `CR27[7]`/`CR29[2]`, or a maintainer decision to admit a lead-only row on S6/S7, preferably with a #2500 dump. (S28; S6, lead-only) |
-| IT8721F other than DX | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). DX FAN1–3 are an Experimental row in this revision. S24 applies only to the D version. Needed for other `CR22` values: a vendor document for that version or an accepted dump. (S24) |
+| IT8721F DX | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Disabled. S24 pins every register field of a DX FAN1–3 row, recorded in the [candidate table](#it8718f-profile-and-it8721f-dx-candidate). The blocker is configuration-port ownership: the DX discovery would add `CR07` data writes on a pair that audited IT8721F platform firmware also writes under a private mutex. Needed: one of the protection contracts (a)–(c) in [Open questions](#open-questions). (S24; S11) |
+| IT8721F other than DX | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Deferred. S24 applies only to the D version. Needed for other `CR22` values: a vendor document for that version or an accepted dump, plus the DX blocker above. (S24) |
 | IT8771E and IT8772E outside FX FAN2–3 | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Deferred. No IT8771E document was found. IT8771E needs model-specific population and width evidence. IT8772E BX/CX, DX/EX, or unlisted versions need their own map and width evidence. FX FAN1 and additional fan inputs remain outside the vendor's two tachometer inputs. (S6 lead-only, S13 §§5, 8.3.5, 9.5) |
 | IT8781F, IT8782F, IT8783E/F | [#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695). Deferred. S26 is an A-version IT8783E/F vendor document. S6 takes IT8783E/F FAN2 and FAN3 routing from different global registers than the common path (lines 2862–2885), so the routing gate of this document does not apply. No IT8781F or IT8782F document was found. Needed: the S26 routing, version and fan fields pinned in their own row, and a vendor document or accepted dump for IT8781F and IT8782F. (S26; S6, lead-only) |
 | IT8613E | [#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698). Lead-only routing is now pinned: S16's later IT8613E entry (lines 521–531, 3123–3157) has no FAN1. FAN2 and FAN3 use `CR29[2]` and `CR27[7]` as on IT8620E. Its temperature map is new and it knows only three inputs. Still needed: evidence that excludes the competing firmware EC access recorded for the known platforms in [#2606](https://github.com/shm11C3/HardwareVisualizer/issues/2606) and [`superio-ite-lattepanda-sigma-linux-ec.md`](superio-ite-lattepanda-sigma-linux-ec.md), and a qualified temperature source rule for the new map. (S16, lead-only) |
@@ -589,34 +593,59 @@ fan capability independently of this sample's available rows. (S3, S5;
   sets them itself. A board whose firmware leaves them clear reports no
   IT8718F fan under this row. An 8-bit path would need the divisor
   that S22 does not document.
-- Non-blocking for Phase 4 primary LPC expansion: the overlap arises at the pre-ID probe that every slot-0 profile already performs; the DX profile adds bounded configuration reads to the same session, and the maintainer must accept it explicitly.
-  **IT8721F configuration-port ownership.** One audited Coreboot-15h
-  image for the ASUS Crosshair V Formula-Z runs AML that enters ITE
-  configuration mode on `0x2E`/`0x2F` under a private mutex
+- Non-blocking for Phase 4 primary LPC expansion: the IT8721F DX row is disabled in this revision; this entry states its blocker and what would remove it.
+  **IT8721F configuration-port ownership blocks the DX row.** One
+  audited Coreboot-15h image for the ASUS Crosshair V Formula-Z runs
+  AML that enters ITE configuration mode on `0x2E`/`0x2F` and selects
+  registers there under a private mutex
   ([`superio-ite-it8721f-coreboot-ownership.md`](superio-ite-it8721f-coreboot-ownership.md)).
-  The host ISA mutex does not exclude that AML. The existing slot-0
-  probe already enters configuration mode before it reads the chip ID.
-  On raw `0x8721` the DX profile adds reads of `CR22`, `CR27` and
-  `CR29`, LDN selection and the base reads before the same exit. That
-  lengthens the session in which an AML transaction can interleave. The
-  audited image is one firmware build. It is an evidence identity and
-  cannot gate the read under ADR 0031. No report shows an actual
-  Windows race. Evidence that excludes the AML access, or a pre-entry
-  ownership check, would remove this residual.
+  The host ISA mutex does not exclude that AML. Configuration access is
+  an index write followed by a data access on the shared pair. If the
+  AML writes the index between the host's index write and its data
+  write, the host's data lands in the register the AML selected. The DX
+  discovery would add data writes that the chip-ID probe does not make
+  on raw `0x8721`: LDN selections through `CR07`, its own and those of
+  the BAR scan in S11. A `0x04` written into `CR30` of another logical
+  device, for example, clears that device's activation bit. That is a
+  configuration change, which the read-only safety policy forbids. No
+  Implementation-ready revision accepts such a write. The accepted
+  shared-pair residual of revision 7, in the Gigabyte `GSWApp` entry
+  above, concerns the EC index/data pair under the ACPI Global Lock,
+  not the configuration pair. The
+  [Super I/O access](superio-access.md#open-questions) note on firmware
+  that claims or mirrors the pair covers only the Phase 2 raw
+  diagnostic. The audited image is an evidence identity and cannot gate
+  a read under ADR 0031, so a board check cannot replace a mechanism.
+  The probe's own configuration exit, a data write to `CR02`, has the
+  same theoretical exposure on that image. It predates this revision,
+  belongs to [Super I/O access](superio-access.md), and is recorded here
+  only as context. To enable the DX row, one of the following must
+  exist and be pinned in a revision: (a) a lock that the platform
+  firmware takes around its `0x2E`/`0x2F` transactions, which PawnIO
+  clients can also acquire, from a firmware or OS interface definition;
+  (b) a pre-entry safety gate with a pinned read contract that refuses
+  configuration entry when platform firmware declares access to the
+  pair, approved by the maintainer; or (c) evidence that IT8721F
+  platform firmware does not access the pair at runtime, which needs a
+  mechanism the host can check because a board identity cannot gate.
+  The IT8716F D, IT8718F and IT8772E FX rows use the same `CR07`
+  selection. No audited firmware for those models accesses the
+  configuration pair. If such evidence appears, the same blocker
+  applies to that row.
 - Non-blocking for Phase 4 primary LPC expansion: the exposure is the shared-pair residual already accepted for the other ITE primary paths, and repeated reads bound it the same way.
-  **Firmware use of the EC pair on IT8718F and IT8721F boards.** No OEM
-  ACPI or SMM image of an IT8718F or IT8721F board was audited for this
-  revision. An OEM method that uses the EC index/data pair without a
-  lock that PawnIO clients can take would interleave with this profile
-  as described for the Gigabyte boards above. The 8S661FXMP-RZ record
-  shows such unserialized AML on an earlier ITE model. An audit of one
-  IT8718F and one IT8721F board firmware would narrow this residual.
-- Non-blocking for Phase 4 primary LPC expansion: the row is Experimental and keyed by the reported chip ID and version code, which is the mechanism that S24 defines.
+  **Firmware use of the EC pair on IT8718F boards.** No OEM ACPI or SMM
+  image of an IT8718F board was audited for this revision. An OEM method
+  that uses the EC index/data pair without a lock that PawnIO clients
+  can take would interleave with this profile as described for the
+  Gigabyte boards above. The 8S661FXMP-RZ record shows such unserialized
+  AML on an earlier ITE model. An audit of one IT8718F board firmware
+  would narrow this residual.
+- Non-blocking for Phase 4 primary LPC expansion: the IT8721F DX row is disabled; this question must be settled or explicitly accepted before that row is enabled.
   **Other parts reporting raw `0x8721`.** S6 names IT8758E together
   with IT8721F (S6 line 28) and gives both names one profile. S24 does
   not mention IT8758E. A part that reports raw `0x8721` with
-  `CR22[3:0]=0x3` is admitted whatever its marketing name. If such a
-  part had different fan fields, the repeated reads and the count table
+  `CR22[3:0]=0x3` would be admitted by an enabled DX row whatever its
+  marketing name. If such a part had different fan fields, the repeated reads and the count table
   would not detect it. A vendor document or an accepted dump for
   IT8758E would settle this.
 
@@ -624,10 +653,11 @@ fan capability independently of this sample's available rows. (S3, S5;
 
 - The scoped rows name the exact model IDs, applicable revision gate,
   and register dependencies. Every applicable copyleft-only fact is attributed to S6, S7, S10, S14, S15, S16, S17 or S18 and
-  confined to Experimental coverage. The IT8718F and IT8721F DX rows
-  take their register fields from the vendor documents S22–S24. Their
+  confined to Experimental coverage. The IT8718F row
+  takes its register fields from the vendor documents S22 and S23. Its
   lead-only facts are the fixed divisor, the read order, the count
-  dispositions and, on IT8718F, the coverage of later version codes. The runtime gate table tags every
+  dispositions and the coverage of later version codes. The IT8721F DX
+  row is disabled until its configuration-port blocker is resolved. The runtime gate table tags every
   runtime condition as mechanism or safety.
 - Discovery retains the active-LDN and post-exit port proofs, with
   bounded, mutex-protected transactions. Each sample has an explicit
@@ -647,9 +677,9 @@ changing generic inputs with a same-session firmware monitor capture where
 available. Synthetic fixtures exercise the contract and leave hardware
 compatibility unverified.
 
-For the IT8718F and IT8721F DX profiles, the opt-in dump also records
-the full `CR22` byte, `CR27`, `CR29`, EC `0x00`, EC `0x13` and, on
-IT8718F, EC `0x0C`, together with the marking printed on the package.
+For the IT8718F profile, the opt-in dump also records the full `CR22`
+byte, `CR27`, `CR29`, EC `0x00`, EC `0x13` and EC `0x0C`, together with
+the marking printed on the package.
 These are the facts that would confirm the version coverage and the
 firmware counter mode in Open questions.
 
@@ -671,4 +701,4 @@ reads bank 1–3, EC `0x01`–`0x03` or any index at or above `0x80`.
 | 5 | 2026-11-08 | Propose Implementation-ready status for Experimental primary IT8772E FX FAN2–3. Pin the exact revision, per-input routing and counts, and model-specific 16-bit evidence. Add partial, invalid, and authorization fixtures. |
 | 6 | 2026-11-28 | Follow the chip-level S12 revision 2 (ADR 0031). The IT8728F scope row, the IT8728 no-fan fixture, the deferred row and the DX/EX open question now point to its `CR22[3:0]=0x1` FAN1–2 row instead of the GA-B75M-D3H board profile. The revision 5 profiles, gates and transport rules are unchanged. |
 | 7 | 2026-11-28 | Propose Implementation-ready status for an Experimental bank-guarded TMPIN1–3 and FAN1–3 profile on exact slot-0 IT8686E, IT8688E and IT8689E ([#2698](https://github.com/shm11C3/HardwareVisualizer/issues/2698)). Add lead-only sources S15–S18, the S19 independent IT8686E dump, the S20 IT8688E firmware-interleaving observation and the S21 repository OEM evidence. Add a runtime gate table for every profile, banked fixtures, quirks, safety notes and open questions. These include the shared exposure to firmware use of the primary pair, which the maintainer must accept explicitly. Repeated reads reduce the resulting wrong readings but cannot filter an interference that persists across both reads. Give every #2698 target a disposition. The revision 6 profiles, gates and transport rules are unchanged. |
-| 8 | 2026-11-28 | Propose Implementation-ready status for two Experimental fan rows ([#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695)): firmware-enabled 16-bit FAN1–3 on exact slot-0 IT8718F with `CR22` for diagnostics only, and FAN1–3 on exact slot-0 IT8721F DX (`CR22[3:0]=0x3`) with always-enabled 16-bit counters. Add the ITE datasheets S22–S24 as primary sources for their register fields, S25–S28 for dispositions and S29–S30 as IT8718F evidence identities. Extend S6/S7 with the matching lead-only line pins. Add the IT8718F applicability facts, gate rows, discovery rows, the register table, synthetic fixtures, quirks, safety notes and open questions. These include the IT8721F configuration-port overlap of one Coreboot image, which the maintainer must accept explicitly. Give every #2695 target a disposition and move those rows from #2518 to #2695. The revision 7 profiles, gates and transport rules are unchanged. |
+| 8 | 2026-11-28 | Propose Implementation-ready status for one Experimental fan row ([#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695)): firmware-enabled 16-bit FAN1–3 on exact slot-0 IT8718F with `CR22` for diagnostics only. Record the S24 register facts for FAN1–3 on IT8721F DX (`CR22[3:0]=0x3`), but keep that row disabled. Its discovery would add `CR07` data writes on a configuration pair that audited IT8721F platform firmware writes under a private mutex, and no accepted residual covers a misdirected configuration write. The open questions name the protection contracts that would unblock it. Add the ITE datasheets S22–S24 as primary sources, S25–S28 for dispositions and S29–S30 as IT8718F evidence identities. Extend S6/S7 with the matching lead-only line pins. Add the IT8718F applicability facts, gate rows, discovery rows, the register table, synthetic fixtures, quirks, safety notes and open questions. Give every #2695 target a disposition and move those rows from #2518 to #2695. The revision 7 profiles, gates and transport rules are unchanged. |

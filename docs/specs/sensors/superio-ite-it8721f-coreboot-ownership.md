@@ -36,15 +36,19 @@ is unavailable. (S1–S3)
 ## Disposition
 
 This record defines no read path. The primary LPC expansion revision 8
-proposes a chip-level Experimental FAN1–3 row for raw `0x8721` with
-`CR22[3:0]=0x3` (IT8721F DX). Under
+records the register facts for a FAN1–3 row on raw `0x8721` with
+`CR22[3:0]=0x3` (IT8721F DX) and keeps that row disabled because of
+this overlap. Its discovery would add logical-device selection writes
+to `CR07` on the shared pair. An AML index write between the host's
+index write and data write would redirect such a write into another
+configuration register, which the read-only safety policy forbids.
+Under
 [ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md)
-the audited image is an evidence identity and does not gate that row.
-That revision records the overlap above as a residual in its Open
-questions, which the maintainer must accept explicitly. The row adds
-configuration reads to the existing pre-ID session and no new port.
-A supported pre-entry ownership check or shared arbitration for the
-configuration ports would remove the residual. The release identifies
+the audited image is an evidence identity, so a board check cannot
+replace a mechanism. A lock shared with the firmware, a pre-entry
+ownership gate with a pinned read contract, or host-checkable evidence
+that the firmware does not access the pair at runtime would unblock the
+row. The release identifies
 the audited artifact only. Applicability to stock ASUS firmware, other
 Coreboot images, and specific PCB revisions remains unverified. (S1–S3)
 
@@ -53,4 +57,4 @@ Coreboot images, and specific PCB revisions remains unverified. (S1–S3)
 | Revision | Date | Summary |
 | --- | --- | --- |
 | 1 | 2026-11-09 | Recorded the primary configuration-port overlap in the published Coreboot-15h image and the pre-ID access boundary. |
-| 2 | 2026-11-28 | Point the disposition to the chip-level IT8721F DX row proposed in primary LPC expansion revision 8 ([#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695)). The overlap becomes a residual of that row that needs explicit maintainer acceptance, and the audited image stays an evidence identity under ADR 0031. The configuration-port facts are unchanged. |
+| 2 | 2026-11-28 | Point the disposition to the IT8721F DX row of primary LPC expansion revision 8 ([#2695](https://github.com/shm11C3/HardwareVisualizer/issues/2695)). This overlap keeps that row disabled because the row would add `CR07` data writes on the shared pair. State what would unblock it. The audited image stays an evidence identity under ADR 0031. The configuration-port facts are unchanged. |
