@@ -107,6 +107,12 @@ const GRANITE_RIDGE: CcdRegisterMap = CcdRegisterMap {
   slots: &[0x0005_9B08, 0x0005_9B0C],
 };
 
+const FIRE_RANGE: CcdRegisterMap = CcdRegisterMap {
+  processor: ProcessorMatch::Signature(0x00B4_0F40),
+  package_field: FL1_PACKAGE_FIELD,
+  slots: &[0x0005_9B08, 0x0005_9B0C],
+};
+
 const GENOA_B1: CcdRegisterMap = CcdRegisterMap {
   processor: ProcessorMatch::Signature(0x00A1_0F11),
   package_field: SP5_PACKAGE_FIELD,
@@ -126,11 +132,12 @@ const GENOA_B1: CcdRegisterMap = CcdRegisterMap {
   ],
 };
 
-const CCD_REGISTER_MAPS: [&CcdRegisterMap; 7] = [
+const CCD_REGISTER_MAPS: [&CcdRegisterMap; 8] = [
   &VERMEER,
   &RAPHAEL,
   &DRAGON_RANGE,
   &GRANITE_RIDGE,
+  &FIRE_RANGE,
   &MATISSE,
   &CASTLE_PEAK,
   &GENOA_B1,
@@ -164,8 +171,10 @@ impl AmdCcdTarget {
   }
 
   pub(crate) fn readings_without_module(&self) -> Option<Vec<CpuCcdTemperature>> {
-    // Dragon Range and Genoa require a loaded module before exposing slots.
-    (*self.0 != DRAGON_RANGE && *self.0 != GENOA_B1).then(|| self.unavailable_readings())
+    // Dragon Range, Fire Range and Genoa require a loaded module before
+    // exposing slots.
+    (![&DRAGON_RANGE, &FIRE_RANGE, &GENOA_B1].contains(&self.0))
+      .then(|| self.unavailable_readings())
   }
 
   /// Reads each authorized word once, in slot order, with no retries. A slot
@@ -397,6 +406,11 @@ pub(crate) fn synthetic_dragon_range_target() -> AmdCcdTarget {
 }
 
 #[cfg(test)]
+pub(crate) fn synthetic_fire_range_target() -> AmdCcdTarget {
+  authorize_target(Some(&FIRE_RANGE), || Some(())).unwrap()
+}
+
+#[cfg(test)]
 pub(crate) fn synthetic_genoa_target() -> AmdCcdTarget {
   authorize_target(Some(&GENOA_B1), || Some(())).unwrap()
 }
@@ -405,7 +419,12 @@ pub(crate) fn synthetic_genoa_target() -> AmdCcdTarget {
 mod tests {
   use std::cell::RefCell;
 
+  use windows::Win32::Foundation::{E_ACCESSDENIED, WAIT_FAILED};
+
   use super::*;
+  use crate::infrastructure::providers::windows::pawn_io::client::{
+    ACCESS_PCI_MUTEX, MutexError,
+  };
 
   #[test]
   fn no_processor_and_package_select_more_than_one_register_map() {
@@ -604,6 +623,190 @@ mod tests {
     }
   }
 
+  const RYZEN_9_9955HX: &[u8] = b"AMD Ryzen 9 9955HX 16-Core Processor";
+  const FIRE_RANGE_WORDS: [u64; 2] = [0x0005_9B08, 0x0005_9B0C];
+
+  fn fire_range_identity(package: u32, brand: Option<&'static [u8]>) -> Identity {
+    Identity {
+      vendor: AMD,
+      signature: GRANITE_RIDGE_B0,
+      package,
+      brand,
+    }
+  }
+
+  fn slot_temperatures(readings: &[CpuCcdTemperature]) -> Vec<(u8, u8, Option<f32>)> {
+    readings
+      .iter()
+      .map(|reading| {
+        (
+          reading.package_index,
+          reading.ccd_slot,
+          reading.temperature_celsius,
+        )
+      })
+      .collect()
+  }
+
+  /// Fire Range rev 1, Synthetic fixture acceptance row 1 (admission). The
+  /// gate never requests a brand leaf, so a changed, absent or desktop
+  /// name cannot change it. No laptop or firmware identity is an input.
+  #[test]
+  fn fire_range_fl1_selects_its_map_without_reading_the_name() {
+    for brand in [
+      Some(RYZEN_9_9955HX),
+      Some(b"AMD Ryzen 9 9955HX3D 16-Core Processor".as_slice()),
+      Some(b"AMD Ryzen 9 9850HX 12-Core Processor".as_slice()),
+      Some(b"AMD Ryzen 9 9950X 16-Core Processor".as_slice()),
+      None,
+    ] {
+      let (map, requested) = identify(&fire_range_identity(FL1, brand));
+      assert_eq!(map, Some(&FIRE_RANGE), "name {brand:?}");
+      assert_eq!(requested, [0, 1, 0x8000_0001]);
+    }
+  }
+
+  /// Fire Range rev 1, fixture rows 2 and 3. Field 0 stays with Granite
+  /// Ridge, field 1 is Fire Range, and every other field is outside both.
+  /// Only EBX bits 31:28 select the package.
+  #[test]
+  fn fire_range_signature_routes_each_package_field_to_at_most_one_scope() {
+    for field in 0..=0xf_u32 {
+      let expected = match field {
+        0 => Some(&GRANITE_RIDGE),
+        1 => Some(&FIRE_RANGE),
+        _ => None,
+      };
+      for low_bits in [0, 0x0fff_ffff] {
+        let package = (field << 28) | low_bits;
+        let (map, requested) =
+          identify(&fire_range_identity(package, Some(RYZEN_9_9955HX)));
+        assert_eq!(map, expected, "EBX {package:#010x}");
+        assert_eq!(requested, [0, 1, 0x8000_0001]);
+      }
+    }
+  }
+
+  /// Fire Range rev 1, fixture rows 1 and 4 (topology and requests). One
+  /// package record admits the target. The only CCD requests are the two
+  /// fixed words, once each, decoded to 40 °C and 54 °C.
+  #[test]
+  fn fire_range_reads_two_fixed_words_on_exactly_one_package() {
+    let (map, _) = identify(&fire_range_identity(FL1, None));
+    let first = package_record(&[(0, 0xffff)]);
+    let second = package_record(&[(0, 0xffff_0000)]);
+    for refused in [
+      [first.as_slice(), second.as_slice()].concat(),
+      package_record(&[(0, 1), (0, 2)]),
+      package_record(&[]),
+      Vec::new(),
+    ] {
+      assert!(
+        authorize_target(map, || validate_single_package_record(&refused)).is_none()
+      );
+    }
+
+    let target =
+      authorize_target(map, || validate_single_package_record(&first)).unwrap();
+    let mut addresses = Vec::new();
+    let readings = target.read_with(|address| {
+      addresses.push(address);
+      match address {
+        0x0005_9B08 => Some(0x0AC8),
+        0x0005_9B0C => Some(0x0B38),
+        _ => panic!("unexpected Fire Range address: {address:#x}"),
+      }
+    });
+    assert_eq!(addresses, FIRE_RANGE_WORDS);
+    assert_eq!(
+      slot_temperatures(&readings),
+      [(0, 1, Some(40.0)), (0, 2, Some(54.0))]
+    );
+  }
+
+  /// Fire Range rev 1, fixture row 6 in both slot positions. The boundary
+  /// values survive and one increment beyond either limit is unavailable.
+  #[test]
+  fn fire_range_slots_keep_the_plausibility_limits_in_either_position() {
+    let target = synthetic_fire_range_target();
+    for (word, expected) in [
+      (0x0988, Some(0.0)),
+      (0x0848, Some(-40.0)),
+      (0x0D48, Some(120.0)),
+      (0x0847, None),
+      (0x0D49, None),
+    ] {
+      let mut words = [Some(word), Some(0x0AC8)].into_iter();
+      assert_eq!(
+        slot_temperatures(&target.read_with(|_| words.next().unwrap())),
+        [(0, 1, expected), (0, 2, Some(40.0))]
+      );
+      let mut words = [Some(0x0AC8), Some(word)].into_iter();
+      assert_eq!(
+        slot_temperatures(&target.read_with(|_| words.next().unwrap())),
+        [(0, 1, Some(40.0)), (0, 2, expected)]
+      );
+    }
+  }
+
+  /// Fire Range rev 1, fixture row 7 (mutex). A denied or timed-out
+  /// `Global\Access_PCI` acquisition fails that slot's signed request. The
+  /// slot keeps its identity without a temperature, the sibling survives,
+  /// and nothing is retried, in both slot orders.
+  #[test]
+  fn fire_range_mutex_failure_leaves_only_its_slot_unavailable() {
+    let target = synthetic_fire_range_target();
+    let denied = windows::core::Error::from_hresult(E_ACCESSDENIED);
+    for failure in [
+      MutexError::Timeout {
+        name: ACCESS_PCI_MUTEX,
+      },
+      MutexError::OpenOrCreate {
+        name: ACCESS_PCI_MUTEX,
+        open: denied.clone(),
+        create: denied,
+      },
+      MutexError::Wait {
+        name: ACCESS_PCI_MUTEX,
+        wait: WAIT_FAILED,
+      },
+    ] {
+      for (locked, expected) in [
+        (FIRE_RANGE_WORDS[0], [(0, 1, None), (0, 2, Some(54.0))]),
+        (FIRE_RANGE_WORDS[1], [(0, 1, Some(54.0)), (0, 2, None)]),
+      ] {
+        let mut attempts = Vec::new();
+        let readings = target.read_with(|address| {
+          attempts.push(address);
+          smu_word(if address == locked {
+            Err(PawnIoError::Mutex(failure.clone()))
+          } else {
+            Ok(0x0B38)
+          })
+        });
+        assert_eq!(attempts, FIRE_RANGE_WORDS, "{failure}");
+        assert_eq!(slot_temperatures(&readings), expected, "{failure}");
+      }
+    }
+  }
+
+  /// Fire Range rev 1, fixture row 7 (module). Without the signed module
+  /// the profile returns no target, unlike Granite Ridge on the same
+  /// signature, which keeps its slots unavailable.
+  #[test]
+  fn fire_range_returns_no_target_without_the_module() {
+    assert!(
+      synthetic_fire_range_target()
+        .readings_without_module()
+        .is_none()
+    );
+    let granite_ridge = authorize_target(Some(&GRANITE_RIDGE), || Some(())).unwrap();
+    assert_eq!(
+      granite_ridge.readings_without_module(),
+      Some(granite_ridge.unavailable_readings())
+    );
+  }
+
   #[test]
   fn other_dies_vendors_and_packages_are_rejected_regardless_of_name() {
     assert_eq!(effective_family_model(CEZANNE), (0x19, 0x50));
@@ -624,10 +827,12 @@ mod tests {
       (INTEL, GENOA_B1_SIGNATURE, SP5),
       (INTEL, RAPHAEL_B2, 0),
       (INTEL, RAPHAEL_B2, FL1),
-      (AMD, GRANITE_RIDGE_B0, 0x1000_0000), // Fire Range FL1
       (AMD, GRANITE_RIDGE_B0, NOT_AM4),
-      (AMD, 0x00b4_0f41, 0), // Granite Ridge B1
+      (AMD, 0x00b4_0f41, 0),   // Granite Ridge B1
+      (AMD, 0x00b4_0f41, FL1), // Stepping 1 is outside Fire Range rev 1
+      (AMD, OTHER_FAMILY_1AH, FL1),
       (INTEL, GRANITE_RIDGE_B0, 0),
+      (INTEL, GRANITE_RIDGE_B0, FL1),
       (AMD, 0x0087_0f11, AM4), // Matisse with a different stepping
       (AMD, MATISSE_B0, STRX4),
       (INTEL, MATISSE_B0, AM4),
@@ -664,6 +869,7 @@ mod tests {
       (RAPHAEL_B2, 0),
       (RAPHAEL_B2, FL1),
       (GRANITE_RIDGE_B0, 0),
+      (GRANITE_RIDGE_B0, FL1),
       (MATISSE_B0, AM4),
       (CASTLE_PEAK_B0, STRX4),
       (GENOA_B1_SIGNATURE, SP5),
@@ -1037,6 +1243,7 @@ mod tests {
       (&RAPHAEL, [0x0005_9B08, 0x0005_9B0C]),
       (&DRAGON_RANGE, [0x0005_9B08, 0x0005_9B0C]),
       (&GRANITE_RIDGE, [0x0005_9B08, 0x0005_9B0C]),
+      (&FIRE_RANGE, [0x0005_9B08, 0x0005_9B0C]),
     ] {
       let target =
         authorize_target(Some(map), || validate_single_package_record(&package)).unwrap();
