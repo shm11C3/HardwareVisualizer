@@ -24,23 +24,26 @@ the next most valuable Issue. The loop has no state file.
 The loop may create branches, commits, pushes and pull requests. It may also
 reply to and resolve review threads, following
 [deliver-pull-request](../deliver-pull-request/SKILL.md) and
-[gh-ai-review-triage](../gh-ai-review-triage/SKILL.md). It never merges,
-approves its own specification, or edits `.claude/settings*`, permission modes
-or CLAUDE.md.
+[gh-ai-review-triage](../gh-ai-review-triage/SKILL.md). It never edits
+`.claude/settings*`, permission modes or CLAUDE.md.
 
-A specification is implementable only after the maintainer approves the PR
-that changes its status, and that status reads exactly
-`Implementation-ready (rev N)`
+Merging follows the maintainer's policy. The loop may merge a
+documentation-only PR, such as a specification, a skill or guidance, once
+all of the following hold:
+
+- every thread is resolved;
+- CI is green;
+- CodeRabbit's review state is APPROVED. Request it with
+  `@coderabbitai approve` after the feedback is addressed.
+
+Merge with a squash, which is the repository convention. The loop never
+merges a PR that changes code or tests.
+
+A specification is implementable only after its status-change PR has been
+signed off and its status reads exactly `Implementation-ready (rev N)`
 ([specification gate](../../../docs/specs/sensors/README.md#status-transition-draft--implementation-ready)).
-Neither the status string nor a merge counts as sign-off. The maintainer
-approves the status-change PR in one of two ways:
-
-- an approving review on that PR; or
-- an explicit instruction to implement that specification, given in the
-  session that runs the loop, which the orchestrator records on the PR.
-
-Do not dispatch an implementer and do not open any implementation PR, Draft
-or ready, before that approval
+The status string alone is not a sign-off. Do not dispatch an implementer and
+do not open any implementation PR, Draft or ready, before that sign-off
 ([implementation PR requirements](../../rules/clean-room-sensors.md#implementation-pr-requirements)).
 While a specification waits for sign-off, use its Rust lane for another
 specification that is already implementable.
@@ -64,6 +67,11 @@ Follow [clean-room-sensors](../../rules/clean-room-sensors.md).
 | --- | --- | --- |
 | Specification research | 5 | `sensor-spec-author` |
 | Rust implementation | 3 | `sensor-clean-room-implementer` |
+| Open documentation PRs | 3 | orchestrator |
+
+When three documentation PRs are open, keep finished spec work in its agent
+worktree. Do not refill research lanes while finished but unpublished spec
+work is waiting.
 
 Each Issue has at most one active lane. One PR covers one scope item
 (one specification or one implementation layer). Stack dependent PRs.
