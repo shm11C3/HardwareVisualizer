@@ -4,7 +4,7 @@
 | --- | --- |
 | Revision | 1 |
 | Status | Draft — not implementation-ready |
-| Scope | Disposition and evidence record for CPU temperature on Windows hosts whose native machine is ARM64, including Snapdragon X Elite, X Plus, X2 and 8cx-class PCs. Today these hosts can run only the x64 build, under emulation. CPU die temperature on Snapdragon is Unsupported. This revision changes no product behavior and adds no runtime condition. It records why the existing x64 build already fails safely on the PawnIO path. It records the existing thermal-zone fallback as unchanged behavior that is not attributed to the CPU die, with its known risks accepted. It also records the Windows on Arm thermal interfaces, the firmware evidence for Snapdragon X and 8cx-class devices, the evidence that would unblock the `SoCTj` and `TZ99` candidates, and the native ARM64 build prerequisites. Kernel drivers, MSR access, port I/O and any other privileged hardware access on Arm are out of scope. |
+| Scope | Disposition and evidence record for CPU temperature on Windows hosts whose native machine is ARM64, including Snapdragon X Elite, X Plus, X2 and 8cx-class PCs. No ARM64 build is published. The x64 build runs under emulation on Windows 11 on Arm; Windows 10 on Arm emulates x86 apps only, so the x64 build does not run there (M1). CPU die temperature on Snapdragon is Unsupported. This revision changes no product behavior and adds no runtime condition. It records why the existing x64 build already fails safely on the PawnIO path. It records the existing thermal-zone fallback as unchanged behavior that is not attributed to the CPU die, with its known risks accepted. It also records the Windows on Arm thermal interfaces, the firmware evidence for Snapdragon X and 8cx-class devices, the evidence that would unblock the `SoCTj` and `TZ99` candidates, and the native ARM64 build prerequisites. Kernel drivers, MSR access, port I/O and any other privileged hardware access on Arm are out of scope. |
 | Issue phase | [#2516](https://github.com/shm11C3/HardwareVisualizer/issues/2516) (epic [#2510](https://github.com/shm11C3/HardwareVisualizer/issues/2510)) |
 
 ## Sources
@@ -19,7 +19,7 @@
 | M6 | Microsoft Learn, [`IOCTL_THERMAL_READ_TEMPERATURE`](https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/ioctl-thermal-read-temperature), `ms.date` 2017-05-02 | Primary. The ACPI driver's request to a temperature sensor driver and the tenths-of-a-kelvin output. |
 | R1 | This repository, [`pawnio-interface.md`](pawnio-interface.md) revision 9, module sections `IntelMSR`, `RyzenSMU`, `AMDFamily17`, `AMDFamily10`, `LpcIO` ("Target" lines) | Implementation-ready repository specification. Every module this project loads targets x86-64 hardware. |
 | P1 | namazso, PawnIO driver repository, [`pawn/include/native.inc` at tag `2.2.0`](https://github.com/namazso/PawnIO/blob/2.2.0/pawn/include/native.inc) (commit `5cdf470831fdfff3f7f1d06363ca6b230f3bf35a`, Git blob `fef769eebc7bed337ad0d986929c9fc62a58cdbc`); same declarations at commit `9d52965895588b0ffa3703b72eec75ba19f4ccc0` (2026-08-14), declarations `get_arch`, `msr_read`, `msr_write` | Upstream-published interface definition of the natives the modules this project loads call. Interface facts only; no code was copied. |
-| P2 | namazso, PawnIO.Modules module sources `IntelMSR.p`, `RyzenSMU.p`, `AMDFamily17.p`, `AMDFamily10.p`, `LpcIO.p` at tags `0.2.11` and `0.2.12`, entry point `main` | Upstream-published interface definitions of the modules this project loads (the S5 and S13 sources of R1), LGPL-2.1-or-later. Load-time behavior only; no code was copied. |
+| P2 | namazso, PawnIO.Modules module sources `IntelMSR.p`, `RyzenSMU.p`, `AMDFamily17.p`, `AMDFamily10.p`, `LpcIO.p` at tags `0.2.11` and `0.2.12` | Upstream-published interface definitions of the modules this project loads (the S5 and S13 sources of R1), LGPL-2.1-or-later. Load-time behavior only; no code was copied. |
 | R2 | This repository at commit `c1dfd6547c96414b41d8f7207e29c5c7ae5bf513`: `hardviz/core/src/infrastructure/providers/windows/thermal_zone.rs`, `hardviz/core/src/utils/thermal.rs` (`select_cpu_temperature`), `hardviz/core/src/platform/windows/sensors.rs` (`sample_temperatures`, `build_temperature_sample`), `hardviz/core/src/infrastructure/providers/windows/pawn_io/cpu/identity.rs` (CPUID access), and `.github/workflows/publish.yml` (`publish-tauri` matrix) | Repository facts for the current Windows thermal-zone path, its headline fallback, and the release matrix. |
 | B1 | Rust project, [Platform Support](https://doc.rust-lang.org/nightly/rustc/platform-support.html), table Tier 1 with Host Tools, row `aarch64-pc-windows-msvc` "ARM64 Windows MSVC", retrieved 2026-11-28 | Primary for the toolchain tier. |
 | B2 | Tauri, [Windows Installer](https://v2.tauri.app/distribute/windows-installer/), section Building for 32-bit or ARM, retrieved 2026-11-28 | Primary for the ARM64 build steps and the NSIS installer architecture. |
@@ -57,8 +57,8 @@
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | CPU die temperature on Snapdragon and other Windows on Arm hosts | No documented OS, Microsoft or Qualcomm route reaches it. No primary source and no dump identifies any zone as the CPU die temperature. | Unsupported. |
-| PawnIO CPU package temperature, core and CCD temperatures, CPU package power and Super I/O readings on an ARM64 host | Existing behavior, unchanged. The attempt fails before any hardware access: a kernel driver on this host must be ARM64 (M1), and every module returns `STATUS_NOT_SUPPORTED` from `main` when the driver reports a non-x86-64 architecture (P1, P2). See PawnIO on an Arm host. | Unsupported; the existing attempt fails safely at driver open or module load. |
-| Headline CPU temperature from the existing thermal-zone fallback (zone-name match or hottest zone) on an ARM64 host | Existing behavior, unchanged (R2), kept by maintainer decision. The value is a thermal-zone reading, not the CPU die temperature: a zone's device list names what the zone throttles, not where its sensor is (M5). Accepted risks: see Accepted risks of the unchanged behavior. | Unchanged existing behavior. Not a CPU die temperature scope. |
+| PawnIO CPU package temperature, core and CCD temperatures, CPU package power and Super I/O readings on an ARM64 host | Existing behavior, unchanged. The attempt fails before any hardware access: a kernel driver on this host must be ARM64 (M1), and every module rejects a non-x86-64 architecture with `STATUS_NOT_SUPPORTED` at load, before any hardware access (P1, P2). See PawnIO on an Arm host. | Unsupported; the existing attempt fails safely at driver open or module load. |
+| Headline CPU temperature from the existing thermal-zone fallback (zone-name match or hottest zone) on an ARM64 host | Existing behavior, unchanged (R2), kept by maintainer decision. The value is a thermal-zone reading that no source attributes to the CPU die: a zone's device list names what the zone throttles and does not locate its sensor (M5), and no dump or document identifies the sensor. Accepted risks: see Accepted risks of the unchanged behavior. | Unchanged existing behavior. Not a CPU die temperature scope. |
 | ACPI thermal-zone readings on an ARM64 host, listed under the firmware zone name | Existing OS-API path and decode (R2), Verified as OS/firmware API readings under [ADR 0011](../../adr/0011-experimental-sensor-enablement.md). Counter units are primary (M5). Lead-only observation L1 reports 36 instances on one Snapdragon X Plus device; whether the current WMI transport returns them in the application process is Open question 3. | Unchanged existing behavior. |
 | SoC junction temperature from the zone whose firmware `_STR` reads "SoCTj Thermal-zone for Fan Control" | Candidate. The string is in D1, D2 and D3, not in D4, D5, D6 or D7. No observation joins it to a counter instance or a varying value. See Open question 1. | Unsupported. |
 | CPU or SoC temperature from the zone whose device list names every CPU core together with the GPU and other SoC devices (named `TZ99` in D1–D7) | Candidate. The sensor behind it is a Qualcomm device of unknown meaning. See Open question 2. | Unsupported. |
@@ -85,7 +85,7 @@
 | Module targets | `IntelMSR`: Intel x86-64 CPUs. `RyzenSMU`, `AMDFamily17`, `AMDFamily10`: AMD x86-64 CPUs. `LpcIO`: x86-64 systems. | R1 |
 | Driver architecture | Emulation does not run kernel-mode code, so a PawnIO driver that runs on an Arm host is an ARM64 build (M1). The `get_arch` native reports the driver's architecture: `ARCH_X64` = 1 (x86-64) or `ARCH_A64` = 2 (ARM64). | M1, P1 |
 | ARM64 `msr_read` | On ARM64, `msr_read` and `msr_write` take no MSR index. They take an assembled `mrs x0, <reg>` instruction word that selects an ARM system register. An x86 MSR index has no meaning there. | P1 |
-| Module load check | The first statement of `main` in `IntelMSR`, `RyzenSMU`, `AMDFamily17`, `AMDFamily10` and `LpcIO` returns `STATUS_NOT_SUPPORTED` when `get_arch` is not `ARCH_X64`. This happens before any CPUID, MSR, PCI, physical-memory or port-I/O native is called. It holds at module tags `0.2.11` and `0.2.12`. | P2 |
+| Module load check | `IntelMSR`, `RyzenSMU`, `AMDFamily17`, `AMDFamily10` and `LpcIO` each reject a non-x86-64 architecture with `STATUS_NOT_SUPPORTED` at module load, before any hardware access. This holds at module tags `0.2.11` and `0.2.12`. | P2 |
 | Installer architectures | The winget manifest for PawnIO 2.2.0 lists the same installer under `x64` and `arm64`. A PawnIO installation on an Arm host therefore says nothing about a usable CPU or Super I/O path. | B4 |
 
 Consequence for the existing x64 build on an Arm host (R2): CPU source
@@ -208,10 +208,10 @@ They are properties of existing behavior, not a new scope.
 
 | Risk | Evidence |
 | --- | --- |
-| The hottest zone can stay at a constant value, such as 86 °C, and then becomes the headline CPU temperature. | U1 (X2 Elite Extreme; Zenbook A16 after resume) |
+| The hottest zone can stay at a constant value, such as 86 °C. When no zone name contains `CPU` or `PROC`, that zone becomes the headline CPU temperature; otherwise the first matching named zone is used (R2). | U1 (X2 Elite Extreme; Zenbook A16 after resume), R2 |
 | A zone can read a constant 255 K. The existing -40 to 150 °C filter keeps it, so the zone list shows about -18 °C. | L1 (lead-only) |
 | Zones can read 0. The existing filter drops them, together with the constant 233 K zones. | L1 (lead-only) |
-| Snapdragon zone names do not contain `CPU` or `PROC` in D1–D7, so the headline is in practice the hottest zone. That zone's sensor is not identified as the CPU die by any source. | D1–D7, M5 |
+No zone name in D1–D7 contains `CPU` or `PROC`, so on those firmware tables the headline is the hottest zone. That zone's sensor is not identified as the CPU die by any source. | D1–D7, M5 |
 | Which devices the L1 zones list is unconfirmed. | Open question 8 |
 
 ## Safety notes
@@ -244,8 +244,8 @@ In every row, the current behavior described above is unchanged.
 | Snapdragon X Elite (X1E) | D1–D4 firmware; no counter observation on a dumped device | CPU die temperature Unsupported. PawnIO attempt fails safely. Headline from the existing zone fallback, not attributed to the CPU die. SoC junction candidate: Open question 1. `TZ99` candidate: Open question 2. |
 | Snapdragon X Plus (X1P) | L1 counter observation (lead-only); further X Plus dumps exist in the same corpus at the D1 commit but were not analysed | Same as X Elite. |
 | Snapdragon X2 Elite, X2 Elite Extreme, X2 Plus | U1 observation only; no firmware dump analysed | Same as X Elite. Attribution needs a dump and a counter capture, as in Open questions 1 and 2. |
-| Snapdragon 8cx Gen 3 and SQ3 | D5 firmware (8cx Gen 3); no counter observation | Same as X Elite. `TZ99` exists with `QCOM065A`; no `SoCTj` zone. |
-| Snapdragon 8cx Gen 1 and Gen 2, SQ1 and SQ2 | D6, D7 firmware; no counter observation | Same as X Elite. `TZ99` exists with `QCOM045E`; no `SoCTj` zone. |
+| Snapdragon 8cx Gen 3 and SQ3 | D5 firmware (ThinkPad X13s, 8cx Gen 3); no SQ3 dump analysed; no counter observation | Same as X Elite. In D5, `TZ99` exists with `QCOM065A` and there is no `SoCTj` zone. SQ3 firmware: Open question 9. |
+| Snapdragon 8cx Gen 1 and Gen 2, SQ1 and SQ2 | D6 firmware (Surface Pro X, SQ1 or SQ2, not identified) and D7 firmware (Flex 5G, 8cx); no 8cx Gen 2 dump analysed; no counter observation | Same as X Elite. In D6 and D7, `TZ99` exists with `QCOM045E` and there is no `SoCTj` zone. Per-variant firmware: Open question 9. |
 | Other Windows on Arm hosts (older Snapdragon, virtual machines) | None | Same as X Elite. Zones may be absent; the readings are then empty. |
 | `MSAcpi_ThermalZoneTemperature` on Snapdragon X | L1: no instances on one X Plus device. D4 defines no `_TMP` zone; D1–D3 define seven each, read through an I2C controller. | Kept as the existing first source; it is not a CPU temperature source. |
 | Windows thermal manager and `Thermal Zone Information` counters | M5 units; L1 observation | The existing zone path. No zone is attributed to the CPU die. |
@@ -344,9 +344,18 @@ current behavior, which this revision leaves unchanged.
    same device lists. Unblocking evidence: a #2500 report or an ACPI
    dump from the observed device model that pairs each zone's counter
    instance with its device list.
+9. Affects the per-variant 8cx-class dispositions.
+   The firmware facts for 8cx-class devices come from three dumps only:
+   D5 (8cx Gen 3), D6 (SQ1 or SQ2, not identified) and D7 (8cx). No
+   SQ3 or 8cx Gen 2 dump was analysed, and D6 does not show which of
+   SQ1 and SQ2 it covers. Whether the other variants define `TZ99`
+   with the same sensor `_HID`, and whether any defines a `SoCTj`
+   zone, is unknown. Evidence: ACPI dumps from those variants, for
+   example the Surface Pro 9 5G (SQ3) and 8cx Gen 2 dumps in the same
+   corpus as D1.
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version, a disposition and evidence record: CPU die temperature on Snapdragon and other Windows on Arm hosts is Unsupported, and current behavior is unchanged. Records why the existing PawnIO attempt fails safely on Arm (driver architecture and module load checks), the existing thermal-zone headline fallback as unchanged behavior not attributed to the CPU die with its accepted risks, firmware evidence for Snapdragon X Elite and 8cx-class devices, the blocked SoC junction and `TZ99` candidates, target dispositions and native ARM64 build prerequisites. Corrections made in review before merge: the L1 zone-to-CPU correlation is recorded as unconfirmed (Open question 8); the sampler's 60 s idle interval is documented; and, after the maintainer decision on PR #2804, the proposed native-machine gate, the Arm headline withdrawal and their fixtures were removed. |
+| 1 | 2026-11-28 | Initial version, a disposition and evidence record: CPU die temperature on Snapdragon and other Windows on Arm hosts is Unsupported, and current behavior is unchanged. Records why the existing PawnIO attempt fails safely on Arm (driver architecture and module load checks), the existing thermal-zone headline fallback as unchanged behavior not attributed to the CPU die with its accepted risks, firmware evidence for Snapdragon X Elite and 8cx-class devices, the blocked SoC junction and `TZ99` candidates, target dispositions and native ARM64 build prerequisites. Corrections made in review before merge: the L1 zone-to-CPU correlation is recorded as unconfirmed (Open question 8); the sampler's 60 s idle interval is documented; and, after the maintainer decision on PR #2804, the proposed native-machine gate, the Arm headline withdrawal and their fixtures were removed. A later review pass limited x64 emulation to Windows 11 on Arm in the scope, stated the zone fallback as not attributed to the CPU die instead of ruling the die out, restated the PawnIO module load check as behavior only, added the named-zone condition to the hottest-zone risk, and limited the 8cx-class firmware facts to the dumped devices (Open question 9). |
