@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Windows PawnIO `LpcIO` read-only voltages of the four Super I/O supply pins whose divider is inside the chip (`AVSB`, `3VCC`, `3VSB`, `VBAT`). Exact raw chip ID `0xD421` (NCT6796D / NCT6796D-E) only, as Experimental. Every fact comes from the vendor datasheet. Values are the voltage at the chip pin. They are labelled with the vendor pin mnemonic and never with a motherboard rail name. Recorded but disabled: `CPUVCORE`, `VIN0`–`VIN8`, `VTT`, every other Nuvoton ID, and every ITE, Fintek, EC and Linux hwmon voltage route (see [Disposition of #2534 targets](#disposition-of-2534-targets)). Excludes limits, alarms, voltage or limit writes, calibration, fault diagnosis, board-specific resistor scaling and rail naming. |
 | Issue phase | [#2534](https://github.com/shm11C3/HardwareVisualizer/issues/2534) (epic [#2510](https://github.com/shm11C3/HardwareVisualizer/issues/2510)) |
 
@@ -19,6 +19,14 @@ scale is the chip's integrated divider. The slice extends the existing
 [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) (S2) by two
 bank 0 gate reads and four bank 4 value reads. It does not change any
 temperature or fan behavior of that document.
+
+Revision 2 adds the [freshness rule](#freshness-rule). `0x88` can hold a
+byte that is not yet updated for one monitor cycle after the battery
+monitor is enabled, and a read-only sampler cannot see an enable that
+happened before its first sample. A voltage is therefore published only
+after its gates have been observed satisfied for at least 704 ms across
+samples. The same rule covers the restart of monitoring for all four
+inputs.
 
 ## Sources
 
@@ -39,15 +47,19 @@ temperature or fan behavior of that document.
 | S13 | Repository specifications for the other motherboard routes, at the revisions in the [Current documents](README.md#current-documents) table on commit `50035f40`. | Repository facts about what each existing route reads, excludes or leaves draft. Cited per disposition row. |
 | S14 | LibreHardwareMonitor tree listing of `LibreHardwareMonitorLib/Hardware/Motherboard/` at `2808d80564b6761e1b01f42fabfd966ed695fcbc` (the #2534 comparison inventory), retrieved 2026-11-29 through the GitHub tree API, MPL-2.0 | **lead-only (copyleft)**. File list only, used to enumerate the comparison inventory's voltage-bearing groups: Super I/O drivers for ITE, Nuvoton, Fintek and Winbond parts; embedded-controller readers including ChromeOS; an IPMI reader; a Linux hwmon reader; Gigabyte controller access; per-board voltage descriptors and board identification. No file content was read, and no fact in this document rests on S14. |
 
-S1 is the only source of any enabled fact. S5–S13 support dispositions
+| S15 | [`superio-access.md`](superio-access.md) revision 5, [Terms](superio-access.md#terms) of the sampling-path rediscovery cadence | Project policy terms used by the freshness rule: discovery attempt, cached path, discarded path, sample transaction and monitoring session. A monitoring session ends after a gap between samples, which covers suspend and resume, and the service requests a motherboard reading at most every 1.6 s. Supplies no hardware fact. S3 stays the pin for the transport facts. |
+
+S1 is the only source of any enabled fact. S15 supplies only the
+sampler lifetime terms of the freshness rule. S5–S13 support dispositions
 only. S14 is a copyleft lead listed for the inventory. No code, code
 structure or implementation identifier from any monitoring
 implementation is reproduced.
 
 ## Validation outcome
 
-Revision 1 proposes the implementation-ready gate for one Experimental
-scope: the four internally divided supply pins on exact raw ID `0xD421`.
+Revision 2 keeps the implementation-ready proposal of revision 1 for one
+Experimental scope: the four internally divided supply pins on exact raw
+ID `0xD421`.
 
 - Measured net. S1 §5.13 p. 17 defines `AVSB`, `3VCC`, `3VSB` and `VBAT`
   as chip power pins. S1 §8.6 p. 58 names them, with `CPUVCORE` and
@@ -62,8 +74,9 @@ scope: the four internally divided supply pins on exact raw ID `0xD421`.
 - Location. S1 §8.6.2.1 p. 59 and §9.208 p. 175 place the four readings
   at bank 4 `0x82`, `0x83`, `0x87` and `0x88`.
 - Gates. S1 §9.20 p. 106 defines the monitor start and stop bits. S1
-  §9.34 p. 113 defines the battery-monitor enable bit. Both are read,
-  never written.
+  §9.34 p. 113 defines the battery-monitor enable bit and its one-cycle
+  update delay. Both are read, never written, and the freshness rule
+  withholds values until the gates have held for 704 ms across samples.
 - Transport. The `0xD421` chip identity, lock gate, discovery, port and
   bank mechanism come from S2, which is Implementation-ready at
   revision 9.
@@ -82,6 +95,7 @@ scope: the four internally divided supply pins on exact raw ID `0xD421`.
 | Bank 0 index `0x40` bit 0 (`START`) is `1` | mechanism: `0` puts the hardware monitor in standby, so the value RAM is not being converted | S1 §9.20 p. 106 |
 | Bank 0 index `0x40` bit 3 (`INT_Clear`) is `0` | mechanism: `1` stops monitoring until the bit is cleared | S1 §9.20 p. 106 |
 | For `VBAT` only: bank 0 index `0x5D` bit 0 (`EN_VBAT_MNT`) is `1` | mechanism: `0` disables the battery-voltage monitor | S1 §9.34 p. 113 |
+| The input's gate run has lasted at least 704 ms ([Freshness rule](#freshness-rule)) | mechanism: the `VBAT` reading updates one monitor cycle after `EN_VBAT_MNT` changes from `0` to `1`, and the cycle is about 352 ms | S1 §9.34 p. 113, §8.6.4 p. 62; S15 |
 
 Board strings, BIOS versions and board vendor are not runtime conditions
 for this scope. The measured net and scale are chip facts, so no board
@@ -113,7 +127,7 @@ identity selects a mechanism here (S4, ADR 0031).
 | Bank 0 `0x40` | Configuration Register, `START` | `0` | `1` starts monitoring; `0` puts the part in standby. Register default `0x03`. | Boolean | S1 §9.20 pp. 105–106 |
 | Bank 0 `0x40` | `INT_Clear` | `3` | `1` disables the SMI# output and stops monitoring until the bit is cleared. | Boolean | S1 §9.20 p. 106 |
 | Bank 0 `0x40` | `Initialization` | `7` | Writing `1` restores power-on defaults to some registers; the bit clears itself. Never written by this scope. | Self-clearing control | S1 §9.20 p. 106 |
-| Bank 0 `0x5D` | VBAT Monitor Control, `EN_VBAT_MNT` | `0` | `1` enables the battery-voltage monitor; `0` disables it. After a change from `0` to `1`, the VBAT reading updates after one monitor cycle. Register default `0x04` (bit 0 clear). Bits `7:1` select temperature sensor types and are not interpreted here. | Boolean | S1 §9.34 p. 113 |
+| Bank 0 `0x5D` | VBAT Monitor Control, `EN_VBAT_MNT` | `0` | `1` enables the battery-voltage monitor; `0` disables it. After a change from `0` to `1`, it takes one monitor cycle to update the VBAT reading value register. Register default `0x04` (bit 0 clear), reset by `PWROK` or by `LRESET#` when LDN A `CR E7` bit 0 is `1`. Bits `7:1` select temperature sensor types and are not interpreted here. | Boolean | S1 §9.34 p. 113 |
 
 ### Voltage value registers (bank 4)
 
@@ -166,7 +180,8 @@ that S2 and S3 require. Detection and discovery are unchanged.
 5. Select bank 4: write index `0x4E`, then data `0x04`. Read `0x82`,
    `0x83` and `0x87`. Read `0x88` only when the step 4 bit was `1`;
    otherwise mark `VBAT` unavailable (battery monitor disabled) without
-   reading it. Go to step 7. (S1 pp. 59, 113, 175)
+   reading it. Apply the [freshness rule](#freshness-rule) to every byte
+   read, then go to step 7. (S1 pp. 59, 113, 175)
 6. Select bank 4 (write index `0x4E`, then data `0x04`), so that the
    transaction ends in the same bank state as the S2 procedure. (S2)
 7. Continue with the S2 configuration-mode exit and mutex release. (S2)
@@ -186,18 +201,76 @@ The gate bits are read on every sample. S1 gives both registers the
 Read/Write attribute (pp. 105, 113), so firmware can change them at run
 time.
 
+### Freshness rule
+
+S1 §9.34 p. 113 states that after `EN_VBAT_MNT` changes from `0` to `1`,
+it takes one monitor cycle to update the VBAT reading value register.
+S1 §8.6.4 p. 62 gives that cycle as about 2 ms per channel ×
+(15 voltage + 7 temperature channels) × 8 averages = 352 ms. S1 does not define what
+`0x88` holds before that update, so the byte can be any value, including
+a nonzero one that decodes. A read-only sampler sees a gate bit only
+when it reads it. It cannot tell how long before its first observation
+the bit became `1`, and it never writes the bit to force a known state.
+S1 states no update time after `START` returns to `1` or `INT_Clear`
+returns to `0`. The scope applies the same rule to that gate instead of
+assuming that the value RAM is current when monitoring restarts.
+
+The rule is scope policy built on those S1 facts. It needs no write and
+no wait.
+
+- **Runs.** The sampler keeps two runs for its cached path (S15): a
+  monitor run and a battery run. A sample extends the monitor run when
+  its step 3 read succeeded with `START` = `1` and `INT_Clear` = `0`. A
+  sample extends the battery run when, in addition, its step 4 read
+  succeeded with bit 0 = `1`. Every other sample ends the run it does
+  not extend: an S2 abort, a failed gate read, or a gate read with the
+  gate not satisfied. A failed value read in step 5 does not end a run,
+  because the gates of that sample were observed.
+- **Other run ends.** Both runs also end when the cached path is
+  discarded, when a discovery attempt runs, when the monitoring session
+  ends (S15), and when the gate reads of two consecutive samples are
+  more than 5 s apart on the sampler's monotonic clock. The gap rule
+  ends the runs across suspend and resume even if the session were kept.
+  A `PWROK` reset returns `0x5D` bit 0 to `0` (S1 p. 113), so a bit
+  read as `1` after power returns can come from a new enable.
+- **Run start.** The first sample that extends a run after the run
+  ended, or after the sampler was created, starts it. The run start
+  time is the monotonic time of that sample's gate read: `0x40` for the
+  monitor run, `0x5D` for the battery run.
+- **Freshness interval: 704 ms**, twice the S1 cycle. The margin covers
+  the "about" of the S1 conversion time. It is scope policy, not a chip
+  fact.
+- **Publication.** `AVSB`, `3VCC` and `3VSB` are published only when the
+  current sample's `0x40` read is at least 704 ms after the monitor run
+  start. `VBAT` is published only when the current sample's `0x5D` read
+  is at least 704 ms after the battery run start. A byte read before
+  that point is not decoded. Its input is unavailable with the reason
+  that the value update is pending. Diagnostics may keep the raw byte.
+- **Why it holds.** The battery run starts with bit 0 read as `1`, so
+  every `0` → `1` change the sampler could have missed happened at or
+  before the run start, unless the bit toggled between two samples of
+  the run (see Open questions). A `0x88` read at least 704 ms after the
+  run start therefore follows that change by at least two S1 cycles.
+  The monitor run argues the same way for `START` and `INT_Clear`.
+- **Consequence.** The first sample after the sampler is created, and
+  the first sample after any run end, publishes none of the inputs that
+  run covers. At the S15 service cadence of at most one reading every
+  1.6 s, the next sample that extends the run is already past the
+  interval and publishes. A sampler must not wait inside the ISA mutex
+  transaction to satisfy the interval; the rule spans samples.
+
 ### Decode
 
-For each voltage byte read in step 5:
+For each voltage byte read in step 5 that the freshness rule allows:
 
 - A raw byte `0x00` or `0xFF` is unavailable for that input. `0xFF` is
   the top code of the 8-bit range (S1 p. 58), so the pin voltage may be
   at or above full scale and is not known. `AVSB`, `3VCC` and `3VSB`
   power the operating chip (S1 p. 17), so they cannot read 0 V while it
-  monitors. For `VBAT`, S1 p. 113 allows a value that is not yet updated
-  right after the battery monitor is enabled. `0x00` is therefore not
-  published as a measurement. The battery case is an open question
-  below. (S1 pp. 17, 58–59, 113; S4)
+  monitors. For `VBAT`, `0x00` is the bottom code and is not published
+  as a measurement either. The update window after an enable is handled
+  by the freshness rule, not by this rule. The battery case is an open
+  question below. (S1 pp. 17, 58–59; S4)
 - Otherwise the pin voltage is raw × 16 mV: 8 mV per code (S1 §8.6.2
   p. 59) times the factor of 2 that reverses the integrated one-half
   divider (S1 §8.6.1 p. 59). The result is an exact whole number of
@@ -253,17 +326,27 @@ the model.
 
 ### Synthetic cases for implementation review
 
-All cases are synthetic fixtures, not hardware observations.
+All cases are synthetic fixtures, not hardware observations. Times are
+monotonic gate-read times of consecutive samples on one cached path,
+with the sampler created just before the sample at 0 ms. Unless a case
+says otherwise, the case's sample is at least 704 ms after the start of
+both runs.
 
 | Case | Inputs | Expected result |
 | --- | --- | --- |
 | Nominal | `0x40` = `0x03`, `0x5D` bit 0 = `1`; `0x82` = `0xCE`, `0x83` = `0xCF`, `0x87` = `0xD0`, `0x88` = `0xBC` | `AVSB` 3296 mV, `3VCC` 3312 mV, `3VSB` 3328 mV, `VBAT` 3008 mV |
 | Range ends | a byte `0x01`; a byte `0xFE` | 16 mV; 4064 mV |
 | Invalid codes | a byte `0x00`; a byte `0xFF` | That input unavailable; the others unaffected |
+| First sample | Nominal bytes at 0 ms | All four unavailable, update pending; bytes not decoded |
+| Second sample | Nominal bytes at 0 ms and at 1600 ms | At 1600 ms all four decoded as in Nominal |
+| Battery monitor enabled between samples | 0 ms and 1600 ms: `0x5D` bit 0 = `0`. 3200 ms: bit 0 = `1`, `0x88` = `0xA0`. 4800 ms: bit 0 = `1`, `0x88` = `0xBC` | At 3200 ms `VBAT` unavailable, update pending, and `0xA0` not decoded. At 4800 ms `VBAT` 3008 mV. The other three decode from 1600 ms on |
+| Short interval | Gates satisfied at 0, 300, 600 and 900 ms | All four unavailable at 0, 300 and 600 ms; published at 900 ms |
+| Sampling gap | Gates satisfied at 0 ms, 1600 ms and 7600 ms | Published at 1600 ms; all four unavailable at 7600 ms (gap above 5 s, new runs) |
+| Battery gate read fails | At 1600 ms the `0x5D` read fails; at 3200 ms and 4800 ms it succeeds with bit 0 = `1` | At 1600 ms the failure rule stops the voltage steps, so all four are unavailable; the battery run ends and the monitor run does not. At 3200 ms `AVSB`, `3VCC` and `3VSB` published, `VBAT` unavailable (new battery run). At 4800 ms all four published |
 | Battery monitor disabled | `0x5D` bit 0 = `0` | `0x88` not read; `VBAT` unavailable; the other three decoded |
-| Monitor stopped | `0x40` bit 0 = `0`, or bit 3 = `1` | No value register read; all four unavailable; temperatures and fans of the sample unchanged; bank 4 selected again |
-| Partial failure | The bank 0 selection or the `0x40` read fails | All four unavailable with an experimental diagnostic; temperatures and fans of the sample unchanged |
-| Late failure | The `0x87` read fails after `0x82` and `0x83` succeeded | `AVSB` and `3VCC` keep their values; `3VSB` and `VBAT` unavailable |
+| Monitor stopped | `0x40` bit 0 = `0`, or bit 3 = `1` | No value register read; all four unavailable; both runs end; temperatures and fans of the sample unchanged; bank 4 selected again |
+| Partial failure | The bank 0 selection or the `0x40` read fails | All four unavailable with an experimental diagnostic; both runs end; temperatures and fans of the sample unchanged |
+| Late failure | The `0x87` read fails after `0x82` and `0x83` succeeded | `AVSB` and `3VCC` keep their values; `3VSB` and `VBAT` unavailable; neither run ends |
 | S2 abort | A temperature or fan read fails in S2 step 9 | S2 aborts the sample; no voltage read |
 | Other chip | Any raw ID other than `0xD421`, including `0xD423` and `0xD802` | No voltage read |
 
@@ -276,6 +359,10 @@ All cases are synthetic fixtures, not hardware observations.
   scope reads the whole byte but interprets only bit 0.
 - The value RAM updates about every 352 ms (S1 p. 62). Samples taken
   more often can repeat a value.
+- A board whose firmware enables the battery monitor only shortly before
+  the operating system starts sampling still shows `VBAT` only from the
+  second sample on. The [freshness rule](#freshness-rule) withholds the
+  first observation of every run.
 
 ## Safety notes
 
@@ -364,9 +451,35 @@ row rests on a lead-only fact.
   evidence is in the disposition table.
 - Non-blocking for the #2534 initial slice: a battery that truly reads
   0 V, for example an absent battery with the monitor enabled, is
-  reported unavailable instead of 0 V. The `0x00` rule cannot tell that
-  case from a reading that has not been updated yet (S1 p. 113). Only
-  the code `0x00` is hidden; low non-zero values are published.
+  reported unavailable instead of 0 V. S1 defines the code but not what
+  `0x88` holds before its first update, so the bottom code is not
+  published. Only the code `0x00` is hidden; low non-zero values are
+  published once the freshness rule allows them.
+- Non-blocking for the #2534 initial slice: the one residual stale case
+  needs two firmware writes inside one sample interval, and every
+  identified enable path is covered. A read-only sampler cannot see
+  `EN_VBAT_MNT`, `START` or `INT_Clear` change and change back between
+  two samples of a run. If firmware disables and re-enables the battery
+  monitor between two samples that are at most 5 s apart, and the
+  re-enable is less than 704 ms before the later sample, that sample
+  publishes the `0x88` byte as it stood before the update. S1 defines
+  that byte only as the VBAT reading, so the published value is the
+  last VBAT conversion before the re-enable, or an undefined byte if the
+  register was never updated. It still passes the `0x00`/`0xFF` rule and
+  is labelled only as a chip-pin voltage. At the S15 cadence the two
+  writes must fall inside one interval of at least 1.6 s. The covered
+  paths are sampler start, a disabled monitor, a failed gate read, and
+  suspend and resume, which end the runs through the 5 s gap rule
+  whether or not a `PWROK` reset cleared `0x5D` bit 0 (S1 p. 113). A maintainer-accepted dump
+  taken across a firmware enable would show whether the residual case
+  occurs.
+- Non-blocking for the #2534 initial slice: the 704 ms interval is twice
+  the only cycle time S1 states. S1 §8.6.4 p. 62 derives the 352 ms
+  cycle as an example from about 2 ms per conversion, 15 voltage and 7
+  temperature channels and eight averages. S1 describes averaging only
+  there and gives no register that changes it. A cycle longer than
+  704 ms on real hardware would shorten the protection after an enable,
+  and the graduation dump in the disposition table would expose it.
 - Non-blocking for the #2534 initial slice: S1 gives the integrated
   divider as two nominal 34 kΩ resistors and states no accuracy for the
   divider or the ADC. Values are published without an accuracy claim
@@ -388,12 +501,13 @@ row rests on a lead-only fact.
 
 ## Implementation-ready transition checklist
 
-Revision 1 proposes the flip and meets the checklist in
+Revision 2 keeps the flip proposed by revision 1 and meets the checklist in
 [`README.md`](README.md#status-transition-draft--implementation-ready):
 
 - no provenance marker remains; every enabled fact is pinned to an S1
   section and printed page, and the transport facts are pinned to S2 and
-  S3 at implementation-ready revisions;
+  S3 at implementation-ready revisions, and the freshness rule takes only
+  sampler lifetime terms from S15 at an implementation-ready revision;
 - no enabled fact is lead-only; S14 is tagged `lead-only (copyleft)` and
   backs no fact;
 - every runtime gate is tagged mechanism or safety, no evidence identity
@@ -408,7 +522,7 @@ Revision 1 proposes the flip and meets the checklist in
 ## Provenance text for a clean-room implementation PR
 
 ```text
-Implemented from docs/specs/sensors/superio-nuvoton-nct6796d-supply-voltages.md revision 1 (commit <sha>), limited to the 0xD421 AVSB, 3VCC, 3VSB and VBAT supply-pin voltages, together with docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9 (commit <sha>) for the 0xD421 transaction it extends.
+Implemented from docs/specs/sensors/superio-nuvoton-nct6796d-supply-voltages.md revision 2 (commit <sha>), limited to the 0xD421 AVSB, 3VCC, 3VSB and VBAT supply-pin voltages, together with docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9 (commit <sha>) for the 0xD421 transaction it extends, and docs/specs/sensors/superio-access.md revision 5 (commit <sha>) for the sampler lifetime terms of the freshness rule.
 No other external sensor documentation was used.
 ```
 
@@ -417,3 +531,4 @@ No other external sensor documentation was used.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-29 | Initial version for #2534. Proposes Implementation-ready status for one Experimental scope: `AVSB`, `3VCC`, `3VSB` and `VBAT` supply-pin voltages on exact raw `0xD421` (NCT6796D/-E), all from the NCT6796D datasheet (S1). The scope reads bank 4 `0x82`, `0x83`, `0x87` and `0x88` after the existing revision 9 `0xD421` temperature and fan sample. It is gated on bank 0 `0x40` `START`/`INT_Clear` and, for `VBAT`, on `0x5D` `EN_VBAT_MNT`. Decode is raw × 16 mV; `0x00` and `0xFF` are unavailable. Labels are the pin mnemonics, with no rail names. Adds the failure rule, synthetic cases, read-clear registers that are never read, the model requirements and a disposition for every #2534 target. No lead-only fact backs any row. |
+| 2 | 2026-11-29 | Review finding on #2828: S1 §9.34 p. 113 says the VBAT reading updates one monitor cycle (about 352 ms, §8.6.4 p. 62) after `EN_VBAT_MNT` changes from `0` to `1`, and a read-only sampler cannot see an enable before its first sample. Adds the [freshness rule](#freshness-rule): per cached path, a monitor run and a battery run of consecutive samples with satisfied gates; a run ends on an S2 abort, a failed or unsatisfied gate read, a discarded path, a discovery attempt, the end of the monitoring session, or a gap above 5 s between gate reads. `AVSB`, `3VCC` and `3VSB` publish only 704 ms or more after the monitor run start, and `VBAT` only 704 ms or more after the battery run start; earlier bytes are unavailable as update pending. Adds S15 (`superio-access.md` revision 5 terms), a runtime gate row, the `0x5D` reset sources, synthetic cases for startup, enable, short interval, gap and gate failure, a quirk, and Open questions for the residual between-sample toggle and the cycle margin. The `0x00` rationale no longer relies on the update window. Registers, writes, decode scale and dispositions are unchanged. Status remains Implementation-ready (rev 2), proposed. |
