@@ -122,7 +122,9 @@ Run `git fetch origin` before any step below that reads an `origin/` ref.
    <branch>`) or the same change is already on `origin/develop`, and
    uncommitted changes are merged only when that diff is already on
    `origin/develop`. Squash-merged commits still look ahead of `origin`, and
-   new work on a merged branch must still be harvested. Harvest the rest in
+   new work on a merged branch must still be harvested: rebuild it on a new
+   branch from the current `origin/develop` with only the later work
+   (cherry-pick, as Worktrees rule 6 says), never from the merged branch. Harvest the rest in
    step 2 when the daily documentation PR limit or the implementation lane
    limit allows, before refilling any lane.
 2. **Harvest finished agents.**
