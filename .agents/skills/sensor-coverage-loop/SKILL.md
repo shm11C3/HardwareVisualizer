@@ -82,29 +82,32 @@ Only one session may write to a worktree. Follow this rule in every tool. The
 repository hooks do not enforce it. Claude Code's worktree isolation does
 reject Edit and Write calls on any worktree other than the session's own.
 
+Run `git fetch origin` before any step below that reads an `origin/` ref.
+
 1. Before spawning, put the orchestrator's worktree on a branch at
    `origin/develop`, because isolated worktrees fork from its HEAD.
 2. Launch every agent that writes files with isolated worktrees. A worktree
    the orchestrator creates with `git worktree add` is not writable by a
    subagent.
-3. For stacked work, the agent's first command merges the base,
-   `git merge --no-edit origin/<base>`, and the agent never creates or switches
-   branches.
+3. For stacked work, the agent first runs
+   `git fetch origin && git merge --no-edit origin/<base>`, and never creates
+   or switches branches.
 4. The orchestrator commits if the agent could not. It pushes with
    `git -C <wt> push origin HEAD:refs/heads/<branch>`. Use the
    [change-kind-naming](../change-kind-naming/SKILL.md) skill to pick the
    branch name.
 5. Never copy files into another session's worktree with shell commands.
    Send follow-up edits to the owning agent.
-6. After a parent PR is squash-merged, rebuild each stacked branch from
-   `origin/develop` by cherry-picking its own commits. Do not rebase a stack
-   onto the squash.
+6. After a parent PR is squash-merged, fetch, then rebuild each stacked
+   branch from the refreshed `origin/develop` by cherry-picking its own
+   commits. Do not rebase a stack onto the squash.
 
 ## Tick
 
 1. **Inventory.** Collect the #2510 checklist and child Issues, open sensor
-   PRs with their checks and threads, running agents, and specs whose PRs were
-   merged since the last tick.
+   PRs with their checks and threads, running agents, and every implementable
+   specification that has no implementation lane yet, not only the ones whose
+   PRs merged since the last tick.
 2. **Harvest finished agents.**
    - For a spec: run `git diff --check`, check that there are no
      `TODO(provenance)` markers, check that the status, revision history and
