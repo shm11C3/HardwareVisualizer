@@ -76,8 +76,9 @@ decision lens.
 - Run Rust tests with cargo-nextest, as CI does: `cargo tauri-test` for the
   workspace, or `cargo nextest run -p hardviz-core` /
   `cargo nextest run -p hardware_visualizer` for one crate. Install it once with
-  `cargo install cargo-nextest --locked`. Plain `cargo test` still works but
-  runs integration tests serially.
+  `cargo install cargo-nextest --locked`. Plain `cargo test` runs the tests of
+  each binary inside one shared process, so it does not give the per-test
+  process isolation CI relies on; use nextest for results that match CI.
 - Prefer inline `#[cfg(test)] mod tests { ... }` for pure module-local helpers.
   Shared App test setup may remain under `hardviz/app/src/_tests/`; integration
   tests should cover cross-module contracts rather than duplicating unit tests.

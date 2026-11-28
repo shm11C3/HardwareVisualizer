@@ -949,8 +949,9 @@ ADR 0025 removes it in v2.0.0.
 `test-core` and `test-tauri` in CI use cargo-nextest with the `ci` profile from
 `.config/nextest.toml`, which runs every test in its own process so the DuckDB
 integration binaries run in parallel. The `cargo tauri-test` alias uses nextest
-too. `cargo test -p <crate>` remains a slower serial fallback when nextest is
-not installed. See [`hardviz/core/README.md`](../../hardviz/core/README.md#build--test).
+too. Plain `cargo test -p <crate>` runs the tests of each binary inside one
+shared process, so it is slower for the DuckDB binaries and does not give the
+per-test process isolation CI relies on; use nextest for results that match CI. See [`hardviz/core/README.md`](../../hardviz/core/README.md#build--test).
 
 Frontend and TypeScript checks are run from the repository root:
 
