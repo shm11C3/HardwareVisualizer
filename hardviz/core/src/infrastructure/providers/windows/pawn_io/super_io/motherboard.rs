@@ -983,12 +983,20 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         if discovered.profile.access == IteEcAccess::BankGuarded {
           let bank_select = probe(ITE_EC_BANK_REGISTER)?;
           if !is_ite_ec_bank_zero(bank_select) {
-            return Err(ite_experimental_non_component_failure(
-              discovered.profile,
-              format!(
-                "Environment Controller bank is not 0 (EC 0x06=0x{bank_select:02X})"
-              ),
-            ));
+            // Another bank user can hold a non-zero bank only transiently, so
+            // the whole discovery reruns later instead of keeping the path
+            // unavailable. No sample transaction enters configuration mode.
+            return Err(
+              ChipFailure::ite(
+                discovered.profile,
+                format!(
+                  "Environment Controller bank is not 0 (EC 0x06=0x{bank_select:02X})"
+                ),
+              )
+              .hardware_state()
+              .requiring_rediscovery()
+              .into(),
+            );
           }
         }
         if discovered.profile.checks_vendor_byte {
@@ -4748,9 +4756,54 @@ mod tests {
 
       assert!(error.contains(expected_error), "{error}");
       assert!(error.contains("IT8686E"), "{error}");
-      assert_eq!(failure.is_retryable(), bank.is_none());
+      // An unreadable or non-zero bank reruns discovery; the other gates stay.
+      assert_eq!(failure.is_retryable(), bank != Some(0x00));
       assert_eq!(*client.read_registers.borrow(), expected_reads);
     }
+  }
+
+  #[test]
+  fn banked_modern_discovery_bank_failure_is_retried_by_a_later_discovery_only() {
+    let client = FakeIteLpcIo::for_banked_modern(0x8688);
+    client.bank_reads.borrow_mut().push_back(Some(0x40));
+
+    let failure = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(failure.is_retryable());
+    assert!(!failure.offers_pawnio_guidance());
+    assert!(
+      failure
+        .to_string()
+        .starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX)
+    );
+    assert_eq!(*client.read_registers.borrow(), [0x00, 0x06]);
+
+    // The later discovery runs as its own transaction and sees bank 0.
+    client.read_registers.borrow_mut().clear();
+    let entries_before_rediscovery = client.config_port_writes.borrow().len();
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+    assert_eq!(detected.profile.chip_label, "IT8688E");
+    assert_eq!(*client.read_registers.borrow(), [0x00, 0x06, 0x58]);
+    assert!(client.config_port_writes.borrow().len() > entries_before_rediscovery);
+
+    // The sample that follows makes no configuration entry or CR access.
+    client.read_registers.borrow_mut().clear();
+    let config_port_writes = client.config_port_writes.borrow().clone();
+    let config_writes = client.config_writes.borrow().len();
+    let config_reads = client.config_reads.borrow().len();
+    let mut active = ActiveIteMotherboardSensors::new(client, detected);
+    let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+    assert_eq!(sample.fan_speeds.len() + sample.temperatures.len(), 6);
+    assert_eq!(*active.client.read_registers.borrow(), BANKED_SAMPLE_READS);
+    assert_eq!(
+      *active.client.config_port_writes.borrow(),
+      config_port_writes
+    );
+    assert_eq!(active.client.config_writes.borrow().len(), config_writes);
+    assert_eq!(active.client.config_reads.borrow().len(), config_reads);
   }
 
   #[test]
