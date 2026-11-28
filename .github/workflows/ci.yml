@@ -54,6 +54,12 @@ jobs:
         id: changes
         background: true
         with:
+          # Markdown in the code trees (README.md, AGENTS.md, script READMEs)
+          # is not a build input, so the code filters negate it. A negated
+          # pattern only excludes under 'some-with-excludes' ("matches a
+          # positive pattern and no negated one"); a filter with no negation
+          # behaves exactly as under the default 'some'.
+          predicate-quantifier: "some-with-excludes"
           filters: |
             frontend:
               - 'hardviz/frontend/src/**'
@@ -65,6 +71,7 @@ jobs:
               - 'hardviz/frontend/tsconfig*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
             bindings:
               - 'hardviz/frontend/src/rspc/bindings.ts'
             backend:
@@ -76,6 +83,7 @@ jobs:
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
             core:
               - 'hardviz/core/**'
               - 'hardviz/sensor-service/**'
@@ -84,8 +92,13 @@ jobs:
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
             tauri:
               - 'hardviz/app/**'
+              # Bundled as app resources (tauri.conf.json `bundle.resources`),
+              # so this markdown is a build input; the negations below spare it.
+              - 'docs/licenses/LICENSE_INFORMATION.md'
+              - 'docs/licenses/MIT-pre-relicense.txt'
               - 'hardviz/sensor-service/**'
               - 'e2e-native/**'
               - 'Cargo.*'
@@ -93,11 +106,15 @@ jobs:
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!hardviz/**/*.md'
+              - '!e2e-native/**/*.md'
+              - '!.github/**/*.md'
             frontend-deps:
               - 'package*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
               - 'scripts/licenses/**'
+              - '!**/*.md'
             backend-deps:
               - 'hardviz/sensor-service/Cargo.toml'
               - 'hardviz/core/Cargo.toml'
@@ -107,6 +124,7 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
               - 'scripts/licenses/**'
+              - '!**/*.md'
             cargo-license-config:
               - 'hardviz/app/deny.toml'
               # Inputs to the DuckDB bundled-library notice check. hardviz/core/ and
@@ -127,26 +145,31 @@ jobs:
               - '.github/scripts/release/sign-codesigntool.ps1'
               - '.github/scripts/release/test-sign-codesigntool.ps1'
               - '.github/workflows/ci.yml'
+              - '!**/*.md'
             actions:
               - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
 
       # Catch-all: true when a changed file matches none of the filters above.
       # A file this repo has not classified yet must not let every Rust and
       # frontend job silently skip (#2003/#2008/#2009), so every change-gated
       # job below also runs on `unclassified-changed == 'true'`.
       #
-      # This needs its own paths-filter step: `predicate-quantifier` is
-      # step-scoped, and the filters above depend on the default 'some'
-      # ("matches at least one pattern"). Under 'some' the leading '**' would
-      # match every file and make this filter always true, so it uses
-      # 'some-with-excludes' ("matches a positive pattern and no negated one")
-      # to actually compute the complement.
+      # It uses 'some-with-excludes' ("matches a positive pattern and no
+      # negated one") to compute the complement; under the default 'some' the
+      # leading '**' would match every file and make it always true.
       #
       # The negations below mirror the positive patterns above. Forgetting to
       # mirror a newly added pattern is the safe direction: the file simply
       # falls through to unclassified and over-runs CI rather than skipping it.
+      #
+      # Markdown is excluded outright so a documentation-only change does not
+      # run the Rust and frontend jobs. Markdown that is a build input is
+      # routed by a positive filter above instead: the bundled license files
+      # through `tauri` and docs/licenses/manual/** through
+      # `cargo-license-config`.
       - name: Check unclassified changed files
         uses: dorny/paths-filter@v4.0.3
         id: unclassified
@@ -172,6 +195,7 @@ jobs:
               - '!.github/scripts/**'
               - '!scripts/licenses/**'
               - '!.github/workflows/**'
+              - '!**/*.md'
 
       - name: Setup Node.js
         uses: $/.github/actions/setup-node
