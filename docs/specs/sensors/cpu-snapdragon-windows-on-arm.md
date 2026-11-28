@@ -211,7 +211,7 @@ They are properties of existing behavior, not a new scope.
 | The hottest zone can stay at a constant value, such as 86 °C. When no zone name contains `CPU` or `PROC`, that zone becomes the headline CPU temperature; otherwise the first matching named zone is used (R2). | U1 (X2 Elite Extreme; Zenbook A16 after resume), R2 |
 | A zone can read a constant 255 K. The existing -40 to 150 °C filter keeps it, so the zone list shows about -18 °C. | L1 (lead-only) |
 | Zones can read 0. The existing filter drops them, together with the constant 233 K zones. | L1 (lead-only) |
-No zone name in D1–D7 contains `CPU` or `PROC`, so on those firmware tables the headline is the hottest zone. That zone's sensor is not identified as the CPU die by any source. | D1–D7, M5 |
+| No zone name in D1–D7 contains `CPU` or `PROC`, so on those firmware tables the headline is the hottest of the readable zones the transport returns; when it returns none, there is no headline temperature. That zone's sensor is not identified as the CPU die by any source. | D1–D7, M5 |
 | Which devices the L1 zones list is unconfirmed. | Open question 8 |
 
 ## Safety notes
