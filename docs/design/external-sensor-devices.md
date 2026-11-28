@@ -84,7 +84,10 @@ ANE and package power only.
 
 ## Device Entity
 
-One `ExternalSensorDevice` per qualifying endpoint:
+One `ExternalSensorDevice` per identity-matched endpoint, created before the
+driver and label qualification gates run, so an endpoint that matches the
+HID identity but fails a later gate is still listed with
+`EndpointNotQualified`:
 
 | Field | Meaning |
 | --- | --- |
@@ -270,8 +273,9 @@ App:
 
 Frontend:
 
-- A hook modelled on `useCpuDetailTemperatures` polls while the panel is
-  mounted and `document.hidden` is false, and exposes `hasError` and `retry`.
+- A hook modelled on `useCpuDetailTemperatures` polls only while the panel is
+  visible in the layout and `document.hidden` is false (mounted alone is not
+  enough, in case a future layout keeps hidden panels mounted), and exposes `hasError` and `retry`.
   The panel is the only consumer, so the state stays in the hook. A second
   consumer would turn it into a shared-read atom (frontend `AGENTS.md`).
 - The poll interval is 2 seconds, above the 1 second floor. The value is
