@@ -78,6 +78,10 @@ pub(super) struct IteEcProfile {
   pub(super) chip_id: u16,
   /// CR22 low nibble that must match before logical-device selection.
   pub(super) required_revision: Option<u8>,
+  /// Whether discovery reads CR22 before logical-device selection for
+  /// diagnostics only. Neither its value nor a failed read selects or refuses
+  /// the profile.
+  pub(super) reports_diagnostic_revision: bool,
   pub(super) ec_base_rule: IteEcBaseRule,
   /// Whether EC `0x00` bit 7 rejects the controller during discovery.
   pub(super) discovery_rejects_configuration_bit7: bool,
@@ -106,6 +110,7 @@ const MODERN: IteEcProfile = IteEcProfile {
   slots: &[0],
   chip_id: 0,
   required_revision: None,
+  reports_diagnostic_revision: false,
   access: IteEcAccess::Unbanked,
   ec_base_rule: IteEcBaseRule::Modern,
   discovery_rejects_configuration_bit7: true,
@@ -189,6 +194,7 @@ pub(super) const IT8772E_FX: IteEcProfile = IteEcProfile {
 /// per-sample bank bracket. CR22 is recorded for diagnostics and never gates.
 const BANKED_MODERN: IteEcProfile = IteEcProfile {
   access: IteEcAccess::BankGuarded,
+  reports_diagnostic_revision: true,
   ..MODERN
 };
 
@@ -320,6 +326,7 @@ mod tests {
       let row = ite_ec_profile(0, id).unwrap();
       assert_eq!(row.access, IteEcAccess::BankGuarded);
       assert_eq!(row.required_revision, None);
+      assert!(row.reports_diagnostic_revision);
       assert_eq!(row.fan_mode_register, None);
     }
     for id in [0x8696, 0x8698, 0x8665, 0x8655, 0x8625, 0x8613] {
