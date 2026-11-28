@@ -4,7 +4,7 @@
 | --- | --- |
 | Revision | 1 |
 | Status | Implementation-ready (rev 1) |
-| Scope | Experimental CCD temperatures on Windows x86-64 for AMD family `0x19`, model `0x18`, stepping 1 (`0x00A10F81`, Storm Peak: Ryzen Threadripper 7000 and Threadripper PRO 7000 WX-Series) with package field 8 and exactly one OS-enumerated physical package. The path reads twelve fixed positions, each with its own validity bit, through the existing signed PawnIO `RyzenSMU` read interface. The section [Disposition of #2702 targets](#disposition-of-2702-targets) ranks and dispositions every other deferred Zen CCD target. Package Tctl/Tdie has its own [specification](cpu-amd-zen-smn.md). |
+| Scope | Experimental CCD temperatures on Windows x86-64 for AMD family `0x19`, model `0x18`, stepping 1 (`0x00A10F81`, Storm Peak: Ryzen Threadripper 7000 and Threadripper PRO 7000 WX-Series) and exactly one OS-enumerated physical package. The observed package field 8 is evidence, not a runtime gate. The path reads twelve fixed positions, each with its own validity bit, through the existing signed PawnIO `RyzenSMU` read interface. The section [Disposition of #2702 targets](#disposition-of-2702-targets) ranks and dispositions every other deferred Zen CCD target. Package Tctl/Tdie has its own [specification](cpu-amd-zen-smn.md). |
 | Issue phase | [#2702](https://github.com/shm11C3/HardwareVisualizer/issues/2702), follow-up to [#2515](https://github.com/shm11C3/HardwareVisualizer/issues/2515) |
 
 ## Sources
@@ -30,25 +30,31 @@
 Apply the admission gates before any CCD SMN request. Product names,
 workstation and board identities are evidence identities under
 [ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md).
+The CPUID package field is not a gate. No source assigns family `0x19`
+model `0x18` to more than one package or a different map per package
+value: the lead keys the map by model band (S5) and the signed module
+classifies the model without reading the field (S6). Unlike the shared
+Granite Ridge and Fire Range signature, where the field selects between
+the AM5 and FL1 scopes, the field selects nothing here. The observed
+value 8 is recorded in the Status column.
 
 | Condition | Gate kind | Source |
 | --- | --- | --- |
 | Windows x86-64, CPUID leaf 0 vendor `AuthenticAMD` and CPUID.01H:EAX exactly `0x00A10F81` (family `0x19`, model `0x18`, stepping 1) | mechanism (selects the observed Storm Peak die and revision of the twelve-position map) | S2, S3, S5, S6 |
-| CPUID extended leaf `0x80000001` is available and EBX bits 31:28 equal `0x8` | mechanism (admits only the package field observed on Storm Peak) | S2, S3 |
 | Complete Windows physical-package enumeration with `RelationProcessorPackage` reports exactly one nonempty package whose valid processor group masks cover all active logical processors | safety (the signed module reads through one fixed host-bridge endpoint with no package selector) | S2, S6 (lead-only route), S7 |
 | The existing signed `RyzenSMU` module loads and the caller holds `Global\Access_PCI` for each request | safety (authorized, serialized read transaction) | S6 |
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Exact `0x00A10F81`, package field 8, one complete physical package and signed `RyzenSMU` access to the twelve scoped positions | Threadripper PRO 7975WX is the best-evidenced identity: AMD product identity and die count (S1), raw signature and package field (S2), and four converted Linux CCD channels on an HP workstation (S4). The 7995WX has AMD identity (S1) and a raw single-package record across 192 logical processors (S2). The 7960X has a raw record (S2). The 7980X has a decoded identity, package type and host-bridge inventory (S3). S5 supplies the lead-only twelve addresses and their order, bit-11 validity, temperature encoding and the label-to-position mapping used to read S4. S6 pins the signed transport. Its internal classification and fixed route are lead-only. Members that satisfy the same mechanism gates are Experimental. | Experimental under [ADR 0023](../../adr/0023-copyleft-derived-facts-for-experimental-scopes.md). |
+| Exact `0x00A10F81`, one complete physical package and signed `RyzenSMU` access to the twelve scoped positions | Threadripper PRO 7975WX is the best-evidenced identity: AMD product identity and die count (S1), raw signature and package field 8 (S2), and four converted Linux CCD channels on an HP workstation (S4), whose assignment to positions 1–4 is inferred from the lead (see Open questions). The 7995WX has AMD identity (S1) and a raw single-package record across 192 logical processors (S2). The 7960X record also shows package field 8. The 7980X has a decoded identity, package type 8 and host-bridge inventory (S3). S5 supplies the lead-only twelve addresses and their order, bit-11 validity, temperature encoding and the label-to-position mapping by which S4 is read. S6 pins the signed transport. Its internal classification and fixed route are lead-only. Members that satisfy the same mechanism gates are Experimental. | Experimental under [ADR 0023](../../adr/0023-copyleft-derived-facts-for-experimental-scopes.md). |
 | Genoa B1 `0x00A10F11` with SP5 package field 4 | The separate [Genoa B1 scope](cpu-amd-genoa-b1-ccd-smn.md) applies. | Unsupported by this scope. |
-| Other signatures, including other model `0x18` steppings, other package fields, an unavailable extended leaf, and unknown, incomplete or multiple physical packages | Outside this map. | Unsupported by this scope. |
+| Other signatures, including other model `0x18` steppings, and unknown, incomplete or multiple physical packages | Outside this map. | Unsupported by this scope. |
 
 ## Register map (facts)
 
 | Address | Bits | Meaning | Units / encoding | Source |
 | --- | --- | --- | --- | --- |
-| SMN `0x00059B00`, `0x00059B04`, `0x00059B08`, `0x00059B0C`, `0x00059B10`, `0x00059B14`, `0x00059B18`, `0x00059B1C`, `0x00059B20`, `0x00059B24`, `0x00059B28`, `0x00059B2C` in order | 31:0 | CCD temperature positions 1–12, one 32-bit word each | 32-bit word | S5 (lead-only map), S4 (positions 1–4 observed as converted channels), S6 (read width) |
+| SMN `0x00059B00`, `0x00059B04`, `0x00059B08`, `0x00059B0C`, `0x00059B10`, `0x00059B14`, `0x00059B18`, `0x00059B1C`, `0x00059B20`, `0x00059B24`, `0x00059B28`, `0x00059B2C` in order | 31:0 | CCD temperature positions 1–12, one 32-bit word each | 32-bit word | S5 (lead-only map), S6 (read width) |
 | Each scoped word | 11 | CCD reading validity | Set means valid at channel discovery | S5 |
 | Each scoped word | 10:0 | CCD temperature field | Unsigned, 0.125 °C per increment, reference offset −49 °C | S5 |
 
@@ -82,15 +88,16 @@ workstation and board identities are evidence identities under
 - The twelve register positions are the only exposed slots. AMD lists
   package die counts of 5 for the 7975WX and 13 for the 7995WX, each
   with one I/O die size listed (S1). The lead discovers twelve
-  positions for this model band (S5). The 7975WX report shows the first
-  four positions (S4). The valid bit decides whether a position reports
+  positions for this model band (S5). The 7975WX report shows four
+  converted channels (S4), read through the lead as the first four
+  positions (see Open questions). The valid bit decides whether a position reports
   for the current sample. A clear bit does not establish whether a CCD
   is physically absent, disabled or temporarily unreadable, and the
   valid positions on a part with fewer CCDs can leave holes.
 - The numeric addresses and field layout match the separate [Genoa B1
   scope](cpu-amd-genoa-b1-ccd-smn.md) because the lead keys the map by
   the family 19h model 10h–1Fh band (S5). The scopes stay separate
-  because the signature and package field differ, and each scope rests
+  because the signatures differ, and each scope rests
   on its own observations.
 - A set validity bit alone does not prove that a word belongs to the
   admitted die. On a Strix Point part, a map from another model band
@@ -124,10 +131,10 @@ workstation and board identities are evidence identities under
 
 | Case | Required result |
 | --- | --- |
-| Exact signature, package field 8 and one package in one processor group, with words `0x0AC8`, `0x0B38`, `0x0B00` and `0x0AC4` at positions 1–4 and zero at positions 5–12 | Request exactly the twelve approved addresses, once each and in order. Report 40 °C, 54 °C, 47 °C and 39.5 °C at positions 1–4 and keep positions 5–12 unavailable. A changed, absent, PRO or non-PRO CPU name and any workstation or board identity leave admission unchanged. |
+| Exact signature and one package in one processor group, with words `0x0AC8`, `0x0B38`, `0x0B00` and `0x0AC4` at positions 1–4 and zero at positions 5–12 | Request exactly the twelve approved addresses, once each and in order. Report 40 °C, 54 °C, 47 °C and 39.5 °C at positions 1–4 and keep positions 5–12 unavailable. A changed, absent, PRO or non-PRO CPU name and any workstation or board identity leave admission unchanged. |
 | One complete package spanning three Windows processor groups with 192 active logical processors, with valid values at positions 1, 9 and 12 only | Preserve the fixed address order and the three values at their own positions on package index 0. Keep every other position unavailable, including holes before valid positions. Group count, NUMA node count and core count do not change admission. |
 | Genoa B1 `0x00A10F11` with package field 4 | Make no request under this profile. The Genoa B1 profile applies its own gates. |
-| `0x00A10F81` with package field 4 or another value other than 8, or an unavailable extended CPUID leaf | Make no CCD request and return no target under this profile. |
+| `0x00A10F81` with package field 8, 4 or 0, or with the extended CPUID leaf unavailable | Admission and results are unchanged. The profile does not read the package field. |
 | Another model `0x18` stepping such as `0x00A10F80` or `0x00A10F82`, family `0x19` model `0x08`, family `0x1A` model `0x08`, another vendor, or unknown, malformed, incomplete or multiple package records | Make no CCD request and return no target under this profile. Existing approved CCD and package paths keep their own gates. |
 | One position fails, returns zero or all ones, or clears bit 11 while other positions report valid values | Keep all position identities, mark only the affected temperature unavailable and preserve the others. Exercise the first, a middle and the last position, and the transition from valid to invalid on a later sample. |
 | Words `0x0988`, `0x0848`, `0x0D48`, `0x0847`, `0x0D49` and `0x0E2D` | Retain 0 °C, −40 °C and +120 °C. Mark values one increment outside either limit and the bit-11-set word decoding to 148.625 °C unavailable in their positions. |
@@ -157,21 +164,24 @@ not a hardware fact. The disposition and its evidence are facts.
 
 ## Open questions
 
-- Non-blocking for the Experimental scope: the package-field gate admits only the value observed on four Storm Peak products.
+- Non-blocking for the Experimental scope: the package field is recorded as evidence because no source ties it to a different map for this model.
   S2 shows raw field 8 on the 7995WX, 7975WX and 7960X, and S3
   independently decodes package type 8 on a 7980X. AMD's public
   revision guide for this model range covers SP5 only (S8), and no
-  public AMD document defining the sTR5 field value was found. The
-  signed module does not read the field for this model (S6). Any other
-  value stays outside revision 1.
+  public AMD document defining the sTR5 field value was found. Neither
+  the lead (S5) nor the signed module (S6) reads the field for this
+  model. If a second package of model `0x18` with a different map is
+  documented, a later revision adds the field as a mechanism gate.
 - Non-blocking for the Experimental scope: the CCD map rests on a model-band lead with a converted same-die observation, as ADR 0023 permits.
   S5 selects the map by the family 19h model 10h–1Fh band, and its
-  AMD-authored commit states the twelve-CCD capacity for that band. In
-  S5, the band's only CCD channels come from that map, so the `Tccd1`
-  to `Tccd4` channels in S4 indicate that the first four positions
-  passed discovery and decoded to values plausible against `Tctl` on a
-  7975WX. S4 omits the kernel version, so this reading assumes the
-  reporter's kernel used the upstream band. Positions 5–12 are not
+  AMD-authored commit states the twelve-CCD capacity for that band. S4
+  observes only four converted channels labelled `Tccd1` to `Tccd4` on
+  a 7975WX. It gives no kernel version and no SMN address. Assigning
+  those channels to positions 1–4 (`0x00059B00`–`0x00059B0C`) is an
+  inference: it assumes the reporter's kernel used the upstream band,
+  where the band's only CCD channels come from that map and labels
+  follow position order. Under that assumption the four positions passed
+  discovery and decoded to values plausible against `Tctl`. Positions 5–12 are not
   observed on any admitted part. No public raw SMN capture of any
   position on Storm Peak exists, and no HardwareVisualizer Windows run
   is asserted. Verified status requires primary register documentation
@@ -189,4 +199,4 @@ not a hardware fact. The disposition and its evidence are facts.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-29 | Initial specification. Propose the transition to Implementation-ready (rev 1) for Experimental Storm Peak CCD temperatures on the exact `0x00A10F81` signature with package field 8 and one physical package, via signed Windows SMN access to twelve fixed positions. Rank and disposition every #2702 target. Maintainer sign-off is pending. |
+| 1 | 2026-11-29 | Initial specification. Propose the transition to Implementation-ready (rev 1) for Experimental Storm Peak CCD temperatures on the exact `0x00A10F81` signature and one physical package, via signed Windows SMN access to twelve fixed positions. Rank and disposition every #2702 target. Review: record the observed package field 8 as evidence instead of a runtime gate, because no source ties the field to a different map for this model (ADR 0031). State the S4 channel-to-position assignment as an inference in Open questions, not as a fact-table observation. Maintainer sign-off is pending. |
