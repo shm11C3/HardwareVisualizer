@@ -87,7 +87,9 @@ const NUVOTON_DIRECT_RPM_REGISTERS: [(&str, u8, u8); 7] = [
 const NUVOTON_HM_IO_SPACE_LOCK_BIT: u8 = 1 << 4;
 const NCT6701D_MIN_HM_BASE: u16 = 0x0100;
 const NCT6701D_INVALID_HM_BASE_BITS: u16 = 0xF007;
-const NUVOTON_GENERIC_SOURCE_LABEL: &str = "Nuvoton / Super I/O";
+/// The generic Nuvoton Super I/O source label, shared with the other Nuvoton
+/// profile modules.
+pub(super) const NUVOTON_GENERIC_SOURCE_LABEL: &str = "Nuvoton / Super I/O";
 /// The leads classify a raw chip ID into a family by ignoring the low three
 /// bits of CR21, which S1 p. 362 describes as the IC version digit.
 const NUVOTON_FAMILY_ID_MASK: u16 = 0xFFF8;

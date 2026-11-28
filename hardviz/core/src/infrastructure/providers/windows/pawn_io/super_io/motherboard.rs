@@ -744,18 +744,35 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
   }
 
   fn write_hm_byte(&self, register: u8, value: u8) -> Result<(), String> {
-    let index_port = self.hm_base + HM_INDEX_OFFSET;
-    let data_port = self.hm_base + HM_DATA_OFFSET;
-    self.client.pio_outb(index_port, register)?;
-    self.client.pio_outb(data_port, value)
+    write_nuvoton_hm_byte(&self.client, self.hm_base, register, value)
   }
 
   fn read_hm_byte(&self, register: u8) -> Result<u8, String> {
-    let index_port = self.hm_base + HM_INDEX_OFFSET;
-    let data_port = self.hm_base + HM_DATA_OFFSET;
-    self.client.pio_outb(index_port, register)?;
-    self.client.pio_inb(data_port)
+    read_nuvoton_hm_byte(&self.client, self.hm_base, register)
   }
+}
+
+/// Write one Nuvoton hardware-monitor register through the index/data ports at
+/// `hm_base` + 5 / + 6.
+fn write_nuvoton_hm_byte(
+  client: &impl LpcIoOps,
+  hm_base: u16,
+  register: u8,
+  value: u8,
+) -> Result<(), String> {
+  client.pio_outb(hm_base + HM_INDEX_OFFSET, register)?;
+  client.pio_outb(hm_base + HM_DATA_OFFSET, value)
+}
+
+/// Read one Nuvoton hardware-monitor register through the index/data ports at
+/// `hm_base` + 5 / + 6.
+fn read_nuvoton_hm_byte(
+  client: &impl LpcIoOps,
+  hm_base: u16,
+  register: u8,
+) -> Result<u8, String> {
+  client.pio_outb(hm_base + HM_INDEX_OFFSET, register)?;
+  client.pio_inb(hm_base + HM_DATA_OFFSET)
 }
 
 impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
