@@ -19,9 +19,11 @@ impl EnvProvider for RealEnvProvider {
 }
 
 ///
-/// Get directory name under `AppData/Roaming`
+/// Get the path of `sub_item` under the platform app data directory:
+/// `AppData/Roaming/<identifier>` on Windows,
+/// `~/Library/Application Support/<identifier>` on macOS, and
+/// `~/.config/<identifier>` on Linux.
 ///
-#[cfg(target_os = "windows")]
 pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
   get_app_data_dir_with_env(&RealEnvProvider, sub_item)
 }
@@ -33,14 +35,6 @@ pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> Pat
 
   let app_data = PathBuf::from(env.get_var("APPDATA").unwrap());
   app_data.join(identifier).join(sub_item)
-}
-
-///
-/// Get directory name under platform-appropriate app data location.
-///
-#[cfg(target_os = "macos")]
-pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
-  get_app_data_dir_with_env(&RealEnvProvider, sub_item)
 }
 
 #[cfg(target_os = "macos")]
@@ -55,14 +49,6 @@ pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> Pat
     .join("Application Support")
     .join(identifier)
     .join(sub_item)
-}
-
-///
-/// Get directory name under `~/.config/<identifier>` (Linux)
-///
-#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
-pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
-  get_app_data_dir_with_env(&RealEnvProvider, sub_item)
 }
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
