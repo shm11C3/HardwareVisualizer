@@ -253,8 +253,8 @@ impl Providers {
 mod tests {
   use super::*;
   use crate::infrastructure::providers::windows::pawn_io::cpu::ccd_temperature::{
-    synthetic_dragon_range_target, synthetic_genoa_target, synthetic_raphael_target,
-    synthetic_target,
+    synthetic_dragon_range_target, synthetic_fire_range_target, synthetic_genoa_target,
+    synthetic_raphael_target, synthetic_target,
   };
 
   #[test]
@@ -317,7 +317,11 @@ mod tests {
 
   #[test]
   fn module_required_profiles_do_not_invalidate_package_temperature() {
-    for target in [synthetic_dragon_range_target(), synthetic_genoa_target()] {
+    for target in [
+      synthetic_dragon_range_target(),
+      synthetic_fire_range_target(),
+      synthetic_genoa_target(),
+    ] {
       let now = uptime_ms();
       let mut providers = Providers::new();
       providers.temperature.sampler =
