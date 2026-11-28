@@ -263,10 +263,33 @@ failure, and it then reports that eligible failure.
 An unconfirmed exit takes precedence over every other outcome of the
 attempt. Once an entry-key or exit write fails on any slot, the attempt
 makes no further probe on any slot and caches no path. This holds even
-when a later probe would have qualified. The attempt ends
-with that eligible failure, and the cleanup is the next attempt under
-R2. That attempt repeats the slot's entry and its matching exit. No
-separate exit-only write exists.
+when a later probe would have qualified. The attempt ends with that
+eligible failure. The slot and the vendor sequence whose write failed
+are recorded as **owed cleanup**.
+
+**Cleanup first.** Every later attempt begins, under its own ISA mutex
+acquisition, with a cleanup step for each slot that owes one, in slot
+order. The step comes before the normal ordered scan of the owning
+specifications. It never depends on whether an earlier slot would
+qualify.
+
+- The cleanup selects the slot and writes the entry keys of the
+  recorded vendor sequence. It then writes that sequence's exit and
+  makes no other access.
+- For an ITE sequence on slot 1 there is one exception. Between entry
+  and exit, the cleanup reads `0x20`/`0x21` and applies the
+  [slot-1 ITE exit withhold rule](#slot-1-ite-exit-withhold-rule). A
+  withheld exit counts as a completed cleanup.
+- A cleanup whose entry and exit writes both succeed clears that slot's
+  owed cleanup. Only then does the attempt continue to the next owed
+  slot, and after the last one to the normal scan.
+- If a cleanup write fails, the attempt stops. It caches no path, keeps
+  the cleanup owed and ends with an eligible failure under R2.
+
+No path is cached while any cleanup is owed. Owed cleanup is not
+cleared by a session start or by sampler recreation; only a completed
+cleanup clears it. The cleanup writes are the entry keys and the exit
+writes of this document's Safety notes.
 
 The rule rejects the alternative of keeping a qualified path and owing
 the failed slot a cleanup exit. That cleanup would be a configuration
@@ -407,6 +430,8 @@ seconds after the first attempt starts.
 | Eligible failures at 0, 2 and 6, and the sampler is recreated at 10 | The recreated sampler's first attempt starts no earlier than 14, and `n` continues from 3. |
 | In one attempt, slot 0 ends not eligible and slot 1 eligible, and separately the reverse order | Both attempts are eligible, report the eligible failure, and are followed by `D(n)`. |
 | Slot 0 reads an unmatched chip ID and its exit write fails, while slot 1 holds a chip that would qualify | The attempt issues no `ioctl_select_slot(1)` and no write to slot 1. It caches no path and ends eligible. The next attempt, no earlier than `D(n)`, starts again at slot 0 with its entry keys and exit. Slot 1 can qualify only in an attempt whose slot 0 exit is confirmed. |
+| Attempt 1: slot 0 fails its base gate, then the exit write on slot 1 fails. Attempt 2 is due, and slot 0 now qualifies. | Attempt 2 first selects slot 1, writes the recorded entry keys and exit, and then scans slot 0. It caches slot 0 only after the slot 1 exit write succeeds. If the slot 1 cleanup write fails again, attempt 2 makes no slot 0 access, caches nothing and ends eligible. |
+| Cleanup is owed on slot 1, and the service releases the session before the next attempt | The first attempt of the new session still begins with the slot 1 cleanup. |
 | An unconfirmed exit on a later probe of slot 0, after an earlier probe on the same slot found nothing | The attempt stops at that probe, caches no path and ends eligible. |
 | A due request whose attempt caches a path, followed by a sample transaction in the same request | Two mutex acquisitions in order. The first contains every configuration-key write and is released before the second. The second contains no entry key and no exit write. |
 | A cached path whose samples fail as a whole on several requests, for example a banked ITE opening check that reads EC `0x06` = `0x20`, while the path stays cached | No discovery attempt and no configuration-key write. Samples continue at their own cadence. |
@@ -554,4 +579,4 @@ revisions or per-chip documents before implementation:
 | 2 | 2026-06-11 | Corrected `Access_ISABUS.HTP.Method` ownership: the LpcIO module documents caller-held acquisition and takes no mutex itself. Still Draft — Phase 3/4 datasheet pinning outstanding. |
 | 3 | 2026-06-27 | Narrowed the ready scope to the Phase 2 raw chip-id diagnostic used by PR #1732; removed hardware-monitor base discovery and decode facts from the implementation-ready surface; added scoped enablement, bounded Phase 2 procedure, non-blocking open-question annotations, and status → Implementation-ready. |
 | 4 | 2026-10-25 | Read-only safety amendment: added lead-only sources S5–S8 (ADR 0023) and lead-only facts F1–F8 on the ITE secondary-pair embedded controllers (shared ID `0x8733` for IT8792E/IT8795E, `0x8790` IT8790E, `0x8695` IT87952E, `0x8883` re-enter report, Gigabyte `0x2E`/`0x4E` placement convention, LPC-error/hang hazard on exiting configuration mode); added the normative "Slot-1 ITE exit withhold rule" and its Experimental scoped-enablement row; the raw chip-id row keeps its rev 3 status. Pinned S2 pages; added S2 facts that register `0x02` bit 0 is a logical-device reset (never written) and that the fourth ITE key byte selects the configuration pair (key written only to its own port). Added six non-blocking open questions. Status remains Implementation-ready (rev 4). |
-| 5 | 2026-11-28 | Added the sampling-path rediscovery cadence for [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821). It is product policy from the project sources S9 and S10 and rests on no hardware or lead-only fact. It defines eligible and not-eligible discovery failure classes with a shared table. Rules R1–R8 cover the following. A discovery attempt is a separate mutex-guarded transaction and never runs inside a sample transaction, and none runs while a path is cached. After an eligible failure the backoff is `min(2 s × 2^(n−1), 30 s)`. A not-eligible failure starts no further attempt from the same sampler. A recreated sampler inherits the backoff. The count resets at the first successful sample or at a new session. A discarded path counts as a failure. The ITE 1.5 s sample minimum is independent. An unconfirmed exit on any slot takes precedence over every other outcome: the attempt stops probing, caches no path and ends eligible, so the next attempt under R2 is the cleanup. With no failure in the session, for example after a successful path is invalidated, a request that is not due reports a defined *rediscovery pending* unavailable result. Added the reasoning for the values, fixtures, a scoped-enablement row and three non-blocking open questions. The Phase 2 diagnostic, the slot-1 exit withhold and every fact of revision 4 are unchanged. Status remains Implementation-ready (rev 5). |
+| 5 | 2026-11-28 | Added the sampling-path rediscovery cadence for [#2821](https://github.com/shm11C3/HardwareVisualizer/issues/2821). It is product policy from the project sources S9 and S10 and rests on no hardware or lead-only fact. It defines eligible and not-eligible discovery failure classes with a shared table. Rules R1–R8 cover the following. A discovery attempt is a separate mutex-guarded transaction and never runs inside a sample transaction, and none runs while a path is cached. After an eligible failure the backoff is `min(2 s × 2^(n−1), 30 s)`. A not-eligible failure starts no further attempt from the same sampler. A recreated sampler inherits the backoff. The count resets at the first successful sample or at a new session. A discarded path counts as a failure. The ITE 1.5 s sample minimum is independent. An unconfirmed exit on any slot takes precedence over every other outcome: the attempt stops probing, caches no path and ends eligible, and records the slot as owed cleanup. Every later attempt, including the first of a new session, cleans up each owed slot with entry plus exit before the normal ordered scan. It caches no path until that cleanup succeeds. With no failure in the session, for example after a successful path is invalidated, a request that is not due reports a defined *rediscovery pending* unavailable result. Added the reasoning for the values, fixtures, a scoped-enablement row and three non-blocking open questions. The Phase 2 diagnostic, the slot-1 exit withhold and every fact of revision 4 are unchanged. Status remains Implementation-ready (rev 5). |
