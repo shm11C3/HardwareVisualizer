@@ -951,7 +951,8 @@ ADR 0025 removes it in v2.0.0.
 integration binaries run in parallel. The `cargo tauri-test` alias uses nextest
 too. Plain `cargo test -p <crate>` runs the tests of each binary inside one
 shared process, so it is slower for the DuckDB binaries and does not give the
-per-test process isolation CI relies on; use nextest for results that match CI. See [`hardviz/core/README.md`](../../hardviz/core/README.md#build--test).
+per-test process isolation CI relies on; use nextest for results that match CI.
+See [`hardviz/core/README.md`](../../hardviz/core/README.md#build--test).
 
 Frontend and TypeScript checks are run from the repository root:
 
