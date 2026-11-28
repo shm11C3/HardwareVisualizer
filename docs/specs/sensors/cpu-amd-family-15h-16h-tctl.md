@@ -145,15 +145,27 @@ Notes:
   NodeId 0 to internal node 1 of a processor. Device 18h is therefore
   not documented to be internal node 0 on a dual-node processor.
   (S1 §2.9.3.2.2 p. 100, §2.8 p. 93)
-- None of the other six documents (S2–S7) mentions multi-node
-  processors, `MultiNodeCpu` or `IntNodeNum`.
+- None of the other six documents (S2–S7) defines a `MultiNodeCpu` or
+  `IntNodeNum` field or an internal-node rule for the temperature
+  register. They do carry generic BIOS programming notes for
+  multi-node systems and processors, for example S2 p. 451
+  (D18F4x128 `CoreCstatePolicy`: "BIOS should program this field to
+  the same value in all nodes of a multi-node processor") and S2
+  p. 429, and S2 D18F3xE8 (p. 438) has a `DualNode` capability bit
+  ("Dual-node multi-processor capable"). S2 documents only the FP2,
+  FS1r2 and FM2 package types (p. 501). This document reads no
+  multi-node topology into those notes; the groups of S2–S7 keep the
+  single-package gate.
 
 ## Read procedure and decode
 
 Admission (steps 1–3) runs in this order, and the path is admitted
 only after step 3 passes. Any failure in steps 1–3 leaves CPU
 temperature unavailable from this path (fallback as for other PawnIO
-paths) and no register read is attempted.
+paths). No temperature or other CPU thermal register (D18F3xA4,
+D0F0xBC_xD820_0CA4) is read before admission. The only earlier
+hardware accesses are the module's load-time PCI reads of `00:14.0`
+(see Safety notes) and the step 3 identity read of D18F3x00.
 
 1. CPU and topology gates, before any PawnIO call: the vendor, the
    family/model selection, the Family 15h 00h–0Fh package-type gate,
@@ -306,4 +318,4 @@ re-verification.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version. Map A (`D18F3xA4`) and map B (`D0F0xBC_xD820_0CA4`) for Family 15h 00h–0Fh, 10h–1Fh, 30h–3Fh, 60h–6Fh, 70h–7Fh and 16h 00h–0Fh, 30h–3Fh, from AMD BKDGs 42301, 42300, 49125, 50742, 55072, 48751, 52740 and six revision guides. Access through signed `AMDFamily10.bin` from PawnIO.Modules 0.2.11. Proposed as Implementation-ready (rev 1); the maintainer's PR approval is the sign-off. |
-| 2 | 2026-11-28 | Limit Family 15h 00h–0Fh to the single-node AM3r2 and C32r1 packages with a CPUID `PkgType` mechanism gate. Dual-node G34r1 and Reserved package values become Unsupported. No AMD source states that device 18h is internal node 0 (BKDG 42301 §2.9.3.2.2, p. 393), and `D18F3xE8` is not readable through the module. All other groups are unchanged. |
+| 2 | 2026-11-28 | Limit Family 15h 00h–0Fh to the single-node AM3r2 and C32r1 packages with a CPUID `PkgType` mechanism gate. Dual-node G34r1 and Reserved package values become Unsupported. No AMD source states that device 18h is internal node 0 (BKDG 42301 §2.9.3.2.2 p. 100; D18F3xA4 p. 393), and `D18F3xE8` is not readable through the module. All other groups are unchanged. Corrected the note on S2–S7 (they carry generic multi-node BIOS notes, e.g. BKDG 42300 p. 451, but no `MultiNodeCpu`/`IntNodeNum` field), and stated that only the module's load-time PCI reads and the D18F3x00 identity read precede admission. |
