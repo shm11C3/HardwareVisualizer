@@ -139,8 +139,15 @@ tracked in each document's header and in the Current documents table.
 
 A document becomes a valid clean-room input only through this
 transition. The flip is proposed by the spec-author role and approved
-by a maintainer; the sign-off is the maintainer's approval of the PR
-that performs the flip.
+by a maintainer. Either of the following is the sign-off for the PR that
+performs the flip:
+
+- the maintainer's approving review on that PR; or
+- merging that documentation-only PR under the maintainer's merge policy,
+  which requires resolved threads, green CI and CodeRabbit's approval
+  (maintainer decision of 2026-11-28).
+
+Merging the PR accepts the Open questions it marks non-blocking.
 
 Checklist for the flipping PR (all items required):
 
@@ -200,7 +207,7 @@ or unresolved blocking open question invalidates the flip.
 | [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel package digital thermal sensor via MSRs | Phase 1 | Implementation-ready (rev 3) |
 | [`cpu-intel-core-dts-msr.md`](cpu-intel-core-dts-msr.md) | Core DTS for listed Nehalem through Broadwell and Silvermont through Tremont models, including exact Haswell-E/Xeon E5 v3 at zero TCC offset. Includes exact Alder Lake S/HX, Alder Lake H/P and PS, and Raptor Lake S/HX and S/HX Refresh hybrid signatures. Single Windows group and package. | #2514 | Implementation-ready (rev 8) |
 | [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 5) |
-| [`cpu-amd-family-15h-16h-tctl.md`](cpu-amd-family-15h-16h-tctl.md) | Verified Windows control temperature (Tctl) on pre-Zen AMD Family 15h models 00h–0Fh, 10h–1Fh, 30h–3Fh (`D18F3xA4`) and 60h–7Fh (SMU `D0F0xBC_xD820_0CA4`), and Family 16h models 00h–0Fh, 30h–3Fh (`D18F3xA4`), from AMD BKDGs, through the signed `AMDFamily10` module. One physical package; identity-register and select-field gates; labelled as a control temperature, not a die temperature. Requires a fifth module blob. | #2511 | Implementation-ready (rev 1) |
+| [`cpu-amd-family-15h-16h-tctl.md`](cpu-amd-family-15h-16h-tctl.md) | Verified Windows control temperature (Tctl) on pre-Zen AMD Family 15h models 00h–0Fh (single-node AM3r2 and C32r1 packages only; dual-node G34r1 is Unsupported), 10h–1Fh, 30h–3Fh (`D18F3xA4`) and 60h–7Fh (SMU `D0F0xBC_xD820_0CA4`), and Family 16h models 00h–0Fh, 30h–3Fh (`D18F3xA4`), from AMD BKDGs, through the signed `AMDFamily10` module. One physical package; identity-register and select-field gates; labelled as a control temperature, not a die temperature. Requires a fifth module blob. | #2511 | Implementation-ready (rev 2) |
 | [`cpu-amd-family-10h-14h-tctl.md`](cpu-amd-family-10h-14h-tctl.md) | Windows control temperature (Tctl) from `D18F3xA4` on pre-Zen AMD Family 10h (any model), 11h (any model), 12h (any model) and 14h models 00h–0Fh, from AMD BKDGs, through the same signed `AMDFamily10` module (`ioctl_read_miscctl` only). One physical package; identity-register gate and, on Family 10h only, the select-field check. Family 10h erratum 319 safety gates exclude the DR-B, RB-C2 and HY-D0 revision set and socket F, and require DDR3 evidence on AM2r2/AM3-type packages (that row is Experimental). G34 dual-node parts, Family 13h and multi-package systems are Unsupported. Labelled as a control temperature. | #2512 | Implementation-ready (rev 1) |
 | [`cpu-intel-rapl-msr.md`](cpu-intel-rapl-msr.md) | Intel CPU package power via RAPL energy MSRs (`0x606`/`0x611`), unit decode, 32-bit wraparound and wrap-safe gap handling, Silvermont-unit exclusion | Phase 5 | Implementation-ready (rev 4) |
 | [`cpu-intel-gracemont-dts-msr.md`](cpu-intel-gracemont-dts-msr.md) | Experimental Windows core DTS for exact non-hybrid Gracemont `0x000B06E0` across Alder Lake-N, Twin Lake and listed Atom x7000 products in one processor group and package | #2514 | Implementation-ready (rev 2) |
@@ -238,7 +245,7 @@ or unresolved blocking open question invalidates the flip.
 | [`superio-ite-b75m-d3h-linux-hwmon.md`](superio-ite-b75m-d3h-linux-hwmon.md) | Gigabyte GA-B75M-D3H IT8728 Linux fan evidence and read-to-clear alarm refresh limit | #2518 | Draft — not implementation-ready |
 | [`superio-ite-ga-h61m-ds2-fan-evidence.md`](superio-ite-ga-h61m-ds2-fan-evidence.md) | Gigabyte GA-H61M-DS2 F9 FAN1–2 firmware evidence, unresolved DX/EX attribution, and LPC ownership limits | #2518 | Draft — not implementation-ready |
 | [`superio-ite-it8721f-coreboot-ownership.md`](superio-ite-it8721f-coreboot-ownership.md) | ASUS Crosshair V Formula-Z Coreboot IT8721F configuration-port ownership evidence before chip-ID detection | #2518 | Draft — not implementation-ready |
-| [`superio-ite-primary-lpc-expansion.md`](superio-ite-primary-lpc-expansion.md) | Experimental temperatures and fans on exact IT8620E and IT8628E, fan readback on IT8716F D-version inputs with firmware-enabled 16-bit mode, and FAN2–3 on IT8772E FX. Primary LPC slot only. The separate IT8728F specification owns IT8728F FAN1–2. | #2517, #2518 | Implementation-ready (rev 6) |
+| [`superio-ite-primary-lpc-expansion.md`](superio-ite-primary-lpc-expansion.md) | Experimental temperatures and fans on exact IT8620E and IT8628E, fan readback on IT8716F D-version inputs with firmware-enabled 16-bit mode, and FAN2–3 on IT8772E FX. Rev 7 adds bank-guarded TMPIN1–3 and FAN1–3 on exact IT8686E, IT8688E and IT8689E. That profile reads bank 0 below index `0x80` and never writes the bank selector. It requires the bank field clear before and after each sample and reads every value twice. Rev 7 also adds a runtime gate table and a disposition for every #2698 target. Primary LPC slot only. The separate IT8728F specification owns IT8728F FAN1–2. | #2517, #2518, #2698 | Implementation-ready (rev 7) |
 | [`superio-ite-b850m-wifi6e-ice-linux-wmi.md`](superio-ite-b850m-wifi6e-ice-linux-wmi.md) | Experimental primary IT8696E temperatures through the already-bound Linux WMI hwmon endpoint on Gigabyte B850M AORUS ELITE WIFI6E ICE. | #2517 | Implementation-ready (rev 2) |
 | [`superio-ite-lattepanda-sigma-linux-ec.md`](superio-ite-lattepanda-sigma-linux-ec.md) | LattePanda Sigma native Linux EC temperature and RPM evidence with unresolved boot ACPI EC arbitration | #2517 | Draft — not implementation-ready |
 | [`superio-nuvoton-nct6687-linux-hwmon.md`](superio-nuvoton-nct6687-linux-hwmon.md) | Experimental Linux hwmon readings through the bound native NCT6687D-family endpoint on MSI PRO B850-P WIFI (temperatures and fans), MAG B850M MORTAR WIFI (SYS_FAN1), MPG X870E CARBON WIFI (one diode temperature and fan inputs 1 and 2), and MAG B850 TOMAHAWK MAX WIFI (one diode temperature and fan input 1). Board identity selects the EC channel assignment (ADR 0031). | #2520 | Implementation-ready (rev 6) |
