@@ -33,8 +33,8 @@ use super::{
   HM_BASE_HIGH_REGISTER, HM_BASE_LOW_REGISTER, ISABUS_MUTEX_TIMEOUT,
   LDN_ACTIVATION_REGISTER, LOGICAL_DEVICE_SELECT_REGISTER, LpcIoOps,
   MotherboardSensorError, NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT,
-  NUVOTON_HARDWARE_MONITOR_LDN, enter_nuvoton, exit_nuvoton, read_nuvoton_hm_byte,
-  write_nuvoton_hm_byte,
+  NUVOTON_HARDWARE_MONITOR_LDN, SlotProbe, enter_nuvoton, exit_nuvoton,
+  read_nuvoton_hm_byte, write_nuvoton_hm_byte,
 };
 use crate::log_warn;
 use crate::models::{
@@ -57,6 +57,9 @@ pub(super) struct DetectedSmiovtSlot {
 enum DiscoveryFailure {
   /// A PawnIO/transport failure; install or permission guidance may apply.
   Transport(String),
+  /// A failed HM port access after BAR discovery. Port authorization can
+  /// recover, so the sampler retries detection.
+  PortAccess(String),
   /// A gate read successfully through PawnIO failed; no guidance applies.
   HardwareState(String),
 }
@@ -105,6 +108,11 @@ fn discover_in_configuration_mode(
       match failure {
         DiscoveryFailure::Transport(reason) => {
           ChipFailure::nuvoton_smiovt(profile, with_id(reason)).into()
+        }
+        DiscoveryFailure::PortAccess(reason) => {
+          ChipFailure::nuvoton_smiovt(profile, with_id(reason))
+            .requiring_rediscovery()
+            .into()
         }
         DiscoveryFailure::HardwareState(reason) => {
           ChipFailure::nuvoton_smiovt(profile, with_id(reason))
@@ -173,11 +181,14 @@ fn discover_matched_chip(
     .find_lpc_bars()
     .map_err(transport("LpcIO BAR discovery failed"))?;
 
-  // Step 7: vendor ID through the HM ports.
+  // Step 7: vendor ID through the HM ports. A port failure here requests a
+  // fresh detection; a vendor ID that reads but differs is a hardware state.
   let read_vendor_byte = |select| {
     write_nuvoton_hm_byte(client, hm_base, HM_BANK_SELECT_REGISTER, select)
       .and_then(|()| read_nuvoton_hm_byte(client, hm_base, SMIOVT_VENDOR_ID_REGISTER))
-      .map_err(transport("vendor ID read failed"))
+      .map_err(|reason| {
+        DiscoveryFailure::PortAccess(format!("vendor ID read failed: {reason}"))
+      })
   };
   let vendor_high = read_vendor_byte(SMIOVT_VENDOR_ID_HIGH_BYTE_SELECT)?;
   let vendor_low = read_vendor_byte(SMIOVT_VENDOR_ID_LOW_BYTE_SELECT)?;
@@ -248,22 +259,41 @@ impl<C: LpcIoOps> ActiveNuvotonSmiovtSensors<C> {
     }
   }
 
-  /// "Detection" for one slot. The caller holds the ISA mutex. Configuration
-  /// mode is exited on every path, including failures.
+  #[cfg(test)]
   pub(super) fn discover_slot(
     client: &C,
     slot: u8,
   ) -> Result<Option<DetectedSmiovtSlot>, MotherboardSensorError> {
+    Self::probe_slot(client, slot).result
+  }
+
+  /// "Detection" for one slot. The caller holds the ISA mutex. Once the slot
+  /// is selected, configuration mode is exited on every path, including a
+  /// failed entry key write ("Detection" step 8).
+  pub(super) fn probe_slot(client: &C, slot: u8) -> SlotProbe<DetectedSmiovtSlot> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
-      return Ok(None);
+      return SlotProbe::exited(Ok(None));
     };
 
-    client.select_lpc_slot(slot as u64)?;
-    enter_nuvoton(client, index_port)?;
+    if let Err(reason) = client.select_lpc_slot(slot as u64) {
+      // Nothing was written to the configuration ports.
+      return SlotProbe::exited(Err(reason.into()));
+    }
+    if let Err(entry_error) = enter_nuvoton(client, index_port) {
+      // Best-effort exit; the entry failure stays the primary error.
+      let error = MotherboardSensorError::from(entry_error);
+      return match exit_nuvoton(client, index_port) {
+        Ok(()) => SlotProbe::exited(Err(error)),
+        Err(exit_error) => SlotProbe::unconfirmed(Err(
+          error.with_exit_failure(format!("; exit failed: {exit_error}"), true),
+        )),
+      };
+    }
     let result = discover_in_configuration_mode(client, slot);
     let exit_result = exit_nuvoton(client, index_port);
+    let configuration_exited = exit_result.is_ok();
 
-    match (result, exit_result) {
+    let result = match (result, exit_result) {
       (Ok(value), Ok(())) => Ok(value),
       (Ok(Some(detected)), Err(exit_error)) => Err(
         ChipFailure::nuvoton_smiovt(
@@ -277,9 +307,15 @@ impl<C: LpcIoOps> ActiveNuvotonSmiovtSensors<C> {
         Err(format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}").into())
       }
       (Err(reason), Ok(())) => Err(reason),
+      // A matched chip whose exit failed needs a fresh detection, as on the
+      // successful-detection branch above.
       (Err(reason), Err(exit_error)) => {
-        Err(reason.with_exit_failure(format!("; exit failed: {exit_error}"), false))
+        Err(reason.with_exit_failure(format!("; exit failed: {exit_error}"), true))
       }
+    };
+    SlotProbe {
+      result,
+      configuration_exited,
     }
   }
 
@@ -452,6 +488,13 @@ mod tests {
     hm_index: Cell<Option<u8>>,
     bank_select: Cell<u8>,
     fail_config_exit: Cell<bool>,
+    /// 1-based configuration exit call that fails (every call counts).
+    fail_exit_call: Cell<Option<u32>>,
+    exit_calls: Cell<u32>,
+    /// Fail the second `0x87` entry key of a session.
+    fail_second_entry_key: Cell<bool>,
+    entry_keys_in_session: Cell<u32>,
+    fail_select_slot: Cell<Option<u64>>,
     failed_hm_read: Cell<Option<(u8, u8)>>,
     config_reads: RefCell<Vec<u8>>,
     bank_select_writes: RefCell<Vec<u8>>,
@@ -521,6 +564,11 @@ mod tests {
         hm_index: Cell::new(None),
         bank_select: Cell::new(0x80),
         fail_config_exit: Cell::new(false),
+        fail_exit_call: Cell::new(None),
+        exit_calls: Cell::new(0),
+        fail_second_entry_key: Cell::new(false),
+        entry_keys_in_session: Cell::new(0),
+        fail_select_slot: Cell::new(None),
         failed_hm_read: Cell::new(None),
         config_reads: RefCell::new(Vec::new()),
         bank_select_writes: RefCell::new(Vec::new()),
@@ -548,7 +596,10 @@ mod tests {
   }
 
   impl LpcIoOps for FakeSmiovtChip {
-    fn select_lpc_slot(&self, _slot: u64) -> Result<(), String> {
+    fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+      if self.fail_select_slot.get() == Some(slot) {
+        return Err(format!("simulated slot {slot} selection failure"));
+      }
       self.bars_authorized.set(false);
       Ok(())
     }
@@ -610,9 +661,19 @@ mod tests {
       match port {
         0x2E | 0x4E => {
           match value {
-            0x87 => self.in_configuration_mode.set(true),
+            0x87 => {
+              let keys = self.entry_keys_in_session.get() + 1;
+              self.entry_keys_in_session.set(keys);
+              self.in_configuration_mode.set(true);
+              if keys == 2 && self.fail_second_entry_key.get() {
+                return Err("simulated entry key failure".to_string());
+              }
+            }
             0xAA => {
-              if self.fail_config_exit.get() {
+              self.entry_keys_in_session.set(0);
+              let call = self.exit_calls.get() + 1;
+              self.exit_calls.set(call);
+              if self.fail_config_exit.get() || self.fail_exit_call.get() == Some(call) {
                 return Err("simulated config exit failure".to_string());
               }
               self.in_configuration_mode.set(false);
@@ -687,6 +748,34 @@ mod tests {
       );
       self.selected_ldn.set(Some(value));
       Ok(())
+    }
+  }
+
+  /// Lets `ActiveMotherboardSensors::discover` borrow the fake so a test can
+  /// inspect it afterwards.
+  impl LpcIoOps for &FakeSmiovtChip {
+    fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+      (**self).select_lpc_slot(slot)
+    }
+
+    fn find_lpc_bars(&self) -> Result<(), String> {
+      (**self).find_lpc_bars()
+    }
+
+    fn pio_inb(&self, port: u16) -> Result<u8, String> {
+      (**self).pio_inb(port)
+    }
+
+    fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+      (**self).pio_outb(port, value)
+    }
+
+    fn superio_inb(&self, register: u8) -> Result<u8, String> {
+      (**self).superio_inb(register)
+    }
+
+    fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+      (**self).superio_outb(register, value)
     }
   }
 
@@ -853,13 +942,16 @@ mod tests {
     let chip = FakeSmiovtChip::nct6776();
     chip.vendor_id.set((0xA3, 0x5C));
 
-    let error = discover(&chip).unwrap_err().to_string();
+    let failure = discover(&chip).unwrap_err();
 
+    let error = failure.to_string();
     assert!(error.starts_with(HARDWARE_STATE_PREFIX), "{error}");
     assert!(
       error.contains("unexpected hardware-monitor vendor ID 0xA35C"),
       "{error}"
     );
+    // A vendor ID that reads but differs is not retried.
+    assert!(!failure.is_retryable());
     assert!(!chip.in_configuration_mode.get());
   }
 
@@ -874,6 +966,8 @@ mod tests {
     assert!(error.starts_with(NCT6776_FAILURE_PREFIX), "{error}");
     assert!(error.contains("vendor ID read failed"), "{error}");
     assert!(failure.offers_pawnio_guidance());
+    // A failed HM port access can recover, so detection is retried.
+    assert!(failure.is_retryable());
   }
 
   #[test]
@@ -881,8 +975,10 @@ mod tests {
     let chip = FakeSmiovtChip::nct6776();
     chip.fail_config_exit.set(true);
 
-    let failure = discover(&chip).unwrap_err();
+    let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
 
+    assert!(!probe.configuration_exited);
+    let failure = probe.result.unwrap_err();
     assert_eq!(
       failure.to_string(),
       format!(
@@ -891,6 +987,115 @@ mod tests {
       )
     );
     assert!(failure.is_retryable());
+  }
+
+  #[test]
+  fn detection_failure_with_a_failed_exit_requires_rediscovery() {
+    for configure in [
+      // A vendor-ID port failure, and a hardware-state gate failure.
+      (|chip: &FakeSmiovtChip| chip.failed_hm_read.set(Some((0, 0x4F))))
+        as fn(&FakeSmiovtChip),
+      |chip: &FakeSmiovtChip| chip.set_config(0x26, 0x20),
+    ] {
+      let chip = FakeSmiovtChip::nct6776();
+      configure(&chip);
+      chip.fail_config_exit.set(true);
+
+      let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
+
+      assert!(!probe.configuration_exited);
+      let failure = probe.result.unwrap_err();
+      let error = failure.to_string();
+      assert!(
+        error.ends_with("; exit failed: simulated config exit failure"),
+        "{error}"
+      );
+      assert!(failure.is_retryable(), "{error}");
+    }
+  }
+
+  #[test]
+  fn detection_attempts_an_exit_after_a_failed_entry_key() {
+    let chip = FakeSmiovtChip::nct6776();
+    chip.fail_second_entry_key.set(true);
+
+    let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
+
+    assert!(probe.configuration_exited);
+    assert_eq!(
+      probe.result.unwrap_err().to_string(),
+      "simulated entry key failure"
+    );
+    assert_eq!(chip.exit_calls.get(), 1);
+    assert!(!chip.in_configuration_mode.get());
+    // No configuration register was read after the failed entry.
+    assert!(chip.config_reads.borrow().is_empty());
+
+    let chip = FakeSmiovtChip::nct6776();
+    chip.fail_second_entry_key.set(true);
+    chip.fail_config_exit.set(true);
+
+    let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
+
+    assert!(!probe.configuration_exited);
+    assert_eq!(
+      probe.result.unwrap_err().to_string(),
+      "simulated entry key failure; exit failed: simulated config exit failure"
+    );
+  }
+
+  #[test]
+  fn detection_writes_nothing_when_slot_selection_fails() {
+    let chip = FakeSmiovtChip::nct6776();
+    chip.fail_select_slot.set(Some(0));
+
+    let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
+
+    assert!(probe.configuration_exited);
+    assert!(probe.result.is_err());
+    assert_eq!(chip.exit_calls.get(), 0);
+    assert_eq!(chip.entry_keys_in_session.get(), 0);
+  }
+
+  // --- Spec "Safety notes": the slot probe sequence of `open()` ---
+
+  #[test]
+  fn failed_smiovt_exit_skips_the_ite_probe_on_that_slot() {
+    // Exit 1 is the bank 4 probe (no profile for 0xC333), exit 2 the
+    // source-selected probe. The fake panics on any ITE key or CR02 write.
+    let chip = FakeSmiovtChip::nct6776();
+    chip.fail_exit_call.set(Some(2));
+    chip.fail_select_slot.set(Some(1));
+
+    let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+      Ok(_) => panic!("discovery should fail"),
+      Err(failure) => failure,
+    };
+    assert_eq!(chip.exit_calls.get(), 2);
+
+    // The retryable exit failure of slot 0 survives the later slot 1
+    // selection failures.
+    assert!(failure.is_retryable());
+    assert_eq!(
+      failure.to_string(),
+      format!(
+        "{NCT6776_FAILURE_PREFIX}: {NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: \
+         simulated config exit failure"
+      )
+    );
+  }
+
+  #[test]
+  fn failed_bank4_probe_exit_skips_the_rest_of_that_slot() {
+    let chip = FakeSmiovtChip::nct6776();
+    chip.fail_exit_call.set(Some(1));
+    chip.fail_select_slot.set(Some(1));
+
+    assert!(super::super::ActiveMotherboardSensors::discover(&chip).is_err());
+
+    // Neither the source-selected nor the ITE probe ran on slot 0.
+    assert_eq!(chip.exit_calls.get(), 1);
+    assert_eq!(chip.config_reads.borrow().as_slice(), &[0x20, 0x21]);
   }
 
   #[test]

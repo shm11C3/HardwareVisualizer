@@ -489,31 +489,91 @@ impl ActiveMotherboardSensors<PawnIoClient> {
       .map_err(|error| MotherboardSensorError::Unclassified(error.reason))?;
 
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
+    Self::discover(client)
+  }
+}
+
+/// One vendor probe of a slot, and whether the chip is known to be out of
+/// configuration mode afterwards.
+pub(super) struct SlotProbe<T> {
+  result: Result<Option<T>, MotherboardSensorError>,
+  /// `false` when an entry or exit key write failed, so the chip may still be
+  /// in configuration mode. No further probe may write to that slot then:
+  /// another vendor's exit sequence would be a configuration register write.
+  configuration_exited: bool,
+}
+
+impl<T> SlotProbe<T> {
+  const fn exited(result: Result<Option<T>, MotherboardSensorError>) -> Self {
+    Self {
+      result,
+      configuration_exited: true,
+    }
+  }
+
+  const fn unconfirmed(result: Result<Option<T>, MotherboardSensorError>) -> Self {
+    Self {
+      result,
+      configuration_exited: false,
+    }
+  }
+}
+
+/// Record a failed probe, keeping an earlier retryable failure so a later
+/// non-retryable one does not stop the sampler from reopening.
+fn record_probe_failure(
+  last_error: &mut Option<MotherboardSensorError>,
+  reason: MotherboardSensorError,
+) {
+  let keep_previous = last_error
+    .as_ref()
+    .is_some_and(|previous| previous.is_retryable() && !reason.is_retryable());
+  if !keep_previous {
+    *last_error = Some(reason);
+  }
+}
+
+impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
+  /// Probe both slots in order: Nuvoton bank 4, Nuvoton source-selected
+  /// slots, then ITE. The caller holds the ISA mutex. After a Nuvoton probe
+  /// that could not confirm its configuration exit, the rest of that slot is
+  /// skipped.
+  fn discover(client: C) -> Result<Self, MotherboardSensorError> {
     let mut last_error: Option<MotherboardSensorError> = None;
 
     for slot in [0_u8, 1] {
-      match ActiveNuvotonMotherboardSensors::discover_slot(&client, slot) {
+      let SlotProbe {
+        result,
+        configuration_exited,
+      } = ActiveNuvotonMotherboardSensors::probe_slot(&client, slot);
+      match result {
         Ok(Some(discovered)) => {
           return Ok(Self::Nuvoton(ActiveNuvotonMotherboardSensors::new(
             client, discovered,
           )));
         }
         Ok(None) => {}
-        Err(reason) => {
-          last_error = Some(reason);
-        }
+        Err(reason) => record_probe_failure(&mut last_error, reason),
+      }
+      if !configuration_exited {
+        continue;
       }
 
-      match ActiveNuvotonSmiovtSensors::discover_slot(&client, slot) {
+      let SlotProbe {
+        result,
+        configuration_exited,
+      } = ActiveNuvotonSmiovtSensors::probe_slot(&client, slot);
+      match result {
         Ok(Some(discovered)) => {
           return Ok(Self::NuvotonSmiovt(ActiveNuvotonSmiovtSensors::new(
             client, discovered,
           )));
         }
         Ok(None) => {}
-        Err(reason) => {
-          last_error = Some(reason);
-        }
+        Err(reason) => record_probe_failure(&mut last_error, reason),
+      }
+      if !configuration_exited {
+        continue;
       }
 
       match ActiveIteMotherboardSensors::discover_slot(&client, slot) {
@@ -523,9 +583,7 @@ impl ActiveMotherboardSensors<PawnIoClient> {
           )));
         }
         Ok(None) => {}
-        Err(reason) => {
-          last_error = Some(reason);
-        }
+        Err(reason) => record_probe_failure(&mut last_error, reason),
       }
     }
 
@@ -570,20 +628,32 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
 }
 
 impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
+  #[cfg(test)]
   fn discover_slot(
     client: &C,
     slot: u8,
   ) -> Result<Option<DetectedSlot>, MotherboardSensorError> {
+    Self::probe_slot(client, slot).result
+  }
+
+  fn probe_slot(client: &C, slot: u8) -> SlotProbe<DetectedSlot> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
-      return Ok(None);
+      return SlotProbe::exited(Ok(None));
     };
 
-    client.select_lpc_slot(slot as u64)?;
-    enter_nuvoton(client, index_port)?;
+    if let Err(reason) = client.select_lpc_slot(slot as u64) {
+      return SlotProbe::exited(Err(reason.into()));
+    }
+    if let Err(reason) = enter_nuvoton(client, index_port) {
+      // No exit is attempted on this path, so the configuration state is
+      // unconfirmed.
+      return SlotProbe::unconfirmed(Err(reason.into()));
+    }
     let result = discover_nuvoton_hm_base(client, slot);
     let exit_result = exit_nuvoton(client, index_port);
+    let configuration_exited = exit_result.is_ok();
 
-    match (result, exit_result) {
+    let result = match (result, exit_result) {
       (Ok(value), Ok(())) => Ok(value),
       (Ok(value), Err(exit_error)) => {
         let reason =
@@ -601,6 +671,10 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
       (Err(reason), Err(exit_error)) => {
         Err(reason.with_exit_failure(format!("; exit failed: {exit_error}"), false))
       }
+    };
+    SlotProbe {
+      result,
+      configuration_exited,
     }
   }
 
@@ -2740,6 +2814,27 @@ mod tests {
       open: error.clone(),
       create: error,
     }));
+  }
+
+  #[test]
+  fn probe_failures_keep_an_earlier_retryable_error() {
+    let retryable = || {
+      MotherboardSensorError::from(MutexError::Timeout {
+        name: ACCESS_ISABUS_MUTEX,
+      })
+    };
+    let plain = |detail: &str| MotherboardSensorError::Unclassified(detail.to_string());
+    let mut last_error = None;
+
+    record_probe_failure(&mut last_error, plain("first"));
+    assert_eq!(last_error, Some(plain("first")));
+    record_probe_failure(&mut last_error, plain("second"));
+    assert_eq!(last_error, Some(plain("second")));
+    record_probe_failure(&mut last_error, retryable());
+    assert_eq!(last_error, Some(retryable()));
+    // A later non-retryable failure does not replace the retryable one.
+    record_probe_failure(&mut last_error, plain("later"));
+    assert_eq!(last_error, Some(retryable()));
   }
 
   #[test]

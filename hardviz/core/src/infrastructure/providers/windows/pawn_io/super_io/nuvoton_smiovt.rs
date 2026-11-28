@@ -1294,18 +1294,128 @@ mod tests {
   }
 
   #[test]
-  fn sampling_plan_covers_every_register_the_decode_needs() {
+  fn sampling_plan_lets_each_slot_decode_each_source() {
     for profile in [nct6776(), nct6775()] {
-      let mut snapshot = SmiovtRegisterSnapshot::default();
-      for register in planned_reads(profile) {
-        snapshot.insert(register, 0x01);
+      for (target, slot) in profile.slots().iter().enumerate() {
+        for (position, source) in SMIOVT_SOURCES.into_iter().enumerate() {
+          let snapshot = single_candidate_snapshot(profile, target, source, None);
+
+          let readings = readings(profile, &snapshot);
+
+          let expected = if slot.half_degree.is_some() {
+            25.5
+          } else {
+            25.0
+          };
+          for (other, reading) in readings.into_iter().enumerate() {
+            let want = if other == position {
+              available(slot.name, expected)
+            } else {
+              SmiovtTemperatureReading::NoCandidate
+            };
+            assert_eq!(
+              reading,
+              want,
+              "{} {} as {}",
+              profile.chip_label,
+              slot.name,
+              source.label()
+            );
+          }
+        }
       }
-      assert!(
-        select_smiovt_temperatures(profile, &snapshot).is_ok(),
-        "{}",
-        profile.chip_label
-      );
     }
+  }
+
+  #[test]
+  fn sampling_plan_omitting_a_decoded_register_fails_the_selection() {
+    for profile in [nct6776(), nct6775()] {
+      let plan = planned_reads(profile);
+      for (target, slot) in profile.slots().iter().enumerate() {
+        let needed = [
+          Some(slot.source_select),
+          slot.stop,
+          Some(slot.reading),
+          slot.half_degree.map(|(register, _)| register),
+        ];
+        for register in needed.into_iter().flatten() {
+          assert!(
+            plan.contains(&register),
+            "{} {} needs bank {} 0x{:02X}",
+            profile.chip_label,
+            slot.name,
+            register.0,
+            register.1
+          );
+          let snapshot = single_candidate_snapshot(
+            profile,
+            target,
+            SmiovtSource::Systin,
+            Some(register),
+          );
+          assert!(
+            select_smiovt_temperatures(profile, &snapshot).is_err(),
+            "{} {} without bank {} 0x{:02X}",
+            profile.chip_label,
+            slot.name,
+            register.0,
+            register.1
+          );
+        }
+      }
+    }
+  }
+
+  const fn source_code(source: SmiovtSource) -> u8 {
+    match source {
+      SmiovtSource::Systin => 0x01,
+      SmiovtSource::Cputin => 0x02,
+      SmiovtSource::Auxtin => 0x03,
+    }
+  }
+
+  /// Every planned register, with only slot `target` monitored and selecting
+  /// `source`: other slots select undefined code `0x00` and are stopped where
+  /// they have a STOP bit. The target reads `0x19` with its half-degree bit set,
+  /// so it decodes to 25.5 C on a 9-bit slot and 25 C on an 8-bit slot.
+  /// `omit` leaves one planned register out of the snapshot.
+  fn single_candidate_snapshot(
+    profile: &NuvotonSmiovtProfile,
+    target: usize,
+    source: SmiovtSource,
+    omit: Option<HmRegister>,
+  ) -> SmiovtRegisterSnapshot {
+    let mut values: Vec<(HmRegister, u8)> = planned_reads(profile)
+      .into_iter()
+      .map(|register| (register, 0x00))
+      .collect();
+    let mut set = |register: HmRegister, update: &dyn Fn(u8) -> u8| {
+      if let Some((_, value)) = values.iter_mut().find(|(key, _)| *key == register) {
+        *value = update(*value);
+      }
+    };
+    for slot in profile.slots() {
+      if let Some(stop) = slot.stop {
+        set(stop, &|_| 0x01);
+      }
+    }
+    let slot = &profile.slots()[target];
+    set(slot.source_select, &|_| source_code(source));
+    if let Some(stop) = slot.stop {
+      set(stop, &|_| 0x00);
+    }
+    set(slot.reading, &|_| 0x19);
+    if let Some((register, mask)) = slot.half_degree {
+      set(register, &|value| value | mask);
+    }
+
+    let mut snapshot = SmiovtRegisterSnapshot::default();
+    for (register, value) in values {
+      if Some(register) != omit {
+        snapshot.insert(register, value);
+      }
+    }
+    snapshot
   }
 
   #[test]
