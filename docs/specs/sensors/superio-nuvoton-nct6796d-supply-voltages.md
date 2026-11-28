@@ -173,9 +173,10 @@ that S2 and S3 require. Detection and discovery are unchanged.
 
 Failure rule. If any index write or data read in steps 2–6 fails, stop
 the voltage steps. Every byte already read successfully in that sample
-is still decoded and published, whether the implementation decodes it
-before the next read or from a buffer afterwards. Mark only the voltages
-whose byte was not read successfully as unavailable and identify the failed read as experimental in the
+still goes through the normal decode rules (including the raw `0x00` and
+`0xFF` rule), whether the implementation decodes it before the next read
+or from a buffer afterwards. Additionally mark every voltage whose byte was
+not read successfully as unavailable and identify the failed read as experimental in the
 diagnostic detail (S4). Attempt the step 6 bank 4 selection once, unless
 the failed operation was that selection, and then continue with step 7.
 The temperatures and fans that step 1 already read stay valid for that
