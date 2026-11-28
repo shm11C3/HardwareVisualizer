@@ -66,12 +66,13 @@ Follow [clean-room-sensors](../../rules/clean-room-sensors.md).
 | Lane | Limit | Agent |
 | --- | --- | --- |
 | Specification research | 5 | `sensor-spec-author` |
-| Rust implementation | 3 | `sensor-clean-room-implementer` |
-| Open documentation PRs | 3 | orchestrator |
+| Rust implementation (running implementers plus open implementation PRs) | 5 | `sensor-clean-room-implementer` |
+| Documentation PRs opened per day | 15 | orchestrator |
 
-When three documentation PRs are open, keep finished spec work in its agent
-worktree. Do not refill research lanes while finished but unpublished spec
-work is waiting.
+Open documentation PRs have no concurrency limit, but open at most 15 per
+day. When the daily limit is reached, keep finished spec work in its agent
+worktree until the next day. Do not refill research lanes while finished
+but unpublished spec work is waiting.
 
 Each Issue has at most one active lane. One PR covers one scope item
 (one specification or one implementation layer). Stack dependent PRs.
