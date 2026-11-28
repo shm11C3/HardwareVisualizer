@@ -150,7 +150,7 @@ impl AmdCcdTarget {
         // covers every active processor group in the same OS snapshot.
         query_relationships(RelationAll, validate_active_single_package)
       } else {
-        query_relationships(RelationProcessorPackage, validate_single_package_record)
+        is_single_physical_package().then_some(())
       }
     })
   }
@@ -187,6 +187,13 @@ impl AmdCcdTarget {
       })
       .collect()
   }
+}
+
+/// Whether `GetLogicalProcessorInformationEx(RelationProcessorPackage)`
+/// succeeds and returns exactly one physical package record. A failed query
+/// is not evidence of a single package.
+pub(super) fn is_single_physical_package() -> bool {
+  query_relationships(RelationProcessorPackage, validate_single_package_record).is_some()
 }
 
 /// The processor-side mechanism gates. The service also validates the

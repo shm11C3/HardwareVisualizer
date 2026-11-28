@@ -111,6 +111,11 @@ PawnIO can provide Windows CPU readings from CPU-specific sensor paths:
 - Intel CPU package power through the Intel MSR RAPL registers.
 - AMD Family 17h and Family 19h package temperature through the Ryzen SMU
   module.
+- AMD Family 15h and Family 16h control temperature (Tctl) through the
+  AMDFamily10 module, on single-processor systems. Socket G34 processors
+  (Opteron 6200/6300) are not supported. Tctl is AMD's thermal
+  control value, not a measured die temperature, and is shown as `CPU Tctl`.
+  Low values at idle are expected.
 - AMD CPU package power through the AMDFamily17 RAPL module.
 
 ### Installing PawnIO from HardwareVisualizer
@@ -150,6 +155,7 @@ temperature or power collection the machine needs:
 - signed CPU-specific module blobs from the PawnIO.Modules release assets:
   - `IntelMSR.bin` for Intel package temperature and power;
   - `RyzenSMU.bin` for AMD package temperature;
+  - `AMDFamily10.bin` for AMD Family 15h/16h control temperature;
   - `AMDFamily17.bin` for AMD package power;
 - a connected Windows sensor service to open PawnIO on behalf of the app.
 
@@ -165,6 +171,7 @@ To set up the module blob:
    `C:\Program Files\PawnIO`.
    - For Intel package temperature or power, copy `IntelMSR.bin`.
    - For supported AMD package temperature, copy `RyzenSMU.bin`.
+   - For AMD Family 15h/16h control temperature, copy `AMDFamily10.bin`.
    - For AMD package power, copy `AMDFamily17.bin`.
    - If you are not sure which CPU path applies, copying all applicable signed
      module files is acceptable.
