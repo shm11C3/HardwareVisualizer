@@ -26,7 +26,7 @@ project's own published interface definitions or release artifacts.
 | S9 | PawnIO.Modules `AMDFamily10.p` (LGPL-2.1-or-later) at tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`); last changed by commit `57648839a70cb3842330766e193cbfff326f8c76` (2026-07-27); byte-identical at tag `0.2.12` (commit `40a95f0c812b09f78e05b2d5aa4614cbcef67b0a`) | Upstream-published interface definition of the module this project calls: `ioctl_*` names, cell counts, allow-lists, family gate, caller-mutex `@warning` docs, load-time behavior. Not used for any hardware register fact. No code copied. Contract recorded in [`pawnio-interface.md`](pawnio-interface.md) rev 8 |
 | S10 | PawnIO.Modules `RyzenSMU.p` at tag `0.2.11` (byte-identical at `0.2.12`) | Interface definition; used only to explain why `RyzenSMU` is not the access path here |
 | S11 | PawnIO.Modules release `0.2.11`, asset `release_0_2_11.zip` (69,582 bytes, SHA-256 `43608cb89bc84247fef1368a139013f7d043e17db6d6c8dfc9b46bf0905a81f4`): contains signed `AMDFamily10.bin`, 16,868 bytes, SHA-256 `6443080b2968474ffbc38aa4356cc56f9664349fa4b917afdb33027d6bb50525`. Release `0.2.12` (published 2026-11-17), asset `release_0_2_12.zip` (83,556 bytes, SHA-256 `09698897ce19b92f1043a2e322cfcf0b1fe823e0b576971b178a65244fb0af9d`) contains a byte-identical `AMDFamily10.bin` | Primary (signed distribution). Downloaded and hashed 2026-11-28 |
-| S12 | PawnIO driver source `PawnIO/src/natives_impl_windows.cpp` at PawnIO tag `2.2.0` (commit `5cdf470831fdfff3f7f1d06363ca6b230f3bf35a`; the PCI read routine is unchanged at commit `079c43431148631b894a09d6b38ee0cfc5001e8b`) | Driver interface fact: module PCI configuration reads go through the Windows HAL bus-data routine one access at a time, and a function whose vendor ID reads as invalid returns `STATUS_DEVICE_DOES_NOT_EXIST`. No code copied |
+| S12 | PawnIO driver source `PawnIO/src/natives_impl_windows.cpp` at PawnIO tag `2.2.0` (commit `5cdf470831fdfff3f7f1d06363ca6b230f3bf35a`; the PCI read routine is unchanged at commit `079c43431148631b894a09d6b38ee0cfc5001e8b`) | Driver interface fact: each module PCI configuration read native makes two Windows HAL bus-data reads, first the target function's vendor ID at offset 0 and then the requested offset; a vendor ID that reads as invalid returns `STATUS_DEVICE_DOES_NOT_EXIST` without the second read. No code copied |
 | S13 | PawnIO.Modules issue #32, "Amd10Cpu freeze", <https://github.com/namazso/PawnIO.Modules/issues/32> (open at 2026-11-28) | Upstream user and contributor reports: whole-system freezes on FX-6300, FX-8350, FX-9590 and A8-7600 systems, attributed by a contributor to `ioctl_measure_tsc_multiplier`; the module owner notes that this ioctl waits for a tick-count change after disabling interrupts. Used only for a safety rule (never invoke); not a register fact |
 | S14 | Microsoft Learn, `GetLogicalProcessorInformationEx` and `LOGICAL_PROCESSOR_RELATIONSHIP` (`RelationProcessorPackage`), <https://learn.microsoft.com/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex> | OS API documentation for the package-count gate |
 
@@ -139,26 +139,41 @@ Notes:
 
 ## Read procedure and decode
 
-1. Evaluate the admission gates in Detection. Select map A or B from
-   family and model.
-2. Load `AMDFamily10.bin` on its own executor handle. A load failure
-   leaves CPU temperature unavailable from this path (fallback as for
-   other PawnIO paths).
-3. Identity read, once per opened handle: `ioctl_read_miscctl` with
-   `in[0]` = 0, `in[1]` = `0x00`. Take the low 32 bits of `out[0]`. It
-   must equal the group's D18F3x00 value. On mismatch or error, do not
+Admission (steps 1–3) runs in this order, and the path is admitted
+only after step 3 passes. Any failure in steps 1–3 leaves CPU
+temperature unavailable from this path (fallback as for other PawnIO
+paths) and no register read is attempted.
+
+1. CPU and topology gates, before any PawnIO call: the vendor, the
+   family/model selection, and the single-package gate from Detection.
+   Select map A or B from family and model. A CPU outside every
+   group is Unsupported and the module is not loaded.
+2. Load `AMDFamily10.bin` on its own executor handle (the module-load
+   gate in Detection).
+3. Identity read gate, once per opened handle: `ioctl_read_miscctl`
+   with `in[0]` = 0, `in[1]` = `0x00`. If the call returns an error
+   status, or if the low 32 bits of `out[0]` (read only after a
+   successful call) differ from the group's D18F3x00 value, do not
    read further on this handle and report the path unavailable. Node 0
    is the only node this document reads.
+
+Per sample, on an admitted path:
+
 4. Read the register:
    - Map A: `ioctl_read_miscctl` with `in[0]` = 0, `in[1]` = `0xA4`.
-     The module documents no caller mutex for this function (S9); the
-     driver performs it as one HAL configuration read (S12). No mutex
-     is required.
+     The module documents no caller mutex for this function (S9). The
+     call reads only the addressed function's ID register and the
+     requested register; it writes no index, so no mutex is required
+     (S9, S12).
    - Map B: acquire `Global\Access_PCI` (bounded timeout;
-     open-before-create, per pawnio-interface.md), call
-     `ioctl_read_smu` with `in[0]` = `0xD8200CA4`, release the mutex.
-     On timeout, skip the sample.
-   Take the low 32 bits of `out[0]` as `raw`.
+     open-before-create, per pawnio-interface.md); on timeout, skip
+     the sample. Once acquired, call `ioctl_read_smu` with `in[0]` =
+     `0xD8200CA4`, then release the mutex on every path after the
+     call, whether it succeeded or failed.
+   - If the call returns an error status, skip the sample (the module
+     returns before writing `out[0]` on every error path, S9). Only
+     after a successful call, take the low 32 bits of `out[0]` as
+     `raw`.
 5. Decode:
    - If `raw` is `0x00000000` or `0xFFFFFFFF`, the sample is invalid
      (project policy: failed transaction).
