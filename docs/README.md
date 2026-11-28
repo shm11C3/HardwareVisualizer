@@ -25,6 +25,7 @@ documentation.
 - [External Component Setup Design Doc](design/external-component-setup.md)
 - [Windows sensor service decision](adr/0029-windows-sensor-service.md)
 - [Windows sensor service Design Doc](design/windows-sensor-service.md)
+- [External sensor devices Design Doc](design/external-sensor-devices.md)
 - [Windows sensor service release-note copy](release/windows-sensor-service.md) /
   [Japanese](release/windows-sensor-service.ja.md)
 - [Opt-in Product Analytics decision](adr/0028-opt-in-product-analytics.md)
