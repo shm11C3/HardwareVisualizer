@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
+| Revision | 4 |
 | Status | Draft — not implementation-ready |
 | Scope | Candidate Experimental, read-only sampling through an already bound Linux `it87` hwmon device for the IT87952E secondary LPC controller on Gigabyte TRX50 AI TOP. Includes a separate static OEM F11 ACPI assessment. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
@@ -19,13 +19,15 @@
 | S6 | [Super I/O access rev. 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [Gigabyte secondary ITE draft](superio-ite-gigabyte-secondary.md) | Project's slot-1 safety rule and restrictions for the Windows direct LPC, ECIO and ISA bridge routes. |
 | S7 | Gigabyte, [TRX50 AI TOP BIOS F11](https://download.gigabyte.com/FileList/BIOS/mb_bios_trx50-ai-top_8astp003_f11.zip?v=bc9649020d9c9c00c94093b44101906a), [OEM release entry](https://www.gigabyte.com/Motherboard/TRX50-AI-TOP/support?lan=en#support-dl-bios), July 4, 2025, OEM checksum `B290` | Primary OEM firmware artifact. ZIP SHA-256 `53508a2d8154b7f3372987689bd83adbce84a69cfce77e8c8dfae56ac3c5fc3b`. `TRX50AITOP.F11` image SHA-256 `7c32acc0b048309c29cad2ae201448d77117fd30e34674bce7beee632e1ef801`. |
 | S8 | UEFI Forum, [ACPI 6.5 §11 Thermal Management](https://uefi.org/specs/ACPI/6.5/11_Thermal_Management.html), §§11.3.1.4 and 11.4.18 | Primary for the units and semantics of the standard fan status and thermal-zone methods. |
+| S9 | Linux mainline [`drivers/hwmon/it87.c`](https://github.com/torvalds/linux/blob/7cd8495c0f16275c4f9abe1cef09a7b5fcd6d046/drivers/hwmon/it87.c#L1032-L1121) at commit `7cd8495c0f16275c4f9abe1cef09a7b5fcd6d046` (2026-11-28), Git blob `bbb3f9788c2e34c01591b8498c7b32349243042f`, and the out-of-tree driver at [commit `8fdc406fff148c033d7535a1ac3d905f77edf3cb`](https://github.com/frankcrawford/it87/blob/8fdc406fff148c033d7535a1ac3d905f77edf3cb/it87.c#L3789-L3887) (2026-11-27), Git blob `451bb92a96139d8060bee5e4d93bc9002d6d1bfa`, both GPL-2.0-or-later | **lead-only (copyleft)**. Recheck of the S5 refresh behavior. Mainline lines 1032–1121 and external lines 3789–3887 still read EC `0x01`–`0x03` when the cache is cold or expired. In mainline the temperature type attribute (lines 1384–1393) reaches the same refresh as the inputs. |
+| S10 | [Gigabyte secondary ITE specification revision 9](superio-ite-gigabyte-secondary.md) | Repository source for the Windows slot-1 candidate row that lists this board as an observed member, the blocker L1 shared by all Linux secondary routes, and the #2519 disposition table. |
 
 ## Detection
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Gigabyte TRX50 AI TOP and already bound platform device `it87.2656` with hwmon name `it87952` | S1/S2 pin the board, S2 observes the live secondary device and channels, and S3 observes its exact raw ID. Lead-only S5 associates the name with raw `0x8695` and defines platform identity, the hwmon class link to the canonical child, the child's `device` link to the platform parent, and input representation and visibility. S4 supplies the public Linux ABI. Lead-only S5 establishes the alarm-status reads during cache refresh. | Disabled pending exact IT87952E alarm-status read semantics. |
-| Other Gigabyte boards, alternate chip IDs, direct Windows LPC, ECIO or ISA bridge paths | See [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) and S6. | Unsupported by this revision. |
+| Gigabyte TRX50 AI TOP and already bound platform device `it87.2656` with hwmon name `it87952` | S1/S2 pin the board, S2 observes the live secondary device and channels, and S3 observes its exact raw ID. Lead-only S5 associates the name with raw `0x8695` and defines platform identity, the hwmon class link to the canonical child, the child's `device` link to the platform parent, and input representation and visibility. S4 supplies the public Linux ABI. Lead-only S5 establishes the alarm-status reads during cache refresh, and lead-only S9 confirms them at the 2026-11-28 revisions. | Disabled pending the blocking Open question, which is L1 of S10. |
+| Other Gigabyte boards, alternate chip IDs, direct Windows LPC, ECIO or ISA bridge paths | See [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519), S6 and S10. S10 lists this board as an observed member of its Disabled Windows slot-1 candidate row. | Unsupported by this revision. |
 
 - Require `/sys/class/dmi/id/board_vendor` equal to
   `Gigabyte Technology Co., Ltd.` and `board_name` equal to
@@ -92,6 +94,13 @@ even with default module settings (S5, lead-only). S4 lists no public
 IT87952E data sheet, and the exact-board reports in S2 and S3 leave
 the effects of reading those bytes unresolved. The candidate stays
 disabled.
+
+The 2026-11-28 recheck found the same refresh in mainline `7cd8495`
+and the external driver at `8fdc406` (S9, lead-only). Reading
+`temp1_type` or `temp3_type` reaches it too, so the type check in this
+profile cannot run before the blocker is resolved. A future input-only
+refresh would need to cover the type attribute, or the profile would
+need a type source outside the refresh. (S5, S9)
 
 - Read only the scoped kernel-owned input and source metadata files
   during requested motherboard collection. No raw I/O, port
@@ -170,7 +179,17 @@ requires the secondary collector to remain disabled.
   read semantics of EC alarm-status bytes `0x01`–`0x03`, including
   whether reading clears a latched alarm, or establish an eligible
   kernel read path that avoids those bytes. Selecting only input
-  attributes still reaches the shared cache refresh.
+  attributes still reaches the shared cache refresh. S10 states this
+  as L1 for all Linux secondary routes, with the two resolutions:
+  - a released input-only refresh that the app can detect before
+    opening an input;
+  - a maintainer decision on kernel-owned status reads.
+- Required at the flip, after L1: re-key the Detection gates under
+  [ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md).
+  The bound driver, platform parent and hwmon name `it87952` are the
+  ABI mechanism. The DMI board match stays a gate only if this document
+  states the mechanism it selects. Candidates are the temp2 exclusion
+  and the observed channel set. Otherwise it moves to Status.
 
 - Non-blocking for the Linux hwmon slice: S2 demonstrates the endpoint with DKMS and S4/S5 independently document the same mainline ABI.
   The first candidate reads only compatible already bound endpoints.
@@ -192,3 +211,4 @@ requires the secondary collector to remain disabled.
 | 1 | 2026-11-08 | Propose exact Experimental Linux sysfs coverage for the secondary controller evidenced on TRX50 AI TOP. |
 | 2 | 2026-11-08 | Document alarm-status reads in both pinned drivers and return the profile to Draft pending exact chip semantics. |
 | 3 | 2026-11-08 | Record the OEM F11 static ACPI and WMI findings. The Linux and firmware routes remain Draft. |
+| 4 | 2026-11-28 | Record the 2026-11-28 recheck of mainline `7cd8495` and the external driver at `8fdc406`. Both still read alarm status in the refresh, and the temperature type attribute reaches it too (S9). Link the shared Linux blocker L1 and the Windows slot-1 candidate row in the Gigabyte secondary specification revision 9 (S10). Add the ADR 0031 re-keying item for the flip. Status remains Draft. |
