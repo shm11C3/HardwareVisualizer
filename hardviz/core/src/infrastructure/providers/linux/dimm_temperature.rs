@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File, Metadata};
-use std::os::unix::fs::{FileExt, MetadataExt};
+use std::fs::{self, File};
+use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
+use super::sysfs::file_identity;
 use crate::models::hardware::DimmTemperature;
 
 const BOARD_VENDOR: &str = "HARDKERNEL";
@@ -493,10 +494,6 @@ fn decode_temperature(value: &str) -> Option<f32> {
   let millidegrees = value.parse::<i32>().ok()?;
   (millidegrees > 0 && millidegrees <= 125_000 && millidegrees % 250 == 0)
     .then_some(millidegrees as f32 / 1000.0)
-}
-
-fn file_identity(metadata: &Metadata) -> (u64, u64) {
-  (metadata.dev(), metadata.ino())
 }
 
 fn links_to(link: &Path, target: &Path) -> bool {
