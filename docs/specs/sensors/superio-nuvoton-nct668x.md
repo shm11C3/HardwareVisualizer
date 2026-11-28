@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 4 |
+| Revision | 5 |
 | Status | Draft — not implementation-ready |
-| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence for ASRock NCT6686D and Intel NCT6683D boards. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
-| Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520) |
+| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence and the per-platform dispositions for ASRock and AMD NCT6686D, ASRock NCT6683D and Intel NCT6683D boards and for direct Windows access. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
+| Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520), [#2696](https://github.com/shm11C3/HardwareVisualizer/issues/2696) |
 
 ## Sources
 
@@ -32,6 +32,10 @@
 | S19 | ASRock [X670E Steel Legend BIOS 3.01 ZIP](https://download.asrock.com/BIOS/AM5/X670E%20Steel%20Legend%283.01%29ROM.zip), SHA-256 `61ab1b123f6a21336b7946283976b9eb45ea765277b30525c8563280c983f29e`. Extracted 32 MiB `X670ESL3.01.ROM`, SHA-256 `47601a2767e5ae7a38ca2e649bf78bafd48eb16a47ba5702fb74fe8d52419f34`. OEM [BIOS setup guide](https://download.asrock.com/Manual/Software/AMD%20X670/Software_BIOS%20Setup%20Guide_English.pdf), §§2.3.2 and 3.6 | Static firmware evidence limited to the extracted checksum-valid tables. The guide describes the UEFI monitoring UI. |
 | S20 | Intel [DZ87KLT-75K Technical Product Specification G89979-001](https://manualzz.com/doc/48591817/intel-dz87klt-75k-specification), p. iii and §§1.11, 1.12.2.2, [Intel BIOS 0459 release notes](https://ftp.infania.net/pub/Windows%20Drivers/Intel/downloadmirror.intel.com/KL_0459_ReleaseNotes.pdf), BIOS 0446 entry, and [independent board inspection](https://techplayboy.com/754/intel-dz87klt-75k-lga1150-desktop-motherboard-review/) | OEM board and firmware family identity, monitoring ASIC wiring, and threshold corrections. The independent inspection identifies NCT6683D. |
 | S21 | [Original driver test record](https://github.com/sqrdevl/nct6683/blob/89c8ec9ac2749b579af6436a2073f5effef10ae0/README), May 17, 2014, and stock Linux [v7.3 refresh](https://github.com/torvalds/linux/blob/v7.3/drivers/hwmon/nct6683.c#L633-L646) and [v7.4-rc2 refresh](https://github.com/torvalds/linux/blob/v7.4-rc2/drivers/hwmon/nct6683.c#L632-L645) | **lead-only (copyleft)** for the older DZ87KLT test and the generic fan-minimum read retained in the stock refresh. |
+| S22 | Linux v7.3 [customer admission list](https://github.com/torvalds/linux/blob/v7.3/drivers/hwmon/nct6683.c#L172-L186), unchanged in v7.4-rc4, and the admitting commits [`bd433537fef8`](https://github.com/torvalds/linux/commit/bd433537fef8) (`0x0E2C`, X570 Phantom Gaming-ITX/TB3), [`d55532f77137`](https://github.com/torvalds/linux/commit/d55532f77137) (`0x0E1B`, Z370M Pro4 rev. 1.01 with NCT6683D-T), [`05b68e18ec64`](https://github.com/torvalds/linux/commit/05b68e18ec64) (`0x1631`, X670E Taichi), [`ff708b549c4d`](https://github.com/torvalds/linux/commit/ff708b549c4d) (`0x1633`, B650I Lightning WiFi, first in v7.1) and [`705ec98e8a48`](https://github.com/torvalds/linux/commit/705ec98e8a48) (`0x163D`, Z890 Pro-A, first in v7.2) | **lead-only (copyleft)** for native customer admission and the board each commit names. S12, S13, S15 and the [B650 Steel Legend WiFi specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md) S5 cover `0x162B`, `0x1621` and `0x163E`. |
+| S23 | [ASRock X600DC-ITX customer patch](https://lkml.iu.edu/hypermail/linux/kernel/2611.1/21560.html), November 14, 2026, and the [maintainer reply](https://lkml.iu.edu/hypermail/linux/kernel/2611.1/22223.html) | First-hand BIOS 2.02, NCT6686D at `0x2e:0xa20`, forced binding of customer `0x165F` as `nct6683.2592`, EC 1.0 build 12/23/25, and plausible readings including fan input 1 near 1450 RPM and an AMD TSI temperature. The reply reports the patch as applied. The admission is absent from v7.4-rc4 (S22). |
+| S24 | [ASRock B850 Steel Legend WiFi fan-control series thread](https://ratatoskr.run/lkml/2026/08/17457921/t), August 25 to November 10, 2026 | First-hand customer `0x164A`, EC 1.0 build 10/29/24 and BIOS 4.10, unadmitted in v7.4-rc4. The series adds fan-control writes, which are outside this project. |
+| S25 | LibreHardwareMonitor at `9e2d677c`, [EC Space byte read](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/9e2d677cefff5c614ecc38da88fbc447eb478e2a/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/Nct677X.cs#L1259-L1302) | **lead-only (copyleft)** for a Windows reader that waits up to 500 ms for the application page selector to read `0xFF`, writes `0xFF` on timeout regardless, and writes `0xFF` after each byte. |
 
 ## Detection
 
@@ -54,11 +58,16 @@
 | --- | --- | --- |
 | MSI PRO B850-P WIFI (MS-7E56), raw `0xD592`, customer `0x020D`, EC 0.0 (2025-04-18) | S8 pins OEM routing, identity bytes and sample readback. Decode relies on lead-only S3. The entry, exit and application-port sequence rely on lead-only S9 and S10 as described below. Safe selector handling and signed-transport confirmation remain open. | Disabled. Experimental candidate after the blocking questions are resolved and the spec is approved. |
 | Other MSI NCT6687D/-R deployments | S7 reports other builds, including MAG B850M MORTAR WIFI with EC 0.0 (2025-03-10). A separate profile needs raw ID, firmware identity and channel evidence. | Unsupported by this revision. Follow-up in #2520. |
-| Direct-access NCT6686D, including ASRock deployments | S1 pins a host interface but the stated chip IDs conflict with S3. S7 names multiple firmware builds. | Unsupported by this revision. Follow-up in #2520. |
-| ASRock AMD BC-250, bound Linux `nct6683` | Lead-only S12/S13 document native admission of customer `0x162b` and the EC 1.0 (2021-07-28) build. Separate S14 observations provide raw `0xD441`, a bound instance and usable channel values under the force option. | Disabled. Firmware read safety and native endpoint qualification are unresolved. |
-| ASRock Z590 Taichi, bound Linux `nct6683` | Lead-only S12/S15 document native admission of customer `0x1621` and successful instantiation on two NCT6686D units with EC 1.0 (2021-01-25). | Disabled. Firmware read safety, exact endpoint and channel evidence are unresolved. |
-| Intel DH87MC and DH87RL, bound Linux `nct6683` | Lead-only S12/S16 document the default Intel customer `0x0805` branch and tested NCT6683D EC 1.0 (2013-04-03) units. S17 records DH87MC's contributed channel mapping and the OEM controller description. | Disabled. The Intel firmware read safety and exact native endpoint qualification remain unresolved. |
-| Direct-access NCT6683D and other NCT6683D mechanisms | S7 reports firmware-dependent differences and an Intel OEM layout outside the public specification. | Unsupported by this revision. Follow-up in #2520. |
+| Direct Windows EC Space access on NCT6686D, including ASRock deployments | S1 pins the host interface, but its stated chip ID `0xC73A` conflicts with the `0xD441` observed on ASRock units (S14, S18) and the `0xD440` family match of lead-only S3. Application-port selector release and the S1 §7.2 protection lock are unresolved for readers outside the ISA mutex (see Open questions). S7 names multiple firmware builds. | Unsupported by this revision. The bound Linux endpoint is the selected first path. |
+| ASRock B650 Steel Legend WiFi, bound Linux `nct6683` | Specified in [`superio-nuvoton-nct6686-asrock-linux-hwmon.md`](superio-nuvoton-nct6686-asrock-linux-hwmon.md) revision 1, with lead-only customer `0x163E` admission and a non-Intel refresh audit. | Experimental in that specification. |
+| ASRock AMD BC-250, bound Linux `nct6683` | Lead-only S12/S13 document native admission of customer `0x162b` and the EC 1.0 (2021-07-28) build. Separate S14 observations provide raw `0xD441`, a bound instance and usable channel values under the force option. | Disabled. Exact DMI baseboard strings and a same-unit channel capture on a qualified endpoint are missing. |
+| ASRock Z590 Taichi, bound Linux `nct6683` | Lead-only S12/S15 document native admission of customer `0x1621` and successful instantiation on two NCT6686D units with EC 1.0 (2021-01-25). | Disabled. Exact DMI strings and an attributable channel capture are missing. |
+| ASRock X670E Taichi (`0x1631`), B650I Lightning WiFi (`0x1633`) and Z890 Pro-A (`0x163D`), bound Linux `nct6683` | Lead-only S22 records native admission and the board named by each commit. No exact-board channel capture with labels and values on a qualified endpoint was found. | Disabled pending exact DMI strings and a channel capture. |
+| ASRock X600DC-ITX, bound Linux `nct6683` | S23 records BIOS 2.02, customer `0x165F`, EC 1.0 build 12/23/25 and plausible forced readings. The admission is applied to the hwmon tree but absent from released tags (S22). The report gives one fan value and no temperature channel labels beyond an AMD TSI source. | Disabled until a released admission and a labeled channel capture exist. |
+| ASRock X670E Steel Legend and B850 Steel Legend WiFi, bound Linux `nct6683` | S18 needs force on EC 1.0 build 2022-07-19 with the customer unrecorded. S24 reports unadmitted customer `0x164A`. | Disabled. No native admission. |
+| ASRock NCT6683D boards: X570 Phantom Gaming-ITX/TB3 (`0x0E2C`, EC 1.0 build 2019-06-28) and Z370M Pro4 (`0x0E1B`) | Lead-only S7/S22 record native admission and the tested EC build. These customers take the non-Intel refresh. No exact-board channel capture was found. | Disabled pending exact DMI strings and a channel capture. |
+| Intel DH87MC, DH87RL, DB85FL and DZ87KLT-75K, bound Linux `nct6683` | Lead-only S12/S16 document the default Intel customer `0x0805` branch and tested NCT6683D EC 1.0 (2013-04-03) units. S17 records DH87MC's contributed channel mapping and the OEM controller description. S20 identifies the DZ87KLT-75K controller. Lead-only S7 and S16 state that this firmware uses undisclosed register locations, while every input refresh reads the generic fan-minimum words and reverse-engineered limit addresses. | Unsupported. The refresh cannot be stated as a read-only fact for this firmware. |
+| Direct-access NCT6683D and other NCT6683D mechanisms | S7 reports firmware-dependent differences and an Intel OEM layout outside the public specification. No primary NCT6683D host-interface document was found. | Unsupported by this revision. |
 
 ### ASRock Linux bound-hwmon research
 
@@ -138,6 +147,43 @@ status access (S12, S16).
   above (S21, lead-only). The exact firmware's read effects and an
   independently attributable read-only firmware endpoint remain
   unverified. Both board candidates remain disabled.
+
+### Path selection for the deferred profiles (#2696)
+
+- **Linux, ASRock and AMD NCT6686D and ASRock NCT6683D.** The bound
+  kernel endpoint is the selected first path. The kernel requests the
+  application-port addresses, checks ACPI resource conflicts and
+  serializes refreshes. The application performs no port I/O (S12).
+  S1 §7.2 assigns that port set to application software and a separate
+  set to BIOS and ACPI. Every admitted ASRock and AMD customer takes the
+  non-Intel refresh, whose read set the
+  [B650 Steel Legend WiFi specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md)
+  audits. It is the read set already accepted for the MSI profiles.
+  A board profile still needs exact DMI strings, native admission of
+  its customer in a released kernel, and a labeled same-board channel
+  capture. Board identity is a mechanism gate there because the EC
+  assignment differs by board. S7 of that specification lists two
+  thermistor sources before the AMD TSI source. S14 lists the AMD TSI
+  source first on BC-250.
+- **Linux, Intel NCT6683D.** The kernel documents a special Intel
+  firmware with undisclosed register locations. The shared refresh
+  still reads the generic fan-minimum words and reverse-engineered
+  limit addresses on every input read (S12, S16). No source states the
+  semantics of those addresses on this firmware. The profile stays
+  Unsupported.
+- **Windows direct EC Space access.** The application would choose its
+  own read set, limited to values, assignments and identity. The
+  remaining blockers are chip identity and selector arbitration. S1's
+  chip ID conflicts with observed hardware. The application port is
+  shared with other Windows readers. Lead-only S25 shows one such
+  reader writing `0xFF` to the page selector after a timeout, which
+  releases another holder's selection under S1 §7.2. The exact signed
+  `LpcIO` authorization of the EC window is unconfirmed on any ASRock
+  tuple (S6). These remain Open questions.
+- **Additional NCT6687D/-R firmware.** The MSI profiles in the
+  [MSI NCT6687D Linux specification](superio-nuvoton-nct6687-linux-hwmon.md)
+  are unchanged. Other MSI boards and the MSI direct-access candidate
+  keep the requirements stated above.
 
 ## Register map (facts)
 
@@ -275,21 +321,37 @@ EC addresses below are page in the high byte and index in the low byte.
   `0xC7` and differing lower bytes in its global table and detailed
   description. S3 attributes an `0xD440` family to the production
   NCT6686D. Do not resolve this conflict by masking or aliasing IDs.
-- **Linux BC-250 evidence remains blocking.** Pin an exact EC 1.0
-  (2021-07-28) firmware map or equivalent evidence that the full enabled
-  refresh, including limit and PWM readbacks, uses ordinary,
-  non-destructive fields. Obtain the board/BIOS and EC identity
-  association with a matching unforced kernel-owned hwmon endpoint.
-- **Linux Z590 Taichi evidence remains blocking.** Pin the equivalent
-  firmware semantics for EC 1.0 (2021-01-25). Associate that build with
-  a known board/BIOS, controller identity and native hwmon instance,
-  and establish at least one attributable published input.
-- **Linux DH87MC and DH87RL evidence remains blocking.** Establish
-  non-destructive semantics for the enabled refresh addresses on Intel
-  EC 1.0 (2013-04-03), especially the generic fan-minimum bank. Pin a
-  board/BIOS association with a qualified native endpoint and an
-  attributable reading, including how the OS and firmware share the
-  application window.
+- **Linux BC-250 evidence remains blocking.** Obtain the exact DMI
+  baseboard strings and a labeled same-unit channel capture on an
+  admitting kernel. The non-Intel refresh is audited at the Experimental
+  standard in the
+  [B650 Steel Legend WiFi specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md).
+  An EC 1.0 (2021-07-28) firmware map is still needed for Verified
+  status.
+- **Linux Z590 Taichi evidence remains blocking.** Associate EC 1.0
+  (2021-01-25) with exact DMI strings and a native hwmon instance, and
+  establish attributable published inputs with labels and types.
+- **Other admitted ASRock boards remain blocking.** X670E Taichi,
+  B650I Lightning WiFi, Z890 Pro-A, X570 Phantom Gaming-ITX/TB3 and
+  Z370M Pro4 each need exact DMI strings and a labeled channel capture
+  (S22). X600DC-ITX also needs its admission in a released kernel
+  (S23). X670E Steel Legend and B850 Steel Legend WiFi need native
+  admission (S18, S24).
+- **Linux Intel NCT6683D is Unsupported.** Establish non-destructive
+  semantics for the enabled refresh addresses on Intel EC 1.0
+  (2013-04-03), especially the generic fan-minimum bank at
+  `0x03B8`–`0x03D7` and the Intel limit addresses. Pin a board/BIOS
+  association with a qualified native endpoint and an attributable
+  reading, including how the OS and firmware share the application
+  window. The lead-only sources describe these addresses as unknown for
+  this firmware (S12, S16).
+- **Windows direct NCT6686D access remains blocking.** Resolve the S1
+  chip ID conflict with observed hardware. Establish whether ASRock
+  firmware enables the S1 §7.2 protection lock and how a reader that
+  holds the ISA mutex can avoid releasing another reader's selection,
+  given the forced-release behavior in lead-only S25. Confirm that the
+  signed `LpcIO` module authorizes the EC window on an exact ASRock
+  tuple (S6).
 
 ## Revision history
 
@@ -299,3 +361,4 @@ EC addresses below are page in the high byte and index in the low byte.
 | 2 | 2026-11-08 | Pin the exact OEM controller capture, a configuration exit candidate, and sample data. Narrow the fan proposal to verified positive RPM and retain transport, selector and fan validity blockers. |
 | 3 | 2026-11-09 | Record separate BC-250, Z590 Taichi and Intel DH87MC/DH87RL Linux hwmon research, native customer acceptance and unresolved firmware refresh evidence. |
 | 4 | 2026-11-10 | Record ASRock X670E Steel Legend BIOS 3.01 and Intel DZ87KLT-75K evidence and their unresolved read paths. |
+| 5 | 2026-11-28 | Select the bound Linux endpoint as the first path for ASRock NCT6686D and point B650 Steel Legend WiFi to its own specification. Record dispositions for the remaining #2696 targets, including admitted ASRock customers, X600DC-ITX and unadmitted boards. Mark Intel NCT6683D Unsupported because its refresh reads addresses with unknown semantics, and record the Windows chip-identity and selector blockers. |
