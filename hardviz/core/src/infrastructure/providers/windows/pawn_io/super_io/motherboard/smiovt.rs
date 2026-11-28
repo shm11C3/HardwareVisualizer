@@ -1135,7 +1135,8 @@ mod tests {
       Err(failure) => failure,
     };
 
-    assert_eq!(chip.exit_calls.get(), 2);
+    // Bank 4, source-selected and Fintek probes each exit with 0xAA.
+    assert_eq!(chip.exit_calls.get(), 3);
     assert_eq!(
       chip.ite_probe_writes.borrow().as_slice(),
       &[(0x00, 0x01), (0x00, 0x55), (0x00, 0x55), (0x02, 0x02)]
@@ -1146,7 +1147,12 @@ mod tests {
 
   #[test]
   fn unconfirmed_exit_without_a_profile_match_stays_retryable() {
-    for failing_exit in [1, 2] {
+    // Exits 1 and 2 are the Nuvoton probes, exit 3 the Fintek probe.
+    for (failing_exit, context) in [
+      (1, NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT),
+      (2, NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT),
+      (3, "Fintek config exit failed"),
+    ] {
       let chip = unmatched_chip_with_recorded_ite_probe();
       chip.fail_exit_call.set(Some(failing_exit));
 
@@ -1165,9 +1171,7 @@ mod tests {
       assert!(failure.offers_pawnio_guidance(), "exit {failing_exit}");
       assert_eq!(
         failure.to_string(),
-        format!(
-          "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated config exit failure"
-        ),
+        format!("{context}: simulated config exit failure"),
         "exit {failing_exit}"
       );
     }

@@ -20,8 +20,10 @@ use crate::models::{
 };
 use crate::{log_debug, log_warn};
 
+mod fintek;
 mod smiovt;
 
+use fintek::ActiveFintekSensors;
 use smiovt::ActiveNuvotonSmiovtSensors;
 
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
@@ -40,6 +42,11 @@ const NUVOTON_EXPERIMENTAL_FAILURE_TAIL: &str = "motherboard sensor path failed"
 /// install/permission guidance.
 const NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
   "Experimental Nuvoton motherboard sensor path failed: hardware state";
+/// Experimental Fintek failures caused by hardware state that PawnIO already
+/// read successfully. These read `<prefix> (<chip label>): <reason>`; other
+/// Experimental Fintek failures read like the Nuvoton ones.
+const FINTEK_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
+  "Experimental Fintek motherboard sensor path failed: hardware state";
 const NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "Nuvoton config exit failed";
 /// A failed Experimental sub-scope read on an otherwise successful sample.
 const NUVOTON_EXPERIMENTAL_SUB_SCOPE_FAILURE_CONTEXT: &str =
@@ -92,7 +99,8 @@ const ITE_FAN_ROUTE_REGISTERS: [(u8, u8); 2] = [
 /// text is the surfaced reason and stays stable for logs and guidance.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub(crate) enum MotherboardSensorError {
-  /// No scoped Nuvoton normal-HM or ITE Environment Controller path exists.
+  /// No scoped Nuvoton normal-HM, Fintek or ITE Environment Controller path
+  /// exists.
   #[error("No supported Super I/O hardware-monitor path found")]
   Unsupported,
   #[error(transparent)]
@@ -154,6 +162,20 @@ impl MotherboardSensorError {
     }
   }
 
+  /// Whether a sample failure means the cached path may have lost its `LpcIO`
+  /// port authorization, so the active path is dropped and the next sample
+  /// reruns the full discovery. Only the Fintek path reports this, when the
+  /// first hardware-monitor access of a sample fails.
+  fn invalidates_cached_path(&self) -> bool {
+    matches!(
+      self,
+      Self::Chip(ChipFailure {
+        requires_rediscovery: true,
+        ..
+      })
+    )
+  }
+
   /// Mark a probe failure after which configuration exit was not confirmed as
   /// retryable, keeping its text and guidance.
   fn exit_unconfirmed(self) -> Self {
@@ -181,6 +203,7 @@ impl MotherboardSensorError {
 enum SuperIoVendor {
   Nuvoton,
   Ite,
+  Fintek,
 }
 
 /// A failure on a selected chip profile.
@@ -203,7 +226,7 @@ impl std::fmt::Display for ChipFailure {
     } = self;
     match (self.experimental, self.vendor, self.hardware_state) {
       (false, ..) => f.write_str(detail),
-      (true, SuperIoVendor::Nuvoton, false) => write!(
+      (true, SuperIoVendor::Nuvoton | SuperIoVendor::Fintek, false) => write!(
         f,
         "{NUVOTON_EXPERIMENTAL_FAILURE_LEAD} {chip_label} {NUVOTON_EXPERIMENTAL_FAILURE_TAIL}: {detail}"
       ),
@@ -220,6 +243,10 @@ impl std::fmt::Display for ChipFailure {
       (true, SuperIoVendor::Ite, true) => write!(
         f,
         "{ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({chip_label}): {detail}"
+      ),
+      (true, SuperIoVendor::Fintek, true) => write!(
+        f,
+        "{FINTEK_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX} ({chip_label}): {detail}"
       ),
     }
   }
@@ -315,7 +342,8 @@ pub(crate) struct MotherboardSensorReadout {
 }
 
 /// Read live motherboard temperature and fan RPM values through the scoped
-/// Nuvoton normal-HM or ITE Environment Controller path.
+/// Nuvoton normal-HM, Fintek hardware-monitor or ITE Environment Controller
+/// path.
 ///
 /// Implemented from:
 /// - docs/specs/sensors/pawnio-interface.md revision 7
@@ -325,6 +353,7 @@ pub(crate) struct MotherboardSensorReadout {
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
 /// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 7
 /// - docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md revision 2
+/// - docs/specs/sensors/superio-fintek-f71882-f71889.md revision 1
 ///
 /// No other external sensor implementation source was used.
 pub(crate) struct MotherboardSensorSampler {
@@ -380,6 +409,15 @@ impl MotherboardSensorSampler {
         )
       })),
     };
+    if let Err(reason) = &result
+      && reason.invalidates_cached_path()
+    {
+      // No hardware-monitor read happens on this path until the full
+      // discovery sequence has run again.
+      self.active = None;
+      self.unavailable_reason = Some(reason.clone());
+      self.retry_unavailable = true;
+    }
 
     if let Err(reason) = &result
       && !self.sample_failure_logged
@@ -504,6 +542,8 @@ enum ActiveMotherboardSensors<C: LpcIoOps> {
   Nuvoton(ActiveNuvotonMotherboardSensors<C>),
   /// NCT6776F/NCT6776D and NCT6775F/NCT6771F source-selected slots.
   NuvotonSmiovt(ActiveNuvotonSmiovtSensors<C>),
+  /// Fintek F71882 and F71889.
+  Fintek(ActiveFintekSensors<C>),
   Ite(ActiveIteMotherboardSensors<C>),
 }
 
@@ -513,6 +553,8 @@ impl ActiveMotherboardSensors<PawnIoClient> {
       .map_err(|error| MotherboardSensorError::Unclassified(error.reason))?;
 
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
+    // The discovered path is built, and so cached, before the mutex guard
+    // drops at the end of this function.
     Self::discover(client)
   }
 }
@@ -559,10 +601,14 @@ fn record_probe_failure(
 
 impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   /// Probe both slots in order: Nuvoton bank 4, Nuvoton source-selected
-  /// slots, then ITE. The caller holds the ISA mutex. After a Nuvoton probe
-  /// that could not confirm its configuration exit, the rest of that slot is
-  /// skipped, and that failure stays retryable so a later attempt can reach
-  /// the skipped probes once port access recovers.
+  /// slots, Fintek (the same configuration keys), then ITE. The caller holds
+  /// the ISA mutex. After a Nuvoton or Fintek probe that could not confirm its
+  /// configuration exit, the rest of that slot is skipped, and that failure
+  /// stays retryable so a later attempt can reach the skipped probes once
+  /// port access recovers. When the Fintek probe withholds its exit on slot 1,
+  /// the rest of that slot is skipped as well, without a failure. The first
+  /// passing probe ends discovery, so no slot is selected after its BAR
+  /// discovery.
   fn discover(client: C) -> Result<Self, MotherboardSensorError> {
     let mut last_error: Option<MotherboardSensorError> = None;
 
@@ -615,6 +661,28 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
         continue;
       }
 
+      let SlotProbe {
+        result,
+        configuration_exited,
+      } = ActiveFintekSensors::probe_slot(&client, slot);
+      match result {
+        Ok(Some(discovered)) => {
+          return Ok(Self::Fintek(ActiveFintekSensors::new(client, discovered)));
+        }
+        Ok(None) => {}
+        Err(reason) => record_probe_failure(
+          &mut last_error,
+          if configuration_exited {
+            reason
+          } else {
+            reason.exit_unconfirmed()
+          },
+        ),
+      }
+      if !configuration_exited {
+        continue;
+      }
+
       match ActiveIteMotherboardSensors::discover_slot(&client, slot) {
         Ok(Some(discovered)) => {
           return Ok(Self::Ite(ActiveIteMotherboardSensors::new(
@@ -636,6 +704,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
     match self {
       Self::Nuvoton(_) => SensorSupport::Supported,
       Self::NuvotonSmiovt(active) => active.fan_support(),
+      Self::Fintek(active) => active.fan_support(),
       Self::Ite(active) if !active.profile.fan_registers.is_empty() => {
         SensorSupport::Supported
       }
@@ -647,6 +716,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
     match self {
       Self::Nuvoton(active) => active.sample(),
       Self::NuvotonSmiovt(active) => active.sample(),
+      Self::Fintek(active) => active.sample(),
       Self::Ite(active) => active.sample(),
     }
   }
@@ -658,6 +728,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
         active.profile.chip_label, active.slot, active.hm_base
       ),
       Self::NuvotonSmiovt(active) => active.diagnostic_summary(),
+      Self::Fintek(active) => active.diagnostic_summary(),
       Self::Ite(active) => {
         let mut summary = format!(
           "active chip={} slot={} ec_base=0x{:04X}",
