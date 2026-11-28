@@ -198,19 +198,39 @@ endpoint is found again.
   1. Read `CLOCK_MONOTONIC` immediately before the input reads (the
      sample start).
   2. Read the three inputs.
-  3. Read `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` immediately after the
-     input reads, and compute their difference.
-  4. If the endpoint has no recorded difference, because it is
+  3. Immediately after the input reads, read `CLOCK_BOOTTIME` (B1),
+     then `CLOCK_MONOTONIC` (M), then `CLOCK_BOOTTIME` again (B2).
+     The sample's difference is B2 − M.
+  4. If B2 − B1 exceeds 50 ms, the clock pair is untrusted: either the
+     reads were delayed or a suspend happened between them. Withhold
+     the sample, set the hold start to M and keep the recorded
+     difference unchanged. If the endpoint has no recorded difference
+     yet, the next trusted sample is handled by step 5.
+  5. If the endpoint has no recorded difference, because it is
      observed for the first time (application start, hot plug or
      re-qualification), record the difference, set the hold start to
-     the `CLOCK_MONOTONIC` value of step 3 and withhold the sample.
-  5. Otherwise, if the difference exceeds the recorded one by more
-     than 100 ms, a suspend happened after the previous sample, or
-     during this one. Record the new difference, set the hold start to
-     the `CLOCK_MONOTONIC` value of step 3 and withhold the sample.
-  6. Otherwise record the difference. Withhold the sample if its start
+     M and withhold the sample.
+  6. Otherwise, if the difference exceeds the recorded one by more
+     than 100 ms, a suspend happened after the previous trusted pair
+     and before B2, which includes the time during this sample's input
+     reads. Record the new difference, set the hold start to M and
+     withhold the sample.
+  7. Otherwise record the difference. Withhold the sample if its start
      (step 1) is less than 3 seconds of `CLOCK_MONOTONIC` time after
      the hold start; publish it if not.
+
+  Why this order: `CLOCK_MONOTONIC` does not advance while the system
+  is suspended and `CLOCK_BOOTTIME` does (S15). B2 is read last, so
+  any suspend before it, including one between B1 and M or between M
+  and B2, raises B2 − M. Bracketing the `CLOCK_BOOTTIME` read between
+  two `CLOCK_MONOTONIC` reads would not work, because a suspend
+  between the boot-time read and the second monotonic read changes
+  neither value. B2 − B1 includes suspended time and any delay, so it
+  bounds how far a trusted difference can be off; a trusted pair is
+  off by at most 50 ms, inside the 100 ms detection threshold.
+  Keeping the recorded difference after an untrusted pair means a
+  suspend hidden in it raises the next trusted difference and restarts
+  the hold.
 
   A held endpoint's channels are Unavailable, not zero. A driver that
   is already bound when the endpoint is first observed may hold a
@@ -220,9 +240,8 @@ endpoint is found again.
   covers the driver's two-second window, the tick granularity of
   jiffies and the 0.5-second report period. After a hold, any value
   the driver still returns is younger than its window, so it arrived
-  after the hold start, and step 5 excludes a suspend since then.
-  The 100 ms threshold only absorbs the gap between the clock reads.
-  The rule needs no driver internals.
+  after the hold start, and steps 4 and 6 exclude a suspend since
+  then. The rule needs no driver internals.
 
 ## Windows HID transport (facts, scope Unsupported)
 
@@ -296,9 +315,11 @@ the S13 observation.
 | Two qualified HID devices | Two independent sets of three channels; never merged. |
 | Endpoint removed, then present again with a new `hwmonN` and HID sequence | Unavailable while absent; readings resume after re-qualification and the first-observation hold. |
 | Endpoint observed for the first time (application start or hot plug) with all three inputs returning values | Sample withheld; channels Unavailable until a sample starts 3 s of `CLOCK_MONOTONIC` time after the first observation, then published. |
-| `CLOCK_BOOTTIME` minus `CLOCK_MONOTONIC` grew by 600 s between the previous sample and this one, and the inputs still return the pre-suspend values | Sample withheld; channels Unavailable until a sample starts 3 s of `CLOCK_MONOTONIC` time after detection, then published again. |
-| Endpoint published normally on the previous sample; the suspend happens between this sample's `CLOCK_MONOTONIC` start read and its input reads, so the difference read after the input reads grew by 600 s | That sample withheld although every input returned a value; the 3 s hold starts at the post-read clock values. |
-| The difference grew by 20 ms | Treated as clock-read jitter; values published normally. |
+| A trusted pair (B2 − B1 at most 50 ms) whose difference B2 − M grew by 600 s over the recorded one, with the inputs still returning the pre-suspend values | Sample withheld; channels Unavailable until a sample starts 3 s of `CLOCK_MONOTONIC` time after detection, then published again. |
+| Endpoint published normally on the previous sample; the suspend happens between this sample's `CLOCK_MONOTONIC` start read and its input reads, so the trusted difference B2 − M grew by 600 s | That sample withheld although every input returned a value; the 3 s hold starts at M. |
+| A trusted pair whose difference grew by 20 ms | Treated as clock-read jitter; values published normally. |
+| A suspend of 600 s between B1 and M, or between M and B2 (B2 − B1 is 600 s) | Pair untrusted; sample withheld, hold starts at M, recorded difference unchanged. The next trusted pair shows a 600 s growth and restarts the hold; values are published only after a sample starts 3 s after that. |
+| No suspend, but the three clock reads are delayed so that B2 − B1 is 80 ms | Pair untrusted; sample withheld, hold starts at M, recorded difference unchanged. The next trusted pair shows no growth, and samples are published again once one starts 3 s after the hold start. |
 | No `1E71:170E` HID device | Unsupported; no hwmon input reads for this scope. |
 
 ## Open questions
@@ -359,10 +380,19 @@ the S13 observation.
    Whether the cooler resumes sending reports after suspend, or is
    reset and re-enumerated by the USB core, is not recorded. The
    driver defines no resume handling of its own (S3).
+10. Non-blocking for #2527 Linux hwmon scope: the exposure is bounded
+    by one sampling interval, because the first sample after resume
+    detects the suspend and withholds the channels.
+    A suspend that begins after the last `CLOCK_BOOTTIME` read of a
+    sample cannot be seen by that sample. Its values, read before the
+    suspend, may stay on screen after resume until the next sample
+    replaces them. Suspends shorter than the 50 ms and 100 ms
+    thresholds are also not detected; they age a value by less than
+    that amount.
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version. Propose Implementation-ready for the Experimental Linux `nzxt-kraken2` hwmon scope on USB `1E71:170E` only. Record the status report framing and Windows HID transport facts, keep Windows and `hidraw` access Unsupported because of the CAM exclusive-access finding, and give every NZXT generation named in #2527 a disposition. |
-| 2 | 2026-11-28 | Record that the driver's two-second staleness window excludes suspended time (S3, S14) and add the resume rule based on `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` (S15), with fixtures. The rule reads the clocks after the input reads so a suspend during a sample withholds that sample, and holds every newly observed endpoint for 3 s because no sourced fact shows a fresh driver binding. The Linux scope row names the lead-only jiffies fact (S14). Make the class-link fixture match the ownership gate: the hwmon `device` link resolves to the HID device and the class link to the hwmon child. |
+| 2 | 2026-11-28 | Record that the driver's two-second staleness window excludes suspended time (S3, S14) and add the resume rule based on `CLOCK_BOOTTIME` and `CLOCK_MONOTONIC` (S15), with fixtures. The rule reads `CLOCK_BOOTTIME`, `CLOCK_MONOTONIC`, `CLOCK_BOOTTIME` after the input reads, so a suspend before or during a sample, including inside the clock reads, withholds that sample, and a pair spanning more than 50 ms is untrusted; and holds every newly observed endpoint for 3 s because no sourced fact shows a fresh driver binding. The Linux scope row names the lead-only jiffies fact (S14). Make the class-link fixture match the ownership gate: the hwmon `device` link resolves to the HID device and the class link to the hwmon child. |
