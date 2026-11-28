@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -63,7 +65,9 @@ jobs:
       - name: Run both runners alternately
         shell: bash
         run: |
-          set -uo pipefail
+          # GitHub starts `shell: bash` with -e; keep going so every round is
+          # recorded even when a runner reports failing tests.
+          set +e -uo pipefail
           failed=0
           {
             echo "## App tests on ${{ matrix.platform }}"
