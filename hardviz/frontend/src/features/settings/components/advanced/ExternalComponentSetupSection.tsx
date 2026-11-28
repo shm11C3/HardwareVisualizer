@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { useProductEvent } from "@/hooks/analytics/useProductEvent";
 import {
   elevationUnavailableReasonKey,
   useElevationAvailability,
@@ -34,6 +35,7 @@ type ComponentEntry = {
  */
 export const ExternalComponentSetupSection = () => {
   const { t } = useTranslation();
+  const recordProductEvent = useProductEvent();
   const [entries, setEntries] = useState<ComponentEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [runningComponent, setRunningComponent] =
@@ -120,6 +122,7 @@ export const ExternalComponentSetupSection = () => {
       ),
     );
     try {
+      recordProductEvent({ capability: "externalComponentSetupStarted" });
       const result = await commands.runExternalComponentSetup(component);
       if (isError(result)) {
         console.error("Failed to run external component setup:", result.error);

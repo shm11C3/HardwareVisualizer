@@ -18,6 +18,10 @@ mod vocabulary;
 pub(crate) use runtime::{AppConsentStore, AppFlagSources, spawn_flush_loop};
 pub(crate) use service::{AnalyticsService, Ports, SystemClock};
 pub(crate) use transport::{LoggingTransport, build_transport};
+// Only the Windows tray flyout, a separate window with no frontend hook, records
+// a capability from Rust.
+#[cfg(windows)]
+pub(crate) use vocabulary::Capability;
 pub use vocabulary::ProductEvent;
 
 /// Whether this OS family has the v1 optional sensor providers, whose

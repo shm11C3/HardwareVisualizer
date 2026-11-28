@@ -381,6 +381,7 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::set_elevated_startup_mode,
       settings::commands::set_product_analytics_consent,
       commands::analytics::record_product_event,
+      commands::analytics::set_product_analytics_prompt_open,
       settings::commands::read_license_file,
       settings::commands::read_third_party_notices_file,
       settings::commands::open_license_file_path,

@@ -7,11 +7,15 @@
 
 use std::{
   env,
-  sync::atomic::{AtomicBool, Ordering},
+  sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+  },
 };
 
 use tauri::{AppHandle, Emitter, Manager, Window};
 
+use crate::analytics::AnalyticsService;
 use crate::log_warn;
 use crate::workers::WorkersState;
 
@@ -349,6 +353,17 @@ pub async fn prepare_for_update_install(app: &AppHandle) -> Result<(), String> {
 }
 
 async fn prepare_for_process_shutdown(app: &AppHandle) -> Result<(), String> {
+  // Leaving while the consent dialog is unanswered counts as a decline. It
+  // runs before the workers stop so the decision is on disk.
+  if let Some(analytics) = app.try_state::<Arc<AnalyticsService>>()
+    && let Err(error) = analytics.decline_open_prompt().await
+  {
+    log_warn!(
+      "failed to record the unanswered consent dialog as a decline",
+      "lifecycle::prepare_for_process_shutdown",
+      Some(error)
+    );
+  }
   let ws = app.state::<WorkersState>();
   // The state-machine error here means another caller already moved
   // us to Stopped; the workers terminate guard handles double-call

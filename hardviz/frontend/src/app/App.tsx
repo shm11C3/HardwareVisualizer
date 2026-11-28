@@ -23,6 +23,7 @@ import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareE
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useSelectedStorageDevicePersistence } from "@/features/hardware/hooks/useSelectedStorageDevicePersistence";
 import { SideMenu } from "@/features/menu/SideMenu";
+import { useProductEvent } from "@/hooks/analytics/useProductEvent";
 import { useBackgroundImage } from "@/hooks/appearance/useBgImage";
 import { useColorTheme } from "@/hooks/appearance/useColorTheme";
 import { useSettingsAtom } from "@/hooks/settings/useSettingsAtom";
@@ -206,6 +207,15 @@ const AppContent = () => {
 
   const displayTarget = useAtomValue(displayTargetAtom);
 
+  // A screen view is counted when the target changes, and once for the current
+  // target when settings first load so the first screen is not lost (consent is
+  // unknown until then). Granting consent does not rerun this on its own.
+  const recordProductEvent = useProductEvent();
+  useEffect(() => {
+    if (!settingsLoaded || displayTarget === null) return;
+    recordProductEvent({ screenView: displayTarget });
+  }, [settingsLoaded, displayTarget, recordProductEvent]);
+
   const { visibleTypes } = useTitleIconVisualSelector();
 
   useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
@@ -384,6 +394,7 @@ const AppContent = () => {
             settingsSettled={settingsSettled}
             displayTarget={displayTarget}
             nsisMigrationNoticeDismissed={settings.nsisMigrationNoticeDismissed}
+            productAnalytics={settings.productAnalytics}
           />
           <div className="fixed right-4 bottom-4 z-40 flex max-h-[calc(100dvh-2rem)] max-w-md flex-col gap-3 overflow-y-auto">
             <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />

@@ -11,6 +11,9 @@ import { isError } from "@/types/result";
 export const useGpuNames = () => {
   const [gpuNames, setGpuNames] = useState<string[]>([]);
   const [hasError, setHasError] = useState(false);
+  // The first read finished, successfully or not: until then a stored GPU tab
+  // cannot be resolved yet.
+  const [settled, setSettled] = useState(false);
   const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -25,6 +28,7 @@ export const useGpuNames = () => {
       if (requestIdRef.current === requestId) {
         setGpuNames(result.data);
         setHasError(false);
+        setSettled(true);
       }
     } catch (err) {
       console.error(err);
@@ -32,6 +36,7 @@ export const useGpuNames = () => {
       if (requestIdRef.current === requestId) {
         setGpuNames([]);
         setHasError(true);
+        setSettled(true);
       }
     }
   }, []);
@@ -48,5 +53,5 @@ export const useGpuNames = () => {
     void load();
   }, [load]);
 
-  return { gpuNames, hasError, retry };
+  return { gpuNames, hasError, settled, retry };
 };

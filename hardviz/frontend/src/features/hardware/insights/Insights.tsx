@@ -7,7 +7,7 @@ import {
   ThermometerIcon,
 } from "@phosphor-icons/react";
 import { ChevronLeft, ChevronRight, ZapIcon } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { LoadFailure } from "@/components/LoadFailure";
@@ -21,8 +21,9 @@ import {
 } from "@/features/hardware/insights/components/InsightChart";
 import { useArchivePeriodOptions } from "@/features/hardware/insights/hooks/useArchivePeriodOptions";
 import type { DataStats } from "@/features/hardware/types/hardwareDataType";
+import { useProductEvent } from "@/hooks/analytics/useProductEvent";
 import { useTauriStore } from "@/hooks/tauri/useTauriStore";
-import type { DataArchiveHardwareType } from "@/rspc/bindings";
+import type { DataArchiveHardwareType, Insight } from "@/rspc/bindings";
 import type { GpuDataType } from "@/types/chart";
 import { RetentionNote } from "./components/RetentionNote";
 import { SelectPeriod } from "./components/SelectPeriod";
@@ -520,11 +521,17 @@ const Icon = ({ type }: { type: InsightType }) => {
   return iconMap[type];
 };
 
+/** The Product Event's Insight for a tab: every GPU tab is one `gpu`. */
+const productInsight = (type: InsightType): Insight =>
+  type === "main" ? "hardware" : type;
+
 export const Insights = () => {
   const { t } = useTranslation();
+  const recordProductEvent = useProductEvent();
   const {
     gpuNames,
     hasError: gpuNamesHasError,
+    settled: gpuNamesSettled,
     retry: retryGpuNames,
   } = useGpuNames();
   const { init } = useHardwareInfoAtom();
@@ -573,15 +580,31 @@ export const Insights = () => {
     },
   ];
 
+  const activeChild = insightsChild.find((v) => v.name === displayTarget);
+  const activeName = activeChild?.name ?? "main";
+  const activeType = activeChild?.type ?? "main";
+
+  // One event per resolved tab change, including the first resolved tab once
+  // the stored selection and the GPU names have loaded (a stored GPU tab shows
+  // as main until then); a rerender of the same tab records nothing.
+  const lastRecordedTab = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      isPending ||
+      !gpuNamesSettled ||
+      lastRecordedTab.current === activeName
+    ) {
+      return;
+    }
+    lastRecordedTab.current = activeName;
+    recordProductEvent({
+      capability: { insightOpened: productInsight(activeType) },
+    });
+  }, [isPending, gpuNamesSettled, activeName, activeType, recordProductEvent]);
+
   return (
     !isPending && (
-      <Tabs
-        value={
-          insightsChild.some((v) => v.name === displayTarget)
-            ? displayTarget
-            : "main"
-        }
-      >
+      <Tabs value={activeName}>
         {insightsChild.length > 1 && (
           <TabsList className="sticky top-[8px] z-50 ml-1">
             {insightsChild.map((child) => {

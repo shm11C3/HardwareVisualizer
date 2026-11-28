@@ -73,9 +73,11 @@ export const settingsFixture: ClientSettings_Serialize = {
     visibleMetrics: ["cpu", "gpu", "gpu-temp"],
     updateIntervalSecs: 1,
   },
+  // Declined, so no spec meets the startup consent dialog by accident;
+  // `?productAnalytics=undecided` opts in to it (installTauriMocks.ts).
   productAnalytics: {
-    consent: "undecided",
-    consentVersion: 0,
+    consent: "declined",
+    consentVersion: 1,
     currentConsentVersion: 1,
   },
 };

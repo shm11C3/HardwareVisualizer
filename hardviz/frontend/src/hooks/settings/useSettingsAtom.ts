@@ -6,6 +6,7 @@ import {
   type ClientSettings,
   commands,
   type LineGraphColorStringSettings,
+  type ProductAnalyticsDecision,
 } from "@/rspc/bindings";
 import {
   getPowerDisplayTargetMutationState,
@@ -622,6 +623,26 @@ export const useSettingsAtom = () => {
     });
   };
 
+  /**
+   * Grant or decline Analytics Consent (ADR 0028). The backend owns the whole
+   * transition (seed, cohort, runtime), so the atom changes only after it is
+   * saved; the version is the contract the user just saw.
+   */
+  const setProductAnalyticsConsentAtom = (decision: ProductAnalyticsDecision) =>
+    persistThenApply({
+      action: "productAnalytics",
+      write: () => commands.setProductAnalyticsConsent(decision),
+      apply: () =>
+        setSettings((prev) => ({
+          ...prev,
+          productAnalytics: {
+            ...prev.productAnalytics,
+            consent: decision,
+            consentVersion: prev.productAnalytics.currentConsentVersion,
+          },
+        })),
+    });
+
   return {
     settings,
     loadSettings,
@@ -637,6 +658,7 @@ export const useSettingsAtom = () => {
     setScheduledDataDeletion,
     setStorageHealthRetentionDays,
     setCloseToTrayPreferenceAtom,
+    setProductAnalyticsConsentAtom,
     setTrayWidgetSettingsAtom,
     setNavigationLayoutAtom,
     acknowledgeNavigationRestructureAnnouncementAtom,

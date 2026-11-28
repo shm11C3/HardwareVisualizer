@@ -15,3 +15,14 @@ pub fn record_product_event(
 ) {
   state.record(event);
 }
+
+/// Reports whether the consent dialog is open and unanswered, so quitting
+/// the app while it is open can count as a decline.
+#[tauri::command]
+#[specta::specta]
+pub fn set_product_analytics_prompt_open(
+  state: tauri::State<'_, Arc<AnalyticsService>>,
+  open: bool,
+) {
+  state.set_prompt_open(open);
+}

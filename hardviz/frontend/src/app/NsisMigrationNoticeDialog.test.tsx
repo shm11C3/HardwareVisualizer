@@ -138,4 +138,71 @@ describe("NsisMigrationNoticeDialog", () => {
     );
     expect(screen.getByText(title)).toBeInTheDocument();
   });
+
+  describe("onPendingChange", () => {
+    // Lower-priority startup dialogs wait on this, so it must stay true for
+    // exactly as long as the notice could still ask for the slot.
+    it("is pending until the bundle type resolves", async () => {
+      let resolve: (type: string) => void = () => {};
+      mocks.getBundleType.mockReturnValue(
+        new Promise<string>((r) => {
+          resolve = r;
+        }),
+      );
+      const onPendingChange = vi.fn();
+      render(
+        <NsisMigrationNoticeDialog
+          dismissed={false}
+          onPendingChange={onPendingChange}
+        />,
+      );
+      expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+      resolve("msi");
+      await waitFor(() =>
+        expect(onPendingChange).toHaveBeenLastCalledWith(false),
+      );
+    });
+
+    it("stops being pending when the bundle type lookup fails", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      mocks.getBundleType.mockRejectedValue(new Error("no bundle"));
+      const onPendingChange = vi.fn();
+      render(
+        <NsisMigrationNoticeDialog
+          dismissed={false}
+          onPendingChange={onPendingChange}
+        />,
+      );
+
+      await waitFor(() =>
+        expect(onPendingChange).toHaveBeenLastCalledWith(false),
+      );
+      consoleError.mockRestore();
+    });
+
+    it("is pending until settings load, then not once dismissed", () => {
+      const onPendingChange = vi.fn();
+      const { rerender } = render(
+        <NsisMigrationNoticeDialog
+          dismissed={false}
+          settingsLoaded={false}
+          onPendingChange={onPendingChange}
+        />,
+      );
+      expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+      rerender(
+        <NsisMigrationNoticeDialog
+          dismissed
+          settingsLoaded
+          onPendingChange={onPendingChange}
+        />,
+      );
+      expect(onPendingChange).toHaveBeenLastCalledWith(false);
+      expect(mocks.getBundleType).not.toHaveBeenCalled();
+    });
+  });
 });
