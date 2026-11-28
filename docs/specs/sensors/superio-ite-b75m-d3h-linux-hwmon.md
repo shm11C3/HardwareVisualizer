@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
+| Revision | 3 |
 | Status | Draft — not implementation-ready |
 | Scope | Linux OS-reported RPM for two observed fan inputs on the exact Gigabyte GA-B75M-D3H and its already bound `it87` hwmon endpoint |
 | Issue phase | [#2518](https://github.com/shm11C3/HardwareVisualizer/issues/2518), Linux OS API candidate |
@@ -67,7 +67,7 @@ attribute is in scope (S3).
    or channel-role mapping is required (S3, S5, S7).
 3. Parse a single ASCII decimal integer, optionally followed by a single
    newline. The exact v6.18 IT8728 profile converts counts using the same
-   integer formula used by the [Windows board specification](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md#read-procedure-and-decode).
+   integer formula used by the [Windows IT8728F fan specification](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md#read-procedure-and-decode).
    Its conservative active-count interval `0x0040`–`0xFFFE` gives
    the draft Linux policy an inclusive output interval of 10–10546 RPM.
    A present attribute reporting 0 means no measurable rotation.
@@ -162,9 +162,10 @@ attribute is in scope (S3).
 - **Windows raw IT8728 fan counters.**
   Non-blocking for the Linux OS API candidate: Linux receives already converted RPM from the bound driver.
   The ITE E-version document maps DX and EX to the same revision nibble.
-  The separate [Windows board specification](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md)
-  defines the exact-board EX scope and its own authorization. Broader
-  Windows IT8728 fan support remains deferred under #2518 (S2–S4, S11).
+  The separate [Windows IT8728F fan specification](superio-ite-it8728f-ex-ga-b75m-d3h-fans.md)
+  defines a chip-level primary-slot FAN1–2 scope for DX and EX, with its
+  own authorization. Its DX coverage is a lead-only fact. Windows FAN3–5
+  remain deferred under #2518 (S2–S4, S11).
 
 ## Revision history
 
@@ -172,3 +173,4 @@ attribute is in scope (S3).
 | --- | --- | --- |
 | 1 | 2026-11-08 | Record exact GA-B75M-D3H OS endpoint, two observed Linux RPM channels, and the kernel status-read and option safety gates. |
 | 2 | 2026-11-08 | Constrain candidate active RPM to the existing board plausibility interval and preserve 0 RPM as Inactive for a present input. The kernel safety gates keep this profile disabled. |
+| 3 | 2026-11-28 | Update the Windows cross-reference to the chip-level IT8728F FAN1–2 specification revision 2. The Linux candidate, its gates and its open questions are unchanged. |
