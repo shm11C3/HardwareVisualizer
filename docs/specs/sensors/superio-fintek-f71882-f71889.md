@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Windows PawnIO `LpcIO` read-only motherboard temperatures and fan RPM on Fintek Super I/O parts whose hardware monitor (logical device 4) has three 1 °C temperature bytes at `0x72`/`0x74`/`0x76` and MSB-latched fan counts at `0xA0`+`0x10`·n. Enabled, both Experimental and both backed by a complete vendor datasheet: exact raw chip ID `0x0541` (F71882, temperatures TEMP1–3 and fans FAN1–4) and exact raw chip ID `0x0723` (F71889, temperatures TEMP1–3 and fans FAN1–3). Recorded but disabled: every other Fintek ID, including the #2522 targets F71808E, F71811, F71858, F71862, F71869, F71869A, F71878AD, F71889ED and F71889A (see the disposition table). Excludes every write other than the read-transaction plumbing listed in Safety notes, voltages, PECI/TSI/SMBus digital temperatures, fan/PWM control, limits, alarms, beeps, and the Linux and ACPI paths. |
 | Issue phase | #2522 (epic #2510) |
 
@@ -19,7 +19,7 @@
 | S6 | Fintek, *F71868A Super I/O + Hardware Monitor* datasheet, Revision V0.17P, May 2015. `https://theretroweb.com/chip/documentation/sio-fintek-f71868a-datasheet-67a8e2d464c2c121022287.pdf`, fetched 2026-11-28, SHA-256 `defc2eb22422d3d3415d8e7610f169388c459cc9bfd4b5383acaa3c64a48aebf`. States global `CR20`/`CR21` = `0x11`/`0x06` and vendor ID `0x19`/`0x34`, PDF p. 62. | Primary for the deferred F71868A candidate only. |
 | S7 | Fintek, *F81866A 6 UARTs Super IO* datasheet, Version V0.12P, Jan 2012. `https://theretroweb.com/chip/documentation/f81866-65be9af75043b934046746.pdf`, fetched 2026-11-28, SHA-256 `f28ae6428ffeb7fefc13adf9a2bccbf37935b955c5c4c7b81f71b81b92083334`. States `CR20`/`CR21` = `0x10`/`0x10` (PDF p. 117) and temperature readings at HM `0x70`, `0x72`, `0x74` (PDF p. 60). | Primary for the F81866A disposition only (not a #2522 target). |
 | S8 | Fintek, *F71808E* datasheet V0.19P, Dec 2009, three-page excerpt (general description and feature list only) hosted by datasheet.su: `https://pdf5.datasheet.su/feature-integration-technology-inc-f71808e_c7e1809a3f.pdf`, fetched 2026-11-28, SHA-256 `78ad3d3a5489aaa89772e5f808f2e441ea6c1d94e1731a0eb75965a3caa47c33`. States two thermal inputs and three fan speed inputs. | Primary excerpt; no register map. |
-| S9 | [`superio-access.md`](superio-access.md) revision 4 | Clean-room source for the Winbond/Nuvoton-lineage configuration keys (`0x87`, `0x87` / `0xAA`), the slot mapping, chip-ID reads at `0x20`/`0x21`, absent-ID classification, the slot-1 ITE exit-withhold rule and the ISA mutex. |
+| S9 | [`superio-access.md`](superio-access.md) revision 5 | Clean-room source for the Winbond/Nuvoton-lineage configuration keys (`0x87`, `0x87` / `0xAA`), the slot mapping, chip-ID reads at `0x20`/`0x21`, absent-ID classification, the slot-1 ITE exit-withhold rule and the ISA mutex, which are unchanged from revision 4, and the [sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence), which is project policy. |
 | S10 | [`pawnio-interface.md`](pawnio-interface.md) revision 9, `LpcIO` section | Interface source: `ioctl_select_slot`, `ioctl_find_bars`, `ioctl_superio_inb`/`outb`, `ioctl_pio_inb`/`outb`; port access limited to the configuration pair and the 8-byte-aligned BAR windows; caller-held `Global\Access_ISABUS.HTP.Method`. |
 | S11 | PawnIO.Modules `LpcIO.p` at tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`), LGPL-2.1-or-later | Upstream-published interface definition of the module this project calls. `ioctl_find_bars` reads global `0x20` and fails if it is `0x00` or `0xFF`; for every logical device it records the `0x60/61` and `0x62/63` values that read the same twice, are non-zero, not `0xFFFF` and at least `0x100`; a value whose low three bits are `101b` is first rounded down to its 8-byte boundary; a port is allowed only if the port rounded down to 8 bytes equals a recorded value. `ioctl_select_slot` first resets the module state, clearing the configuration port and the recorded BAR list, so any slot selection after `ioctl_find_bars` withdraws that authorization. Used for port-authorization behaviour only; no code copied. |
 | S12 | [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) revision 9 and [`superio-nuvoton-nct6775-nct6776-nct610x.md`](superio-nuvoton-nct6775-nct6776-nct610x.md) revision 1 | Project sources for the shared Super I/O procedure: `ioctl_find_bars` after configuration-mode entry and base discovery, the unavailable-slot rule for position-keyed consumers, and the structure of the read-to-clear register list. |
@@ -232,14 +232,34 @@ and never selects logical device 0 or touches its I/O space.
    `0x19`/`0x34`. (S2 p. 51)
 7. Exit configuration mode (`0xAA`) on the visited slot on every path,
    including failures, except where step 2 withholds the exit on slot 1.
-   (S9)
+   If an entry-key or exit write fails, detection does not move to the
+   next slot and caches no path. That slot then owes cleanup. Every
+   later detection runs the S9 cleanup step on each slot that owes one,
+   before step 2 visits slot 0. The cleanup selects the slot and writes
+   the entry keys and exit of the vendor sequence recorded with the debt.
+   For a debt from this document, that sequence is `0x87`, `0x87`, then
+   `0xAA`. A debt recorded by another document's probe, for example an
+   ITE probe, uses that document's sequence. On slot 1, the cleanup
+   first reads `CR20`/`CR21` after entry and applies the S9 slot-1
+   cleanup outcomes. For `0x8733`, `0x8790`, `0x8695` or `0x8883` no exit
+   write is issued, and the cleanup counts as complete. A failed ID read
+   also issues no exit write, keeps the debt and makes the detection
+   eligible. Any other ID gets the recorded exit. This holds even when
+   the failed detection never read the slot-1 ID. While any cleanup is
+   owed, or when a cleanup write or ID read fails, no slot is visited and
+   no path is cached. See
+   [Rediscovery eligibility](#rediscovery-eligibility). (S9)
 8. While the mutex is still held, cache the slot, profile, port base and
    the set of routed fan inputs, so that any later `ioctl_select_slot` on
    the shared handle finds the cached path and invalidates it. Only then
    release the mutex, after the last slot attempt. Configuration mode is
    not entered again for sampling, and sampling issues no
    `ioctl_select_slot`. A failed routing read leaves that fan unavailable
-   until rediscovery. (S12)
+   while the path stays cached. It is not a detection failure and starts
+   no detection. The fan can return only through a later detection after
+   the path is discarded under the S9
+   [sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence).
+   (S9, S12)
 
 Both slots share the one `LpcIO` executor handle the project keeps per
 module (S10). Because `ioctl_select_slot` clears the recorded BARs (S11),
@@ -248,6 +268,25 @@ by another vendor's discovery, invalidates the cached path. The path is then
 unavailable until this detection sequence runs again in full, ending with
 `ioctl_find_bars` for the matching slot. A slot-1 match is used only when
 slot 0 did not pass, so no slot is selected after its own BAR discovery.
+The invalidation discards the path, and the next detection follows S9
+rule R6.
+
+### Rediscovery eligibility
+
+Detection follows the S9 rediscovery cadence. A rediscovery is a
+separate detection transaction under its own ISA mutex acquisition. No
+sample transaction enters configuration mode, and a failed sample starts
+no detection. The S9 shared table covers the mutex, the executor,
+`ioctl_find_bars` and configuration-register read failures.
+
+| Detection failure | Class | Reason |
+| --- | --- | --- |
+| The `0x87`, `0x87` entry-key write or the `0xAA` exit write fails on a visited slot, so the exit is not confirmed (steps 2, 7) | Eligible | The chip may still be in configuration mode, and a later attempt is the only point at which the exit is issued again (S9). Detection then stops. It visits no further slot, issues no `ioctl_select_slot` and caches no path, even if a later slot would pass (S9). |
+| An exit withheld on slot 1 under step 2 | Not a failure | S9 makes the withhold intentional. That slot has no Fintek path. |
+| F71889 step 6: an HM port write or read for `0x5D`/`0x5E` fails | Eligible | Under the S9 shared table, `ioctl_find_bars` success does not prove a usable window, and a later attempt runs step 5 again (S9). |
+| F71889 step 6: the HM vendor ID reads but is not `0x19`/`0x34` | Not eligible | A value read successfully (S2 p. 51). |
+| `CR23`/`CR24` other than `0x19`/`0x34`, `CR25` bit 4 set, `CR30` bit 0 clear, or a refused base (steps 3–4) | Not eligible | A value read successfully (S1, S2). |
+| Absent responder or a chip ID outside the ID-matching table | Not eligible | The probe completed. |
 
 ### Sampling (HM ports only, under the ISA mutex)
 
@@ -326,7 +365,13 @@ All fixtures are synthetic.
 | Recorded transaction | Writes are only `0x87`, `0x87`, `0xAA` and register indexes to the configuration index port, `CR07=0x04`, the module's own selections inside `ioctl_find_bars`, and register indexes to the HM index port. No HM data-port write; no read of `0x03`, `0x11`, `0x61`, `0x91`, `0x62`, `0x92` or `0xE0`–`0xEF`. |
 | Slot 0 reports `0x0541` and passes every gate; slot 1 holds another chip | Detection ends on slot 0: no `ioctl_select_slot(1)` after slot 0's `ioctl_find_bars`, and sampling reads ports `0x295`/`0x296` without any slot selection. |
 | Slot 0 reports `0x0541` but fails the base gate; slot 1 reports `0x0723` and passes | Slot 0 ends with `0xAA` without BAR discovery; `ioctl_select_slot(1)` precedes the only `ioctl_find_bars` whose BARs are cached. |
-| Any `ioctl_select_slot` on the shared handle after the path is cached | Cached path invalidated; no HM read until the full detection sequence has run again. |
+| Any `ioctl_select_slot` on the shared handle after the path is cached | Cached path invalidated; no HM read until the full detection sequence has run again. That detection starts no earlier than S9 rule R6 allows. |
+| F71889 `0x5D` read denied on the first detection, `0x19`/`0x34` on a later one | The first detection caches nothing and is eligible. The later detection runs in its own mutex acquisition, no earlier than the S9 backoff allows, and caches the path. |
+| A failed `CR2B` routing read at detection, everything else qualified | The path is cached with the dependent fans unavailable. No detection runs while that path stays cached. |
+| Detection 1: slot 0 `0x0541` fails the base gate, then the `0xAA` write on slot 1 fails. Detection 2: slot 0 now passes. | Detection 2 first selects slot 1 and writes `0x87`, `0x87`, `0xAA`. It then visits slot 0, and its `ioctl_find_bars` comes after that cleanup. Slot 0 is cached only if the cleanup succeeded. If the cleanup fails, there is no slot 0 access and no path is cached. |
+| Slot 1 owes cleanup recorded by an ITE probe | The cleanup writes the ITE slot-1 entry keys `0x87`, `0x01`, `0x55`, `0xAA` and, if the ID permits it, the ITE exit. It writes no Fintek `0x87`, `0x87` / `0xAA` sequence. |
+| Slot 1 owes cleanup because a Fintek entry write failed before the ID read. The cleanup reads `0x8733` | No `0xAA` or other exit write. The cleanup is complete, and detection continues with step 2. |
+| Same, but the cleanup ID read fails | No exit write. The debt is kept, no slot is visited, no path is cached, and the detection is eligible. |
 | Slot 0 does not pass; slot 1 reads `0x8733` (likewise `0x8790`, `0x8695`, `0x8883`) | No `0xAA` or other exit write on slot 1; the skip is reported as in S9; no Fintek path. |
 | Mutex timeout | Sample skipped; no port I/O. |
 
@@ -438,7 +483,8 @@ is enabled.
 Implementation PRs pin this revision, for example:
 
 ```text
-Implemented from docs/specs/sensors/superio-fintek-f71882-f71889.md revision 1 (commit <sha>), limited to the F71882 and F71889 rows marked enabled.
+Implemented from docs/specs/sensors/superio-fintek-f71882-f71889.md revision 2 (commit <sha>), limited to the F71882 and F71889 rows marked enabled.
+Implemented from docs/specs/sensors/superio-access.md revision 5 (commit <sha>), limited to the configuration access facts, the slot-1 exit withhold and the sampling-path rediscovery cadence.
 No other external sensor documentation was used.
 ```
 
@@ -447,3 +493,4 @@ No other external sensor documentation was used.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization, and the path is cached before the mutex is released so a later selection can invalidate it; on slot 1 the S9 exit withhold also suppresses the `0xAA` exit for its four IDs. |
+| 2 | 2026-11-28 | Re-pinned S9 to `superio-access.md` revision 5 for #2821, whose configuration access facts and slot-1 exit withhold are unchanged, and adopted its sampling-path rediscovery cadence. Added [Rediscovery eligibility](#rediscovery-eligibility). An unconfirmed configuration exit and an F71889 HM vendor-ID port failure are eligible. Value refusals and the shared configuration-read and `ioctl_find_bars` failures are not eligible. An exit withheld on slot 1 is not a failure. An unconfirmed exit on a visited slot stops detection without visiting another slot. That slot then owes cleanup, which every later detection runs before visiting slot 0. The cleanup uses the vendor sequence recorded with the debt. On slot 1 it reads the ID first and applies the S9 withhold set; a failed ID read issues no exit and keeps the debt. A failed routing read leaves its fan unavailable while the path stays cached and starts no detection. An invalidated path is discarded under rule R6. Added two fixtures and extended the invalidation fixture. Profiles, gates, reads, writes and decodes are unchanged. Status remains Implementation-ready (rev 2). |

@@ -11,8 +11,12 @@
 # build and run the DuckDB integration tests. Use --no-default-features to
 # build the SQLite-only fallback (kept until ADR 0025 removes it in v2.0.0).
 #
-# Local: `cargo nextest run -p hardviz-core`
-# CI:    `cargo nextest run -p hardviz-core --profile ci`
+# The same isolation lets the App tests run in parallel: the native_dispatch_*
+# integration binaries initialize Core's process-wide `dispatch::init`, and
+# App unit tests resolve app data under a per-test temporary directory.
+#
+# Local: `cargo tauri-test` (workspace), or `cargo nextest run -p <crate>`
+# CI:    `cargo nextest run -p <crate> --profile ci`
 
 [profile.default]
 # The slowest DuckDB test (a cancelled 5e9-row scan) finishes well under a

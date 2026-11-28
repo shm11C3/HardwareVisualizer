@@ -68,6 +68,9 @@ Development requires the following tools:
 In addition, you will need the [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/#system-dependencies).
 Please make sure to install these as well.
 
+Rust tests run through [cargo-nextest](https://nexte.st), as in CI. Install it
+once with `cargo install cargo-nextest --locked`.
+
 Next, install the dependencies:
 
 ```bash

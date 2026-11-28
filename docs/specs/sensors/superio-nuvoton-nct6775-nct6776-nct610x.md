@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Windows PawnIO `LpcIO` read-only motherboard temperatures and fan RPM on the early Nuvoton parts whose hardware monitor reports temperatures through six source-selected slots (the datasheets call them SMIOVT1–SMIOVT6) instead of the fixed bank 4 bytes of [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md). Enabled: NCT6776F/NCT6776D raw IDs `0xC330`–`0xC337` (temperatures and five direct RPM inputs, primary-source-backed, Experimental) and the NCT6775F/NCT6771F family raw IDs `0xB470`–`0xB477` (temperatures only, lead-only, Experimental). Recorded but disabled: every NCT6102D/NCT6104D/NCT6106D ID (chip-ID conflict), NCT6775F-family fans (conflicting leads), PECI, SMBus-master, PCH and BYTE_TEMP slot sources, voltages. Excludes every write other than the read-transaction plumbing listed in Safety notes, fan/PWM control, limits, alarms, the Linux and ACPI WMI paths, and every raw ID handled by `superio-nuvoton-nct67xx.md`. |
 | Issue phase | #2521 (epic #2510) |
 
@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | S1 | Nuvoton, *NCT6776F / NCT6776D Nuvoton LPC I/O* datasheet, Revision 1.2, publication release date July 12, 2011. Copy hosted by DigiKey: `https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/532/NCT6776F,D.pdf`, fetched 2026-11-28, SHA-256 `d5eec9d9bdc1212c619fd36995a2f1d964482079fbbf7aa55311a50ebd6e90fb`. Pins (printed page numbers): configuration protocol §7, §7.1.1–7.1.3 pp. 52–55; HM access §8.3 pp. 56–57 and §9 intro p. 87; temperature data format Table 8-1 §8.5.3 p. 61; temperature reading table §8.5.3.4 pp. 62–63; PECI Tbase §8.6 p. 64; fan speed reading §8.7.1–8.7.3 p. 65; SMIOVT1 configuration (index 18h) and value RAM (index 27h) §9.12–9.14 pp. 92–93; configuration register (index 40h) §9.15 pp. 93–94; interrupt status 41h, 42h, 45h §9.16, 9.17, 9.20 pp. 94–96; FAN IN/OUT control (index 4Dh) §9.26 p. 98; bank select (4Eh) and vendor ID (4Fh) §9.27–9.28 p. 99; SMIOVT2 bank 1 50h–52h §9.92–9.94 pp. 116–117; SMIOVT3 bank 2 50h–52h §9.140–9.142 pp. 128–129; bank 4 interrupt status 41h and 50h pp. 150–151; bank 6 source select 21h–26h §9.251–9.256 pp. 158–162; bank 6 SMIOVT4–6 configuration 28h–2Ah §9.258–9.260 pp. 163–164; bank 6 SMIOVT4–6 readings 2Bh–2Eh §9.261–9.264 pp. 164–165; bank 6 fan counts 30h–39h §9.266–9.275 pp. 165–167; bank 6 direct RPM 56h–5Fh §9.295–9.304 pp. 173–175; global register defaults and the CR21 IC-version note §24.1 p. 304; CR1C p. 309–310; CR20/CR21 p. 310; CR24 pp. 311–313; CR26 p. 314; CR27 pp. 315–316; CR28 p. 320; Logical Device B CR30, CR60/61, CR62/63 §24.12 p. 374. | Primary (vendor datasheet; third-party-hosted copy pinned by hash). The section numbers of the table of contents and the body differ in places; the printed page numbers above are authoritative. |
 | S2 | Nuvoton, *NCT6102D / NCT6106D Nuvoton LPC I/O* datasheet, Revision 1.0, publication release date January 11, 2012. Copy hosted by datasheet4u: `https://datasheet4u.com/pdf/1006022/NCT6106D.pdf`, fetched 2026-11-28, SHA-256 `3c56f97cd080e037c5ab66e14dc299f9a78395f86212490ecb271185f9ff1f83`. Pins: configuration protocol §7 pp. 46–47; HM access §8.3 pp. 50–51 and §9 intro p. 83 (indexes `0x00`–`0x4F` are global to all banks); Table 8-1 p. 55; temperature reading table §8.5.3.4 p. 57; PECI Tbase p. 58; fan speed reading §8.7.1–8.7.3 p. 60; value RAM §9.3 pp. 84–87; SMIOVT readings §9.4–9.10 pp. 87–89; fan counts §9.15–9.20 pp. 90–92; bank select §9.21 p. 92; interrupt status 70h–76h §9.51–9.57 pp. 100–103; source select B0h–B5h §9.93–9.98 pp. 116–120; SMIOVT1 control B7h §9.100 p. 121; FAN IN/OUT control F8h §9.146 p. 137; vendor ID FEh §9.149 p. 138; bank 3 configuration register 17h §9.293 p. 187; CR20/CR21 p. 303; CR24 pp. 304–306; CR26 p. 307; Logical Device B §23.12 p. 362. | Primary for the disabled NCT610x candidate profile only. Revision 1.0 does not name the NCT6104D; a later revision 1.52 (July 29, 2013) that adds it could not be obtained (see Open questions). |
-| S3 | [`superio-access.md`](superio-access.md) revision 4 | Clean-room source for the Nuvoton configuration-mode enter/exit keys, slot mapping, chip-ID reads at `0x20`/`0x21`, absent-ID classification and the ISA mutex. |
+| S3 | [`superio-access.md`](superio-access.md) revision 5 | Clean-room source for the Nuvoton configuration-mode enter/exit keys, slot mapping, chip-ID reads at `0x20`/`0x21`, absent-ID classification and the ISA mutex, which are unchanged from revision 4, and for the [sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence), which is project policy. |
 | S4 | [`pawnio-interface.md`](pawnio-interface.md) revision 8, `LpcIO` section | Interface source: `ioctl_select_slot`, `ioctl_find_bars`, `ioctl_superio_inb`/`outb`, `ioctl_pio_inb`/`outb`; port access is limited to the configuration pair and the BAR windows found by `ioctl_find_bars`, clamped to 8-byte-aligned windows; the caller holds `Global\Access_ISABUS.HTP.Method`. |
 | S5 | PawnIO.Modules `LpcIO.p` at tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`), LGPL-2.1-or-later | Upstream-published interface definition of the module this project calls. `ioctl_find_bars` reads global `0x20` and returns not-found if it is `0x00` or `0xFF`; otherwise it selects every logical device and records the bases at `0x60/61` and `0x62/63` that read the same twice. No chip-ID allow-list. Not used for any hardware register fact; no code copied. |
 | S6 | [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) revision 9 | Project source for the shared Nuvoton normal-HM procedure and its evidence: `ioctl_find_bars` must run after configuration-mode entry and LDN B base discovery (its S7 hardware evidence), the -55 to +125 °C plausibility policy, zero-RPM handling, and the input identity and ordering rule. Its raw-ID ranges do not overlap any ID in this document. |
@@ -226,6 +226,25 @@ NCT6775 temperature row.
 9. Cache the profile, the base, and on NCT6776 the set of routed fan
    inputs. Configuration mode is not entered again for sampling. (S3)
 
+### Rediscovery eligibility
+
+Detection follows the S3
+[sampling-path rediscovery cadence](superio-access.md#sampling-path-rediscovery-cadence).
+A rediscovery is a separate detection transaction under its own ISA
+mutex acquisition. No sample transaction enters configuration mode, and
+a failed sample starts no detection. The S3 shared table covers the
+mutex, the executor, `ioctl_find_bars` and configuration-register read
+failures. The configuration reads include `CR1C`, `CR24`, `CR26` and
+`CR27` in step 3.
+
+| Detection failure | Class | Reason |
+| --- | --- | --- |
+| The `0x87`, `0x87` entry-key write or the `0xAA` exit write fails, so the exit is not confirmed (steps 2, 8) | Eligible | The chip may still be in configuration mode, and a later attempt is the only point at which the exit is issued again (S3). |
+| Step 7: an HM port write or read for the vendor ID fails | Eligible | The ports were reached only after `ioctl_find_bars` in step 6. Under the S3 shared table, that success does not prove a usable window, and a later attempt runs step 6 again (S3). |
+| Step 7: the vendor ID reads but is not `0x5CA3` | Not eligible | A value read successfully (S1 p. 99). |
+| `CR26` bit 5 set (step 3), `CR30` bit 0 clear (step 4), or a refused base (step 5) | Not eligible | A value read successfully (S1). |
+| Absent responder or a chip ID outside the ID-matching table | Not eligible | The probe completed. |
+
 ### Sampling (HM ports only, under the ISA mutex)
 
 1. Bank 0: read `0x40`; apply the monitoring gate (bit 0 = 1; NCT6776
@@ -410,7 +429,8 @@ conflict is resolved. Nothing in this section is enabled.
 Implementation PRs pin this revision, for example:
 
 ```text
-Implemented from docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md revision 1 (commit <sha>), limited to the NCT6776 and NCT6775 rows marked enabled.
+Implemented from docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md revision 2 (commit <sha>), limited to the NCT6776 and NCT6775 rows marked enabled.
+Implemented from docs/specs/sensors/superio-access.md revision 5 (commit <sha>), limited to the configuration access facts and the sampling-path rediscovery cadence.
 No other external sensor documentation was used.
 ```
 
@@ -419,3 +439,4 @@ No other external sensor documentation was used.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version for #2521. Experimental NCT6776F/NCT6776D (`0xC330`–`0xC337`) source-selected temperatures and five direct RPM fans from the vendor datasheet, with `CR26` LOCKREG, LDN B, aligned-base, vendor-ID, Start/INT_Clear, per-slot source and STOP, and per-fan pin-routing gates and the `0x00A4` RPM floor; lead-only Experimental NCT6775F/NCT6771F (`0xB470`–`0xB477`) temperatures; NCT6775-family fans and every NCT610x ID Unsupported with a recorded candidate profile; read-to-clear status registers listed. |
+| 2 | 2026-11-28 | Re-pinned S3 to `superio-access.md` revision 5 for #2821, whose configuration access facts are unchanged, and adopted its sampling-path rediscovery cadence. Added [Rediscovery eligibility](#rediscovery-eligibility). An unconfirmed configuration exit and an HM vendor-ID port failure in step 7 are eligible. A vendor-ID mismatch, `CR26` LOCKREG, an inactive LDN B, a refused base and the shared configuration-read and `ioctl_find_bars` failures are not eligible. A rediscovery is a separate detection transaction, and a failed sample starts none. Profiles, gates, reads, writes and decodes are unchanged. Status remains Implementation-ready (rev 2). |
