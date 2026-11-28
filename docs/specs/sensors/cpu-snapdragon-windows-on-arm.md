@@ -331,8 +331,9 @@ apply equally to the current x64 build running under emulation.
    (B3).
 8. Non-blocking for #2516 host-classification scope: no zone is
    attributed to the CPU in this revision.
-   The zone names that L1 reports also occur in D1–D4, where `TZ17`
-   and `TZ32` list CPU cores. L1's device is not one of the dumped
+   The zone names that L1 reports also occur in D1–D4. There, `TZ17`
+   lists one CPU cluster in all four dumps, and `TZ32` lists all CPU
+   cores in D1 and D3. L1's device is not one of the dumped
    devices, so it is unconfirmed whether its zones with those names
    have the same device lists. Unblocking evidence: a #2500 report or
    an ACPI dump from the observed device model that pairs each zone's
