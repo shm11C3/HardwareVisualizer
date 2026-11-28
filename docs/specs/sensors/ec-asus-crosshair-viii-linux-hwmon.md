@@ -35,7 +35,7 @@ obtain.
 | S12 | Linux Hardware Database, [probe `a599d9b486` sensors log](https://linux-hardware.org/?log=sensors&probe=a599d9b486), ASUS PRIME X570-PRO | Independent observation. The EC `CPU` and `Motherboard` values (37 and 48 °C) equal the same-sample NCT6798D `CPUTIN` and `SYSTIN` values. Used only to justify excluding those EC readings. |
 | S13 | Linux [`asus_wmi_sensors` documentation, v7.3](https://github.com/torvalds/linux/blob/v7.3/Documentation/hwmon/asus_wmi_sensors.rst), Supported boards and Known Issues | **lead-only (copyleft)** for the firmware WMI polling hazard on older boards. Used only for a deferral. |
 | S14 | `zeule/asus-ec-sensors` out-of-tree DKMS repository at commit [`db37d3a1141778aaedf1b4230f736f308c9047b8`](https://github.com/zeule/asus-ec-sensors/tree/db37d3a1141778aaedf1b4230f736f308c9047b8): `Kbuild` module object and the driver's platform driver and hwmon names | **lead-only (copyleft)** for the fact that an out-of-tree build loads as module `asus_ec_sensors` with the same platform driver name `asus-ec-sensors` and hwmon name `asusec` as the in-tree driver. |
-| S15 | Linux v7.3 module sysfs: [loadable-module attribute list](https://github.com/torvalds/linux/blob/v7.3/kernel/module/main.c#L1085-L1101) and [its creation at load](https://github.com/torvalds/linux/blob/v7.3/kernel/module/sysfs.c#L364-L392), [built-in module directory creation](https://github.com/torvalds/linux/blob/v7.3/kernel/params.c#L751-L781), [parameter visibility for loadable](https://github.com/torvalds/linux/blob/v7.3/kernel/params.c#L700-L715) and [built-in](https://github.com/torvalds/linux/blob/v7.3/kernel/params.c#L817-L840) modules, [driver `module` link and built-in directory lookup](https://github.com/torvalds/linux/blob/v7.3/drivers/base/module.c#L33-L58), [module name passed by the platform bundle helper](https://github.com/torvalds/linux/blob/v7.3/include/linux/platform_device.h#L379-L380) and [stored on the driver](https://github.com/torvalds/linux/blob/v7.3/drivers/base/platform.c#L988-L993) | **lead-only (copyleft)** for how a loadable and a built-in `asus-ec-sensors` driver differ under `/sys/module`. |
+| S15 | Linux v7.3 module sysfs: [loadable-module attribute list](https://github.com/torvalds/linux/blob/v7.3/kernel/module/main.c#L1085-L1101) and [its creation at load](https://github.com/torvalds/linux/blob/v7.3/kernel/module/sysfs.c#L364-L392), [built-in module directory creation](https://github.com/torvalds/linux/blob/v7.3/kernel/params.c#L751-L781), [parameter visibility for loadable](https://github.com/torvalds/linux/blob/v7.3/kernel/params.c#L700-L715) and [built-in](https://github.com/torvalds/linux/blob/v7.3/kernel/params.c#L817-L840) modules, [driver `module` link and built-in directory lookup](https://github.com/torvalds/linux/blob/v7.3/drivers/base/module.c#L33-L58), [module name passed by the platform bundle helper](https://github.com/torvalds/linux/blob/v7.3/include/linux/platform_device.h#L379-L380) and [stored on the driver](https://github.com/torvalds/linux/blob/v7.3/drivers/base/platform.c#L988-L993). Commit [`a7a7dc5c46a0`](https://github.com/torvalds/linux/commit/a7a7dc5c46a0) ("driver core: platform: set mod_name in driver registration") introduces that module-name pass-through so built-in drivers get the `module` link. It is first in v7.2 (GitHub compare against v7.1 and v7.2). | **lead-only (copyleft)** for how a loadable and a built-in `asus-ec-sensors` driver differ under `/sys/module`. |
 
 ## Detection
 
@@ -53,7 +53,7 @@ S3 observation came from.
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| AMD 500-series ASUS EC map with firmware mutex `\AMW0.ASMX`, selected by DMI board names `ROG CROSSHAIR VIII HERO`, `ROG CROSSHAIR VIII HERO (WI-FI)` and `ROG CROSSHAIR VIII FORMULA`, read through the already bound in-tree `asus-ec-sensors` endpoint | Best-evidenced member: ROG CROSSHAIR VIII HERO. S3 is an independent same-board observation with BIOS 4201, the stock Debian 6.0.12-1 module, the device name, the 12-sensor/16-register map size and positive Chipset (58 °C), VRM (28 °C) and chipset fan (1829 RPM) readings. T_SENSOR, W_IN and W_OUT read −40 °C with nothing connected, matching the lead-only blank value. S10 corroborates the chipset readings on the driver author's own board. HERO (WI-FI) and FORMULA share the map by lead-only S6 commits. S1/S2 are primary for the physical header names. Lead-only facts this row depends on: board-to-map association, register addresses, sizes and encodings, lock path and timeout, bank-switch writes and refresh read set, blank values, labels and names (S5, S6); EC transaction serialization (S7); sysfs topology and read serialization (S8); out-of-tree builds sharing the names (S14); loadable versus built-in module sysfs (S15). No primary EC register documentation exists for this board. Accepted residual: on kernels before v7.2 a failed bank 1 switch can publish bank 0 bytes as `W_IN` and `W_OUT` (Quirks). | Experimental for the scoped readings on matching Linux endpoints. |
+| AMD 500-series ASUS EC map with firmware mutex `\AMW0.ASMX`, selected by DMI board names `ROG CROSSHAIR VIII HERO`, `ROG CROSSHAIR VIII HERO (WI-FI)` and `ROG CROSSHAIR VIII FORMULA`, read through the already bound in-tree `asus-ec-sensors` endpoint | Best-evidenced member: ROG CROSSHAIR VIII HERO. S3 is an independent same-board observation with BIOS 4201, the stock Debian 6.0.12-1 module, the device name, the 12-sensor/16-register map size and positive Chipset (58 °C), VRM (28 °C) and chipset fan (1829 RPM) readings. T_SENSOR, W_IN and W_OUT read −40 °C with nothing connected, matching the lead-only blank value. S10 corroborates the chipset readings on the driver author's own board. HERO (WI-FI) and FORMULA share the map by lead-only S6 commits. S1/S2 are primary for the physical header names. Lead-only facts this row depends on: board-to-map association, register addresses, sizes and encodings, lock path and timeout, bank-switch writes and refresh read set, blank values, labels and names (S5, S6); EC transaction serialization (S7); sysfs topology and read serialization (S8); out-of-tree builds sharing the names (S14); loadable versus built-in module sysfs (S15). No primary EC register documentation exists for this board. Accepted residual: on kernels before v7.2 a failed bank 1 switch can publish bank 0 bytes as `W_IN` and `W_OUT` (Quirks). Known limitation: a built-in driver on kernels before v7.2 has no module directory or `module` link, so the module-form gate makes its readings unavailable (fails closed, S15). | Experimental for the scoped readings on matching Linux endpoints. |
 | Matching board with a missing, ambiguous, out-of-tree or replaced endpoint | The board matches, but the endpoint conditions cannot be established. | Unavailable. |
 | The same `asusec` endpoint on any other DMI board | The kernel selects a different map, sensor set or lock. Deferred boards are listed below. | Unsupported by this revision. |
 | The EC readings on Windows | See [`ec-asus-windows-transport.md`](ec-asus-windows-transport.md). | Unsupported by this revision. |
@@ -103,11 +103,22 @@ S3 observation came from.
   has none. In both forms the driver directory
   `/sys/bus/platform/drivers/asus-ec-sensors` has a `module` link to
   `/sys/module/asus_ec_sensors` (S15).
+- The built-in directory and link exist only on kernels that pass the
+  module name through platform driver registration. Commit
+  `a7a7dc5c46a0`, first in v7.2, added this. On earlier kernels a
+  built-in `asus-ec-sensors` gets neither the module directory nor the
+  driver `module` link (S15).
 - Admit a loadable module when `initstate` exists and `taint` is
   readable and contains no `O`. Admit a built-in driver when neither
-  `initstate` nor `taint` exists. Anything else is unavailable: a
-  missing module directory or `module` link, `initstate` without a
-  readable `taint`, `taint` without `initstate`, or `O` in `taint`.
+  `initstate` nor `taint` exists and the `module` link resolves to the
+  module directory. Anything else is unavailable: a missing module
+  directory or `module` link, `initstate` without a readable `taint`,
+  `taint` without `initstate`, or `O` in `taint`.
+- Known limitation: a built-in driver on a kernel without the
+  module-name change fails this gate, so its readings are unavailable.
+  This fails closed and causes no unsafe read. The kernel release is
+  not used to tell the cases apart, because it is not a gate.
+  Loadable modules, the usual distribution build, are unaffected.
 
 ## EC register map (facts)
 
@@ -298,6 +309,7 @@ board map. The facts below are lead-only (S5, S6, S7, S8) unless noted.
 | Hwmon name other than `asusec`, wrong driver or subsystem link, device with an instance suffix, class link to another device, two children | Endpoint rejected before any input read. |
 | Module directory with `initstate` and `taint` `O` or `OE`, or with `initstate` and a missing or unreadable `taint` | Unavailable. No input read. |
 | Module directory with neither `initstate` nor `taint`, driver `module` link resolving to it (built-in driver) | Admitted. |
+| Built-in driver without a module directory or driver `module` link (kernels before the module-name change) | Unavailable. No input read. This is the known fail-closed limitation. |
 | Module directory with `taint` but no `initstate`; module directory absent; driver `module` link missing or resolving elsewhere | Unavailable. No input read. |
 | Label missing, unreadable, different, or the same label on two channels of one type | Only that reading unavailable. |
 | Any scoped temperature at 0, −55001 or 125001 | Unavailable. Boundary values −55000 and 125000 are accepted. |
@@ -353,6 +365,12 @@ board map. The facts below are lead-only (S5, S6, S7, S8) unless noted.
   FORMULA report from the earlier WMI reader with a chipset reading and
   the blank value. A current same-board sysfs capture would make either
   a best-evidenced member.
+- Non-blocking for the Experimental Linux slice: the limitation fails closed and affects only built-in drivers on kernels before v7.2.
+  On those kernels a built-in `asus-ec-sensors` has no
+  `/sys/module/asus_ec_sensors` directory and no driver `module` link
+  (S15). No sourced sysfs fact then separates it from a missing or
+  replaced owner, so the endpoint stays unavailable. A sourced
+  attestation of a built-in driver on such kernels would lift this.
 - Non-blocking for the Experimental Linux slice: graduation to Verified needs primary or maintainer-accepted evidence of the EC map.
   ASUS publishes no EC register documentation. A maintainer-accepted
   labeled EC capture or firmware table capture covering every
@@ -364,4 +382,4 @@ board map. The facts below are lead-only (S5, S6, S7, S8) unless noted.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version. Propose Implementation-ready status for Experimental Chipset and VRM temperatures, `T_SENSOR`, `W_IN` and `W_OUT` temperatures, and `CPU_OPT` and `PCH_FAN` RPM on ROG CROSSHAIR VIII HERO, HERO (WI-FI) and FORMULA through the bound in-tree Linux `asus-ec-sensors` endpoint, pending maintainer sign-off. Review amendments before merge (#2792): document that kernels before v7.2 can publish bank 0 bytes as `W_IN` and `W_OUT` after a failed bank switch, and keep the two headers in scope as an accepted Experimental residual; replace the module gate with a sourced loadable-versus-built-in check (S15), so a built-in in-tree driver is admitted and an out-of-tree module is still rejected. |
+| 1 | 2026-11-28 | Initial version. Propose Implementation-ready status for Experimental Chipset and VRM temperatures, `T_SENSOR`, `W_IN` and `W_OUT` temperatures, and `CPU_OPT` and `PCH_FAN` RPM on ROG CROSSHAIR VIII HERO, HERO (WI-FI) and FORMULA through the bound in-tree Linux `asus-ec-sensors` endpoint, pending maintainer sign-off. Review amendments before merge (#2792): document that kernels before v7.2 can publish bank 0 bytes as `W_IN` and `W_OUT` after a failed bank switch, and keep the two headers in scope as an accepted Experimental residual; replace the module gate with a sourced loadable-versus-built-in check (S15), so a built-in in-tree driver is admitted and an out-of-tree module is still rejected; record that a built-in driver on kernels before v7.2 (before commit `a7a7dc5c46a0`) has no module directory or `module` link and therefore fails closed, as a known limitation and non-blocking open question. |
