@@ -300,10 +300,12 @@ Attribution and presentation.
   answers with a reply that does not echo the request (S7), which the
   driver rejects with `EOPNOTSUPP` (S4), so it yields read failures,
   not zero values. Step 5 bounds the cost of the timeout case only.
-  A reply-check failure returns after one exchange without waiting
-  for the timeout, and a failed rail selection skips its query, so
-  their number per sample is bounded by the exchange count in Cadence
-  and cost (at most 23). **lead-only (copyleft)** S4, S5, S7.
+  A reply-check failure ends its read at the failing exchange without
+  waiting for the timeout. A rail read whose selection succeeded and
+  whose query then fails the check has used two exchanges, and a
+  failed rail selection skips its query. Every such read therefore
+  stays within the exchange count in Cadence and cost (at most 23 per
+  sample). **lead-only (copyleft)** S4, S5, S7.
 
 ## Coexistence
 
@@ -419,7 +421,9 @@ the S9 observation.
    (S7), which suggests it changes neither, but no evidence confirms
    that. A Windows path would have to send it itself.
 5. Non-blocking for #2531 Linux hwmon scope: correctly decoded negative
-   values are rejected by the admitted ranges, and the Experimental
+   voltages, currents, powers and fan speeds are rejected by the
+   admitted ranges, a correctly decoded sub-zero temperature down to
+   −55 °C is published as the PSU reports it, and the Experimental
    scopes accept the residual stated in Quirks for v5.13 through v7.1.
    Whether the PSU ever reports a negative current or power (for
    example an offset near zero load on a lightly loaded rail), and
@@ -468,4 +472,4 @@ the S9 observation.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version. Propose Implementation-ready for two Experimental Linux `corsair-psu` hwmon scopes on 15 listed Corsair HXi/RMi identities: unselected readings (two temperatures, fan, AC input voltage, total output power) and rail readings (voltage, current and power of +12 V, +5 V, +3.3 V). Record the per-read PSU requests and why they are safe, the timeout limit, admitted ranges, coexistence with liquidctl and iCUE, and the Windows blockers. Every model group in the #2531 inventory has a disposition. Review corrections before merge: the LINEAR11 sign error affects v5.13 through v7.1 (introduced by commit 918f22104d64) and not every affected temperature exceeds 125 °C, so the residual is stated with a fixture; v5.11 and v5.12 round an odd mantissa up and return whole units; the timeout limit is scoped to ETIMEDOUT, and reply-check failures are bounded by the per-sample exchange count. |
+| 1 | 2026-11-28 | Initial version. Propose Implementation-ready for two Experimental Linux `corsair-psu` hwmon scopes on 15 listed Corsair HXi/RMi identities: unselected readings (two temperatures, fan, AC input voltage, total output power) and rail readings (voltage, current and power of +12 V, +5 V, +3.3 V). Record the per-read PSU requests and why they are safe, the timeout limit, admitted ranges, coexistence with liquidctl and iCUE, and the Windows blockers. Every model group in the #2531 inventory has a disposition. Review corrections before merge: the LINEAR11 sign error affects v5.13 through v7.1 (introduced by commit 918f22104d64) and not every affected temperature exceeds 125 °C, so the residual is stated with a fixture; v5.11 and v5.12 round an odd mantissa up and return whole units; the timeout limit is scoped to ETIMEDOUT, and reply-check failures are bounded by the per-sample exchange count; Open question 5 limits the negative-value rejection to the non-temperature channels, and a rail read that fails its query check is counted as two exchanges. |
