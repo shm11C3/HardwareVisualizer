@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 4 |
+| Revision | 5 |
 | Status | Draft — not implementation-ready |
 | Scope | Read-only research for DDR4 DIMMs that advertise a TSE2004av sensor and have an already bound Linux `jc42` and `ee1004` pair. Slot attribution remains disabled until the active firmware identity mechanism is established. |
-| Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526) |
+| Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526), [#2701](https://github.com/shm11C3/HardwareVisualizer/issues/2701) |
 
 ## Sources
 
@@ -26,6 +26,9 @@
 | S13 | OSADL [rack 0, slot 5 hardware profile](https://www.osadl.org/Profile-of-system-in-rack-0-slot-5.qa-profile-r0s5.0.html?id=1352), BIOS, DIMMs and DMI sections, and Shuttle [SH370200.106](https://global.shuttle.com/products/productsDownload?c=xpc-cube&pn=SH370R6+V2), build March 25, 2020, [OEM archive](https://download.shuttle.eu/Mirror/MiniPC%26AIO/cube/SH370R6_V2/Bios/SH370200.106.ZIP). Archive SHA-256 `b956d8ee95d93ba8d98c7def38b1a680bf9df6c2f2764bf3436b21d3281e5dfa`, 16 MiB image SHA-256 `664fc58cba98822fc17d586e8c77f7be54d7053910f5d80af993f1465605bca4`. | First-hand OSADL report on Shuttle SH370V2, AMI 1.06. Static vendor artifact for the Type 17 writer in `SiInitDxe`, FFS GUID `acd28235-075b-48b5-98a1-da04fcaf84f3`, PE SHA-256 `df1bc935a127b4132ee025c697896f2f96428f55ce258ba1dad7d554c4a5f560`, RVA `0xD37`–`0xD7D`. Research only. |
 | S14 | Dasharo [MSI PRO Z690-A v1.1.7 DDR4 release and SBOM](https://docs.dasharo.com/variants/msi_z690/releases/#v117-2026-08-13), Intel FSP RPL-S C.0.C8.50 and Dasharo coreboot `c96f0b7a79ec196b3034e9d3550451a16450bd00`. Pinned [board SPD map](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/mainboard/msi/ms7d25/romstage_fsp_params.c#L51-L63), [FSP memory inventory definition](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/vendorcode/intel/fsp/fsp2_0/raptorlake/MemInfoHob.h#L187-L209), [DIMM metadata collection](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/soc/intel/alderlake/romstage/romstage.c#L111-L168), [serial rendering](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/lib/smbios.c#L204-L214) and [Type 16 and 17 generation](https://github.com/Dasharo/coreboot/blob/c96f0b7a79ec196b3034e9d3550451a16450bd00/src/lib/smbios.c#L817-L890). | **lead-only (copyleft)** for the static firmware behavior. No live inventory or endpoint capture for this image. |
 | S15 | Fedora [ABRT report 961050](https://retrace.fedoraproject.org/faf/reports/961050/), MSI `PRO Z690-A DDR4(MS-7D25)`, BIOS 1.10 (2021-12-13), kernel `6.8.7-300.fc40.x86_64`. | First-hand report for the OEM BIOS. It lists the loaded `i2c_i801`, `ee1004` and `jc42` modules. It provides no per-device bindings, SPD or Type 17 data, or DIMM temperature. |
+| S16 | Protectli [VP2420 datasheet, 2025-01-15](https://eu.protectli.com/wp-content/uploads/2025/01/VP2420-Datasheet-20250115.pdf), p. 2 specification table (*Memory*) and p. 13 board item 15 (*Memory Slot DIMM1*), and [VP2400 series hardware overview](https://kb.protectli.com/kb/vp2400-series-hardware-overview/) | Primary for one DDR4 SO-DIMM connector, `DIMM1`, on the VP2420. |
+| S17 | Dasharo coreboot `e36a117d`, [VP2420 memory configuration](https://github.com/Dasharo/coreboot/blob/e36a117d/src/mainboard/protectli/vault_ehl/romstage.c#L23-L49), and the [v1.1.0 release](https://docs.dasharo.com/variants/protectli_vp2420/releases/#v110-2023-04-20) | **lead-only (copyleft)** for the sole slot routed to Channel 1 DIMM 0 with SPD address `0x52`, and the other DIMM positions disabled. |
+| S18 | Linux v6.18 [DMI-based SPD instantiation](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/i2c-smbus.c#L375-L488), [I801 adapter class](https://github.com/torvalds/linux/blob/v6.18/drivers/i2c/busses/i2c-i801.c#L1537), [jc42 address list and class](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/jc42.c#L26-L27) ([driver definition](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/jc42.c#L603-L616)) | **lead-only (copyleft)** for Type 17 driven EEPROM instantiation starting at `0x50`, one address per Type 17 record, and the jc42 driver's own detection at `0x18`–`0x1F` on hardware-monitoring-class adapters. |
 
 ## Detection and scoped enablement
 
@@ -288,6 +291,24 @@ attribution requirements of this draft.
   A complete same-boot inventory, a native same-adapter `ee1004`/`jc42`
   pair with a live sample, and proof of the active attribution
   mechanism remain missing for the Dasharo firmware.
+- The Protectli VP2420 is a candidate for a single physical-slot route
+  like the [Protectli VP2430 DDR5 route](memory-ddr5-protectli-vp2430-spd5118.md),
+  with no serial join. The OEM datasheet shows one DDR4 SO-DIMM
+  connector, `DIMM1` (S16). The Dasharo source routes that slot to
+  Channel 1 DIMM 0 at SPD address `0x52` and disables the other positions
+  (S17, lead-only). Under the shared strap rule its TSOD address is
+  `0x1A` (S2). With one Type 17 record the kernel tries an EEPROM client
+  at `0x50` only, so `ee1004` is not instantiated at `0x52` by default
+  and the same-adapter pairing above does not occur (S18, lead-only).
+  The `jc42` driver, when loaded, detects sensors at `0x18`–`0x1F` on
+  hardware-monitoring-class adapters such as I801. A sensor-equipped
+  module could therefore appear as a `jc42` client at `0x1A` without an
+  `ee1004` partner (S18, lead-only). That route could not read SPD byte
+  14 and would rely on the board's one-slot routing. Still missing: a
+  sensor-equipped SO-DIMM on this board (many consumer DDR4 SO-DIMMs
+  have no TSOD), a native bound `jc42` client at `0x1A` with a live
+  sample, the raw Type 17 count, and the board device tree showing no
+  other JC42-class device on that adapter.
 
 ## Revision history
 
@@ -297,3 +318,4 @@ attribution requirements of this draft.
 | 2 | 2026-11-09 | Return to Draft. Require proof of the active firmware identity mechanism and a complete entry-point-verified binary inventory. Record the bounded dmidecode completion candidate separately. |
 | 3 | 2026-11-09 | Record the exact Shuttle firmware writer and matching OSADL inventory as research evidence. |
 | 4 | 2026-11-10 | Record Dasharo v1.1.7 DDR4 Type 17 attribution limits on the MSI PRO Z690-A DDR4 as research evidence. |
+| 5 | 2026-11-28 | Assess the Protectli VP2420 single-slot candidate for #2701: one connector, SPD `0x52` and TSOD `0x1A`, no default `ee1004` instantiation, and the evidence still missing. |

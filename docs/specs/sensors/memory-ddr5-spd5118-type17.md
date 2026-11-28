@@ -2,15 +2,19 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
+| Revision | 2 |
 | Status | Draft — not implementation-ready |
-| Scope | Candidate Linux DDR5 DIMM temperatures through already bound SPD5118 I²C clients with a complete SMBIOS inventory and a proven producer-specific Type 17 identity. |
-| Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526) |
+| Scope | Candidate Linux DDR5 DIMM temperatures through already bound SPD5118 I²C clients with a complete SMBIOS inventory and a proven producer-specific Type 17 identity, for systems with two or more populated DDR5 modules or two or more SPD5118 clients. |
+| Issue phase | [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526), [#2701](https://github.com/shm11C3/HardwareVisualizer/issues/2701) |
 
-The [approved exact ODROID-H4 scope at rev 2](https://github.com/shm11C3/HardwareVisualizer/blob/6d3ac497aab1b78a38e3334b0ef94467e06fb0fb/docs/specs/sensors/memory-ddr5-odroid-h4-spd5118.md)
-remains the current implementation pin in the
-[ODROID-H4 specification](memory-ddr5-odroid-h4-spd5118.md).
-This draft replaces the general rev 3 proposal for that document.
+The case of exactly one populated DDR5 module and exactly one SPD5118
+client is specified in the
+[sole-module specification](memory-ddr5-sole-module-spd5118.md). There a
+single-candidate identity confirmation replaces the producer mapping. The
+[ODROID-H4](memory-ddr5-odroid-h4-spd5118.md) and
+[Protectli VP2430](memory-ddr5-protectli-vp2430-spd5118.md) specifications
+remain separate implementation inputs. This draft covers the remaining
+multi-module join.
 
 ## Sources
 
@@ -32,6 +36,7 @@ This draft replaces the general rev 3 proposal for that document.
 | S14 | Micron [*DDR5 SDRAM RDIMM Core*](https://www.mouser.com/datasheet/2/671/ddr5_rdimm_core-3310292.pdf), Serial Presence Detect section, SPD EEPROM block map | Primary for the base SPD CRC covering bytes 0–509 and manufacturing data starting at byte 512. |
 | S15 | dmidecode 3.5, upstream release tag `dmidecode-3-5` in the Git mirror. [Table decoding and diagnostics](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5538-L5622), [SMBIOS 3 result](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5752-L5776), [exit status](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5979-L5983), [structure diagnostic output](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmioutput.c#L127-L137), [Type 127 rendering](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L5338-L5340), [sysfs acquisition](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmidecode.c#L6063-L6080), and [device fallback option](https://github.com/mirror/dmidecode/blob/dmidecode-3-5/dmiopt.c#L270-L299). Git blobs `54f59c163dafb8bd0902bcaf3a1ba5f1a0efd7f1`, `42f8d3218c433116b50e9856f86f8412c2dabf0e` and `fa84f22cf7426215be7b1043a7920014988f1d0d`. | **lead-only (copyleft)** for the selected-type output and silent SMBIOS 3 clean-prefix truncation, as well as explicit malformed and truncated diagnostics. |
 | S16 | Linux v6.18 [SMBIOS table walk](https://github.com/torvalds/linux/blob/v6.18/drivers/firmware/dmi_scan.c#L88-L145), [SMBIOS 3 entry point](https://github.com/torvalds/linux/blob/v6.18/drivers/firmware/dmi_scan.c#L649-L669), [sysfs entry point and table export](https://github.com/torvalds/linux/blob/v6.18/drivers/firmware/dmi_scan.c#L764-L801), and [administrative read mode](https://github.com/torvalds/linux/blob/v6.18/include/linux/sysfs.h#L373-L380). Git blobs `70d39adf50dcaaa7c99b48fe8e9045af5ea24d00` and `9a25a29116528fab77d667390dd3ef5957b86554`. | **lead-only (copyleft)** for kernel trimming, raw table export, and default `0400` permissions. |
+| S17 | ABLIC [S-34HTS08AB datasheet, Rev.1.1_00](https://www.ablic.com/en/doc/datasheet/dimm_serial_eeprom_spd/S34HTS08AB_E.pdf), Table 4 (p. 5), §4.4 and Table 7 (p. 10), §4.5.1 and Table 8 (p. 11) | Primary. Public datasheet of a part that states JEDEC SPD5118 compliance. Hub address composition and the host-side HSA address strap. |
 
 ## Detection and scoped enablement
 
@@ -44,7 +49,8 @@ This draft replaces the general rev 3 proposal for that document.
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Linux DDR5, already bound SPD5118 I²C ABI and one-to-one Type 17 identity | Best-evidenced configuration: DMI `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, one DDR5 SO-DIMM, client `0x52` under Intel I801 PCI `0000:00:1f.4` (`8086:54A3`). S1/S2/S8 corroborate the module and platform, with S3/S4/S8 (lead-only) pinning firmware, slot address, controller configuration and short serial format. S5/S6 define identity fields and the ABI. S7/S9/S10/S11 (lead-only) supply device registration, paging/locking and canonical ownership. S12 shows the long syntax without producer provenance. S13 corroborates multiple bound temperature endpoints and duplicate device labels. S15/S16 (lead-only) pin the inventory completeness limit. | Disabled pending a proven inventory producer mapping and completion contract. |
+| Linux DDR5, already bound SPD5118 I²C ABI and one-to-one Type 17 identity | Best-evidenced configuration: DMI `HARDKERNEL` / `ODROID-H4`, `Dasharo (coreboot+UEFI) v0.9.1`, Samsung `M425R1GB4BB0-CWMOD`, one DDR5 SO-DIMM, client `0x52` under Intel I801 PCI `0000:00:1f.4` (`8086:54A3`). S1/S2/S8 corroborate the module and platform, with S3/S4/S8 (lead-only) pinning firmware, slot address, controller configuration and short serial format. S5/S6 define identity fields and the ABI. S7/S9/S10/S11 (lead-only) supply device registration, paging/locking and canonical ownership. S12 shows the long syntax without producer provenance. S13 corroborates multiple bound temperature endpoints and duplicate device labels. S15/S16 (lead-only) pin the inventory completeness limit. | Disabled pending a proven inventory producer mapping for two or more modules. |
+| Exactly one populated DDR5 Type 17 and exactly one SPD5118 client | Specified by the [sole-module specification](memory-ddr5-sole-module-spd5118.md). | Governed by that document. |
 | Unbound hubs, other drivers or bus mechanisms, DDR4 `jc42`, and Windows routes | Separate scopes in [#2526](https://github.com/shm11C3/HardwareVisualizer/issues/2526). | Unsupported by this revision. |
 
 ### Kernel ownership
@@ -107,18 +113,32 @@ part string index at `0x1A`, serial at `0x18`, Device Locator at
 against their record's string set. Apply the uncertainty rule below
 to missing values in a structurally valid candidate. (S5)
 
-The existing `dmidecode --type memory` output cannot prove completion.
+A `dmidecode --type memory` output by itself cannot prove completion.
 dmidecode 3.5 may finish at a structure boundary in SMBIOS 3 with a
 successful exit and empty stderr, without showing that later arrays
-were omitted. An explicit Type 127 filter can expose the terminal
-record after decoding it. A fixed `dmidecode --type 16,17,127` capture
-is a candidate for the existing user-initiated inventory action. It
-would need affirmative sysfs source provenance, success, empty
-stderr, structurally complete output and a terminal Type 127 record
-with length 4 and the decoded `End Of Table` body. A header alone
-can precede a failed structure decode. A fixed `--dev-mem /dev/null`
-can prevent physical-memory fallback. The exact text capture still
-requires review before use. (S15, lead-only)
+were omitted (S15, lead-only). The text path adopts the
+[inventory completion contract](memory-ddr5-odroid-h4-spd5118.md#inventory-completion)
+of the ODROID-H4 specification at rev 3, also used by the
+[Protectli VP2430 specification](memory-ddr5-protectli-vp2430-spd5118.md):
+the existing explicit action's fixed
+`pkexec dmidecode --type memory --type 127`, successful exit, empty
+stderr, no decoder diagnostics and exactly one terminal decoded Type 127
+record with length 4 and its `End Of Table` heading. That contract is
+implementation-ready. It qualifies the emitted inventory as complete. The
+direct binary path above remains an alternative where the kernel files are
+readable.
+
+### Address strap and socket
+
+A hub's 7-bit address is device type `1010b` followed by a 3-bit HID. The
+hub samples the HID from a resistor on its HSA pin at power-up, and that
+resistor is on the host side of the connector (S17). The board design
+therefore selects each socket's address. The datasheet's multi-device
+example numbers DIMMs 0–7 by HID, but it does not tie a HID to a board
+socket label or an SMBIOS locator. No firmware-independent rule maps a
+client address to a Type 17 record. A board-specific HSA map from a
+primary source would be a separate physical-route mechanism, like the
+Protectli VP2430 route.
 
 ## Identity and temperature facts
 
@@ -186,7 +206,7 @@ under the kernel and firmware's inventory contract.
 1. A future qualified scope runs only on a DIMM telemetry request
    using a complete, current-boot inventory. Any privileged inventory
    capture belongs to the existing explicit Linux detailed inventory
-   action and requires its own reviewed fixed capture contract. Keep
+   action and uses the adopted inventory completion contract. Keep
    ordinary aggregate inventory separate. Its persisted `MemoryInfo`
    cache supplies no per-DIMM identity. No background elevation or
    serial persistence is in scope.
@@ -242,7 +262,7 @@ expanded collection is enabled by this draft.
 | Non-DDR5 or empty Type 17 row, malformed binary table, duplicate handle, missing system-memory array or fewer Type 17 rows than declared slots | Known non-DDR5 or empty rows do not compete. An incomplete or structurally unreliable inventory provides no attributed reading. |
 | Text output contains a complete-looking Type 16 array and its matching Type 17 rows, then dmidecode stops at a malformed structure with a fatal stderr diagnostic and exits successfully | Withhold all temperature attribution. Later memory arrays could contain competing rows. Keep ordinary aggregate inventory behavior separate. |
 | Text output contains a truncation diagnostic in stdout even when stderr is empty and exit succeeds | Withhold all temperature attribution. |
-| SMBIOS 3 contains a complete first array, then ends at a structure boundary before a possible second array and Type 127. Filtered text exits successfully with empty stderr. | Withhold all temperature attribution. Require binary completion or a qualified inventory path that affirmatively proves the terminal record. |
+| SMBIOS 3 contains a complete first array, then ends at a structure boundary before a possible second array and Type 127. Filtered text exits successfully with empty stderr. | Withhold all temperature attribution. Require binary completion or the adopted text completion contract with its terminal decoded Type 127. |
 | SMBIOS 3 maximum size exceeds the actual bytes and the in-bounds final Type 127 is valid | The binary completion check can pass. Inventory cardinality and producer mapping still require qualification. |
 | Final Type 127 has a malformed length or an unterminated string set, or an explicit text filter shows its header without the decoded `End Of Table` body | Withhold all temperature attribution. |
 | Blank, zero, all-ones or malformed serial, prefix-only match, case-changed part or part with non-ASCII/control bytes | No match on that identity. Leading zeros and either hex case are preserved. The only ignored part padding is trailing ASCII space. |
@@ -255,15 +275,14 @@ expanded collection is enabled by this draft.
   maps SPD identity bytes to Type 17 strings, or provide an independent
   one-to-one attribution mechanism. The Dasharo evidence applies to
   its identified producer. The AMD examples and the Framework report
-  do not establish a usable mapping. (S4, S5, S12, S13)
-- Establish a complete inventory capture contract available to the
-  application. Direct binary validation can prove table completion
-  where both kernel files are readable. An ordinary unprivileged
-  Linux process typically lacks access. The existing filtered text
-  output cannot qualify the inventory. (S15/S16 lead-only)
+  do not establish a usable mapping. The address strap gives no
+  firmware-independent alternative (S17). A primary-source HSA map for
+  a specific board could. The single-module case does not need either
+  and is specified separately. (S4, S5, S12, S13, S17)
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-09 | Separate the general SPD5118 and Type 17 attribution draft from the approved ODROID-H4 scope. Require independent producer-format evidence and affirmative SMBIOS table completion. |
+| 2 | 2026-11-28 | Hand the single-module case to the sole-module specification. Adopt the implementation-ready ODROID-H4 rev 3 inventory completion contract and close that open question. Record that the hub address strap gives no firmware-independent socket mapping. |
