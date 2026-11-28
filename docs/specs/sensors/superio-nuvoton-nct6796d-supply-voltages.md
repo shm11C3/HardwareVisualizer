@@ -33,8 +33,8 @@ inputs.
 | ID | Source | Notes |
 | --- | --- | --- |
 | S1 | Nuvoton, *NCT6796D LPC/eSPI SI/O Datasheet*, version 0.6, publication release date July 6, 2017; official PDF `https://www.nuvoton.com/resource-files/NCT6796D_Datasheet_V0_6.pdf`, fetched 2026-11-28, SHA-256 `94466053308082305a9d656211aa6b9e82b78c3116a2b466c1f27213e897506d`. Printed page = PDF page − 16. | Primary. The same document is S1 of S2. Pins (printed pages): power pins §5.13 p. 17; hardware-monitor overview (fifteen analog voltage inputs, six of them internal) §8 p. 54; analog inputs §8.6 p. 58; internal and external dividers §8.6.1 p. 59; voltage data format §8.6.2 p. 59; voltage reading locations §8.6.2.1 p. 59; ADC conversion and cycle time §8.6.4 p. 62; Configuration Register bank 0 index `0x40` §9.20 pp. 105–106; read-clear Interrupt Status registers §9.21 p. 106, §9.22 p. 107, §9.25 p. 108, §9.191 p. 168, §9.241 p. 186, §9.452 p. 261, §9.453 p. 262; Bank Select Register index `0x4E` §9.30 p. 111; VBAT Monitor Control Register bank 0 index `0x5D` §9.34 p. 113; bank 4 Value RAM `0x80`–`0x96` §9.208 pp. 175–176; global chip ID p. 369. |
-| S2 | [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) revision 9 | Clean-room source for the exact `0xD421` profile: chip identity, the read-only `CR28` bit 4 lock gate, LDN B activation and base discovery, `ioctl_find_bars` ordering, normal-HM index/data ports, bank 4 selection, the abort rule, the input identity and ordering rule, and configuration-mode exit. This document adds to that transaction and changes none of it. |
-| S3 | [`superio-access.md`](superio-access.md) revision 4 and [`pawnio-interface.md`](pawnio-interface.md) revision 9, `LpcIO` section | Clean-room transport sources: Nuvoton configuration keys, slot mapping, PawnIO `LpcIO` calls and the caller-held `Global\Access_ISABUS.HTP.Method` mutex. |
+| S2 | [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) revision 10 | Clean-room source for the exact `0xD421` profile: the split between the discovery attempt (steps 1–7 and 11) and the sample transaction on the cached path (steps 8–10), chip identity, the read-only `CR28` bit 4 lock gate, LDN B activation and base discovery, `ioctl_find_bars` ordering, normal-HM index/data ports, bank 4 selection, the abort rule, the input identity and ordering rule, and configuration-mode exit. This document adds to that transaction and changes none of it. |
+| S3 | [`superio-access.md`](superio-access.md) revision 5 (its revision 4 transport facts unchanged) and [`pawnio-interface.md`](pawnio-interface.md) revision 9, `LpcIO` section | Clean-room transport sources: Nuvoton configuration keys, slot mapping, PawnIO `LpcIO` calls and the caller-held `Global\Access_ISABUS.HTP.Method` mutex. |
 | S4 | [ADR 0011](../../adr/0011-experimental-sensor-enablement.md), [ADR 0023](../../adr/0023-copyleft-derived-facts-for-experimental-scopes.md), [ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md) | Project policy: Experimental enablement with plausibility gates; lead-only facts confined to Experimental rows; runtime gates limited to mechanism and safety gates. No hardware facts. |
 | S5 | Linux kernel `Documentation/ABI/testing/sysfs-class-hwmon` at tag `v6.18`, `https://raw.githubusercontent.com/torvalds/linux/v6.18/Documentation/ABI/testing/sysfs-class-hwmon`, fetched 2026-11-29, SHA-256 `dde265e65b9308a0f1a2a4bfa34389d966313ec7b94a453aaf4c923ff8922888`; and `Documentation/hwmon/sysfs-interface.rst` at the same tag, SHA-256 `97304e541af2980bb2d963a1333e14fc04844be1f62376295c1f63a68f73c750` | Upstream-published definition of the sysfs ABI that the project's Linux hwmon paths read (primary for ABI semantics, as in [`superio-ite-trx50-secondary-linux-hwmon.md`](superio-ite-trx50-secondary-linux-hwmon.md)). `inY_input` is a read-only voltage in millivolts, measured on the chip pin. The actual voltage depends on board scaling resistors that vary by chip and motherboard. Drivers generally do not apply that scaling; some apply a chip's internal dividers. `inY_label` is a suggested label that a driver creates only when it has a hint about what the channel is used for. The interface document states that conversions for board resistors cannot be hard-coded in a driver and belong to user space. Used only for the Linux dispositions; no driver source was read for them. |
 | S6 | Nuvoton, *NCT6776F / NCT6776D Nuvoton LPC I/O* datasheet, Revision 1.2, July 12, 2011, the copy pinned as S1 of [`superio-nuvoton-nct6775-nct6776-nct610x.md`](superio-nuvoton-nct6775-nct6776-nct610x.md) (SHA-256 `d5eec9d9bdc1212c619fd36995a2f1d964482079fbbf7aa55311a50ebd6e90fb`) | Primary. Disposition only: §8.5 p. 59 and §§8.5.1–8.5.2.1 p. 60. |
@@ -47,7 +47,7 @@ inputs.
 | S13 | Repository specifications for the other motherboard routes, at the revisions in the [Current documents](README.md#current-documents) table on commit `50035f40`. | Repository facts about what each existing route reads, excludes or leaves draft. Cited per disposition row. |
 | S14 | LibreHardwareMonitor tree listing of `LibreHardwareMonitorLib/Hardware/Motherboard/` at `2808d80564b6761e1b01f42fabfd966ed695fcbc` (the #2534 comparison inventory), retrieved 2026-11-29 through the GitHub tree API, MPL-2.0 | **lead-only (copyleft)**. File list only, used to enumerate the comparison inventory's voltage-bearing groups: Super I/O drivers for ITE, Nuvoton, Fintek and Winbond parts; embedded-controller readers including ChromeOS; an IPMI reader; a Linux hwmon reader; Gigabyte controller access; per-board voltage descriptors and board identification. No file content was read, and no fact in this document rests on S14. |
 
-| S15 | [`superio-access.md`](superio-access.md) revision 5, [Terms](superio-access.md#terms) of the sampling-path rediscovery cadence | Project policy terms used by the freshness rule: discovery attempt, cached path, discarded path, sample transaction and monitoring session. S15 states that a monitoring session ends after a gap between samples and that this covers suspend and resume. This document relies on that only for a suspend long enough to cause the gap (see [Freshness rule](#freshness-rule)). The service requests a motherboard reading at most every 1.6 s. Supplies no hardware fact. S3 stays the pin for the transport facts. |
+| S15 | [`superio-access.md`](superio-access.md) revision 5, [Terms](superio-access.md#terms) and [Rules](superio-access.md#rules) of the sampling-path rediscovery cadence | Project policy used by the read procedure and the freshness rule: the terms discovery attempt, cached path, discarded path, sample transaction and monitoring session, and rule R1 (a discovery attempt is its own mutex-guarded transaction, never runs inside a sample transaction, and never runs while a path is cached) with the backoff rules R2–R8. S15 states that a monitoring session ends after a gap between samples and that this covers suspend and resume. This document relies on that only for a suspend long enough to cause the gap (see [Freshness rule](#freshness-rule)). The service requests a motherboard reading at most every 1.6 s. Supplies no hardware fact. S3 stays the pin for the transport facts. |
 
 S1 is the only source of any enabled fact. S15 supplies only the
 sampler lifetime terms of the freshness rule. S5–S13 support dispositions
@@ -79,7 +79,7 @@ ID `0xD421`.
   withholds values until the gates have held for 704 ms across samples.
 - Transport. The `0xD421` chip identity, lock gate, discovery, port and
   bank mechanism come from S2, which is Implementation-ready at
-  revision 9.
+  revision 10.
 - Evidence state. No hardware dump of these registers exists for any
   `0xD421` board. The scope is Experimental under ADR 0011 and depends on
   no lead-only fact (S4).
@@ -164,14 +164,29 @@ read side effect. The read-clear registers of the chip are listed in
 
 ### Sampling
 
-All steps run inside the S2 `0xD421` transaction, under the ISA mutex
-that S2 and S3 require. Detection and discovery are unchanged.
+S2 separates two transactions, and this scope keeps that split (S2
+[Discovery procedure](superio-nuvoton-nct67xx.md#discovery-procedure);
+S15 rule R1).
 
-1. Run S2 discovery and sample steps 1–9 for `0xD421` unchanged: mutex,
-   configuration entry, chip ID, `CR28` lock gate, LDN B, base,
-   `ioctl_find_bars`, bank 4 selection, and the bank 4 temperature and
-   fan reads with the S2 abort rule. If S2 aborts the sample, no voltage
-   is read and all four voltages are unavailable for that sample. (S2)
+- **Discovery attempt.** S2 steps 1–7 and 11, unchanged: mutex,
+  configuration entry, chip ID, `CR28` lock gate, LDN B, base,
+  `ioctl_find_bars`, configuration exit and mutex release. It runs only
+  while no path is cached, as its own ISA-mutex transaction under the
+  S15 rediscovery cadence. This scope adds no read to it and reads no
+  voltage register in it.
+- **Sample transaction.** Every sample on the cached `0xD421` path is
+  one ISA-mutex transaction with no configuration-mode entry key or exit
+  write. It runs the S2 sample steps and then the voltage steps below.
+  No discovery attempt runs while the path stays cached, so ordinary
+  samples follow one another on the same path.
+
+Steps of one sample transaction:
+
+1. Acquire the ISA mutex as S2 step 1 requires, then run S2 steps 8–9
+   for `0xD421` unchanged: normal-HM ports, bank 4 selection, and the
+   bank 4 temperature and fan reads with the S2 abort rule. If S2
+   aborts the sample, no voltage is read and all four voltages are
+   unavailable for that sample. (S2)
 2. Select bank 0: write index `0x4E`, then data `0x00`. (S1 p. 111)
 3. Read bank 0 index `0x40`. If bit 0 is `0` or bit 3 is `1`, mark all
    four voltages unavailable (monitoring stopped) and go to step 6.
@@ -183,8 +198,10 @@ that S2 and S3 require. Detection and discovery are unchanged.
    reading it. Apply the [freshness rule](#freshness-rule) to every byte
    read, then go to step 7. (S1 pp. 59, 113, 175)
 6. Select bank 4 (write index `0x4E`, then data `0x04`), so that the
-   transaction ends in the same bank state as the S2 procedure. (S2)
-7. Continue with the S2 configuration-mode exit and mutex release. (S2)
+   transaction ends in the same bank state as the S2 sample. (S2)
+7. Release the ISA mutex. The sample transaction issues no
+   configuration-mode exit, because it entered none. (S2 step 11; S15
+   R1)
 
 Failure rule. If any index write or data read in steps 2–6 fails, stop
 the voltage steps. Every byte already read successfully in that sample
@@ -227,9 +244,13 @@ no wait.
   gate not satisfied. A failed value read in step 5 does not end a run,
   because the gates of that sample were observed.
 - **Other run ends.** Both runs also end when the cached path is
-  discarded, when a discovery attempt runs, when the monitoring session
-  ends (S15), and when the gate reads of two consecutive samples are
-  more than 5 s apart on the sampler's monotonic clock. A `PWROK` reset
+  discarded, when the monitoring session ends (S15), and when the gate
+  reads of two consecutive samples are more than 5 s apart on the
+  sampler's monotonic clock. A discovery attempt runs only while no path
+  is cached (S15 R1). It therefore never falls between two samples of a
+  run: the runs of the old path ended when that path was discarded, and
+  the path the attempt caches starts with no runs. Ordinary sample
+  transactions on a cached path never end a run by themselves. A `PWROK` reset
   returns `0x5D` bit 0 to `0` (S1 p. 113), so a bit read as `1` after
   power returns can come from a new enable. The gap rule and the session
   end catch a suspend and resume only when they leave more than 5 s
@@ -238,7 +259,7 @@ no wait.
   suspend and resume is not detected and is the residual case in Open
   questions.
 - **Run start.** The first sample that extends a run after the run
-  ended, or after the sampler was created, starts it. The run start
+  ended, or after the path was cached, starts it. The run start
   time is the monotonic time of that sample's gate read: `0x40` for the
   monitor run, `0x5D` for the battery run.
 - **Freshness interval: 704 ms**, twice the S1 cycle. The margin covers
@@ -256,11 +277,13 @@ no wait.
   the run (see Open questions). A `0x88` read at least 704 ms after the
   run start therefore follows that change by at least two S1 cycles.
   The monitor run argues the same way for `START` and `INT_Clear`.
-- **Consequence.** The first sample after the sampler is created, and
-  the first sample after any run end, publishes none of the inputs that
-  run covers. At the S15 service cadence of at most one reading every
-  1.6 s, the next sample that extends the run is already past the
-  interval and publishes. A sampler must not wait inside the ISA mutex
+- **Consequence.** The first sample transaction on a newly cached path,
+  and the first sample after any run end, publishes none of the inputs
+  that run covers. At the S15 service cadence of at most one reading
+  every 1.6 s, the next sample that extends the run is already past the
+  interval and publishes. From then on the run survives every ordinary
+  sample on the cached path, so each later sample publishes as long as
+  its gates hold. A sampler must not wait inside the ISA mutex
   transaction to satisfy the interval; the rule spans samples.
 
 ### Decode
@@ -331,8 +354,9 @@ the model.
 ### Synthetic cases for implementation review
 
 All cases are synthetic fixtures, not hardware observations. Times are
-monotonic gate-read times of consecutive samples on one cached path,
-with the sampler created just before the sample at 0 ms. Unless a case
+monotonic gate-read times of consecutive sample transactions on one
+cached path. A discovery attempt cached the path just before the sample
+at 0 ms, and no discovery attempt runs while it stays cached. Unless a case
 says otherwise, the case's sample is at least 704 ms after the start of
 both runs.
 
@@ -345,13 +369,15 @@ both runs.
 | Second sample | Nominal bytes at 0 ms and at 1600 ms | At 1600 ms all four decoded as in Nominal |
 | Battery monitor enabled between samples | 0 ms and 1600 ms: `0x5D` bit 0 = `0`. 3200 ms: bit 0 = `1`, `0x88` = `0xA0`. 4800 ms: bit 0 = `1`, `0x88` = `0xBC` | At 3200 ms `VBAT` unavailable, update pending, and `0xA0` not decoded. At 4800 ms `VBAT` 3008 mV. The other three decode from 1600 ms on |
 | Short interval | Gates satisfied at 0, 300, 600 and 900 ms | All four unavailable at 0, 300 and 600 ms; published at 900 ms |
+| Steady cached sampling | Gates satisfied in sample transactions every 1600 ms from 0 ms to 60 000 ms on the same cached path | No discovery attempt and no configuration-mode entry or exit after 0 ms. Both runs started at 0 ms and never end. All four unavailable at 0 ms and published in every sample from 1600 ms on |
+| Path discarded and rediscovered | Gates satisfied at 0 ms and 1600 ms; the path is discarded after 1600 ms; a discovery attempt caches it again and its first sample is at 4000 ms, the next at 5600 ms | Published at 1600 ms. The runs end with the discard. All four unavailable at 4000 ms (first sample on the new path); published at 5600 ms |
 | Sampling gap | Gates satisfied at 0 ms, 1600 ms and 7600 ms | Published at 1600 ms; all four unavailable at 7600 ms (gap above 5 s, new runs) |
 | Battery gate read fails | At 1600 ms the `0x5D` read fails; at 3200 ms and 4800 ms it succeeds with bit 0 = `1` | At 1600 ms the failure rule stops the voltage steps, so all four are unavailable; the battery run ends and the monitor run does not. At 3200 ms `AVSB`, `3VCC` and `3VSB` published, `VBAT` unavailable (new battery run). At 4800 ms all four published |
 | Battery monitor disabled | `0x5D` bit 0 = `0` | `0x88` not read; `VBAT` unavailable; the other three decoded |
 | Monitor stopped | `0x40` bit 0 = `0`, or bit 3 = `1` | No value register read; all four unavailable; both runs end; temperatures and fans of the sample unchanged; bank 4 selected again |
 | Partial failure | The bank 0 selection or the `0x40` read fails | All four unavailable with an experimental diagnostic; both runs end; temperatures and fans of the sample unchanged |
 | Late failure | The `0x87` read fails after `0x82` and `0x83` succeeded | `AVSB` and `3VCC` keep their values; `3VSB` and `VBAT` unavailable; neither run ends |
-| S2 abort | A temperature or fan read fails in S2 step 9 | S2 aborts the sample; no voltage read |
+| S2 abort | A temperature or fan read fails in S2 step 9 | S2 aborts the sample; no voltage read; both runs end |
 | Other chip | Any raw ID other than `0xD421`, including `0xD423` and `0xD802` | No voltage read |
 
 ## Quirks
@@ -537,7 +563,7 @@ Revision 2 keeps the flip proposed by revision 1 and meets the checklist in
 ## Provenance text for a clean-room implementation PR
 
 ```text
-Implemented from docs/specs/sensors/superio-nuvoton-nct6796d-supply-voltages.md revision 2 (commit <sha>), limited to the 0xD421 AVSB, 3VCC, 3VSB and VBAT supply-pin voltages, together with docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9 (commit <sha>) for the 0xD421 transaction it extends, and docs/specs/sensors/superio-access.md revision 5 (commit <sha>) for the sampler lifetime terms of the freshness rule.
+Implemented from docs/specs/sensors/superio-nuvoton-nct6796d-supply-voltages.md revision 2 (commit <sha>), limited to the 0xD421 AVSB, 3VCC, 3VSB and VBAT supply-pin voltages, together with docs/specs/sensors/superio-nuvoton-nct67xx.md revision 10 (commit <sha>) for the 0xD421 transaction it extends, and docs/specs/sensors/superio-access.md revision 5 (commit <sha>) for the sampler lifetime terms of the freshness rule.
 No other external sensor documentation was used.
 ```
 
@@ -546,4 +572,4 @@ No other external sensor documentation was used.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-29 | Initial version for #2534. Proposes Implementation-ready status for one Experimental scope: `AVSB`, `3VCC`, `3VSB` and `VBAT` supply-pin voltages on exact raw `0xD421` (NCT6796D/-E), all from the NCT6796D datasheet (S1). The scope reads bank 4 `0x82`, `0x83`, `0x87` and `0x88` after the existing revision 9 `0xD421` temperature and fan sample. It is gated on bank 0 `0x40` `START`/`INT_Clear` and, for `VBAT`, on `0x5D` `EN_VBAT_MNT`. Decode is raw × 16 mV; `0x00` and `0xFF` are unavailable. Labels are the pin mnemonics, with no rail names. Adds the failure rule, synthetic cases, read-clear registers that are never read, the model requirements and a disposition for every #2534 target. No lead-only fact backs any row. |
-| 2 | 2026-11-29 | Review finding on #2828: S1 §9.34 p. 113 says the VBAT reading updates one monitor cycle (about 352 ms, §8.6.4 p. 62) after `EN_VBAT_MNT` changes from `0` to `1`, and a read-only sampler cannot see an enable before its first sample. Adds the [freshness rule](#freshness-rule): per cached path, a monitor run and a battery run of consecutive samples with satisfied gates; a run ends on an S2 abort, a failed or unsatisfied gate read, a discarded path, a discovery attempt, the end of the monitoring session, or a gap above 5 s between gate reads. `AVSB`, `3VCC` and `3VSB` publish only 704 ms or more after the monitor run start, and `VBAT` only 704 ms or more after the battery run start; earlier bytes are unavailable as update pending. Adds S15 (`superio-access.md` revision 5 terms), a runtime gate row, the `0x5D` reset sources, synthetic cases for startup, enable, short interval, gap and gate failure, a quirk, and Open questions for the residual between-sample toggle, including a short suspend and resume that the repository cannot observe, and the cycle margin. The `0x00` rationale no longer relies on the update window. Registers, writes, decode scale and dispositions are unchanged. Status remains Implementation-ready (rev 2), proposed. |
+| 2 | 2026-11-29 | Review finding on #2828: S1 §9.34 p. 113 says the VBAT reading updates one monitor cycle (about 352 ms, §8.6.4 p. 62) after `EN_VBAT_MNT` changes from `0` to `1`, and a read-only sampler cannot see an enable before its first sample. Adds the [freshness rule](#freshness-rule): per cached path, a monitor run and a battery run of consecutive samples with satisfied gates; a run ends on an S2 abort, a failed or unsatisfied gate read, a discarded path, a discovery attempt, the end of the monitoring session, or a gap above 5 s between gate reads. `AVSB`, `3VCC` and `3VSB` publish only 704 ms or more after the monitor run start, and `VBAT` only 704 ms or more after the battery run start; earlier bytes are unavailable as update pending. Adds S15 (`superio-access.md` revision 5 terms), a runtime gate row, the `0x5D` reset sources, synthetic cases for startup, enable, short interval, gap and gate failure, a quirk, and Open questions for the residual between-sample toggle, including a short suspend and resume that the repository cannot observe, and the cycle margin. The `0x00` rationale no longer relies on the update window. The read procedure now follows the S2 revision 10 split: the discovery attempt (S2 steps 1–7 and 11) runs only while no path is cached, under the S15 cadence, and each sample transaction on the cached path runs S2 steps 8–9 and then the voltage reads with no configuration-mode entry or exit. Runs therefore survive ordinary cached samples, and a discovery attempt no longer appears as a run end. S2 is re-pinned to revision 10, S3 to `superio-access.md` revision 5, and S15 adds rule R1; fixtures for steady cached sampling and a discarded and rediscovered path are added. Registers, writes, decode scale and dispositions are unchanged. Status remains Implementation-ready (rev 2), proposed. |
