@@ -663,8 +663,9 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
           "active chip={} slot={} ec_base=0x{:04X}",
           active.profile.chip_label, active.slot, active.ec_base
         );
-        // The banked modern profile reports CR22 without gating on it.
-        if active.profile.access == IteEcAccess::BankGuarded {
+        // Profiles that record CR22 for diagnostics report it without gating
+        // on it.
+        if active.profile.reports_diagnostic_revision {
           match active.diagnostic_revision {
             Some(revision) => summary.push_str(&format!(" cr22=0x{revision:02X}")),
             None => summary.push_str(" cr22=unreadable"),
@@ -1396,7 +1397,7 @@ struct DetectedIteSlot {
   ec_base: u16,
   profile: &'static IteEcProfile,
   fan_routes: [bool; 3],
-  /// CR22 as read on the banked modern profile, for diagnostics only; `None`
+  /// CR22 as read on a profile that records it for diagnostics only; `None`
   /// on other profiles or when the read failed.
   diagnostic_revision: Option<u8>,
 }
@@ -1526,9 +1527,10 @@ fn discover_ite_ec_base(
       return Ok(None);
     }
   }
-  // The banked modern profile records CR22 for diagnostics only. Neither its
-  // value nor a failed read selects or refuses the profile.
-  let diagnostic_revision = (profile.access == IteEcAccess::BankGuarded)
+  // A diagnostic CR22 read never selects or refuses the profile, whatever its
+  // value or a failed read. CR22 is never written.
+  let diagnostic_revision = profile
+    .reports_diagnostic_revision
     .then(|| client.superio_inb(ITE_REVISION_REGISTER).ok())
     .flatten();
 
