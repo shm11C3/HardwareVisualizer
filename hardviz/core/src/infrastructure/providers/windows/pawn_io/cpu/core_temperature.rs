@@ -2596,6 +2596,342 @@ mod tests {
     assert_eq!(parse_topology(&two_packages), None);
   }
 
+  // Exact-signature specs whose acceptance fixtures are pinned below. Each
+  // entry is (spec, signature, leaf 07H EDX, rejects status bit 23), where the
+  // spec is docs/specs/sensors/cpu-intel-<name>-dts-msr.md at that revision.
+  const EXACT_DTS_SPECS: [(&str, u32, u32, bool); 9] = [
+    ("coffee-lake-r0 rev 1", 0x0009_06ed, 0, false),
+    ("comet-lake-q0 rev 1", 0x000a_0655, 0, false),
+    ("kaby-lake-s rev 2", 0x0009_06e9, 0, false),
+    ("skylake-desktop-ddr3 rev 1", 0x0005_06e3, 0, false),
+    ("ice-lake-d1 rev 1", 0x0007_06e5, 0, false),
+    ("tiger-lake-b1 rev 1", 0x0008_06c1, 0, true),
+    (
+      "raptor-lake-mobile rev 2",
+      0x000b_06a2,
+      HYBRID_CAPABILITY,
+      true,
+    ),
+    (
+      "raptor-lake-u-q0 rev 2",
+      0x000b_06a3,
+      HYBRID_CAPABILITY,
+      true,
+    ),
+    ("lunar-lake rev 1", 0x000b_06d1, HYBRID_CAPABILITY, false),
+  ];
+
+  // Each spec's Detection table and its decode Acceptance fixtures (TCC offset
+  // and averaging window independence, zero delta, target bounds, Reading
+  // Valid, delta at least the target, and the bit-23 rule where the spec has
+  // one). All words are synthetic.
+  #[test]
+  fn exact_intel_dts_specs_decode_their_acceptance_fixtures() {
+    let valid = 1u64 << 31;
+    for (spec, signature, extended_features, rejects_bit_23) in EXACT_DTS_SPECS {
+      let expected_profile = if extended_features == 0 {
+        CoreDtsProfile::Legacy {
+          signature,
+          zero_offset_mask: 0,
+        }
+      } else {
+        CoreDtsProfile::HybridSignature(signature)
+      };
+      for ptm in [0, 1 << 6] {
+        assert_eq!(
+          synthetic_profile(signature, 0, ptm | 1, Some(extended_features), None),
+          Some(expected_profile),
+          "{spec}"
+        );
+        assert_eq!(
+          synthetic_profile(signature, 0, ptm, Some(extended_features), None),
+          None,
+          "{spec}: core DTS clear"
+        );
+      }
+      assert_eq!(
+        select_profile("AuthenticAMD", signature, 1, extended_features),
+        None,
+        "{spec}: wrong vendor"
+      );
+      let profile = expected_profile;
+      for offset in [0, 5, 10] {
+        for averaging_window in [0, 0x7f] {
+          let target = (offset << 24) | (100 << 16) | averaging_window;
+          for (delta, expected) in [(30, 70.0), (42, 58.0), (50, 50.0), (0, 100.0)] {
+            assert_eq!(
+              decode_core_temperature(profile, target, valid | (delta << 16)),
+              Some(expected),
+              "{spec}: offset {offset}, delta {delta}"
+            );
+          }
+        }
+      }
+      for (reference, delta, expected) in [
+        (0, 0, None),
+        (49, 0, None),
+        (50, 0, Some(50.0)),
+        (120, 0, Some(120.0)),
+        (121, 0, None),
+        (100, 100, None),
+        (100, 101, None),
+      ] {
+        assert_eq!(
+          decode_core_temperature(profile, reference << 16, valid | (delta << 16)),
+          expected,
+          "{spec}: target {reference}, delta {delta}"
+        );
+      }
+      assert_eq!(
+        decode_core_temperature(profile, 100 << 16, 30 << 16),
+        None,
+        "{spec}: Reading Valid clear"
+      );
+      // The synthetic bit-23 pair from the specs that carry the rule.
+      assert_eq!(
+        decode_core_temperature(profile, 0x0064_0000, 0x881e_0000),
+        Some(70.0),
+        "{spec}"
+      );
+      assert_eq!(
+        decode_core_temperature(profile, 0x0064_0000, 0x889e_0000),
+        (!rejects_bit_23).then_some(70.0),
+        "{spec}: status bit 23"
+      );
+    }
+  }
+
+  // The observed register words in each spec's Quirks or Observed readback
+  // section that the shared decode tests above do not already pin.
+  #[test]
+  fn exact_intel_dts_specs_decode_their_observed_register_words() {
+    for (spec, signature, extended_features, target, status, expected) in [
+      // Comet Lake-S Q0 rev 1, Quirks and safety: logical CPU 2 of S6.
+      (
+        "comet-lake-q0 rev 1",
+        0x000a_0655,
+        0,
+        0x0064_1200,
+        0x883c_0000,
+        40.0,
+      ),
+      // Ice Lake D1 rev 1, Quirks: the i5 and i3 captures of S5.
+      (
+        "ice-lake-d1 rev 1",
+        0x0007_06e5,
+        0,
+        0x0764_0000,
+        0x8834_0002,
+        48.0,
+      ),
+      (
+        "ice-lake-d1 rev 1",
+        0x0007_06e5,
+        0,
+        0x0064_0000,
+        0x8835_0808,
+        47.0,
+      ),
+      // Tiger Lake B1 rev 1, Quirks: logical CPU 2 of the i5-1135G7 capture.
+      (
+        "tiger-lake-b1 rev 1",
+        0x0008_06c1,
+        0,
+        0x8064_0000,
+        0x881f_8282,
+        69.0,
+      ),
+      // Skylake desktop DDR3 rev 1, Observed readback: S6 cores 2 and 4.
+      (
+        "skylake-desktop-ddr3 rev 1",
+        0x0005_06e3,
+        0,
+        0x0064_1400,
+        0x8847_0008,
+        29.0,
+      ),
+      (
+        "skylake-desktop-ddr3 rev 1",
+        0x0005_06e3,
+        0,
+        0x0064_1400,
+        0x8840_0008,
+        36.0,
+      ),
+      // Raptor Lake mobile J-0 rev 2, Quirks: P and E cores of both S5 captures.
+      (
+        "raptor-lake-mobile rev 2",
+        0x000b_06a2,
+        HYBRID_CAPABILITY,
+        0x0364_0000,
+        0x8832_2a82,
+        50.0,
+      ),
+      (
+        "raptor-lake-mobile rev 2",
+        0x000b_06a2,
+        HYBRID_CAPABILITY,
+        0x0364_0000,
+        0x8830_2a82,
+        52.0,
+      ),
+      (
+        "raptor-lake-mobile rev 2",
+        0x000b_06a2,
+        HYBRID_CAPABILITY,
+        0x0d64_0000,
+        0x883f_280a,
+        37.0,
+      ),
+      (
+        "raptor-lake-mobile rev 2",
+        0x000b_06a2,
+        HYBRID_CAPABILITY,
+        0x0d64_0000,
+        0x883a_280a,
+        42.0,
+      ),
+      // Lunar Lake B0 rev 1, Quirks: the four P-core words of S5.
+      (
+        "lunar-lake rev 1",
+        0x000b_06d1,
+        HYBRID_CAPABILITY,
+        0x8564_0000,
+        0x882a_2800,
+        58.0,
+      ),
+      (
+        "lunar-lake rev 1",
+        0x000b_06d1,
+        HYBRID_CAPABILITY,
+        0x8564_0000,
+        0x881d_0000,
+        71.0,
+      ),
+      (
+        "lunar-lake rev 1",
+        0x000b_06d1,
+        HYBRID_CAPABILITY,
+        0x8564_0000,
+        0x882b_0000,
+        57.0,
+      ),
+      (
+        "lunar-lake rev 1",
+        0x000b_06d1,
+        HYBRID_CAPABILITY,
+        0x8564_0000,
+        0x8827_0000,
+        61.0,
+      ),
+    ] {
+      let profile =
+        synthetic_profile(signature, 0, 1, Some(extended_features), None).unwrap();
+      assert_eq!(
+        decode_core_temperature(profile, target, status),
+        Some(expected),
+        "{spec}: target {target:#x}, status {status:#x}"
+      );
+    }
+  }
+
+  // The first Acceptance fixture of each non-hybrid spec: package thermal
+  // management clear or set, one group and package, with and without SMT.
+  // Only 0x1A2 and 0x19C are read, on one representative per physical core.
+  #[test]
+  fn exact_nonhybrid_dts_specs_read_only_the_two_msrs_on_each_representative() {
+    for (spec, signature, extended_features, _) in EXACT_DTS_SPECS {
+      if extended_features != 0 {
+        continue;
+      }
+      for (core_masks, representatives) in [
+        (vec![0b0011, 0b0100], vec![0, 2]),
+        (vec![1, 2, 4, 8], vec![0, 1, 2, 3]),
+      ] {
+        let topology = synthetic_topology(&core_masks);
+        for thermal_features in [1, 0x41] {
+          let mut fixture = Fixture::new((u8::MAX, Failure::Pin));
+          fixture.signature = signature;
+          fixture.thermal_features = thermal_features;
+          let profile = fixture.profile().unwrap();
+          // The fixture panics on any MSR other than 0x1A2 and 0x19C.
+          let readings = collect(
+            profile,
+            &topology,
+            Instant::now() + Duration::from_secs(1),
+            &fixture,
+          )
+          .unwrap();
+          assert_eq!(
+            readings
+              .iter()
+              .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+              .collect::<Vec<_>>(),
+            representatives
+              .iter()
+              .map(|&number| (number, Some(58.0)))
+              .collect::<Vec<_>>(),
+            "{spec}"
+          );
+          assert_eq!(
+            fixture.calls.into_inner(),
+            representatives
+              .iter()
+              .flat_map(|&number| [
+                Call::Pin(number),
+                Call::Read(number, MSR_TEMPERATURE_TARGET),
+                Call::Read(number, IA32_THERM_STATUS),
+                Call::Restore(number),
+              ])
+              .collect::<Vec<_>>(),
+            "{spec}"
+          );
+        }
+      }
+    }
+  }
+
+  // Kaby Lake-S rev 2 and Skylake desktop DDR3 rev 1, Detection (the
+  // non-hybrid check repeated on each representative): a pinned core that
+  // reports the hybrid flag, or on Kaby Lake lacks leaf 07H, is skipped before
+  // either MSR and its sibling keeps its reading.
+  #[test]
+  fn board_gated_desktop_specs_recheck_the_nonhybrid_flag_on_pinned_cores() {
+    let topology = synthetic_topology(&[0b0101, 0b1010]);
+    for (signature, failures) in [
+      (
+        0x0009_06e9,
+        &[Failure::UnexpectedHybridFlag, Failure::MissingLeaf7][..],
+      ),
+      (0x0005_06e3, &[Failure::UnexpectedHybridFlag][..]),
+    ] {
+      for &failure in failures {
+        let mut fixture = Fixture::new((0, failure));
+        fixture.signature = signature;
+        fixture.thermal_features = 1;
+        let profile = synthetic_legacy_profile(signature, 1, Some(0)).unwrap();
+        let readings = collect(
+          profile,
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          readings
+            .iter()
+            .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+            .collect::<Vec<_>>(),
+          [(0, None), (1, Some(58.0))],
+          "signature {signature:#x}"
+        );
+        let calls = fixture.calls.into_inner();
+        assert!(calls.contains(&Call::Restore(0)));
+        assert!(!calls.iter().any(|call| matches!(call, Call::Read(0, _))));
+      }
+    }
+  }
+
   #[test]
   fn skylake_u_y_keeps_physical_core_slots_and_checks_each_pinned_representative() {
     let topology = synthetic_topology(&[0b0011, 0b1100]);
