@@ -14,7 +14,6 @@
 //!
 //! No other external sensor source was used.
 
-use super::super::super::client::{ACCESS_ISABUS_MUTEX, NamedMutex};
 use super::super::access::{chip_id, is_absent_id, slot_ports};
 use super::super::nuvoton::fan_speed_status_from_rpm;
 use super::super::nuvoton_smiovt::{
@@ -30,11 +29,11 @@ use super::super::nuvoton_smiovt::{
 };
 use super::{
   CHIP_ID_HIGH_REGISTER, CHIP_ID_LOW_REGISTER, ChipFailure, HM_BANK_SELECT_REGISTER,
-  HM_BASE_HIGH_REGISTER, HM_BASE_LOW_REGISTER, ISABUS_MUTEX_TIMEOUT,
-  LDN_ACTIVATION_REGISTER, LOGICAL_DEVICE_SELECT_REGISTER, LpcIoOps,
-  MotherboardSensorError, NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT,
-  NUVOTON_HARDWARE_MONITOR_LDN, SlotProbe, enter_nuvoton, exit_nuvoton,
-  read_nuvoton_hm_byte, write_nuvoton_hm_byte,
+  HM_BASE_HIGH_REGISTER, HM_BASE_LOW_REGISTER, LDN_ACTIVATION_REGISTER,
+  LOGICAL_DEVICE_SELECT_REGISTER, LpcIoOps, MotherboardSensorError,
+  NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT, NUVOTON_HARDWARE_MONITOR_LDN, SlotProbe,
+  SuperIoBackend, enter_nuvoton, exit_nuvoton, read_nuvoton_hm_byte,
+  write_nuvoton_hm_byte,
 };
 use crate::log_warn;
 use crate::models::{
@@ -342,8 +341,9 @@ impl<C: LpcIoOps> ActiveNuvotonSmiovtSensors<C> {
 
   pub(super) fn sample(
     &mut self,
+    backend: &impl SuperIoBackend,
   ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
-    let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
+    let _mutex = backend.acquire_isa_bus()?;
     self.sample_unlocked_logged()
   }
 
