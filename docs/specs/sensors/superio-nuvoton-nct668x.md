@@ -82,8 +82,10 @@ fan input 2 at 2,877 RPM and `Thermistor 14` and `Thermistor 15` at
 physical temperature location. The separate CoreOS log reports
 configuration port `0x2e`, EC base `0x0a20`, platform instance
 `nct6683.2592` and EC 1.0 build 2021-07-28. Revision 6 found two
-linux-hardware.org probes that supply the missing same-unit BIOS,
-DMI strings, customer and native binding. The
+linux-hardware.org probes: one records the BIOS, the DMI strings and an
+apparent native binding, and the other records customer `0x162B` under
+a forced binding. The probes do not establish whether they come from the
+same unit. The
 [ASRock specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md)
 revision 2 cites them. The Z590 Taichi two-unit report in S15 gives no
 complete raw ID, EC base, BIOS version or individual channel values.
