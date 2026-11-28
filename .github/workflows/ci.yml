@@ -54,6 +54,12 @@ jobs:
         id: changes
         background: true
         with:
+          # Markdown in the code trees (README.md, AGENTS.md, script READMEs)
+          # is not a build input, so the code filters negate it. A negated
+          # pattern only excludes under 'some-with-excludes' ("matches a
+          # positive pattern and no negated one"); a filter with no negation
+          # behaves exactly as under the default 'some'.
+          predicate-quantifier: "some-with-excludes"
           filters: |
             frontend:
               - 'hardviz/frontend/src/**'
@@ -65,6 +71,7 @@ jobs:
               - 'hardviz/frontend/tsconfig*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
             bindings:
               - 'hardviz/frontend/src/rspc/bindings.ts'
             backend:
@@ -76,6 +83,7 @@ jobs:
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
             core:
               - 'hardviz/core/**'
               - 'hardviz/sensor-service/**'
@@ -84,8 +92,13 @@ jobs:
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
             tauri:
               - 'hardviz/app/**'
+              # Bundled as app resources (tauri.conf.json `bundle.resources`),
+              # so this markdown is a build input; the negations below spare it.
+              - 'docs/licenses/LICENSE_INFORMATION.md'
+              - 'docs/licenses/MIT-pre-relicense.txt'
               - 'hardviz/sensor-service/**'
               - 'e2e-native/**'
               - 'Cargo.*'
@@ -93,11 +106,15 @@ jobs:
               - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!hardviz/**/*.md'
+              - '!e2e-native/**/*.md'
+              - '!.github/**/*.md'
             frontend-deps:
               - 'package*.json'
               - '.github/actions/**'
               - '.github/scripts/**'
               - 'scripts/licenses/**'
+              - '!**/*.md'
             backend-deps:
               - 'hardviz/sensor-service/Cargo.toml'
               - 'hardviz/core/Cargo.toml'
@@ -107,6 +124,7 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
               - 'scripts/licenses/**'
+              - '!**/*.md'
             cargo-license-config:
               - 'hardviz/app/deny.toml'
               # Inputs to the DuckDB bundled-library notice check. hardviz/core/ and
@@ -127,26 +145,31 @@ jobs:
               - '.github/scripts/release/sign-codesigntool.ps1'
               - '.github/scripts/release/test-sign-codesigntool.ps1'
               - '.github/workflows/ci.yml'
+              - '!**/*.md'
             actions:
               - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
+              - '!**/*.md'
 
       # Catch-all: true when a changed file matches none of the filters above.
       # A file this repo has not classified yet must not let every Rust and
       # frontend job silently skip (#2003/#2008/#2009), so every change-gated
       # job below also runs on `unclassified-changed == 'true'`.
       #
-      # This needs its own paths-filter step: `predicate-quantifier` is
-      # step-scoped, and the filters above depend on the default 'some'
-      # ("matches at least one pattern"). Under 'some' the leading '**' would
-      # match every file and make this filter always true, so it uses
-      # 'some-with-excludes' ("matches a positive pattern and no negated one")
-      # to actually compute the complement.
+      # It uses 'some-with-excludes' ("matches a positive pattern and no
+      # negated one") to compute the complement; under the default 'some' the
+      # leading '**' would match every file and make it always true.
       #
       # The negations below mirror the positive patterns above. Forgetting to
       # mirror a newly added pattern is the safe direction: the file simply
       # falls through to unclassified and over-runs CI rather than skipping it.
+      #
+      # Markdown is excluded outright so a documentation-only change does not
+      # run the Rust and frontend jobs. Markdown that is a build input is
+      # routed by a positive filter above instead: the bundled license files
+      # through `tauri` and docs/licenses/manual/** through
+      # `cargo-license-config`.
       - name: Check unclassified changed files
         uses: dorny/paths-filter@v4.0.3
         id: unclassified
@@ -172,6 +195,7 @@ jobs:
               - '!.github/scripts/**'
               - '!scripts/licenses/**'
               - '!.github/workflows/**'
+              - '!**/*.md'
 
       - name: Setup Node.js
         uses: $/.github/actions/setup-node
@@ -475,27 +499,31 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2.90.5
+        with:
+          tool: cargo-nextest
+
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
         uses: taiki-e/install-action@v2.90.5
         with:
           tool: cargo-llvm-cov
 
-      # duckdb-archive is a default feature, so these already build and run
-      # the `native_dispatch_conversion` / `native_dispatch_restart`
-      # DuckDB integration tests (formerly the separate
-      # test-tauri-duckdb-archive job) alongside the lib tests, with no
-      # separate --features flag needed. native_dispatch_conversion and
-      # native_dispatch_restart each need their own process because Core's
-      # dispatch::init is a process-wide OnceLock; as separate integration
-      # test binaries, cargo test already gives them that.
+      # nextest runs each test in its own process, so the App tests run in
+      # parallel without sharing process-wide state such as Core's
+      # dispatch::init OnceLock, which the native_dispatch_* integration
+      # binaries initialize. Unit tests resolve app data under a per-test
+      # temporary directory (utils::file::get_app_data_dir). duckdb-archive is
+      # a default feature, so the DuckDB integration tests need no --features
+      # flag. Scheduling rules live in .config/nextest.toml.
       - name: Run Tauri tests with coverage
         if: matrix.platform == 'ubuntu-22.04'
-        run: cargo llvm-cov -p hardware_visualizer --no-report -- --test-threads=1 --nocapture
+        run: cargo llvm-cov nextest -p hardware_visualizer --no-report --profile ci
 
       - name: Run Tauri tests
         if: matrix.platform != 'ubuntu-22.04'
-        run: cargo test -p hardware_visualizer -- --test-threads=1 --nocapture
+        run: cargo nextest run -p hardware_visualizer --profile ci
 
       - name: Generate coverage report
         if: matrix.platform == 'ubuntu-22.04'

@@ -2,10 +2,29 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 8 |
+| Revision | 9 |
 | Status | Draft — not implementation-ready |
-| Scope | Evidence for a secondary, firmware-open ITE LPC Environment Controller on the Gigabyte X470 AORUS ULTRA GAMING rev. 1.0. Separate ECIO and ISA bridge transport restrictions, and OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E and ECIO evidence for X670E AORUS MASTER BIOS F41 and B650E AORUS MASTER rev. 1.0. Separate X470 AORUS GAMING 7 WIFI rev. 1.0 BIOS F64 SMM evidence and unresolved secondary controller attribution. Separate X870E AORUS MASTER F12 secondary endpoint observations and static firmware evidence. |
+| Scope | Candidate Experimental Windows read of TMPIN1–3 and FAN1–3 through the direct Environment Controller of a firmware-open secondary ITE part on configuration slot 1, keyed by the pre-key raw chip ID `0x8733` (IT8792E/IT8795E) or `0x8695` (IT87952E). The candidate is blocked by two named safety questions. Separate ECIO and ISA bridge transport restrictions. OEM WMI evidence for GA-AB350-Gaming 3 BIOS F54d and X470 AORUS ULTRA GAMING BIOS F61a. Linux hwmon evidence for the GA-Z87X-UD5H IT8790E. ECIO evidence for X670E AORUS MASTER BIOS F41 and B650E AORUS MASTER rev. 1.0. X470 AORUS GAMING 7 WIFI rev. 1.0 BIOS F64 SMM evidence. X870E AORUS MASTER F12 secondary endpoint observations and static firmware evidence. A disposition for every [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) target. |
 | Issue phase | [#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519) |
+
+Revision 9 re-scopes the earlier exact-board X470 AORUS ULTRA GAMING
+candidate under
+[ADR 0031](../../adr/0031-runtime-sensor-gates-follow-hardware-mechanism.md).
+The new row is keyed by slot, pre-key chip ID and the chip's own
+activation, routing and enable registers. Board observations are its
+evidence members. The row is the smallest Windows slice with an
+independent register dump (S31). It needs no new PawnIO module, reads
+no alarm register and writes nothing except the logical-device selector
+that the read requires. It stays Disabled until the two blocking Open
+questions are resolved:
+
+- B1 covers the selector walk of the only signed port authorization.
+- B2 covers a competing configuration-space handler.
+
+A maintainer decision can resolve either question, or the evidence named
+in the question can. The Linux hwmon routes for the same parts remain
+blocked by the input refresh that reads alarm status. The 2026-11-28
+recheck of mainline and the external driver is recorded below.
 
 ## Sources
 
@@ -18,8 +37,8 @@
 | S5 | [Super I/O access rev. 4](superio-access.md#slot-1-ite-exit-withhold-rule) and [PawnIO interface rev. 7](pawnio-interface.md#lpcio) | Existing project scope for the raw diagnostic, exact slot-1 exit withhold, ISA mutex and transport. |
 | S6 | Linux [v6.18 IT87 monitor](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/it87.c), Git blob `e233aafa8856c94c3fde3502732fcda2bd3bf130`, GPL-2.0-or-later, and [IT87 driver documentation v6.18](https://www.kernel.org/doc/html/v6.18/hwmon/it87.html#supported-chips) | **lead-only (copyleft)**. Source for the active LDN, base and runtime register locations, fan and temperature formats, primary/secondary port separation, and the firmware-open discovery observation. The driver maps `0x8733` to the `it8792` prefix documented for IT8792E/IT8795E. |
 | S7 | lm-sensors [V3-6-2 X470 AORUS ULTRA GAMING profile](https://github.com/lm-sensors/lm-sensors/blob/V3-6-2/configs/Gigabyte/X470-AORUS-ULTRA-GAMING.conf), Git blob `1964faec4aa347715833da50b4188c1c2282a683`, GPL-2.0-or-later project | **lead-only (copyleft)**. Experimental configuration naming two LPC controllers and tentative channel labels. Its comments cite other board profiles and monitor output, so it supplies leads rather than independent board verification. |
-| S8 | PawnIO.Modules [`LpcIO`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p) and [`IsaBridgeEC`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/IsaBridgeEC.p), commit `52a7e536dff3e53c96917a28caac5e0fa6510696` | Upstream public PawnIO interface and audit of the transactions required by those calls. |
-| S9 | LibreHardwareMonitor [ECIO byte transport](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT879xEcioPort.cs), Git blob `cbb52c4b88c8fc606087220be6ad16cfd6315812`, and [secondary LPC discovery](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs), Git blob `3bb61abd9d86df2dcf388cc80689d4db61d16537`, MPL-2.0 | **lead-only (copyleft)**. Alternate ID after mode entry, selected ECIO mailbox transactions, and firmware transport selection. |
+| S8 | PawnIO.Modules [`LpcIO`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/LpcIO.p) and [`IsaBridgeEC`](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/IsaBridgeEC.p), commit `52a7e536dff3e53c96917a28caac5e0fa6510696` (release 0.2.11) | Upstream public PawnIO interface and audit of the transactions required by those calls. `ioctl_select_slot` clears the recorded BAR list and writes no Super I/O register. `ioctl_find_bars` refuses a `CR20` of `0x00` or `0xFF` and neither enters nor exits configuration mode. It writes every logical-device index `0x00`–`0xFE` to `CR07` and reads back each selection. It records the `CR60/61` and `CR62/63` words that agree across two samples about 1 ms apart. It leaves `CR07` at the last index written. Port I/O is allowed only on the selected configuration pair, ASUS EC ports `0x25C`/`0x25D`, and 8-byte windows at recorded bases. |
+| S9 | LibreHardwareMonitor [ECIO byte transport](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IT879xEcioPort.cs), Git blob `cbb52c4b88c8fc606087220be6ad16cfd6315812`, and [secondary LPC discovery](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/LpcIO.cs#L600-L682), Git blob `3bb61abd9d86df2dcf388cc80689d4db61d16537`, MPL-2.0 | **lead-only (copyleft)**. Alternate ID after mode entry, selected ECIO mailbox transactions, and firmware transport selection. Lines 600–682 show the ecosystem behavior on PawnIO for raw `0x8733`, `0x8695` and `0x8790` on slot 1. The monitor reads the chip ID before any key, calls `ioctl_find_bars`, and selects LDN `0x04` and the GPIO device without restoring the selector. Its exit routine skips port `0x4E`. |
 | S10 | LibreHardwareMonitor [ISA bridge controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/IsaBridgeGigabyteController.cs), Git blob `cc9398dc047347d6bfd19129cc00d6ee890e0143`, and [ECIO controller](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/EcioPortGigabyteController.cs), Git blob `e906f6aee3fda7c0b42f3900f3c69f41b6d4376a`, MPL-2.0 | **lead-only (copyleft)**. Confirms what the cited bridge and ECIO examples use the mapped RAM for. |
 | S11 | Intel, [82077AA floppy disk controller data sheet](https://www.alldatasheet.com/html-pdf/167793/INTEL/82077AA/1242/8/82077AA.html), §2.1 | Primary for the historical PC/AT or PS/2 port assignment. It establishes the possible address collision, with no claim about a floppy controller being present on the target board. |
 | S12 | Gigabyte, [GA-AB350-Gaming 3 rev. 1.x BIOS F54d release](https://www.gigabyte.com/Motherboard/GA-AB350-Gaming-3-rev-1x/Support#support-dl-bios) and [official F54d archive](https://download.gigabyte.com/FileList/BIOS/mb_bios_ab350-gaming-3_8a06bg08_f54d.zip?v=9b00bc778a8a46e655182428ea1bbe5a) | Archive SHA-256 `5ad4baf65297f0a89da0f04da2f00fa0111bc5d634bde30ae9de53956df3f158`. Checksum-valid `GBT / GSWApp` SSDT (28,407 bytes) SHA-256 `0c5707bb1a0fdbe31f22f266695ab38c2b5fd5c2c39b2cc0c0048665ba4311ac`. The table starts at offset `0xA8F114` of the LZMA section decoded from BIOS image offset `0xA246F0`. |
@@ -41,64 +60,202 @@
 | S28 | [X870E AORUS MASTER owner report and readings](https://github.com/frankcrawford/it87/issues/103), BIOS F12 and kernel `6.19.14-1-liquorix-amd64` | Independent live temperature and RPM observations on two reported endpoints. The report identifies its DKMS build and leaves PCB revision and chip marking unconfirmed. |
 | S29 | Frank Crawford DKMS driver, commit `20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8`, Git blob `e7cc39fddf72a4ad42d5d190b7a15e7d9c12a512`, GPL-2.0-or-later. [Temperature input](https://github.com/frankcrawford/it87/blob/20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8/it87.c#L2640-L2646), [fan input](https://github.com/frankcrawford/it87/blob/20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8/it87.c#L2932-L2939), and [cold refresh](https://github.com/frankcrawford/it87/blob/20f2f2f4c92c14fcdd26f60d050e693ad2c30bf8/it87.c#L2524-L2527). | **lead-only (copyleft)** for the common cache and alarm register reads in the reported build. |
 | S30 | UEFI PI 1.8 [MM protocol notification](https://uefi.org/specs/PI/1.8/V4_Management_Mode_System_Table.html#mmregisterprotocolnotify), and TianoCore [EDK II stable 202511 package protocol declarations](https://github.com/tianocore/edk2/blob/edk2-stable202511/MdeModulePkg/MdeModulePkg.dec#L670) | Public interface definitions for protocol notification and the SMM ExitBootServices GUID. |
+| S31 | AX370-Gaming K7 owner report, [LibreHardwareMonitor issue 1030](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/1030), [attached report](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/files/11068646/LibreHardwareMonitor.Report.txt), 2023-03-25, SHA-256 `276b0ff0864c337245602f78df3b25384279aa6838d1d2a8ca92466f7b557ed8`. This is S19 of the [primary LPC expansion specification](superio-ite-primary-lpc-expansion.md#sources). | Independent public register dump, not maintainer-accepted. It records monitor version 0.9.2.0 on Windows 10 build 19045, before PawnIO, so no `ioctl_find_bars` call. Its secondary section is reported as chip ID `0x8733`, chip version 3, EC base `0x0A60` and GPIO base `0x0A50`. The primary is `0x8686` at `0x0A40`. The secondary bank-0 rows are quoted as bytes under [AX370-Gaming K7 secondary dump](#ax370-gaming-k7-secondary-dump). The tool read EC `0x01`–`0x03` for its dump. The candidate never selects them. |
+| S32 | Linux mainline [`drivers/hwmon/it87.c`](https://github.com/torvalds/linux/blob/7cd8495c0f16275c4f9abe1cef09a7b5fcd6d046/drivers/hwmon/it87.c) at commit `7cd8495c0f16275c4f9abe1cef09a7b5fcd6d046` (2026-11-28), Git blob `bbb3f9788c2e34c01591b8498c7b32349243042f`, GPL-2.0-or-later. The last change to the file is `4dd10fbbeb9c` (2026-11-06). | **lead-only (copyleft)**. Line-pinned facts: raw IDs `0x8733`, `0x8790` and `0x8695` at lines 154, 161 and 169. The `0x8733` and `0x8695` profiles at lines 499–510 and 578–588 have the same feature set: 16-bit fans, three temperatures, a TMPIN2 extra-source bit, no serial-bus mask. The `0x8790` profile at lines 489–498 has no TMPIN2 extra-source case. Lines 2833–2851 record that these three IDs are left in configuration mode by firmware and that entering or exiting it causes the reported failure. Lines 2975–2993 skip the key for them and read LDN `0x04` `CR30[0]` and `CR60/61`. Lines 3320–3368 select LDN `0x07`, with `CR27[7]` set meaning FAN3 absent and `CR29[2]` set meaning FAN2 absent. Line 210 and lines 213–214 put the index and data ports at base + 5 and + 6. Lines 248 and 250 give count bytes `0x0D`–`0x0F` and `0x18`–`0x1A`, and line 263 temperatures at `0x29`–`0x2B`. Lines 1334–1382 decode the sources from EC `0x51` and `0x55`. Lines 770–771 convert counts, and lines 3562–3563 enable fans from EC `0x13` bits 4–6. Lines 3723–3724 refuse EC `0x00` bit 7 set or EC `0x58` other than `0x90`. Lines 1032–1121 read EC `0x01`–`0x03` in the shared refresh used by input and type attributes. |
+| S33 | Out-of-tree IT87 driver, [commit `8fdc406fff148c033d7535a1ac3d905f77edf3cb`](https://github.com/frankcrawford/it87/blob/8fdc406fff148c033d7535a1ac3d905f77edf3cb/it87.c#L3789-L3887) (2026-11-27), Git blob `451bb92a96139d8060bee5e4d93bc9002d6d1bfa`, GPL-2.0-or-later, and the message of [commit `44315f4749831fe4aa47041b199a1df3de5604f3`](https://github.com/frankcrawford/it87/commit/44315f4749831fe4aa47041b199a1df3de5604f3) | **lead-only (copyleft)**. Lines 3789–3887 still read EC `0x01`–`0x03` in the cold or expired refresh. The commit message reports, for X570 AORUS XTREME board revision 1.0, an IT8688E with an IT8792E/IT8795E. It reports an ACPI operation region on the primary EC window `0x0A45`–`0x0A46` with no sensor methods. |
+| S34 | LibreHardwareMonitor [pull request 2014](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/pull/2014), November 2025, merged as `f6c2c70a509a882449990e2d91afd0b24a8b9a00` | Independent owner test reports on PawnIO-era test builds, plus contributor statements. Owners report readable secondary sensors on B550 AORUS PRO AX rev. 1.0 and X570 AORUS MASTER rev. 1.0. One owner reports the secondary disappearing after some boots, then appearing again, with the OEM low-level driver file `gdrv3.sys` present. A contributor attributes this, without supporting evidence, to configuration mode being changed by other software. Research lead for the competing handler in B2. |
+| S35 | LibreHardwareMonitor [issue 2238](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/issues/2238), 2026 | Independent owner observation on an unidentified Gigabyte board with an IT87952E. The secondary is sometimes not detected and is found if the monitor starts sooner after boot. |
+| S36 | LibreHardwareMonitor [pull request 672](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/pull/672), February 2022 | Contributor statement that Z690 AORUS PRO (DDR5) carries a secondary with raw `0x8695` beside an IT8689E. Research lead for the LGA1700 installed base only. No register data. |
+| S37 | [Primary LPC expansion specification revision 7](superio-ite-primary-lpc-expansion.md) | Project precedent for the slot-0 banked controllers on the same boards. It reuses the count table, the +1 to +125 °C acceptance, two identical immediate reads, the caller-held ISA mutex and the 1.5-second minimum interval. It supplies no secondary-chip hardware fact. |
 
 ## Detection
 
+### Scoped enablement
+
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| X470 AORUS ULTRA GAMING rev. 1.0, slot 1 pre-key raw `0x8733`, normal LPC | Candidate Experimental. S1 confirms PCB identity. S2 reports separate fan behavior. S6/S7 lead-only facts identify a possible direct EC at secondary base `0x0A60`, distinct from primary `0x0A40`. S14 corroborates the distinct bases in Linux without recording the pre-key state. | Disabled pending exact-board pre-key identity, successful Windows transport proof and sample evidence. Bases are observations to check, never defaults to substitute. |
+| Windows, slot 1 (`0x4E`/`0x4F`), pre-key raw `0x8733` (IT8792E/IT8795E) or `0x8695` (IT87952E), active LDN `0x04` with a base distinct from the slot-0 primary, direct EC TMPIN1–3 and FAN1–3 | **Candidate Experimental.** No vendor document is public for these parts (S5 F4). Lead-only facts and their sources: exact IDs and the shared IT8792E/IT8795E ID (S32, S5 F1, F3); firmware-open state and the entry/exit hazard (S32 lines 2833–2851, S5 F6–F8); LDN `0x04` activation, base and port offsets (S32); EC `0x00` and `0x58` acceptance (S32); FAN1–3 enables, count bytes, fixed 16-bit width, divisor 2 and count dispositions (S32, S6); FAN2 and FAN3 pin routing (S32); temperature bytes, encoding and EC `0x51`/`0x55` source decode (S32, S6); ecosystem use of `ioctl_find_bars` on these IDs (S9). Best-evidenced member: AX370-Gaming K7 BIOS F51i, raw `0x8733` version 3 at `0x0A60`, with an independent register dump (S31). Observed members without a dump: X470 AORUS ULTRA GAMING rev. 1.0 F61a (S14); X470 AORUS GAMING 7 WIFI (S3); B650E AORUS MASTER rev. 1.0 (S22); B550 AORUS PRO AX rev. 1.0 and X570 AORUS MASTER rev. 1.0 (S34); X570 AORUS XTREME rev. 1.0 (S33); Z690 AORUS PRO (DDR5) (S36, contributor statement); X870E AORUS MASTER F12 (S28); TRX50 AI TOP ([TRX50 specification](superio-ite-trx50-secondary-linux-hwmon.md)). | Disabled pending Open questions B1 and B2. The rest of the row is complete. If both are resolved, the row would enable best-effort for eligible inputs. |
+| Windows, slot 1, pre-key raw `0x8790` (IT8790E), same transport | S32 gives the same transport and count map. It has no TMPIN2 extra-source case. Observed member GA-Z87X-UD5H (S15, S16) has Linux readings and no Windows dump. | Disabled. Deferred to keep the first slice to one temperature-routing rule. It can join the candidate row by a revision after B1 and B2. |
 | X470 AORUS ULTRA GAMING rev. 1.0, BIOS F61a, OEM WMI | S14 advertises the GUID but lacks the S13 temperature method. The observed WMI values are all zero. | Disabled. No verified secondary read path. |
-| X470 AORUS GAMING 7 WIFI rev. 1.0, BIOS F64, OEM SMM | S24/S26 identify power-event handlers with hardware writes and no temperature or RPM output. S3 reports raw `0x8733`, which the S6 driver mapping groups under IT8792E/IT8795E (**lead-only (copyleft)**). S25 shows an IT8792E marking on an unidentified PCB revision. No evidence links the photograph and raw ID to the same board. | Disabled. No verified OS-owned secondary read path. |
+| X470 AORUS GAMING 7 WIFI rev. 1.0, BIOS F64, OEM SMM | S24/S26 identify power-event handlers with hardware writes and no temperature or RPM output. S3 reports raw `0x8733`, which the S6 driver mapping groups under IT8792E/IT8795E (**lead-only (copyleft)**). S25 shows an IT8792E marking on an unidentified PCB revision. No evidence links the photograph and raw ID to the same board. | Disabled. No verified OS-owned secondary read path through firmware. The board's direct path is a member of the candidate row. |
 | GA-AB350-Gaming 3 rev. 1.x, BIOS F54d, OEM WMI | S12 advertises the GUID but lacks the S13 temperature method. The table's visible monitor pair defaults to the primary controller. | Disabled. No verified secondary read path. |
-| GA-Z87X-UD5H, already-bound Linux `it8790` at observed base `0x0A40` | Candidate Experimental. S15 identifies the part. S16 records an unbound secondary and a later positive endpoint. Lead-only S17 establishes that the published inputs use a cache refresh that reads alarm status. | Disabled pending exact IT8790E read effects or a separate safe kernel input route, plus matching bound-endpoint evidence. |
+| Linux, already-bound `it8790`, `it8792` or `it87952` hwmon endpoint (GA-Z87X-UD5H, X870E AORUS MASTER F12, TRX50 AI TOP) | S15/S16 and S28 record positive secondary endpoints. Lead-only S17, S29, S32 and S33 establish that input and type attributes reach a shared refresh that reads EC `0x01`–`0x03` when the cache is cold or expired. The 2026-11-28 recheck covered mainline `7cd8495` and the external driver at `8fdc406`. | Disabled pending Open question L1. |
 | X670E AORUS MASTER rev. 1.x, BIOS F41, secondary ECIO | S18 establishes OEM boot-time mailbox access. S19 reports a separate H2RAM endpoint. S20's pump observation has no F41 identity. | Disabled pending an OS-owned read path, exact channel evidence and mailbox arbitration. |
-| X870E AORUS MASTER, BIOS F12, secondary Linux hwmon and separate OEM firmware inspection | S28 observes temperature and RPM on the reported secondary endpoint. The reported driver build refreshes both inputs with alarm reads (S29 lead-only). The inspected firmware paths establish no independent secondary telemetry endpoint (S27, S30). | Disabled pending an owned read path without alarm reads and exact controller attribution. |
+| X870E AORUS MASTER, BIOS F12, OEM firmware inspection | The inspected firmware paths establish no independent secondary telemetry endpoint (S27, S30). | Disabled. The board's Linux endpoint is in the Linux row. Its direct path is a member of the candidate row. |
 | B650E AORUS MASTER rev. 1.0, secondary H2RAM via ECIO and separate BIOS F37 WMI inspection | S22 records a slot-1 `0x8733` observation and a G3 v1.00 window with RPM data under the S23 lead-only map. S21's static F37 tables establish no matching secondary telemetry method. | Disabled pending temperature attribution and a read path with proven mailbox ownership, arbitration and side effects. |
-| Other board/transport combinations for `0x8733`, `0x8790` and `0x8695` | Diagnostic identities only under S5. The shared raw `0x8733` cannot distinguish the IT8792E and IT8795E models. | Disabled until independently scoped. |
-| Alternate `0x8883` report, unreadable, absent or changed pre-key ID | S5/S9 distinguish the alternate report from a usable pre-key identity. S4 records a real absent pre-key result. | Disabled. |
+| Alternate `0x8883` report, unreadable, absent or changed pre-key ID | S5/S9 distinguish the alternate report from a usable pre-key identity. S4 records a real absent pre-key result. S34/S35 report a secondary that is not detected on some boots. | Unsupported. The candidate reports the secondary as unavailable and sends no key. |
 | ECIO or ISA bridge | Separate access domains. See transport limits below. | Disabled. |
 
-The smallest candidate keeps the board revision, firmware revision,
-pre-key secondary raw ID and distinct runtime bases in one observation.
-The board label alone cannot select an EC layout. S7 names the primary
-as IT8686 and the secondary as IT8792 in its profile. Those names,
-addresses and channel mappings remain lead-only. A board owner report
-and the vendor manual establish the target for evidence collection.
-(S1, S2, S6, S7)
+Board names, BIOS versions, chip version nibbles and observed base
+addresses in the candidate row are evidence identities. They gate no
+read (ADR 0031). Under F5 the Gigabyte placement convention explains
+where the members were found. The candidate row does not depend on the
+board vendor. A slot-1 part with one of the two IDs and the same chip
+registers is in the same mechanism row. (S5 F5, S32)
+
+### Runtime gates (candidate row)
+
+| Condition | Gate kind | Source |
+| --- | --- | --- |
+| Configuration slot 1 on a dedicated `LpcIO` executor. Its slot is selected once and never changed, because `ioctl_select_slot` clears the recorded BARs. | mechanism | S8 |
+| Pre-key `CR20`/`CR21` read with no key written, combined value exactly `0x8733` or `0x8695` | mechanism | S32 lines 154, 169 (lead-only); S5 F1, F3, F7 |
+| No configuration-mode key and no `CR02` write on slot 1 at any time on this path | safety | S5 F6–F8; S32 lines 2833–2851 (lead-only) |
+| `CR07` read before the first selector write, restored to that value at the end of discovery and read back | safety | S8 (the walk leaves `CR07` changed); project read-only policy |
+| LDN `0x04` `CR30[0]` set, and `CR60/61` read twice with equal results, in `0x0100`–`0x0FF0`, with bits 2:0 clear and outside `0x0CF8`–`0x0CFF` | mechanism | S32 lines 2980–2993 (lead-only); S8 |
+| Secondary base differs from the base cached by the slot-0 primary path, when that path has one | safety | Attribution rule in [Safety notes](#safety-notes); S14, S22, S31 |
+| `ioctl_find_bars` succeeds and the EC port proof below succeeds without any configuration exit | mechanism | S8 |
+| EC `0x00` bit 0 set and bit 7 clear, and EC `0x58` equal to `0x90` | mechanism | S32 lines 3723–3724 (lead-only); S31 |
+| EC `0x13` bit 4, 5 or 6 set for FAN1, FAN2 or FAN3 | mechanism | S32 lines 3562–3563 (lead-only); S31 |
+| `CR29[2]` clear for FAN2 and `CR27[7]` clear for FAN3, read with LDN `0x07` selected | mechanism | S32 lines 3320–3368 (lead-only) |
+| EC `0x51` source bits and destination field per input, plus EC `0x55[7]` clear for TMPIN2 | mechanism | S32 lines 499–510, 578–588 and 1334–1382 (lead-only); S31 |
+| Two identical immediate reads of each fan count pair and each temperature byte | safety | S37 |
+| Caller-held `Global\Access_ISABUS.HTP.Method` with a bounded wait across discovery and each sample, and at least 1.5 seconds between sample bursts | safety | S5, S37 |
+| Temperature accepted only from +1 to +125 °C | safety | S37; S31 shows −55 °C on an input the reporting tool did not present |
 
 ## Register map (research facts)
 
+Every chip-register row is a lead-only fact for raw `0x8733` and
+`0x8695`. These rows back only the candidate Experimental row. S31 shows the listed values on one
+`0x8733` part.
+
 | Address | Meaning | Encoding | Source |
 | --- | --- | --- | --- |
-| Slot 1 global `CR20/21`, `CR22` | Raw identity bytes and chip revision nibble. A firmware-open responder can return identity before any entry key is sent. | High byte first for the ID. Low four bits of `CR22` for the revision. | S5, S6/S9 (lead-only) |
-| Slot 1 LDN `0x04`, `CR30[0]`, `CR60/61` | Firmware activation and runtime LPC base on the direct path. | An active controller reports bit 0 set. An eight-byte runtime block contains its index and data ports at base + 5 and + 6. | S6 (lead-only) |
-| Direct LPC EC `0x58` | Register-block vendor check used by S6. | `0x90` is the expected vendor byte. It does not distinguish two ITE controllers. | S6 (lead-only) |
-| Direct LPC EC `0x13`, `0x0D`–`0x0F`, `0x18`–`0x1A` | FAN1–3 enable bits and low/high count bytes for the `0x8733` profile. | Bits 4–6 of `0x13`. 16-bit little-endian count, low-byte read first. The divisor is 2. | S6 (lead-only) |
-| Direct LPC EC `0x29`–`0x2B`, `0x51`, `0x55[7]` | Temperature bytes and source routing. S6 records both normal external-source selection in `0x51` and an extra external-source case for the second channel. | Signed 8-bit degrees C. Physical eligibility needs both route checks on this profile. | S6 (lead-only) |
+| Slot 1 global `CR20/21`, `CR22` | Raw identity bytes and chip revision nibble. A firmware-open responder can return identity before any entry key is sent. | High byte first for the ID. Low four bits of `CR22` for the revision. Diagnostic only. | S5, S32, S9 (lead-only) |
+| Slot 1 global `CR07` | Logical-device selector. | Writing a device number selects it. `ioctl_find_bars` leaves the last index written. | S8; S32 |
+| Slot 1 LDN `0x04` `CR30[0]`, `CR60/61` | Firmware activation and runtime LPC base on the direct path. | An active controller reports bit 0 set. An eight-byte runtime block contains its index and data ports at base + 5 and + 6. | S32 lines 210–214, 2980–2993 (lead-only); S6 |
+| Slot 1 LDN `0x07` `CR27[7]`, `CR29[2]` | Tachometer pin routing. | `CR27[7]` set means FAN3 has no tachometer input. `CR29[2]` set means FAN2 has none. FAN1 has no routing condition. | S32 lines 3320–3368 (lead-only) |
+| Direct LPC EC `0x00` | Monitor configuration. | Bit 0 set starts monitoring. The leads refuse the block when bit 7 is set. S31 shows `0x19`. | S32 lines 3723–3724 (lead-only); S31 |
+| Direct LPC EC `0x58` | Register-block vendor byte. | `0x90`. It does not distinguish two ITE controllers. | S32, S6 (lead-only); S31 |
+| Direct LPC EC `0x13` | FAN1–3 tachometer enables. | Bits 4, 5 and 6. S31 shows `0x77`. | S32 lines 3562–3563 (lead-only); S31 |
+| Direct LPC EC `0x0D`–`0x0F`, `0x18`–`0x1A` | FAN1–3 count low and high bytes. | 16-bit count, low byte read first. Always 16-bit on these profiles. The divisor is 2. | S32 lines 248, 250, 499–510, 578–588 (lead-only); S6 |
+| Direct LPC EC `0x29`–`0x2B` | TMPIN1–3. | Signed 8-bit, 1 °C per step. | S32 line 263 (lead-only); S31 |
+| Direct LPC EC `0x51` | Temperature source selection. | For input *n* = 1–3, bit *n* − 1 selects a diode and bit *n* + 2 a thermistor. Bits 7:6 name an input (1–3) that carries an external source, or 0 for none. | S32 lines 1334–1382 (lead-only); S31 shows `0x38` |
+| Direct LPC EC `0x55[7]` | Extra external-source case for TMPIN2 only on these two profiles. | Set means TMPIN2 reports an external source. S31 shows `0x40`, bit 7 clear. | S32 lines 499–510, 578–588, 1334–1382 (lead-only); S31 |
+| Direct LPC EC `0x01`–`0x03` | Alarm status read by the Linux refresh. | Never selected by the candidate. | S17, S32, S33 (lead-only) |
 
-S6 treats a zero fan count as invalid and an all-ones 16-bit count as
-zero measured RPM. Neither implies a disconnected fan. These register
-and decode facts describe a Linux driver that can initialize hardware.
-A Windows read-only scope needs evidence of the firmware's original
-monitoring state and channel routing, with no initialization writes.
-(S6, lead-only)
+S6 and S32 treat a zero fan count as invalid and an all-ones 16-bit
+count as zero measured RPM. Neither implies a disconnected fan. The
+Linux driver can write fan enables and other configuration during
+initialization. The candidate reads the firmware's existing monitoring
+state and routing and writes none of it. (S6, S32 lead-only)
 
 ## Read procedure and decode
 
-A candidate access trace must begin with a pre-key secondary identity
-read and preserve the firmware's configuration mode. Only the exact
-board and pre-key identity above qualify for further research. An absent
-or unexpected ID ends the attempt. The trace must establish that the
-secondary EC base is active, aligned and distinct from the primary
-before reading any secondary runtime port. The original LDN selector
-and the final selector must be observed. (S5, S6/S9 lead-only, S8)
+This procedure belongs to the Disabled candidate row. It is complete
+except for the two blocking Open questions. Steps that depend on a
+blocking question name it.
 
-The current `LpcIO` BAR query walks logical devices rather than authorizing
-only the chosen EC window. It can succeed with no usable EC window and
-does not restore the LDN selector. A successful query therefore leaves
-two open conditions on a firmware-open controller, safe selector handling
-and proof that the EC pair was authorized for the intended secondary
-device. No Windows trace meeting those conditions is available. (S8)
+### Discovery
+
+Discovery runs once and its result is cached. Hold the ISA mutex for
+the whole sequence. A failed mutex wait ends the attempt without port
+I/O. (S5, S37)
+
+1. On the dedicated slot-1 executor, call `ioctl_select_slot` with
+   slot 1 once. (S8)
+2. Read `CR20` and `CR21` with `ioctl_superio_inb`. Write no key first.
+   Combine high:low. Continue only on exactly `0x8733` or `0x8695`.
+   Any other value, including `0xFFFF`, `0x0000` and `0x8883`, makes the
+   secondary unavailable for the session. Write nothing on slot 1 in
+   that case. (S5 F1, F3, F7, F8; S32)
+3. Read `CR22` and keep its low nibble for diagnostics only. (S32)
+4. Read `CR07` and keep it as the original selector. A failed read ends
+   discovery before any write. (S8)
+5. Call `ioctl_find_bars`. Open question B1 applies to this step. A
+   failure makes the secondary unavailable. Then go to step 10 to
+   restore the selector. (S8)
+6. Write `CR07 = 0x04` with `ioctl_superio_outb` and read `CR07`
+   back. Require `0x04`. The read requires this selection write. A
+   failure in steps 6 to 8 makes the secondary unavailable, except as
+   step 8 states, and goes to step 10. (S8, S32)
+7. Read `CR30` and require bit 0 set. Read `CR60/61` twice and require
+   equal values that pass the base gate. When the slot-0 primary path
+   has a cached base, require a base distinct from it. (S32, S8)
+8. Write `CR07 = 0x07` and read it back. Read `CR27` and `CR29` once.
+   A failed selection or read makes FAN2 and FAN3 unavailable until
+   rediscovery. FAN1 and the temperatures are unaffected. (S32)
+9. Apart from the walk inside step 5, steps 6 and 8 are the only
+   writes in discovery besides the restore in step 10. No
+   configuration-mode exit or `CR02` write occurs. (S5)
+10. Write the original `CR07` value and read it back. If the readback
+    differs, record a restore failure and mark the secondary
+    unavailable for the session. No further slot-1 write follows. (S8)
+11. EC port proof: write index `0x00` to base + 5 and read base + 6
+    with `ioctl_pio_outb` and `ioctl_pio_inb`. Require bit 0 set and
+    bit 7 clear. Write index `0x58` and require `0x90` from the data
+    port. An access-denied result means the base was not authorized,
+    so the secondary is unavailable. (S8, S32)
+
+Open question B2 applies to steps 4–10, which hold the configuration
+selector.
+
+### Sample
+
+Each sample uses the cached proof and one ISA mutex acquisition. Bursts
+are at least 1.5 seconds apart. No step waits or retries. The steps
+follow the banked-modern order of S37 without its bank checks, which
+the leads do not give these single-bank parts. (S32, S37)
+
+1. Read EC `0x00`. Require bit 0 set and bit 7 clear, or the whole
+   sample is unavailable.
+2. Read EC `0x58` and require `0x90`, or the whole sample is
+   unavailable.
+3. Read EC `0x13`. A failed read makes FAN1–3 unavailable and leaves
+   the temperatures unaffected.
+4. Read EC `0x51` and `0x55`. A failed `0x51` read makes TMPIN1–3
+   unavailable. A failed `0x55` read makes only TMPIN2 unavailable,
+   because its bit 7 gates only TMPIN2 (step 6); TMPIN1 and TMPIN3 are
+   still validated from `0x51`. Neither failure affects the fans.
+5. For each fan whose enable bit is set and whose routing was clear at
+   discovery, read the low byte, high byte, low byte and high byte.
+   Accept the count only if both pairs match.
+6. For each temperature input *n*, publish only when bits 7:6 of EC
+   `0x51` differ from *n* and exactly one of its diode and thermistor
+   bits is set. For TMPIN2, EC `0x55` bit 7 must also be clear. Read
+   EC `0x28 + n` twice in immediate succession and accept the input
+   only if both bytes match.
+
+Decode a count with the table of the
+[primary LPC expansion specification](superio-ite-primary-lpc-expansion.md#read-procedure-and-decode):
+
+| Count | Result |
+| --- | --- |
+| `0x0000`, `0x0001`–`0x003F` | Invalid. No RPM. |
+| `0x0040`–`0xFFFE` | Active. RPM is the whole number `floor(675000 / count)`. |
+| `0xFFFF` | Inactive at 0 RPM. Saturation means no measurable rotation. |
+
+The `675000` constant restates the documented 16-bit conversion with a
+fixed divisor of 2 (S32 lines 770–771, lead-only). Decode a temperature
+byte as signed and accept +1 to +125 °C inclusive (S37). A failed
+individual read invalidates only its input. Successful siblings keep
+the generic secondary names `FAN1`–`FAN3` and `TMPIN1`–`TMPIN3`.
+Physical connector labels are unresolved, so the candidate assigns none. The
+sample never reads EC `0x01`–`0x03`, `0x0C`, `0x06`, any index at or
+above `0x80`, or any configuration register. Primary results stay
+independent. A secondary failure never alters them. (S5, S31, S32, S37)
+
+### Synthetic fixture acceptance
+
+These cases are synthetic. The first case copies bytes from the
+independent S31 dump. A passing fixture does not prove compatibility
+with real hardware.
+
+| Case | Expected result |
+| --- | --- |
+| Pre-key `0x8733`, version 3, `CR07` original `0x07`, LDN `0x04` active at `0x0A60`, primary cached at `0x0A40`, `CR27[7]` and `CR29[2]` clear, EC `0x00=0x19`, `0x58=0x90`, `0x13=0x77`, `0x51=0x38`, `0x55=0x40`, FAN1 `0xB6`/`0x08` twice, FAN2 and FAN3 `0xFF`/`0xFF` twice, TMPIN1–3 `0x29`, `0xC9`, `0x28` twice. EC bytes are from S31. Configuration-register values are synthetic. | FAN1 Active at 302 RPM, FAN2 and FAN3 Inactive at 0 RPM. TMPIN1 41 °C, TMPIN3 40 °C, TMPIN2 omitted as −55 °C. `CR07` written back to `0x07`. No `CR02`, key or EC `0x01`–`0x03` access. |
+| Pre-key `0xFFFF`, `0x0000`, `0x8883`, `0x8790` or any other value | Secondary unavailable. No slot-1 write of any kind. Primary results unchanged. |
+| Pre-key `0x8695` with the same register bytes | Same decode as the first case. |
+| Secondary base equal to the primary base, unequal double read, base below `0x0100`, misaligned, or in `0x0CF8`–`0x0CFF` | Secondary unavailable. `CR07` restored. |
+| `ioctl_find_bars` fails, or the port proof returns access denied | Secondary unavailable. `CR07` restored. |
+| `CR07` restore readback differs | Restore failure recorded. Secondary unavailable for the session. No further slot-1 write. |
+| EC `0x00` bit 7 set, bit 0 clear, or `0x58` not `0x90` | Whole sample unavailable. |
+| `0x51` bits 7:6 equal 1, or `0x55` bit 7 set, or an input with both or neither source bit | Only the affected temperature is omitted. |
+| Fan pairs disagree, count `0x0000` or `0x003F`, count `0x0040`, count `0xFFFE` | Invalid, invalid, 10546 RPM, 10 RPM. A sibling survives. |
+| Temperature bytes disagree, or `0x00`, `0x7E`, `0x7F` | Omitted, omitted, 126 °C omitted, 127 °C omitted. |
+| `CR27` read fails at discovery | FAN2 and FAN3 unavailable until rediscovery. FAN1 and temperatures continue. |
+| ISA mutex wait times out | Sample skipped with no port I/O. |
+| Secondary absent and primary present, or the reverse | The present controller's results are unchanged. |
+
 
 ## Transport limits
 
@@ -106,6 +263,50 @@ device. No Windows trace meeting those conditions is available. (S8)
 | --- | --- |
 | ECIO | S9 describes a firmware command/status and data mailbox, separate from the direct EC register pair. A read still writes the read command and offset to the mailbox. The cited implementation uses `LpcIO` at ports `0x03F4` and `0x03F0`. That window also contains the historical floppy-controller registers, including a write-only data-rate register at `0x03F4`. Authorization for a port range does not prove mailbox ownership. Firmware capability and fan-control state reads leave the telemetry offset map unresolved. Require exact-board port ownership, bounded waits and recovery, and a separately verified telemetry layout. (S8, S11, S9/S10 lead-only) |
 | ISA bridge | `IsaBridgeEC` module load checks architecture and CPU vendor. Its discovery IOCTL probes both slots and can issue a slot-1 enter sequence after `0xFFFF` during its own discovery, independently of a caller pre-check. The IOCTL can also restore prior bridge configuration. Mapping the window and programming the bridge are separate operations. The state-changing operation writes PCI bridge decode settings, and the cited consumer may use it even to read a firmware flag. A firmware-preconfigured window would still require safe discovery and validated sensor offsets. (S8, S10 lead-only) |
+| Direct LPC on slot 1 | The candidate row's transport. `ioctl_find_bars` is the only signed way to authorize the EC window. On a firmware-open part it walks the selector across every logical-device index and leaves it changed. The candidate saves and restores `CR07` around the walk. It cannot avoid the walk itself (B1). The configuration pair stays open for any other agent while the candidate holds the selector (B2). (S8, S9 lead-only, S34, S35) |
+
+### AX370-Gaming K7 secondary dump
+
+S31 is the only independent register dump of a secondary part found so
+far. Its secondary section reports chip ID `0x8733`, chip version 3, EC
+base `0x0A60`, GPIO base `0x0A50`, and these bank-0 bytes:
+
+| EC index | Byte | Candidate interpretation (lead-only map, S32) |
+| --- | --- | --- |
+| `0x00` | `0x19` | Bit 0 set, bit 7 clear: monitoring started, block accepted. |
+| `0x01`, `0x02`, `0x03` | `0x10`, `0x40`, `0x00` | Alarm status, with bits set in two of the three bytes. Never read by the candidate. |
+| `0x06` | `0x00` | Not read by the candidate. |
+| `0x0D`/`0x18` | `0xB6`/`0x08` | FAN1 count `0x08B6`, 302 RPM. |
+| `0x0E`/`0x19`, `0x0F`/`0x1A` | `0xFF`/`0xFF`, `0xFF`/`0xFF` | FAN2 and FAN3 saturated, 0 RPM. |
+| `0x13` | `0x77` | FAN1–3 tachometers enabled. |
+| `0x29`, `0x2A`, `0x2B` | `0x29`, `0xC9`, `0x28` | 41 °C, −55 °C, 40 °C. |
+| `0x51` | `0x38` | Thermistor sources on TMPIN1–3, no external destination. |
+| `0x55` | `0x40` | Bit 7 clear: no TMPIN2 external source. |
+| `0x58` | `0x90` | Vendor byte. |
+
+The same report's sensor tree shows FAN1 between 182 and 363 RPM and
+FAN2 and FAN3 at 0 RPM. It shows temperatures #1 and #3 at 40–42 °C.
+It omits temperature #2, which matches the −55 °C byte. The tree and
+the dump were not taken at the same instant. The report first lists
+raw `0x8733` at `0x4E`/`0x4F` under its Winbond/Nuvoton/Fintek probe,
+before the ITE listing. Those two probes use different configuration
+keys (S5). That order is consistent with F7, but the report does not
+record the pre-key state. The primary is reported as `0x8686` at
+`0x0A40`, a separate base. The report predates PawnIO and so says
+nothing about `ioctl_find_bars`. (S5, S31, S32 lead-only)
+
+### PawnIO-era owner observations
+
+The pinned monitor calls `ioctl_find_bars` on slot 1 for these IDs
+(S9, lead-only). In S34, owners of B550 AORUS PRO AX rev. 1.0 and X570
+AORUS MASTER rev. 1.0 report secondary sensors with PawnIO-era test
+builds. Neither report records a register dump, the original selector
+or the BIOS version. A third S34 owner reports a secondary that is
+detected on some boots and missing on others while the OEM low-level
+driver file `gdrv3.sys` is present. S35 reports a secondary found only
+when the monitor starts soon after boot. These reports show that
+detection can change after boot. They do not identify the agent
+involved or whether it holds the ISA mutex. (S9, S34, S35)
 
 ### GA-AB350-Gaming 3 BIOS F54d OEM WMI
 
@@ -326,6 +527,21 @@ alarms that can be lost after a read, but does not establish the read
 effects of these bytes on IT8790E. Neither pinned driver supplies a
 separate input path that avoids this refresh on IT8790E. (S17 lead-only)
 
+### Linux input refresh recheck, 2026-11-28
+
+Mainline at `7cd8495` (S32) and the external driver at `8fdc406` (S33)
+still read EC `0x01`–`0x03` in the refresh. Both temperature and fan
+input attributes reach that refresh. In S32 the temperature type
+attribute reaches it too. No module parameter or chip flag in either
+source skips the alarm reads. The external driver's changes since
+`bd7a566` add board admission entries, an Intel bridge fix and
+maintenance changes. The X570 AORUS XTREME entry reports an IT8688E
+with an IT8792E/IT8795E. It reports an ACPI region over only the
+primary EC window. S31 shows set bits in two
+of the three status bytes on a running secondary. A refresh on such a
+part reads that pending state. The read effects for these parts are
+not published. (S31, S32, S33 lead-only)
+
 ## Quirks
 
 - Matching reported bases do not transfer a profile between the X470
@@ -334,30 +550,168 @@ separate input path that avoids this refresh on IT8790E. (S17 lead-only)
   reported a separate secondary sensor block after several reboots.
   The two observations do not establish what changed or a stable
   pre-key identity. (S4)
+- Detection of the secondary can change between boots, or within a
+  boot after other software starts. The candidate treats any ID other
+  than the two accepted values as unavailable and never sends a key
+  to recover it. (S34, S35)
+- An input that the reporting tool does not present can read `0xC9`
+  (−55 °C) with its thermistor source bit set. The +1 °C lower bound omits it. (S31)
 
 ## Safety notes
 
-- The slot-1 exit-withhold rule remains the diagnostic boundary. A
-  secondary telemetry design must forbid both entry and exit writes on
-  the selected firmware-open candidate. Its absence path must stop
-  without trying mode keys. (S5, S6/S9 lead-only)
-- Use a bounded, caller-held ISA mutex for any approved multi-step
-  collection. Keep primary results independent of a secondary failure.
-  Equal, invalid or unknown bases fail secondary attribution. (S5)
+- The slot-1 exit-withhold rule remains the diagnostic boundary. The
+  candidate forbids both entry and exit writes on slot 1. Its absence
+  path stops without trying mode keys. (S5, S32/S9 lead-only)
+- S32 states that entering configuration mode on these IDs is also part
+  of the reported failure. The existing Phase 2 diagnostic in S5 sends
+  the slot-1 ITE key before reading the ID. The candidate does not
+  reuse that sequence and treats the `0x8883` result of a re-sent key
+  as unavailable. (S5 F8, S32 lead-only)
+- The only writes on the candidate path are `CR07` selections required
+  by the read, the restore of the original `CR07`, and EC index-port
+  writes. Each selection is read back. A failed restore disables the
+  secondary for the session. (S8)
+- Use a bounded, caller-held ISA mutex for every multi-step collection.
+  Keep primary results independent of a secondary failure. Equal,
+  invalid or unknown bases fail secondary attribution. (S5)
 - Sensor scope excludes monitor activation, pin routing changes, alarm
-  clearing, fan/PWM control, limit changes, PCI decode changes and EC
-  firmware configuration. Do not reuse a fan-control transport as a
-  telemetry fallback. (S5, S8)
+  reads and clearing, fan/PWM control, limit changes, PCI decode changes
+  and EC firmware configuration. Do not reuse a fan-control transport as
+  a telemetry fallback. (S5, S8)
 
-For later synthetic transport tests, preserve primary results when the
-secondary pre-key ID is absent, alternate, or changes. Exercise equal
-bases, selector restoration failure, denied ports, and invalid or
-unavailable channels beside a successful sibling. Compare recorded
-transactions to confirm that neither slot-1 mode keys nor hardware
-configuration writes occur. Synthetic traces demonstrate the software
-boundary only.
+The synthetic fixture table above covers absent, alternate and changed
+pre-key IDs, equal bases, selector restoration failure, denied ports,
+and invalid or unavailable channels beside a successful sibling.
+Compare recorded transactions to confirm that no slot-1 mode key, `CR02`
+write, alarm read or hardware configuration write occurs. Synthetic
+traces demonstrate the software boundary only.
+
+## Target inventory and disposition
+
+Priority follows the installed base named in #2519. Mainstream AM4,
+AM5 and LGA1700 boards with a raw `0x8733` or `0x8695` secondary come
+first. Every target below is open under
+[#2519](https://github.com/shm11C3/HardwareVisualizer/issues/2519)
+unless the row names other existing coverage.
+
+| Priority | Target | Disposition | Evidence that unblocks it |
+| --- | --- | --- | --- |
+| 1 | IT8792E/IT8795E raw `0x8733` and IT87952E raw `0x8695`, Windows direct LPC slot 1. Members include AM4 AX370, AB350, X470, X570 and B550, AM5 B650E and X870E, LGA1700 Z690, and TRX50 (S3, S5 F5, S14, S22, S28, S31, S33, S34, S36). | Candidate Experimental row defined in this revision. Disabled. Open follow-up #2519. | B1 and B2 below. |
+| 2 | Linux hwmon `it8792`, `it87952` and `it8790` endpoints: X870E AORUS MASTER F12, TRX50 AI TOP, GA-Z87X-UD5H and X470 AORUS ULTRA GAMING (S14, S16, S28; [TRX50 specification](superio-ite-trx50-secondary-linux-hwmon.md)) | Disabled. Open follow-up #2519. | L1 below. |
+| 3 | IT8790E raw `0x8790`, Windows direct LPC slot 1. Members are LGA1150 Z87 and Z97 boards (S5 F5, S15). | Disabled. Deferred row. Open follow-up #2519. | B1 and B2, then a revision that adds its TMPIN2 routing rule (S32). |
+| 4 | Alternate `0x8883`, absent `0xFFFF` or a changed pre-key ID | Unsupported for collection. Existing coverage: the diagnostic exit withhold in S5. | None needed. These are state results, not chips. |
+| 5 | ECIO mailbox and H2RAM: X670E AORUS MASTER F41 and B650E AORUS MASTER G3 (S18–S23) | Disabled. Open follow-up #2519. | A fixed OS-owned endpoint, or a published mailbox ownership and arbitration contract with a non-mutating read set. A live temperature tied to the physical controller. |
+| 6 | ISA bridge: `IsaBridgeEC`, the opt-in Intel bridge on W480 VISION W, and the Z390 AORUS PRO WIFI routing report (S8, S10; #2519 research) | Unsupported. Reads require PCI decode writes. Open follow-up #2519. | An already-owned fixed decode with a read-only access contract. |
+| 7 | IT5701 H2RAM extension on X670E and X870E (#2519 research) | Disabled. Open follow-up #2519. | A versioned native read path with an ownership contract. Independent evidence tying a live temperature, its units and its invalid state to the extension. |
+| 8 | USB HID `048D:5702` (#2519 research) | Unsupported. No report contract. Open follow-up #2519. | A public input report contract or exact independent capture with read-only temperature and tachometer values tied to the physical controller. |
+| 9 | OEM ACPI, WMI and SMM in the audited images: AB350 F54d, X470 ULTRA GAMING F61a, X470 GAMING 7 WIFI F64, X670E F41, B650E F37, X870E F12, TRX50 F11 and F12h, Z490 AORUS MASTER F24a, Z890 AORUS TACHYON ICE F7, GA-Z87X-UD5H F10e | Unsupported for those images. None exposes a secondary temperature and RPM endpoint. Open follow-up #2519 for other images. | A released image with a dispatch branch or method that returns current secondary values, with attribution and serialization evidence. |
+| 10 | Linux `gigabyte-wmi` | Not a secondary path. It publishes primary-window temperatures only. Existing coverage for one board: [B850M WIFI6E ICE specification](superio-ite-b850m-wifi6e-ice-linux-wmi.md). | Not applicable to #2519. |
+| 11 | Linux `gigabyte_waterforce` | Outside #2519. It serves a separate USB AIO cooler, not a motherboard controller. | Needs its own cooler issue if wanted. |
+| 12 | BSD drivers, and BMC sensors on MC12-LE0 and WRX80-SU8-IPMI (#2519 research) | Unsupported. The BSD tables omit the target IDs. The BMC readings are not tied to a secondary ITE. | A driver or management interface that names the target controller and its read semantics. |
+| 13 | Pending PawnIO.Modules changes: bridge transactions, firmware identification, generic EC (#2519 research) | No released path. Open follow-up #2519. | A signed release with a current-value interface for an exact controller. A narrow single-device authorization would also resolve B1. |
 
 ## Open questions
+
+- **B1. Blocking for the candidate row: selector walk of the signed
+  authorization.** The candidate can reach the secondary EC ports only
+  through `ioctl_find_bars`. On a firmware-open part, that call writes
+  every logical-device index from `0x00` to `0xFE` to `CR07` and leaves
+  the selector changed (S8). S9 (lead-only) shows that the pinned
+  monitor makes the same call on these IDs. S34 reports working
+  secondary readings with PawnIO-era builds on two AM4 boards. No source
+  states what selecting an undefined logical device does on these parts.
+  No source excludes another agent relying on the selector during the
+  walk. Any one of these resolves B1:
+  - a signed `LpcIO` release that authorizes the base of one
+    caller-named logical device without walking the others, pinned by a
+    [PawnIO interface](pawnio-interface.md) revision;
+  - a maintainer decision to accept the walk for this Experimental row,
+    with the `CR07` save and restore in this procedure, on the
+    ecosystem evidence of S9 and S34;
+  - an ITE datasheet or ITE statement for IT8792E/IT8795E and IT87952E
+    that defines the effect of writing an undefined logical-device
+    number to `CR07`, where that effect is a selection only, together
+    with a resolution of B2 for the other-agent part of this question.
+
+  A completed walk followed by a successful sample does not resolve B1.
+  It shows that the walk did not stop the parts from working in one
+  boot. It does not show what each undefined selection did. Whether a
+  before-and-after register dump can show every effect of an undefined
+  selection is not established, because a dump cannot observe a
+  transient effect during the walk or state that no register exposes.
+  Such a dump counts toward B1 only after a revision names what it
+  establishes and adds it as an option here.
+- **B2. Blocking for the candidate row: competing configuration-space
+  handler.** A firmware-open part accepts selector and configuration
+  writes from any agent without a key. Between the candidate's `CR07`
+  writes in discovery steps 4–10, another agent that does not hold the
+  ISA mutex could find a different device selected and apply its own
+  write to the wrong device. S34 and S35 report detection changing
+  after boot, with an OEM low-level driver present in one report. No
+  source identifies that agent, its lock convention or any runtime
+  firmware access to slot 1. The static images in this document show no
+  ACPI method using the secondary ports (S14, S21, S27). They do not
+  cover runtime SMM in general. Either of these resolves B2:
+  - evidence that covers every competing actor for the whole scope the
+    candidate row admits. It needs both parts below. Evidence about one
+    actor, or about one board, does not resolve B2.
+    - Software: public evidence that the OEM utility and its driver
+      hold `Global\Access_ISABUS.HTP.Method`, or never touch slot 1 at
+      runtime.
+    - Firmware: a static audit of the software SMI handlers and other
+      runtime firmware paths in every image the row admits, finding no
+      slot-1 or secondary-EC access. The row admits any board with a
+      matching part on slot 1, so an audit of named images applies only
+      after a revision narrows the row to those images.
+  - a maintainer decision to accept, for discovery on slot 1 and for
+    sampling on the secondary EC ports, the same residual concurrency
+    risk that S37 accepts on slot 0. The
+    mitigations are the mutex, readback of each selection, a single
+    cached discovery, and no retries.
+
+  No source enumerates every agent that can reach slot 1 at runtime.
+  Other monitoring software that does not take the ISA mutex is outside
+  both parts of the first option. Whether the first option can resolve
+  B2 without also naming such software is not established.
+
+  Sampling touches only the EC index and data ports. Two identical reads
+  do not guard against a concurrent EC index write there. An agent that
+  selects another EC index, such as `0x01`, before each data read makes
+  both reads match while the sample reads the wrong register.
+  Arbitration on these ports relies on the caller-held ISA mutex until
+  B2 is resolved or a maintainer accepts that residual risk.
+- **L1. Blocking for every Linux hwmon route: alarm-status refresh.**
+  In S32 and S33, reading a temperature, fan or temperature type
+  attribute can read EC `0x01`–`0x03` when the cache is cold or
+  expired. S31 shows set bits in those bytes on a running secondary.
+  The read semantics of these bytes on IT8790E, IT8792E/IT8795E and
+  IT87952E are not published. Either of these resolves L1:
+  - a released kernel or normally bound driver whose input refresh
+    excludes alarm reads, battery-measurement triggers, control writes
+    and bridge reprogramming, with a capability the app can detect
+    before opening an input. Driver name, ancestry and attribute names
+    are the same on both sides of such a change.
+  - a maintainer decision on kernel-owned status reads, which also
+    blocks the [GA-B75M-D3H Linux specification](superio-ite-b75m-d3h-linux-hwmon.md).
+    A decision covering both would need the part's alarm-read
+    semantics, or a recorded acceptance that they are unknown.
+- Non-blocking for the candidate row: physical connector labels are
+  unresolved, and the candidate publishes generic `FAN1`–`FAN3` and
+  `TMPIN1`–`TMPIN3` names. A board mapping needs a same-session
+  correlation of an enabled secondary fan or temperature with the
+  board firmware monitor. Record byte pairs, routing flags, disabled and
+  inaccessible cases and repeatability. (S2, S7 lead-only, S31)
+- Non-blocking for the candidate row: the shared raw `0x8733` does not
+  distinguish IT8792E from IT8795E. The two share one lead-only
+  profile, so the candidate needs no distinction (S5 F1, S32). A
+  physical marking on a member board would let diagnostics name the
+  model.
+- Non-blocking for the candidate row: an exact-board pre-key trace on
+  X470 AORUS ULTRA GAMING rev. 1.0 was the revision 8 entry condition.
+  Under ADR 0031 that board is an evidence member, and the runtime ID
+  gate checks the pre-key state on every system. A trace with both raw
+  ID and revision bytes, activation and base registers, and the PCB
+  revision would raise it to a best-evidenced member. (S1, S2, S14)
 
 - For X470 AORUS GAMING 7 WIFI rev. 1.0, establish the exact physical
   secondary chip and link it to the controller endpoint on the same
@@ -383,30 +737,10 @@ boundary only.
   path needs evidence of mailbox ownership, arbitration, error
   handling and absence of alarm reads or control writes. (S21–S23)
 
-- For GA-Z87X-UD5H Linux hwmon, establish the exact IT8790E
-  alarm-status read effects for `0x01`–`0x03`, or pin a kernel
-  input path that avoids those registers. Obtain same-session board,
-  driver and canonical hwmon binding evidence with a valid secondary
-  sample before enabling this candidate. (S16, S17 lead-only)
-
-- Can the exact X470 AORUS ULTRA GAMING rev. 1.0 board and a named BIOS
-  release demonstrate an active slot-1 `0x8733` with no mode keys and an
-  LPC base separate from the primary? An accepted trace must give both
-  raw ID and revision bytes, activation and base registers, and the
-  detected PCB revision. A physical chip marking can resolve the
-  shared-ID ambiguity.
-- Can a signed PawnIO `LpcIO` release authorize just that secondary
-  EC block without affecting the primary or firmware's selector
-  state? An accepted trace must show exact slot selection, BAR and
-  runtime port results, LDN state before and after, and a successful
-  primary sample following the secondary attempt. If the existing scan
-  cannot meet this boundary, a separately reviewed narrow authorization
-  interface is required.
-- Can an accepted trace correlate at least one enabled secondary fan
-  or physical temperature with the same-session board firmware monitor?
-  Record actual byte pairs, routing flags, disabled and inaccessible
-  cases and repeatability. Keep generic channel labels until the board
-  mapping is independently supported.
+- For GA-Z87X-UD5H Linux hwmon, L1 applies. After L1, obtain
+  same-session board, driver and canonical hwmon binding evidence with
+  a valid secondary sample before enabling this candidate. (S16, S17
+  lead-only)
 
 Use [#2500](https://github.com/shm11C3/HardwareVisualizer/issues/2500) for
 manual, opt-in collection of the board, PCB and firmware identity and
@@ -427,3 +761,4 @@ available. An absent pre-key response is itself an evidence result.
 | 6 | 2026-11-09 | Record the B650E AORUS MASTER rev. 1.0 RPM mirror and separate F37 WMI inspection. Keep the candidate disabled pending temperature and mailbox safety evidence. |
 | 7 | 2026-11-09 | Record the X470 AORUS GAMING 7 WIFI F64 SMM findings and separate board marking and raw-ID observations. Keep collection disabled pending exact controller attribution and a safe OS-owned read path. |
 | 8 | 2026-11-09 | Record X870E AORUS MASTER F12 secondary readings, the reported driver read effects, and the static firmware findings. Keep the candidate disabled. |
+| 9 | 2026-11-28 | Re-scope the exact-board X470 AORUS ULTRA GAMING candidate under ADR 0031. The new candidate row covers Windows slot 1, pre-key raw `0x8733` or `0x8695`, with mechanism and safety gates. Add its runtime gates, lead-only register map from mainline `7cd8495` (S32), discovery and sample procedure with `CR07` save and restore, and synthetic fixtures. Add the AX370-Gaming K7 independent secondary dump (S31), PawnIO-era owner observations (S34, S35), the LGA1700 `0x8695` contributor statement (S36) and the 2026-11-28 Linux refresh recheck (S32, S33). Name blockers B1, B2 and L1 with the evidence that resolves each. Defer IT8790E to a later row. Add a disposition for every #2519 target. Status remains Draft. A failed EC `0x55` read invalidates only TMPIN2. Discovery step 7 compares against the primary base only when the slot-0 path has cached one. A completed walk no longer resolves B1. B2 needs evidence covering every competing actor across the admitted scope, or maintainer acceptance. Sampling arbitration on the EC ports relies on the caller-held ISA mutex, because two identical reads do not guard against an index write. |
