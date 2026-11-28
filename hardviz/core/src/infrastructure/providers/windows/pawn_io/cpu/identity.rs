@@ -34,6 +34,11 @@ pub(crate) fn amd_rapl_supported_from_leaf(leaf: CpuidLeaf) -> bool {
   (leaf.edx & (1 << 14)) != 0
 }
 
+/// CPUID Fn8000_0001_EBX[31:28] `PkgType`.
+pub(crate) fn cpuid_package_type() -> Option<u32> {
+  cpuid_leaf(0x8000_0001).map(|leaf| leaf.ebx >> 28)
+}
+
 impl CpuIdentity {
   pub(crate) fn unknown() -> Self {
     Self {
