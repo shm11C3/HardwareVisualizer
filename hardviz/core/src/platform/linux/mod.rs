@@ -96,15 +96,30 @@ impl SensorPlatform for LinuxPlatform {
     )
   }
 
-  /// The board-gated hwmon providers admit disjoint DMI identities, so at
-  /// most one answers; combining keeps every provider's readings.
   fn sample_motherboard_sensors(&self) -> crate::models::MotherboardSensorCollection {
-    use crate::infrastructure::providers::{asus_ec_hwmon, nct6687_hwmon};
-    crate::models::MotherboardSensorCollection::combine([
-      nct6687_hwmon::sample(),
-      asus_ec_hwmon::sample(),
+    use crate::infrastructure::providers::{
+      asus_ec_hwmon, gigabyte_wmi_hwmon, nct6687_hwmon,
+    };
+    sample_motherboard_providers(&[
+      gigabyte_wmi_hwmon::sample,
+      nct6687_hwmon::sample,
+      asus_ec_hwmon::sample,
     ])
   }
+}
+
+/// Each Linux motherboard provider admits its own exact DMI board names, and
+/// no board name belongs to two providers, so at most one provider recognizes
+/// the board. Every provider is sampled; an unrecognized board costs only its
+/// DMI reads. The combination keeps every provider's readings, is available
+/// when any provider is, and otherwise carries the first Unavailable reason,
+/// then the first Unsupported one.
+fn sample_motherboard_providers(
+  providers: &[fn() -> crate::models::MotherboardSensorCollection],
+) -> crate::models::MotherboardSensorCollection {
+  crate::models::MotherboardSensorCollection::combine(
+    providers.iter().map(|provider| provider()),
+  )
 }
 
 impl ProcessElevationPlatform for LinuxPlatform {
@@ -180,3 +195,95 @@ impl ExternalComponentSetupPlatform for LinuxPlatform {
 }
 
 impl Platform for LinuxPlatform {}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::models::{
+    MotherboardSensorCollection, MotherboardTemperature, SensorAvailability,
+    SensorSupport,
+  };
+  use std::cell::Cell;
+
+  thread_local! {
+    static CALLS: Cell<u8> = const { Cell::new(0) };
+  }
+
+  fn counted(collection: MotherboardSensorCollection) -> MotherboardSensorCollection {
+    CALLS.set(CALLS.get() + 1);
+    collection
+  }
+
+  fn other_board() -> MotherboardSensorCollection {
+    counted(MotherboardSensorCollection::unsupported("other board"))
+  }
+
+  fn recognized_unavailable() -> MotherboardSensorCollection {
+    counted(MotherboardSensorCollection::unavailable("endpoint missing"))
+  }
+
+  fn recognized_available() -> MotherboardSensorCollection {
+    let mut collection = MotherboardSensorCollection {
+      fan_support: SensorSupport::Supported,
+      ..MotherboardSensorCollection::default()
+    };
+    collection.sample.temperatures.push(MotherboardTemperature {
+      name: "Temperature 1".to_owned(),
+      temperature: 21.0,
+      source: "test".to_owned(),
+    });
+    counted(collection)
+  }
+
+  fn run(
+    providers: &[fn() -> MotherboardSensorCollection],
+  ) -> (MotherboardSensorCollection, u8) {
+    CALLS.set(0);
+    let collection = sample_motherboard_providers(providers);
+    (collection, CALLS.get())
+  }
+
+  #[test]
+  fn the_provider_that_recognizes_the_board_answers_in_any_position() {
+    for providers in [
+      [recognized_available, other_board, other_board],
+      [other_board, recognized_available, other_board],
+      [other_board, other_board, recognized_available],
+    ] {
+      let (collection, calls) = run(&providers);
+      assert_eq!(collection, recognized_available());
+      assert_eq!(calls, 3);
+    }
+
+    // An Unavailable result on the recognized board is kept over the
+    // Unsupported results of the providers for other boards.
+    let (collection, calls) = run(&[other_board, recognized_unavailable, other_board]);
+    assert_eq!(collection, recognized_unavailable());
+    assert_eq!(calls, 3);
+  }
+
+  #[test]
+  fn readings_of_every_answering_provider_are_kept() {
+    let (collection, calls) = run(&[
+      recognized_available,
+      recognized_unavailable,
+      recognized_available,
+    ]);
+    assert_eq!(collection.availability, SensorAvailability::Available);
+    assert_eq!(collection.fan_support, SensorSupport::Supported);
+    assert_eq!(collection.sample.temperatures.len(), 2);
+    assert_eq!(calls, 3);
+  }
+
+  #[test]
+  fn an_unrecognized_board_is_unsupported() {
+    let (collection, calls) = run(&[other_board, other_board, other_board]);
+    assert_eq!(collection, other_board());
+    assert_eq!(calls, 3);
+    let (collection, _) = run(&[]);
+    assert!(matches!(
+      collection.availability,
+      SensorAvailability::Unsupported { .. }
+    ));
+  }
+}
