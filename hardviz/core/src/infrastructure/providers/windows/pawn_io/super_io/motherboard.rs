@@ -1713,7 +1713,7 @@ mod tests {
   use std::collections::VecDeque;
 
   use super::super::ite::{
-    IT8716F_D, IT8728F, IT8728F_DX_EX, IT8772E_FX, ITE_EC_FAN_MODE_REGISTER,
+    IT8716F_D, IT8718F, IT8728F, IT8728F_DX_EX, IT8772E_FX, ITE_EC_FAN_MODE_REGISTER,
   };
   use super::*;
 
@@ -2105,11 +2105,30 @@ mod tests {
       client
     }
 
+    /// `superio-ite-primary-lpc-expansion.md` rev 8, "Synthetic cases for
+    /// implementation review", first IT8718F row: slot-0 `0x8718`,
+    /// `CR22=0x05`, `CR27=CR29=0x00`, active LDN `0x04`, raw base `0x02/0x90`,
+    /// vendor byte `0x90`, EC `0x00=0x11`, `0x13=0x70`, `0x0C=0x07`, FAN1-3
+    /// pairs `0xC2/0x01`, `0x84/0x03` and `0xFF/0xFF`, each read twice.
+    fn for_it8718f() -> Self {
+      let client = Self::with_chip_id(0x8718);
+      client.revision.set(Some(0x05));
+      client.routing.set([Some(0x00), Some(0x00)]);
+      client.ec_configuration.set(0x11);
+      client.fan_enable.set(0x70);
+      client.fan_mode.set(0x07);
+      client
+        .fan_counts
+        .set([[0x01C2; 2], [0x0384; 2], [0xFFFF; 2]]);
+      client
+    }
+
+    fn chip_id(&self) -> u16 {
+      u16::from_be_bytes([self.chip_id_high.get(), self.chip_id_low.get()])
+    }
+
     fn is_banked_modern(&self) -> bool {
-      matches!(
-        u16::from_be_bytes([self.chip_id_high.get(), self.chip_id_low.get()]),
-        0x8686 | 0x8688 | 0x8689
-      )
+      matches!(self.chip_id(), 0x8686 | 0x8688 | 0x8689)
     }
 
     fn ec_base(&self) -> u16 {
@@ -2215,6 +2234,13 @@ mod tests {
                 0x00 | 0x06 | 0x0D..=0x0F | 0x13 | 0x18..=0x1A | 0x29..=0x2B | 0x58
               ),
             "banked modern EC index 0x{value:02X} is outside the allow-list"
+          );
+          // The IT8718F allow-list: EC 0x00, 0x13, 0x0C, the FAN1-3 count
+          // bytes and the discovery vendor byte. Nothing at or above 0x80.
+          assert!(
+            self.chip_id() != 0x8718
+              || matches!(value, 0x00 | 0x0C | 0x0D..=0x0F | 0x13 | 0x18..=0x1A | 0x58),
+            "IT8718F EC index 0x{value:02X} is outside the allow-list"
           );
           self.selected_ec_register.set(Some(value));
           Ok(())
@@ -4869,6 +4895,414 @@ mod tests {
           .unwrap()
           .is_none(),
         "slot {slot} id 0x{id:04X}"
+      );
+      assert_eq!(*client.config_reads.borrow(), [(None, 0x20), (None, 0x21)]);
+      assert_eq!(*client.config_writes.borrow(), [(0x02, 0x02)]);
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert!(client.selected_ec_register.get().is_none());
+    }
+  }
+
+  // IT8718F fixtures. Each test names its row in
+  // `superio-ite-primary-lpc-expansion.md` rev 8, "Synthetic cases for
+  // implementation review".
+
+  /// Slot-0 configuration keys, the only configuration-port writes.
+  const ITE_SLOT0_ENTRY_KEYS: [(u16, u8); 4] = [
+    (0x002E, 0x87),
+    (0x002E, 0x01),
+    (0x002E, 0x55),
+    (0x002E, 0x55),
+  ];
+
+  /// Discovery configuration reads for the IT8718F: chip ID, diagnostic CR22
+  /// before LDN selection, then CR30, CR60/61 and the CR29/CR27 routing
+  /// fields with LDN `0x04` selected.
+  const IT8718F_DISCOVERY_CONFIG_READS: [(Option<u8>, u8); 8] = [
+    (None, 0x20),
+    (None, 0x21),
+    (None, 0x22),
+    (Some(0x04), 0x30),
+    (Some(0x04), 0x60),
+    (Some(0x04), 0x61),
+    (Some(0x04), 0x29),
+    (Some(0x04), 0x27),
+  ];
+
+  /// EC reads of one full IT8718F sample: the monitor gate, EC `0x13`, EC
+  /// `0x0C`, then each FAN1-3 low/high pair twice.
+  const IT8718F_FULL_SAMPLE_READS: [u8; 15] = [
+    0x00, 0x13, 0x0C, 0x0D, 0x18, 0x0D, 0x18, 0x0E, 0x19, 0x0E, 0x19, 0x0F, 0x1A, 0x0F,
+    0x1A,
+  ];
+
+  const IT8718F_SOURCE: &str = "IT8718F / Super I/O";
+
+  fn it8718f_full_readings() -> [(&'static str, Option<u32>, FanSpeedStatus); 3] {
+    [
+      ("FAN1", Some(1_500), FanSpeedStatus::Active),
+      ("FAN2", Some(750), FanSpeedStatus::Active),
+      ("FAN3", Some(0), FanSpeedStatus::Inactive),
+    ]
+  }
+
+  /// Row: "IT8718F, synthetic: slot 0 exact `0x8718`, `CR22=0x05`, ...".
+  #[test]
+  fn it8718f_synthetic_fixture_reads_fan1_to_fan3_in_one_sample() {
+    let client = FakeIteLpcIo::for_it8718f();
+
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+
+    assert_eq!(detected.profile, &IT8718F);
+    assert_eq!(detected.ec_base, 0x0290);
+    assert_eq!(detected.ec_base + ITE_EC_INDEX_OFFSET, 0x0295);
+    assert_eq!(detected.ec_base + ITE_EC_DATA_OFFSET, 0x0296);
+    assert_eq!(detected.fan_routes, [true, true, true]);
+    assert_eq!(detected.diagnostic_revision, Some(0x05));
+    assert_eq!(
+      *client.config_reads.borrow(),
+      IT8718F_DISCOVERY_CONFIG_READS
+    );
+    assert_eq!(*client.config_writes.borrow(), [(0x07, 0x04), (0x02, 0x02)]);
+    assert_eq!(*client.config_port_writes.borrow(), ITE_SLOT0_ENTRY_KEYS);
+    assert_eq!(client.find_bars_calls.get(), 1);
+    // The post-exit EC 0x00 port proof, then the vendor byte.
+    assert_eq!(*client.read_registers.borrow(), [0x00, 0x58]);
+    client.read_registers.borrow_mut().clear();
+    let mut active = ActiveIteMotherboardSensors::new(client, detected);
+
+    // The production `sample` wraps this body in one ISA mutex acquisition.
+    let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+    assert!(sample.temperatures.is_empty());
+    assert_eq!(fan_readings(&sample), it8718f_full_readings());
+    assert!(sample.fan_speeds.iter().all(|f| f.source == IT8718F_SOURCE));
+    assert_eq!(
+      *active.client.read_registers.borrow(),
+      IT8718F_FULL_SAMPLE_READS
+    );
+    // No configuration access while sampling.
+    assert_eq!(
+      *active.client.config_port_writes.borrow(),
+      ITE_SLOT0_ENTRY_KEYS
+    );
+    assert_eq!(active.client.config_writes.borrow().len(), 2);
+    assert_eq!(active.client.config_reads.borrow().len(), 8);
+
+    let active = ActiveMotherboardSensors::Ite(active);
+    assert_eq!(active.fan_support(), SensorSupport::Supported);
+    assert_eq!(
+      active.diagnostic_summary(),
+      "active chip=IT8718F slot=0 ec_base=0x0290 cr22=0x05"
+    );
+  }
+
+  /// Row: "Same IT8718F transaction with `CR22=0x00`, `0x01`, `0x02`, `0x04`,
+  /// `0x81`, or a failed `CR22` read".
+  #[test]
+  fn it8718f_cr22_is_reported_for_diagnostics_and_never_gates_or_is_written() {
+    for revision in [
+      Some(0x00),
+      Some(0x01),
+      Some(0x02),
+      Some(0x04),
+      Some(0x81),
+      None,
+    ] {
+      let client = FakeIteLpcIo::for_it8718f();
+      client.revision.set(revision);
+
+      let mut active = discover_ite_fixture(client);
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(active.diagnostic_revision, revision);
+      assert_eq!(fan_readings(&sample), it8718f_full_readings());
+      assert_eq!(
+        *active.client.config_reads.borrow(),
+        IT8718F_DISCOVERY_CONFIG_READS
+      );
+      assert_eq!(
+        *active.client.config_writes.borrow(),
+        [(0x07, 0x04), (0x02, 0x02)]
+      );
+      let expected = revision.map_or("cr22=unreadable".to_string(), |value| {
+        format!("cr22=0x{value:02X}")
+      });
+      let summary = ActiveMotherboardSensors::Ite(active).diagnostic_summary();
+      assert!(summary.ends_with(&expected), "{summary}");
+    }
+  }
+
+  /// Row: "IT8718F with `EC 0x0C=0x04` and `EC 0x13=0x70`".
+  #[test]
+  fn it8718f_omits_8_bit_inputs_before_their_count_reads() {
+    let client = FakeIteLpcIo::for_it8718f();
+    client.fan_mode.set(0x04);
+    let mut active = discover_ite_fixture(client);
+
+    let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+    assert_eq!(
+      fan_readings(&sample),
+      [("FAN3", Some(0), FanSpeedStatus::Inactive)]
+    );
+    assert_eq!(
+      *active.client.read_registers.borrow(),
+      [0x00, 0x13, 0x0C, 0x0F, 0x1A, 0x0F, 0x1A]
+    );
+
+    // With every input left in 8-bit mode no count is read at all.
+    let client = FakeIteLpcIo::for_it8718f();
+    client.fan_mode.set(0x00);
+    let mut active = discover_ite_fixture(client);
+
+    let error = active
+      .sample_unlocked_at(Instant::now())
+      .unwrap_err()
+      .to_string();
+
+    assert!(
+      error.starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX),
+      "{error}"
+    );
+    assert_eq!(*active.client.read_registers.borrow(), [0x00, 0x13, 0x0C]);
+  }
+
+  /// Row: "IT8718F with `EC 0x0C` bits 4-5 also set (`0x37`)".
+  #[test]
+  fn it8718f_uses_only_ec_0x0c_bits_0_to_2() {
+    let client = FakeIteLpcIo::for_it8718f();
+    client.fan_mode.set(0x37);
+    let mut active = discover_ite_fixture(client);
+
+    let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+    assert_eq!(fan_readings(&sample), it8718f_full_readings());
+    let reads = active.client.read_registers.borrow();
+    assert_eq!(*reads, IT8718F_FULL_SAMPLE_READS);
+    assert!(reads.iter().all(|&register| register < 0x80));
+  }
+
+  /// Row: "IT8718F with `CR29[2]=1`, `CR27[7]=1`, or an unreadable `CR27` or
+  /// `CR29`".
+  #[test]
+  fn it8718f_routed_away_or_unreadable_routing_omits_only_that_fan() {
+    for (routing, names, count_reads) in [
+      (
+        [Some(0x04), Some(0x00)],
+        ["FAN1", "FAN3"],
+        [0x0D, 0x18, 0x0D, 0x18, 0x0F, 0x1A, 0x0F, 0x1A],
+      ),
+      (
+        [None, Some(0x00)],
+        ["FAN1", "FAN3"],
+        [0x0D, 0x18, 0x0D, 0x18, 0x0F, 0x1A, 0x0F, 0x1A],
+      ),
+      (
+        [Some(0x00), Some(0x80)],
+        ["FAN1", "FAN2"],
+        [0x0D, 0x18, 0x0D, 0x18, 0x0E, 0x19, 0x0E, 0x19],
+      ),
+      (
+        [Some(0x00), None],
+        ["FAN1", "FAN2"],
+        [0x0D, 0x18, 0x0D, 0x18, 0x0E, 0x19, 0x0E, 0x19],
+      ),
+    ] {
+      let client = FakeIteLpcIo::for_it8718f();
+      client.routing.set(routing);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(fan_names(&sample), names);
+      assert_eq!(sample.fan_speeds[0].rpm, Some(1_500));
+      let reads = active.client.read_registers.borrow();
+      assert_eq!(reads[..3], [0x00, 0x13, 0x0C]);
+      assert_eq!(reads[3..], count_reads);
+    }
+  }
+
+  /// Row: "IT8718F with a failed `EC 0x0C` or `EC 0x13` read".
+  #[test]
+  fn it8718f_failed_enable_or_mode_read_leaves_fan1_to_fan3_unavailable() {
+    for (failed_register, reason, expected_reads) in [
+      (0x13, "fan enable read failed", &[0x00, 0x13][..]),
+      (
+        0x0C,
+        "fan counter mode read failed",
+        &[0x00, 0x13, 0x0C][..],
+      ),
+    ] {
+      let mut active = discover_ite_fixture(FakeIteLpcIo::for_it8718f());
+      active.client.failed_ec_register.set(Some(failed_register));
+      let first_at = Instant::now();
+
+      let error = active.sample_unlocked_at(first_at).unwrap_err().to_string();
+
+      assert!(error.contains(reason), "{error}");
+      assert_eq!(*active.client.read_registers.borrow(), expected_reads);
+      assert_eq!(
+        ActiveMotherboardSensors::Ite(active).fan_support(),
+        SensorSupport::Supported
+      );
+
+      // The next sample starts independently once the read succeeds.
+      let mut active = discover_ite_fixture(FakeIteLpcIo::for_it8718f());
+      active.client.failed_ec_register.set(Some(failed_register));
+      assert!(active.sample_unlocked_at(first_at).is_err());
+      active.client.failed_ec_register.set(None);
+      active.client.read_registers.borrow_mut().clear();
+
+      let sample = active
+        .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+        .unwrap();
+
+      assert_eq!(fan_readings(&sample), it8718f_full_readings());
+      assert_eq!(
+        *active.client.read_registers.borrow(),
+        IT8718F_FULL_SAMPLE_READS
+      );
+    }
+  }
+
+  /// Row: "IT8718F with vendor byte other than `0x90` after the port proof".
+  #[test]
+  fn it8718f_wrong_vendor_byte_caches_no_path() {
+    for vendor in [0x00, 0x91, 0xFF] {
+      let client = FakeIteLpcIo::for_it8718f();
+      client.ec_vendor.set(vendor);
+
+      let failure = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+      let error = failure.to_string();
+
+      assert!(error.contains("IT8718F"), "{error}");
+      assert!(
+        error.contains(&format!("vendor byte 0x{vendor:02X}")),
+        "{error}"
+      );
+      assert_eq!(client.config_exit_calls.get(), 1);
+      assert_eq!(*client.read_registers.borrow(), [0x00, 0x58]);
+    }
+  }
+
+  /// Row: "IT8718F with `EC 0x00` equal to `0x18` (stopped, `INT_Clear` set),
+  /// `0x91` (initialization set) or `0x10` (Start clear)".
+  #[test]
+  fn it8718f_unready_monitor_state_blocks_every_fan_read() {
+    for state in [0x18, 0x91, 0x10, 0x19] {
+      let mut active = discover_ite_fixture(FakeIteLpcIo::for_it8718f());
+      active.client.ec_configuration.set(state);
+
+      let error = active
+        .sample_unlocked_at(Instant::now())
+        .unwrap_err()
+        .to_string();
+
+      assert!(
+        error.starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX),
+        "0x{state:02X}: {error}"
+      );
+      assert_eq!(*active.client.read_registers.borrow(), [0x00]);
+    }
+  }
+
+  /// Row: "IT8718F, one fan with a failed high byte or mismatched pairs and a
+  /// valid sibling".
+  #[test]
+  fn it8718f_failed_or_mismatched_fan_keeps_its_siblings() {
+    for (failed_register, fan2_counts) in
+      [(Some(0x19), [0x0384, 0x0384]), (None, [0x0384, 0x0385])]
+    {
+      let client = FakeIteLpcIo::for_it8718f();
+      client.failed_ec_register.set(failed_register);
+      client
+        .fan_counts
+        .set([[0x01C2; 2], fan2_counts, [0xFFFF; 2]]);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(
+        fan_readings(&sample),
+        [
+          ("FAN1", Some(1_500), FanSpeedStatus::Active),
+          ("FAN3", Some(0), FanSpeedStatus::Inactive),
+        ]
+      );
+    }
+  }
+
+  /// Row: "IT8718F recorded transaction".
+  #[test]
+  fn it8718f_recorded_transaction_stays_inside_the_documented_writes_and_reads() {
+    let client = FakeIteLpcIo::for_it8718f();
+    let mut active = discover_ite_fixture(client);
+    let first_at = Instant::now();
+
+    active.sample_unlocked_at(first_at).unwrap();
+    active
+      .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+      .unwrap();
+
+    // Configuration writes: the slot-0 keys, one CR07 selection and the exit.
+    // No CR22, CR27 or CR29 write. EC data-port writes panic in the fake, so
+    // EC 0x0C is never written.
+    assert_eq!(
+      *active.client.config_port_writes.borrow(),
+      ITE_SLOT0_ENTRY_KEYS
+    );
+    assert_eq!(
+      *active.client.config_writes.borrow(),
+      [(0x07, 0x04), (0x02, 0x02)]
+    );
+    let reads = active.client.read_registers.borrow();
+    assert_eq!(reads.len(), 2 * IT8718F_FULL_SAMPLE_READS.len());
+    assert!(
+      reads
+        .iter()
+        .all(|&register| !(0x01..=0x03).contains(&register) && register < 0x80),
+      "{reads:02X?}"
+    );
+  }
+
+  /// Row: "Slot 0 exact `0x8721` with any `CR22` value, including `0x03`".
+  #[test]
+  fn it8721f_dx_candidate_exits_right_after_the_chip_id_read() {
+    for revision in [Some(0x03), Some(0x83), Some(0x00), None] {
+      let client = FakeIteLpcIo::with_chip_id(0x8721);
+      client.revision.set(revision);
+
+      assert!(
+        ActiveIteMotherboardSensors::discover_slot(&client, 0)
+          .unwrap()
+          .is_none()
+      );
+      assert_eq!(*client.config_port_writes.borrow(), ITE_SLOT0_ENTRY_KEYS);
+      assert_eq!(*client.config_reads.borrow(), [(None, 0x20), (None, 0x21)]);
+      assert_eq!(*client.config_writes.borrow(), [(0x02, 0x02)]);
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert!(client.selected_ec_register.get().is_none());
+      assert!(client.read_registers.borrow().is_empty());
+    }
+  }
+
+  /// Row: "Slot 1 with `0x8718` or `0x8721`".
+  #[test]
+  fn it8718f_and_it8721f_on_slot_one_have_no_profile() {
+    for id in [0x8718, 0x8721] {
+      let client = FakeIteLpcIo::for_it8718f();
+      let [high, low] = u16::to_be_bytes(id);
+      client.chip_id_high.set(high);
+      client.chip_id_low.set(low);
+
+      assert!(
+        ActiveIteMotherboardSensors::discover_slot(&client, 1)
+          .unwrap()
+          .is_none(),
+        "0x{id:04X}"
       );
       assert_eq!(*client.config_reads.borrow(), [(None, 0x20), (None, 0x21)]);
       assert_eq!(*client.config_writes.borrow(), [(0x02, 0x02)]);
