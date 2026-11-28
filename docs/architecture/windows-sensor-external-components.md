@@ -76,6 +76,7 @@ Required module blobs are:
 
 - Intel temperature and power: signed `IntelMSR.bin`.
 - AMD package temperature: signed `RyzenSMU.bin`.
+- AMD Family 15h/16h control temperature (Tctl): signed `AMDFamily10.bin`.
 - AMD package power: signed `AMDFamily17.bin`.
 
 The service loads only known signed `.bin` release hashes from protected
@@ -96,6 +97,18 @@ The current implementation uses read-only CPU package temperature paths:
   presentation contracts. Verification status is maintained in the sensor
   specification; only a surfaced failure from an experimental attempt carries
   that context (see ADR 0011).
+- AMD Family 15h models 00h–1Fh, 30h–3Fh and Family 16h models 00h–0Fh,
+  30h–3Fh: `D18F3xA4` on node 0 through `AMDFamily10` `ioctl_read_miscctl`.
+  Family 15h models 60h–7Fh: SMU `D0F0xBC_xD820_0CA4` through
+  `ioctl_read_smu` under `Global\Access_PCI`. One physical package only, and
+  Family 15h models 00h–0Fh only with the single-node AM3r2 or C32r1 CPUID
+  package type (dual-node G34r1 is Unsupported). The module is loaded only
+  after the CPUID and package gates, and reads start
+  only after node 0's `D18F3x00` matches the model group. The value is a
+  control temperature on AMD's Tctl scale, labelled `CPU Tctl`, never a die
+  temperature
+  ([`cpu-amd-family-15h-16h-tctl.md`](../specs/sensors/cpu-amd-family-15h-16h-tctl.md)).
+  No other `AMDFamily10` function is called.
 
 The motherboard sensor implementation also uses a read-only PawnIO LpcIO path
 for the scoped Nuvoton NCT6799D Super I/O bank-4 temperature and direct RPM

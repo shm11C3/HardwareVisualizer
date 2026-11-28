@@ -6,7 +6,11 @@ use super::super::client::{
   PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
   read_shared_msr,
 };
-use super::ccd_temperature::AmdCcdTarget;
+use super::amd_family_15h_16h_tctl::{
+  TctlGroup, admit_identity, cpuid_package_type, is_family_15h_16h, sample_tctl,
+  select_tctl_group,
+};
+use super::ccd_temperature::{AmdCcdTarget, is_single_physical_package};
 pub use super::identity::{CpuIdentity, CpuVendor};
 use super::identity::{cpuid_leaf, detect_cpu_identity};
 use super::temperature_decode::{
@@ -31,6 +35,9 @@ pub struct IntelThermalCapabilities {
 pub enum CpuTemperatureSource {
   IntelDtsPackageMsr,
   AmdZenSmnTctl,
+  /// Family 15h/16h control temperature through `AMDFamily10`, on its own
+  /// Tctl scale. It is not a die temperature.
+  AmdFamily15h16hTctl,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +46,16 @@ pub enum CpuTemperatureFallbackReason {
   IntelDtsUnavailable,
   IntelPackageThermalUnavailable,
   AmdFamilyUnsupported(u32),
+  AmdModelUnsupported {
+    family: u32,
+    model: u32,
+  },
+  /// Family 15h models 00h-0Fh outside the single-node AM3r2 and C32r1
+  /// packages; `None` when CPUID leaf 8000_0001h is unreadable.
+  AmdPackageTypeUnsupported {
+    package_type: Option<u32>,
+  },
+  AmdSinglePackageUnconfirmed,
 }
 
 impl fmt::Display for CpuTemperatureFallbackReason {
@@ -57,6 +74,25 @@ impl fmt::Display for CpuTemperatureFallbackReason {
           "AMD family 0x{family:x} is unsupported by the PawnIO RyzenSMU path"
         )
       }
+      Self::AmdModelUnsupported { family, model } => write!(
+        f,
+        "AMD family 0x{family:x} model 0x{model:x} has no documented Tctl register map"
+      ),
+      Self::AmdPackageTypeUnsupported {
+        package_type: Some(package_type),
+      } => write!(
+        f,
+        "AMD Family 15h models 00h-0Fh package type 0x{package_type:x} is not a \
+         single-node AM3r2 or C32r1 package"
+      ),
+      Self::AmdPackageTypeUnsupported { package_type: None } => write!(
+        f,
+        "AMD Family 15h models 00h-0Fh package type could not be read"
+      ),
+      Self::AmdSinglePackageUnconfirmed => write!(
+        f,
+        "the AMD Family 15h/16h Tctl path requires exactly one physical package"
+      ),
     }
   }
 }
@@ -94,6 +130,8 @@ pub(crate) struct CpuTemperatureCandidate {
   pub(crate) source: CpuTemperatureSource,
   pub(crate) module: PawnIoModule,
   pub(crate) enablement: SensorEnablement,
+  /// The Family 15h/16h model group, for the `AMDFamily10` path only.
+  pub(crate) tctl_group: Option<&'static TctlGroup>,
 }
 
 pub fn amd_family_enablement(family: u32) -> SensorEnablement {
@@ -104,9 +142,15 @@ pub fn amd_family_enablement(family: u32) -> SensorEnablement {
   }
 }
 
+/// Pick the CPU temperature path. `package_type` (CPUID Fn8000_0001_EBX
+/// `PkgType`) and `single_package` are the Family 15h/16h CPU and topology
+/// gates, in the specification's order. Each is queried only when it
+/// applies, and both run before any module is loaded.
 pub(crate) fn select_cpu_temperature_candidate(
   cpu: &CpuIdentity,
   intel: Option<IntelThermalCapabilities>,
+  package_type: impl FnOnce() -> Option<u32>,
+  single_package: impl FnOnce() -> bool,
 ) -> Result<CpuTemperatureCandidate, CpuTemperatureFallbackReason> {
   match cpu.vendor {
     CpuVendor::Intel => {
@@ -124,6 +168,29 @@ pub(crate) fn select_cpu_temperature_candidate(
         source: CpuTemperatureSource::IntelDtsPackageMsr,
         module: PawnIoModule::IntelMsr,
         enablement: SensorEnablement::Verified,
+        tctl_group: None,
+      })
+    }
+    CpuVendor::Amd if is_family_15h_16h(cpu.family) => {
+      let group = select_tctl_group(cpu.family, cpu.model).ok_or(
+        CpuTemperatureFallbackReason::AmdModelUnsupported {
+          family: cpu.family,
+          model: cpu.model,
+        },
+      )?;
+      group
+        .admits_package_type(package_type)
+        .map_err(|package_type| {
+          CpuTemperatureFallbackReason::AmdPackageTypeUnsupported { package_type }
+        })?;
+      if !single_package() {
+        return Err(CpuTemperatureFallbackReason::AmdSinglePackageUnconfirmed);
+      }
+      Ok(CpuTemperatureCandidate {
+        source: CpuTemperatureSource::AmdFamily15h16hTctl,
+        module: PawnIoModule::AmdFamily10,
+        enablement: SensorEnablement::Verified,
+        tctl_group: Some(group),
       })
     }
     CpuVendor::Amd => {
@@ -134,6 +201,7 @@ pub(crate) fn select_cpu_temperature_candidate(
             source: CpuTemperatureSource::AmdZenSmnTctl,
             module: PawnIoModule::RyzenSmu,
             enablement,
+            tctl_group: None,
           })
         }
         SensorEnablement::Unsupported => Err(
@@ -174,6 +242,12 @@ enum ActiveCpuTemperatureSource {
   Amd {
     client: PawnIoClient,
     tctl_offset_celsius: f32,
+    enablement: SensorEnablement,
+  },
+  /// Admitted only after the identity gate passed on this handle.
+  AmdFamily15h16h {
+    client: PawnIoClient,
+    group: &'static TctlGroup,
     enablement: SensorEnablement,
   },
 }
@@ -224,10 +298,23 @@ impl CpuTemperatureSampler {
     let intel_capabilities = (cpu.vendor == CpuVendor::Intel)
       .then(detect_intel_thermal_capabilities)
       .flatten();
-    let amd_enablement =
-      (cpu.vendor == CpuVendor::Amd).then(|| amd_family_enablement(cpu.family));
+    let selection = select_cpu_temperature_candidate(
+      &cpu,
+      intel_capabilities,
+      cpuid_package_type,
+      is_single_physical_package,
+    );
+    // Family 15h/16h enablement depends on model and package gates, so take
+    // it from the selection rather than from the family alone.
+    let amd_enablement = (cpu.vendor == CpuVendor::Amd).then(|| {
+      selection
+        .as_ref()
+        .map_or(SensorEnablement::Unsupported, |candidate| {
+          candidate.enablement
+        })
+    });
 
-    let candidate = match select_cpu_temperature_candidate(&cpu, intel_capabilities) {
+    let candidate = match selection {
       Ok(candidate) => candidate,
       Err(reason) => {
         let fallback_reason = reason.to_string();
@@ -335,6 +422,19 @@ impl CpuTemperatureSampler {
           enablement,
           thermal_status: None,
         }),
+      Some(ActiveCpuTemperatureSource::AmdFamily15h16h { client, group, .. }) => {
+        sample_tctl(client, group.map)
+          .map(|tctl| CpuPackageTemperature {
+            temperature_celsius: tctl,
+            source: CpuTemperatureSource::AmdFamily15h16hTctl,
+            thermal_status: None,
+          })
+          .map_err(|error| CpuPackageTemperatureError::Unavailable {
+            reason: error.to_string(),
+            enablement,
+            thermal_status: None,
+          })
+      }
       None => Err(self.inactive_error.clone().unwrap_or_else(|| {
         CpuPackageTemperatureError::Internal(
           "CPU package temperature unavailable".to_string(),
@@ -385,7 +485,9 @@ impl CpuTemperatureSampler {
 impl ActiveCpuTemperatureSource {
   const fn enablement(&self) -> SensorEnablement {
     match self {
-      Self::Intel { enablement, .. } | Self::Amd { enablement, .. } => *enablement,
+      Self::Intel { enablement, .. }
+      | Self::Amd { enablement, .. }
+      | Self::AmdFamily15h16h { enablement, .. } => *enablement,
     }
   }
 
@@ -433,6 +535,32 @@ impl ActiveCpuTemperatureSource {
           Self::Amd {
             client,
             tctl_offset_celsius: amd_tctl_offset_celsius(&cpu.brand),
+            enablement: candidate.enablement,
+          },
+          discovery,
+        ))
+      }
+      CpuTemperatureSource::AmdFamily15h16hTctl => {
+        let Some(group) = candidate.tctl_group else {
+          return Err(PawnIoInitError {
+            discovery: Box::new(PawnIoDiscovery::probe_install()),
+            reason: "AMD Family 15h/16h candidate has no model group".to_string(),
+          });
+        };
+        let (client, mut discovery) = PawnIoClient::open(candidate.module.clone())?;
+        // Dropping the client on a failed gate closes the handle unread.
+        if let Err(error) = admit_identity(&client, group) {
+          let reason = error.to_string();
+          discovery.fallback_reason = Some(reason.clone());
+          return Err(PawnIoInitError {
+            discovery: Box::new(discovery),
+            reason,
+          });
+        }
+        Ok((
+          Self::AmdFamily15h16h {
+            client,
+            group,
             enablement: candidate.enablement,
           },
           discovery,
@@ -508,11 +636,44 @@ mod tests {
     assert_eq!(amd_family_enablement(0x1a), SensorEnablement::Experimental);
   }
 
+  fn amd(family: u32, model: u32) -> CpuIdentity {
+    CpuIdentity {
+      model,
+      ..cpu(CpuVendor::Amd, "AuthenticAMD", family)
+    }
+  }
+
+  fn topology_not_queried() -> bool {
+    panic!("the package topology must not be queried for this CPU")
+  }
+
+  fn package_type_not_queried() -> Option<u32> {
+    panic!("the package type must not be queried for this CPU")
+  }
+
+  /// CPUID Fn8000_0001_EBX[31:28] `PkgType` `0001b` (AM3r2), from the spec's
+  /// Detection table (rev 2).
+  fn am3r2() -> Option<u32> {
+    Some(0b0001)
+  }
+
+  fn select_without_15h_16h_probes(
+    cpu: &CpuIdentity,
+    intel: Option<IntelThermalCapabilities>,
+  ) -> Result<CpuTemperatureCandidate, CpuTemperatureFallbackReason> {
+    select_cpu_temperature_candidate(
+      cpu,
+      intel,
+      package_type_not_queried,
+      topology_not_queried,
+    )
+  }
+
   #[test]
   fn intel_candidate_requires_dts_and_package_thermal_management() {
     let cpu = cpu(CpuVendor::Intel, "GenuineIntel", 6);
     assert_eq!(
-      select_cpu_temperature_candidate(
+      select_without_15h_16h_probes(
         &cpu,
         Some(IntelThermalCapabilities {
           digital_temperature_sensor: true,
@@ -523,11 +684,12 @@ mod tests {
         source: CpuTemperatureSource::IntelDtsPackageMsr,
         module: PawnIoModule::IntelMsr,
         enablement: SensorEnablement::Verified,
+        tctl_group: None,
       })
     );
 
     assert_eq!(
-      select_cpu_temperature_candidate(
+      select_without_15h_16h_probes(
         &cpu,
         Some(IntelThermalCapabilities {
           digital_temperature_sensor: true,
@@ -541,26 +703,165 @@ mod tests {
   #[test]
   fn amd_candidate_classifies_verified_experimental_and_unsupported_families() {
     assert_eq!(
-      select_cpu_temperature_candidate(&cpu(CpuVendor::Amd, "AuthenticAMD", 0x19), None),
+      select_without_15h_16h_probes(&amd(0x19, 0x21), None),
       Ok(CpuTemperatureCandidate {
         source: CpuTemperatureSource::AmdZenSmnTctl,
         module: PawnIoModule::RyzenSmu,
         enablement: SensorEnablement::Verified,
+        tctl_group: None,
       })
     );
 
     assert_eq!(
-      select_cpu_temperature_candidate(&cpu(CpuVendor::Amd, "AuthenticAMD", 0x1a), None),
+      select_without_15h_16h_probes(&amd(0x1a, 0x44), None),
       Ok(CpuTemperatureCandidate {
         source: CpuTemperatureSource::AmdZenSmnTctl,
         module: PawnIoModule::RyzenSmu,
         enablement: SensorEnablement::Experimental,
+        tctl_group: None,
       })
     );
     assert_eq!(
-      select_cpu_temperature_candidate(&cpu(CpuVendor::Amd, "AuthenticAMD", 0x16), None),
-      Err(CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x16))
+      select_without_15h_16h_probes(&amd(0x14, 0x02), None),
+      Err(CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x14))
     );
+  }
+
+  #[test]
+  fn amd_family_15h_16h_groups_select_the_amd_family10_path_on_one_package() {
+    // One model inside each group of the spec's Detection table (rev 2).
+    for (family, model) in [
+      (0x15, 0x02),
+      (0x15, 0x13),
+      (0x15, 0x30),
+      (0x15, 0x65),
+      (0x15, 0x70),
+      (0x16, 0x00),
+      (0x16, 0x30),
+    ] {
+      let candidate =
+        select_cpu_temperature_candidate(&amd(family, model), None, am3r2, || true)
+          .unwrap_or_else(|reason| panic!("{family:#x}/{model:#x}: {reason}"));
+
+      assert_eq!(candidate.source, CpuTemperatureSource::AmdFamily15h16hTctl);
+      assert_eq!(candidate.module, PawnIoModule::AmdFamily10);
+      assert_eq!(candidate.enablement, SensorEnablement::Verified);
+      assert_eq!(candidate.tctl_group, select_tctl_group(family, model));
+      assert!(candidate.tctl_group.is_some());
+    }
+  }
+
+  #[test]
+  fn family_15h_models_00h_0fh_admit_am3r2_and_c32r1_packages() {
+    for package_type in [0b0001, 0b0101] {
+      let candidate = select_cpu_temperature_candidate(
+        &amd(0x15, 0x02),
+        None,
+        || Some(package_type),
+        || true,
+      );
+      assert_eq!(
+        candidate.map(|candidate| candidate.source),
+        Ok(CpuTemperatureSource::AmdFamily15h16hTctl),
+        "{package_type:04b}"
+      );
+    }
+  }
+
+  #[test]
+  fn family_15h_models_00h_0fh_reject_g34r1_and_reserved_packages_before_topology() {
+    // 0011b is G34r1 (dual-node); 0000b and 1111b are Reserved.
+    for package_type in [Some(0b0011), Some(0b0000), Some(0b1111), None] {
+      assert_eq!(
+        select_cpu_temperature_candidate(
+          &amd(0x15, 0x01),
+          None,
+          || package_type,
+          topology_not_queried,
+        ),
+        Err(CpuTemperatureFallbackReason::AmdPackageTypeUnsupported { package_type })
+      );
+    }
+  }
+
+  #[test]
+  fn other_family_15h_16h_groups_do_not_read_the_package_type() {
+    for (family, model) in [(0x15, 0x13), (0x15, 0x65), (0x16, 0x30)] {
+      assert!(
+        select_cpu_temperature_candidate(
+          &amd(family, model),
+          None,
+          package_type_not_queried,
+          || true,
+        )
+        .is_ok()
+      );
+    }
+  }
+
+  #[test]
+  fn amd_family_15h_16h_rejects_more_than_one_physical_package() {
+    for (family, model) in [(0x15, 0x02), (0x15, 0x70), (0x16, 0x00)] {
+      assert_eq!(
+        select_cpu_temperature_candidate(&amd(family, model), None, am3r2, || false),
+        Err(CpuTemperatureFallbackReason::AmdSinglePackageUnconfirmed)
+      );
+    }
+  }
+
+  #[test]
+  fn undocumented_family_15h_16h_models_are_unsupported_before_topology_or_module() {
+    for (family, model) in [
+      (0x15, 0x20),
+      (0x15, 0x40),
+      (0x15, 0x80),
+      (0x16, 0x10),
+      (0x16, 0x40),
+    ] {
+      assert_eq!(
+        select_without_15h_16h_probes(&amd(family, model), None),
+        Err(CpuTemperatureFallbackReason::AmdModelUnsupported { family, model })
+      );
+    }
+  }
+
+  #[test]
+  fn a_non_amd_vendor_never_reaches_the_family_15h_16h_path() {
+    let other = CpuIdentity {
+      model: 0x02,
+      ..cpu(CpuVendor::Other, "CentaurHauls", 0x15)
+    };
+
+    assert_eq!(
+      select_without_15h_16h_probes(&other, None),
+      Err(CpuTemperatureFallbackReason::UnsupportedCpuVendor(
+        "CentaurHauls".to_string()
+      ))
+    );
+  }
+
+  #[test]
+  fn family_15h_16h_fallback_reasons_suppress_component_guidance() {
+    for reason in [
+      CpuTemperatureFallbackReason::AmdModelUnsupported {
+        family: 0x15,
+        model: 0x20,
+      },
+      CpuTemperatureFallbackReason::AmdPackageTypeUnsupported {
+        package_type: Some(0b0011),
+      },
+      CpuTemperatureFallbackReason::AmdSinglePackageUnconfirmed,
+    ] {
+      let sample = crate::platform::windows::sensors::build_temperature_sample(
+        Err(CpuPackageTemperatureError::Unsupported(reason)),
+        Vec::new(),
+      );
+      assert!(matches!(
+        sample.availability,
+        crate::models::SensorAvailability::Unsupported { .. }
+      ));
+      assert!(sample.guidance_candidates.is_empty());
+    }
   }
 
   #[test]
