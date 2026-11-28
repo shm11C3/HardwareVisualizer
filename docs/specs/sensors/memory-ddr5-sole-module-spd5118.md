@@ -63,8 +63,10 @@ configuration that rev 3 admits:
   any second `spd5118` client, bound or not, because an unbound client can be
   the hub of an unreported module.
 
-An ODROID-H4 configuration that passes the text contract and has a single
-`spd5118` client passes the gates of this document.
+An ODROID-H4 configuration passes the gates of this document only when it
+passes the text contract, has a single `spd5118` client, and also passes
+every other gate here, including the ownership gate and the identity
+confirmation.
 
 ## Attribution mechanism (facts)
 
@@ -105,7 +107,10 @@ direct `eeprom` (S3, S5). A short or failed read fails the gate.
 What a match shows. Both sides have exactly one candidate, so the comparison
 never chooses between modules. If the producer renders the serial in the
 accepted forward form, a match shows that the bound hub belongs to the
-module the firmware reports for its sole populated record. If the producer
+module the firmware reports for its sole populated record, unless a hidden
+installed module has the same serial and, when the part is usable, the same
+part (Open questions). Forward rendering alone therefore does not prove
+attribution. If the producer
 uses another form, a match is still possible when the reported string equals
 the forward rendering of an unreported module's bytes. For example, an
 unreported bound module with SPD serial `01 23 45 67` matches a reported
@@ -212,4 +217,4 @@ no match and leaves the temperature unavailable.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Proposed transition to Implementation-ready for the Experimental sole-module DDR5 route keyed by inventory cardinality and SPD identity confirmation (ADR 0031 re-scope of the ODROID-H4 gates). The ODROID-H4 rev 3 route stays separate, because its binary inventory alternative and its tolerance of extra unbound clients are not admitted here. The residual false match from a non-forward producer serial form is recorded as an open question. Maintainer sign-off is pending in the proposing PR. |
+| 1 | 2026-11-28 | Proposed transition to Implementation-ready for the Experimental sole-module DDR5 route keyed by inventory cardinality and SPD identity confirmation (ADR 0031 re-scope of the ODROID-H4 gates). The ODROID-H4 rev 3 route stays separate, because its binary inventory alternative and its tolerance of extra unbound clients are not admitted here. The residual false match from a non-forward producer serial form is recorded as an open question. The ODROID-H4 coverage statement requires every gate of this document, and the attribution statement notes that forward rendering alone does not exclude a hidden module with an equal serial and part. Maintainer sign-off is pending in the proposing PR. |
