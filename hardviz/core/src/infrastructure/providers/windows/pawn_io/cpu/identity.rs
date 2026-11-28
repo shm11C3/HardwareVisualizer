@@ -39,6 +39,16 @@ pub(crate) fn cpuid_package_type() -> Option<u32> {
   cpuid_leaf(0x8000_0001).map(|leaf| leaf.ebx >> 28)
 }
 
+/// The stepping of CPUID Fn0000_0001_EAX.
+pub(crate) fn cpuid_stepping() -> Option<u32> {
+  cpuid_leaf(1).map(|leaf| stepping_from_signature(leaf.eax))
+}
+
+/// CPUID Fn0000_0001_EAX[3:0], the stepping below the base model nibble.
+pub(crate) const fn stepping_from_signature(eax: u32) -> u32 {
+  eax & 0x0f
+}
+
 impl CpuIdentity {
   pub(crate) fn unknown() -> Self {
     Self {

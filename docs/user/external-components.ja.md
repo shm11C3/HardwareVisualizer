@@ -95,6 +95,7 @@ PawnIO は、CPU ごとのセンサー経路から Windows の CPU 情報を取�
 - Intel MSR RAPL レジスター経由の Intel CPU パッケージ電力
 - Ryzen SMU モジュール経由の AMD Family 17h / Family 19h パッケージ温度
 - AMDFamily10 モジュール経由の AMD Family 15h / Family 16h 制御温度（Tctl）。シングルプロセッサー構成のみが対象で、ソケット G34 のプロセッサー（Opteron 6200/6300）には対応していません。Tctl は AMD の温度制御用の値で、実測のダイ温度ではないため `CPU Tctl` と表示します。アイドル時に低い値になるのは正常です。
+- 同じ AMDFamily10 モジュール経由の AMD Family 10h / 11h / 12h / 14h（モデル 00h–0Fh）制御温度（Tctl）。シングルプロセッサー構成のみが対象で、こちらも `CPU Tctl` と表示します。AMD erratum 319 の対象となる Family 10h プロセッサー、ソケット F の Opteron、ソケット G34 のプロセッサーには対応していません。AM2+ / AM3 の Family 10h プロセッサーでは試験的な対応で、取り付けられているすべてのメモリモジュールが DDR3 と Windows に報告されている場合だけ表示されます。
 - AMDFamily17 RAPL モジュール経由の AMD CPU パッケージ電力
 
 ### HardwareVisualizer から PawnIO をインストールする
@@ -121,7 +122,7 @@ HardwareVisualizer をアンインストールしても PawnIO やモジュー�
 - PawnIO.Modules のリリースアセットに含まれる署名済み CPU 別モジュール
   - Intel パッケージ温度と電力では `IntelMSR.bin`
   - AMD パッケージ温度では `RyzenSMU.bin`
-  - AMD Family 15h / 16h の制御温度では `AMDFamily10.bin`
+  - AMD Family 10h / 11h / 12h / 14h / 15h / 16h の制御温度では `AMDFamily10.bin`
   - AMD パッケージ電力では `AMDFamily17.bin`
 - アプリに代わってPawnIOを開く、接続済みのWindowsセンサーサービス
 
@@ -135,7 +136,7 @@ Windowsセンサーサービスは、識別できる署名済みの `.bin` だ�
 3. アーカイブを展開し、必要な CPU モジュールファイルを `C:\Program Files\PawnIO` にコピーします。
    - Intel パッケージ温度または電力を取得する場合は、`IntelMSR.bin` をコピーします。
    - 対応 AMD パッケージ温度を取得する場合は、`RyzenSMU.bin` をコピーします。
-   - AMD Family 15h / 16h の制御温度を取得する場合は、`AMDFamily10.bin` をコピーします。
+   - AMD Family 10h / 11h / 12h / 14h / 15h / 16h の制御温度を取得する場合は、`AMDFamily10.bin` をコピーします。
    - AMD パッケージ電力を取得する場合は、`AMDFamily17.bin` をコピーします。
    - どの CPU 経路が必要かわからない場合は、必要な署名済みモジュールをすべてコピーしても問題ありません。
 4. HardwareVisualizer を再起動します。
