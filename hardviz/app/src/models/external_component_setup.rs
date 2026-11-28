@@ -327,7 +327,7 @@ mod tests {
       wire.runtime.state,
       ExternalComponentRuntimeInstallState::NotInstalled
     );
-    assert_eq!(wire.module_files.len(), 4);
+    assert_eq!(wire.module_files.len(), 5);
     assert!(!wire.complete);
     assert!(wire.setup_blocker.is_some());
     assert_eq!(wire.pinned_runtime_version, "2.2.0");
@@ -375,6 +375,7 @@ mod tests {
       core_setup::ModuleFileCondition::Current,
       core_setup::ModuleFileCondition::Outdated,
       core_setup::ModuleFileCondition::Unrecognized,
+      core_setup::ModuleFileCondition::Current,
     ];
     for (file, condition) in status.module_files.iter_mut().zip(conditions) {
       file.condition = condition;
@@ -393,6 +394,7 @@ mod tests {
         ExternalComponentModuleFileCondition::Current,
         ExternalComponentModuleFileCondition::Outdated,
         ExternalComponentModuleFileCondition::Unrecognized,
+        ExternalComponentModuleFileCondition::Current,
       ]
     );
     assert!(!wire.complete);

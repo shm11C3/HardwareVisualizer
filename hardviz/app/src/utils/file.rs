@@ -19,11 +19,33 @@ impl EnvProvider for RealEnvProvider {
 }
 
 ///
-/// Get directory name under `AppData/Roaming`
+/// Get the path of `sub_item` under the platform app data directory:
+/// `AppData/Roaming/<identifier>` on Windows,
+/// `~/Library/Application Support/<identifier>` on macOS, and
+/// `~/.config/<identifier>` on Linux.
 ///
-#[cfg(target_os = "windows")]
+/// Unit tests resolve it under a temporary directory owned by the test's
+/// thread instead, so no test reads or overwrites the developer's real
+/// `HardwareVisualizerDev` data, and tests that run in parallel never share a
+/// file. libtest runs each test on its own thread, and the directory is removed
+/// when that thread exits.
+///
 pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
+  #[cfg(test)]
+  return test_app_data_root().join(sub_item);
+
+  #[cfg(not(test))]
   get_app_data_dir_with_env(&RealEnvProvider, sub_item)
+}
+
+#[cfg(test)]
+fn test_app_data_root() -> PathBuf {
+  thread_local! {
+    static ROOT: tempfile::TempDir =
+      tempfile::tempdir().expect("create a per-test app data directory");
+  }
+
+  ROOT.with(|dir| dir.path().join(crate::utils::tauri::get_identifier()))
 }
 
 #[cfg(target_os = "windows")]
@@ -33,14 +55,6 @@ pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> Pat
 
   let app_data = PathBuf::from(env.get_var("APPDATA").unwrap());
   app_data.join(identifier).join(sub_item)
-}
-
-///
-/// Get directory name under platform-appropriate app data location.
-///
-#[cfg(target_os = "macos")]
-pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
-  get_app_data_dir_with_env(&RealEnvProvider, sub_item)
 }
 
 #[cfg(target_os = "macos")]
@@ -55,14 +69,6 @@ pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> Pat
     .join("Application Support")
     .join(identifier)
     .join(sub_item)
-}
-
-///
-/// Get directory name under `~/.config/<identifier>` (Linux)
-///
-#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
-pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
-  get_app_data_dir_with_env(&RealEnvProvider, sub_item)
 }
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
@@ -83,6 +89,27 @@ mod tests {
   use super::*;
   use mockall::predicate::eq;
   use std::path::PathBuf;
+
+  #[test]
+  fn unit_tests_resolve_app_data_outside_the_real_app_data_directory() {
+    let real = get_app_data_dir_with_env(&RealEnvProvider, "settings.json");
+    let resolved = get_app_data_dir("settings.json");
+
+    assert_ne!(resolved, real);
+    assert!(resolved.starts_with(std::env::temp_dir()));
+    assert!(resolved.ends_with("settings.json"));
+  }
+
+  #[test]
+  fn each_test_thread_gets_its_own_app_data_directory() {
+    let here = get_app_data_dir("settings.json");
+    let other = std::thread::spawn(|| get_app_data_dir("settings.json"))
+      .join()
+      .unwrap();
+
+    assert_ne!(here, other);
+    assert_eq!(here, get_app_data_dir("settings.json"));
+  }
 
   #[test]
   fn test_get_app_data_dir_path_structure_with_env() {

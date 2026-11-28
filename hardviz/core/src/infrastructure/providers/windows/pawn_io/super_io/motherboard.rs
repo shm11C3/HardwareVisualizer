@@ -5,8 +5,9 @@ use super::super::client::{
 };
 use super::access::{chip_id, is_absent_id, should_withhold_ite_exit, slot_ports};
 use super::ite::{
-  IteEcBaseRule, IteEcProfile, decode_ite_fan_rpm, decode_ite_temperature_byte,
-  is_ite_temperature_channel_eligible, is_plausible_ite_temperature, ite_ec_profile,
+  IteEcAccess, IteEcBaseRule, IteEcProfile, decode_ite_fan_rpm,
+  decode_ite_temperature_byte, is_ite_ec_bank_zero, is_ite_temperature_channel_eligible,
+  is_plausible_banked_ite_temperature, is_plausible_ite_temperature, ite_ec_profile,
 };
 use super::nuvoton::{
   NuvotonHmBaseCheck, NuvotonHmProfile, decode_filtered_nuvoton_temperature_byte,
@@ -18,6 +19,10 @@ use crate::models::{
   SensorSupport,
 };
 use crate::{log_debug, log_warn};
+
+mod smiovt;
+
+use smiovt::ActiveNuvotonSmiovtSensors;
 
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
 const ITE_EXPERIMENTAL_FAILURE_PREFIX: &str =
@@ -65,6 +70,8 @@ const NUVOTON_BANK_4: u8 = 0x04;
 const ITE_EC_INDEX_OFFSET: u16 = 0x05;
 const ITE_EC_DATA_OFFSET: u16 = 0x06;
 const ITE_EC_CONFIGURATION_REGISTER: u8 = 0x00;
+/// Bank select on the banked modern profile. Read only; never written.
+const ITE_EC_BANK_REGISTER: u8 = 0x06;
 const ITE_EC_CHANNEL_ENABLE_REGISTER: u8 = 0x51;
 const ITE_EC_VENDOR_REGISTER: u8 = 0x58;
 const ITE_EC_VENDOR_ID: u8 = 0x90;
@@ -96,6 +103,11 @@ pub(crate) enum MotherboardSensorError {
   Unclassified(String),
   #[error(transparent)]
   Chip(#[from] ChipFailure),
+  /// A probe failure after which a Nuvoton configuration exit was not
+  /// confirmed. The slot's later probes were skipped in that attempt, so
+  /// discovery is retried. Text and guidance come from the wrapped failure.
+  #[error(transparent)]
+  ExitUnconfirmed(Box<MotherboardSensorError>),
 }
 
 impl From<String> for MotherboardSensorError {
@@ -112,28 +124,43 @@ impl MotherboardSensorError {
   /// Whether PawnIO install or permission guidance may explain this failure.
   /// An Experimental chip's hardware state was read successfully through
   /// PawnIO, so no PawnIO component can fix it.
-  pub(crate) const fn offers_pawnio_guidance(&self) -> bool {
-    !matches!(
-      self,
-      Self::Unsupported
-        | Self::Chip(ChipFailure {
-          experimental: true,
-          hardware_state: true,
-          ..
-        })
-    )
+  pub(crate) fn offers_pawnio_guidance(&self) -> bool {
+    match self {
+      Self::ExitUnconfirmed(inner) => inner.offers_pawnio_guidance(),
+      other => !matches!(
+        other,
+        Self::Unsupported
+          | Self::Chip(ChipFailure {
+            experimental: true,
+            hardware_state: true,
+            ..
+          })
+      ),
+    }
   }
 
   /// Whether a failed open should be retried on the next sample instead of
-  /// kept: the mutex was busy, or an Experimental chip's configuration exit or
-  /// port authorization did not complete and needs a fresh discovery.
+  /// kept: the mutex was busy, an Experimental chip's configuration exit or
+  /// port authorization did not complete and needs a fresh discovery, or a
+  /// Nuvoton configuration exit was not confirmed on a slot.
   fn is_retryable(&self) -> bool {
     match self {
       Self::Mutex(error) => {
         matches!(error, MutexError::Timeout { .. } | MutexError::Wait { .. })
       }
       Self::Chip(failure) => failure.experimental && failure.requires_rediscovery,
+      Self::ExitUnconfirmed(_) => true,
       Self::Unsupported | Self::Unclassified(_) => false,
+    }
+  }
+
+  /// Mark a probe failure after which configuration exit was not confirmed as
+  /// retryable, keeping its text and guidance.
+  fn exit_unconfirmed(self) -> Self {
+    if self.is_retryable() {
+      self
+    } else {
+      Self::ExitUnconfirmed(Box::new(self))
     }
   }
 
@@ -294,8 +321,9 @@ pub(crate) struct MotherboardSensorReadout {
 /// - docs/specs/sensors/pawnio-interface.md revision 7
 /// - docs/specs/sensors/superio-access.md revision 4
 /// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9
+/// - docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md revision 1
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
-/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 6
+/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 7
 /// - docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md revision 2
 ///
 /// No other external sensor implementation source was used.
@@ -463,6 +491,7 @@ struct ActiveIteMotherboardSensors<C: LpcIoOps> {
   ec_base: u16,
   profile: &'static IteEcProfile,
   fan_routes: [bool; 3],
+  diagnostic_revision: Option<u8>,
   source_label: String,
   last_attempt: Option<(
     Instant,
@@ -473,6 +502,8 @@ struct ActiveIteMotherboardSensors<C: LpcIoOps> {
 
 enum ActiveMotherboardSensors<C: LpcIoOps> {
   Nuvoton(ActiveNuvotonMotherboardSensors<C>),
+  /// NCT6776F/NCT6776D and NCT6775F/NCT6771F source-selected slots.
+  NuvotonSmiovt(ActiveNuvotonSmiovtSensors<C>),
   Ite(ActiveIteMotherboardSensors<C>),
 }
 
@@ -482,19 +513,106 @@ impl ActiveMotherboardSensors<PawnIoClient> {
       .map_err(|error| MotherboardSensorError::Unclassified(error.reason))?;
 
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
+    Self::discover(client)
+  }
+}
+
+/// One vendor probe of a slot, and whether the chip is known to be out of
+/// configuration mode afterwards.
+pub(super) struct SlotProbe<T> {
+  result: Result<Option<T>, MotherboardSensorError>,
+  /// `false` when an entry or exit key write failed, so the chip may still be
+  /// in configuration mode. No further probe may write to that slot then:
+  /// another vendor's exit sequence would be a configuration register write.
+  configuration_exited: bool,
+}
+
+impl<T> SlotProbe<T> {
+  const fn exited(result: Result<Option<T>, MotherboardSensorError>) -> Self {
+    Self {
+      result,
+      configuration_exited: true,
+    }
+  }
+
+  const fn unconfirmed(result: Result<Option<T>, MotherboardSensorError>) -> Self {
+    Self {
+      result,
+      configuration_exited: false,
+    }
+  }
+}
+
+/// Record a failed probe, keeping an earlier retryable failure so a later
+/// non-retryable one does not stop the sampler from reopening.
+fn record_probe_failure(
+  last_error: &mut Option<MotherboardSensorError>,
+  reason: MotherboardSensorError,
+) {
+  let keep_previous = last_error
+    .as_ref()
+    .is_some_and(|previous| previous.is_retryable() && !reason.is_retryable());
+  if !keep_previous {
+    *last_error = Some(reason);
+  }
+}
+
+impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
+  /// Probe both slots in order: Nuvoton bank 4, Nuvoton source-selected
+  /// slots, then ITE. The caller holds the ISA mutex. After a Nuvoton probe
+  /// that could not confirm its configuration exit, the rest of that slot is
+  /// skipped, and that failure stays retryable so a later attempt can reach
+  /// the skipped probes once port access recovers.
+  fn discover(client: C) -> Result<Self, MotherboardSensorError> {
     let mut last_error: Option<MotherboardSensorError> = None;
 
     for slot in [0_u8, 1] {
-      match ActiveNuvotonMotherboardSensors::discover_slot(&client, slot) {
+      let SlotProbe {
+        result,
+        configuration_exited,
+      } = ActiveNuvotonMotherboardSensors::probe_slot(&client, slot);
+      match result {
         Ok(Some(discovered)) => {
           return Ok(Self::Nuvoton(ActiveNuvotonMotherboardSensors::new(
             client, discovered,
           )));
         }
         Ok(None) => {}
-        Err(reason) => {
-          last_error = Some(reason);
+        Err(reason) => record_probe_failure(
+          &mut last_error,
+          if configuration_exited {
+            reason
+          } else {
+            reason.exit_unconfirmed()
+          },
+        ),
+      }
+      if !configuration_exited {
+        continue;
+      }
+
+      let SlotProbe {
+        result,
+        configuration_exited,
+      } = ActiveNuvotonSmiovtSensors::probe_slot(&client, slot);
+      match result {
+        Ok(Some(discovered)) => {
+          return Ok(Self::NuvotonSmiovt(ActiveNuvotonSmiovtSensors::new(
+            client, discovered,
+          )));
         }
+        Ok(None) => {}
+        Err(reason) => record_probe_failure(
+          &mut last_error,
+          if configuration_exited {
+            reason
+          } else {
+            reason.exit_unconfirmed()
+          },
+        ),
+      }
+      if !configuration_exited {
+        continue;
       }
 
       match ActiveIteMotherboardSensors::discover_slot(&client, slot) {
@@ -504,9 +622,7 @@ impl ActiveMotherboardSensors<PawnIoClient> {
           )));
         }
         Ok(None) => {}
-        Err(reason) => {
-          last_error = Some(reason);
-        }
+        Err(reason) => record_probe_failure(&mut last_error, reason),
       }
     }
 
@@ -519,6 +635,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   fn fan_support(&self) -> SensorSupport {
     match self {
       Self::Nuvoton(_) => SensorSupport::Supported,
+      Self::NuvotonSmiovt(active) => active.fan_support(),
       Self::Ite(active) if !active.profile.fan_registers.is_empty() => {
         SensorSupport::Supported
       }
@@ -529,6 +646,7 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
   fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
     match self {
       Self::Nuvoton(active) => active.sample(),
+      Self::NuvotonSmiovt(active) => active.sample(),
       Self::Ite(active) => active.sample(),
     }
   }
@@ -539,29 +657,52 @@ impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
         "active chip={} slot={} hm_base=0x{:04X}",
         active.profile.chip_label, active.slot, active.hm_base
       ),
-      Self::Ite(active) => format!(
-        "active chip={} slot={} ec_base=0x{:04X}",
-        active.profile.chip_label, active.slot, active.ec_base
-      ),
+      Self::NuvotonSmiovt(active) => active.diagnostic_summary(),
+      Self::Ite(active) => {
+        let mut summary = format!(
+          "active chip={} slot={} ec_base=0x{:04X}",
+          active.profile.chip_label, active.slot, active.ec_base
+        );
+        // The banked modern profile reports CR22 without gating on it.
+        if active.profile.access == IteEcAccess::BankGuarded {
+          match active.diagnostic_revision {
+            Some(revision) => summary.push_str(&format!(" cr22=0x{revision:02X}")),
+            None => summary.push_str(" cr22=unreadable"),
+          }
+        }
+        summary
+      }
     }
   }
 }
 
 impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
+  #[cfg(test)]
   fn discover_slot(
     client: &C,
     slot: u8,
   ) -> Result<Option<DetectedSlot>, MotherboardSensorError> {
+    Self::probe_slot(client, slot).result
+  }
+
+  fn probe_slot(client: &C, slot: u8) -> SlotProbe<DetectedSlot> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
-      return Ok(None);
+      return SlotProbe::exited(Ok(None));
     };
 
-    client.select_lpc_slot(slot as u64)?;
-    enter_nuvoton(client, index_port)?;
+    if let Err(reason) = client.select_lpc_slot(slot as u64) {
+      return SlotProbe::exited(Err(reason.into()));
+    }
+    if let Err(reason) = enter_nuvoton(client, index_port) {
+      // No exit is attempted on this path, so the configuration state is
+      // unconfirmed.
+      return SlotProbe::unconfirmed(Err(reason.into()));
+    }
     let result = discover_nuvoton_hm_base(client, slot);
     let exit_result = exit_nuvoton(client, index_port);
+    let configuration_exited = exit_result.is_ok();
 
-    match (result, exit_result) {
+    let result = match (result, exit_result) {
       (Ok(value), Ok(())) => Ok(value),
       (Ok(value), Err(exit_error)) => {
         let reason =
@@ -579,6 +720,10 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
       (Err(reason), Err(exit_error)) => {
         Err(reason.with_exit_failure(format!("; exit failed: {exit_error}"), false))
       }
+    };
+    SlotProbe {
+      result,
+      configuration_exited,
     }
   }
 
@@ -744,18 +889,35 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
   }
 
   fn write_hm_byte(&self, register: u8, value: u8) -> Result<(), String> {
-    let index_port = self.hm_base + HM_INDEX_OFFSET;
-    let data_port = self.hm_base + HM_DATA_OFFSET;
-    self.client.pio_outb(index_port, register)?;
-    self.client.pio_outb(data_port, value)
+    write_nuvoton_hm_byte(&self.client, self.hm_base, register, value)
   }
 
   fn read_hm_byte(&self, register: u8) -> Result<u8, String> {
-    let index_port = self.hm_base + HM_INDEX_OFFSET;
-    let data_port = self.hm_base + HM_DATA_OFFSET;
-    self.client.pio_outb(index_port, register)?;
-    self.client.pio_inb(data_port)
+    read_nuvoton_hm_byte(&self.client, self.hm_base, register)
   }
+}
+
+/// Write one Nuvoton hardware-monitor register through the index/data ports at
+/// `hm_base` + 5 / + 6.
+fn write_nuvoton_hm_byte(
+  client: &impl LpcIoOps,
+  hm_base: u16,
+  register: u8,
+  value: u8,
+) -> Result<(), String> {
+  client.pio_outb(hm_base + HM_INDEX_OFFSET, register)?;
+  client.pio_outb(hm_base + HM_DATA_OFFSET, value)
+}
+
+/// Read one Nuvoton hardware-monitor register through the index/data ports at
+/// `hm_base` + 5 / + 6.
+fn read_nuvoton_hm_byte(
+  client: &impl LpcIoOps,
+  hm_base: u16,
+  register: u8,
+) -> Result<u8, String> {
+  client.pio_outb(hm_base + HM_INDEX_OFFSET, register)?;
+  client.pio_inb(hm_base + HM_DATA_OFFSET)
 }
 
 impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
@@ -766,6 +928,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       ec_base: detected.ec_base,
       profile: detected.profile,
       fan_routes: detected.fan_routes,
+      diagnostic_revision: detected.diagnostic_revision,
       source_label: format!("{} / Super I/O", detected.profile.chip_label),
       last_attempt: None,
       partial_failure_logged: false,
@@ -815,6 +978,26 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
             discovered.profile,
             "Environment Controller configuration bit 7 is set",
           ));
+        }
+        // EC 0x58 is a banked index; read it only after a bank-0 check.
+        if discovered.profile.access == IteEcAccess::BankGuarded {
+          let bank_select = probe(ITE_EC_BANK_REGISTER)?;
+          if !is_ite_ec_bank_zero(bank_select) {
+            // Another bank user can hold a non-zero bank only transiently, so
+            // the whole discovery reruns later instead of keeping the path
+            // unavailable. No sample transaction enters configuration mode.
+            return Err(
+              ChipFailure::ite(
+                discovered.profile,
+                format!(
+                  "Environment Controller bank is not 0 (EC 0x06=0x{bank_select:02X})"
+                ),
+              )
+              .hardware_state()
+              .requiring_rediscovery()
+              .into(),
+            );
+          }
         }
         if discovered.profile.checks_vendor_byte {
           let vendor = probe(ITE_EC_VENDOR_REGISTER)?;
@@ -917,6 +1100,123 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
   fn collect_sample_unlocked(
     &self,
   ) -> Result<(MotherboardSensorSample, Vec<String>), MotherboardSensorError> {
+    match self.profile.access {
+      IteEcAccess::Unbanked => self.collect_unbanked_sample_unlocked(),
+      IteEcAccess::BankGuarded => self.collect_bank_guarded_sample_unlocked(),
+    }
+  }
+
+  /// The banked modern sample. Every step runs once, without waiting or
+  /// retrying, under the caller's single ISA mutex acquisition.
+  fn collect_bank_guarded_sample_unlocked(
+    &self,
+  ) -> Result<(MotherboardSensorSample, Vec<String>), MotherboardSensorError> {
+    // Step 1. Bit 3 is not a gate on this profile.
+    let monitoring_state = self.read_ec_byte(ITE_EC_CONFIGURATION_REGISTER)?;
+    if (monitoring_state & 0x01) == 0 {
+      return Err(ite_experimental_non_component_failure(
+        self.profile,
+        "Environment Controller monitoring is in standby",
+      ));
+    }
+    if monitoring_state & 0x80 != 0 {
+      return Err(ite_experimental_non_component_failure(
+        self.profile,
+        "Environment Controller configuration bit 7 is set",
+      ));
+    }
+    // Step 2. A non-zero bank ends the sample before any banked read; the
+    // bank is never rewritten.
+    self.require_bank_zero("before")?;
+    // Step 3.
+    let vendor = self.read_ec_byte(ITE_EC_VENDOR_REGISTER)?;
+    if vendor != ITE_EC_VENDOR_ID {
+      return Err(ite_experimental_non_component_failure(
+        self.profile,
+        format!("unexpected Environment Controller vendor byte 0x{vendor:02X}"),
+      ));
+    }
+
+    let mut sample = MotherboardSensorSample::default();
+    let mut partial_failures = Vec::new();
+    let mut had_io_failure = false;
+    // Steps 4 and 5. A failed fan-enable read leaves the temperatures usable.
+    match self.read_fans(&mut sample.fan_speeds, &mut partial_failures) {
+      Ok(input_io_failure) => had_io_failure |= input_io_failure,
+      Err(reason) => {
+        had_io_failure = true;
+        partial_failures.push(reason);
+      }
+    }
+    // Step 6.
+    had_io_failure |=
+      self.read_repeated_temperatures(&mut sample.temperatures, &mut partial_failures);
+    // Step 7. A failed or non-zero closing check discards every value above.
+    self.require_bank_zero("after")?;
+
+    self.usable_sample(sample, partial_failures, had_io_failure)
+  }
+
+  /// Read EC `0x06` and require bank 0 `when` relative to the banked reads.
+  fn require_bank_zero(&self, when: &str) -> Result<(), MotherboardSensorError> {
+    let bank_select = self
+      .read_ec_byte(ITE_EC_BANK_REGISTER)
+      .map_err(|reason| format!("bank check {when} the banked reads failed: {reason}"))?;
+    if is_ite_ec_bank_zero(bank_select) {
+      Ok(())
+    } else {
+      Err(ite_experimental_non_component_failure(
+        self.profile,
+        format!(
+          "Environment Controller bank is not 0 {when} the banked reads (EC 0x06=0x{bank_select:02X})"
+        ),
+      ))
+    }
+  }
+
+  /// Read each temperature byte twice in immediate succession and accept it
+  /// only when both match. Returns whether any read failed.
+  fn read_repeated_temperatures(
+    &self,
+    temperatures: &mut Vec<MotherboardTemperature>,
+    partial_failures: &mut Vec<String>,
+  ) -> bool {
+    let mut had_io_failure = false;
+
+    for &(name, register, _) in self.profile.temperature_registers {
+      let stable = self.read_ec_byte(register).and_then(|first| {
+        let second = self.read_ec_byte(register)?;
+        Ok((first == second).then_some(first))
+      });
+      match stable {
+        Ok(Some(raw)) => {
+          let temperature = decode_ite_temperature_byte(raw);
+          if is_plausible_banked_ite_temperature(temperature) {
+            temperatures.push(MotherboardTemperature {
+              name: name.to_string(),
+              temperature,
+              source: self.source_label.clone(),
+            });
+          } else {
+            partial_failures.push(format!(
+              "{name} returned out-of-range raw value 0x{raw:02X} ({temperature} C)"
+            ));
+          }
+        }
+        Ok(None) => partial_failures.push(format!("{name} repeated reads disagreed")),
+        Err(reason) => {
+          had_io_failure = true;
+          partial_failures.push(format!("{name} read failed: {reason}"));
+        }
+      }
+    }
+
+    had_io_failure
+  }
+
+  fn collect_unbanked_sample_unlocked(
+    &self,
+  ) -> Result<(MotherboardSensorSample, Vec<String>), MotherboardSensorError> {
     let monitoring_state = self.read_ec_byte(ITE_EC_CONFIGURATION_REGISTER)?;
     if (monitoring_state & 0x01) == 0 {
       return Err(ite_experimental_non_component_failure(
@@ -960,6 +1260,16 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       }
     }
 
+    self.usable_sample(sample, partial_failures, had_io_failure)
+  }
+
+  /// Keep a sample with at least one reading, otherwise explain the failure.
+  fn usable_sample(
+    &self,
+    sample: MotherboardSensorSample,
+    partial_failures: Vec<String>,
+    had_io_failure: bool,
+  ) -> Result<(MotherboardSensorSample, Vec<String>), MotherboardSensorError> {
     if sample.temperatures.is_empty() && sample.fan_speeds.is_empty() {
       let reason = if partial_failures.is_empty() {
         "no eligible sensor inputs are enabled".to_string()
@@ -1086,6 +1396,9 @@ struct DetectedIteSlot {
   ec_base: u16,
   profile: &'static IteEcProfile,
   fan_routes: [bool; 3],
+  /// CR22 as read on the banked modern profile, for diagnostics only; `None`
+  /// on other profiles or when the read failed.
+  diagnostic_revision: Option<u8>,
 }
 
 fn discover_nuvoton_hm_base(
@@ -1213,6 +1526,11 @@ fn discover_ite_ec_base(
       return Ok(None);
     }
   }
+  // The banked modern profile records CR22 for diagnostics only. Neither its
+  // value nor a failed read selects or refuses the profile.
+  let diagnostic_revision = (profile.access == IteEcAccess::BankGuarded)
+    .then(|| client.superio_inb(ITE_REVISION_REGISTER).ok())
+    .flatten();
 
   let select_ldn = |ldn| client.superio_outb(LOGICAL_DEVICE_SELECT_REGISTER, ldn);
   let select_ec = || {
@@ -1292,6 +1610,7 @@ fn discover_ite_ec_base(
     ec_base,
     profile,
     fan_routes,
+    diagnostic_revision,
   }))
 }
 
@@ -1389,6 +1708,7 @@ fn ite_experimental_non_component_failure(
 #[cfg(test)]
 mod tests {
   use std::cell::{Cell, RefCell};
+  use std::collections::VecDeque;
 
   use super::super::ite::{
     IT8716F_D, IT8728F, IT8728F_DX_EX, IT8772E_FX, ITE_EC_FAN_MODE_REGISTER,
@@ -1661,6 +1981,11 @@ mod tests {
     ec_vendor: Cell<u8>,
     channel_configuration: Cell<u8>,
     temperature_values: Cell<[u8; 3]>,
+    /// A `(register, value)` returned by the second read of one temperature.
+    second_temperature_read: Cell<Option<(u8, u8)>>,
+    /// EC 0x06 values in read order; `None` fails that read. Bank 0 once the
+    /// queue is empty.
+    bank_reads: RefCell<VecDeque<Option<u8>>>,
     fan_enable: Cell<u8>,
     fan_mode: Cell<u8>,
     fan_counts: Cell<[[u16; 2]; 3]>,
@@ -1698,6 +2023,8 @@ mod tests {
         ec_vendor: Cell::new(0x90),
         channel_configuration: Cell::new(0b0010_1000),
         temperature_values: Cell::new([25, 30, 35]),
+        second_temperature_read: Cell::new(None),
+        bank_reads: RefCell::new(VecDeque::new()),
         fan_enable: Cell::new(0x70),
         fan_mode: Cell::new(0x07),
         fan_counts: Cell::new([[450; 2], [675; 2], [1_350; 2]]),
@@ -1758,6 +2085,29 @@ mod tests {
       client.fan_enable.set(0x60);
       client.fan_counts.set([[675; 2], [450; 2], [900; 2]]);
       client
+    }
+
+    /// Synthetic fixture built from the S19 IT8686E bytes: base `0x0A40`,
+    /// `CR22=0x02`, EC `0x00=0x19`, `0x13=0x77`, bank 0 at both checks.
+    fn for_banked_modern(chip_id: u16) -> Self {
+      let client = Self::with_chip_id(chip_id);
+      client.base_high.set(0x0A);
+      client.base_low.set(0x40);
+      client.revision.set(Some(0x02));
+      client.ec_configuration.set(0x19);
+      client.fan_enable.set(0x77);
+      client
+        .fan_counts
+        .set([[0x04AB; 2], [0x04CB; 2], [0x0892; 2]]);
+      client.temperature_values.set([0x27, 0x31, 0x35]);
+      client
+    }
+
+    fn is_banked_modern(&self) -> bool {
+      matches!(
+        u16::from_be_bytes([self.chip_id_high.get(), self.chip_id_low.get()]),
+        0x8686 | 0x8688 | 0x8689
+      )
     }
 
     fn ec_base(&self) -> u16 {
@@ -1832,9 +2182,18 @@ mod tests {
           let count = self.fan_counts.get()[(register - 0x18) as usize][prior_reads % 2];
           Ok(count.to_le_bytes()[1])
         }
-        0x29 => Ok(self.temperature_values.get()[0]),
-        0x2A => Ok(self.temperature_values.get()[1]),
-        0x2B => Ok(self.temperature_values.get()[2]),
+        ITE_EC_BANK_REGISTER => self
+          .bank_reads
+          .borrow_mut()
+          .pop_front()
+          .unwrap_or(Some(0))
+          .ok_or_else(|| "simulated EC bank read failure".to_string()),
+        0x29..=0x2B => match self.second_temperature_read.get() {
+          Some((repeated, value)) if repeated == register && prior_reads % 2 == 1 => {
+            Ok(value)
+          }
+          _ => Ok(self.temperature_values.get()[(register - 0x29) as usize]),
+        },
         _ => Err(format!("unexpected EC register 0x{register:02X}")),
       }
     }
@@ -1845,6 +2204,16 @@ mod tests {
           self.require_ec_bars()?;
           assert!(self.config_exit_calls.get() > 0 && !self.fail_config_exit.get());
           assert!(!(0x01..=0x03).contains(&value), "read-to-clear EC status");
+          // The banked modern allow-list excludes EC 0x0C, 0x51 and every
+          // index at or above 0x80.
+          assert!(
+            !self.is_banked_modern()
+              || matches!(
+                value,
+                0x00 | 0x06 | 0x0D..=0x0F | 0x13 | 0x18..=0x1A | 0x29..=0x2B | 0x58
+              ),
+            "banked modern EC index 0x{value:02X} is outside the allow-list"
+          );
           self.selected_ec_register.set(Some(value));
           Ok(())
         }
@@ -2701,6 +3070,27 @@ mod tests {
       open: error.clone(),
       create: error,
     }));
+  }
+
+  #[test]
+  fn probe_failures_keep_an_earlier_retryable_error() {
+    let retryable = || {
+      MotherboardSensorError::from(MutexError::Timeout {
+        name: ACCESS_ISABUS_MUTEX,
+      })
+    };
+    let plain = |detail: &str| MotherboardSensorError::Unclassified(detail.to_string());
+    let mut last_error = None;
+
+    record_probe_failure(&mut last_error, plain("first"));
+    assert_eq!(last_error, Some(plain("first")));
+    record_probe_failure(&mut last_error, plain("second"));
+    assert_eq!(last_error, Some(plain("second")));
+    record_probe_failure(&mut last_error, retryable());
+    assert_eq!(last_error, Some(retryable()));
+    // A later non-retryable failure does not replace the retryable one.
+    record_probe_failure(&mut last_error, plain("later"));
+    assert_eq!(last_error, Some(retryable()));
   }
 
   #[test]
@@ -3992,5 +4382,496 @@ mod tests {
       active.client.read_registers.borrow().as_slice(),
       &[0x00, 0x51, 0x29, 0x00, 0x51, 0x29]
     );
+  }
+
+  // Banked modern profile (IT8686E / IT8688E / IT8689E). Every fixture below is
+  // synthetic; the byte patterns follow the rev 7 fixtures, which take them
+  // from the S19 IT8686E report.
+
+  /// The sample's full read order with every input eligible.
+  const BANKED_SAMPLE_READS: [u8; 23] = [
+    0x00, 0x06, 0x58, 0x13, 0x0D, 0x18, 0x0D, 0x18, 0x0E, 0x19, 0x0E, 0x19, 0x0F, 0x1A,
+    0x0F, 0x1A, 0x29, 0x29, 0x2A, 0x2A, 0x2B, 0x2B, 0x06,
+  ];
+
+  fn temperature_readings(sample: &MotherboardSensorSample) -> Vec<(&str, f32)> {
+    sample
+      .temperatures
+      .iter()
+      .map(|reading| (reading.name.as_str(), reading.temperature))
+      .collect()
+  }
+
+  fn fan_readings(
+    sample: &MotherboardSensorSample,
+  ) -> Vec<(&str, Option<u32>, FanSpeedStatus)> {
+    sample
+      .fan_speeds
+      .iter()
+      .map(|reading| (reading.name.as_str(), reading.rpm, reading.status))
+      .collect()
+  }
+
+  #[test]
+  fn banked_modern_s19_fixture_reads_six_inputs_in_one_bracketed_sample() {
+    for (id, label, revision) in [
+      (0x8686, "IT8686E", 0x02),
+      (0x8688, "IT8688E", 0x01),
+      (0x8689, "IT8689E", 0x02),
+    ] {
+      let client = FakeIteLpcIo::for_banked_modern(id);
+      client.revision.set(Some(revision));
+
+      let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+        .unwrap()
+        .unwrap();
+
+      assert_eq!(detected.profile.chip_label, label);
+      assert_eq!(detected.ec_base, 0x0A40);
+      assert_eq!(detected.diagnostic_revision, Some(revision));
+      assert_eq!(
+        *client.config_reads.borrow(),
+        [
+          (None, 0x20),
+          (None, 0x21),
+          (None, 0x22),
+          (Some(0x04), 0x30),
+          (Some(0x04), 0x60),
+          (Some(0x04), 0x61),
+          (Some(0x07), 0x29),
+          (Some(0x07), 0x27),
+        ]
+      );
+      assert_eq!(
+        *client.config_writes.borrow(),
+        [(0x07, 0x04), (0x07, 0x07), (0x07, 0x04), (0x02, 0x02)]
+      );
+      assert_eq!(*client.read_registers.borrow(), [0x00, 0x06, 0x58]);
+      client.read_registers.borrow_mut().clear();
+      let config_port_writes = client.config_port_writes.borrow().clone();
+      let mut active = ActiveIteMotherboardSensors::new(client, detected);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(
+        fan_readings(&sample),
+        [
+          ("FAN1", Some(564), FanSpeedStatus::Active),
+          ("FAN2", Some(550), FanSpeedStatus::Active),
+          ("FAN3", Some(307), FanSpeedStatus::Active),
+        ]
+      );
+      assert_eq!(
+        temperature_readings(&sample),
+        [("TMPIN1", 39.0), ("TMPIN2", 49.0), ("TMPIN3", 53.0)]
+      );
+      let source = format!("{label} / Super I/O");
+      assert!(sample.temperatures.iter().all(|t| t.source == source));
+      assert!(sample.fan_speeds.iter().all(|f| f.source == source));
+      // EC 0x00 bit 3 (0x19) does not block the sample.
+      assert_eq!(*active.client.read_registers.borrow(), BANKED_SAMPLE_READS);
+      // No configuration entry, CR access or EC data write while sampling.
+      assert_eq!(
+        *active.client.config_port_writes.borrow(),
+        config_port_writes
+      );
+      assert_eq!(active.client.config_writes.borrow().len(), 4);
+      assert_eq!(active.client.config_reads.borrow().len(), 8);
+
+      let active = ActiveMotherboardSensors::Ite(active);
+      assert_eq!(active.fan_support(), SensorSupport::Supported);
+      assert_eq!(
+        active.diagnostic_summary(),
+        format!("active chip={label} slot=0 ec_base=0x0A40 cr22=0x{revision:02X}")
+      );
+    }
+  }
+
+  #[test]
+  fn banked_modern_cr22_never_gates_the_profile() {
+    for revision in [Some(0x00), Some(0x0F), Some(0x81), None] {
+      let client = FakeIteLpcIo::for_banked_modern(0x8686);
+      client.revision.set(revision);
+
+      let mut active = discover_ite_fixture(client);
+
+      assert_eq!(active.diagnostic_revision, revision);
+      assert_eq!(
+        active
+          .sample_unlocked_at(Instant::now())
+          .unwrap()
+          .fan_speeds
+          .len(),
+        3
+      );
+      let expected = revision.map_or("cr22=unreadable".to_string(), |value| {
+        format!("cr22=0x{value:02X}")
+      });
+      let summary = ActiveMotherboardSensors::Ite(active).diagnostic_summary();
+      assert!(summary.ends_with(&expected), "{summary}");
+    }
+  }
+
+  #[test]
+  fn banked_modern_opening_bank_check_stops_before_any_banked_read() {
+    for bank in [0x20, 0x40, 0x60, 0x80] {
+      let mut active = discover_ite_fixture(FakeIteLpcIo::for_banked_modern(0x8688));
+      active.client.bank_reads.borrow_mut().push_back(Some(bank));
+      let first_at = Instant::now();
+
+      let failure = active.sample_unlocked_at(first_at).unwrap_err();
+      let error = failure.to_string();
+
+      assert!(
+        error.starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX),
+        "{error}"
+      );
+      assert!(
+        error.contains("IT8688E") && error.contains("before"),
+        "{error}"
+      );
+      assert!(!failure.offers_pawnio_guidance());
+      assert_eq!(*active.client.read_registers.borrow(), [0x00, 0x06]);
+
+      // The next sample starts independently.
+      active.client.read_registers.borrow_mut().clear();
+      let next = active
+        .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+        .unwrap();
+      assert_eq!(next.fan_speeds.len() + next.temperatures.len(), 6);
+      assert_eq!(*active.client.read_registers.borrow(), BANKED_SAMPLE_READS);
+    }
+
+    let mut active = discover_ite_fixture(FakeIteLpcIo::for_banked_modern(0x8686));
+    active.client.bank_reads.borrow_mut().push_back(None);
+    let error = active
+      .sample_unlocked_at(Instant::now())
+      .unwrap_err()
+      .to_string();
+    assert!(
+      error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX),
+      "{error}"
+    );
+    assert!(error.contains("before"), "{error}");
+    assert_eq!(*active.client.read_registers.borrow(), [0x00, 0x06]);
+  }
+
+  #[test]
+  fn banked_modern_closing_bank_check_discards_every_value() {
+    for closing in [Some(0x20), None] {
+      let mut active = discover_ite_fixture(FakeIteLpcIo::for_banked_modern(0x8689));
+      active
+        .client
+        .bank_reads
+        .borrow_mut()
+        .extend([Some(0x00), closing]);
+
+      let error = active
+        .sample_unlocked_at(Instant::now())
+        .unwrap_err()
+        .to_string();
+
+      assert!(
+        error.contains("IT8689E") && error.contains("after"),
+        "{error}"
+      );
+      assert_eq!(
+        error.starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX),
+        closing.is_some()
+      );
+      assert_eq!(*active.client.read_registers.borrow(), BANKED_SAMPLE_READS);
+    }
+  }
+
+  #[test]
+  fn banked_modern_monitor_and_vendor_gates_stop_the_sample() {
+    for (configuration, vendor, expected_error, expected_reads) in [
+      (0x19, 0x00, "vendor byte 0x00", vec![0x00, 0x06, 0x58]),
+      (0x18, 0x90, "standby", vec![0x00]),
+      (0x99, 0x90, "configuration bit 7 is set", vec![0x00]),
+    ] {
+      let mut active = discover_ite_fixture(FakeIteLpcIo::for_banked_modern(0x8686));
+      active.client.ec_configuration.set(configuration);
+      active.client.ec_vendor.set(vendor);
+
+      let error = active
+        .sample_unlocked_at(Instant::now())
+        .unwrap_err()
+        .to_string();
+
+      assert!(
+        error.starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX),
+        "{error}"
+      );
+      assert!(error.contains(expected_error), "{error}");
+      assert_eq!(*active.client.read_registers.borrow(), expected_reads);
+    }
+  }
+
+  #[test]
+  fn banked_modern_temperatures_accept_only_plus_1_to_plus_125() {
+    for (values, expected) in [
+      ([0xC9, 0x00, 0x80], vec![]),
+      ([0x7E, 0x7D, 0x01], vec![("TMPIN2", 125.0), ("TMPIN3", 1.0)]),
+    ] {
+      let client = FakeIteLpcIo::for_banked_modern(0x8686);
+      client.temperature_values.set(values);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(temperature_readings(&sample), expected);
+      assert_eq!(sample.fan_speeds.len(), 3);
+    }
+  }
+
+  #[test]
+  fn banked_modern_mismatched_or_failed_reads_invalidate_only_their_input() {
+    let client = FakeIteLpcIo::for_banked_modern(0x8686);
+    client.second_temperature_read.set(Some((0x2A, 0x32)));
+    client
+      .fan_counts
+      .set([[0x04AB, 0x04AC], [0x04CB; 2], [0x0892; 2]]);
+    let mut active = discover_ite_fixture(client);
+    let first_at = Instant::now();
+
+    let sample = active.sample_unlocked_at(first_at).unwrap();
+
+    assert_eq!(
+      temperature_readings(&sample),
+      [("TMPIN1", 39.0), ("TMPIN3", 53.0)]
+    );
+    assert_eq!(fan_names(&sample), ["FAN2", "FAN3"]);
+    assert_eq!(*active.client.read_registers.borrow(), BANKED_SAMPLE_READS);
+
+    // A failed fan-enable read leaves the temperatures usable.
+    active.client.second_temperature_read.set(None);
+    active.client.failed_ec_register.set(Some(0x13));
+    let sample = active
+      .sample_unlocked_at(first_at + ITE_SAMPLE_MIN_INTERVAL)
+      .unwrap();
+    assert!(sample.fan_speeds.is_empty());
+    assert_eq!(temperature_names(&sample), ["TMPIN1", "TMPIN2", "TMPIN3"]);
+
+    // A failed temperature byte affects that input only.
+    active.client.failed_ec_register.set(Some(0x29));
+    active
+      .client
+      .fan_counts
+      .set([[0x04AB; 2], [0x04CB; 2], [0x0892; 2]]);
+    let sample = active
+      .sample_unlocked_at(first_at + 2 * ITE_SAMPLE_MIN_INTERVAL)
+      .unwrap();
+    assert_eq!(temperature_names(&sample), ["TMPIN2", "TMPIN3"]);
+    assert_eq!(fan_names(&sample), ["FAN1", "FAN2", "FAN3"]);
+  }
+
+  #[test]
+  fn banked_modern_fans_follow_routing_and_enable_per_channel() {
+    const FAN_COUNT_REGISTERS: [(&str, u8, u8); 3] = [
+      ("FAN1", 0x0D, 0x18),
+      ("FAN2", 0x0E, 0x19),
+      ("FAN3", 0x0F, 0x1A),
+    ];
+    for (routing, fan_enable, expected_fans) in [
+      ([Some(0x04), Some(0)], 0x37, vec!["FAN1"]),
+      ([Some(0), Some(0)], 0x10, vec!["FAN1"]),
+      ([Some(0), Some(0)], 0x20, vec!["FAN2"]),
+      ([Some(0), Some(0)], 0x40, vec!["FAN3"]),
+      ([Some(0), Some(0x80)], 0x70, vec!["FAN1", "FAN2"]),
+      ([None, Some(0)], 0x70, vec!["FAN1", "FAN3"]),
+      ([Some(0), None], 0x70, vec!["FAN1", "FAN2"]),
+    ] {
+      let client = FakeIteLpcIo::for_banked_modern(0x8688);
+      client.routing.set(routing);
+      client.fan_enable.set(fan_enable);
+      client
+        .fan_counts
+        .set([[0xFFFF; 2], [0x04CB; 2], [0x0892; 2]]);
+      let mut active = discover_ite_fixture(client);
+
+      let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+      assert_eq!(fan_names(&sample), expected_fans);
+      let reads = active.client.read_registers.borrow();
+      for (name, low, high) in FAN_COUNT_REGISTERS {
+        let count_reads = reads
+          .iter()
+          .filter(|&&register| register == low || register == high)
+          .count();
+        let expected_reads = if expected_fans.contains(&name) { 4 } else { 0 };
+        assert_eq!(count_reads, expected_reads, "{name}");
+      }
+    }
+
+    // CR29[2]=1, EC 0x13=0x37 and saturated FAN1 pairs.
+    let client = FakeIteLpcIo::for_banked_modern(0x8686);
+    client.routing.set([Some(0x04), Some(0)]);
+    client.fan_enable.set(0x37);
+    client
+      .fan_counts
+      .set([[0xFFFF; 2], [0x04CB; 2], [0x0892; 2]]);
+    let mut active = discover_ite_fixture(client);
+    let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+    assert_eq!(
+      fan_readings(&sample),
+      [("FAN1", Some(0), FanSpeedStatus::Inactive)]
+    );
+  }
+
+  #[test]
+  fn banked_modern_discovery_checks_bank_before_the_vendor_byte_and_caches_nothing() {
+    for (configuration, bank, vendor, expected_error, expected_reads) in [
+      (
+        0x99,
+        Some(0x00),
+        0x90,
+        "configuration bit 7 is set",
+        vec![0x00],
+      ),
+      (0x19, Some(0x20), 0x90, "bank is not 0", vec![0x00, 0x06]),
+      (0x19, Some(0x80), 0x90, "bank is not 0", vec![0x00, 0x06]),
+      (
+        0x19,
+        None,
+        0x90,
+        ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT,
+        vec![0x00, 0x06],
+      ),
+      (
+        0x19,
+        Some(0x00),
+        0x00,
+        "vendor byte 0x00",
+        vec![0x00, 0x06, 0x58],
+      ),
+    ] {
+      let client = FakeIteLpcIo::for_banked_modern(0x8686);
+      client.ec_configuration.set(configuration);
+      client.bank_reads.borrow_mut().push_back(bank);
+      client.ec_vendor.set(vendor);
+
+      let failure = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+      let error = failure.to_string();
+
+      assert!(error.contains(expected_error), "{error}");
+      assert!(error.contains("IT8686E"), "{error}");
+      // An unreadable or non-zero bank reruns discovery; the other gates stay.
+      assert_eq!(failure.is_retryable(), bank != Some(0x00));
+      assert_eq!(*client.read_registers.borrow(), expected_reads);
+    }
+  }
+
+  #[test]
+  fn banked_modern_discovery_bank_failure_is_retried_by_a_later_discovery_only() {
+    let client = FakeIteLpcIo::for_banked_modern(0x8688);
+    client.bank_reads.borrow_mut().push_back(Some(0x40));
+
+    let failure = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(failure.is_retryable());
+    assert!(!failure.offers_pawnio_guidance());
+    assert!(
+      failure
+        .to_string()
+        .starts_with(ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX)
+    );
+    assert_eq!(*client.read_registers.borrow(), [0x00, 0x06]);
+
+    // The later discovery runs as its own transaction and sees bank 0.
+    client.read_registers.borrow_mut().clear();
+    let entries_before_rediscovery = client.config_port_writes.borrow().len();
+    let detected = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+    assert_eq!(detected.profile.chip_label, "IT8688E");
+    assert_eq!(*client.read_registers.borrow(), [0x00, 0x06, 0x58]);
+    assert!(client.config_port_writes.borrow().len() > entries_before_rediscovery);
+
+    // The sample that follows makes no configuration entry or CR access.
+    client.read_registers.borrow_mut().clear();
+    let config_port_writes = client.config_port_writes.borrow().clone();
+    let config_writes = client.config_writes.borrow().len();
+    let config_reads = client.config_reads.borrow().len();
+    let mut active = ActiveIteMotherboardSensors::new(client, detected);
+    let sample = active.sample_unlocked_at(Instant::now()).unwrap();
+
+    assert_eq!(sample.fan_speeds.len() + sample.temperatures.len(), 6);
+    assert_eq!(*active.client.read_registers.borrow(), BANKED_SAMPLE_READS);
+    assert_eq!(
+      *active.client.config_port_writes.borrow(),
+      config_port_writes
+    );
+    assert_eq!(active.client.config_writes.borrow().len(), config_writes);
+    assert_eq!(active.client.config_reads.borrow().len(), config_reads);
+  }
+
+  #[test]
+  fn banked_modern_discovery_rejects_base_and_device_before_any_ec_index_write() {
+    for base in [0x0CF8_u16, 0x0A41, 0x00F8, 0x1000] {
+      let client = FakeIteLpcIo::for_banked_modern(0x8689);
+      let [high, low] = base.to_be_bytes();
+      client.base_high.set(high);
+      client.base_low.set(low);
+
+      let error = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+        .unwrap_err()
+        .to_string();
+
+      assert!(
+        error.contains("invalid Environment Controller base"),
+        "{error}"
+      );
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert_eq!(client.config_exit_calls.get(), 1);
+      assert!(client.selected_ec_register.get().is_none());
+    }
+
+    let client = FakeIteLpcIo::for_banked_modern(0x8689);
+    client.activation.set(0x00);
+    let error = ActiveIteMotherboardSensors::discover_slot(&client, 0)
+      .unwrap_err()
+      .to_string();
+    assert!(error.contains("logical device is inactive"), "{error}");
+    assert!(client.selected_ec_register.get().is_none());
+
+    for (fail_exit, deny_ports) in [(true, false), (false, true)] {
+      let client = FakeIteLpcIo::for_banked_modern(0x8686);
+      client.fail_config_exit.set(fail_exit);
+      client.deny_ec_bars.set(deny_ports);
+
+      let failure = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+      assert!(failure.is_retryable());
+      assert!(client.read_registers.borrow().is_empty());
+    }
+  }
+
+  #[test]
+  fn banked_modern_profile_is_slot_zero_and_exact_id_only() {
+    for (slot, id) in [
+      (1, 0x8686),
+      (1, 0x8688),
+      (1, 0x8689),
+      (0, 0x8696),
+      (0, 0x8698),
+      (0, 0x8665),
+      (0, 0x8655),
+      (0, 0x8625),
+      (0, 0x8613),
+    ] {
+      let client = FakeIteLpcIo::for_banked_modern(id);
+
+      assert!(
+        ActiveIteMotherboardSensors::discover_slot(&client, slot)
+          .unwrap()
+          .is_none(),
+        "slot {slot} id 0x{id:04X}"
+      );
+      assert_eq!(*client.config_reads.borrow(), [(None, 0x20), (None, 0x21)]);
+      assert_eq!(*client.config_writes.borrow(), [(0x02, 0x02)]);
+      assert_eq!(client.find_bars_calls.get(), 0);
+      assert!(client.selected_ec_register.get().is_none());
+    }
   }
 }
