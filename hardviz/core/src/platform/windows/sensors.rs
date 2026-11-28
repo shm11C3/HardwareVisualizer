@@ -262,6 +262,9 @@ fn cpu_package_sensor_name(sample: &CpuPackageTemperature) -> &'static str {
   match sample.source {
     CpuTemperatureSource::IntelDtsPackageMsr => "CPU Package (PawnIO Intel DTS)",
     CpuTemperatureSource::AmdZenSmnTctl => "CPU Package (PawnIO AMD SMN)",
+    // A control temperature on AMD's own Tctl scale: the label must say Tctl
+    // and never Package, die or case (cpu-amd-family-15h-16h-tctl.md rev 2).
+    CpuTemperatureSource::AmdFamily15h16hTctl => "CPU Tctl (PawnIO AMD Family 15h/16h)",
   }
 }
 
@@ -556,6 +559,24 @@ mod tests {
   }
 
   #[test]
+  fn family_15h_16h_reading_is_labelled_as_a_control_temperature() {
+    let sample = build_temperature_sample(
+      Ok(CpuPackageTemperature {
+        temperature_celsius: 18.5,
+        source: CpuTemperatureSource::AmdFamily15h16hTctl,
+        thermal_status: None,
+      }),
+      Vec::new(),
+    );
+
+    let name = &sample.sensor_temperatures[0].name;
+    assert_eq!(name, "CPU Tctl (PawnIO AMD Family 15h/16h)");
+    assert!(!name.contains("Package") && !name.contains("Die"));
+    assert_eq!(sample.cpu_temperature, Some(18.5));
+    assert_eq!(sample.availability, SensorAvailability::Available);
+  }
+
+  #[test]
   fn temperature_sample_falls_back_to_acpi_cpu_zone() {
     let sample = build_temperature_sample(
       Err(CpuPackageTemperatureError::Unavailable {
@@ -671,7 +692,7 @@ mod tests {
   fn temperature_sample_suppresses_guidance_for_unsupported_cpu_path() {
     let sample = build_temperature_sample(
       Err(CpuPackageTemperatureError::Unsupported(
-        crate::infrastructure::providers::windows::pawn_io::cpu::temperature::CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x16),
+        crate::infrastructure::providers::windows::pawn_io::cpu::temperature::CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x14),
       )),
       Vec::new(),
     );

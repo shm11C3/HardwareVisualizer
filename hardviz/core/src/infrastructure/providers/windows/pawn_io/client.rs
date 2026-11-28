@@ -28,6 +28,7 @@ const AMD_FAMILY17_MODULE_FILE: &str = "AMDFamily17.bin";
 const AMD_FAMILY17_LEGACY_MODULE_FILE: &str = "AMDFamily17.amx";
 const LPC_IO_MODULE_FILE: &str = "LpcIO.bin";
 const LPC_IO_LEGACY_MODULE_FILE: &str = "LpcIO.amx";
+const AMD_FAMILY10_MODULE_FILE: &str = "AMDFamily10.bin";
 
 pub(crate) const ACCESS_PCI_MUTEX: &str = "Global\\Access_PCI";
 pub(crate) const ACCESS_ISABUS_MUTEX: &str = "Global\\Access_ISABUS.HTP.Method";
@@ -77,6 +78,7 @@ pub(crate) enum PawnIoModule {
   RyzenSmu,
   AmdFamily17,
   LpcIo,
+  AmdFamily10,
 }
 
 impl PawnIoModule {
@@ -86,6 +88,9 @@ impl PawnIoModule {
       Self::RyzenSmu => &[RYZEN_SMU_MODULE_FILE, RYZEN_SMU_LEGACY_MODULE_FILE],
       Self::AmdFamily17 => &[AMD_FAMILY17_MODULE_FILE, AMD_FAMILY17_LEGACY_MODULE_FILE],
       Self::LpcIo => &[LPC_IO_MODULE_FILE, LPC_IO_LEGACY_MODULE_FILE],
+      // Added after the service began rejecting `.amx`, so no unsigned
+      // fallback name is searched for.
+      Self::AmdFamily10 => &[AMD_FAMILY10_MODULE_FILE],
     }
   }
 
@@ -257,6 +262,24 @@ impl PawnIoClient {
     self
       .execute("ioctl_read_smu_register", &[address])
       .map(|out| out[0])
+  }
+
+  /// `AMDFamily10` `ioctl_read_miscctl`: PCI bus 0, device `0x18 + node`,
+  /// function 3. The module documents no caller mutex for it.
+  pub(crate) fn read_amd_family10_miscctl(
+    &self,
+    node: u64,
+    offset: u64,
+  ) -> Result<u64, PawnIoError> {
+    self
+      .execute("ioctl_read_miscctl", &[node, offset])
+      .map(|out| out[0])
+  }
+
+  /// `AMDFamily10` `ioctl_read_smu`. The module writes the host bridge index
+  /// without restoring it, so the caller must hold `Global\Access_PCI`.
+  pub(crate) fn read_amd_family10_smu(&self, address: u64) -> Result<u64, PawnIoError> {
+    self.execute("ioctl_read_smu", &[address]).map(|out| out[0])
   }
 
   pub(crate) fn select_lpc_slot(&self, slot: u64) -> Result<(), PawnIoError> {
@@ -696,6 +719,20 @@ mod tests {
       ["AMDFamily17.bin", "AMDFamily17.amx"]
     );
     assert_eq!(PawnIoModule::LpcIo.file_names(), ["LpcIO.bin", "LpcIO.amx"]);
+    assert_eq!(PawnIoModule::AmdFamily10.file_names(), ["AMDFamily10.bin"]);
+  }
+
+  #[test]
+  fn a_missing_amd_family10_module_names_only_its_own_file() {
+    let reason = PawnIoModule::AmdFamily10.not_found_reason();
+
+    assert_eq!(reason, "AMDFamily10.bin not found");
+    assert_eq!(
+      crate::models::external_component_guidance::classify_external_component_reason(
+        &reason
+      ),
+      crate::models::ExternalComponentReasonKind::Missing
+    );
   }
 
   #[test]
