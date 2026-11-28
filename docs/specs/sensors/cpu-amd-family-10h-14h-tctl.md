@@ -155,7 +155,10 @@ Notes:
 Admission (steps 1–4) runs in this order. The path is admitted only
 after step 4 passes. A failure in steps 1–4 leaves CPU temperature
 unavailable from this path (fallback as for other PawnIO paths). No
-register read happens before step 4.
+temperature register (`D18F3xA4`) or other CPU thermal register is
+read before admission completes. Before then, the only hardware
+accesses are the module's load-time PCI read in step 3 and the
+identity read of `D18F3x00` in step 4.
 
 1. CPU and topology gates, before any PawnIO call: vendor, family and
    model selection, the Family 10h revision and `PkgType` gates, and
@@ -164,7 +167,10 @@ register read happens before step 4.
 2. Family 10h with `PkgType` = `0001b` only: evaluate the DDR3 gate
    once. If it fails, the path is unavailable on this system.
 3. Load `AMDFamily10.bin` on its own executor handle (the module-load
-   gate in Detection).
+   gate in Detection). Loading the module performs a PCI configuration
+   read: the dword at PCI `00:14.0` offset 0, plus the byte at offset
+   `08h` only when that dword equals `4385_1002h`. It writes nothing
+   and does not touch any CPU thermal register (S9; Safety notes).
 4. Identity read gate, once per opened handle: `ioctl_read_miscctl`
    with `in[0]` = 0, `in[1]` = `0x00`. If the call returns an error
    status, or if the low 32 bits of `out[0]` (read only after a
