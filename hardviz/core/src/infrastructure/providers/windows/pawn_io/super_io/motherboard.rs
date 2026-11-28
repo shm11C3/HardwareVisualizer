@@ -20,8 +20,14 @@ use crate::models::{
 };
 use crate::{log_debug, log_warn};
 
+mod rediscovery;
 mod smiovt;
 
+pub(crate) use rediscovery::end_motherboard_monitoring_session;
+use rediscovery::{
+  ConfigurationSequence, OwedCleanup, SharedRediscovery, process_rediscovery,
+  run_owed_cleanup,
+};
 use smiovt::ActiveNuvotonSmiovtSensors;
 
 const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
@@ -103,11 +109,17 @@ pub(crate) enum MotherboardSensorError {
   Unclassified(String),
   #[error(transparent)]
   Chip(#[from] ChipFailure),
-  /// A probe failure after which a Nuvoton configuration exit was not
-  /// confirmed. The slot's later probes were skipped in that attempt, so
-  /// discovery is retried. Text and guidance come from the wrapped failure.
+  /// A failure after which an entry-key or exit write was not confirmed on a
+  /// slot, including a failed owed cleanup. The attempt stopped probing and
+  /// the slot owes cleanup, so the failure is eligible for rediscovery. Text
+  /// and guidance come from the wrapped failure.
   #[error(transparent)]
   ExitUnconfirmed(Box<MotherboardSensorError>),
+  /// `superio-access.md` rev 5 R3: a path was discarded while the session
+  /// has no failure, and the next discovery attempt is not due yet. No
+  /// PawnIO access failed, so it offers no install or permission guidance.
+  #[error("Super I/O motherboard sensor path was discarded; discovery will run again")]
+  RediscoveryPending,
 }
 
 impl From<String> for MotherboardSensorError {
@@ -130,6 +142,7 @@ impl MotherboardSensorError {
       other => !matches!(
         other,
         Self::Unsupported
+          | Self::RediscoveryPending
           | Self::Chip(ChipFailure {
             experimental: true,
             hardware_state: true,
@@ -139,25 +152,31 @@ impl MotherboardSensorError {
     }
   }
 
-  /// Whether a failed open should be retried on the next sample instead of
-  /// kept: the mutex was busy, an Experimental chip's configuration exit or
-  /// port authorization did not complete and needs a fresh discovery, or a
-  /// Nuvoton configuration exit was not confirmed on a slot.
-  fn is_retryable(&self) -> bool {
+  /// `superio-access.md` rev 5 "Eligibility classes": whether a discovery
+  /// attempt that ended with this failure may be followed by another one from
+  /// the same sampler under the R2 backoff.
+  ///
+  /// Eligible: a timed-out or failed ISA mutex wait; an entry-key or exit
+  /// write that failed, so the exit is unconfirmed; a port failure after
+  /// `ioctl_find_bars` on a matched profile, or another failure that the
+  /// owning specification marks eligible (`requires_rediscovery`); and the
+  /// *rediscovery pending* result. Every other failure is not eligible: the
+  /// classes are the same on Verified and Experimental rows.
+  pub(super) fn is_eligible_for_rediscovery(&self) -> bool {
     match self {
       Self::Mutex(error) => {
         matches!(error, MutexError::Timeout { .. } | MutexError::Wait { .. })
       }
-      Self::Chip(failure) => failure.experimental && failure.requires_rediscovery,
-      Self::ExitUnconfirmed(_) => true,
+      Self::Chip(failure) => failure.requires_rediscovery,
+      Self::ExitUnconfirmed(_) | Self::RediscoveryPending => true,
       Self::Unsupported | Self::Unclassified(_) => false,
     }
   }
 
-  /// Mark a probe failure after which configuration exit was not confirmed as
-  /// retryable, keeping its text and guidance.
+  /// Mark a failure after which an entry-key or exit write was not confirmed
+  /// as eligible, keeping its text and guidance.
   fn exit_unconfirmed(self) -> Self {
-    if self.is_retryable() {
+    if self.is_eligible_for_rediscovery() {
       self
     } else {
       Self::ExitUnconfirmed(Box::new(self))
@@ -165,11 +184,10 @@ impl MotherboardSensorError {
   }
 
   /// Append the text of a configuration exit that also failed.
-  fn with_exit_failure(self, suffix: String, requires_rediscovery: bool) -> Self {
+  fn with_exit_failure(self, suffix: String) -> Self {
     match self {
       Self::Chip(mut failure) => {
         failure.detail.push_str(&suffix);
-        failure.requires_rediscovery |= requires_rediscovery;
         Self::Chip(failure)
       }
       other => Self::Unclassified(format!("{other}{suffix}")),
@@ -264,6 +282,25 @@ impl ChipFailure {
   }
 }
 
+/// The process-level cadence state as text, for tests outside this module
+/// that must leave it unchanged.
+#[cfg(test)]
+pub(super) fn process_rediscovery_fingerprint() -> String {
+  format!("{:?}", *process_rediscovery().lock())
+}
+
+/// Record a failed discovery attempt in the process-level cadence state, for
+/// tests outside this module.
+#[cfg(test)]
+pub(super) fn record_process_rediscovery_failure(
+  started_at: Instant,
+  failure: MotherboardSensorError,
+) {
+  process_rediscovery()
+    .lock()
+    .record_failed_attempt(started_at, failure);
+}
+
 #[cfg(test)]
 impl MotherboardSensorError {
   /// An Experimental IT8620E failure, for tests of consumers outside this module.
@@ -319,12 +356,15 @@ pub(crate) struct MotherboardSensorReadout {
 ///
 /// Implemented from:
 /// - docs/specs/sensors/pawnio-interface.md revision 7
-/// - docs/specs/sensors/superio-access.md revision 4
-/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 9
-/// - docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md revision 1
-/// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
-/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 7
-/// - docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md revision 2
+/// - docs/specs/sensors/superio-access.md revision 5 (revision 4 facts, plus
+///   the sampling-path rediscovery cadence)
+/// - docs/specs/sensors/superio-nuvoton-nct67xx.md revision 10
+/// - docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md revision 2
+/// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 3
+/// - docs/specs/sensors/superio-ite-primary-lpc-expansion.md revision 7 for
+///   the profiles, and revision 9 for "Rediscovery eligibility" (the
+///   revision 8 IT8718F profile is not implemented)
+/// - docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md revision 3
 ///
 /// No other external sensor implementation source was used.
 pub(crate) struct MotherboardSensorSampler {
@@ -336,9 +376,11 @@ impl MotherboardSensorSampler {
     self.core.readout()
   }
 
+  /// Create a sampler that shares the process-level cadence state. No
+  /// hardware access happens until the first due sampling request.
   pub(crate) fn new() -> Self {
     Self {
-      core: MotherboardSamplerCore::new(PawnIoBackend),
+      core: MotherboardSamplerCore::new(PawnIoBackend, process_rediscovery()),
     }
   }
 }
@@ -381,11 +423,19 @@ impl SuperIoBackend for PawnIoBackend {
   }
 }
 
+/// One sampler of the sensor service. Its cadence state lives in a
+/// [`SharedRediscovery`] that outlives it, so a recreated sampler continues
+/// the session's backoff and owed cleanup (`superio-access.md` rev 5 R4).
 struct MotherboardSamplerCore<B: SuperIoBackend> {
   backend: B,
+  rediscovery: SharedRediscovery,
+  /// The monitoring session this sampler was created in.
+  session: u64,
+  /// The cached path. While it is set no discovery attempt runs (R1).
   active: Option<ActiveMotherboardSensors<B::Client>>,
-  unavailable_reason: Option<MotherboardSensorError>,
-  retry_unavailable: bool,
+  /// R4: an attempt of this sampler ended with a not-eligible failure, so it
+  /// starts no further attempt.
+  stopped: bool,
   sample_failure_logged: bool,
 }
 
@@ -402,37 +452,27 @@ impl<B: SuperIoBackend> MotherboardSamplerCore<B> {
     }
   }
 
-  fn new(backend: B) -> Self {
-    let mut sampler = Self {
+  /// Create a sampler without any hardware access. The first attempt runs at
+  /// the first sampling request that finds it due.
+  fn new(backend: B, rediscovery: SharedRediscovery) -> Self {
+    let session = rediscovery.lock().session();
+    Self {
       backend,
+      rediscovery,
+      session,
       active: None,
-      unavailable_reason: None,
-      retry_unavailable: false,
+      stopped: false,
       sample_failure_logged: false,
-    };
-    let _ = sampler.try_open();
-    log_debug!(
-      "super_io_motherboard_sensor_sampler_initialized",
-      "windows::super_io::MotherboardSensorSampler::new",
-      Some(sampler.diagnostic_summary())
-    );
-    sampler
+    }
   }
 
+  /// One sampling request: a due discovery attempt when no path is cached,
+  /// then a sample transaction on the cached path. The attempt releases the
+  /// ISA mutex before the sample acquires it (R1).
   fn sample(&mut self) -> Result<MotherboardSensorSample, MotherboardSensorError> {
-    if self.active.is_none()
-      && (self.unavailable_reason.is_none() || self.retry_unavailable)
-    {
-      let _ = self.try_open();
-    }
-
-    let result = match self.active.as_mut() {
-      Some(active) => active.sample(&self.backend),
-      None => Err(self.unavailable_reason.clone().unwrap_or_else(|| {
-        MotherboardSensorError::Unclassified(
-          "Motherboard sensors unavailable".to_string(),
-        )
-      })),
+    let result = match self.attempt_discovery_if_due() {
+      Ok(()) => self.sample_cached_path(),
+      Err(reason) => Err(reason),
     };
 
     if let Err(reason) = &result
@@ -449,19 +489,56 @@ impl<B: SuperIoBackend> MotherboardSamplerCore<B> {
     result
   }
 
-  fn try_open(&mut self) -> Result<(), MotherboardSensorError> {
-    match ActiveMotherboardSensors::open(&self.backend) {
+  fn sample_cached_path(
+    &mut self,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
+    let Some(active) = self.active.as_mut() else {
+      return Err(self.rediscovery.lock().current_failure());
+    };
+    let result = active.sample(&self.backend);
+    // R5: a successful sample resets the backoff. A failed sample on a cached
+    // path is not a discovery failure and starts no attempt (R1).
+    self.rediscovery.lock().record_sample(&result);
+    result
+  }
+
+  /// Run a discovery attempt when no path is cached and one is due. A request
+  /// that is not due makes no PawnIO open, no mutex acquisition and no port
+  /// I/O, and reports the session's most recent failure (R3, R4).
+  fn attempt_discovery_if_due(&mut self) -> Result<(), MotherboardSensorError> {
+    if self.active.is_some() {
+      return Ok(());
+    }
+
+    let mut state = self.rediscovery.lock();
+    let started_at = self.backend.now();
+    if self.stopped || !state.is_attempt_due(started_at) {
+      return Err(state.current_failure());
+    }
+
+    match ActiveMotherboardSensors::open(&self.backend, state.owed_cleanup_mut()) {
       Ok(active) => {
         self.active = Some(active);
-        self.unavailable_reason = None;
-        self.retry_unavailable = false;
         self.sample_failure_logged = false;
+        drop(state);
+        log_debug!(
+          "super_io_motherboard_discovery_attempt",
+          "windows::super_io::MotherboardSensorSampler::sample",
+          Some(self.diagnostic_summary())
+        );
         Ok(())
       }
       Err(reason) => {
-        self.active = None;
-        self.retry_unavailable = reason.is_retryable();
-        self.unavailable_reason = Some(reason.clone());
+        let eligible = state.record_failed_attempt(started_at, reason.clone());
+        self.stopped = !eligible;
+        log_debug!(
+          "super_io_motherboard_discovery_attempt",
+          "windows::super_io::MotherboardSensorSampler::sample",
+          Some(format!(
+            "unavailable eligible={eligible} failure_count={} reason={reason}",
+            state.failure_count()
+          ))
+        );
         Err(reason)
       }
     }
@@ -470,14 +547,30 @@ impl<B: SuperIoBackend> MotherboardSamplerCore<B> {
   fn diagnostic_summary(&self) -> String {
     match &self.active {
       Some(active) => active.diagnostic_summary(),
-      None => format!(
-        "unavailable retryable={} reason={}",
-        self.retry_unavailable,
-        self
-          .unavailable_reason
-          .as_ref()
-          .map_or_else(|| "not attempted".to_string(), ToString::to_string)
-      ),
+      None => {
+        let state = self.rediscovery.lock();
+        format!(
+          "unavailable stopped={} failure_count={} reason={}",
+          self.stopped,
+          state.failure_count(),
+          state.current_failure()
+        )
+      }
+    }
+  }
+}
+
+/// R6: recreating a sampler that holds a cached path discards that path. A
+/// sampler released with its session (the service drops it before it ends the
+/// session) records nothing in the next one.
+impl<B: SuperIoBackend> Drop for MotherboardSamplerCore<B> {
+  fn drop(&mut self) {
+    if self.active.is_none() {
+      return;
+    }
+    let mut state = self.rediscovery.lock();
+    if state.session() == self.session {
+      state.record_discarded_path(self.backend.now());
     }
   }
 }
@@ -562,122 +655,140 @@ enum ActiveMotherboardSensors<C: LpcIoOps> {
 }
 
 impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
+  /// One discovery attempt (`superio-access.md` rev 5 "Terms"): open the
+  /// executor, acquire the ISA mutex, run any owed cleanup and the ordered
+  /// slot scan, and release the mutex before returning, so it never runs
+  /// inside a sample transaction (R1).
   fn open<B: SuperIoBackend<Client = C>>(
     backend: &B,
+    owed: &mut OwedCleanup,
   ) -> Result<Self, MotherboardSensorError> {
     let client = backend.open_lpc_io()?;
 
     let _mutex = backend.acquire_isa_bus()?;
-    Self::discover(client)
+    Self::discover(client, owed)
   }
 }
 
-/// One vendor probe of a slot, and whether the chip is known to be out of
-/// configuration mode afterwards.
-pub(super) struct SlotProbe<T> {
-  result: Result<Option<T>, MotherboardSensorError>,
-  /// `false` when an entry or exit key write failed, so the chip may still be
-  /// in configuration mode. No further probe may write to that slot then:
-  /// another vendor's exit sequence would be a configuration register write.
-  configuration_exited: bool,
+/// The outcome of one vendor probe of a slot.
+pub(super) enum SlotProbe<T> {
+  /// The probe ended with the chip known to be out of configuration mode, or
+  /// with configuration mode never entered.
+  Completed(Result<Option<T>, MotherboardSensorError>),
+  /// An entry-key or exit write failed, so the chip may still be in
+  /// configuration mode. The failure is eligible for rediscovery, and the
+  /// slot owes cleanup with the probe's sequence.
+  Unconfirmed(MotherboardSensorError),
 }
 
 impl<T> SlotProbe<T> {
   const fn exited(result: Result<Option<T>, MotherboardSensorError>) -> Self {
-    Self {
-      result,
-      configuration_exited: true,
+    Self::Completed(result)
+  }
+
+  fn unconfirmed(reason: MotherboardSensorError) -> Self {
+    Self::Unconfirmed(reason.exit_unconfirmed())
+  }
+
+  /// The probe's result, with an unconfirmed exit as its failure.
+  #[cfg(test)]
+  pub(super) fn into_result(self) -> Result<Option<T>, MotherboardSensorError> {
+    match self {
+      Self::Completed(result) => result,
+      Self::Unconfirmed(reason) => Err(reason),
     }
   }
 
-  const fn unconfirmed(result: Result<Option<T>, MotherboardSensorError>) -> Self {
-    Self {
-      result,
-      configuration_exited: false,
+  #[cfg(test)]
+  pub(super) const fn owes_cleanup(&self) -> bool {
+    matches!(self, Self::Unconfirmed(_))
+  }
+
+  /// Fold the probe into the attempt. An unconfirmed exit takes precedence
+  /// over every other outcome: it records the owed cleanup and ends the
+  /// attempt with its failure. Other failures are kept for the end of the
+  /// scan.
+  fn settle(
+    self,
+    slot: u8,
+    sequence: ConfigurationSequence,
+    owed: &mut OwedCleanup,
+    last_error: &mut Option<MotherboardSensorError>,
+  ) -> Result<Option<T>, MotherboardSensorError> {
+    match self {
+      Self::Completed(Ok(found)) => Ok(found),
+      Self::Completed(Err(reason)) => {
+        record_probe_failure(last_error, reason);
+        Ok(None)
+      }
+      Self::Unconfirmed(reason) => {
+        owed.record(slot, sequence);
+        Err(reason)
+      }
     }
   }
 }
 
-/// Record a failed probe, keeping an earlier retryable failure so a later
-/// non-retryable one does not stop the sampler from reopening.
+/// Record a failed probe, keeping an earlier eligible failure so a later
+/// not-eligible one does not decide the class of the attempt.
 fn record_probe_failure(
   last_error: &mut Option<MotherboardSensorError>,
   reason: MotherboardSensorError,
 ) {
-  let keep_previous = last_error
-    .as_ref()
-    .is_some_and(|previous| previous.is_retryable() && !reason.is_retryable());
+  let keep_previous = last_error.as_ref().is_some_and(|previous| {
+    previous.is_eligible_for_rediscovery() && !reason.is_eligible_for_rediscovery()
+  });
   if !keep_previous {
     *last_error = Some(reason);
   }
 }
 
 impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
-  /// Probe both slots in order: Nuvoton bank 4, Nuvoton source-selected
-  /// slots, then ITE. The caller holds the ISA mutex. After a Nuvoton probe
-  /// that could not confirm its configuration exit, the rest of that slot is
-  /// skipped, and that failure stays retryable so a later attempt can reach
-  /// the skipped probes once port access recovers.
-  fn discover(client: C) -> Result<Self, MotherboardSensorError> {
+  /// The discovery transaction under the caller's ISA mutex: first the owed
+  /// cleanup of each slot, then both slots in order with the Nuvoton bank 4,
+  /// Nuvoton source-selected and ITE probes.
+  ///
+  /// No path is cached while a cleanup is owed. An entry-key or exit write
+  /// that fails on any probe ends the attempt at once with that eligible
+  /// failure and records the slot as owed cleanup, even when a later probe
+  /// would have qualified (`superio-access.md` rev 5 "Eligibility classes").
+  fn discover(client: C, owed: &mut OwedCleanup) -> Result<Self, MotherboardSensorError> {
+    run_owed_cleanup(&client, owed)?;
     let mut last_error: Option<MotherboardSensorError> = None;
 
     for slot in [0_u8, 1] {
-      let SlotProbe {
-        result,
-        configuration_exited,
-      } = ActiveNuvotonMotherboardSensors::probe_slot(&client, slot);
-      match result {
-        Ok(Some(discovered)) => {
-          return Ok(Self::Nuvoton(ActiveNuvotonMotherboardSensors::new(
-            client, discovered,
-          )));
-        }
-        Ok(None) => {}
-        Err(reason) => record_probe_failure(
+      if let Some(discovered) = ActiveNuvotonMotherboardSensors::probe_slot(&client, slot)
+        .settle(
+          slot,
+          ConfigurationSequence::NuvotonLineage,
+          owed,
           &mut last_error,
-          if configuration_exited {
-            reason
-          } else {
-            reason.exit_unconfirmed()
-          },
-        ),
-      }
-      if !configuration_exited {
-        continue;
+        )?
+      {
+        return Ok(Self::Nuvoton(ActiveNuvotonMotherboardSensors::new(
+          client, discovered,
+        )));
       }
 
-      let SlotProbe {
-        result,
-        configuration_exited,
-      } = ActiveNuvotonSmiovtSensors::probe_slot(&client, slot);
-      match result {
-        Ok(Some(discovered)) => {
-          return Ok(Self::NuvotonSmiovt(ActiveNuvotonSmiovtSensors::new(
-            client, discovered,
-          )));
-        }
-        Ok(None) => {}
-        Err(reason) => record_probe_failure(
+      if let Some(discovered) = ActiveNuvotonSmiovtSensors::probe_slot(&client, slot)
+        .settle(
+          slot,
+          ConfigurationSequence::NuvotonLineage,
+          owed,
           &mut last_error,
-          if configuration_exited {
-            reason
-          } else {
-            reason.exit_unconfirmed()
-          },
-        ),
-      }
-      if !configuration_exited {
-        continue;
+        )?
+      {
+        return Ok(Self::NuvotonSmiovt(ActiveNuvotonSmiovtSensors::new(
+          client, discovered,
+        )));
       }
 
-      match ActiveIteMotherboardSensors::discover_slot(&client, slot) {
-        Ok(Some(discovered)) => {
-          return Ok(Self::Ite(ActiveIteMotherboardSensors::new(
-            client, discovered,
-          )));
-        }
-        Ok(None) => {}
-        Err(reason) => record_probe_failure(&mut last_error, reason),
+      if let Some(discovered) = ActiveIteMotherboardSensors::probe_slot(&client, slot)
+        .settle(slot, ConfigurationSequence::Ite, owed, &mut last_error)?
+      {
+        return Ok(Self::Ite(ActiveIteMotherboardSensors::new(
+          client, discovered,
+        )));
       }
     }
 
@@ -740,9 +851,12 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
     client: &C,
     slot: u8,
   ) -> Result<Option<DetectedSlot>, MotherboardSensorError> {
-    Self::probe_slot(client, slot).result
+    Self::probe_slot(client, slot).into_result()
   }
 
+  /// Discovery steps 1–7 and 11 of `superio-nuvoton-nct67xx.md` rev 10 on one
+  /// slot. A failed entry-key or exit write leaves the exit unconfirmed on
+  /// every row, matched or not ("Rediscovery eligibility").
   fn probe_slot(client: &C, slot: u8) -> SlotProbe<DetectedSlot> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
       return SlotProbe::exited(Ok(None));
@@ -754,34 +868,27 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
     if let Err(reason) = enter_nuvoton(client, index_port) {
       // No exit is attempted on this path, so the configuration state is
       // unconfirmed.
-      return SlotProbe::unconfirmed(Err(reason.into()));
+      return SlotProbe::unconfirmed(reason.into());
     }
     let result = discover_nuvoton_hm_base(client, slot);
     let exit_result = exit_nuvoton(client, index_port);
-    let configuration_exited = exit_result.is_ok();
 
-    let result = match (result, exit_result) {
-      (Ok(value), Ok(())) => Ok(value),
+    match (result, exit_result) {
+      (result, Ok(())) => SlotProbe::exited(result),
       (Ok(value), Err(exit_error)) => {
         let reason =
           format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}");
-        match value {
-          Some(detected) if detected.profile.is_experimental() => Err(
-            ChipFailure::nuvoton(detected.profile, reason)
-              .requiring_rediscovery()
-              .into(),
-          ),
-          _ => Err(reason.into()),
-        }
+        SlotProbe::unconfirmed(match value {
+          // Experimental rows name their path; Verified rows keep plain text.
+          Some(detected) if detected.profile.is_experimental() => {
+            ChipFailure::nuvoton(detected.profile, reason).into()
+          }
+          _ => reason.into(),
+        })
       }
-      (Err(reason), Ok(())) => Err(reason),
-      (Err(reason), Err(exit_error)) => {
-        Err(reason.with_exit_failure(format!("; exit failed: {exit_error}"), false))
-      }
-    };
-    SlotProbe {
-      result,
-      configuration_exited,
+      (Err(reason), Err(exit_error)) => SlotProbe::unconfirmed(
+        reason.with_exit_failure(format!("; exit failed: {exit_error}")),
+      ),
     }
   }
 
@@ -996,16 +1103,28 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
     }
   }
 
+  #[cfg(test)]
   fn discover_slot(
     client: &C,
     slot: u8,
   ) -> Result<Option<DetectedIteSlot>, MotherboardSensorError> {
+    Self::probe_slot(client, slot).into_result()
+  }
+
+  /// The ITE discovery and authorization sequence on one slot. A failed
+  /// entry-key or exit write leaves the exit unconfirmed whether or not a
+  /// profile matched (`superio-access.md` rev 5 shared table).
+  fn probe_slot(client: &C, slot: u8) -> SlotProbe<DetectedIteSlot> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
-      return Ok(None);
+      return SlotProbe::exited(Ok(None));
     };
 
-    client.select_lpc_slot(slot as u64)?;
-    enter_ite(client, slot, index_port)?;
+    if let Err(reason) = client.select_lpc_slot(slot as u64) {
+      return SlotProbe::exited(Err(reason.into()));
+    }
+    if let Err(reason) = enter_ite(client, slot, index_port) {
+      return SlotProbe::unconfirmed(reason.into());
+    }
     let id_bytes = read_ite_chip_id(client);
     if let Ok((id_high, id_low)) = id_bytes
       && should_withhold_ite_exit(slot, chip_id(id_high, id_low))
@@ -1013,7 +1132,7 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       // `superio-access.md` rev 4 "Slot-1 ITE exit withhold rule": the exit
       // write is not issued for these IDs, and skipping it is not a failure.
       // None of them is the IT8728F, so there is no EC path on this slot.
-      return Ok(None);
+      return SlotProbe::exited(Ok(None));
     }
     let result = id_bytes
       .map_err(MotherboardSensorError::from)
@@ -1022,73 +1141,81 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
 
     match (result, exit_result) {
       (Ok(Some(discovered)), Ok(())) => {
-        let probe = |register| {
-          read_ite_ec_byte(client, discovered.ec_base, register).map_err(|reason| {
-            ChipFailure::ite(
-              discovered.profile,
-              format!("{ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT}: {reason}"),
-            )
-            .requiring_rediscovery()
-          })
-        };
-        let configuration = probe(ITE_EC_CONFIGURATION_REGISTER)?;
-        if discovered.profile.discovery_rejects_configuration_bit7
-          && configuration & 0x80 != 0
-        {
-          return Err(ite_experimental_non_component_failure(
-            discovered.profile,
-            "Environment Controller configuration bit 7 is set",
-          ));
-        }
-        // EC 0x58 is a banked index; read it only after a bank-0 check.
-        if discovered.profile.access == IteEcAccess::BankGuarded {
-          let bank_select = probe(ITE_EC_BANK_REGISTER)?;
-          if !is_ite_ec_bank_zero(bank_select) {
-            // Another bank user can hold a non-zero bank only transiently, so
-            // the whole discovery reruns later instead of keeping the path
-            // unavailable. No sample transaction enters configuration mode.
-            return Err(
-              ChipFailure::ite(
-                discovered.profile,
-                format!(
-                  "Environment Controller bank is not 0 (EC 0x06=0x{bank_select:02X})"
-                ),
-              )
-              .hardware_state()
-              .requiring_rediscovery()
-              .into(),
-            );
-          }
-        }
-        if discovered.profile.checks_vendor_byte {
-          let vendor = probe(ITE_EC_VENDOR_REGISTER)?;
-          if vendor != ITE_EC_VENDOR_ID {
-            return Err(ite_experimental_non_component_failure(
-              discovered.profile,
-              format!("unexpected Environment Controller vendor byte 0x{vendor:02X}"),
-            ));
-          }
-        }
-        Ok(Some(discovered))
+        SlotProbe::exited(Self::authorize_discovered(client, discovered).map(Some))
       }
-      (Ok(None), Ok(())) => Ok(None),
-      (Ok(Some(discovered)), Err(exit_error)) => Err(
+      (result, Ok(())) => SlotProbe::exited(result),
+      (Ok(Some(discovered)), Err(exit_error)) => SlotProbe::unconfirmed(
         ChipFailure::ite(
           discovered.profile,
           format!("{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"),
         )
-        .requiring_rediscovery()
         .into(),
       ),
       (Ok(None), Err(exit_error)) => {
-        Err(format!("ITE config exit failed: {exit_error}").into())
+        SlotProbe::unconfirmed(format!("ITE config exit failed: {exit_error}").into())
       }
-      (Err(reason), Ok(())) => Err(reason),
-      (Err(reason), Err(exit_error)) => Err(reason.with_exit_failure(
+      (Err(reason), Err(exit_error)) => SlotProbe::unconfirmed(reason.with_exit_failure(
         format!("; {ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"),
-        true,
       )),
     }
+  }
+
+  /// The post-exit checks of a discovered profile under the same ISA mutex:
+  /// the EC `0x00` port proof, then the profile's bit-7, bank and vendor-byte
+  /// gates. Port failures here are eligible for rediscovery
+  /// (`superio-ite-primary-lpc-expansion.md` rev 9 "Rediscovery
+  /// eligibility"; `superio-ite-it86xx-it87xx.md` rev 3).
+  fn authorize_discovered(
+    client: &C,
+    discovered: DetectedIteSlot,
+  ) -> Result<DetectedIteSlot, MotherboardSensorError> {
+    // A read that fails after the port proof is a port failure as well.
+    let probe = |register| {
+      read_ite_ec_byte(client, discovered.ec_base, register).map_err(|reason| {
+        ChipFailure::ite(
+          discovered.profile,
+          format!("{ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT}: {reason}"),
+        )
+        .requiring_rediscovery()
+      })
+    };
+    let configuration = probe(ITE_EC_CONFIGURATION_REGISTER)?;
+    if discovered.profile.discovery_rejects_configuration_bit7
+      && configuration & 0x80 != 0
+    {
+      return Err(ite_experimental_non_component_failure(
+        discovered.profile,
+        "Environment Controller configuration bit 7 is set",
+      ));
+    }
+    // EC 0x58 is a banked index; read it only after a bank-0 check.
+    if discovered.profile.access == IteEcAccess::BankGuarded {
+      let bank_select = probe(ITE_EC_BANK_REGISTER)?;
+      if !is_ite_ec_bank_zero(bank_select) {
+        // Another bank user can hold a non-zero bank only transiently, so the
+        // failure is eligible and a later, separate attempt reruns the whole
+        // discovery. EC 0x06 is never written.
+        return Err(
+          ChipFailure::ite(
+            discovered.profile,
+            format!("Environment Controller bank is not 0 (EC 0x06=0x{bank_select:02X})"),
+          )
+          .hardware_state()
+          .requiring_rediscovery()
+          .into(),
+        );
+      }
+    }
+    if discovered.profile.checks_vendor_byte {
+      let vendor = probe(ITE_EC_VENDOR_REGISTER)?;
+      if vendor != ITE_EC_VENDOR_ID {
+        return Err(ite_experimental_non_component_failure(
+          discovered.profile,
+          format!("unexpected Environment Controller vendor byte 0x{vendor:02X}"),
+        ));
+      }
+    }
+    Ok(discovered)
   }
 
   fn sample(
@@ -1772,10 +1899,12 @@ fn ite_experimental_non_component_failure(
 mod tests {
   use std::cell::{Cell, RefCell};
   use std::collections::VecDeque;
+  use std::rc::Rc;
 
   use super::super::ite::{
     IT8716F_D, IT8728F, IT8728F_DX_EX, IT8772E_FX, ITE_EC_FAN_MODE_REGISTER,
   };
+  use super::rediscovery::test_support::{BusEvent, TestBackend};
   use super::*;
 
   struct FakeLpcIo {
@@ -1796,6 +1925,7 @@ mod tests {
     temperature_override: Cell<Option<(u8, u8)>>,
     /// A bank 4 register whose data read fails (after the index write).
     failed_hm_register: Cell<Option<u8>>,
+    fail_config_entry: Cell<bool>,
     fail_config_exit: Cell<bool>,
     superio_reads: RefCell<Vec<u8>>,
     superio_writes: RefCell<Vec<(u8, u8)>>,
@@ -1820,6 +1950,7 @@ mod tests {
         hm_base: Cell::new((0x02, 0x90)),
         temperature_override: Cell::new(None),
         failed_hm_register: Cell::new(None),
+        fail_config_entry: Cell::new(false),
         fail_config_exit: Cell::new(false),
         superio_reads: RefCell::new(Vec::new()),
         superio_writes: RefCell::new(Vec::new()),
@@ -1923,6 +2054,9 @@ mod tests {
         }
         _ if value == 0xAA && self.fail_config_exit.get() => {
           Err("simulated Nuvoton config exit failure".to_string())
+        }
+        _ if value == 0x87 && self.fail_config_entry.get() => {
+          Err("simulated Nuvoton config entry failure".to_string())
         }
         _ => Ok(()),
       }
@@ -2053,6 +2187,7 @@ mod tests {
     fan_mode: Cell<u8>,
     fan_counts: Cell<[[u16; 2]; 3]>,
     failed_ec_register: Cell<Option<u8>>,
+    fail_ite_entry: Cell<bool>,
     fail_config_exit: Cell<bool>,
     fail_gpio_selection: Cell<bool>,
     fail_ec_reselection: Cell<bool>,
@@ -2092,6 +2227,7 @@ mod tests {
         fan_mode: Cell::new(0x07),
         fan_counts: Cell::new([[450; 2], [675; 2], [1_350; 2]]),
         failed_ec_register: Cell::new(None),
+        fail_ite_entry: Cell::new(false),
         fail_config_exit: Cell::new(false),
         fail_gpio_selection: Cell::new(false),
         fail_ec_reselection: Cell::new(false),
@@ -2282,6 +2418,9 @@ mod tests {
         }
         0x002E | 0x004E => {
           self.config_port_writes.borrow_mut().push((port, value));
+          if value == 0x01 && self.fail_ite_entry.get() {
+            return Err("simulated ITE config entry failure".to_string());
+          }
           Ok(())
         }
         _ => panic!("unexpected ITE write to port 0x{port:04X}"),
@@ -2503,7 +2642,7 @@ mod tests {
          Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)"
       )
     );
-    assert!(!failure.is_retryable());
+    assert!(!failure.is_eligible_for_rediscovery());
     assert_eq!(locked.selected_ldn.get(), None);
     assert!(locked.superio_writes.borrow().is_empty());
     assert_eq!(locked.find_bars_calls.get(), 0);
@@ -2930,7 +3069,7 @@ mod tests {
        Nuvoton hardware-monitor I/O space is locked (CR28=0x10, bit 4 set)"
     );
     assert!(error.starts_with(NUVOTON_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX));
-    assert!(!failure.is_retryable());
+    assert!(!failure.is_eligible_for_rediscovery());
     assert_eq!(client.selected_ldn.get(), None);
     assert!(client.superio_writes.borrow().is_empty());
     assert!(!client.hm_base_high_read.get());
@@ -3111,14 +3250,17 @@ mod tests {
          simulated Nuvoton config exit failure"
       )
     );
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
     assert!(failure.offers_pawnio_guidance());
   }
 
+  /// `superio-access.md` rev 5 shared table: a timed-out or failed mutex wait
+  /// is eligible; a mutex that could not be created or opened is not.
   #[test]
-  fn only_a_timed_out_or_failed_mutex_wait_is_retryable() {
-    let retryable =
-      |error: MutexError| MotherboardSensorError::from(error).is_retryable();
+  fn only_a_timed_out_or_failed_mutex_wait_is_eligible() {
+    let retryable = |error: MutexError| {
+      MotherboardSensorError::from(error).is_eligible_for_rediscovery()
+    };
 
     assert!(retryable(MutexError::Timeout {
       name: ACCESS_ISABUS_MUTEX
@@ -3136,7 +3278,7 @@ mod tests {
   }
 
   #[test]
-  fn probe_failures_keep_an_earlier_retryable_error() {
+  fn probe_failures_keep_an_earlier_eligible_error() {
     let retryable = || {
       MotherboardSensorError::from(MutexError::Timeout {
         name: ACCESS_ISABUS_MUTEX,
@@ -3169,7 +3311,80 @@ mod tests {
         "{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated Nuvoton config exit failure"
       )
     );
-    assert!(!failure.is_retryable());
+    // `superio-nuvoton-nct67xx.md` rev 10: the class does not depend on
+    // whether a row is Verified or Experimental.
+    assert!(failure.is_eligible_for_rediscovery());
+  }
+
+  /// `superio-nuvoton-nct67xx.md` rev 10 "Rediscovery eligibility": a failed
+  /// entry-key or exit write is eligible on all rows, matched or not, and
+  /// owes cleanup. Absent and out-of-scope IDs, a `CR28` lock, an inactive
+  /// LDN B and an invalid base are not eligible.
+  #[test]
+  fn nct67xx_discovery_eligibility_follows_the_rediscovery_table() {
+    let unconfirmed: [fn() -> FakeLpcIo; 4] = [
+      || {
+        let client = FakeLpcIo::new();
+        client.fail_config_entry.set(true);
+        client
+      },
+      || {
+        let client = FakeLpcIo::new();
+        client.fail_config_exit.set(true);
+        client
+      },
+      || {
+        let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
+        client.fail_config_exit.set(true);
+        client
+      },
+      || {
+        let client = FakeLpcIo::with_chip_id(0x1234);
+        client.fail_config_exit.set(true);
+        client
+      },
+    ];
+    for make in unconfirmed {
+      let probe = ActiveNuvotonMotherboardSensors::probe_slot(&make(), 0);
+      assert!(probe.owes_cleanup());
+      assert!(
+        probe
+          .into_result()
+          .unwrap_err()
+          .is_eligible_for_rediscovery()
+      );
+    }
+
+    let refused: [fn() -> FakeLpcIo; 3] = [
+      || {
+        let client = FakeLpcIo::with_chip_id(D421_CHIP_ID);
+        client.hm_io_space_lock.set(0x10);
+        client
+      },
+      || {
+        let client = FakeLpcIo::new();
+        client.activation.set(0x00);
+        client
+      },
+      || {
+        let client = FakeLpcIo::new();
+        client.hm_base.set((0x00, 0x00));
+        client
+      },
+    ];
+    for make in refused {
+      let probe = ActiveNuvotonMotherboardSensors::probe_slot(&make(), 0);
+      assert!(!probe.owes_cleanup());
+      let failure = probe.into_result().unwrap_err();
+      assert!(!failure.is_eligible_for_rediscovery(), "{failure}");
+    }
+
+    for chip_id in [0xFFFF, 0x0000, 0x1234] {
+      let probe =
+        ActiveNuvotonMotherboardSensors::probe_slot(&FakeLpcIo::with_chip_id(chip_id), 0);
+      assert!(!probe.owes_cleanup());
+      assert!(probe.into_result().unwrap().is_none());
+    }
   }
 
   #[test]
@@ -3307,7 +3522,7 @@ mod tests {
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains("EC port authorization probe failed"));
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
     assert_eq!(client.find_bars_calls.get(), 1);
     assert_eq!(client.config_exit_calls.get(), 1);
     assert_eq!(client.read_registers.borrow().as_slice(), &[0x00]);
@@ -3329,7 +3544,7 @@ mod tests {
       error.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT),
       "{error}"
     );
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
   }
 
   #[test]
@@ -3343,7 +3558,7 @@ mod tests {
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT));
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
     assert_eq!(client.config_exit_calls.get(), 1);
   }
 
@@ -4348,7 +4563,10 @@ mod tests {
 
       assert!(error.contains(expected_error), "{error}");
       assert!(error.contains("IT8620E"));
-      assert_eq!(failure.is_retryable(), fail_exit || deny_ports);
+      assert_eq!(
+        failure.is_eligible_for_rediscovery(),
+        fail_exit || deny_ports
+      );
       assert_eq!(*client.read_registers.borrow(), expected_reads);
     }
   }
@@ -4820,7 +5038,7 @@ mod tests {
       assert!(error.contains(expected_error), "{error}");
       assert!(error.contains("IT8686E"), "{error}");
       // An unreadable or non-zero bank reruns discovery; the other gates stay.
-      assert_eq!(failure.is_retryable(), bank != Some(0x00));
+      assert_eq!(failure.is_eligible_for_rediscovery(), bank != Some(0x00));
       assert_eq!(*client.read_registers.borrow(), expected_reads);
     }
   }
@@ -4832,7 +5050,7 @@ mod tests {
 
     let failure = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
 
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
     assert!(!failure.offers_pawnio_guidance());
     assert!(
       failure
@@ -4905,7 +5123,7 @@ mod tests {
 
       let failure = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
 
-      assert!(failure.is_retryable());
+      assert!(failure.is_eligible_for_rediscovery());
       assert!(client.read_registers.borrow().is_empty());
     }
   }
@@ -4936,5 +5154,406 @@ mod tests {
       assert_eq!(client.find_bars_calls.get(), 0);
       assert!(client.selected_ec_register.get().is_none());
     }
+  }
+
+  // --- Rediscovery eligibility and cadence on the ITE paths ---
+
+  /// Lets a fake backend hand out shared executors that a test inspects
+  /// after the sampler has used or dropped them.
+  impl LpcIoOps for Rc<FakeIteLpcIo> {
+    fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+      (**self).select_lpc_slot(slot)
+    }
+
+    fn find_lpc_bars(&self) -> Result<(), String> {
+      (**self).find_lpc_bars()
+    }
+
+    fn pio_inb(&self, port: u16) -> Result<u8, String> {
+      (**self).pio_inb(port)
+    }
+
+    fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+      (**self).pio_outb(port, value)
+    }
+
+    fn superio_inb(&self, register: u8) -> Result<u8, String> {
+      (**self).superio_inb(register)
+    }
+
+    fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+      (**self).superio_outb(register, value)
+    }
+  }
+
+  type IteBackend = TestBackend<Rc<FakeIteLpcIo>>;
+
+  /// A backend whose attempts open the prepared executors in order.
+  fn ite_backend(clients: Vec<FakeIteLpcIo>) -> (IteBackend, Vec<Rc<FakeIteLpcIo>>) {
+    let clients: Vec<Rc<FakeIteLpcIo>> = clients.into_iter().map(Rc::new).collect();
+    let queue = RefCell::new(clients.iter().map(Rc::clone).collect::<VecDeque<_>>());
+    let backend = TestBackend::new(Rc::new(RefCell::new(Vec::new())), move || {
+      queue
+        .borrow_mut()
+        .pop_front()
+        .expect("a prepared executor for every attempt")
+    });
+    (backend, clients)
+  }
+
+  fn ite_sampler(backend: &IteBackend) -> MotherboardSamplerCore<IteBackend> {
+    MotherboardSamplerCore::new(backend.clone(), SharedRediscovery::new())
+  }
+
+  fn request_ite(
+    backend: &IteBackend,
+    sampler: &mut MotherboardSamplerCore<IteBackend>,
+    ms: u64,
+  ) -> Result<MotherboardSensorSample, MotherboardSensorError> {
+    backend.set_ms(ms);
+    sampler.sample()
+  }
+
+  /// `superio-ite-primary-lpc-expansion.md` rev 9 "Rediscovery eligibility":
+  /// a failed post-exit port proof, a failed EC `0x58` read and a failed or
+  /// non-zero EC `0x06` are eligible; EC `0x00` bit 7 and an EC `0x58`
+  /// mismatch are not. None of them leaves the exit unconfirmed.
+  #[test]
+  fn primary_lpc_discovery_eligibility_follows_the_rediscovery_table() {
+    let cases: [(fn() -> FakeIteLpcIo, bool); 7] = [
+      (
+        || {
+          let client = FakeIteLpcIo::with_chip_id(0x8620);
+          client.deny_ec_bars.set(true);
+          client
+        },
+        true,
+      ),
+      (
+        || {
+          let client = FakeIteLpcIo::with_chip_id(0x8628);
+          client.failed_ec_register.set(Some(ITE_EC_VENDOR_REGISTER));
+          client
+        },
+        true,
+      ),
+      (
+        || {
+          let client = FakeIteLpcIo::for_banked_modern(0x8686);
+          client.bank_reads.borrow_mut().push_back(None);
+          client
+        },
+        true,
+      ),
+      (
+        || {
+          let client = FakeIteLpcIo::for_banked_modern(0x8688);
+          client.bank_reads.borrow_mut().push_back(Some(0x20));
+          client
+        },
+        true,
+      ),
+      (
+        || {
+          let client = FakeIteLpcIo::for_banked_modern(0x8689);
+          client.failed_ec_register.set(Some(ITE_EC_VENDOR_REGISTER));
+          client
+        },
+        true,
+      ),
+      (
+        || {
+          let client = FakeIteLpcIo::with_chip_id(0x8620);
+          client.ec_configuration.set(0x81);
+          client
+        },
+        false,
+      ),
+      (
+        || {
+          let client = FakeIteLpcIo::for_banked_modern(0x8686);
+          client.ec_vendor.set(0x00);
+          client
+        },
+        false,
+      ),
+    ];
+    for (make, eligible) in cases {
+      let client = make();
+      let probe = ActiveIteMotherboardSensors::probe_slot(&client, 0);
+      assert!(!probe.owes_cleanup());
+      let failure = probe.into_result().unwrap_err();
+      assert_eq!(failure.is_eligible_for_rediscovery(), eligible, "{failure}");
+    }
+  }
+
+  /// `superio-ite-it86xx-it87xx.md` rev 3 "Rediscovery eligibility" and the
+  /// `superio-access.md` rev 5 shared table: a failed configuration exit or
+  /// entry key is eligible and owes cleanup; a failed post-exit EC `0x00`
+  /// proof is eligible; an inactive LDN `0x04` or a refused base is not; any
+  /// other chip ID is no failure at all.
+  #[test]
+  fn it8728_discovery_eligibility_follows_the_rediscovery_table() {
+    let unconfirmed: [fn(&FakeIteLpcIo); 3] = [
+      |client| client.fail_config_exit.set(true),
+      |client| client.fail_ite_entry.set(true),
+      |client| {
+        client.activation.set(0x00);
+        client.fail_config_exit.set(true);
+      },
+    ];
+    for configure in unconfirmed {
+      let client = FakeIteLpcIo::for_it8728_temperatures_only();
+      configure(&client);
+      let probe = ActiveIteMotherboardSensors::probe_slot(&client, 0);
+      assert!(probe.owes_cleanup());
+      assert!(
+        probe
+          .into_result()
+          .unwrap_err()
+          .is_eligible_for_rediscovery()
+      );
+    }
+
+    type Configure = fn(&FakeIteLpcIo);
+    let completed: [(Configure, bool); 3] = [
+      (
+        |client| {
+          client
+            .failed_ec_register
+            .set(Some(ITE_EC_CONFIGURATION_REGISTER))
+        },
+        true,
+      ),
+      (|client| client.activation.set(0x00), false),
+      (
+        |client| {
+          client.base_high.set(0xFF);
+          client.base_low.set(0xFF);
+        },
+        false,
+      ),
+    ];
+    for (configure, eligible) in completed {
+      let client = FakeIteLpcIo::for_it8728_temperatures_only();
+      configure(&client);
+      let probe = ActiveIteMotherboardSensors::probe_slot(&client, 0);
+      assert!(!probe.owes_cleanup());
+      let failure = probe.into_result().unwrap_err();
+      assert_eq!(failure.is_eligible_for_rediscovery(), eligible, "{failure}");
+    }
+
+    let client = FakeIteLpcIo::with_chip_id(0x8721);
+    let probe = ActiveIteMotherboardSensors::probe_slot(&client, 0);
+    assert!(!probe.owes_cleanup());
+    assert!(probe.into_result().unwrap().is_none());
+  }
+
+  /// `superio-ite-primary-lpc-expansion.md` rev 9 Fixtures: "Banked modern
+  /// discovery: on the first attempt EC `0x06` reads `0x20` after the port
+  /// proof and bit-7 check, and on a later attempt `0x00`".
+  #[test]
+  fn banked_nonzero_discovery_bank_is_retried_by_a_separate_later_attempt() {
+    let first = FakeIteLpcIo::for_banked_modern(0x8686);
+    first.bank_reads.borrow_mut().push_back(Some(0x20));
+    let (backend, clients) =
+      ite_backend(vec![first, FakeIteLpcIo::for_banked_modern(0x8686)]);
+    let mut sampler = ite_sampler(&backend);
+
+    let failure = request_ite(&backend, &mut sampler, 0).unwrap_err();
+    assert!(failure.is_eligible_for_rediscovery());
+    assert!(sampler.active.is_none());
+    // No EC 0x58 read; the fake rejects any EC data-port write.
+    assert_eq!(*clients[0].read_registers.borrow(), [0x00, 0x06]);
+    for ms in (100..2_000).step_by(100) {
+      assert_eq!(
+        request_ite(&backend, &mut sampler, ms).unwrap_err(),
+        failure
+      );
+    }
+    assert_eq!(backend.open_times_ms(), [0]);
+
+    let sample = request_ite(&backend, &mut sampler, 2_000).unwrap();
+    assert_eq!(sample.fan_speeds.len() + sample.temperatures.len(), 6);
+    assert_eq!(backend.open_times_ms(), [0, 2_000]);
+    // The later attempt and its sample each hold their own acquisition.
+    let attempt = backend.events_of_last_attempt();
+    assert_eq!(
+      attempt,
+      [
+        BusEvent::Open { at_ms: 2_000 },
+        BusEvent::Acquire,
+        BusEvent::Release,
+        BusEvent::Acquire,
+        BusEvent::Release,
+      ]
+    );
+
+    // Later sample bursts make no configuration entry, exit or CR access.
+    let port_writes = clients[1].config_port_writes.borrow().len();
+    let config_writes = clients[1].config_writes.borrow().len();
+    let config_reads = clients[1].config_reads.borrow().len();
+    assert!(request_ite(&backend, &mut sampler, 3_600).is_ok());
+    assert_eq!(clients[1].config_port_writes.borrow().len(), port_writes);
+    assert_eq!(clients[1].config_writes.borrow().len(), config_writes);
+    assert_eq!(clients[1].config_reads.borrow().len(), config_reads);
+    assert_eq!(backend.open_times_ms(), [0, 2_000]);
+  }
+
+  /// `superio-ite-primary-lpc-expansion.md` rev 9 Fixtures: "Banked modern
+  /// discovery, EC `0x06` reads `0x60` on every attempt".
+  #[test]
+  fn persistent_nonzero_discovery_bank_follows_the_backoff() {
+    let clients = (0..6)
+      .map(|_| {
+        let client = FakeIteLpcIo::for_banked_modern(0x8689);
+        client.bank_reads.borrow_mut().push_back(Some(0x60));
+        client
+      })
+      .collect();
+    let (backend, clients) = ite_backend(clients);
+    let mut sampler = ite_sampler(&backend);
+
+    for ms in (0..=60_000).step_by(100) {
+      assert!(request_ite(&backend, &mut sampler, ms).is_err());
+    }
+
+    assert_eq!(
+      backend.open_times_ms(),
+      [0, 2_000, 6_000, 14_000, 30_000, 60_000]
+    );
+    assert!(sampler.active.is_none());
+    for client in &clients {
+      assert_eq!(*client.read_registers.borrow(), [0x00, 0x06]);
+    }
+  }
+
+  /// `superio-ite-primary-lpc-expansion.md` rev 9 Fixtures: "Banked modern
+  /// discovery, EC `0x06` = `0x00` and EC `0x58` = `0x00`".
+  #[test]
+  fn banked_vendor_mismatch_at_discovery_stops_the_sampler() {
+    let client = FakeIteLpcIo::for_banked_modern(0x8686);
+    client.ec_vendor.set(0x00);
+    let (backend, _clients) = ite_backend(vec![client]);
+    let mut sampler = ite_sampler(&backend);
+
+    let failure = request_ite(&backend, &mut sampler, 0).unwrap_err();
+    assert!(!failure.is_eligible_for_rediscovery());
+    for ms in (1_600..=120_000).step_by(1_600) {
+      assert_eq!(
+        request_ite(&backend, &mut sampler, ms).unwrap_err(),
+        failure
+      );
+    }
+
+    assert_eq!(backend.open_times_ms(), [0]);
+  }
+
+  /// `superio-access.md` rev 5 Fixtures: "A cached path whose samples fail as
+  /// a whole on several requests, for example a banked ITE opening check
+  /// that reads EC `0x06` = `0x20`, while the path stays cached".
+  #[test]
+  fn banked_sample_bank_refusals_start_no_discovery_attempt() {
+    let client = FakeIteLpcIo::for_banked_modern(0x8686);
+    // The discovery check reads bank 0; every sample opening check 0x20.
+    client.bank_reads.borrow_mut().push_back(Some(0x00));
+    client.bank_reads.borrow_mut().extend([Some(0x20); 8]);
+    let (backend, clients) = ite_backend(vec![client]);
+    let mut sampler = ite_sampler(&backend);
+
+    assert!(request_ite(&backend, &mut sampler, 0).is_err());
+    assert!(sampler.active.is_some());
+    let port_writes = clients[0].config_port_writes.borrow().len();
+    let config_writes = clients[0].config_writes.borrow().len();
+
+    for ms in (1_600..=11_200).step_by(1_600) {
+      assert!(request_ite(&backend, &mut sampler, ms).is_err());
+    }
+
+    assert_eq!(backend.open_times_ms(), [0]);
+    assert_eq!(clients[0].config_port_writes.borrow().len(), port_writes);
+    assert_eq!(clients[0].config_writes.borrow().len(), config_writes);
+    // Each request ran its own sample burst.
+    assert_eq!(backend.count(|event| *event == BusEvent::Acquire), 1 + 8);
+  }
+
+  /// `superio-access.md` rev 5 Fixtures: "ITE: a successful attempt and a
+  /// first sample burst at 0, then requests at 1.0 and 1.5" (R8).
+  #[test]
+  fn ite_sample_minimum_is_independent_of_discovery() {
+    let (backend, _clients) = ite_backend(vec![FakeIteLpcIo::for_it8728f_dx_ex()]);
+    let mut sampler = ite_sampler(&backend);
+
+    let first = request_ite(&backend, &mut sampler, 0).unwrap();
+    let acquisitions =
+      |backend: &IteBackend| backend.count(|event| *event == BusEvent::Acquire);
+    // The attempt and the first burst in the same request.
+    assert_eq!(acquisitions(&backend), 2);
+
+    assert_eq!(request_ite(&backend, &mut sampler, 1_000).unwrap(), first);
+    assert_eq!(acquisitions(&backend), 2);
+    assert!(request_ite(&backend, &mut sampler, 1_500).is_ok());
+    assert_eq!(acquisitions(&backend), 3);
+    assert_eq!(backend.open_times_ms(), [0]);
+  }
+
+  /// `superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` rev 3 Fixture cases:
+  /// "Configuration exit or post-exit proof fails on the first discovery
+  /// attempt and succeeds on a later one".
+  #[test]
+  fn it8728f_fans_are_read_only_after_a_later_successful_attempt() {
+    for fails_exit in [true, false] {
+      let first = FakeIteLpcIo::for_it8728f_dx_ex();
+      if fails_exit {
+        first.fail_config_exit.set(true);
+      } else {
+        first.deny_ec_bars.set(true);
+      }
+      let (backend, clients) =
+        ite_backend(vec![first, FakeIteLpcIo::for_it8728f_dx_ex()]);
+      let mut sampler = ite_sampler(&backend);
+
+      let failure = request_ite(&backend, &mut sampler, 0).unwrap_err();
+      assert!(failure.is_eligible_for_rediscovery());
+      assert!(
+        !clients[0]
+          .read_registers
+          .borrow()
+          .contains(&ITE_EC_FAN_ENABLE_REGISTER)
+      );
+      assert!(request_ite(&backend, &mut sampler, 1_999).is_err());
+      assert_eq!(backend.open_times_ms(), [0]);
+
+      let sample = request_ite(&backend, &mut sampler, 2_000).unwrap();
+      assert_eq!(fan_names(&sample), ["Fan 1", "Fan 2"]);
+      assert_eq!(backend.open_times_ms(), [0, 2_000]);
+      if fails_exit {
+        // The failed exit owed a slot-0 ITE cleanup, which the later attempt
+        // ran first: keys, then the exit, then the scan.
+        assert_eq!(
+          clients[1].config_port_writes.borrow()[..4],
+          [(0x2E, 0x87), (0x2E, 0x01), (0x2E, 0x55), (0x2E, 0x55)]
+        );
+        assert_eq!(clients[1].config_writes.borrow()[0], (0x02, 0x02));
+      }
+    }
+  }
+
+  /// `superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` rev 3 Fixture cases:
+  /// "`CR29` unreadable at discovery, everything else qualified".
+  #[test]
+  fn it8728f_unreadable_cr29_keeps_the_path_without_rediscovery() {
+    let client = FakeIteLpcIo::for_it8728f_dx_ex();
+    client.routing.set([None, Some(0)]);
+    let (backend, _clients) = ite_backend(vec![client]);
+    let mut sampler = ite_sampler(&backend);
+
+    let sample = request_ite(&backend, &mut sampler, 0).unwrap();
+    assert_eq!(fan_names(&sample), ["Fan 1"]);
+    for ms in (1_600..=32_000).step_by(1_600) {
+      assert!(request_ite(&backend, &mut sampler, ms).is_ok());
+    }
+
+    assert_eq!(backend.open_times_ms(), [0]);
   }
 }

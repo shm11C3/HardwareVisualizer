@@ -9,13 +9,15 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-access.md` revision 3 (revision 4 for the
-//!   slot-1 ITE exit withhold)
-//! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 9
+//!   slot-1 ITE exit withhold, revision 5 for the sampling-path rediscovery
+//!   cadence)
+//! - `docs/specs/sensors/superio-nuvoton-nct67xx.md` revision 10
 //! - `docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md`
-//!   revision 1
-//! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 2
+//!   revision 2
+//! - `docs/specs/sensors/superio-ite-it86xx-it87xx.md` revision 3
 //! - `docs/specs/sensors/superio-ite-primary-lpc-expansion.md` revision 7
-//! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 2
+//!   (revision 9 for its rediscovery eligibility)
+//! - `docs/specs/sensors/superio-ite-it8728f-ex-ga-b75m-d3h-fans.md` revision 3
 //!
 //! No other external sensor source was used.
 

@@ -3,9 +3,10 @@
 //!
 //! Implemented from:
 //! - `docs/specs/sensors/superio-nuvoton-nct6775-nct6776-nct610x.md`
-//!   revision 1
+//!   revision 2 (revision 1 facts, plus "Rediscovery eligibility")
 //! - `docs/specs/sensors/superio-access.md` revision 4 (Nuvoton enter/exit,
-//!   chip-ID reads, absent-ID classification, ISA mutex)
+//!   chip-ID reads, absent-ID classification, ISA mutex), and revision 5 for
+//!   the sampling-path rediscovery cadence
 //! - `docs/specs/sensors/pawnio-interface.md` revision 9 (`LpcIO` contract
 //!   and mutex conventions; the `LpcIO` section is unchanged since the
 //!   revision 8 that the Nuvoton document cites)
@@ -263,12 +264,14 @@ impl<C: LpcIoOps> ActiveNuvotonSmiovtSensors<C> {
     client: &C,
     slot: u8,
   ) -> Result<Option<DetectedSmiovtSlot>, MotherboardSensorError> {
-    Self::probe_slot(client, slot).result
+    Self::probe_slot(client, slot).into_result()
   }
 
   /// "Detection" for one slot. The caller holds the ISA mutex. Once the slot
   /// is selected, configuration mode is exited on every path, including a
-  /// failed entry key write ("Detection" step 8).
+  /// failed entry key write ("Detection" step 8). A failed entry-key or exit
+  /// write leaves the exit unconfirmed even when the best-effort exit after
+  /// a failed entry succeeds ("Rediscovery eligibility").
   pub(super) fn probe_slot(client: &C, slot: u8) -> SlotProbe<DetectedSmiovtSlot> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
       return SlotProbe::exited(Ok(None));
@@ -281,20 +284,19 @@ impl<C: LpcIoOps> ActiveNuvotonSmiovtSensors<C> {
     if let Err(entry_error) = enter_nuvoton(client, index_port) {
       // Best-effort exit; the entry failure stays the primary error.
       let error = MotherboardSensorError::from(entry_error);
-      return match exit_nuvoton(client, index_port) {
-        Ok(()) => SlotProbe::exited(Err(error)),
-        Err(exit_error) => SlotProbe::unconfirmed(Err(
-          error.with_exit_failure(format!("; exit failed: {exit_error}"), true),
-        )),
-      };
+      return SlotProbe::unconfirmed(match exit_nuvoton(client, index_port) {
+        Ok(()) => error,
+        Err(exit_error) => {
+          error.with_exit_failure(format!("; exit failed: {exit_error}"))
+        }
+      });
     }
     let result = discover_in_configuration_mode(client, slot);
     let exit_result = exit_nuvoton(client, index_port);
-    let configuration_exited = exit_result.is_ok();
 
-    let result = match (result, exit_result) {
-      (Ok(value), Ok(())) => Ok(value),
-      (Ok(Some(detected)), Err(exit_error)) => Err(
+    match (result, exit_result) {
+      (result, Ok(())) => SlotProbe::exited(result),
+      (Ok(Some(detected)), Err(exit_error)) => SlotProbe::unconfirmed(
         // The raw ID is always recorded in diagnostics.
         ChipFailure::nuvoton_smiovt(
           detected.profile,
@@ -303,22 +305,14 @@ impl<C: LpcIoOps> ActiveNuvotonSmiovtSensors<C> {
             detected.raw_chip_id
           ),
         )
-        .requiring_rediscovery()
         .into(),
       ),
-      (Ok(None), Err(exit_error)) => {
-        Err(format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}").into())
-      }
-      (Err(reason), Ok(())) => Err(reason),
-      // A matched chip whose exit failed needs a fresh detection, as on the
-      // successful-detection branch above.
-      (Err(reason), Err(exit_error)) => {
-        Err(reason.with_exit_failure(format!("; exit failed: {exit_error}"), true))
-      }
-    };
-    SlotProbe {
-      result,
-      configuration_exited,
+      (Ok(None), Err(exit_error)) => SlotProbe::unconfirmed(
+        format!("{NUVOTON_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}").into(),
+      ),
+      (Err(reason), Err(exit_error)) => SlotProbe::unconfirmed(
+        reason.with_exit_failure(format!("; exit failed: {exit_error}")),
+      ),
     }
   }
 
@@ -468,6 +462,7 @@ mod tests {
   use std::cell::{Cell, RefCell};
   use std::collections::HashMap;
 
+  use super::super::rediscovery::{ConfigurationSequence, OwedCleanup};
   use super::*;
   use crate::models::FanSpeedStatus;
 
@@ -905,7 +900,7 @@ mod tests {
       )
     );
     assert!(!failure.offers_pawnio_guidance());
-    assert!(!failure.is_retryable());
+    assert!(!failure.is_eligible_for_rediscovery());
     assert_eq!(chip.selected_ldn.get(), None);
     assert_eq!(chip.find_bars_calls.get(), 0);
     assert!(!chip.in_configuration_mode.get());
@@ -970,7 +965,7 @@ mod tests {
       "{error}"
     );
     // A vendor ID that reads but differs is not retried.
-    assert!(!failure.is_retryable());
+    assert!(!failure.is_eligible_for_rediscovery());
     assert!(!chip.in_configuration_mode.get());
   }
 
@@ -986,7 +981,38 @@ mod tests {
     assert!(error.contains("vendor ID read failed"), "{error}");
     assert!(failure.offers_pawnio_guidance());
     // A failed HM port access can recover, so detection is retried.
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
+  }
+
+  /// Spec rev 2 "Rediscovery eligibility": a step 7 vendor-ID port failure is
+  /// eligible, and every value that PawnIO read successfully (`CR26` LOCKREG,
+  /// an inactive LDN B, a refused base, a vendor-ID mismatch) is not. None of
+  /// them leaves the exit unconfirmed.
+  #[test]
+  fn detection_eligibility_follows_the_rediscovery_table() {
+    for (configure, eligible) in [
+      (
+        (|chip: &FakeSmiovtChip| chip.failed_hm_read.set(Some((0, 0x4F))))
+          as fn(&FakeSmiovtChip),
+        true,
+      ),
+      (|chip: &FakeSmiovtChip| chip.set_config(0x26, 0x20), false),
+      (|chip: &FakeSmiovtChip| chip.set_config(0x30, 0x00), false),
+      (|chip: &FakeSmiovtChip| chip.set_config(0x61, 0x92), false),
+      (
+        |chip: &FakeSmiovtChip| chip.vendor_id.set((0xA3, 0x5C)),
+        false,
+      ),
+    ] {
+      let chip = FakeSmiovtChip::nct6776();
+      configure(&chip);
+
+      let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
+
+      assert!(!probe.owes_cleanup());
+      let failure = probe.into_result().unwrap_err();
+      assert_eq!(failure.is_eligible_for_rediscovery(), eligible, "{failure}");
+    }
   }
 
   #[test]
@@ -996,8 +1022,8 @@ mod tests {
 
     let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
 
-    assert!(!probe.configuration_exited);
-    let failure = probe.result.unwrap_err();
+    assert!(probe.owes_cleanup());
+    let failure = probe.into_result().unwrap_err();
     assert_eq!(
       failure.to_string(),
       format!(
@@ -1005,7 +1031,7 @@ mod tests {
          simulated config exit failure (raw chip ID 0xC333)"
       )
     );
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
   }
 
   #[test]
@@ -1022,17 +1048,20 @@ mod tests {
 
       let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
 
-      assert!(!probe.configuration_exited);
-      let failure = probe.result.unwrap_err();
+      assert!(probe.owes_cleanup());
+      let failure = probe.into_result().unwrap_err();
       let error = failure.to_string();
       assert!(
         error.ends_with("; exit failed: simulated config exit failure"),
         "{error}"
       );
-      assert!(failure.is_retryable(), "{error}");
+      assert!(failure.is_eligible_for_rediscovery(), "{error}");
     }
   }
 
+  /// Spec rev 2 "Rediscovery eligibility": a failed `0x87`, `0x87` entry-key
+  /// write is eligible and owes cleanup, even when the best-effort exit of
+  /// step 8 succeeds.
   #[test]
   fn detection_attempts_an_exit_after_a_failed_entry_key() {
     let chip = FakeSmiovtChip::nct6776();
@@ -1040,11 +1069,10 @@ mod tests {
 
     let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
 
-    assert!(probe.configuration_exited);
-    assert_eq!(
-      probe.result.unwrap_err().to_string(),
-      "simulated entry key failure"
-    );
+    assert!(probe.owes_cleanup());
+    let failure = probe.into_result().unwrap_err();
+    assert_eq!(failure.to_string(), "simulated entry key failure");
+    assert!(failure.is_eligible_for_rediscovery());
     assert_eq!(chip.exit_calls.get(), 1);
     assert!(!chip.in_configuration_mode.get());
     // No configuration register was read after the failed entry.
@@ -1056,9 +1084,9 @@ mod tests {
 
     let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
 
-    assert!(!probe.configuration_exited);
+    assert!(probe.owes_cleanup());
     assert_eq!(
-      probe.result.unwrap_err().to_string(),
+      probe.into_result().unwrap_err().to_string(),
       "simulated entry key failure; exit failed: simulated config exit failure"
     );
   }
@@ -1070,8 +1098,10 @@ mod tests {
 
     let probe = ActiveNuvotonSmiovtSensors::probe_slot(&chip, 0);
 
-    assert!(probe.configuration_exited);
-    assert!(probe.result.is_err());
+    assert!(!probe.owes_cleanup());
+    let failure = probe.into_result().unwrap_err();
+    // Slot selection is not listed as eligible.
+    assert!(!failure.is_eligible_for_rediscovery());
     assert_eq!(chip.exit_calls.get(), 0);
     assert_eq!(chip.entry_keys_in_session.get(), 0);
   }
@@ -1085,16 +1115,20 @@ mod tests {
     let chip = FakeSmiovtChip::nct6776();
     chip.fail_exit_call.set(Some(2));
     chip.fail_select_slot.set(Some(1));
+    let mut owed = OwedCleanup::default();
 
-    let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+    let failure = match super::super::ActiveMotherboardSensors::discover(&chip, &mut owed)
+    {
       Ok(_) => panic!("discovery should fail"),
       Err(failure) => failure,
     };
     assert_eq!(chip.exit_calls.get(), 2);
 
-    // The retryable exit failure of slot 0 survives the later slot 1
-    // selection failures.
-    assert!(failure.is_retryable());
+    // `superio-access.md` rev 5: the unconfirmed exit ends the attempt
+    // before slot 1, and slot 0 owes a Nuvoton-lineage cleanup.
+    assert!(failure.is_eligible_for_rediscovery());
+    assert_eq!(owed.owed(0), Some(ConfigurationSequence::NuvotonLineage));
+    assert_eq!(owed.owed(1), None);
     assert_eq!(
       failure.to_string(),
       format!(
@@ -1110,7 +1144,13 @@ mod tests {
     chip.fail_exit_call.set(Some(1));
     chip.fail_select_slot.set(Some(1));
 
-    assert!(super::super::ActiveMotherboardSensors::discover(&chip).is_err());
+    assert!(
+      super::super::ActiveMotherboardSensors::discover(
+        &chip,
+        &mut OwedCleanup::default()
+      )
+      .is_err()
+    );
 
     // Neither the source-selected nor the ITE probe ran on slot 0.
     assert_eq!(chip.exit_calls.get(), 1);
@@ -1130,7 +1170,10 @@ mod tests {
   fn clean_nuvoton_misses_still_reach_the_ite_probe() {
     let chip = unmatched_chip_with_recorded_ite_probe();
 
-    let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+    let failure = match super::super::ActiveMotherboardSensors::discover(
+      &chip,
+      &mut OwedCleanup::default(),
+    ) {
       Ok(_) => panic!("discovery should fail"),
       Err(failure) => failure,
     };
@@ -1141,7 +1184,7 @@ mod tests {
       &[(0x00, 0x01), (0x00, 0x55), (0x00, 0x55), (0x02, 0x02)]
     );
     // Only the slot 1 selection failures remain; nothing asks for a retry.
-    assert!(!failure.is_retryable());
+    assert!(!failure.is_eligible_for_rediscovery());
   }
 
   #[test]
@@ -1150,7 +1193,10 @@ mod tests {
       let chip = unmatched_chip_with_recorded_ite_probe();
       chip.fail_exit_call.set(Some(failing_exit));
 
-      let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+      let failure = match super::super::ActiveMotherboardSensors::discover(
+        &chip,
+        &mut OwedCleanup::default(),
+      ) {
         Ok(_) => panic!("discovery should fail"),
         Err(failure) => failure,
       };
@@ -1161,7 +1207,7 @@ mod tests {
         "exit {failing_exit}"
       );
       // ... and the failure is retried so a later attempt can reach it.
-      assert!(failure.is_retryable(), "exit {failing_exit}");
+      assert!(failure.is_eligible_for_rediscovery(), "exit {failing_exit}");
       assert!(failure.offers_pawnio_guidance(), "exit {failing_exit}");
       assert_eq!(
         failure.to_string(),
@@ -1179,13 +1225,16 @@ mod tests {
     chip.fail_second_entry_key.set(true);
     chip.fail_config_exit.set(true);
 
-    let failure = match super::super::ActiveMotherboardSensors::discover(&chip) {
+    let failure = match super::super::ActiveMotherboardSensors::discover(
+      &chip,
+      &mut OwedCleanup::default(),
+    ) {
       Ok(_) => panic!("discovery should fail"),
       Err(failure) => failure,
     };
 
     assert!(chip.ite_probe_writes.borrow().is_empty());
-    assert!(failure.is_retryable());
+    assert!(failure.is_eligible_for_rediscovery());
   }
 
   #[test]
