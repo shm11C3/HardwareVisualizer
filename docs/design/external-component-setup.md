@@ -74,9 +74,11 @@ but it does not read registers or share code with the provider.
    means installed and step 3 is skipped; `ERROR_FILE_NOT_FOUND` means
    absent; any other failure is unknown state and stops the run without
    changing anything.
-2. Resolve the module state. The plan lists the module files the app can use:
-   `IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin`, `LpcIO.bin`,
-   `AMDFamily10.bin`. Each file
+2. Resolve the module state. The plan lists the module files the app can use,
+   `IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin` and `LpcIO.bin`, plus
+   `AMDFamily10.bin`. Setup places `AMDFamily10.bin` for the AMD Family
+   15h/16h Tctl sampler that follows this change. Until that sampler lands,
+   the PawnIO client has no module variant that loads it. Each file
    is looked up under the known PawnIO roots in the provider's order, and the
    first one found is classified by its SHA-256 against the catalog: current
    (the pinned release), outdated (only an earlier release), or unrecognized
