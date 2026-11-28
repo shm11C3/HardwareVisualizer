@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 5 |
+| Revision | 6 |
 | Status | Draft — not implementation-ready |
-| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence and the per-platform dispositions for ASRock and AMD NCT6686D, ASRock NCT6683D and Intel NCT6683D boards and for direct Windows access. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
+| Scope | Existing firmware-enabled EC Space monitoring on MSI PRO B850-P WIFI (MS-7E56), raw chip ID `0xD592`, customer `0x020D`, EC 0.0 build 2025-04-18. Records separate Linux hwmon evidence, an installed-base ranking of the #2696 targets, and the per-platform dispositions for ASRock and AMD NCT6686D, ASRock NCT6683D, Intel NCT6683D and additional MSI NCT6687D boards and for direct Windows access. Excludes changing EC or Super I/O configuration, voltage, limits and fan control. |
 | Issue phase | [#2520](https://github.com/shm11C3/HardwareVisualizer/issues/2520), [#2696](https://github.com/shm11C3/HardwareVisualizer/issues/2696) |
 
 ## Sources
@@ -36,6 +36,11 @@
 | S23 | [ASRock X600DC-ITX customer patch](https://lkml.iu.edu/hypermail/linux/kernel/2611.1/21560.html), November 14, 2026, and the [maintainer reply](https://lkml.iu.edu/hypermail/linux/kernel/2611.1/22223.html) | First-hand BIOS 2.02, NCT6686D at `0x2e:0xa20`, forced binding of customer `0x165F` as `nct6683.2592`, EC 1.0 build 12/23/25, and plausible readings including fan input 1 near 1450 RPM and an AMD TSI temperature. The reply reports the patch as applied. The admission is absent from v7.4-rc4 (S22). |
 | S24 | [ASRock B850 Steel Legend WiFi fan-control series thread](https://ratatoskr.run/lkml/2026/08/17457921/t), August 25 to November 10, 2026 | First-hand customer `0x164A`, EC 1.0 build 10/29/24 and BIOS 4.10, unadmitted in v7.4-rc4. The series adds fan-control writes, which are outside this project. |
 | S25 | LibreHardwareMonitor at `9e2d677c`, [EC Space byte read](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/9e2d677cefff5c614ecc38da88fbc447eb478e2a/LibreHardwareMonitorLib/Hardware/Motherboard/Lpc/Nct677X.cs#L1259-L1302) | **lead-only (copyleft)** for a Windows reader that waits up to 500 ms for the application page selector to read `0xFF`, writes `0xFF` on timeout regardless, and writes `0xFF` after each byte. |
+| S26 | linux-hardware.org computer listings by baseboard model, for example [ASRock X670E Taichi](https://linux-hardware.org/?view=computers&vendor=ASRock&model=X670E+Taichi), [MSI MAG B550 TOMAHAWK](https://linux-hardware.org/?view=computers&vendor=MSI&model=MAG+B550+TOMAHAWK+%28MS-7C91%29) and [Intel DH87MC](https://linux-hardware.org/?view=computers&vendor=Intel&model=DH87MC), whose model filters list the per-model counts for the whole vendor, retrieved November 29, 2026 | Count of distinct computers per model whose owners submitted a Linux hardware probe. Intel counts sum the listed board revisions. A model absent from the filter is "Not listed". Used only to rank targets. |
+| S27 | Linux NCT6683-family driver customer admission at tags [v5.11](https://github.com/torvalds/linux/blob/v5.11/drivers/hwmon/nct6683.c), [v5.12](https://github.com/torvalds/linux/blob/v5.12/drivers/hwmon/nct6683.c), [v5.16](https://github.com/torvalds/linux/blob/v5.16/drivers/hwmon/nct6683.c), [v6.5](https://github.com/torvalds/linux/blob/v6.5/drivers/hwmon/nct6683.c), [v6.7](https://github.com/torvalds/linux/blob/v6.7/drivers/hwmon/nct6683.c), [v6.9](https://github.com/torvalds/linux/blob/v6.9/drivers/hwmon/nct6683.c), [v6.14](https://github.com/torvalds/linux/blob/v6.14/drivers/hwmon/nct6683.c), [v6.15](https://github.com/torvalds/linux/blob/v6.15/drivers/hwmon/nct6683.c), [v7.0](https://github.com/torvalds/linux/blob/v7.0/drivers/hwmon/nct6683.c), [v7.1](https://github.com/torvalds/linux/blob/v7.1/drivers/hwmon/nct6683.c) and [v7.2](https://github.com/torvalds/linux/blob/v7.2/drivers/hwmon/nct6683.c), each compared with the preceding release, and [commit `7fce84a991cd`](https://github.com/torvalds/linux/commit/7fce84a991cd), which names MSI PRO X670-P WIFI with NCT6687D for `0x0207` | **lead-only (copyleft)** for the first release that admits each customer without force: `0x0201` v5.11, `0x0E2C` v5.12, `0x0E1B` v5.16, `0x0200` v6.5, `0x1631` v6.7, `0x0207` v6.9, `0x020D` and `0x163E` v6.14, `0x162B` v6.15, `0x1621` v7.0, `0x1633` v7.1 and `0x163D` v7.2. The Intel customer `0x0805` is admitted from the driver's introduction. |
+| S28 | linux-hardware.org sensors logs of MSI MAG B550 TOMAHAWK (MS-7C91) [probe `2cfb05371e`](https://linux-hardware.org/?log=sensors&probe=2cfb05371e) and MSI MPG B550 GAMING PLUS (MS-7C56) [probe `2e5644f065`](https://linux-hardware.org/?log=sensors&probe=2e5644f065), retrieved November 29, 2026 | Independent captures of an `nct6687-isa-0a20` endpoint with the stock driver's labels in the same order on both boards: `AMD TSI Addr 98h`, `Diode 0 (curr)` of type thermal diode, then `Thermistor 15`, `Thermistor 1`, `Thermistor 16`, `Thermistor 0` and a second `Thermistor 15`. Each lists ten fan inputs. The TOMAHAWK capture shows 43,554 RPM on fan input 3 beside values from 605 to 933 RPM. The GAMING PLUS capture shows values from 744 to 2,390 RPM on fan inputs 1–4 and 6. The probes' kernel, firmware build and DMI records were not retrieved. |
+| S29 | [MSI PRO B650-P WIFI report](https://bbs.archlinux.org/viewtopic.php?id=296903), Arch Linux forums, 2024, Linux 6.9.1 | First-hand stock-driver capture with `Thermistor 0` at 80 °C and no hot component found on inspection, beside the `AMD TSI Addr 98h`, `Diode 0 (curr)`, `Thermistor 1`, `Thermistor 15` and `Thermistor 16` sources. Fan input 1 at 718 RPM and fan inputs 2–10 at 0 RPM. |
+| S30 | [ASRock X670E Taichi Linux thread](https://forum.level1techs.com/t/asrock-x670e-taichi-no-sensors-on-linux/199354?page=2), Level1Techs forums, July 2023 to January 2024 | First-hand reports that the driver found the chip but published no sensors before the customer admission, and that on Linux 6.7 the endpoint loaded with every fan at 0 RPM. No capture with labels and values is posted. |
 
 ## Detection
 
@@ -57,10 +62,10 @@
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | MSI PRO B850-P WIFI (MS-7E56), raw `0xD592`, customer `0x020D`, EC 0.0 (2025-04-18) | S8 pins OEM routing, identity bytes and sample readback. Decode relies on lead-only S3. The entry, exit and application-port sequence rely on lead-only S9 and S10 as described below. Safe selector handling and signed-transport confirmation remain open. | Disabled. Experimental candidate after the blocking questions are resolved and the spec is approved. |
-| Other MSI NCT6687D/-R deployments | S7 reports other builds, including MAG B850M MORTAR WIFI with EC 0.0 (2025-03-10). A separate profile needs raw ID, firmware identity and channel evidence. | Unsupported by this revision. Follow-up in #2520. |
+| Other MSI NCT6687D/-R deployments | S7 reports other builds, including MAG B850M MORTAR WIFI with EC 0.0 (2025-03-10). A separate profile needs raw ID, firmware identity and channel evidence. The installed-base ranking below records the evidence for the most common boards (S26, S28, S29). | Unsupported by this revision. Follow-up in #2696. |
 | Direct Windows EC Space access on NCT6686D, including ASRock deployments | S1 pins the host interface, but its stated chip ID `0xC73A` conflicts with the `0xD441` observed on ASRock units (S14, S18) and the `0xD440` family match of lead-only S3. Application-port selector release and the S1 §7.2 protection lock are unresolved for readers outside the ISA mutex (see Open questions). S7 names multiple firmware builds. | Unsupported by this revision. The bound Linux endpoint is the selected first path. |
 | ASRock B650 Steel Legend WiFi, bound Linux `nct6683` | Specified in [`superio-nuvoton-nct6686-asrock-linux-hwmon.md`](superio-nuvoton-nct6686-asrock-linux-hwmon.md) revision 1, with lead-only customer `0x163E` admission and a non-Intel refresh audit. | Experimental in that specification. |
-| ASRock AMD BC-250, bound Linux `nct6683` | Lead-only S12/S13 document native admission of customer `0x162b` and the EC 1.0 (2021-07-28) build. Separate S14 observations provide raw `0xD441`, a bound instance and usable channel values under the force option. | Disabled. Exact DMI baseboard strings and a same-unit channel capture on a qualified endpoint are missing. |
+| ASRock AMD BC-250, bound Linux `nct6683` | Specified in [`superio-nuvoton-nct6686-asrock-linux-hwmon.md`](superio-nuvoton-nct6686-asrock-linux-hwmon.md) revision 2. Two hardware probes there supply the exact DMI baseboard strings, a native binding, the numeric customer `0x162B` and labeled channel captures. Lead-only S12/S13 document native admission of the customer and the EC 1.0 (2021-07-28) build. | Experimental in that specification. |
 | ASRock Z590 Taichi, bound Linux `nct6683` | Lead-only S12/S15 document native admission of customer `0x1621` and successful instantiation on two NCT6686D units with EC 1.0 (2021-01-25). | Disabled. Exact DMI strings and an attributable channel capture are missing. |
 | ASRock X670E Taichi (`0x1631`), B650I Lightning WiFi (`0x1633`) and Z890 Pro-A (`0x163D`), bound Linux `nct6683` | Lead-only S22 records native admission and the board named by each commit. No exact-board channel capture with labels and values on a qualified endpoint was found. | Disabled pending exact DMI strings and a channel capture. |
 | ASRock X600DC-ITX, bound Linux `nct6683` | S23 records BIOS 2.02, customer `0x165F`, EC 1.0 build 12/23/25 and plausible forced readings. The admission is applied to the hwmon tree but absent from released tags (S22). The report gives one fan value and no temperature channel labels beyond an AMD TSI source. | Disabled until a released admission and a labeled channel capture exist. |
@@ -76,10 +81,12 @@ fan input 2 at 2,877 RPM and `Thermistor 14` and `Thermistor 15` at
 45.5 °C and 45 °C. Those labels identify sensor sources and provide no
 physical temperature location. The separate CoreOS log reports
 configuration port `0x2e`, EC base `0x0a20`, platform instance
-`nct6683.2592` and EC 1.0 build 2021-07-28. The observations do not
-provide a same-unit board BIOS, firmware tuple and native unforced
-endpoint. The Z590 Taichi two-unit report in S15 gives no complete raw
-ID, EC base, BIOS version or individual channel values.
+`nct6683.2592` and EC 1.0 build 2021-07-28. Revision 6 found two
+linux-hardware.org probes that supply the missing same-unit BIOS,
+DMI strings, customer and native binding. The
+[ASRock specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md)
+revision 2 cites them. The Z590 Taichi two-unit report in S15 gives no
+complete raw ID, EC base, BIOS version or individual channel values.
 
 S12 confirms the native kernel matches `0xD440` under mask `0xFFF0`
 and accepts both customer IDs without the force option. Normal binding
@@ -164,7 +171,10 @@ status access (S12, S16).
   capture. Board identity is a mechanism gate there because the EC
   assignment differs by board. S7 of that specification lists two
   thermistor sources before the AMD TSI source. S14 lists the AMD TSI
-  source first on BC-250.
+  source first on BC-250. Revision 2 of that specification adds the
+  BC-250 as a second board profile on the same endpoint and refresh
+  audit. It is the second-ranked NCT6686D target by installed base and
+  the first with all three prerequisites (see the ranking below).
 - **Linux, Intel NCT6683D.** The kernel documents a special Intel
   firmware with undisclosed register locations. The shared refresh
   still reads the generic fan-minimum words and reverse-engineered
@@ -183,7 +193,43 @@ status access (S12, S16).
 - **Additional NCT6687D/-R firmware.** The MSI profiles in the
   [MSI NCT6687D Linux specification](superio-nuvoton-nct6687-linux-hwmon.md)
   are unchanged. Other MSI boards and the MSI direct-access candidate
-  keep the requirements stated above.
+  keep the requirements stated above. The ranking below records why
+  the most common MSI boards are not in this slice.
+
+### Installed-base ranking and dispositions (#2696)
+
+S26 approximates installed base by the number of distinct computers
+that linux-hardware.org lists for each baseboard model. The count
+covers Linux users who submitted a probe. It ranks the targets and is
+not a market share. The admission column gives the first Linux release
+that admits the board's customer without force (S27). Rows are grouped
+by #2696 target and sorted by count within each group. Every target
+below that is not already Experimental, or selected here, stays
+disabled or unsupported. The selected slice for this revision is the
+AMD BC-250 profile alone. It is the smallest set that reaches the
+Experimental gate, and it is the most common admitted NCT6686D target.
+
+| #2696 target | Board | Controller | Customer, first admitting release | Computers (S26) | Disposition |
+| --- | --- | --- | --- | --- | --- |
+| NCT6686D on ASRock and AMD | ASRock X670E Steel Legend | NCT6686D (S18) | Unrecorded. Not admitted through v7.4-rc4. | 59 | Disabled. Needs a released admission of its customer, then a labeled capture on an admitting kernel. |
+| NCT6686D on ASRock and AMD | ASRock AMD BC-250 | NCT6686D | `0x162B`, v6.15 | 49 | **Selected.** Experimental for `Thermistor 14`, `Thermistor 15` and fan inputs 1–5 in the [ASRock specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md) revision 2. |
+| NCT6686D on ASRock and AMD | ASRock B650I Lightning WiFi | NCT6686D (S22) | `0x1633`, v7.1 | 36 | Disabled. The admission thread posts no capture and no labeled same-board capture was found. |
+| NCT6686D on ASRock and AMD | ASRock X670E Taichi | NCT6686D (S22) | `0x1631`, v6.7 | 26 | Disabled. No labeled capture was found. S30 reports every fan at 0 RPM on Linux 6.7, which a capture must explain before fan inputs are scoped. |
+| NCT6686D on ASRock and AMD | ASRock B850 Steel Legend WiFi | Not established | `0x164A`, not admitted (S24) | 13 | Disabled. Needs a released admission. Its fan-control series is outside this project. |
+| NCT6686D on ASRock and AMD | ASRock X670E Taichi Carrara | Not established | Unrecorded | 10 | Disabled. No controller, customer or capture evidence. |
+| NCT6686D on ASRock and AMD | ASRock B650 Steel Legend WiFi | NCT6686D | `0x163E`, v6.14 | 9 | Experimental in the ASRock specification since revision 1. Unchanged. |
+| NCT6686D on ASRock and AMD | ASRock Z590 Taichi | NCT6686D (S15) | `0x1621`, v7.0 | Not listed | Disabled. Needs exact DMI strings and a labeled capture. |
+| NCT6686D on ASRock and AMD | ASRock Z890 Pro-A | Not established | `0x163D`, v7.2 | Not listed | Disabled. Needs exact DMI strings and a labeled capture. |
+| NCT6686D on ASRock and AMD | ASRock X600DC-ITX | NCT6686D (S23) | `0x165F`, applied upstream but in no tag through v7.4-rc4 | Not listed | Disabled. Needs the released admission and a labeled capture. |
+| NCT6683D on ASRock | ASRock X570 Phantom Gaming-ITX/TB3 | NCT6683D (S7) | `0x0E2C`, v5.12 | 27 | Disabled. No labeled capture was found. S22's commit notes that the customer also appears on other ASRock boards, so the customer alone does not identify a board's channel map. |
+| NCT6683D on ASRock | ASRock Z370M Pro4 | NCT6683D-T (S22) | `0x0E1B`, v5.16 | 15 | Disabled. No labeled capture was found. |
+| NCT6683D on Intel | Intel DH87RL, DB85FL, DH87MC and DZ87KLT-75K | NCT6683D (S17, S20) | `0x0805`, Intel branch | 26, 13, 11 and 1 | Unsupported. The Intel refresh reads addresses whose semantics are unknown on this firmware (Open questions). |
+| Additional NCT6687D/-R | MSI MAG B550 TOMAHAWK | NCT6687D (S28) | Unrecorded. The first MSI customer, `0x0201`, is admitted from v5.11. | 373 | Deferred. Highest installed base of every target. Its S28 capture shows an implausible 43,554 RPM on fan input 3 that the common 1–65,534 RPM bound admits. A fan scope needs a second capture or a tighter validity rule. The probe's kernel, firmware build and DMI record were not retrieved. |
+| Additional NCT6687D/-R | MSI MPG B550 GAMING PLUS | NCT6687D (S28) | Unrecorded. The first MSI customer, `0x0201`, is admitted from v5.11. | 318 | Deferred. Next candidate. Its S28 capture has labels and plausible values. A profile needs the same probe's DMI strings, kernel version and EC build, or another capture that records them. |
+| Additional NCT6687D/-R | MSI PRO B650-P WIFI | NCT6687D (S29) | Unrecorded. MSI customers are admitted from v5.11. | 85 | Deferred. S29 reports a stock `Thermistor 0` value of 80 °C with no hot component, so that source needs a board-specific exclusion. |
+| Additional NCT6687D/-R | MSI PRO X670-P WIFI | NCT6687D (S27) | `0x0207`, v6.9 | 52 | Deferred. No labeled capture was found. |
+| Additional NCT6687D/-R | MSI MAG B850 TOMAHAWK MAX WIFI, MPG X870E CARBON WIFI, PRO B850-P WIFI and MAG B850M MORTAR WIFI | NCT6687D | `0x020D`, v6.14 | 48, 45, 27 and 13 | Experimental in the [MSI specification](superio-nuvoton-nct6687-linux-hwmon.md) revision 6. Unchanged. |
+| Additional transports | Direct Windows EC Space access on every board above | NCT6686D and NCT6687D | Not applicable | Not applicable | Unsupported. The remaining blockers are the chip-ID conflict and application-selector arbitration with other readers (Open questions). These are missing mechanism and safety facts, not evidence identities, so no ADR 0031 mechanism gate can stand in for them. |
 
 ## Register map (facts)
 
@@ -321,13 +367,19 @@ EC addresses below are page in the high byte and index in the low byte.
   `0xC7` and differing lower bytes in its global table and detailed
   description. S3 attributes an `0xD440` family to the production
   NCT6686D. Do not resolve this conflict by masking or aliasing IDs.
-- **Linux BC-250 evidence remains blocking.** Obtain the exact DMI
-  baseboard strings and a labeled same-unit channel capture on an
-  admitting kernel. The non-Intel refresh is audited at the Experimental
-  standard in the
-  [B650 Steel Legend WiFi specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md).
-  An EC 1.0 (2021-07-28) firmware map is still needed for Verified
-  status.
+- **Linux BC-250 is resolved for Experimental use** in revision 2 of the
+  [ASRock specification](superio-nuvoton-nct6686-asrock-linux-hwmon.md),
+  which records the exact DMI strings, the native binding and the
+  labeled captures. An EC 1.0 (2021-07-28) firmware map is still needed
+  for Verified status.
+- **Additional MSI NCT6687D boards remain blocking.** MAG B550 TOMAHAWK
+  and MPG B550 GAMING PLUS have the largest installed base of every
+  #2696 target (S26) and labeled stock captures (S28). Each needs exact
+  DMI strings and a kernel and EC build record from the same unit. The
+  TOMAHAWK fan inputs also need a rule that rejects the implausible
+  positive value S28 shows. PRO B650-P WIFI needs its `Thermistor 0`
+  source excluded or explained (S29). PRO X670-P WIFI needs a labeled
+  capture.
 - **Linux Z590 Taichi evidence remains blocking.** Associate EC 1.0
   (2021-01-25) with exact DMI strings and a native hwmon instance, and
   establish attributable published inputs with labels and types.
@@ -362,3 +414,4 @@ EC addresses below are page in the high byte and index in the low byte.
 | 3 | 2026-11-09 | Record separate BC-250, Z590 Taichi and Intel DH87MC/DH87RL Linux hwmon research, native customer acceptance and unresolved firmware refresh evidence. |
 | 4 | 2026-11-10 | Record ASRock X670E Steel Legend BIOS 3.01 and Intel DZ87KLT-75K evidence and their unresolved read paths. |
 | 5 | 2026-11-28 | Select the bound Linux endpoint as the first path for ASRock NCT6686D and point B650 Steel Legend WiFi to its own specification. Record dispositions for the remaining #2696 targets, including admitted ASRock customers, X600DC-ITX and unadmitted boards. Mark Intel NCT6683D Unsupported because its refresh reads addresses with unknown semantics, and record the Windows chip-identity and selector blockers. |
+| 6 | 2026-11-29 | Rank every #2696 target by Linux installed base (S26) with its first admitting release (S27) and a disposition. Select the AMD BC-250 as the next Experimental slice, specified in the ASRock specification revision 2, and resolve its Open question for Experimental use. Record MSI B550-series and PRO B650-P WIFI captures (S28, S29) and the X670E Taichi fan report (S30), and add the blockers for additional MSI boards. |
