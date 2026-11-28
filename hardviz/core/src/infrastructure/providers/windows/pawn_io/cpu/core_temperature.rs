@@ -47,6 +47,8 @@ const RAPTOR_LAKE_U_Q0_SIGNATURE: u32 = 0x000b_06a3;
 const LUNAR_LAKE_B0_SIGNATURE: u32 = 0x000b_06d1;
 const GRACEMONT_N0_SIGNATURE: u32 = 0x000b_06e0;
 const ALDER_LAKE_S_HX: u32 = 0x0009_0672;
+// The non-hybrid 6+0 die. The same signature with the hybrid flag set is excluded.
+const ALDER_LAKE_S_H0_SIGNATURE: u32 = 0x0009_0675;
 const ALDER_LAKE_H_P_PS: u32 = 0x0009_06a3;
 const RAPTOR_LAKE_S_HX: u32 = 0x000b_0671;
 const METEOR_LAKE_C0: u32 = 0x000a_06a4;
@@ -133,12 +135,19 @@ fn profile_from_cpuid(
   let extended_features = read_leaf(7);
   if matches!(
     signature,
-    KABY_LAKE_Z270F_SIGNATURE | GRACEMONT_N0_SIGNATURE | SAPPHIRE_RAPIDS_SIGNATURE
+    KABY_LAKE_Z270F_SIGNATURE
+      | GRACEMONT_N0_SIGNATURE
+      | SAPPHIRE_RAPIDS_SIGNATURE
+      | ALDER_LAKE_S_H0_SIGNATURE
   ) && (leaf0.eax < 7 || extended_features.is_none())
   {
     return None;
   }
-  if signature == GRACEMONT_N0_SIGNATURE && leaf1.edx & THERMAL_STATUS_CAPABILITY == 0 {
+  if matches!(
+    signature,
+    GRACEMONT_N0_SIGNATURE | ALDER_LAKE_S_H0_SIGNATURE
+  ) && leaf1.edx & THERMAL_STATUS_CAPABILITY == 0
+  {
     return None;
   }
   select_profile(
@@ -198,6 +207,7 @@ const EXACT_LEGACY_OFFSETS: &[(u32, u64)] = &[
   (SAPPHIRE_RAPIDS_SIGNATURE, 0),
   (ROCKET_LAKE_SIGNATURE, 0),
   (GRACEMONT_N0_SIGNATURE, 0),
+  (ALDER_LAKE_S_H0_SIGNATURE, 0),
 ];
 
 fn legacy_zero_offset_mask(signature: u32) -> Option<u64> {
@@ -632,7 +642,9 @@ fn decode_core_temperature(
     && matches!(
       profile,
       CoreDtsProfile::Legacy {
-        signature: TIGER_LAKE_B1_SIGNATURE | TIGER_LAKE_H_R0_SIGNATURE,
+        signature: TIGER_LAKE_B1_SIGNATURE
+          | TIGER_LAKE_H_R0_SIGNATURE
+          | ALDER_LAKE_S_H0_SIGNATURE,
         ..
       } | CoreDtsProfile::HybridSignature(
         ALDER_LAKE_S_HX
@@ -1044,7 +1056,7 @@ mod tests {
       );
     }
     for other_signature in [
-      0x0009_0675,
+      0x0009_0675, // The separate non-hybrid Alder Lake-S H0 scope rejects hybrid.
       0x0009_06a2,
       0x0009_06a4,
       0x000a_06a3,
@@ -2347,6 +2359,241 @@ mod tests {
       );
       assert!(calls.contains(&Call::Restore(0)));
     }
+  }
+
+  const ALDER_LAKE_S_H0_FIXTURE: CoreDtsProfile = CoreDtsProfile::Legacy {
+    signature: 0x0009_0675,
+    zero_offset_mask: 0,
+  };
+
+  // Spec cpu-intel-alder-lake-s-h0-dts-msr rev 1, Detection and the first,
+  // second, fourth and fifth Acceptance fixtures. All CPUID words are synthetic.
+  #[test]
+  fn alder_lake_s_h0_requires_exact_nonhybrid_cpuid_with_thermal_status_and_dts() {
+    let signature = 0x0009_0675;
+    let thermal_status = 1 << 22;
+    for ptm in [0, 1 << 6] {
+      // Leaf 1AH is never requested, whether it reports zero or a core type,
+      // or the maximum basic leaf stops at 07H.
+      for leaf1a_eax in [None, Some(0), Some(0x4000_0000)] {
+        assert_eq!(
+          synthetic_profile(signature, thermal_status, ptm | 1, Some(0), leaf1a_eax),
+          Some(ALDER_LAKE_S_H0_FIXTURE)
+        );
+      }
+      for (leaf1, leaf6, leaf7) in [
+        (thermal_status, ptm | 1, Some(HYBRID_CAPABILITY)),
+        (thermal_status, ptm, Some(0)),
+        (0, ptm | 1, Some(0)),
+        // Maximum basic leaf below 07H.
+        (thermal_status, ptm | 1, None),
+      ] {
+        assert_eq!(
+          synthetic_profile(signature, leaf1, leaf6, leaf7, None),
+          None
+        );
+      }
+      // Near signatures, including the hybrid C0 die with its flag clear.
+      for excluded in [
+        0x0009_0672,
+        0x0009_0674,
+        0x0009_0676,
+        0x0009_06a4,
+        0x000b_06f2,
+        0x000b_06f5,
+      ] {
+        assert_eq!(
+          synthetic_profile(excluded, thermal_status, ptm | 1, Some(0), None),
+          None,
+          "signature {excluded:#x}"
+        );
+      }
+    }
+    assert_eq!(select_profile("AuthenticAMD", signature, 0x41, 0), None);
+    // The hybrid gate keeps rejecting this signature with the flag set.
+    assert_eq!(
+      select_profile("GenuineIntel", signature, 0x41, HYBRID_CAPABILITY),
+      None
+    );
+  }
+
+  // Spec rev 1, Read procedure and decode step 4, Quirks (S6 G7400 and
+  // i5-12500 register words) and the decode Acceptance fixtures.
+  #[test]
+  fn alder_lake_s_h0_uses_the_live_target_and_rejects_status_bit_23() {
+    for (target, status, expected) in [
+      // S6 observed pairs.
+      (0x8064_1400, 0x883d_0000, Some(39.0)),
+      (0x8064_1400, 0x8836_0000, Some(46.0)),
+      (0x8064_1400, 0x8835_0000, Some(47.0)),
+      // Synthetic: a TCC offset of 10 and a nonzero averaging window.
+      (0x8a64_1400, 0x8832_0000, Some(50.0)),
+      (0x8a64_147f, 0x8832_0000, Some(50.0)),
+      // Synthetic: bit 23 set, then the same readout with bit 23 clear.
+      (0x0064_0000, 0x889e_0000, None),
+      (0x0064_0000, 0x881e_0000, Some(70.0)),
+      // Synthetic: Reading Valid clear.
+      (0x8064_1400, 0x083d_0000, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(ALDER_LAKE_S_H0_FIXTURE, target, status),
+        expected,
+        "target {target:#x}, status {status:#x}"
+      );
+    }
+    for (target, readout, expected) in [
+      (50, 0, Some(50.0)),
+      (120, 0, Some(120.0)),
+      (0, 0, None),
+      (49, 0, None),
+      (121, 0, None),
+      (100, 100, None),
+      (100, 101, None),
+    ] {
+      assert_eq!(
+        decode_core_temperature(
+          ALDER_LAKE_S_H0_FIXTURE,
+          target << 16,
+          (1 << 31) | (readout << 16)
+        ),
+        expected,
+        "target {target}, readout {readout}"
+      );
+    }
+  }
+
+  // Spec rev 1, first and third Acceptance fixtures: one target per Windows
+  // core record, independent of the package thermal management bit.
+  #[test]
+  fn alder_lake_s_h0_samples_one_representative_per_windows_core_record() {
+    for (core_masks, representatives) in [
+      (
+        vec![0b11, 0b11 << 2, 0b11 << 4, 0b11 << 6, 0b11 << 8, 0b11 << 10],
+        vec![0, 2, 4, 6, 8, 10],
+      ),
+      (vec![0b1, 0b10], vec![0, 1]),
+      (
+        vec![0b11, 0b11 << 2, 0b11 << 4, 0b11 << 6],
+        vec![0, 2, 4, 6],
+      ),
+    ] {
+      let topology = synthetic_topology(&core_masks);
+      for thermal_features in [1, 0x41] {
+        let mut fixture = Fixture::new((u8::MAX, Failure::Pin));
+        fixture.signature = 0x0009_0675;
+        fixture.thermal_features = thermal_features;
+        assert_eq!(fixture.profile(), Some(ALDER_LAKE_S_H0_FIXTURE));
+        // The fixture panics on any MSR other than 0x1A2 and 0x19C.
+        let readings = collect(
+          ALDER_LAKE_S_H0_FIXTURE,
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          readings
+            .iter()
+            .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+            .collect::<Vec<_>>(),
+          representatives
+            .iter()
+            .map(|&number| (number, Some(58.0)))
+            .collect::<Vec<_>>()
+        );
+        let pinned = fixture
+          .calls
+          .into_inner()
+          .into_iter()
+          .filter_map(|call| match call {
+            Call::Pin(number) => Some(number),
+            _ => None,
+          })
+          .collect::<Vec<_>>();
+        assert_eq!(pinned, representatives);
+      }
+    }
+  }
+
+  // Spec rev 1, sixth, ninth and tenth Acceptance fixtures: a pinned recheck
+  // failure, a fault, a rejected field or a set bit 23 leaves only that core
+  // unavailable.
+  #[test]
+  fn alder_lake_s_h0_rechecks_pinned_targets_and_keeps_valid_siblings() {
+    let topology = synthetic_topology(&[0b0011, 0b1100, 0b11_0000]);
+    for affected in [0, 2] {
+      for (failure, affected_reads) in [
+        (Failure::DifferentSignature, 0),
+        (Failure::UnexpectedHybridFlag, 0),
+        (Failure::NoDts, 0),
+        (Failure::NoThermalStatus, 0),
+        (Failure::MissingLeaf7, 0),
+        (Failure::Target, 1),
+        (Failure::Status, 2),
+        (Failure::InvalidStatus, 2),
+        (Failure::AmbiguousStatusBit, 2),
+      ] {
+        let mut fixture = Fixture::new((affected, failure));
+        fixture.signature = 0x0009_0675;
+        fixture.thermal_features = 1;
+        fixture.status_word = 0x881e_0000;
+        let readings = collect(
+          ALDER_LAKE_S_H0_FIXTURE,
+          &topology,
+          Instant::now() + Duration::from_secs(1),
+          &fixture,
+        )
+        .unwrap();
+        assert_eq!(
+          readings
+            .iter()
+            .map(|reading| (reading.logical_processor, reading.temperature_celsius))
+            .collect::<Vec<_>>(),
+          [0, 2, 4].map(|number| (number, (number != affected).then_some(70.0))),
+          "affected {affected}"
+        );
+        let calls = fixture.calls.into_inner();
+        assert_eq!(
+          calls
+            .iter()
+            .filter(|call| matches!(call, Call::Read(number, _) if *number == affected))
+            .count(),
+          affected_reads
+        );
+        assert!(calls.contains(&Call::Restore(affected)));
+      }
+    }
+  }
+
+  // Spec rev 1, Detection (one active group and one package) and the last
+  // Acceptance fixture.
+  #[test]
+  fn alder_lake_s_h0_rejects_multiple_groups_or_packages() {
+    let two_groups = synthetic_grouped_topology(vec![(0, 1), (1, 1)]);
+    assert!(!ALDER_LAKE_S_H0_FIXTURE.supports_topology(&two_groups));
+    let mut fixture = Fixture::new((u8::MAX, Failure::Pin));
+    fixture.signature = 0x0009_0675;
+    fixture.thermal_features = 1;
+    assert!(
+      collect(
+        ALDER_LAKE_S_H0_FIXTURE,
+        &two_groups,
+        Instant::now() + Duration::from_secs(1),
+        &fixture,
+      )
+      .is_none()
+    );
+    assert!(fixture.calls.into_inner().is_empty());
+
+    let two_packages = [
+      group_record(1, 0b1111),
+      processor_record(RelationProcessorPackage.0, 0, 0b0011),
+      processor_record(RelationProcessorPackage.0, 0, 0b1100),
+      processor_record(RelationProcessorCore.0, 0, 0b0011),
+      processor_record(RelationProcessorCore.0, 0, 0b1100),
+    ]
+    .concat();
+    assert_eq!(parse_topology(&two_packages), None);
   }
 
   #[test]
