@@ -44,8 +44,8 @@ laptop models and firmware versions are evidence identities under
 
 | Address | Bits | Meaning | Units / encoding | Source |
 | --- | --- | --- | --- | --- |
-| SMN `0x00059B08` | 31:0 | CCD temperature slot 1 | 32-bit word | S6, corroborated by S4 |
-| SMN `0x00059B0C` | 31:0 | CCD temperature slot 2 | 32-bit word | S6, corroborated by S4 |
+| SMN `0x00059B08` | 31:0 | CCD temperature slot 1 | 32-bit word | S6 |
+| SMN `0x00059B0C` | 31:0 | CCD temperature slot 2 | 32-bit word | S6 |
 | Each scoped word | 11 | CCD reading validity | Set means valid at channel discovery | S6 |
 | Each scoped word | 10:0 | CCD temperature field | Unsigned, 0.125 °C per increment, reference offset −49 °C | S6 |
 
