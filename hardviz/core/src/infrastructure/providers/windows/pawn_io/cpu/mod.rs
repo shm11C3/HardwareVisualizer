@@ -1,6 +1,6 @@
 //! PawnIO-backed CPU temperature and power providers.
 
-mod amd_family_15h_16h_tctl;
+mod amd_family10;
 pub(crate) mod ccd_temperature;
 pub(crate) mod core_temperature;
 mod identity;

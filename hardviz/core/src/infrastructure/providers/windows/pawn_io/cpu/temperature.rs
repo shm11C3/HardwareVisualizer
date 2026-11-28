@@ -6,13 +6,12 @@ use super::super::client::{
   PawnIoClient, PawnIoDiscovery, PawnIoInitError, PawnIoModule, open_shared_intel_msr,
   read_shared_msr,
 };
-use super::amd_family_15h_16h_tctl::{
-  TctlGroup, admit_identity, cpuid_package_type, is_family_15h_16h, sample_tctl,
-  select_tctl_group,
+use super::amd_family10::{
+  TctlGroup, admit_identity, is_family_15h_16h, sample_tctl, select_tctl_group,
 };
 use super::ccd_temperature::{AmdCcdTarget, is_single_physical_package};
 pub use super::identity::{CpuIdentity, CpuVendor};
-use super::identity::{cpuid_leaf, detect_cpu_identity};
+use super::identity::{cpuid_leaf, cpuid_package_type, detect_cpu_identity};
 use super::temperature_decode::{
   CpuTemperatureDecodeError, decode_amd_zen_package_temperature,
   decode_intel_package_temperature, decode_intel_package_thermal_status,
@@ -549,7 +548,7 @@ impl ActiveCpuTemperatureSource {
         };
         let (client, mut discovery) = PawnIoClient::open(candidate.module.clone())?;
         // Dropping the client on a failed gate closes the handle unread.
-        if let Err(error) = admit_identity(&client, group) {
+        if let Err(error) = admit_identity(&client, group.identity) {
           let reason = error.to_string();
           discovery.fallback_reason = Some(reason.clone());
           return Err(PawnIoInitError {
