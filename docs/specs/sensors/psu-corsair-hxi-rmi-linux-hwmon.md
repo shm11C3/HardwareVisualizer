@@ -28,7 +28,7 @@ causes PSU traffic, issued by the kernel driver.
 | S2 | Linux kernel documentation [`Documentation/ABI/testing/sysfs-class-hwmon` at v7.3](https://github.com/torvalds/linux/blob/v7.3/Documentation/ABI/testing/sysfs-class-hwmon), file SHA-256 `687fdee89a5370852322f35b543f2aab4b753a4505c2970254db5eaf3330579c`: `name`, `inY_input`, `fanY_input`, `tempY_input`, `currY_input`, `powerY_input`, `pwmY_enable` | Primary for the generic ABI: the chip name contains no dashes; units millivolt, RPM, millidegree Celsius, milliampere and microwatt. |
 | S3 | Linux kernel documentation [`Documentation/hwmon/corsair-psu.rst` at v7.3](https://github.com/torvalds/linux/blob/v7.3/Documentation/hwmon/corsair-psu.rst), file SHA-256 `9f57bf1ea5feaeda09a9dbe2168c6daf8265f7ffc882f08c76662b4603cef41a` (identical on `master` as of 2026-11-28): Supported devices, Description, Sysfs entries, Usage Notes, Debugfs entries | Primary for the public driver ABI: supported models, the meaning of each attribute, read-only `pwm1` and `pwm1_enable`, automatic detection, hot swap and several devices at once, the fan starting at about 30 % of the wattage rating, and the debugfs entries. |
 | S4 | Linux [`drivers/hwmon/corsair-psu.c` at v7.3](https://github.com/torvalds/linux/blob/v7.3/drivers/hwmon/corsair-psu.c), Git blob `b545461d4ced3d0bafc11b019921145a2615047a` (file SHA-256 `22110759b0713568d864b31ad649c6df649c67466c5cc24f4289f329f58b450a`); compared with [v7.1](https://github.com/torvalds/linux/blob/v7.1/drivers/hwmon/corsair-psu.c) (SHA-256 `17b616345fd3724a0e9d0d823a777a80cd9af0e5a501c9e46211750b67db38dd`), [v6.18](https://github.com/torvalds/linux/blob/v6.18/drivers/hwmon/corsair-psu.c) (SHA-256 `9876159e1b4da210e29fda8305afb9b93fe5c42ec1868d44c33cec1922e1b34e`) and [v5.11](https://github.com/torvalds/linux/blob/v5.11/drivers/hwmon/corsair-psu.c) (SHA-256 `9b43beba9be02187fdfb361862aa03237f90e1b581fa7070443a88b6186f283b`). `master` as of 2026-11-28 differs from v7.3 only in one allocation helper. | **lead-only (copyleft)** for the USB match table, hwmon name, channel labels, request framing, the command code behind each attribute, the rail selection before rail commands, the bind-time and resume-time requests, the reply check, the 250 ms timeout, the absence of caching, attribute visibility, the `hidraw` node, the decode, and the version differences listed under Quirks. |
-| S5 | Linux commits [`d115b51e0e56`](https://github.com/torvalds/linux/commit/d115b51e0e567199c821fc39e13b6af7e78f247d) (driver added, 2020), [`7656cd217761`](https://github.com/torvalds/linux/commit/7656cd2177612aa7c299b083ecff30a4d3e9a587) (re-initialization at resume, 2021), [`741ed0856d5e`](https://github.com/torvalds/linux/commit/741ed0856d5ef94c2dbdbf58cb13d262d89505bb) (Series 2022/2023 reply sizes, 2023), [`4207069edbf0`](https://github.com/torvalds/linux/commit/4207069edbf01ae859946fe7f51e3fa03a3bb2f8) (locking moved to the hwmon core, 2025), [`2da6050809d4`](https://github.com/torvalds/linux/commit/2da6050809d437a805e7a3aa22398a15073b0234) (debugfs serialized against hwmon, 2026) and [`c6c4234928d2`](https://github.com/torvalds/linux/commit/c6c4234928d2eb4f61fecb61067e612d9bdbd2ff) (LINEAR11 sign fix, 2026), commit messages | **lead-only (copyleft)**: the PSU can also be configured over USB (fan mode, single or multi rail, over-current protection) and the driver deliberately supports no configuration; some PSUs power the microcontroller down in standby and need re-initialization at resume; replies use at most 24 bytes; an interleaved reader can make a rail value be reported for the wrong rail or take another reader's reply; before the sign fix a negative value decodes as a large positive one. |
+| S5 | Linux commits [`d115b51e0e56`](https://github.com/torvalds/linux/commit/d115b51e0e567199c821fc39e13b6af7e78f247d) (driver added, 2020), [`7656cd217761`](https://github.com/torvalds/linux/commit/7656cd2177612aa7c299b083ecff30a4d3e9a587) (re-initialization at resume, 2021), [`741ed0856d5e`](https://github.com/torvalds/linux/commit/741ed0856d5ef94c2dbdbf58cb13d262d89505bb) (Series 2022/2023 reply sizes, 2023), [`4207069edbf0`](https://github.com/torvalds/linux/commit/4207069edbf01ae859946fe7f51e3fa03a3bb2f8) (locking moved to the hwmon core, 2025), [`2da6050809d4`](https://github.com/torvalds/linux/commit/2da6050809d437a805e7a3aa22398a15073b0234) (debugfs serialized against hwmon, 2026) and [`918f22104d64`](https://github.com/torvalds/linux/commit/918f22104d64d209a62020ebda9338e8219019c3) (LINEAR11 rewrite, authored February 2021, first in v5.13) and [`c6c4234928d2`](https://github.com/torvalds/linux/commit/c6c4234928d2eb4f61fecb61067e612d9bdbd2ff) (LINEAR11 sign fix, 2026, first in v7.2), commit messages | **lead-only (copyleft)**: the PSU can also be configured over USB (fan mode, single or multi rail, over-current protection) and the driver deliberately supports no configuration; some PSUs power the microcontroller down in standby and need re-initialization at resume; replies use at most 24 bytes; an interleaved reader can make a rail value be reported for the wrong rail or take another reader's reply; the LINEAR11 rewrite ended whole-unit results, and from that rewrite until the sign fix a negative mantissa decodes as an unsigned one. |
 | S6 | Linux [`drivers/hwmon/hwmon.c` at v7.3](https://github.com/torvalds/linux/blob/v7.3/drivers/hwmon/hwmon.c), file SHA-256 `c42d168282e8dbbacb52e3b78fd1fa6f7a43a35a4600b2f619f88a4dcfb31e49`, device registration and attribute locking | **lead-only (copyleft)**: the hwmon core holds a per-device lock across each attribute read, and registers thermal zones only for a device with a device-tree node, so a USB PSU on an ACPI system gets no kernel thermal polling. |
 | S7 | liquidctl at commit [`292dc561361cfbc0cdee155c26662131fe160989`](https://github.com/liquidctl/liquidctl/tree/292dc561361cfbc0cdee155c26662131fe160989): [`liquidctl/driver/corsair_hid_psu.py`](https://github.com/liquidctl/liquidctl/blob/292dc561361cfbc0cdee155c26662131fe160989/liquidctl/driver/corsair_hid_psu.py) (SHA-256 `97249a0103aa76ab5da7dad7897edf7545babb7497fb39a89d83a35642bade58`) and [`docs/corsair-hxi-rmi-psu-guide.md`](https://github.com/liquidctl/liquidctl/blob/292dc561361cfbc0cdee155c26662131fe160989/docs/corsair-hxi-rmi-psu-guide.md) (SHA-256 `c28b14cd7fa8caace52a8e910b83939f49e4efc67ed6a66722780d41c19709eb`), GPL-3.0-or-later | **lead-only (copyleft)**: the total power command reports output power; HXi and RMi PSUs report neither input power nor input current; input power and efficiency shown by tools are estimates from manual efficiency curves; the PSU must be initialized after power-on; liquidctl's own initialization writes the OCP mode and resets fan control; the first request byte distinguishes write (`0x02`) from read (`0x03`); reports are 64 bytes without report IDs; since 1.9.0 liquidctl reads through the bound hwmon driver by default and then leaves OCP and fan modes unchanged; direct access while the kernel driver is bound can race with it. |
 | S8 | LibreHardwareMonitor at commit [`2808d80564b6`](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/2808d80564b6761e1b01f42fabfd966ed695fcbc/LibreHardwareMonitorLib/Hardware/Psu/Corsair), `Hardware/Psu/Corsair` (`CorsairPsuGroup.cs` SHA-256 `ec2261d5e475ebcb664791925a93292d3f903d911fe2269634d15d0b93c7e268`, `CorsairPsu.cs` `c2df39b2a3be8b8c4f81d69502d374a7288c07e61520b615a3206e1538c816dc`, `UsbApi.cs` `60e428aa604fd79833ae795b1e2ac0b8c0b4c6469cb0c407152d3a41ef375839`) | **lead-only (copyleft)**, used only for the Model inventory and the Windows notes: the product IDs it opens on Windows, the AX1600i ID present but disabled, and its shared HID stream access without a cross-process lock. |
@@ -217,8 +217,9 @@ Why the read path is safe:
    about one 250 ms timeout per sample instead of one per channel.
 6. Parse each input as a decimal integer. Malformed text is Invalid
    for a fan and Unavailable for any other channel. Convert and admit
-   (product policy under ADR 0011; the bounds reject decode garbage and
-   misattributed replies, not real operating points):
+   (product policy under ADR 0011; the bounds reject gross decode errors
+   and misattributed replies, not real operating points, and do not catch
+   every decode error; see Quirks):
 
    | Channel | Conversion | Admitted range (inclusive) | Basis |
    | --- | --- | --- | --- |
@@ -261,24 +262,48 @@ Attribution and presentation.
 
 ## Quirks
 
-- Kernels before v7.2 decode a negative mantissa as a large positive
-  value (for example −1 becomes 2047 before the exponent and scaling
-  are applied); v7.2 and later sign-extend correctly and clamp the
-  result. **lead-only (copyleft)** S4, S5. A sub-zero temperature
-  decoded this way lands far above 125 °C and is omitted by step 6.
-  Negative currents and powers have not been observed (Open question
-  5).
-- At v5.11 and v5.12 the driver truncates each decoded value to whole
-  units (V, A, °C, W) before scaling, so values arrive as exact
-  multiples of 1000 or 1 000 000. The values are still valid and are
-  published unchanged. **lead-only (copyleft)** S4.
+- From v5.13 through v7.1 the driver decodes a negative mantissa as
+  if it were unsigned. A reading encoded as mantissa × 2^exponent with
+  a negative mantissa is reported as (mantissa + 2048) × 2^exponent,
+  that is 2048 × 2^exponent units above the true value. The LINEAR11
+  rewrite (commit `918f22104d64`, first in v5.13) introduced the error
+  and v7.2 (commit `c6c4234928d2`) fixed it by sign-extending and
+  clamping. v5.11 and v5.12 sign-extend the mantissa. **lead-only
+  (copyleft)** S4, S5. The offset depends on the exponent the PSU
+  uses. −1 °C encoded as mantissa −32 with exponent −5 is reported as
+  63 °C and passes step 6, while −1 °C with exponent 0 is reported as
+  2047 °C and is omitted. The application sees only the decoded value
+  and cannot detect an affected reading. The kernel version does not
+  reliably identify the decode either, because distribution kernels
+  can backport the fix. Residual accepted for the Experimental scopes:
+  on an affected kernel, a true negative reading can be published as
+  a plausible positive value. The scoped quantities are not negative
+  in normal operation. Voltages, currents, powers and fan speed are
+  non-negative quantities, and the PSU temperatures fall below 0 °C
+  only at a sub-zero ambient. See Open question 5.
+- v5.11 and v5.12 carry the same decode; the two driver files are
+  identical. It sign-extends exponent and mantissa, adds one to an odd
+  mantissa, then applies the exponent by repeated doubling, or by
+  repeated halving with truncation toward zero, and only then scales.
+  Values therefore arrive in whole units: exact multiples of 1000 for
+  °C, V and A, of 1 000 000 for W, and unscaled RPM. They can differ
+  from the encoded value. With exponent 0 an odd mantissa reports one
+  unit high (75 W reports 76 W). With a positive exponent an odd
+  mantissa reports 2^exponent units high. With a negative exponent
+  the result differs from the encoded value by less than one unit.
+  The v5.13 rewrite (commit `918f22104d64`) removed both the rounding
+  and the whole-unit results. Values from these kernels pass the same
+  ranges and are published unchanged. **lead-only (copyleft)** S4, S5.
 - Kernels before the resume fix (commit `7656cd217761`, 2021) do not
   re-initialize the PSU after standby; its microcontroller can then
   stay unresponsive, and reads time out (S5). An uninitialized PSU
   answers with a reply that does not echo the request (S7), which the
   driver rejects with `EOPNOTSUPP` (S4), so it yields read failures,
-  not zero values. Step 5 bounds the cost. **lead-only (copyleft)**
-  S4, S5, S7.
+  not zero values. Step 5 bounds the cost of the timeout case only.
+  A reply-check failure returns after one exchange without waiting
+  for the timeout, and a failed rail selection skips its query, so
+  their number per sample is bounded by the exchange count in Cadence
+  and cost (at most 23). **lead-only (copyleft)** S4, S5, S7.
 
 ## Coexistence
 
@@ -351,7 +376,8 @@ the S9 observation.
 | `temp2_*` files absent | `temp2` omitted without error; other channels unchanged. |
 | `curr4_label` absent, `curr4_input` present | `curr4` omitted; `curr4_input` not read. |
 | `in1_label` `v_out +5v` | `in1` Unavailable; `in1_input` not read. |
-| `temp1_input` `2047000` (pre-v7.2 negative decode) | `temp1` omitted. |
+| `temp1_input` `2047000` (v5.13–v7.1 decode of −1 °C encoded with exponent 0) | `temp1` omitted. |
+| `temp1_input` `63000` (v5.13–v7.1 decode of −1 °C encoded as mantissa −32, exponent −5) | Published as 63.0 °C. The application cannot detect it; this is the residual stated in Quirks. |
 | `power1_input` `2600000000` | `power1` omitted. |
 | `in0_input` `0` | `in0` omitted. |
 | `curr2_input` `-125` | `curr2` omitted. |
@@ -392,12 +418,14 @@ the S9 observation.
    liquidctl sends OCP-mode and fan-mode writes separately after it
    (S7), which suggests it changes neither, but no evidence confirms
    that. A Windows path would have to send it itself.
-5. Non-blocking for #2531 Linux hwmon scope: the admitted ranges reject
-   negative values and the temperature form of the decode error.
+5. Non-blocking for #2531 Linux hwmon scope: correctly decoded negative
+   values are rejected by the admitted ranges, and the Experimental
+   scopes accept the residual stated in Quirks for v5.13 through v7.1.
    Whether the PSU ever reports a negative current or power (for
-   example an offset near zero load on a lightly loaded rail) is
-   unknown. On kernels before v7.2 such a value would decode as a large
-   positive number that can fall inside the +12 V current range.
+   example an offset near zero load on a lightly loaded rail), and
+   which exponent it uses for a sub-zero temperature, is unknown. On
+   v5.13 through v7.1 such a value is reported 2048 × 2^exponent units
+   too high and can fall inside an admitted range.
 6. Non-blocking for #2531 Linux hwmon scope: every value is presented
    as PSU-reported, with its unit and channel role, and no value is
    derived from another.
@@ -440,4 +468,4 @@ the S9 observation.
 
 | Revision | Date | Change |
 | --- | --- | --- |
-| 1 | 2026-11-28 | Initial version. Propose Implementation-ready for two Experimental Linux `corsair-psu` hwmon scopes on 15 listed Corsair HXi/RMi identities: unselected readings (two temperatures, fan, AC input voltage, total output power) and rail readings (voltage, current and power of +12 V, +5 V, +3.3 V). Record the per-read PSU requests and why they are safe, the timeout limit, admitted ranges, coexistence with liquidctl and iCUE, and the Windows blockers. Every model group in the #2531 inventory has a disposition. |
+| 1 | 2026-11-28 | Initial version. Propose Implementation-ready for two Experimental Linux `corsair-psu` hwmon scopes on 15 listed Corsair HXi/RMi identities: unselected readings (two temperatures, fan, AC input voltage, total output power) and rail readings (voltage, current and power of +12 V, +5 V, +3.3 V). Record the per-read PSU requests and why they are safe, the timeout limit, admitted ranges, coexistence with liquidctl and iCUE, and the Windows blockers. Every model group in the #2531 inventory has a disposition. Review corrections before merge: the LINEAR11 sign error affects v5.13 through v7.1 (introduced by commit 918f22104d64) and not every affected temperature exceeds 125 °C, so the residual is stated with a fixture; v5.11 and v5.12 round an odd mantissa up and return whole units; the timeout limit is scoped to ETIMEDOUT, and reply-check failures are bounded by the per-sample exchange count. |
