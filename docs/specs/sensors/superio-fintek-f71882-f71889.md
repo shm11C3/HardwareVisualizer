@@ -232,7 +232,9 @@ and never selects logical device 0 or touches its I/O space.
    `0x19`/`0x34`. (S2 p. 51)
 7. Exit configuration mode (`0xAA`) on the visited slot on every path,
    including failures, except where step 2 withholds the exit on slot 1.
-   (S9)
+   If an entry-key or exit write fails, detection does not move to the
+   next slot and caches no path. See
+   [Rediscovery eligibility](#rediscovery-eligibility). (S9)
 8. While the mutex is still held, cache the slot, profile, port base and
    the set of routed fan inputs, so that any later `ioctl_select_slot` on
    the shared handle finds the cached path and invalidates it. Only then
@@ -265,7 +267,7 @@ no detection. The S9 shared table covers the mutex, the executor,
 
 | Detection failure | Class | Reason |
 | --- | --- | --- |
-| The `0x87`, `0x87` entry-key write or the `0xAA` exit write fails on a visited slot, so the exit is not confirmed (steps 2, 7) | Eligible | The chip may still be in configuration mode, and a later attempt is the only point at which the exit is issued again (S9). |
+| The `0x87`, `0x87` entry-key write or the `0xAA` exit write fails on a visited slot, so the exit is not confirmed (steps 2, 7) | Eligible | The chip may still be in configuration mode, and a later attempt is the only point at which the exit is issued again (S9). Detection then stops. It visits no further slot, issues no `ioctl_select_slot` and caches no path, even if a later slot would pass (S9). |
 | An exit withheld on slot 1 under step 2 | Not a failure | S9 makes the withhold intentional. That slot has no Fintek path. |
 | F71889 step 6: an HM port write or read for `0x5D`/`0x5E` fails | Eligible | Under the S9 shared table, `ioctl_find_bars` success does not prove a usable window, and a later attempt runs step 5 again (S9). |
 | F71889 step 6: the HM vendor ID reads but is not `0x19`/`0x34` | Not eligible | A value read successfully (S2 p. 51). |
@@ -473,4 +475,4 @@ No other external sensor documentation was used.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-11-28 | Initial version for #2522. Experimental F71882 (`0x0541`, TEMP1–3, FAN1–4) and F71889 (`0x0723`, TEMP1–3, FAN1–3) from the vendor datasheets, behind chip-ID, Super I/O vendor-ID, `CR25` HM power-down, LDN 4 active, aligned-base, F71889 HM vendor-ID, HM start/power-down, per-input diode-open, TEMP1 source and per-fan routing gates; lead-only HM port derivation; F71882 temperature bytes above `0x7D` withheld; write-1-to-clear and read-clear registers listed; ranked disposition for every #2522 target with F71869, F71889A, F71868A and F71858 recorded as candidates and every deferred target tracked in #2815; detection stops at the first passing slot so that no `ioctl_select_slot` clears the cached BAR authorization, and the path is cached before the mutex is released so a later selection can invalidate it; on slot 1 the S9 exit withhold also suppresses the `0xAA` exit for its four IDs. |
-| 2 | 2026-11-28 | Re-pinned S9 to `superio-access.md` revision 5 for #2821, whose configuration access facts and slot-1 exit withhold are unchanged, and adopted its sampling-path rediscovery cadence. Added [Rediscovery eligibility](#rediscovery-eligibility). An unconfirmed configuration exit and an F71889 HM vendor-ID port failure are eligible. Value refusals and the shared configuration-read and `ioctl_find_bars` failures are not eligible. An exit withheld on slot 1 is not a failure. A failed routing read leaves its fan unavailable while the path stays cached and starts no detection. An invalidated path is discarded under rule R6. Added two fixtures and extended the invalidation fixture. Profiles, gates, reads, writes and decodes are unchanged. Status remains Implementation-ready (rev 2). |
+| 2 | 2026-11-28 | Re-pinned S9 to `superio-access.md` revision 5 for #2821, whose configuration access facts and slot-1 exit withhold are unchanged, and adopted its sampling-path rediscovery cadence. Added [Rediscovery eligibility](#rediscovery-eligibility). An unconfirmed configuration exit and an F71889 HM vendor-ID port failure are eligible. Value refusals and the shared configuration-read and `ioctl_find_bars` failures are not eligible. An exit withheld on slot 1 is not a failure. An unconfirmed exit on a visited slot stops detection without visiting another slot. A failed routing read leaves its fan unavailable while the path stays cached and starts no detection. An invalidated path is discarded under rule R6. Added two fixtures and extended the invalidation fixture. Profiles, gates, reads, writes and decodes are unchanged. Status remains Implementation-ready (rev 2). |
