@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 8 |
-| Status | Implementation-ready (rev 8) |
+| Revision | 9 |
+| Status | Implementation-ready (rev 9) |
 | Scope | Facts needed to integrate a Rust user-mode client with PawnIO: installation/detection, the PawnIOLib API, the module execution model, and the IOCTL contracts of the `IntelMSR`, `RyzenSMU`, `AMDFamily17`, `AMDFamily10`, and `LpcIO` modules. Excludes: writing new Pawn modules, driver internals. |
 | Issue phase | Phase 1 (#1635) |
 
@@ -114,7 +114,8 @@
 - The same 0.2.11 archive also contains the signed `AMDFamily10.bin`
   (16,868 bytes, SHA-256
   `6443080b2968474ffbc38aa4356cc56f9664349fa4b917afdb33027d6bb50525`),
-  needed by [`cpu-amd-family-15h-16h-tctl.md`](cpu-amd-family-15h-16h-tctl.md).
+  needed by [`cpu-amd-family-15h-16h-tctl.md`](cpu-amd-family-15h-16h-tctl.md)
+  and [`cpu-amd-family-10h-14h-tctl.md`](cpu-amd-family-10h-14h-tctl.md).
   The 0.2.12 archive contains a byte-identical `AMDFamily10.bin`.
   (S13)
 - **Two distinct artifact forms, distinguished by extension:**
@@ -138,7 +139,8 @@
   from a pinned PawnIO.Modules release (`RyzenSMU.bin` and
   `IntelMSR.bin` for Phase 1; `AMDFamily17.bin` additionally for the
   CPU package-power phase; `LpcIO.bin` for the Super I/O phases;
-  `AMDFamily10.bin` for the Family 15h/16h temperature path of #2511),
+  `AMDFamily10.bin` for the Family 15h/16h temperature path of #2511
+  and the Family 10h–14h path of #2512),
   not self-built `.amx` copies. Installing the first four does not make
   `AMDFamily10.bin` available; it is a separate required file.
   Redistribution must comply with the modules' LGPL-2.1 terms (see
@@ -376,8 +378,11 @@ load. (S5, tag `0.2.11`; unchanged since tag `0.2.8`)
 Target: AMD x86-64 CPUs, families `0x10`–`0x16`; other architectures,
 vendors and families get `STATUS_NOT_SUPPORTED` at module load. Used
 by [`cpu-amd-family-15h-16h-tctl.md`](cpu-amd-family-15h-16h-tctl.md)
-for families `0x15` and `0x16` only. (S13, tag `0.2.11`; byte-identical
-at `0.2.12`)
+for families `0x15` and `0x16`, and by
+[`cpu-amd-family-10h-14h-tctl.md`](cpu-amd-family-10h-14h-tctl.md) for
+families `0x10`, `0x11`, `0x12` and `0x14` (`ioctl_read_miscctl` only).
+Family `0x13` is inside the load gate but has no consumer. (S13, tag
+`0.2.11`; byte-identical at `0.2.12`)
 
 | Function | Input cells | Output cells | Semantics |
 | --- | --- | --- | --- |
@@ -509,3 +514,4 @@ phase of #1635, not part of the Phase 1 read path.
 | 6 | 2026-09-03 | Licensing facts reworded for the repository relicense from MIT to GPL-3.0-or-later (ADR 0020) and a note added that the client's license does not change the IOCTL-exception / LGPL facts. No hardware, API, or IOCTL fact changed. Status remains Implementation-ready. |
 | 7 | 2026-09-26 | Re-verified all module facts against PawnIO.Modules tag `0.2.11` (commit `52a7e536dff3e53c96917a28caac5e0fa6510696`, release asset `release_0_2_11.zip`) by diffing `IntelMSR.p`, `RyzenSMU.p`, `AMDFamily17.p`, and `LpcIO.p` against tag `0.2.8` and listing the release archive. Unchanged: every `ioctl_*` name and input/output cell count, the caller-mutex `@warning` docs, the `IntelMSR` vendor gate and `AMDFamily17` family gate, allow-list membership of `0x19C`/`0x1B1`/`0x1A2`/`0x606`/`0x611` and `0xC0010299`/`0xC001029A`/`0xC001029B` (none on a write allow-list), the `RyzenSMU` SMN window `0x56000`–`0x5AFFF`, the signed `.bin` file names, and the README/CI distribution facts. Recorded additive changes: `IntelMSR` read/write allow-list gained `0x1A4`; `AMDFamily17` read allow-list gained machine-check and SMCA diagnostic MSRs and read/write gained four cache-configuration MSRs; `RyzenSMU` accepts three family `0x15` parts, moved the Bergamo model `0xA0` recognition from family `0x1A` to family `0x19` (upstream PR #85 describes the old entry as a wrongly assigned family, S11; AMD RG 57926 places EPYC 9004/8004 at CPUID `00AA0F02h`, S12; no AMD Family 1Ah model `0xA0` document found at authoring, so no known shipping CPU loses support), and no longer maps the PM table at load; `LpcIO` never allows ports `0xCF8`–`0xCFF` and bounds the BAR list. Corrected the provenance label: `754635b` identifies the `0.2.8` annotated tag object, whose commit is `dcd5c1f`. No blocking change. Status remains Implementation-ready. |
 | 8 | 2026-11-28 | Added the `AMDFamily10` module contract for #2511 from `AMDFamily10.p` at tag `0.2.11` (byte-identical at `0.2.12`), S13: family gate `0x10`–`0x16`, `ioctl_read_miscctl` (device-ID and offset allow-lists, no caller mutex), `ioctl_read_smu` (family `0x15` models `6xh`/`7xh`, address `0xD8200CA4` only, caller-held `Access_PCI`), the unused MSR, C-state and TSC-measurement ioctls, read-only load-time behavior, and the open upstream freeze report for `ioctl_measure_tsc_multiplier` (S14). Recorded the signed `AMDFamily10.bin` in the 0.2.11 archive with its SHA-256, and that it is a fifth required file. Added the driver fact that each module PCI configuration read makes two HAL bus-data reads, a vendor-ID check at offset 0 and then the requested read (S14). Recorded the exact `RyzenSMU` family `0x15` recognition (models `0x60`, `0x65`, `0x70`), its load-time iGPU BAR5 mapping and its allow-list's lack of `0xD8200CA4`. No existing contract changed. Status remains Implementation-ready. |
+| 9 | 2026-11-28 | Recorded a second consumer of the `AMDFamily10` contract for #2512: [`cpu-amd-family-10h-14h-tctl.md`](cpu-amd-family-10h-14h-tctl.md) uses `ioctl_read_miscctl` on families `0x10`, `0x11`, `0x12` and `0x14`, and needs the same signed `AMDFamily10.bin`. Re-read `AMDFamily10.p` at tag `0.2.11` and confirmed the device-ID allow-list entries `0x12031022`, `0x13031022` and `0x17031022` and the load-time behavior already recorded. No interface or blob fact changed. Status remains Implementation-ready. |
