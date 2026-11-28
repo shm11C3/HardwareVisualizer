@@ -112,10 +112,13 @@ Run `git fetch origin` before any step below that reads an `origin/` ref.
    PR: commits ahead of `origin` in agent worktrees (`git worktree list`),
    uncommitted changes left in an agent worktree whose agent has stopped
    (commit them yourself, as Worktrees rule 4 says, after the harvest checks
-   pass), and pushed branches without a PR. Skip a candidate whose branch, or whose
-   change, already has a merged PR (`gh pr list --state merged --head
-   <branch>`, or the same change already on `origin/develop`), because
-   squash-merged commits still look ahead of `origin`. Harvest the rest in
+   pass), and pushed branches without a PR. Skip a candidate only when its change itself is already merged,
+   judged per change rather than per branch: a commit is merged when its
+   branch PR merged with no later commits (`gh pr list --state merged --head
+   <branch>`) or the same change is already on `origin/develop`, and
+   uncommitted changes are merged only when that diff is already on
+   `origin/develop`. Squash-merged commits still look ahead of `origin`, and
+   new work on a merged branch must still be harvested. Harvest the rest in
    step 2 when the daily documentation PR limit or the implementation lane
    limit allows, before refilling any lane.
 2. **Harvest finished agents.**
