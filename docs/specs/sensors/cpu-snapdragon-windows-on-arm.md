@@ -44,7 +44,9 @@
 - Maintainer decision on PR #2804 (2026-11-28): keep the current
   behavior on Arm hosts. The application is not used on Arm today, and
   the current behavior does no practical harm. The PawnIO section
-  below shows that the existing x64 build fails safely there.
+  below infers from interface definitions and module sources that the
+  existing x64 build fails safely there; this is not observed on Arm
+  hardware (Open question 6).
 - If a later revision changes Arm behavior, the host is identified by
   `IsWow64Process2`, not by CPUID or `GetNativeSystemInfo`, because an
   emulated process sees an emulated processor (M1, M2, M3).
@@ -57,7 +59,7 @@
 | Scope | Status | Default enablement |
 | --- | --- | --- |
 | CPU die temperature on Snapdragon and other Windows on Arm hosts | No documented OS, Microsoft or Qualcomm route reaches it. No primary source and no dump identifies any zone as the CPU die temperature. | Unsupported. |
-| PawnIO CPU package temperature, core and CCD temperatures, CPU package power and Super I/O readings on an ARM64 host | Existing behavior, unchanged. The attempt fails before any hardware access: a kernel driver on this host must be ARM64 (M1), and every module rejects a non-x86-64 architecture with `STATUS_NOT_SUPPORTED` at load, before any hardware access (P1, P2). See PawnIO on an Arm host. | Unsupported; the existing attempt fails safely at driver open or module load. |
+| PawnIO CPU package temperature, core and CCD temperatures, CPU package power and Super I/O readings on an ARM64 host | Existing behavior, unchanged. The attempt fails before any hardware access: a kernel driver on this host must be ARM64 (M1), and every module rejects a non-x86-64 architecture with `STATUS_NOT_SUPPORTED` at load, before any hardware access (P1, P2; inferred from the sources, not observed on Arm hardware, Open question 6). See PawnIO on an Arm host. | Unsupported; the existing attempt fails safely at driver open or module load. |
 | Headline CPU temperature from the existing thermal-zone fallback (zone-name match or hottest zone) on an ARM64 host | Existing behavior, unchanged (R2), kept by maintainer decision. The value is a thermal-zone reading that no source attributes to the CPU die: a zone's device list names what the zone throttles and does not locate its sensor (M5), and no dump or document identifies the sensor. Accepted risks: see Accepted risks of the unchanged behavior. | Unchanged existing behavior. Not a CPU die temperature scope. |
 | ACPI thermal-zone readings on an ARM64 host, listed under the firmware zone name | Existing OS-API path and decode (R2), Verified as OS/firmware API readings under [ADR 0011](../../adr/0011-experimental-sensor-enablement.md). Counter units are primary (M5). Lead-only observation L1 reports 36 instances on one Snapdragon X Plus device; whether the current WMI transport returns them in the application process is Open question 3. | Unchanged existing behavior. |
 | SoC junction temperature from the zone whose firmware `_STR` reads "SoCTj Thermal-zone for Fan Control" | Candidate. The string is in D1, D2 and D3, not in D4, D5, D6 or D7. No observation joins it to a counter instance or a varying value. See Open question 1. | Unsupported. |
@@ -85,7 +87,7 @@
 | Module targets | `IntelMSR`: Intel x86-64 CPUs. `RyzenSMU`, `AMDFamily17`, `AMDFamily10`: AMD x86-64 CPUs. `LpcIO`: x86-64 systems. | R1 |
 | Driver architecture | Emulation does not run kernel-mode code, so a PawnIO driver that runs on an Arm host is an ARM64 build (M1). The `get_arch` native reports the driver's architecture: `ARCH_X64` = 1 (x86-64) or `ARCH_A64` = 2 (ARM64). | M1, P1 |
 | ARM64 `msr_read` | On ARM64, `msr_read` and `msr_write` take no MSR index. They take an assembled `mrs x0, <reg>` instruction word that selects an ARM system register. An x86 MSR index has no meaning there. | P1 |
-| Module load check | `IntelMSR`, `RyzenSMU`, `AMDFamily17`, `AMDFamily10` and `LpcIO` each reject a non-x86-64 architecture with `STATUS_NOT_SUPPORTED` at module load, before any hardware access. This holds at module tags `0.2.11` and `0.2.12`. | P2 |
+| Module load check | `IntelMSR`, `RyzenSMU`, `AMDFamily17`, `AMDFamily10` and `LpcIO` each reject a non-x86-64 architecture with `STATUS_NOT_SUPPORTED` at module load, before any hardware access. This is read from the module sources at tags `0.2.11` and `0.2.12`; it is inferred, not observed on Arm hardware (Open question 6). | P2 |
 | Installer architectures | The winget manifest for PawnIO 2.2.0 lists the same installer under `x64` and `arm64`. A PawnIO installation on an Arm host therefore says nothing about a usable CPU or Super I/O path. | B4 |
 
 Consequence for the existing x64 build on an Arm host (R2): CPU source
@@ -94,7 +96,8 @@ Intel or AMD path. The attempt then ends at one of three points:
 `PawnIOLib.dll` is missing or does not load into the x64 process; the
 driver cannot be opened; or the driver is the ARM64 build and the
 module's load fails with `STATUS_NOT_SUPPORTED` (P1, P2). None of these
-reaches a hardware access. The existing PawnIO failure handling then
+reaches a hardware access, by inference from these sources; no Arm
+observation confirms it (Open question 6). The existing PawnIO failure handling then
 falls back to the thermal-zone path (R2). The x86 MSR indexes that the
 CPU paths would pass never reach the ARM64 `msr_read`, because the
 module never loads (P1, P2).
