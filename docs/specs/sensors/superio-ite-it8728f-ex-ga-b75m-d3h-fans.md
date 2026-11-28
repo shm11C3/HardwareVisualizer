@@ -67,7 +67,7 @@ string, PCB revision, BIOS version or fixed bus address gates the read
 | `CR29[2]` read with LDN `0x04` selected, before BAR discovery. FAN2 only when bit 2 is clear. | mechanism (FAN2 pin routing) | S5 §8.3.12, p. 52; DX: S7 (lead-only) |
 | Successful BAR discovery, matching primary ITE configuration exit, then the S9 post-exit EC `0x00` index/data proof on the same signed executor and slot | safety | S9, S10, S12 |
 | Caller holds `Global\Access_ISABUS.HTP.Method` for discovery and each sample burst | safety | S10 |
-| Per sample, EC `0x00` bit 0 set and bit 3 clear | mechanism (the monitor's own state bits) | S5 §9.5.2.2.1 and §9.5.3.6, S9 |
+| Per sample, EC `0x00` bit 0 set and bit 3 clear | mechanism (the monitor's own state bits) | S5 §9.5.2.2.1 and §9.5.3.6, S9; DX: open, see the [Register map](#register-map) note |
 | Per sample, EC `0x13` bit 4 / bit 5 set for FAN1 / FAN2 | mechanism (firmware channel enable) | S5 §9.5.2.2.16, p. 95; DX: S7 (lead-only) |
 
 The baseboard Manufacturer, Product and Version (S6), PCB revision, BIOS
@@ -103,7 +103,7 @@ lead-only fact in [DX and EX applicability](#dx-and-ex-applicability).
 | Register / field | Fact | Access | Source |
 | --- | --- | --- | --- |
 | Global `CR29[2]` | FAN2 uses the physical FAN_TAC2 pin with bit 2 clear. With bit 2 set the pin is GP52. The register is readable from any LDN. FAN1 has a dedicated tachometer pin. | Config read only, with LDN `0x04` selected during existing discovery | S5 §§4–5 and §8.3.12; DX: S7 (lead-only) |
-| EC `0x00[0]`, `0x00[3]` | Require monitoring started and interrupt-clear standby inactive, respectively bit 0 set and bit 3 clear. This is the S9 common EC gate. | EC read only | S5 §9.5.2.2.1 and §9.5.3.6, S9 |
+| EC `0x00[0]`, `0x00[3]` | Require monitoring started and interrupt-clear standby inactive, respectively bit 0 set and bit 3 clear. This is the S9 common EC gate. | EC read only | S5 §9.5.2.2.1 and §9.5.3.6, S9. DX: open. No pinned source states these bits for DX. The gate only withholds reads, so a different DX meaning can make fans unavailable but cannot admit an extra read. S9 already applies the same gate to every raw `0x8728`. |
 | EC `0x13[4]` / `0x13[5]` | Firmware tachometer enable for FAN1 / FAN2. A set bit authorizes that enabled input after the common and routing checks. | EC read only | S5 §9.5.2.2.16, p. 95; DX: S7 (lead-only) |
 | EC `0x0D` / `0x18` | FAN1 count low / high byte. | EC read only | S5 §§9.5.2.2.14/.19, pp. 94, 96; DX: S7/S8 (lead-only) |
 | EC `0x0E` / `0x19` | FAN2 count low / high byte. | EC read only | S5 §§9.5.2.2.14/.19, pp. 94, 96; DX: S7/S8 (lead-only) |
